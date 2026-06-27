@@ -387,8 +387,8 @@ test("insertableVisualElement: builds element without sourceRef when documentId 
   >[];
   const el = insertableVisualElement(item);
   assert.equal(el.kind, "visual");
-  assert.equal(el.visualId, "vis-abc");
-  assert.equal(el.sourceRef, undefined);
+  assert.equal((el as any).content.visualId, "vis-abc");
+  assert.equal((el as any).source, undefined);
 });
 
 test("insertableVisualElement: stamps sourceRef with blockKind visual when documentId provided", () => {
@@ -399,13 +399,14 @@ test("insertableVisualElement: stamps sourceRef with blockKind visual when docum
     documentId: "doc-1",
     linkedAt: "2026-06-01T00:00:00.000Z",
   });
-  assert.ok(el.sourceRef !== undefined);
-  assert.equal(el.sourceRef!.documentId, "doc-1");
-  assert.equal(el.sourceRef!.blockId, "vis-xyz");
-  assert.equal(el.sourceRef!.blockKind, "visual");
-  assert.equal(el.sourceRef!.contentHash, item.contentHash);
-  assert.equal(el.sourceRef!.linkedAt, "2026-06-01T00:00:00.000Z");
-  assert.equal(el.sourceRef!.unlinked, undefined);
+  const source = (el as any).source;
+  assert.ok(source !== undefined);
+  assert.equal(source.documentId, "doc-1");
+  assert.equal(source.blockId, "vis-xyz");
+  assert.equal(source.blockKind, "visual");
+  assert.equal(source.contentHash, item.contentHash);
+  assert.equal(source.linkedAt, "2026-06-01T00:00:00.000Z");
+  assert.equal(source.unlinked, undefined);
 });
 
 test("insertableVisualElement: visualId matches the sourceRef blockId", () => {
@@ -418,7 +419,7 @@ test("insertableVisualElement: visualId matches the sourceRef blockId", () => {
     documentId: "doc-2",
     linkedAt: "2026-06-01T00:00:00.000Z",
   });
-  assert.equal(el.visualId, el.sourceRef!.blockId);
+  assert.equal((el as any).content.visualId, (el as any).source.blockId);
 });
 
 test("insertableVisualElement: defaults linkedAt to now when omitted", () => {
@@ -430,6 +431,6 @@ test("insertableVisualElement: defaults linkedAt to now when omitted", () => {
   const before = Date.now();
   const el = insertableVisualElement(item, { documentId: "doc-1" });
   const after = Date.now();
-  const ts = Date.parse(el.sourceRef!.linkedAt);
+  const ts = Date.parse((el as any).source.linkedAt);
   assert.ok(ts >= before && ts <= after, "linkedAt should be near now");
 });

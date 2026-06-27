@@ -14,10 +14,6 @@ function minSlide(overrides: Record<string, unknown> = {}) {
     index: 0,
     title: "Slide",
     notes: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
-    themeId: "default",
     elements: [],
     ...overrides,
   };
@@ -25,9 +21,12 @@ function minSlide(overrides: Record<string, unknown> = {}) {
 
 function deckWith(slides: object[]): unknown {
   return {
-    slides,
-    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides,
   };
 }
 
@@ -39,53 +38,75 @@ function minDeck(slideOverrides: Record<string, unknown> = {}): Deck {
         index: 0,
         title: "Slide",
         notes: "",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
         elements: [],
         ...slideOverrides,
       },
     ],
-    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  };
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+  } as unknown as Deck;
+}
+
+function slideBackground(slide: unknown): any {
+  return (slide as any).designOverrides?.background;
 }
 
 test("#393: safeParseDeck round-trips backgroundAssetId on a slide", () => {
   const input = deckWith([
     minSlide({
-      backgroundImage: "/slide-assets/doc1/abc123.png",
-      backgroundAssetId: "asset-id-1",
+      designOverrides: {
+        background: {
+          type: "image",
+          url: "/slide-assets/doc1/abc123.png",
+          assetId: "asset-id-1",
+        },
+      },
     }),
   ]);
   const result = safeParseDeck(input);
   assert.ok(result.success);
-  assert.equal(result.data.slides[0].backgroundAssetId, "asset-id-1");
-  assert.equal(
-    result.data.slides[0].backgroundImage,
-    "/slide-assets/doc1/abc123.png",
-  );
+  assert.equal(slideBackground(result.data.slides[0]).assetId, "asset-id-1");
+  assert.equal(slideBackground(result.data.slides[0]).url, "/slide-assets/doc1/abc123.png");
 });
 
 test("#393: safeParseDeck accepts slide without backgroundAssetId", () => {
-  const input = deckWith([minSlide({ backgroundImage: "/img.png" })]);
+  const input = deckWith([
+    minSlide({
+      designOverrides: { background: { type: "image", url: "/img.png" } },
+    }),
+  ]);
   const result = safeParseDeck(input);
   assert.ok(result.success);
-  assert.equal(result.data.slides[0].backgroundAssetId, undefined);
+  assert.equal(slideBackground(result.data.slides[0]).assetId, undefined);
 });
 
 test("#393: safeParseDeck rejects backgroundAssetId that is not a string", () => {
-  const input = deckWith([minSlide({ backgroundAssetId: 42 })]);
+  const input = deckWith([
+    minSlide({
+      designOverrides: {
+        background: { type: "image", url: "/img.png", assetId: 42 },
+      },
+    }),
+  ]);
   const result = safeParseDeck(input);
   assert.ok(!result.success);
-  assert.ok(result.error.includes("backgroundAssetId"));
+  assert.ok(result.error.includes("assetId"));
 });
 
 test("#393: safeParseDeck rejects empty-string backgroundAssetId", () => {
-  const input = deckWith([minSlide({ backgroundAssetId: "" })]);
+  const input = deckWith([
+    minSlide({
+      designOverrides: {
+        background: { type: "image", url: "/img.png", assetId: "" },
+      },
+    }),
+  ]);
   const result = safeParseDeck(input);
   assert.ok(!result.success);
-  assert.ok(result.error.includes("backgroundAssetId"));
+  assert.ok(result.error.includes("assetId"));
 });
 
 test("#393: setSlideBackgroundAsset persists both url and assetId on slide", async () => {
@@ -96,24 +117,30 @@ test("#393: setSlideBackgroundAsset persists both url and assetId on slide", asy
     url: "/slide-assets/doc1/abc.png",
     assetId: "asset-xyz",
   });
-  assert.equal(updated.slides[0].backgroundImage, "/slide-assets/doc1/abc.png");
-  assert.equal(updated.slides[0].backgroundAssetId, "asset-xyz");
-  assert.equal(updated.slides[0].backgroundGradient, undefined);
+  assert.deepEqual(slideBackground(updated.slides[0]), {
+    type: "image",
+    url: "/slide-assets/doc1/abc.png",
+    assetId: "asset-xyz",
+  });
 
   // Round-trips through schema validation
   const parsed = safeParseDeck(updated);
   assert.ok(parsed.success);
-  assert.equal(parsed.data.slides[0].backgroundAssetId, "asset-xyz");
+  assert.equal(slideBackground(parsed.data.slides[0]).assetId, "asset-xyz");
 });
 
 test("#393: setSlideBackgroundAsset clears both fields when called with undefined", async () => {
   const { setSlideBackgroundAsset } = await import("./deck-mutations");
 
   const base = minDeck({
-    backgroundImage: "/slide-assets/doc1/abc.png",
-    backgroundAssetId: "asset-xyz",
+    designOverrides: {
+      background: {
+        type: "image",
+        url: "/slide-assets/doc1/abc.png",
+        assetId: "asset-xyz",
+      },
+    },
   });
   const updated = setSlideBackgroundAsset(base, 0, undefined);
-  assert.equal(updated.slides[0].backgroundImage, undefined);
-  assert.equal(updated.slides[0].backgroundAssetId, undefined);
+  assert.equal(slideBackground(updated.slides[0]), undefined);
 });

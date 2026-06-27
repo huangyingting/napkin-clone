@@ -108,7 +108,7 @@ export async function generateDeck(
         retryReason,
       }),
     repair: (parsed) => {
-      const repaired = repairDeck(parsed);
+      const repaired = repairDeck(parsed, visualInventory, input.preferredTheme);
       return repaired
         ? {
             success: true,

@@ -20,11 +20,11 @@ import type {
   SlideElement,
   TextElement,
   TextElementStyle,
-  VisualElement,
 } from "./deck-elements";
 import { makeElementId } from "./deck-ids";
 import type { SlideLayoutHint } from "./deck-layouts-model";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-core";
+import { DEFAULT_SLIDE_FORMAT } from "./slide-format";
 
 /**
  * Brand-aligned theme used when the deck carries no valid theme. Mirrors the
@@ -125,8 +125,54 @@ function isVisualSlot(element: SlideElement): boolean {
   return element.kind === "visual" || element.kind === "image";
 }
 
+function elementContent(element: SlideElement | undefined): Record<string, any> {
+  if (element === undefined) return {};
+  return ((element as any).content ?? {}) as Record<string, any>;
+}
+
+function elementRole(element: SlideElement): string | undefined {
+  return (element as any).role ?? (element as any).textRole;
+}
+
+function elementText(element: SlideElement): string {
+  return elementContent(element).text ?? (element as any).text ?? "";
+}
+
+function elementVisualId(element: SlideElement): string | undefined {
+  return elementContent(element).visualId ?? (element as any).visualId;
+}
+
+function slideLayout(slide: Slide): SlideLayoutHint {
+  return ((slide as any).templateId ?? (slide as any).layout ?? "blank") as SlideLayoutHint;
+}
+
+function slideVisualIds(slide: Slide): string[] {
+  const ids = new Set<string>();
+  for (const id of ((slide as any).visualIds ?? []) as unknown[]) {
+    if (typeof id === "string" && id.length > 0) ids.add(id);
+  }
+  for (const element of slide.elements ?? []) {
+    const visualId = elementVisualId(element);
+    if (visualId) ids.add(visualId);
+  }
+  return [...ids];
+}
+
+function slideBullets(slide: Slide): string[] {
+  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
+  const bullet = (slide.elements ?? []).find(
+    (element) => element.kind === "text" && elementRole(element) === "bullet",
+  );
+  const paragraphs = elementContent(bullet as SlideElement).paragraphs ?? [];
+  return paragraphs.map((paragraph: any) => paragraph.text ?? "");
+}
+
 function isTitleText(element: SlideElement): element is TextElement {
-  return element.kind === "text" && element.textRole === "h1";
+  return (
+    element.kind === "text" &&
+    ["title", "sectionTitle", "h1"].includes(elementRole(element) ?? "") &&
+    elementText(element).trim().length > 0
+  );
 }
 
 /**
@@ -159,17 +205,85 @@ function elementsMatchLayout(
  * than the body minimum. Boxes are clamped and a fresh, unique id is assigned.
  */
 function applyTextHierarchy(element: TextElement): TextElement {
-  const style: TextElementStyle = { ...element.style };
+  const role = elementRole(element);
+  const style: TextElementStyle = {
+    ...(((element as any).designOverrides?.textStyle ?? (element as any).style ?? {}) as TextElementStyle),
+  };
   if (!Number.isFinite(style.fontSize) || style.fontSize <= 0) {
-    style.fontSize = element.textRole === "h1" ? 6 : BODY_FONT_SIZE;
+    style.fontSize = role === "title" || role === "sectionTitle" || role === "h1" ? 6 : BODY_FONT_SIZE;
   }
-  if (element.textRole === "h1") {
+  if (role === "title" || role === "sectionTitle" || role === "h1") {
     style.bold = true;
     if (style.fontSize < BODY_FONT_SIZE) {
       style.fontSize = BODY_FONT_SIZE;
     }
   }
-  return { ...element, style };
+  return {
+    ...(element as any),
+    role: role === "h1" ? "title" : role,
+    designOverrides: {
+      ...((element as any).designOverrides ?? {}),
+      textStyle: style,
+    },
+  } as TextElement;
+}
+
+function toV6Element(
+  element: SlideElement,
+  zIndex: number,
+  id: string,
+  box: ElementBox,
+  inventory: ReadonlyMap<string, VisualInventoryItem>,
+): SlideElement {
+  if (element.kind === "text") {
+    const role = elementRole(element) === "h1" ? "title" : elementRole(element);
+    const text = elementText(element);
+    const content = elementContent(element);
+    return applyTextHierarchy({
+      id,
+      kind: "text",
+      role: role ?? "body",
+      box,
+      zIndex,
+      content: {
+        kind: "text",
+        text,
+        paragraphs: content.paragraphs ?? (element as any).paragraphs ?? [{ text }],
+        ...(content.runs ?? (element as any).runs
+          ? { runs: content.runs ?? (element as any).runs }
+          : {}),
+      },
+      designOverrides: {
+        ...((element as any).designOverrides ?? {}),
+        textStyle:
+          (element as any).designOverrides?.textStyle ?? (element as any).style,
+      },
+    } as unknown as TextElement) as SlideElement;
+  }
+  if (element.kind === "visual") {
+    const visualId = elementVisualId(element) ?? "";
+    const content = elementContent(element);
+    const alt =
+      content.alt ??
+      (element as any).alt ??
+      deriveVisualAccessibleName(inventory.get(visualId));
+    return {
+      id,
+      kind: "visual",
+      role: "visual",
+      box,
+      zIndex,
+      content: {
+        kind: "visual",
+        visualId,
+        ...(content.styleThemeId ?? (element as any).styleThemeId
+          ? { styleThemeId: content.styleThemeId ?? (element as any).styleThemeId }
+          : {}),
+        ...(alt ? { alt } : {}),
+      },
+    } as unknown as SlideElement;
+  }
+  return { ...(element as any), id, zIndex, box } as SlideElement;
 }
 
 /**
@@ -185,7 +299,7 @@ function cleanElement(
   knownIds: ReadonlySet<string>,
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): SlideElement | undefined {
-  if (element.kind === "visual" && !knownIds.has(element.visualId)) {
+  if (element.kind === "visual" && !knownIds.has(elementVisualId(element) ?? "")) {
     return undefined;
   }
 
@@ -195,23 +309,7 @@ function cleanElement(
   }
   usedIds.add(id);
 
-  const base = { ...element, id, zIndex, box: clampBox(element.box) };
-  if (base.kind === "text") {
-    return applyTextHierarchy(base as TextElement);
-  }
-  if (base.kind === "visual") {
-    const visual = base as VisualElement;
-    // Ensure a generated visual carries an accessible name; preserve an
-    // explicit one the model already supplied.
-    if (!visual.alt || visual.alt.trim().length === 0) {
-      return {
-        ...visual,
-        alt: deriveVisualAccessibleName(inventory.get(visual.visualId)),
-      };
-    }
-    return visual;
-  }
-  return base;
+  return toV6Element(element, zIndex, id, clampBox(element.box), inventory);
 }
 
 /**
@@ -231,13 +329,15 @@ function buildElements(
   if (
     slide.elements &&
     slide.elements.length > 0 &&
-    elementsMatchLayout(slide.layout, slide.elements)
+    elementsMatchLayout(slideLayout(slide), slide.elements)
   ) {
     source = slide.elements;
   } else {
     source = buildSlideElementsFromContent({
       ...slide,
+      layout: slideLayout(slide),
       visualIds,
+      bullets: slideBullets(slide),
       elements: undefined,
       elementsDerived: undefined,
     });
@@ -260,18 +360,22 @@ function buildElements(
   // Rule 2: a media slide must place its document visual prominently. If a
   // known visual is referenced but no visual/image element carries it, inject
   // one into the prominent slot.
-  if (slide.layout === "media") {
+  if (slideLayout(slide) === "media") {
     const hasVisualElement = elements.some(isVisualSlot);
     const visualId = visualIds.find((id) => knownIds.has(id));
     if (!hasVisualElement && visualId) {
       elements.push({
         id: makeElementId(),
         kind: "visual",
-        visualId,
-        alt: deriveVisualAccessibleName(inventory.get(visualId)),
+        role: "visual",
         zIndex: elements.length,
         box: { ...PROMINENT_VISUAL_BOX },
-      });
+        content: {
+          kind: "visual",
+          visualId,
+          alt: deriveVisualAccessibleName(inventory.get(visualId)),
+        },
+      } as unknown as SlideElement);
     }
   }
 
@@ -284,23 +388,25 @@ function normalizeSlide(
   knownIds: ReadonlySet<string>,
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): Slide {
-  const visualIds = slide.visualIds.filter((id) => knownIds.has(id));
+  const visualIds = slideVisualIds(slide).filter((id) => knownIds.has(id));
   const elements = buildElements(slide, visualIds, knownIds, inventory);
+  const layout = slideLayout(slide);
 
   return {
-    ...slide,
+    id: slide.id,
     index,
-    visualIds,
+    title: slide.title,
+    ...(slide.notes !== undefined ? { notes: slide.notes } : {}),
+    ...(layout !== "blank" ? { templateId: layout } : {}),
     elements,
-    // AI output is treated as hand-authored content: preserve it on sync.
-    elementsDerived: false,
-  };
+  } as unknown as Slide;
 }
 
 function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
+  const themeId = (deck as any).design?.themeId ?? (deck as any).themeId;
   // Preserve an explicit, recognised named theme the model chose.
-  if (DECK_THEMES.includes(deck.themeId as DeckTheme)) {
-    return deck.themeId as DeckTheme;
+  if (themeId !== "default" && DECK_THEMES.includes(themeId as DeckTheme)) {
+    return themeId as DeckTheme;
   }
   // Unrecognised themeId (e.g. a legacy persisted value) — substitute a
   // vibrant one (issue #281): prefer a document-derived theme when supplied,
@@ -339,9 +445,16 @@ export function normalizeGeneratedDeck(
     normalizeSlide(slide, index, knownIds, inventoryMap),
   );
   return {
-    ...deck,
-    themeId,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: (deck as any).canvas ?? { format: DEFAULT_SLIDE_FORMAT },
+    design: { ...((deck as any).design ?? {}), themeId },
+    masters: (deck as any).masters ?? [
+      { id: "master-default", name: "Default", elements: [] },
+    ],
+    defaultMasterId: (deck as any).defaultMasterId ?? "master-default",
+    ...((deck as any).deckContentHash !== undefined
+      ? { deckContentHash: (deck as any).deckContentHash }
+      : {}),
     slides,
-  };
+  } as unknown as Deck;
 }

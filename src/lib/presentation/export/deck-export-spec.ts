@@ -14,6 +14,7 @@
  */
 
 import type { Deck, Slide } from "../deck-core";
+import type { DeckTextRole } from "../deck-theme-token-primitives";
 import type {
   ElementAlign,
   ElementBox,
@@ -21,6 +22,8 @@ import type {
   ImageFitMode,
   ImageMaskShape,
   ShapeKind,
+  SlideElement,
+  TextElementStyle,
   TextFitMode,
   TextRun,
 } from "../deck-elements";
@@ -61,6 +64,73 @@ export function deckGeometry(format: Deck["slideFormat"]): DeckGeometry {
     slideH: config.pptxHeightIn,
     slideHPt: config.pptxHeightIn * 72,
   };
+}
+
+function record(value: unknown): Record<string, any> {
+  return value && typeof value === "object"
+    ? (value as Record<string, any>)
+    : {};
+}
+
+function deckFormat(deck: Deck): Deck["slideFormat"] {
+  return ((deck as any).canvas?.format ??
+    deck.slideFormat) as Deck["slideFormat"];
+}
+
+function elementContent(element: SlideElement): Record<string, any> {
+  return record((element as any).content);
+}
+
+function elementDesign(element: SlideElement): Record<string, any> {
+  return record((element as any).designOverrides);
+}
+
+function presentationRoleToDeckTextRole(
+  role: unknown,
+): DeckTextRole | undefined {
+  switch (role) {
+    case "title":
+      return "h1";
+    case "sectionTitle":
+      return "h2";
+    case "label":
+      return "shapeLabel";
+    case "subtitle":
+    case "body":
+    case "bullet":
+    case "caption":
+    case "footer":
+    case "h1":
+    case "h2":
+    case "h3":
+    case "shapeLabel":
+      return role as DeckTextRole;
+    default:
+      return undefined;
+  }
+}
+
+function textStyleOverride(
+  element: SlideElement,
+): Partial<TextElementStyle> | undefined {
+  const design = elementDesign(element);
+  return (
+    design.textStyle ?? (element as any).styleOverride ?? (element as any).style
+  );
+}
+
+function colorRefValue(
+  input: unknown,
+  tokenSet: ReturnType<typeof resolveSlideStyle>["tokenSet"],
+): string | undefined {
+  if (typeof input === "string") return input;
+  if (!input || typeof input !== "object") return undefined;
+  const ref = input as { token?: string; value?: string };
+  if (typeof ref.value === "string") return ref.value;
+  if (typeof ref.token === "string") {
+    return tokenSet.colors[ref.token as keyof typeof tokenSet.colors];
+  }
+  return undefined;
 }
 
 function exportTextRuns(
@@ -338,7 +408,7 @@ export function buildDeckSpecs(
   deck: Deck,
   visuals: ReadonlyMap<string, Visual>,
 ): DeckSlideSpec[] {
-  const geometry = deckGeometry(deck.slideFormat);
+  const geometry = deckGeometry(deckFormat(deck));
   return deck.slides.map((slide, index) =>
     buildSlideSpec(deck, slide, index, visuals, geometry),
   );
@@ -383,11 +453,22 @@ function buildSlideSpec(
 
     switch (element.kind) {
       case "text": {
+        const content = elementContent(element);
+        const styleOverride = textStyleOverride(element);
         const exportStyle = adaptTextElementForExport(
           deck,
-          { ...element, styleOverride: element.style },
+          {
+            ...element,
+            textRole:
+              presentationRoleToDeckTextRole(
+                (element as any).role ?? (element as any).textRole,
+              ) ?? (element as any).textRole,
+            ...(styleOverride ? { styleOverride } : {}),
+          },
           geometry.slideHPt,
         );
+        const verticalAlign = styleOverride?.verticalAlign;
+        const fitMode = content.fitMode ?? element.fitMode;
         const paragraphs = normalizeTextParagraphs(element);
         const hasListParagraphs = paragraphs.some(
           (paragraph) => paragraph.listType !== undefined,
@@ -431,28 +512,32 @@ function buildSlideSpec(
             italic: exportStyle.italic,
             ...(exportStyle.underline ? { underline: true } : {}),
             align: exportStyle.align,
-            ...(element.style.verticalAlign
-              ? { verticalAlign: element.style.verticalAlign }
-              : {}),
+            ...(verticalAlign ? { verticalAlign } : {}),
             ...(exportStyle.lineHeight
               ? { lineHeight: exportStyle.lineHeight }
               : {}),
-            ...(element.fitMode ? { fitMode: element.fitMode } : {}),
+            ...(fitMode ? { fitMode } : {}),
           });
           break;
         }
         // Content-aware editable-PPTX font face: registry fonts map to an
         // Office-compatible face, switching to the CJK face for Chinese text.
+        const text = content.text ?? element.text;
         const textFontFace = slideFontExportFace(
           exportStyle.resolved.fontFamily,
-          element.text,
+          text,
         );
         ops.push({
           kind: "text",
           ...box,
-          text: element.text,
-          ...(element.runs && element.runs.length > 0
-            ? { runs: exportTextRuns(element.runs, geometry.slideHPt) }
+          text,
+          ...((content.runs ?? element.runs)?.length > 0
+            ? {
+                runs: exportTextRuns(
+                  content.runs ?? element.runs,
+                  geometry.slideHPt,
+                ),
+              }
             : {}),
           color: toHex(exportStyle.color),
           fontSize: exportStyle.fontSizePt,
@@ -461,40 +546,54 @@ function buildSlideSpec(
           italic: exportStyle.italic,
           ...(exportStyle.underline ? { underline: true } : {}),
           align: exportStyle.align,
-          ...(element.style.verticalAlign
-            ? { verticalAlign: element.style.verticalAlign }
-            : {}),
+          ...(verticalAlign ? { verticalAlign } : {}),
           ...(exportStyle.lineHeight
             ? { lineHeight: exportStyle.lineHeight }
             : {}),
           ...(exportStyle.paragraphSpacingPt
             ? { paragraphSpacingPt: exportStyle.paragraphSpacingPt }
             : {}),
-          ...(element.fitMode ? { fitMode: element.fitMode } : {}),
+          ...(fitMode ? { fitMode } : {}),
         });
         break;
       }
       case "shape": {
+        const content = elementContent(element);
+        const design = elementDesign(element);
         const labelStyle = adaptShapeLabelForExport(
           deck,
-          { ...element, textStyleOverride: element.textStyle },
+          {
+            ...element,
+            textRole:
+              presentationRoleToDeckTextRole(
+                (element as any).role ?? (element as any).textRole,
+              ) ?? (element as any).textRole,
+            textStyleOverride:
+              design.textStyle ??
+              element.textStyleOverride ??
+              element.textStyle,
+          },
           geometry.slideHPt,
         );
         const minInch = Math.min(box.w, box.h);
+        const shape = content.shape ?? element.shape;
+        const text = content.text ?? element.text;
+        const textRuns = content.textRuns ?? element.textRuns;
+        const color =
+          colorRefValue(design.fill, resolved.tokenSet) ?? element.color;
+        const stroke = design.stroke ?? element.stroke;
+        const radius = design.radius ?? element.radius;
         ops.push({
           kind: "shape",
           ...box,
-          shape: element.shape,
-          color: toHex(element.color),
-          ...(element.text && element.shape !== "line"
+          shape,
+          color: toHex(color),
+          ...(text && shape !== "line"
             ? {
-                text: element.text,
-                ...(element.textRuns && element.textRuns.length > 0
+                text,
+                ...(textRuns && textRuns.length > 0
                   ? {
-                      textRuns: exportTextRuns(
-                        element.textRuns,
-                        geometry.slideHPt,
-                      ),
+                      textRuns: exportTextRuns(textRuns, geometry.slideHPt),
                     }
                   : {}),
                 textColor: toHex(labelStyle.color),
@@ -508,56 +607,94 @@ function buildSlideSpec(
                 align: labelStyle.align,
               }
             : {}),
-          ...(element.stroke
+          ...(stroke
             ? {
                 stroke: {
-                  color: toHex(element.stroke.color),
-                  width: (element.stroke.width / 100) * minInch * 72,
+                  color: toHex(stroke.color),
+                  width: (stroke.width / 100) * minInch * 72,
                 },
               }
             : {}),
-          ...(element.radius
-            ? { radius: (element.radius / 100) * minInch }
-            : {}),
+          ...(radius ? { radius: (radius / 100) * minInch } : {}),
         });
         break;
       }
       case "image": {
-        const op = buildDeckImageOp(element, box, resolved.tokenSet.image);
+        const content = elementContent(element);
+        const design = elementDesign(element);
+        const imageElement = {
+          ...element,
+          src: content.src ?? element.src,
+          alt: content.alt ?? element.alt,
+          crop: content.crop ?? element.crop,
+          assetId: content.assetId ?? element.assetId,
+          fitMode: design.fitMode ?? element.fitMode,
+          maskShape: design.maskShape ?? element.maskShape,
+          radius: design.radius ?? element.radius,
+        };
+        const op = buildDeckImageOp(imageElement, box, resolved.tokenSet.image);
         if (op) ops.push(op);
         break;
       }
       case "visual": {
-        const visual = visuals.get(element.visualId);
+        const content = elementContent(element);
+        const visualId = content.visualId ?? element.visualId;
+        const visual = visuals.get(visualId);
         if (!visual) break;
         ops.push(
-          buildDeckVisualOp(element, visual, box, resolved.tokenSet.visual),
+          buildDeckVisualOp(
+            {
+              ...element,
+              visualId,
+              styleThemeId: content.styleThemeId ?? element.styleThemeId,
+            },
+            visual,
+            box,
+            resolved.tokenSet.visual,
+          ),
         );
         break;
       }
       case "connector": {
+        const content = elementContent(element);
+        const design = elementDesign(element);
+        const connectorElement = {
+          ...element,
+          start: content.start ?? element.start,
+          end: content.end ?? element.end,
+          routing: content.routing ?? element.routing,
+          stroke: design.stroke ?? element.stroke,
+          dash: design.dash ?? element.dash,
+          arrowStart: design.arrowStart ?? element.arrowStart,
+          arrowEnd: design.arrowEnd ?? element.arrowEnd,
+        };
         const { start: startPct, end: endPct } = resolveConnectorElementPoints(
-          element,
+          connectorElement,
           elements,
           (candidate) => candidate.box,
         );
         const connectorDefaults = resolved.tokenSet.connector;
         const strokeColor =
-          element.stroke?.color ?? connectorDefaults?.color ?? "#a1a1aa";
+          connectorElement.stroke?.color ??
+          connectorDefaults?.color ??
+          "#a1a1aa";
         // Width is authored in `cqmin` (percent of shortest slide side); convert to pt.
         const minInch = Math.min(geometry.slideW, geometry.slideH);
         const strokeWidthPt = Math.max(
           1,
-          ((element.stroke?.width ?? connectorDefaults?.width ?? 0.4) / 100) *
+          ((connectorElement.stroke?.width ?? connectorDefaults?.width ?? 0.4) /
+            100) *
             minInch *
             72,
         );
         const dashed =
-          element.dash ||
+          connectorElement.dash ||
           (connectorDefaults?.dash !== undefined &&
             connectorDefaults.dash !== "solid");
-        const arrowStart = element.arrowStart ?? connectorDefaults?.startArrow;
-        const arrowEnd = element.arrowEnd ?? connectorDefaults?.endArrow;
+        const arrowStart =
+          connectorElement.arrowStart ?? connectorDefaults?.startArrow;
+        const arrowEnd =
+          connectorElement.arrowEnd ?? connectorDefaults?.endArrow;
         ops.push({
           kind: "connector",
           x1: (startPct.x / 100) * geometry.slideW,
@@ -583,9 +720,11 @@ function buildSlideSpec(
   return {
     index,
     background,
-    ...(slide.backgroundImage
-      ? { backgroundImage: slide.backgroundImage }
-      : {}),
+    ...((slide as any).designOverrides?.background?.type === "image"
+      ? { backgroundImage: (slide as any).designOverrides.background.url }
+      : slide.backgroundImage
+        ? { backgroundImage: slide.backgroundImage }
+        : {}),
     accent,
     ops,
   };

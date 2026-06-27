@@ -81,17 +81,21 @@ export function enumerateDeckDependencies(
     if (slide.elements) {
       for (const element of slide.elements) {
         if (element.kind === "visual") {
+          const visualId =
+            ((element as any).content?.visualId as string | undefined) ??
+            element.visualId;
           deps.push({
             kind: "visual",
             slideId: slide.id,
             elementId: element.id,
-            visualId: element.visualId,
+            visualId,
           });
         }
 
         // Source-ref dependency (present on any element kind).
-        const ref = (element as SlideElement & { sourceRef?: SourceRef })
-          .sourceRef;
+        const ref =
+          (element as SlideElement & { source?: SourceRef }).source ??
+          (element as SlideElement & { sourceRef?: SourceRef }).sourceRef;
         if (
           ref !== undefined &&
           ref.unlinked !== true &&
@@ -349,8 +353,7 @@ export function reconcileDocumentDeckDependencies(
 }
 
 /**
- * Collects every visual id the deck references from `visual` element
- * `visualId` fields.
+ * Collects every visual id the deck references from visual element content.
  *
  * Useful as a quick way to build the "what does this deck need?" set for
  * orphan detection or dependency checks without running a full
@@ -361,8 +364,11 @@ export function collectDeckVisualIds(deck: Deck): Set<string> {
   for (const slide of deck.slides) {
     if (slide.elements) {
       for (const element of slide.elements) {
-        if (element.kind === "visual" && element.visualId) {
-          ids.add(element.visualId);
+        if (element.kind === "visual") {
+          const visualId =
+            ((element as any).content?.visualId as string | undefined) ??
+            element.visualId;
+          if (visualId) ids.add(visualId);
         }
       }
     }

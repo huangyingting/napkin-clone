@@ -73,18 +73,18 @@ const makeDeck = makeMinimalDeck;
 
 function validMinimalDeck(): unknown {
   return {
-    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "slide-1",
         index: 0,
         title: "First slide",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
+        templateId: "content",
         notes: "",
-        themeId: "default",
         elements: [],
       },
     ],

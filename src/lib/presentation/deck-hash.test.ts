@@ -25,21 +25,72 @@ function textBlock(
   return { kind: "text", blockType, text, ...(level ? { level } : {}) };
 }
 
-function slide(partial: Partial<Slide>): Slide {
+function textElement(text: string, role: "title" | "bullet", zIndex: number) {
   return {
-    id: "test-id",
-    index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
-    notes: "",
-    ...partial,
+    id: `el-${role}-${zIndex}`,
+    kind: "text",
+    role,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    zIndex,
+    content: {
+      kind: "text",
+      text,
+      paragraphs:
+        role === "bullet"
+          ? text.split("\n").map((line) => ({ text: line, listType: "bullet" }))
+          : [{ text }],
+    },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: role === "title", italic: false, align: "left" },
+    },
   };
 }
 
+function visualElement(visualId: string, zIndex: number) {
+  return {
+    id: `el-visual-${zIndex}`,
+    kind: "visual",
+    role: "visual",
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    zIndex,
+    content: { kind: "visual", visualId },
+  };
+}
+
+function slide(partial: Record<string, any>): Slide {
+  const title = partial.title ?? "";
+  const bullets = (partial.bullets ?? []) as string[];
+  const visualIds = (partial.visualIds ?? []) as string[];
+  const elements = [
+    ...(title ? [textElement(title, "title", 0)] : []),
+    ...(bullets.length > 0 ? [textElement(bullets.join("\n"), "bullet", 1)] : []),
+    ...visualIds.map((visualId, index) => visualElement(visualId, index + 2)),
+    ...(((partial as any).elements ?? []) as unknown[]),
+  ];
+  return {
+    id: "test-id",
+    index: 0,
+    title,
+    notes: partial.notes ?? "",
+    ...(partial.templateId !== undefined
+      ? { templateId: partial.templateId }
+      : { templateId: "content" }),
+    ...(partial.designOverrides !== undefined
+      ? { designOverrides: partial.designOverrides }
+      : {}),
+    elements,
+  } as unknown as Slide;
+}
+
 function deck(slides: Slide[], themeId = "default"): Deck {
-  return { slides, themeId };
+  return {
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides,
+  } as unknown as Deck;
 }
 
 test("fnv1aHex is deterministic and 8-char hex", () => {
@@ -66,17 +117,21 @@ test("content hash ignores free-form elements and per-slide colors", () => {
   const withElements = slide({
     title: "Intro",
     bullets: ["a"],
-    background: "#ffffff",
-    accent: "#123456",
+    designOverrides: {
+      background: { type: "solid", color: { value: "#ffffff" } },
+      accent: { value: "#123456" },
+    } as any,
     elements: [
       {
         id: "el-1",
         kind: "text",
-        textRole: "h1",
-        text: "Intro",
-        zIndex: 0,
+        role: "title",
+        zIndex: 99,
         box: { x: 0, y: 0, w: 10, h: 10 },
-        style: { fontSize: 5, bold: true, italic: false, align: "left" },
+        content: { kind: "text", text: "Intro", paragraphs: [{ text: "Intro" }] },
+        designOverrides: {
+          textStyle: { fontSize: 9, bold: true, italic: false, align: "left" },
+        },
       },
     ],
   });

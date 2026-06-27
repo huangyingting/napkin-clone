@@ -402,18 +402,18 @@ describe("autosave: dirty state survives failed save / reopen (#459)", () => {
 describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
   test("safeParseDeck: valid minimal deck passes", () => {
     const result = safeParseDeck({
-      themeId: "default",
       schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      canvas: { format: "16:9" },
+      design: { themeId: "default" },
+      masters: [{ id: "master-default", name: "Default", elements: [] }],
+      defaultMasterId: "master-default",
       slides: [
         {
           id: "s-1",
           index: 0,
           title: "Title",
-          bullets: [],
-          visualIds: [],
-          layout: "content",
+          templateId: "content",
           notes: "",
-          themeId: "default",
           elements: [],
         },
       ],

@@ -57,6 +57,54 @@ function visual(id: string): DocumentBlock {
   };
 }
 
+function deckThemeId(deck: unknown): string | undefined {
+  return (deck as any).design?.themeId;
+}
+
+function slideLayout(slide: unknown): string {
+  return (slide as any).templateId ?? "blank";
+}
+
+function elementContent(element: unknown): any {
+  if (element == null) return {};
+  return (element as any).content ?? {};
+}
+
+function slideTextElements(slide: unknown): any[] {
+  return (((slide as any).elements ?? []) as unknown[]).filter(
+    (element: any) => element.kind === "text",
+  );
+}
+
+function slideBullets(slide: unknown): string[] {
+  const bulletElement = slideTextElements(slide).find(
+    (element) => element.role === "bullet",
+  );
+  return (elementContent(bulletElement).paragraphs ?? []).map(
+    (paragraph: any) => paragraph.text,
+  );
+}
+
+function slideBulletRuns(slide: unknown): Array<unknown[] | undefined> {
+  const bulletElement = slideTextElements(slide).find(
+    (element) => element.role === "bullet",
+  );
+  return (elementContent(bulletElement).paragraphs ?? []).map(
+    (paragraph: any) => paragraph.runs,
+  );
+}
+
+function slideVisualIds(slide: unknown): string[] {
+  return (((slide as any).elements ?? []) as unknown[])
+    .filter((element: any) => element.kind === "visual")
+    .map((element) => elementContent(element).visualId)
+    .filter((visualId): visualId is string => typeof visualId === "string");
+}
+
+function firstTextElement(slide: unknown): any | undefined {
+  return slideTextElements(slide)[0];
+}
+
 // ---------------------------------------------------------------------------
 // Basic structure
 // ---------------------------------------------------------------------------
@@ -64,20 +112,20 @@ function visual(id: string): DocumentBlock {
 test("empty input yields a single blank slide", () => {
   const deck = buildDeckFromBlocks([]);
   assert.equal(deck.slides.length, 1);
-  assert.equal(deck.slides[0].layout, "blank");
+  assert.equal(slideLayout(deck.slides[0]), "blank");
   assert.equal(deck.slides[0].title, "");
-  assert.equal(deck.slides[0].bullets.length, 0);
-  assert.equal(deck.slides[0].visualIds.length, 0);
+  assert.equal(slideBullets(deck.slides[0]).length, 0);
+  assert.equal(slideVisualIds(deck.slides[0]).length, 0);
 });
 
 test("themeId is stored at deck level", () => {
   const deck = buildDeckFromBlocks([h1("Title"), para("Body")], "ocean");
-  assert.equal(deck.themeId, "ocean");
+  assert.equal(deckThemeId(deck), "ocean");
 });
 
 test("default themeId is 'indigo'", () => {
   const deck = buildDeckFromBlocks([h1("Hi")]);
-  assert.equal(deck.themeId, "indigo");
+  assert.equal(deckThemeId(deck), "indigo");
 });
 
 test("slide indexes are zero-based and sequential", () => {
@@ -94,7 +142,7 @@ test("h1 produces a title slide (first heading) with title layout", () => {
   assert.equal(deck.slides.length, 1);
   const s = deck.slides[0];
   assert.equal(s.title, "My Presentation");
-  assert.equal(s.layout, "title");
+  assert.equal(slideLayout(s), "title");
 });
 
 test("h1 mid-document produces a section slide", () => {
@@ -105,21 +153,21 @@ test("h1 mid-document produces a section slide", () => {
   ]);
   const section = deck.slides.find((s) => s.title === "Chapter 2");
   assert.ok(section, "section slide should exist");
-  assert.equal(section!.layout, "section");
+  assert.equal(slideLayout(section), "section");
 });
 
 test("h2 opens a content slide", () => {
   const deck = buildDeckFromBlocks([h1("Doc"), h2("Section A")]);
   const s = deck.slides.find((s) => s.title === "Section A");
   assert.ok(s);
-  assert.equal(s!.layout, "content");
+  assert.equal(slideLayout(s), "content");
 });
 
 test("h3 opens a content slide", () => {
   const deck = buildDeckFromBlocks([h3("Sub-section")]);
   const s = deck.slides[0];
   assert.equal(s.title, "Sub-section");
-  assert.equal(s.layout, "content");
+  assert.equal(slideLayout(s), "content");
 });
 
 test("multiple h2 blocks each produce their own slide", () => {
@@ -135,8 +183,8 @@ test("multiple h2 blocks each produce their own slide", () => {
   assert.ok(titles.includes("B"));
   const slideA = deck.slides.find((s) => s.title === "A")!;
   const slideB = deck.slides.find((s) => s.title === "B")!;
-  assert.deepEqual(slideA.bullets, ["a1"]);
-  assert.deepEqual(slideB.bullets, ["b1"]);
+  assert.deepEqual(slideBullets(slideA), ["a1"]);
+  assert.deepEqual(slideBullets(slideB), ["b1"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -150,7 +198,7 @@ test("paragraphs become bullets on the current slide", () => {
     para("point 2"),
   ]);
   const s = deck.slides.find((s) => s.title === "Slide")!;
-  assert.deepEqual(s.bullets, ["point 1", "point 2"]);
+  assert.deepEqual(slideBullets(s), ["point 1", "point 2"]);
 });
 
 test("list items become bullets", () => {
@@ -160,7 +208,7 @@ test("list items become bullets", () => {
     item("Beta"),
   ]);
   const s = deck.slides.find((s) => s.title === "List slide")!;
-  assert.deepEqual(s.bullets, ["Alpha", "Beta"]);
+  assert.deepEqual(slideBullets(s), ["Alpha", "Beta"]);
 });
 
 test(`surplus bullets (> ${MAX_BULLETS}) overflow to notes`, () => {
@@ -168,7 +216,7 @@ test(`surplus bullets (> ${MAX_BULLETS}) overflow to notes`, () => {
   for (let i = 1; i <= MAX_BULLETS + 3; i++) blocks.push(para(`item ${i}`));
   const deck = buildDeckFromBlocks(blocks);
   const s = deck.slides.find((s) => s.title === "Long slide")!;
-  assert.equal(s.bullets.length, MAX_BULLETS);
+  assert.equal(slideBullets(s).length, MAX_BULLETS);
   assert.ok(s.notes.includes(`item ${MAX_BULLETS + 1}`));
   assert.ok(s.notes.includes(`item ${MAX_BULLETS + 3}`));
 });
@@ -176,7 +224,7 @@ test(`surplus bullets (> ${MAX_BULLETS}) overflow to notes`, () => {
 test("blank/empty paragraph text is ignored", () => {
   const deck = buildDeckFromBlocks([h2("Empty"), para("  "), para("  ")]);
   const s = deck.slides.find((s) => s.title === "Empty")!;
-  assert.equal(s.bullets.length, 0);
+  assert.equal(slideBullets(s).length, 0);
 });
 
 // ---------------------------------------------------------------------------
@@ -186,7 +234,7 @@ test("blank/empty paragraph text is ignored", () => {
 test("quote blocks always go to notes, not bullets", () => {
   const deck = buildDeckFromBlocks([h2("With quote"), quote("A wise saying")]);
   const s = deck.slides.find((s) => s.title === "With quote")!;
-  assert.equal(s.bullets.length, 0);
+  assert.equal(slideBullets(s).length, 0);
   assert.ok(s.notes.includes("A wise saying"));
 });
 
@@ -197,38 +245,38 @@ test("quote blocks always go to notes, not bullets", () => {
 test("visual attaches to current slide when it has no visual yet", () => {
   const deck = buildDeckFromBlocks([h2("Slide with visual"), visual("v1")]);
   const s = deck.slides.find((s) => s.title === "Slide with visual")!;
-  assert.deepEqual(s.visualIds, ["v1"]);
+  assert.deepEqual(slideVisualIds(s), ["v1"]);
 });
 
 test("second visual on same slide triggers its own media slide", () => {
   const deck = buildDeckFromBlocks([h2("Slide"), visual("v1"), visual("v2")]);
-  const mediaSlide = deck.slides.find((s) => s.visualIds.includes("v2"));
+  const mediaSlide = deck.slides.find((s) => slideVisualIds(s).includes("v2"));
   assert.ok(mediaSlide, "v2 should get its own slide");
-  assert.equal(mediaSlide!.layout, "media");
+  assert.equal(slideLayout(mediaSlide), "media");
   assert.notEqual(
-    deck.slides.find((s) => s.visualIds.includes("v1")),
+    deck.slides.find((s) => slideVisualIds(s).includes("v1")),
     mediaSlide,
   );
 });
 
 test("visual before any heading creates a preamble slide", () => {
   const deck = buildDeckFromBlocks([visual("v0"), h1("Title")]);
-  const preamble = deck.slides.find((s) => s.visualIds.includes("v0"));
+  const preamble = deck.slides.find((s) => slideVisualIds(s).includes("v0"));
   assert.ok(preamble);
 });
 
 test("slide with only a visual gets media layout", () => {
   const deck = buildDeckFromBlocks([h2("Media only"), visual("v1")]);
   const s = deck.slides.find((s) => s.title === "Media only")!;
-  assert.equal(s.layout, "media");
+  assert.equal(slideLayout(s), "media");
 });
 
 test("slide with visual and bullets gets content layout", () => {
   const deck = buildDeckFromBlocks([h2("Mixed"), para("point"), visual("v1")]);
   const s = deck.slides.find((s) => s.title === "Mixed")!;
-  assert.equal(s.layout, "content");
-  assert.deepEqual(s.bullets, ["point"]);
-  assert.deepEqual(s.visualIds, ["v1"]);
+  assert.equal(slideLayout(s), "content");
+  assert.deepEqual(slideBullets(s), ["point"]);
+  assert.deepEqual(slideVisualIds(s), ["v1"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -244,7 +292,7 @@ test("hr flushes current slide and starts a new one", () => {
   ]);
   assert.ok(deck.slides.length >= 2);
   const first = deck.slides.find((s) => s.title === "First")!;
-  assert.deepEqual(first.bullets, ["content"]);
+  assert.deepEqual(slideBullets(first), ["content"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -258,12 +306,12 @@ test("deck.slides is always an array", () => {
 
 test("returned deck has theme matching the argument", () => {
   const deck = buildDeckFromBlocks([h1("T")], "forest");
-  assert.equal(deck.themeId, "forest");
+  assert.equal(deckThemeId(deck), "forest");
 });
 
 test("returned deck carries themeId matching the chosen theme", () => {
   const deck = buildDeckFromBlocks([h1("T")], "forest");
-  assert.equal(deck.themeId, "forest");
+  assert.equal(deckThemeId(deck), "forest");
 });
 
 test("complex document: h1 + two h2 sections + visuals", () => {
@@ -285,12 +333,12 @@ test("complex document: h1 + two h2 sections + visuals", () => {
   assert.ok(titles.includes("Results"), "Results slide");
 
   const approach = deck.slides.find((s) => s.title === "Approach")!;
-  assert.deepEqual(approach.bullets, ["Step 1", "Step 2"]);
-  assert.deepEqual(approach.visualIds, ["fig-1"]);
+  assert.deepEqual(slideBullets(approach), ["Step 1", "Step 2"]);
+  assert.deepEqual(slideVisualIds(approach), ["fig-1"]);
 
   const results = deck.slides.find((s) => s.title === "Results")!;
-  assert.deepEqual(results.bullets, ["We found X"]);
-  assert.deepEqual(results.visualIds, ["fig-2"]);
+  assert.deepEqual(slideBullets(results), ["We found X"]);
+  assert.deepEqual(slideVisualIds(results), ["fig-2"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -352,15 +400,14 @@ test("overflow bullets appear in notes and survive safeParseDeck round-trip", ()
   );
 });
 
-test("safeParseDeck rejects a slide with missing notes field", () => {
+test("safeParseDeck accepts a slide with missing optional notes field", () => {
   const deck = buildDeckFromBlocks([h2("Slide")]);
   const raw = JSON.parse(JSON.stringify(deck)) as {
     slides: Array<Record<string, unknown>>;
   };
-  // Remove notes from first slide to simulate a corrupted payload.
   delete raw.slides[0].notes;
   const result = safeParseDeck(raw);
-  assert.equal(result.success, false, "should fail when notes is missing");
+  assert.equal(result.success, true, "notes is optional in v6");
 });
 
 // ---------------------------------------------------------------------------
@@ -381,8 +428,8 @@ test("buildSlideElementsFromContent builds a title element from slide content", 
   const title = elements.find((e) => e.kind === "text");
   assert.ok(title);
   if (title?.kind === "text") {
-    assert.equal(title.text, "Hello");
-    assert.equal(title.textRole, "h1");
+    assert.equal(elementContent(title).text, "Hello");
+    assert.equal((title as any).role, "title");
   }
 });
 
@@ -397,7 +444,7 @@ test("buildSlideElementsFromContent pairs bullets and a visual side by side", as
     layout: "content",
     notes: "",
   });
-  assert.ok(elements.some((e) => e.kind === "text" && e.textRole === "bullet"));
+  assert.ok(elements.some((e) => e.kind === "text" && (e as any).role === "bullet"));
   assert.ok(elements.some((e) => e.kind === "visual"));
 });
 
@@ -436,7 +483,7 @@ test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", asyn
   // One element per source visual, in source order (no dedupe, no drop).
   assert.equal(visuals.length, 3);
   assert.deepEqual(
-    visuals.map((e) => (e.kind === "visual" ? e.visualId : null)),
+    visuals.map((e) => (e.kind === "visual" ? elementContent(e).visualId : null)),
     ["vis-a", "vis-b", "vis-c"],
   );
 
@@ -481,12 +528,12 @@ test("buildSlideElementsFromContent tiles extra visuals alongside bullets", asyn
   // The bullets keep their pane; every visual still materializes (1 paired +
   // 2 cascaded), preserving source order.
   assert.equal(
-    elements.filter((e) => e.kind === "text" && e.textRole === "bullet").length,
+    elements.filter((e) => e.kind === "text" && (e as any).role === "bullet").length,
     1,
   );
   const visuals = elements.filter((e) => e.kind === "visual");
   assert.deepEqual(
-    visuals.map((e) => (e.kind === "visual" ? e.visualId : null)),
+    visuals.map((e) => (e.kind === "visual" ? elementContent(e).visualId : null)),
     ["vis-1", "vis-2", "vis-3"],
   );
 
@@ -501,7 +548,7 @@ test("buildSlideElementsFromContent tiles extra visuals alongside bullets", asyn
 test("buildVisualElement: centered box, kind, and visualId; no zIndex", () => {
   const element = buildVisualElement("vis-1");
   assert.equal(element.kind, "visual");
-  assert.equal(element.visualId, "vis-1");
+  assert.equal(elementContent(element).visualId, "vis-1");
   assert.deepEqual(element.box, DEFAULT_VISUAL_BOX);
   assert.ok(typeof element.id === "string" && element.id.length > 0);
   // zIndex is assigned by addElement, so it must not be baked in here.
@@ -534,7 +581,7 @@ test("buildVisualElement: honors explicit id, box, and styleThemeId", () => {
   });
   assert.equal(element.id, "fixed-id");
   assert.deepEqual(element.box, box);
-  assert.equal(element.styleThemeId, "ocean");
+  assert.equal(elementContent(element).styleThemeId, "ocean");
 });
 
 test("buildVisualElement: generates unique ids across calls", () => {
@@ -549,25 +596,25 @@ test("buildVisualElement: generates unique ids across calls", () => {
 
 test("safeParseDeck: preserves a visual element's styleThemeId", () => {
   const deck = {
-    themeId: "default" as const,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
         index: 0,
         title: "",
-        bullets: [],
-        visualIds: [],
-        layout: "blank" as const,
         notes: "",
         elements: [
           {
             id: "v1",
             kind: "visual" as const,
-            visualId: "vis-1",
-            styleThemeId: "forest",
+            role: "visual",
             zIndex: 0,
             box: { x: 25, y: 18, w: 50, h: 64 },
+            content: { kind: "visual", visualId: "vis-1", styleThemeId: "forest" },
           },
         ],
       },
@@ -578,31 +625,32 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
   const element = parsed.data.slides[0].elements?.[0];
   assert.ok(element && element.kind === "visual");
   assert.equal(
-    element.kind === "visual" ? element.styleThemeId : undefined,
+    element.kind === "visual" ? elementContent(element).styleThemeId : undefined,
     "forest",
   );
 });
 
 test("safeParseDeck: omits styleThemeId when absent", () => {
   const deck = {
-    themeId: "default" as const,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
         index: 0,
         title: "",
-        bullets: [],
-        visualIds: [],
-        layout: "blank" as const,
         notes: "",
         elements: [
           {
             id: "v1",
             kind: "visual" as const,
-            visualId: "vis-1",
+            role: "visual",
             zIndex: 0,
             box: { x: 25, y: 18, w: 50, h: 64 },
+            content: { kind: "visual", visualId: "vis-1" },
           },
         ],
       },
@@ -612,7 +660,7 @@ test("safeParseDeck: omits styleThemeId when absent", () => {
   assert.ok(parsed.success);
   const element = parsed.data.slides[0].elements?.[0];
   assert.ok(element && element.kind === "visual");
-  assert.ok(!("styleThemeId" in element));
+  assert.ok(!("styleThemeId" in elementContent(element)));
 });
 
 // ---------------------------------------------------------------------------
@@ -637,7 +685,9 @@ test("buildDeckFromBlocks threads title runs onto the slide", () => {
   ]);
   const slide = deck.slides[0];
   assert.equal(slide.title, "Bold Title");
-  assert.deepEqual(slide.titleRuns, [{ text: "Bold Title", bold: true }]);
+  assert.deepEqual(elementContent(firstTextElement(slide)).runs, [
+    { text: "Bold Title", bold: true },
+  ]);
 });
 
 test("buildDeckFromBlocks keeps bulletRuns parallel to bullets", () => {
@@ -647,12 +697,10 @@ test("buildDeckFromBlocks keeps bulletRuns parallel to bullets", () => {
     paraRich("rich two", [{ text: "rich " }, { text: "two", italic: true }]),
   ]);
   const slide = deck.slides[0];
-  assert.deepEqual(slide.bullets, ["plain one", "rich two"]);
-  assert.ok(slide.bulletRuns);
-  assert.equal(slide.bulletRuns?.length, 2);
-  // Plain bullet has an empty runs entry (falls back to the string).
-  assert.deepEqual(slide.bulletRuns?.[0], []);
-  assert.deepEqual(slide.bulletRuns?.[1], [
+  assert.deepEqual(slideBullets(slide), ["plain one", "rich two"]);
+  assert.equal(slideBulletRuns(slide).length, 2);
+  assert.deepEqual(slideBulletRuns(slide)[0], undefined);
+  assert.deepEqual(slideBulletRuns(slide)[1], [
     { text: "rich " },
     { text: "two", italic: true },
   ]);
@@ -661,8 +709,8 @@ test("buildDeckFromBlocks keeps bulletRuns parallel to bullets", () => {
 test("buildDeckFromBlocks omits runs entirely for a plain document", () => {
   const deck = buildDeckFromBlocks([h2("Plain"), para("a"), para("b")]);
   const slide = deck.slides[0];
-  assert.equal(slide.titleRuns, undefined);
-  assert.equal(slide.bulletRuns, undefined);
+  assert.equal(elementContent(firstTextElement(slide)).runs, undefined);
+  assert.deepEqual(slideBulletRuns(slide), [undefined, undefined]);
 });
 
 test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements", async () => {
@@ -681,15 +729,17 @@ test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements"
   const title = elements.find((e) => e.kind === "text");
   assert.ok(title && title.kind === "text");
   if (title.kind === "text") {
-    assert.deepEqual(title.runs, [{ text: "Title", bold: true }]);
+    assert.deepEqual(elementContent(title).runs, [
+      { text: "Title", bold: true },
+    ]);
   }
   const bullets = elements.find(
-    (e) => e.kind === "text" && e.textRole === "bullet",
+    (e) => e.kind === "text" && (e as any).role === "bullet",
   );
   assert.ok(bullets && bullets.kind === "text");
   if (bullets.kind === "text") {
     assert.deepEqual(
-      bullets.paragraphs?.map((paragraph) => paragraph.runs),
+      elementContent(bullets).paragraphs?.map((paragraph: any) => paragraph.runs),
       [undefined, [{ text: "two", italic: true }]],
     );
   }
@@ -703,10 +753,11 @@ test("a deck with runs round-trips through the schema", () => {
   const parsed = safeParseDeck(deck);
   assert.ok(parsed.success);
   if (parsed.success) {
-    assert.deepEqual(parsed.data.slides[0].titleRuns, [
+    const slide = parsed.data.slides[0];
+    assert.deepEqual(elementContent(firstTextElement(slide)).runs, [
       { text: "Rich", bold: true },
     ]);
-    assert.deepEqual(parsed.data.slides[0].bulletRuns?.[0], [
+    assert.deepEqual(slideBulletRuns(slide)[0], [
       { text: "body", italic: true },
     ]);
   }
@@ -800,11 +851,8 @@ test("buildSlideElementsFromContent stamps semantic textRole h1/bullet (#610)", 
   });
   const title = elements.find((e) => e.kind === "text");
   const bullets = elements.find(
-    (e) => e.kind === "text" && e.textRole === "bullet",
+    (e) => e.kind === "text" && (e as any).role === "bullet",
   );
-  assert.equal(title?.kind === "text" ? title.textRole : undefined, "h1");
-  assert.equal(
-    bullets?.kind === "text" ? bullets.textRole : undefined,
-    "bullet",
-  );
+  assert.equal(title?.kind === "text" ? (title as any).role : undefined, "title");
+  assert.equal(bullets?.kind === "text" ? (bullets as any).role : undefined, "bullet");
 });

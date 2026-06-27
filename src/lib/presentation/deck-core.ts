@@ -11,7 +11,7 @@ import type { SlideLayout, SlideLayoutHint } from "./deck-layouts-model";
 import { STYLE_THEME_IDS } from "./deck-theme-ids";
 
 /** Increment this for future structural deck schema changes. */
-export const CURRENT_DECK_SCHEMA_VERSION = 5;
+export const CURRENT_DECK_SCHEMA_VERSION = 6;
 
 /**
  * Canonical presentation theme names — identical to the visual style theme

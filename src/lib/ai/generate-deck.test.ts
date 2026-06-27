@@ -50,6 +50,18 @@ function deck(overrides: Record<string, unknown> = {}): string {
   });
 }
 
+function themeId(deck: unknown): string | undefined {
+  return (deck as any).design?.themeId;
+}
+
+function slideLayout(slide: unknown): string {
+  return (slide as any).templateId ?? "blank";
+}
+
+function visualId(element: unknown): string | undefined {
+  return (element as any)?.content?.visualId;
+}
+
 test("parses a valid deck JSON in one attempt", async () => {
   const { complete, calls } = sequence([deck()]);
   const result = await generateDeck(
@@ -58,7 +70,7 @@ test("parses a valid deck JSON in one attempt", async () => {
   );
   assert.equal(calls.count, 1);
   assert.ok(safeParseDeck(result).success);
-  assert.equal(result.themeId, "indigo");
+  assert.equal(themeId(result), "indigo");
   assert.equal(result.slides.length, 2);
 });
 
@@ -89,7 +101,7 @@ test("takes the first deck when the model returns an array", async () => {
     { outline: "outline", visualInventory: INVENTORY },
     { complete },
   );
-  assert.equal(result.themeId, "indigo");
+  assert.equal(themeId(result), "indigo");
 });
 
 test("retries once on malformed JSON then throws GenerationError", async () => {
@@ -157,7 +169,7 @@ test("maps an unknown layout to 'blank'", async () => {
     { complete },
   );
   assert.ok(safeParseDeck(result).success);
-  assert.equal(result.slides[0].layout, "blank");
+  assert.equal(slideLayout(result.slides[0]), "blank");
 });
 
 test("strips a visual element referencing an unknown visualId", async () => {
@@ -188,7 +200,7 @@ test("strips a visual element referencing an unknown visualId", async () => {
   assert.ok(safeParseDeck(result).success);
   const visualIds = (result.slides[0].elements ?? [])
     .filter((el) => el.kind === "visual")
-    .map((el) => (el as { visualId: string }).visualId);
+    .map((el) => visualId(el));
   assert.deepEqual(visualIds, ["vis-1"]);
 });
 
@@ -231,7 +243,7 @@ test("upgrades an invalid/default theme to a vibrant theme (#281)", async () => 
     { outline: "outline", visualInventory: INVENTORY },
     { complete },
   );
-  assert.equal(result.themeId, "indigo");
+  assert.equal(themeId(result), "indigo");
 });
 
 test("honors preferredTheme when the model returns 'default' (#281)", async () => {
@@ -244,7 +256,7 @@ test("honors preferredTheme when the model returns 'default' (#281)", async () =
     },
     { complete },
   );
-  assert.equal(result.themeId, "ocean");
+  assert.equal(themeId(result), "ocean");
 });
 
 test("preserves an explicit vibrant theme over preferredTheme (#281)", async () => {
@@ -257,7 +269,7 @@ test("preserves an explicit vibrant theme over preferredTheme (#281)", async () 
     },
     { complete },
   );
-  assert.equal(result.themeId, "forest");
+  assert.equal(themeId(result), "forest");
 });
 
 test("caps the deck to MAX_DECK_SLIDES slides", async () => {
@@ -303,20 +315,20 @@ test("normalizes generateDeck output: every slide has authored elements", async 
   );
 
   assert.ok(safeParseDeck(result).success);
-  assert.equal(result.themeId, "indigo", "theme stamped at deck level");
+  assert.equal(themeId(result), "indigo", "theme stamped at deck level");
   for (const slide of result.slides) {
     assert.ok(
       slide.elements && slide.elements.length > 0,
       "slide has positioned elements",
     );
-    assert.equal(slide.elementsDerived, false, "AI slides are authored");
+    assert.equal("elementsDerived" in slide, false, "AI slides do not persist removed provenance flags");
   }
 
   // The media slide places its document visual prominently.
   const media = result.slides[2];
   const visual = media.elements?.find((el) => el.kind === "visual");
   assert.ok(visual && visual.kind === "visual");
-  assert.equal(visual.visualId, "vis-1");
+  assert.equal(visualId(visual), "vis-1");
   assert.ok(visual.box.w * visual.box.h >= 50 * 50, "prominent visual box");
 });
 

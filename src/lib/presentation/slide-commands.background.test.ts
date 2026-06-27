@@ -29,6 +29,10 @@ function buildCommandDeck(slideIds: string[]): Deck {
   });
 }
 
+function designOverrides(slide: unknown): any {
+  return (slide as any).designOverrides;
+}
+
 // ---------------------------------------------------------------------------
 // Issue #400 — SET_SLIDE_BACKGROUND
 // ---------------------------------------------------------------------------
@@ -41,16 +45,29 @@ test("SET_SLIDE_BACKGROUND sets background color and emits patch", () => {
     background: "#ff0000",
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.slides[0]!.background, "#ff0000");
+  assert.deepEqual(designOverrides(result.deck.slides[0]!).background, {
+    type: "solid",
+    color: { value: "#ff0000" },
+  });
   assert.deepEqual(result.affectedSlideIds, ["s1"]);
   assert.equal(result.patches[0]!.op, "slide.set_background");
-  assert.equal(result.patches[0]!.slideFields?.["s1"]?.background, "#ff0000");
+  assert.deepEqual((result.patches[0]!.slideFields?.["s1"] as any).designOverrides.background, {
+    type: "solid",
+    color: { value: "#ff0000" },
+  });
 });
 
 test("SET_SLIDE_BACKGROUND clears background with undefined", () => {
   const deck: Deck = {
     themeId: "default",
-    slides: [{ ...buildCommandDeck(["s1"]).slides[0]!, background: "#aabbcc" }],
+    slides: [
+      {
+        ...buildCommandDeck(["s1"]).slides[0]!,
+        designOverrides: {
+          background: { type: "solid", color: { value: "#aabbcc" } },
+        },
+      } as any,
+    ],
   };
   const result = executeCommand(deck, {
     type: "SET_SLIDE_BACKGROUND",
@@ -58,7 +75,7 @@ test("SET_SLIDE_BACKGROUND clears background with undefined", () => {
     background: undefined,
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.slides[0]!.background, undefined);
+  assert.equal(designOverrides(result.deck.slides[0]!), undefined);
 });
 
 test("SET_SLIDE_BACKGROUND fails for missing slide", () => {
@@ -85,7 +102,12 @@ test("SET_SLIDE_BACKGROUND_GRADIENT sets gradient and emits patch", () => {
     gradient,
   });
   assert.equal(result.ok, true);
-  assert.deepEqual(result.deck.slides[0]!.backgroundGradient, gradient);
+  assert.deepEqual(designOverrides(result.deck.slides[0]!).background, {
+    type: "gradient",
+    from: { value: gradient.from },
+    to: { value: gradient.to },
+    angle: gradient.angle,
+  });
   assert.equal(result.patches[0]!.op, "slide.set_background_gradient");
 });
 
@@ -101,10 +123,10 @@ test("SET_SLIDE_BACKGROUND_IMAGE sets image URL and emits patch", () => {
     image: "https://example.com/bg.jpg",
   });
   assert.equal(result.ok, true);
-  assert.equal(
-    result.deck.slides[0]!.backgroundImage,
-    "https://example.com/bg.jpg",
-  );
+  assert.deepEqual(designOverrides(result.deck.slides[0]!).background, {
+    type: "image",
+    url: "https://example.com/bg.jpg",
+  });
   assert.equal(result.patches[0]!.op, "slide.set_background_image");
 });
 
@@ -124,17 +146,17 @@ test("SET_SLIDE_BACKGROUND_ASSET sets background asset and emits patch", () => {
     opts,
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.slides[0]!.backgroundImage, opts.url);
-  assert.equal(result.deck.slides[0]!.backgroundAssetId, opts.assetId);
+  assert.deepEqual(designOverrides(result.deck.slides[0]!).background, {
+    type: "image",
+    url: opts.url,
+    assetId: opts.assetId,
+  });
   assert.equal(result.patches[0]!.op, "slide.set_background_asset");
-  assert.equal(
-    result.patches[0]!.slideFields?.["s1"]?.backgroundImage,
-    opts.url,
-  );
-  assert.equal(
-    result.patches[0]!.slideFields?.["s1"]?.backgroundAssetId,
-    opts.assetId,
-  );
+  assert.deepEqual((result.patches[0]!.slideFields?.["s1"] as any).designOverrides.background, {
+    type: "image",
+    url: opts.url,
+    assetId: opts.assetId,
+  });
 });
 
 test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {
@@ -143,9 +165,14 @@ test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {
     slides: [
       {
         ...buildCommandDeck(["s1"]).slides[0]!,
-        backgroundImage: "https://cdn.example.com/old.jpg",
-        backgroundAssetId: "old123",
-      },
+        designOverrides: {
+          background: {
+            type: "image",
+            url: "https://cdn.example.com/old.jpg",
+            assetId: "old123",
+          },
+        },
+      } as any,
     ],
   };
   const result = executeCommand(deck, {
@@ -154,8 +181,7 @@ test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {
     opts: undefined,
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.slides[0]!.backgroundImage, undefined);
-  assert.equal(result.deck.slides[0]!.backgroundAssetId, undefined);
+  assert.equal(designOverrides(result.deck.slides[0]!), undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -170,15 +196,24 @@ test("SET_SLIDE_ACCENT sets accent color and emits patch", () => {
     accent: "#00ff00",
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.slides[0]!.accent, "#00ff00");
+  assert.deepEqual(designOverrides(result.deck.slides[0]!).accent, {
+    value: "#00ff00",
+  });
   assert.equal(result.patches[0]!.op, "slide.set_accent");
-  assert.equal(result.patches[0]!.slideFields?.["s1"]?.accent, "#00ff00");
+  assert.deepEqual((result.patches[0]!.slideFields?.["s1"] as any).designOverrides.accent, {
+    value: "#00ff00",
+  });
 });
 
 test("SET_SLIDE_ACCENT clears accent with undefined", () => {
   const deck: Deck = {
     themeId: "default",
-    slides: [{ ...buildCommandDeck(["s1"]).slides[0]!, accent: "#ff0000" }],
+    slides: [
+      {
+        ...buildCommandDeck(["s1"]).slides[0]!,
+        designOverrides: { accent: { value: "#ff0000" } },
+      } as any,
+    ],
   };
   const result = executeCommand(deck, {
     type: "SET_SLIDE_ACCENT",
@@ -186,5 +221,5 @@ test("SET_SLIDE_ACCENT clears accent with undefined", () => {
     accent: undefined,
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.slides[0]!.accent, undefined);
+  assert.equal(designOverrides(result.deck.slides[0]!), undefined);
 });

@@ -33,6 +33,41 @@ function deck(slides: Slide[], themeId: string = "indigo"): Deck {
   };
 }
 
+function deckThemeId(deck: Deck): string | undefined {
+  return (deck as any).design?.themeId;
+}
+
+function content(element: unknown): any {
+  return (element as any)?.content ?? {};
+}
+
+function role(element: unknown): string | undefined {
+  return (element as any)?.role;
+}
+
+function text(element: unknown): string | undefined {
+  return content(element).text;
+}
+
+function textStyle(element: unknown): any {
+  return (element as any)?.designOverrides?.textStyle;
+}
+
+function visualId(element: unknown): string | undefined {
+  return content(element).visualId;
+}
+
+function alt(element: unknown): string | undefined {
+  return content(element).alt;
+}
+
+function slideVisualIds(slide: Slide): string[] {
+  return (slide.elements ?? [])
+    .filter((element) => element.kind === "visual")
+    .map((element) => visualId(element))
+    .filter((id): id is string => typeof id === "string");
+}
+
 function area(el: Extract<SlideElement, { box: unknown }>): number {
   return el.box.w * el.box.h;
 }
@@ -74,7 +109,7 @@ test("every slide gets template-conformant positioned elements", () => {
   assert.ok(result.slides[0].elements?.some((e) => e.kind === "text"));
   assert.ok(
     result.slides[1].elements?.some(
-      (e) => e.kind === "text" && e.textRole === "bullet",
+      (e) => e.kind === "text" && role(e) === "bullet",
     ),
   );
   assert.ok(result.slides[2].elements?.some((e) => e.kind === "visual"));
@@ -88,7 +123,7 @@ test("a media slide places its chosen visual in a prominent box", () => {
   const result = normalizeGeneratedDeck(input, KNOWN);
   const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
   assert.ok(visual && visual.kind === "visual");
-  assert.equal(visual.visualId, "vis-1");
+  assert.equal(visualId(visual), "vis-1");
   // Prominent: occupies a large share of the slide.
   assert.ok(area(visual) >= 50 * 50, "visual box is prominent");
 });
@@ -116,7 +151,7 @@ test("injects a prominent visual when a media slide's elements lack one", () => 
   const result = normalizeGeneratedDeck(input, KNOWN);
   const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
   assert.ok(visual && visual.kind === "visual");
-  assert.equal(visual.visualId, "vis-2");
+  assert.equal(visualId(visual), "vis-2");
   assert.ok(area(visual) >= 50 * 50);
 });
 
@@ -183,8 +218,8 @@ test("keeps and cleans model elements that match the layout", () => {
   const result = normalizeGeneratedDeck(input, KNOWN);
   const els = result.slides[0].elements ?? [];
   const title = els.find((e) => e.kind === "text");
-  assert.ok(title && title.kind === "text" && title.text === "My Title");
-  assert.ok(els.some((e) => e.kind === "text" && e.textRole === "bullet"));
+  assert.ok(title && title.kind === "text" && text(title) === "My Title");
+  assert.ok(els.some((e) => e.kind === "text" && role(e) === "bullet"));
 });
 
 test("title text is forced bold for clear hierarchy", () => {
@@ -208,7 +243,7 @@ test("title text is forced bold for clear hierarchy", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN);
   const title = result.slides[0].elements?.find((e) => e.kind === "text");
-  assert.ok(title && title.kind === "text" && title.style.bold === true);
+  assert.ok(title && title.kind === "text" && textStyle(title).bold === true);
 });
 
 test("keeps the generated theme at deck level", () => {
@@ -221,7 +256,7 @@ test("keeps the generated theme at deck level", () => {
   );
 
   const result = normalizeGeneratedDeck(input, KNOWN);
-  assert.equal(result.themeId, "ocean");
+  assert.equal(deckThemeId(result), "ocean");
 });
 
 test("falls back to indigo when the deck theme is missing/invalid", () => {
@@ -232,7 +267,7 @@ test("falls back to indigo when the deck theme is missing/invalid", () => {
   } as Deck;
 
   const result = normalizeGeneratedDeck(bad, KNOWN);
-  assert.equal(result.themeId, FALLBACK_THEME);
+  assert.equal(deckThemeId(result), FALLBACK_THEME);
 });
 
 test("upgrades a model 'default' theme to preferredTheme (#281)", () => {
@@ -240,7 +275,7 @@ test("upgrades a model 'default' theme to preferredTheme (#281)", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN, "ocean");
 
-  assert.equal(result.themeId, "ocean");
+  assert.equal(deckThemeId(result), "ocean");
   assert.ok(safeParseDeck(result).success);
 });
 
@@ -249,8 +284,8 @@ test("upgrades a model 'default' theme to indigo when no preferred (#281)", () =
 
   const result = normalizeGeneratedDeck(input, KNOWN);
 
-  assert.equal(result.themeId, FALLBACK_THEME);
-  assert.notEqual(result.themeId, "default");
+  assert.equal(deckThemeId(result), FALLBACK_THEME);
+  assert.notEqual(deckThemeId(result), "default");
   assert.ok(safeParseDeck(result).success);
 });
 
@@ -259,7 +294,7 @@ test("preserves an explicit vibrant themeId over preferredTheme (#281)", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN, "ocean");
 
-  assert.equal(result.themeId, "forest");
+  assert.equal(deckThemeId(result), "forest");
   assert.ok(safeParseDeck(result).success);
 });
 
@@ -271,7 +306,7 @@ test("uses preferredTheme when the deck theme is missing/invalid (#281)", () => 
 
   const result = normalizeGeneratedDeck(bad, KNOWN, "grape");
 
-  assert.equal(result.themeId, "grape");
+  assert.equal(deckThemeId(result), "grape");
   assert.ok(safeParseDeck(result).success);
 });
 
@@ -292,7 +327,7 @@ test("marks every slide elementsDerived=false (authored)", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN);
   for (const s of result.slides) {
-    assert.equal(s.elementsDerived, false);
+    assert.equal("elementsDerived" in s, false);
   }
 });
 
@@ -306,11 +341,9 @@ test("drops visual references that are not in the inventory", () => {
   ]);
 
   const result = normalizeGeneratedDeck(input, KNOWN);
-  assert.deepEqual(result.slides[0].visualIds, ["vis-1"]);
-  const visualIds = (result.slides[0].elements ?? [])
-    .filter((e) => e.kind === "visual")
-    .map((e) => (e.kind === "visual" ? e.visualId : ""));
+  const visualIds = slideVisualIds(result.slides[0]);
   assert.ok(!visualIds.includes("ghost"));
+  assert.deepEqual(visualIds, ["vis-1"]);
 });
 
 test("edge case: slide with no visual yields no visual element", () => {
@@ -322,7 +355,7 @@ test("edge case: slide with no visual yields no visual element", () => {
   assert.ok(!result.slides[0].elements?.some((e) => e.kind === "visual"));
   assert.ok(
     result.slides[0].elements?.some(
-      (e) => e.kind === "text" && e.textRole === "bullet",
+      (e) => e.kind === "text" && role(e) === "bullet",
     ),
   );
 });
@@ -337,9 +370,7 @@ test("edge case: slide with multiple visuals keeps every known visual", () => {
   ]);
 
   const result = normalizeGeneratedDeck(input, KNOWN);
-  const ids = (result.slides[0].elements ?? [])
-    .filter((e) => e.kind === "visual")
-    .map((e) => (e.kind === "visual" ? e.visualId : ""));
+  const ids = slideVisualIds(result.slides[0]);
   assert.deepEqual(new Set(ids), new Set(["vis-1", "vis-2"]));
 });
 
@@ -404,7 +435,7 @@ test("normalization labels visual elements with the inventory title", () => {
   const result = normalizeGeneratedDeck(input, inventory);
   const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
   assert.ok(visual && visual.kind === "visual");
-  assert.equal(visual.alt, "Revenue chart");
+  assert.equal(alt(visual), "Revenue chart");
 });
 
 test("normalization falls back to a default visual label without titles", () => {
@@ -416,7 +447,7 @@ test("normalization falls back to a default visual label without titles", () => 
   const result = normalizeGeneratedDeck(input, new Set(["vis-1"]));
   const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
   assert.ok(visual && visual.kind === "visual");
-  assert.equal(visual.alt, "Generated visual");
+  assert.equal(alt(visual), "Generated visual");
 });
 
 test("normalization preserves a model-supplied visual alt", () => {
@@ -442,5 +473,5 @@ test("normalization preserves a model-supplied visual alt", () => {
   const result = normalizeGeneratedDeck(input, inventory);
   const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
   assert.ok(visual && visual.kind === "visual");
-  assert.equal(visual.alt, "Author supplied label");
+  assert.equal(alt(visual), "Author supplied label");
 });

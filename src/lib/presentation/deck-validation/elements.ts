@@ -1,9 +1,7 @@
 import type {
-  BaseElement,
   Paragraph,
   ConnectorAnchor,
   ConnectorArrow,
-  ConnectorElement,
   ConnectorPoint,
   ConnectorRouting,
   ElementAlign,
@@ -14,8 +12,6 @@ import type {
   TextFitMode,
   TextRun,
 } from "../deck-elements";
-import { isDeckTextRole } from "../deck-theme-token-resolvers";
-import { DECK_TEXT_ROLES, type DeckTextRole } from "../deck-theme-token-types";
 import { isSlideFontId } from "../slide-fonts";
 import {
   validateImageCrop,
@@ -38,6 +34,258 @@ import {
   validateFiniteNumber,
   validateOpacity,
 } from "./shared";
+
+const PRESENTATION_ROLES = [
+  "title",
+  "subtitle",
+  "sectionTitle",
+  "body",
+  "bullet",
+  "quote",
+  "caption",
+  "footer",
+  "label",
+  "media",
+  "visual",
+  "image",
+  "logo",
+  "pageNumber",
+  "background",
+] as const;
+
+const COLOR_REF_TOKENS = [
+  "slideBg",
+  "surface",
+  "accent",
+  "onBg",
+  "onSurface",
+  "muted",
+] as const;
+
+const REMOVED_ELEMENT_FIELDS = [
+  "alt",
+  "arrowEnd",
+  "arrowStart",
+  "assetId",
+  "bulletGap",
+  "bulletIndent",
+  "color",
+  "crop",
+  "dash",
+  "fitMode",
+  "groupId",
+  "maskShape",
+  "name",
+  "opacity",
+  "paragraphs",
+  "radius",
+  "rotation",
+  "routing",
+  "runs",
+  "shadow",
+  "shape",
+  "src",
+  "start",
+  "stroke",
+  "style",
+  "styleOverride",
+  "styleThemeId",
+  "text",
+  "textRole",
+  "textRuns",
+  "textStyle",
+  "textStyleOverride",
+  "visualId",
+] as const;
+
+function validatePresentationRole(input: unknown, context: string): string {
+  if (
+    typeof input !== "string" ||
+    !(PRESENTATION_ROLES as readonly string[]).includes(input)
+  ) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${PRESENTATION_ROLES.join(", ")}`,
+    );
+  }
+  return input;
+}
+
+function validateColorRef(
+  input: unknown,
+  context: string,
+): { token: string } | { value: string } {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.token === "string") {
+    if (!(COLOR_REF_TOKENS as readonly string[]).includes(input.token)) {
+      throw new DeckValidationError(
+        `${context}.token must be one of: ${COLOR_REF_TOKENS.join(", ")}`,
+      );
+    }
+    return { token: input.token };
+  }
+  if (typeof input.value === "string" && input.value.length > 0) {
+    return { value: input.value };
+  }
+  throw new DeckValidationError(
+    `${context} must contain a token or non-empty value`,
+  );
+}
+
+export function validateBackgroundDesign(
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.type === "solid") {
+    return {
+      type: "solid",
+      color: validateColorRef(input.color, `${context}.color`),
+    };
+  }
+  if (input.type === "gradient") {
+    return {
+      type: "gradient",
+      from: validateColorRef(input.from, `${context}.from`),
+      to: validateColorRef(input.to, `${context}.to`),
+      ...(typeof input.angle === "number" && Number.isFinite(input.angle)
+        ? { angle: input.angle }
+        : {}),
+    };
+  }
+  if (input.type === "image") {
+    if (typeof input.url !== "string" || input.url.length === 0) {
+      throw new DeckValidationError(
+        `${context}.url must be a non-empty string`,
+      );
+    }
+    if (
+      input.assetId !== undefined &&
+      (typeof input.assetId !== "string" || input.assetId.length === 0)
+    ) {
+      throw new DeckValidationError(
+        `${context}.assetId must be a non-empty string`,
+      );
+    }
+    return {
+      type: "image",
+      url: input.url,
+      ...(typeof input.assetId === "string" && input.assetId.length > 0
+        ? { assetId: input.assetId }
+        : {}),
+    };
+  }
+  throw new DeckValidationError(
+    `${context}.type must be "solid", "gradient", or "image"`,
+  );
+}
+
+function validateDesignOverrides(
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const out: Record<string, unknown> = { ...input };
+  if (input.background !== undefined) {
+    out.background = validateBackgroundDesign(
+      input.background,
+      `${context}.background`,
+    );
+  }
+  if (input.textStyle !== undefined) {
+    out.textStyle = validatePartialTextStyle(
+      input.textStyle,
+      `${context}.textStyle`,
+    );
+  }
+  if (input.fill !== undefined) {
+    out.fill = validateColorRef(input.fill, `${context}.fill`);
+  }
+  if (input.stroke !== undefined) {
+    if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
+      throw new DeckValidationError(`${context}.stroke.color must be a hex color`);
+    }
+    out.stroke = {
+      color: input.stroke.color,
+      width: Math.max(
+        0,
+        validateFiniteNumber(input.stroke.width, `${context}.stroke.width`),
+      ),
+    };
+  }
+  if (input.radius !== undefined) {
+    out.radius = Math.max(
+      0,
+      Math.min(50, validateFiniteNumber(input.radius, `${context}.radius`)),
+    );
+  }
+  if (input.fitMode !== undefined) {
+    out.fitMode = validateImageFitMode(input.fitMode, `${context}.fitMode`);
+  }
+  if (input.maskShape !== undefined) {
+    out.maskShape = validateImageMaskShape(
+      input.maskShape,
+      `${context}.maskShape`,
+    );
+  }
+  if (
+    input.arrowStart !== undefined &&
+    !CONNECTOR_ARROWS.includes(input.arrowStart as ConnectorArrow)
+  ) {
+    throw new DeckValidationError(
+      `${context}.arrowStart must be one of: ${CONNECTOR_ARROWS.join(", ")}`,
+    );
+  }
+  if (
+    input.arrowEnd !== undefined &&
+    !CONNECTOR_ARROWS.includes(input.arrowEnd as ConnectorArrow)
+  ) {
+    throw new DeckValidationError(
+      `${context}.arrowEnd must be one of: ${CONNECTOR_ARROWS.join(", ")}`,
+    );
+  }
+  if (input.opacity !== undefined) {
+    out.opacity = validateOpacity(input.opacity, `${context}.opacity`);
+  }
+  if (input.dash !== undefined) out.dash = Boolean(input.dash);
+  return out;
+}
+
+function validateElementSource(
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  return validateSourceRef(input, context) as unknown as Record<string, unknown>;
+}
+
+function rejectRemovedElementFields(
+  input: Record<string, unknown>,
+  context: string,
+): void {
+  for (const field of REMOVED_ELEMENT_FIELDS) {
+    if (field in input) {
+      throw new DeckValidationError(
+        `${context}.${field} has moved to content or designOverrides`,
+      );
+    }
+  }
+  if (input.layoutSlot !== undefined) {
+    throw new DeckValidationError(
+      `${context}.layoutSlot is no longer supported`,
+    );
+  }
+  if (input.sourceRef !== undefined) {
+    throw new DeckValidationError(`${context}.sourceRef has moved to source`);
+  }
+}
 
 function validateTextFitMode(
   value: unknown,
@@ -188,16 +436,6 @@ function validatePartialTextStyle(
   return out;
 }
 
-/** Validates an optional semantic text role field (#605). */
-function validateTextRole(input: unknown, context: string): DeckTextRole {
-  if (!isDeckTextRole(input)) {
-    throw new DeckValidationError(
-      `${context} must be one of: ${DECK_TEXT_ROLES.join(", ")}`,
-    );
-  }
-  return input;
-}
-
 function validateTextRun(input: unknown, context: string): TextRun {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
@@ -327,61 +565,66 @@ function validateParagraphs(value: unknown, context: string): Paragraph[] {
 function validateBaseElementFields(
   input: Record<string, unknown>,
   context: string,
-): BaseElement {
+): Record<string, unknown> {
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
   }
-  const box = validateBox(input.box, `${context}.box`);
-  const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
-  if (input.layoutSlot !== undefined) {
+  if (
+    typeof input.kind !== "string" ||
+    !["text", "visual", "image", "shape", "connector"].includes(input.kind)
+  ) {
     throw new DeckValidationError(
-      `${context}.layoutSlot is no longer supported`,
+      `${context}.kind must be one of: text, visual, image, shape, connector`,
     );
   }
+  const box = validateBox(input.box, `${context}.box`);
+  const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
+  rejectRemovedElementFields(input, context);
   return {
     id: input.id,
+    kind: input.kind,
+    ...(input.role !== undefined
+      ? { role: validatePresentationRole(input.role, `${context}.role`) }
+      : {}),
     box,
     zIndex,
-    ...(input.opacity !== undefined
-      ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
-      : {}),
-    ...(input.rotation !== undefined
+    ...(input.designOverrides !== undefined
       ? {
-          rotation: validateFiniteNumber(input.rotation, `${context}.rotation`),
+          designOverrides: validateDesignOverrides(
+            input.designOverrides,
+            `${context}.designOverrides`,
+          ),
         }
       : {}),
-    ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
     ...(input.hidden !== undefined ? { hidden: Boolean(input.hidden) } : {}),
-    ...(typeof input.name === "string" && input.name.length > 0
-      ? { name: input.name }
-      : {}),
-    ...(typeof input.groupId === "string" && input.groupId.length > 0
-      ? { groupId: input.groupId }
-      : {}),
-    ...(input.sourceRef !== undefined
-      ? {
-          sourceRef: validateSourceRef(input.sourceRef, `${context}.sourceRef`),
-        }
+    ...(input.source !== undefined
+      ? { source: validateElementSource(input.source, `${context}.source`) }
       : {}),
   };
 }
 
-export function validateElement(input: unknown, context: string): SlideElement {
+function validateElementContent(
+  kind: string,
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
-  const base = validateBaseElementFields(input, context);
+  if (input.kind !== kind) {
+    throw new DeckValidationError(`${context}.kind must match element kind`);
+  }
 
-  switch (input.kind) {
+  switch (kind) {
     case "text": {
       if (typeof input.text !== "string") {
         throw new DeckValidationError(`${context}.text must be a string`);
       }
-      const paragraphs = validateParagraphs(
-        input.paragraphs,
-        `${context}.paragraphs`,
-      );
+      const paragraphs =
+        input.paragraphs !== undefined
+          ? validateParagraphs(input.paragraphs, `${context}.paragraphs`)
+          : [{ text: input.text }];
       const fitMode = validateTextFitMode(input.fitMode, `${context}.fitMode`);
       if (
         input.bulletGap !== undefined &&
@@ -402,26 +645,11 @@ export function validateElement(input: unknown, context: string): SlideElement {
         );
       }
       return {
-        ...base,
-        kind: "text",
+        kind,
         text: input.text,
         paragraphs,
         ...(input.runs !== undefined
           ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
-          : {}),
-        style: validateTextStyle(input.style, `${context}.style`),
-        ...(input.textRole !== undefined
-          ? {
-              textRole: validateTextRole(input.textRole, `${context}.textRole`),
-            }
-          : {}),
-        ...(input.styleOverride !== undefined
-          ? {
-              styleOverride: validatePartialTextStyle(
-                input.styleOverride,
-                `${context}.styleOverride`,
-              ),
-            }
           : {}),
         ...(fitMode !== undefined ? { fitMode } : {}),
         ...(input.bulletGap !== undefined
@@ -438,20 +666,11 @@ export function validateElement(input: unknown, context: string): SlideElement {
           `${context}.visualId must be a non-empty string`,
         );
       }
-      if (
-        input.styleThemeId !== undefined &&
-        typeof input.styleThemeId !== "string"
-      ) {
-        throw new DeckValidationError(
-          `${context}.styleThemeId must be a string`,
-        );
-      }
       if (input.alt !== undefined && typeof input.alt !== "string") {
         throw new DeckValidationError(`${context}.alt must be a string`);
       }
       return {
-        ...base,
-        kind: "visual",
+        kind,
         visualId: input.visualId,
         ...(typeof input.styleThemeId === "string" &&
         input.styleThemeId.length > 0
@@ -463,42 +682,30 @@ export function validateElement(input: unknown, context: string): SlideElement {
       };
     }
     case "image": {
-      if (typeof input.src !== "string" || input.src.length === 0) {
+      if (input.assetId !== undefined && typeof input.assetId !== "string") {
+        throw new DeckValidationError(`${context}.assetId must be a string`);
+      }
+      if (
+        (typeof input.src !== "string" || input.src.length === 0) &&
+        (typeof input.assetId !== "string" || input.assetId.length === 0)
+      ) {
         throw new DeckValidationError(
-          `${context}.src must be a non-empty string`,
+          `${context}.src or ${context}.assetId must be a non-empty string`,
         );
       }
       if (input.alt !== undefined && typeof input.alt !== "string") {
         throw new DeckValidationError(`${context}.alt must be a string`);
       }
-      if (input.assetId !== undefined && typeof input.assetId !== "string") {
-        throw new DeckValidationError(`${context}.assetId must be a string`);
-      }
-      const fitMode = validateImageFitMode(input.fitMode, `${context}.fitMode`);
-      const maskShape = validateImageMaskShape(
-        input.maskShape,
-        `${context}.maskShape`,
-      );
       const crop = validateImageCrop(input.crop, `${context}.crop`);
       return {
-        ...base,
-        kind: "image",
-        src: input.src,
-        ...(input.alt !== undefined ? { alt: input.alt } : {}),
-        ...(input.assetId !== undefined ? { assetId: input.assetId } : {}),
-        ...(input.radius !== undefined
-          ? {
-              radius: Math.max(
-                0,
-                Math.min(
-                  50,
-                  validateFiniteNumber(input.radius, `${context}.radius`),
-                ),
-              ),
-            }
+        kind,
+        ...(typeof input.src === "string" && input.src.length > 0
+          ? { src: input.src }
           : {}),
-        ...(fitMode !== undefined ? { fitMode } : {}),
-        ...(maskShape !== undefined ? { maskShape } : {}),
+        ...(typeof input.assetId === "string" && input.assetId.length > 0
+          ? { assetId: input.assetId }
+          : {}),
+        ...(input.alt !== undefined ? { alt: input.alt } : {}),
         ...(crop !== undefined ? { crop } : {}),
       };
     }
@@ -511,125 +718,70 @@ export function validateElement(input: unknown, context: string): SlideElement {
           `${context}.shape must be one of: ${SHAPE_KINDS.join(", ")}`,
         );
       }
-      if (!isHexColor(input.color)) {
-        throw new DeckValidationError(`${context}.color must be a hex color`);
-      }
-      let stroke: { color: string; width: number } | undefined;
-      if (input.stroke !== undefined) {
-        if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
-          throw new DeckValidationError(
-            `${context}.stroke.color must be a hex color`,
-          );
-        }
-        stroke = {
-          color: input.stroke.color,
-          width: Math.max(
-            0,
-            validateFiniteNumber(input.stroke.width, `${context}.stroke.width`),
-          ),
-        };
-      }
-      const radius =
-        input.radius !== undefined
-          ? Math.max(
-              0,
-              Math.min(
-                50,
-                validateFiniteNumber(input.radius, `${context}.radius`),
-              ),
-            )
-          : undefined;
       return {
-        ...base,
-        kind: "shape",
-        shape: input.shape as ShapeKind,
-        color: input.color,
+        kind,
+        shape: input.shape,
         ...(typeof input.text === "string" ? { text: input.text } : {}),
         ...(input.textRuns !== undefined
-          ? {
-              textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`),
-            }
+          ? { textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`) }
           : {}),
-        ...(input.textStyle !== undefined
-          ? {
-              textStyle: validateTextStyle(
-                input.textStyle,
-                `${context}.textStyle`,
-              ),
-            }
-          : {}),
-        ...(input.textRole !== undefined
-          ? {
-              textRole: validateTextRole(input.textRole, `${context}.textRole`),
-            }
-          : {}),
-        ...(input.textStyleOverride !== undefined
-          ? {
-              textStyleOverride: validatePartialTextStyle(
-                input.textStyleOverride,
-                `${context}.textStyleOverride`,
-              ),
-            }
-          : {}),
-        ...(stroke !== undefined ? { stroke } : {}),
-        ...(radius !== undefined ? { radius } : {}),
       };
     }
     case "connector": {
-      if (!isPlainObject(input.start)) {
-        throw new DeckValidationError(`${context}.start must be an object`);
-      }
-      if (!isPlainObject(input.end)) {
-        throw new DeckValidationError(`${context}.end must be an object`);
-      }
       const start = validateConnectorPoint(input.start, `${context}.start`);
       const end = validateConnectorPoint(input.end, `${context}.end`);
-      const connector: ConnectorElement = {
-        ...base,
-        kind: "connector",
+      return {
+        kind,
         start,
         end,
-      };
-      if (input.stroke !== undefined) {
-        if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
-          throw new DeckValidationError(
-            `${context}.stroke.color must be a hex color`,
-          );
-        }
-        connector.stroke = {
-          color: input.stroke.color,
-          width: Math.max(
-            0,
-            validateFiniteNumber(input.stroke.width, `${context}.stroke.width`),
-          ),
-        };
-      }
-      if (
-        input.arrowStart !== undefined &&
-        CONNECTOR_ARROWS.includes(input.arrowStart as ConnectorArrow)
-      ) {
-        connector.arrowStart = input.arrowStart as ConnectorArrow;
-      }
-      if (
-        input.arrowEnd !== undefined &&
-        CONNECTOR_ARROWS.includes(input.arrowEnd as ConnectorArrow)
-      ) {
-        connector.arrowEnd = input.arrowEnd as ConnectorArrow;
-      }
-      if (input.dash !== undefined) {
-        connector.dash = Boolean(input.dash);
-      }
-      if (
-        input.routing !== undefined &&
+        ...(input.routing !== undefined &&
         CONNECTOR_ROUTINGS.includes(input.routing as ConnectorRouting)
-      ) {
-        connector.routing = input.routing as ConnectorRouting;
-      }
-      return connector;
+          ? { routing: input.routing as ConnectorRouting }
+          : {}),
+      };
     }
     default:
       throw new DeckValidationError(
         `${context}.kind must be one of: text, visual, image, shape, connector`,
       );
   }
+}
+
+export function validateElement(input: unknown, context: string): SlideElement {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const base = validateBaseElementFields(input, context);
+  const kind = base.kind as string;
+  const content = validateElementContent(
+    kind,
+    input.content,
+    `${context}.content`,
+  );
+  return { ...base, content } as unknown as SlideElement;
+}
+
+export function validateMasterElement(
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.layer !== "background" && input.layer !== "foreground") {
+    throw new DeckValidationError(
+      `${context}.layer must be "background" or "foreground"`,
+    );
+  }
+  if (input.locked !== true) {
+    throw new DeckValidationError(`${context}.locked must be true`);
+  }
+  const base = validateBaseElementFields(input, context);
+  const kind = base.kind as string;
+  const content = validateElementContent(
+    kind,
+    input.content,
+    `${context}.content`,
+  );
+  return { ...base, layer: input.layer, locked: true, content };
 }

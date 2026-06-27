@@ -13,6 +13,11 @@ import {
   type DeckTextRole,
   isDeckTextRole,
 } from "@/lib/presentation/deck-theme-tokens";
+import {
+  normalizeGeneratedDeck,
+  type VisualInventory,
+} from "@/lib/presentation/deck-layout-assign";
+import type { DeckTheme } from "@/lib/presentation/deck";
 
 export const REPAIRED_DECK_MAX_SLIDES = GENERATED_DECK_MAX_SLIDES;
 
@@ -195,7 +200,11 @@ export function repairSlide(input: unknown, index: number): RepairedSlide {
  * the deck theme id, maps unknown layouts to `"blank"`, regenerates missing ids, fills
  * sparse content fields, and caps the slide count.
  */
-export function repairDeck(parsed: unknown): Deck | undefined {
+export function repairDeck(
+  parsed: unknown,
+  inventory?: VisualInventory,
+  preferredTheme?: DeckTheme,
+): Deck | undefined {
   const candidate = Array.isArray(parsed) ? parsed[0] : parsed;
   if (!isPlainObject(candidate) || !Array.isArray(candidate.slides)) {
     return undefined;
@@ -213,9 +222,9 @@ export function repairDeck(parsed: unknown): Deck | undefined {
     .slice(0, REPAIRED_DECK_MAX_SLIDES)
     .map((slide, index) => repairSlide(slide, index));
 
-  return {
+  return normalizeGeneratedDeck({
     slides,
     themeId,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  } as Deck;
+  } as Deck, inventory, preferredTheme);
 }

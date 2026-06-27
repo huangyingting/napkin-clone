@@ -3,34 +3,112 @@ import {
   type Deck,
   type Slide,
 } from "../deck-core";
-import {
-  SLIDE_LAYOUTS,
-  type SlideLayout as DeckLayout,
-  type SlideLayoutHint,
-} from "../deck-layouts-model";
-import { DEFAULT_SLIDE_FORMAT, SLIDE_FORMATS } from "../slide-format";
-import type { MasterSlide } from "../deck-theme-token-types";
+import { SLIDE_FORMATS } from "../slide-format";
 import {
   validateElement,
-  validateBulletRuns,
-  validateTextRuns,
+  validateBackgroundDesign,
+  validateMasterElement,
 } from "./elements";
-import { validateLayout } from "./layouts";
-import { validateCustomTokenSet, validateMaster } from "./theme";
 import {
   DeckValidationError,
-  isHexColor,
   isPlainObject,
   isSlideFormat,
-  isSlideLayoutHint,
-  validateStringArray,
 } from "./shared";
+
+const REMOVED_DECK_FIELDS = [
+  "customTokenSet",
+  "layouts",
+  "slideFormat",
+  "themeId",
+] as const;
+
+const REMOVED_SLIDE_FIELDS = [
+  "accent",
+  "background",
+  "backgroundAssetId",
+  "backgroundGradient",
+  "backgroundImage",
+  "bulletRuns",
+  "bullets",
+  "elementsDerived",
+  "layout",
+  "masterRef",
+  "sourceSectionId",
+  "titleRuns",
+  "visualIds",
+] as const;
+
+function rejectRemovedFields(
+  input: Record<string, unknown>,
+  fields: readonly string[],
+  context: string,
+): void {
+  for (const field of fields) {
+    if (field in input) {
+      throw new DeckValidationError(`${context}.${field} is not supported in v6`);
+    }
+  }
+}
+
+function validateUnknownObject(
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  return { ...input };
+}
+
+function validateCanvas(input: unknown): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError("Deck.canvas must be an object");
+  }
+  if (!isSlideFormat(input.format)) {
+    throw new DeckValidationError(
+      `Deck.canvas.format must be one of: ${SLIDE_FORMATS.join(", ")}`,
+    );
+  }
+  return { format: input.format };
+}
+
+function validatePresentationDesign(input: unknown): Record<string, unknown> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError("Deck.design must be an object");
+  }
+  if (typeof input.themeId !== "string" || input.themeId.trim().length === 0) {
+    throw new DeckValidationError("Deck.design.themeId must be a non-empty string");
+  }
+  return {
+    themeId: input.themeId.trim(),
+    ...(input.themeOverrides !== undefined
+      ? {
+          themeOverrides: validateUnknownObject(
+            input.themeOverrides,
+            "Deck.design.themeOverrides",
+          ),
+        }
+      : {}),
+  };
+}
+
+function validateDesignOverrides(
+  input: unknown,
+  context: string,
+): Record<string, unknown> {
+  const out = validateUnknownObject(input, context);
+  if (out.background !== undefined) {
+    out.background = validateBackgroundDesign(out.background, `${context}.background`);
+  }
+  return out;
+}
 
 function validateSlide(input: unknown, index: number): Slide {
   const context = `slides[${index}]`;
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
+  rejectRemovedFields(input, REMOVED_SLIDE_FIELDS, context);
 
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
@@ -43,25 +121,7 @@ function validateSlide(input: unknown, index: number): Slide {
   if (typeof input.title !== "string") {
     throw new DeckValidationError(`${context}.title must be a string`);
   }
-  const bullets = validateStringArray(input.bullets, `${context}.bullets`);
-  const titleRuns =
-    input.titleRuns !== undefined
-      ? validateTextRuns(input.titleRuns, `${context}.titleRuns`)
-      : undefined;
-  const bulletRuns =
-    input.bulletRuns !== undefined
-      ? validateBulletRuns(input.bulletRuns, `${context}.bulletRuns`)
-      : undefined;
-  const visualIds = validateStringArray(
-    input.visualIds,
-    `${context}.visualIds`,
-  );
-  if (!isSlideLayoutHint(input.layout)) {
-    throw new DeckValidationError(
-      `${context}.layout must be one of: ${SLIDE_LAYOUTS.join(", ")}`,
-    );
-  }
-  if (typeof input.notes !== "string") {
+  if (input.notes !== undefined && typeof input.notes !== "string") {
     throw new DeckValidationError(`${context}.notes must be a string`);
   }
 
@@ -72,97 +132,127 @@ function validateSlide(input: unknown, index: number): Slide {
     validateElement(element, `${context}.elements[${elementIndex}]`),
   );
 
-  if (input.background !== undefined && !isHexColor(input.background)) {
-    throw new DeckValidationError(`${context}.background must be a hex color`);
-  }
-  let backgroundGradient:
-    | { from: string; to: string; angle?: number }
-    | undefined;
-  if (input.backgroundGradient !== undefined) {
-    const g = input.backgroundGradient;
-    if (!isPlainObject(g) || !isHexColor(g.from) || !isHexColor(g.to)) {
-      throw new DeckValidationError(
-        `${context}.backgroundGradient.from/to must be hex colors`,
-      );
-    }
-    backgroundGradient = {
-      from: g.from,
-      to: g.to,
-      ...(typeof g.angle === "number" && Number.isFinite(g.angle)
-        ? { angle: g.angle }
-        : {}),
-    };
-  }
-  if (
-    input.backgroundImage !== undefined &&
-    (typeof input.backgroundImage !== "string" ||
-      input.backgroundImage.length === 0)
-  ) {
-    throw new DeckValidationError(
-      `${context}.backgroundImage must be a non-empty string`,
-    );
-  }
-  if (
-    input.backgroundAssetId !== undefined &&
-    (typeof input.backgroundAssetId !== "string" ||
-      input.backgroundAssetId.length === 0)
-  ) {
-    throw new DeckValidationError(
-      `${context}.backgroundAssetId must be a non-empty string`,
-    );
-  }
-  if (input.accent !== undefined && !isHexColor(input.accent)) {
-    throw new DeckValidationError(`${context}.accent must be a hex color`);
-  }
-  // masterRef — optional non-empty string
-  const masterRef =
-    typeof input.masterRef === "string" && input.masterRef.length > 0
-      ? input.masterRef
-      : undefined;
-  if (
-    input.elementsDerived !== undefined &&
-    typeof input.elementsDerived !== "boolean"
-  ) {
-    throw new DeckValidationError(
-      `${context}.elementsDerived must be a boolean`,
-    );
-  }
-
-  // Preserve a persisted sourceSectionId verbatim — only buildDeckFromBlocks
-  // assigns it; validateSlide never backfills or re-derives it.
-  const sourceSectionId =
-    typeof input.sourceSectionId === "string" &&
-    input.sourceSectionId.length > 0
-      ? input.sourceSectionId
-      : undefined;
-
   return {
     id,
     index: input.index,
     title: input.title,
-    ...(titleRuns !== undefined ? { titleRuns } : {}),
-    bullets,
-    ...(bulletRuns !== undefined ? { bulletRuns } : {}),
-    visualIds,
-    layout: input.layout as SlideLayoutHint,
-    notes: input.notes,
+    ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    ...(typeof input.masterId === "string" && input.masterId.length > 0
+      ? { masterId: input.masterId }
+      : {}),
+    ...(typeof input.templateId === "string" && input.templateId.length > 0
+      ? { templateId: input.templateId }
+      : {}),
+    ...(input.designOverrides !== undefined
+      ? {
+          designOverrides: validateDesignOverrides(
+            input.designOverrides,
+            `${context}.designOverrides`,
+          ),
+        }
+      : {}),
     elements,
-    ...(input.elementsDerived !== undefined
-      ? { elementsDerived: input.elementsDerived as boolean }
+    ...(input.source !== undefined
+      ? { source: validateUnknownObject(input.source, `${context}.source`) }
       : {}),
-    ...(sourceSectionId !== undefined ? { sourceSectionId } : {}),
+  } as unknown as Slide;
+}
+
+function validateSlideMaster(input: unknown, index: number): Record<string, unknown> {
+  const context = `Deck.masters[${index}]`;
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (typeof input.name !== "string" || input.name.length === 0) {
+    throw new DeckValidationError(`${context}.name must be a non-empty string`);
+  }
+  if (!Array.isArray(input.elements)) {
+    throw new DeckValidationError(`${context}.elements must be an array`);
+  }
+  return {
+    id: input.id,
+    name: input.name,
     ...(input.background !== undefined
-      ? { background: input.background as string }
+      ? {
+          background: validateBackgroundDesign(
+            input.background,
+            `${context}.background`,
+          ),
+        }
       : {}),
-    ...(backgroundGradient !== undefined ? { backgroundGradient } : {}),
-    ...(input.backgroundImage !== undefined
-      ? { backgroundImage: input.backgroundImage as string }
+    ...(input.designOverrides !== undefined
+      ? {
+          designOverrides: validateDesignOverrides(
+            input.designOverrides,
+            `${context}.designOverrides`,
+          ),
+        }
       : {}),
-    ...(input.backgroundAssetId !== undefined
-      ? { backgroundAssetId: input.backgroundAssetId as string }
+    elements: input.elements.map((element, elementIndex) =>
+      validateMasterElement(element, `${context}.elements[${elementIndex}]`),
+    ),
+  };
+}
+
+function validateCustomTemplate(
+  input: unknown,
+  index: number,
+): Record<string, unknown> {
+  const context = `Deck.customTemplates[${index}]`;
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (typeof input.name !== "string" || input.name.length === 0) {
+    throw new DeckValidationError(`${context}.name must be a non-empty string`);
+  }
+  if (
+    typeof input.category !== "string" ||
+    !["title", "section", "content", "media", "comparison", "blank"].includes(
+      input.category,
+    )
+  ) {
+    throw new DeckValidationError(
+      `${context}.category must be one of: title, section, content, media, comparison, blank`,
+    );
+  }
+  if (!Array.isArray(input.elements)) {
+    throw new DeckValidationError(`${context}.elements must be an array`);
+  }
+  return {
+    id: input.id,
+    name: input.name,
+    category: input.category,
+    ...(typeof input.defaultMasterId === "string" &&
+    input.defaultMasterId.length > 0
+      ? { defaultMasterId: input.defaultMasterId }
       : {}),
-    ...(input.accent !== undefined ? { accent: input.accent as string } : {}),
-    ...(masterRef !== undefined ? { masterRef } : {}),
+    ...(input.slideDesignDefaults !== undefined
+      ? {
+          slideDesignDefaults: validateDesignOverrides(
+            input.slideDesignDefaults,
+            `${context}.slideDesignDefaults`,
+          ),
+        }
+      : {}),
+    elements: input.elements.map((element, elementIndex) => {
+      const elementContext = `${context}.elements[${elementIndex}]`;
+      if (!isPlainObject(element)) {
+        throw new DeckValidationError(`${elementContext} must be an object`);
+      }
+      if (element.contentDefaults !== undefined) {
+        validateUnknownObject(
+          element.contentDefaults,
+          `${elementContext}.contentDefaults`,
+        );
+      }
+      return validateUnknownObject(element, elementContext);
+    }),
   };
 }
 
@@ -176,55 +266,7 @@ export function validateDeck(input: unknown): Deck {
     throw new DeckValidationError("Deck must be an object");
   }
 
-  if (typeof input.themeId !== "string") {
-    throw new DeckValidationError("Deck.themeId must be a string");
-  }
-  const themeId = input.themeId.trim();
-  if (themeId.length === 0) {
-    throw new DeckValidationError("Deck.themeId must be a non-empty string");
-  }
-
-  const slideFormat =
-    input.slideFormat === undefined
-      ? DEFAULT_SLIDE_FORMAT
-      : isSlideFormat(input.slideFormat)
-        ? input.slideFormat
-        : (() => {
-            throw new DeckValidationError(
-              `Deck.slideFormat must be one of: ${SLIDE_FORMATS.join(", ")}`,
-            );
-          })();
-
-  if (!Array.isArray(input.slides)) {
-    throw new DeckValidationError("Deck.slides must be an array");
-  }
-
-  const slides = input.slides.map(validateSlide);
-  let layouts: DeckLayout[] | undefined;
-  if (input.layouts !== undefined) {
-    if (!Array.isArray(input.layouts)) {
-      throw new DeckValidationError("Deck.layouts must be an array");
-    }
-    layouts = input.layouts.map((layout, index) =>
-      validateLayout(layout, `Deck.layouts[${index}]`),
-    );
-  }
-
-  const deck: Deck = {
-    slides,
-    themeId,
-    slideFormat,
-    ...(layouts !== undefined ? { layouts } : {}),
-  };
-
-  if (input.deckContentHash !== undefined) {
-    if (typeof input.deckContentHash !== "string") {
-      throw new DeckValidationError("Deck.deckContentHash must be a string");
-    }
-    if (input.deckContentHash.length > 0) {
-      deck.deckContentHash = input.deckContentHash;
-    }
-  }
+  rejectRemovedFields(input, REMOVED_DECK_FIELDS, "Deck");
 
   if (
     typeof input.schemaVersion !== "number" ||
@@ -237,33 +279,56 @@ export function validateDeck(input: unknown): Deck {
       `Deck.schemaVersion ${input.schemaVersion} is not supported (current: ${CURRENT_DECK_SCHEMA_VERSION})`,
     );
   }
-  deck.schemaVersion = input.schemaVersion;
 
-  if (input.masters !== undefined) {
-    if (!Array.isArray(input.masters)) {
-      throw new DeckValidationError("Deck.masters must be an array");
+  const canvas = validateCanvas(input.canvas);
+  const design = validatePresentationDesign(input.design);
+
+  if (!Array.isArray(input.masters)) {
+    throw new DeckValidationError("Deck.masters must be an array");
+  }
+  const masters = input.masters.map(validateSlideMaster);
+  if (typeof input.defaultMasterId !== "string" || input.defaultMasterId.length === 0) {
+    throw new DeckValidationError("Deck.defaultMasterId must be a non-empty string");
+  }
+  const masterIds = new Set(masters.map((master) => master.id));
+  if (!masterIds.has(input.defaultMasterId)) {
+    throw new DeckValidationError("Deck.defaultMasterId must reference an existing master");
+  }
+
+  if (!Array.isArray(input.slides)) {
+    throw new DeckValidationError("Deck.slides must be an array");
+  }
+
+  const slides = input.slides.map(validateSlide);
+
+  const deck: Record<string, unknown> = {
+    schemaVersion: input.schemaVersion,
+    canvas,
+    design,
+    masters,
+    defaultMasterId: input.defaultMasterId,
+    ...(input.customTemplates !== undefined
+      ? {
+          customTemplates: Array.isArray(input.customTemplates)
+            ? input.customTemplates.map(validateCustomTemplate)
+            : (() => {
+                throw new DeckValidationError(
+                  "Deck.customTemplates must be an array",
+                );
+              })(),
+        }
+      : {}),
+    slides,
+  };
+
+  if (input.deckContentHash !== undefined) {
+    if (typeof input.deckContentHash !== "string") {
+      throw new DeckValidationError("Deck.deckContentHash must be a string");
     }
-    const masters: MasterSlide[] = input.masters.map((master, index) =>
-      validateMaster(master, `Deck.masters[${index}]`),
-    );
-    deck.masters = masters;
-    // Strip masterRefs pointing to non-existent masters (warn but don't fail)
-    const masterIds = new Set(masters.map((m) => m.id));
-    deck.slides = deck.slides.map((slide) => {
-      if (slide.masterRef !== undefined && !masterIds.has(slide.masterRef)) {
-        const { masterRef: _stripped, ...rest } = slide;
-        return rest as typeof slide;
-      }
-      return slide;
-    });
+    if (input.deckContentHash.length > 0) {
+      deck.deckContentHash = input.deckContentHash;
+    }
   }
 
-  if (input.customTokenSet !== undefined) {
-    deck.customTokenSet = validateCustomTokenSet(
-      input.customTokenSet,
-      "Deck.customTokenSet",
-    );
-  }
-
-  return deck;
+  return deck as unknown as Deck;
 }

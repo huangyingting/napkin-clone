@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defaultLayouts } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 import { currentDeck } from "./deck-schema.test-helpers";
 
@@ -9,20 +8,14 @@ import { currentDeck } from "./deck-schema.test-helpers";
 // Reusable layouts
 // ---------------------------------------------------------------------------
 
-test("safeParseDeck round-trips reusable layouts", () => {
-  const layouts = defaultLayouts().filter((layout) => layout.format === "16:9");
+test("safeParseDeck rejects reusable layouts on persisted v6 decks", () => {
+  const layouts: unknown[] = [];
   const result = safeParseDeck({
     ...(currentDeck() as object),
     layouts,
   });
-  assert.equal(result.success, true);
-  if (result.success) {
-    assert.equal(result.data.layouts?.length, layouts.length);
-    assert.equal(
-      result.data.layouts?.[1]?.placeholders[0]?.placeholderType,
-      layouts[1]?.placeholders[0]?.placeholderType,
-    );
-  }
+  assert.equal(result.success, false);
+  assert.match(result.error, /Deck\.layouts/);
 });
 
 // ---------------------------------------------------------------------------
@@ -69,7 +62,7 @@ test("safeParseDeck rejects a non-string deckContentHash", () => {
 // elementsDerived provenance flag (issue #221, #486)
 // ---------------------------------------------------------------------------
 
-test("safeParseDeck round-trips the elementsDerived flag (true preserved)", () => {
+test("safeParseDeck rejects the removed elementsDerived flag", () => {
   const withTrue = safeParseDeck({
     ...(currentDeck() as { slides: { [k: string]: unknown }[] }),
     slides: [
@@ -79,10 +72,8 @@ test("safeParseDeck round-trips the elementsDerived flag (true preserved)", () =
       },
     ],
   });
-  assert.equal(withTrue.success, true);
-  if (withTrue.success) {
-    assert.equal(withTrue.data.slides[0].elementsDerived, true);
-  }
+  assert.equal(withTrue.success, false);
+  assert.match(withTrue.error, /elementsDerived/);
 
   const withFalse = safeParseDeck({
     ...(currentDeck() as { slides: object[] }),
@@ -93,17 +84,15 @@ test("safeParseDeck round-trips the elementsDerived flag (true preserved)", () =
       },
     ],
   });
-  assert.equal(withFalse.success, true);
-  if (withFalse.success) {
-    assert.equal(withFalse.data.slides[0].elementsDerived, false);
-  }
+  assert.equal(withFalse.success, false);
+  assert.match(withFalse.error, /elementsDerived/);
 });
 
 test("safeParseDeck leaves elementsDerived absent when absent", () => {
   const result = safeParseDeck(currentDeck());
   assert.equal(result.success, true);
   if (result.success) {
-    assert.equal(result.data.slides[0].elementsDerived, undefined);
+    assert.equal("elementsDerived" in result.data.slides[0], false);
   }
 });
 

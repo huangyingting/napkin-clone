@@ -93,9 +93,9 @@ test("safeParseDeck round-trips image crop, fitMode, and maskShape", () => {
     const element = result.data.slides[0].elements?.[0];
     assert.equal(element?.kind, "image");
     if (element?.kind === "image") {
-      assert.equal(element.fitMode, "fill");
-      assert.equal(element.maskShape, "diamond");
-      assert.deepEqual(element.crop, {
+      assert.equal((element as any).designOverrides.fitMode, "fill");
+      assert.equal((element as any).designOverrides.maskShape, "diamond");
+      assert.deepEqual((element as any).content.crop, {
         top: 0.1,
         right: 0.2,
         bottom: 0.3,
@@ -112,7 +112,7 @@ test("safeParseDeck ignores obsolete image fit alias", () => {
     const element = result.data.slides[0].elements?.[0];
     assert.equal(element?.kind, "image");
     if (element?.kind === "image") {
-      assert.equal(element.fitMode, undefined);
+      assert.equal((element as any).designOverrides?.fitMode, undefined);
       assert.equal("fit" in element, false);
     }
   }
@@ -140,7 +140,7 @@ test("safeParseDeck round-trips assetId when it is a non-empty string", () => {
     const element = result.data.slides[0].elements?.[0];
     assert.equal(element?.kind, "image");
     if (element?.kind === "image") {
-      assert.equal(element.assetId, "clr1234abcdef");
+      assert.equal((element as any).content.assetId, "clr1234abcdef");
     }
   }
 });
@@ -152,7 +152,7 @@ test("safeParseDeck accepts an image element without assetId (optional field)", 
     const element = result.data.slides[0].elements?.[0];
     assert.equal(element?.kind, "image");
     if (element?.kind === "image") {
-      assert.equal(element.assetId, undefined);
+      assert.equal((element as any).content.assetId, undefined);
     }
   }
 });

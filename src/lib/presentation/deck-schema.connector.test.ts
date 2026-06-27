@@ -26,13 +26,10 @@ test("safeParseDeck accepts a connector element with two free points", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "connector");
     if (el?.kind === "connector") {
-      assert.deepEqual(el.start, { x: 10, y: 20 });
-      assert.deepEqual(el.end, { x: 80, y: 70 });
-      assert.equal(el.stroke, undefined);
-      assert.equal(el.arrowStart, undefined);
-      assert.equal(el.arrowEnd, undefined);
-      assert.equal(el.dash, undefined);
-      assert.equal(el.routing, undefined);
+      assert.deepEqual((el as any).content.start, { x: 10, y: 20 });
+      assert.deepEqual((el as any).content.end, { x: 80, y: 70 });
+      assert.equal((el as any).designOverrides, undefined);
+      assert.equal((el as any).content.routing, undefined);
     }
   }
 });
@@ -55,8 +52,8 @@ test("safeParseDeck accepts a connector element with bound endpoints", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "connector");
     if (el?.kind === "connector") {
-      assert.deepEqual(el.start, { elementId: "el-a", anchor: "right" });
-      assert.deepEqual(el.end, { elementId: "el-b", anchor: "left" });
+      assert.deepEqual((el as any).content.start, { elementId: "el-a", anchor: "right" });
+      assert.deepEqual((el as any).content.end, { elementId: "el-b", anchor: "left" });
     }
   }
 });
@@ -85,12 +82,15 @@ test("safeParseDeck round-trips connector optional fields", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "connector");
     if (el?.kind === "connector") {
-      assert.deepEqual(el.stroke, { color: "#ff0000", width: 1.5 });
-      assert.equal(el.arrowStart, "none");
-      assert.equal(el.arrowEnd, "filled");
-      assert.equal(el.dash, true);
-      assert.equal(el.routing, "elbow");
-      assert.equal(el.opacity, 0.7);
+      assert.deepEqual((el as any).designOverrides.stroke, {
+        color: "#ff0000",
+        width: 1.5,
+      });
+      assert.equal((el as any).designOverrides.arrowStart, "none");
+      assert.equal((el as any).designOverrides.arrowEnd, "filled");
+      assert.equal((el as any).designOverrides.dash, true);
+      assert.equal((el as any).content.routing, "elbow");
+      assert.equal((el as any).designOverrides.opacity, 0.7);
     }
   }
 });
@@ -162,7 +162,7 @@ test("safeParseDeck ignores unrecognised connector routing values", () => {
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
     if (el?.kind === "connector") {
-      assert.equal(el.routing, undefined);
+      assert.equal((el as any).content.routing, undefined);
     }
   }
 });

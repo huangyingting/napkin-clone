@@ -402,19 +402,30 @@ test("slide with elements but no provenance flag is treated as hand-edited", () 
 /** The title element's runs, or undefined. */
 function titleElementRuns(s: Slide): TextRun[] | undefined {
   const el = (s.elements ?? []).find(
-    (e) => e.kind === "text" && e.textRole === "h1",
+    (e) =>
+      e.kind === "text" &&
+      (((e as any).role ?? (e as any).textRole) === "title" ||
+        (e as any).textRole === "h1"),
   );
-  return el && el.kind === "text" ? el.runs : undefined;
+  return el && el.kind === "text" ? ((el as any).content?.runs ?? el.runs) : undefined;
 }
 
 /** The bullets element's per-line runs, or undefined. */
 function bulletElementRuns(s: Slide): TextRun[][] | undefined {
   const el = (s.elements ?? []).find(
-    (e) => e.kind === "text" && e.textRole === "bullet",
+    (e) => e.kind === "text" && (((e as any).role ?? (e as any).textRole) === "bullet"),
   );
   return el && el.kind === "text"
     ? normalizeTextParagraphs(el).map((paragraph) => paragraph.runs ?? [])
     : undefined;
+}
+
+function visualElementId(element: unknown): string | undefined {
+  return (element as any)?.content?.visualId ?? (element as any)?.visualId;
+}
+
+function slideSectionId(slide: Slide): string | undefined {
+  return (slide as any).source?.sectionId ?? (slide as any).sourceSectionId;
 }
 
 test("derived slide: document run text change reaches re-materialized elements", () => {
@@ -631,7 +642,7 @@ test("new document visual is appended to hand-edited slide (#294)", () => {
     (el): el is VisualElement => el.kind === "visual",
   );
   assert.equal(visualEls.length, 1);
-  assert.equal(visualEls[0].visualId, "vis-a");
+  assert.equal(visualElementId(visualEls[0]), "vis-a");
   // It should use the default centered box from buildVisualElement.
   assert.deepEqual(visualEls[0].box, DEFAULT_VISUAL_BOX);
   // elementsDerived must stay false — slide is still hand-edited.
@@ -663,7 +674,7 @@ test("existing manual elements are unchanged and new visual is appended after (#
     manualEl,
   );
   const visual = els.find((el): el is VisualElement => el.kind === "visual");
-  assert.equal(visual?.visualId, "vis-b");
+  assert.equal(visualElementId(visual), "vis-b");
 });
 
 test("already-rendered visual id is not duplicated (#294)", () => {
@@ -922,7 +933,7 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
 
   // The derived slide should carry a sourceSectionId.
   assert.ok(
-    derivedSlide.sourceSectionId !== undefined,
+    slideSectionId(derivedSlide) !== undefined,
     "buildDeckFromBlocks must stamp sourceSectionId on heading-based slides",
   );
 
@@ -945,8 +956,8 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
   const freshDeck = buildDeckFromBlocks(blocks);
   // Confirm the fresh slide has the same sourceSectionId as the initial derive.
   assert.equal(
-    freshDeck.slides[0].sourceSectionId,
-    derivedSlide.sourceSectionId,
+    slideSectionId(freshDeck.slides[0]),
+    slideSectionId(derivedSlide),
   );
 
   const { deck: merged, summary } = mergeDeckFromDocument(

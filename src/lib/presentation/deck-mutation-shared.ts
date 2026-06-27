@@ -28,13 +28,9 @@ export function freshBlankSlide(): Slide {
     id: makeSlideId(),
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements: [],
-    elementsDerived: false,
-  };
+  } as unknown as Slide;
 }
 
 /** Maps a single slide by index, leaving the rest of the deck untouched. */
@@ -66,7 +62,7 @@ export function nextZIndex(elements: readonly SlideElement[]): number {
  * Applied by every element-editing mutation (add/update/remove/reorder).
  */
 export function markElementsEdited(slide: Slide): Slide {
-  return slide.elementsDerived === false
+  return (slide as any).elementsDerived === false
     ? slide
     : { ...slide, elementsDerived: false };
 }

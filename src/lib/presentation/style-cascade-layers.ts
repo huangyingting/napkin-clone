@@ -24,7 +24,6 @@ import type {
 import {
   backgroundTreatmentToCss,
   resolveDeckThemeTokens,
-  resolveSlideBackground,
 } from "./deck-theme-token-resolvers";
 
 export const STYLE_CASCADE_LAYERS = [
@@ -54,7 +53,54 @@ export interface ResolvedSlideStyle {
 
 /** Resolves the token set for a deck, checking customTokenSet first. */
 export function resolveDeckTokenSet(deck: Deck): DeckThemeTokenSet {
-  return resolveDeckThemeTokens(deck);
+  const raw = deck as any;
+  return resolveDeckThemeTokens({
+    themeId: raw.design?.themeId ?? raw.themeId,
+    customTokenSet: raw.design?.themeOverrides?.tokenSet ?? raw.customTokenSet,
+  });
+}
+
+function colorRefValue(
+  input: unknown,
+  tokenSet: DeckThemeTokenSet,
+): string | undefined {
+  if (typeof input === "string") return input;
+  if (!input || typeof input !== "object") return undefined;
+  const ref = input as { token?: string; value?: string };
+  if (typeof ref.value === "string") return ref.value;
+  if (typeof ref.token === "string") {
+    return tokenSet.colors[ref.token as keyof DeckThemeTokenSet["colors"]];
+  }
+  return undefined;
+}
+
+function backgroundFromDesign(
+  input: unknown,
+  tokenSet: DeckThemeTokenSet,
+): BackgroundTreatment | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const background = input as Record<string, unknown>;
+  if (background.type === "solid") {
+    const color = colorRefValue(background.color, tokenSet);
+    return color ? { type: "solid", color } : undefined;
+  }
+  if (background.type === "gradient") {
+    const from = colorRefValue(background.from, tokenSet);
+    const to = colorRefValue(background.to, tokenSet);
+    if (!from || !to) return undefined;
+    return {
+      type: "gradient",
+      from,
+      to,
+      ...(typeof background.angle === "number"
+        ? { angle: background.angle }
+        : {}),
+    };
+  }
+  if (background.type === "image" && typeof background.url === "string") {
+    return { type: "image", url: background.url };
+  }
+  return undefined;
 }
 
 /**
@@ -65,11 +111,15 @@ export function resolveMaster(
   deck: Deck,
   slide: Slide,
 ): MasterSlide | undefined {
-  if (!deck.masters || deck.masters.length === 0) return undefined;
-  if (slide.masterRef) {
-    return deck.masters.find((m) => m.id === slide.masterRef);
+  const rawDeck = deck as any;
+  const rawSlide = slide as any;
+  const masters = rawDeck.masters as MasterSlide[] | undefined;
+  if (!masters || masters.length === 0) return undefined;
+  const masterId = rawSlide.masterId ?? rawSlide.masterRef;
+  if (masterId) {
+    return masters.find((m) => m.id === masterId);
   }
-  return deck.masters[0];
+  return masters.find((m) => m.id === rawDeck.defaultMasterId) ?? masters[0];
 }
 
 /**
@@ -82,15 +132,31 @@ export function resolveSlideStyle(
 ): ResolvedSlideStyle {
   const tokenSet = resolveDeckTokenSet(deck);
   const master = resolveMaster(deck, slide);
+  const rawSlide = slide as any;
 
-  const background = resolveSlideBackground(tokenSet, {
-    masterBackground: master?.background,
-    slideBackground: slide.background,
-    slideBackgroundGradient: slide.backgroundGradient,
-    slideBackgroundImage: slide.backgroundImage,
-  });
+  const masterBackground = backgroundFromDesign(master?.background, tokenSet);
+  const slideBackground =
+    backgroundFromDesign(rawSlide.designOverrides?.background, tokenSet) ??
+    (rawSlide.backgroundImage
+      ? ({ type: "image", url: rawSlide.backgroundImage } as const)
+      : rawSlide.backgroundGradient
+        ? ({
+            type: "gradient",
+            from: rawSlide.backgroundGradient.from,
+            to: rawSlide.backgroundGradient.to,
+            angle: rawSlide.backgroundGradient.angle,
+          } as const)
+        : typeof rawSlide.background === "string"
+          ? ({ type: "solid", color: rawSlide.background } as const)
+          : undefined);
 
-  const accent = slide.accent ?? tokenSet.colors.accent;
+  const background =
+    slideBackground ?? masterBackground ?? tokenSet.defaultBackground;
+
+  const accent =
+    colorRefValue(rawSlide.designOverrides?.accent, tokenSet) ??
+    rawSlide.accent ??
+    tokenSet.colors.accent;
   const titleColor = tokenSet.colors.onBg;
   const bodyColor = tokenSet.colors.onBg;
   const mutedColor = tokenSet.colors.muted;

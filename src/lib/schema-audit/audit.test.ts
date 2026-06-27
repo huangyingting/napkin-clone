@@ -26,21 +26,20 @@ const SECRET = "TopSecretConfidentialBodyText";
 
 function validDeck(): unknown {
   return {
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
         title: SECRET,
-        bullets: [],
         index: 0,
-        visualIds: [],
-        layout: "content",
         notes: "",
-        themeId: "indigo",
         elements: [],
       },
     ],
-    themeId: "indigo",
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }
 

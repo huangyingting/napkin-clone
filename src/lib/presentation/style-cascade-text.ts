@@ -67,6 +67,38 @@ const ELEMENT_DEFAULT_ROLE = {
   shapeLabel: "shapeLabel",
 } as const;
 
+function presentationRoleToDeckTextRole(
+  role: unknown,
+): DeckTextRole | undefined {
+  switch (role) {
+    case "title":
+      return "h1";
+    case "sectionTitle":
+      return "h2";
+    case "label":
+      return "shapeLabel";
+    case "subtitle":
+    case "body":
+    case "bullet":
+    case "caption":
+    case "footer":
+    case "h1":
+    case "h2":
+    case "h3":
+    case "shapeLabel":
+      return role as DeckTextRole;
+    default:
+      return undefined;
+  }
+}
+
+function elementTextStyleOverride(
+  element: TextBearingElementLike,
+): Partial<TextElementStyle> | undefined {
+  const raw = element as any;
+  return element.styleOverride ?? raw.designOverrides?.textStyle ?? raw.style;
+}
+
 /**
  * Core resolver: merges a deck-template role token with an optional local
  * `Partial<TextElementStyle>` override, tracking per-field origin.
@@ -187,6 +219,7 @@ export function resolveRoleTextStyle(
 /** Element shape accepted by the text-bearing resolvers (kind-agnostic). */
 interface TextBearingElementLike {
   textRole?: DeckTextRole;
+  role?: string;
   styleOverride?: Partial<TextElementStyle>;
 }
 
@@ -199,8 +232,13 @@ export function resolveTextElementStyle(
   element: TextBearingElementLike,
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
-  const role: DeckTextRole = element.textRole ?? "body";
-  return resolveRoleTextStyle(tokenSet, role, element.styleOverride);
+  const role =
+    presentationRoleToDeckTextRole(element.role) ?? element.textRole ?? "body";
+  return resolveRoleTextStyle(
+    tokenSet,
+    role,
+    elementTextStyleOverride(element),
+  );
 }
 
 /**
@@ -211,12 +249,19 @@ export function resolveTextElementStyle(
 export function resolveShapeLabelStyle(
   deck: Deck,
   element: {
+    role?: string;
     textRole?: DeckTextRole;
     textStyleOverride?: Partial<TextElementStyle>;
   },
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
   const role: DeckTextRole =
-    element.textRole ?? ELEMENT_DEFAULT_ROLE.shapeLabel;
-  return resolveRoleTextStyle(tokenSet, role, element.textStyleOverride);
+    presentationRoleToDeckTextRole(element.role) ??
+    element.textRole ??
+    ELEMENT_DEFAULT_ROLE.shapeLabel;
+  return resolveRoleTextStyle(
+    tokenSet,
+    role,
+    element.textStyleOverride ?? (element as any).designOverrides?.textStyle,
+  );
 }

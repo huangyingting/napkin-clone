@@ -57,6 +57,10 @@ function deckJson(slides: unknown[]): string {
   return JSON.stringify({ themeId: "indigo", slides });
 }
 
+function themeId(deck: unknown): string | undefined {
+  return (deck as any).design?.themeId;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -86,7 +90,7 @@ test("success: returns a safeParseDeck-valid deck from fixture JSON", async () =
   });
 
   assert.ok(safeParseDeck(deck).success);
-  assert.equal(deck.themeId, "indigo");
+  assert.equal(themeId(deck), "indigo");
   assert.ok(deck.slides.length >= 2);
 });
 
@@ -175,7 +179,7 @@ test("threads preferredTheme through to upgrade a model 'default' (#281)", async
   });
 
   assert.ok(safeParseDeck(deck).success);
-  assert.equal(deck.themeId, "ocean");
+  assert.equal(themeId(deck), "ocean");
 });
 
 test("preferredTheme does not override an explicit vibrant model theme (#281)", async () => {
@@ -193,7 +197,7 @@ test("preferredTheme does not override an explicit vibrant model theme (#281)", 
     preferredTheme: "ocean",
   });
 
-  assert.equal(deck.themeId, "forest");
+  assert.equal(themeId(deck), "forest");
 });
 
 test("threads truncated=false through for a small document", async () => {

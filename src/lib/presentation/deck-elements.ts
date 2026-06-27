@@ -276,6 +276,18 @@ export type BulletItem = Paragraph;
 export function normalizeTextParagraphs(
   el: Pick<TextElement, "text" | "runs" | "paragraphs">,
 ): Paragraph[] {
+  const content = (el as any).content;
+  if (content?.paragraphs !== undefined) return content.paragraphs;
+  if (typeof content?.text === "string") {
+    return [
+      {
+        text: content.text,
+        ...(content.runs !== undefined && content.runs.length > 0
+          ? { runs: content.runs }
+          : {}),
+      },
+    ];
+  }
   if (el.paragraphs !== undefined) return el.paragraphs;
   return [
     {
@@ -408,11 +420,15 @@ export function buildVisualElement(
   return {
     id: options.id ?? makeElementId(),
     kind: "visual",
-    visualId,
+    role: "visual",
     box: options.box ?? { ...DEFAULT_VISUAL_BOX },
-    ...(options.styleThemeId ? { styleThemeId: options.styleThemeId } : {}),
+    content: {
+      kind: "visual",
+      visualId,
+      ...(options.styleThemeId ? { styleThemeId: options.styleThemeId } : {}),
+    },
     ...(options.sourceRef !== undefined
-      ? { sourceRef: options.sourceRef }
+      ? { source: options.sourceRef }
       : {}),
-  };
+  } as unknown as Omit<VisualElement, "zIndex"> & { id: string };
 }

@@ -622,13 +622,17 @@ test("setSlideBackground / setSlideAccent set and clear overrides", () => {
   let deck = deckWithBullets();
   deck = setSlideBackground(deck, 0, "#010203");
   deck = setSlideAccent(deck, 0, "#040506");
-  assert.equal(deck.slides[0].background, "#010203");
-  assert.equal(deck.slides[0].accent, "#040506");
+  assert.deepEqual((deck.slides[0] as any).designOverrides.background, {
+    type: "solid",
+    color: { value: "#010203" },
+  });
+  assert.deepEqual((deck.slides[0] as any).designOverrides.accent, {
+    value: "#040506",
+  });
 
   deck = setSlideBackground(deck, 0, undefined);
   deck = setSlideAccent(deck, 0, undefined);
-  assert.equal(deck.slides[0].background, undefined);
-  assert.equal(deck.slides[0].accent, undefined);
+  assert.equal((deck.slides[0] as any).designOverrides, undefined);
 });
 
 test("duplicateSlide deep-copies elements", () => {

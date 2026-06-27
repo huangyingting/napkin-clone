@@ -15,6 +15,10 @@
 import type { Deck, Slide } from "./deck-core";
 import type { SlideElement } from "./deck-elements";
 
+function visualElementId(element: SlideElement): string | undefined {
+  return (element as any).content?.visualId ?? (element as any).visualId;
+}
+
 /**
  * Returns a copy of `deck` with every visual reference that is not present in
  * `knownVisualIds` removed:
@@ -45,7 +49,8 @@ function stripSlide(slide: Slide, knownVisualIds: ReadonlySet<string>): Slide {
   if (slide.elements) {
     nextElements = slide.elements.filter(
       (element) =>
-        element.kind !== "visual" || knownVisualIds.has(element.visualId),
+        element.kind !== "visual" ||
+        knownVisualIds.has(visualElementId(element) ?? ""),
     );
     elementsChanged = nextElements.length !== slide.elements.length;
   }

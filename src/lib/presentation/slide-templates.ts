@@ -35,7 +35,6 @@ import {
   type SlideLayoutHint,
 } from "./deck-layouts-model";
 import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
-import type { DeckTextRole } from "./deck-theme-token-types";
 
 /**
  * Maps a {@link PlaceholderType} onto its semantic {@link DeckTextRole} (#610)
@@ -43,10 +42,10 @@ import type { DeckTextRole } from "./deck-theme-token-types";
  * `style` set alongside remains the authoritative local style during the
  * render-wiring transition (#598); this is additive metadata.
  */
-function placeholderTextRole(type: PlaceholderType): DeckTextRole {
+function placeholderTextRole(type: PlaceholderType): string {
   switch (type) {
     case "title":
-      return "h1";
+      return "title";
     case "subtitle":
       return "subtitle";
     case "footer":
@@ -139,11 +138,15 @@ function placeholderImageElement(
   return {
     id: makeElementId(),
     kind: "image",
-    src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
-    alt: `${label} placeholder`,
+    role: "image",
     zIndex,
     box: { ...box },
-  };
+    content: {
+      kind: "image",
+      src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
+      alt: `${label} placeholder`,
+    },
+  } as unknown as ImageElement;
 }
 
 function textStyle(
@@ -188,13 +191,14 @@ function materializePlaceholderElement(
   return {
     id: makeElementId(),
     kind: "text",
-    text: label,
-    paragraphs: [{ text: label }],
+    role: placeholderTextRole(placeholder.placeholderType),
     zIndex,
     box: { ...placeholder.box },
-    style: templateTextStyle(placeholder.placeholderType),
-    textRole: placeholderTextRole(placeholder.placeholderType),
-  };
+    content: { kind: "text", text: label, paragraphs: [{ text: label }] },
+    designOverrides: {
+      textStyle: templateTextStyle(placeholder.placeholderType),
+    },
+  } as unknown as SlideElement;
 }
 
 function bodyTextElement(
@@ -202,18 +206,17 @@ function bodyTextElement(
   box: ElementBox,
   zIndex: number,
   align: ElementAlign = "center",
-  textRole?: DeckTextRole,
+  textRole?: string,
 ): TextElement {
   return {
     id: makeElementId(),
     kind: "text",
-    text,
-    paragraphs: [{ text }],
+    ...(textRole ? { role: textRole } : {}),
     zIndex,
     box: { ...box },
-    style: textStyle(4.5, align, false),
-    ...(textRole ? { textRole } : {}),
-  };
+    content: { kind: "text", text, paragraphs: [{ text }] },
+    designOverrides: { textStyle: textStyle(4.5, align, false) },
+  } as unknown as TextElement;
 }
 
 function spotlightElement(
@@ -224,10 +227,11 @@ function spotlightElement(
     return {
       id: makeElementId(),
       kind: "visual",
-      visualId,
+      role: "visual",
       zIndex,
       box: { ...BOX.spotlight },
-    };
+      content: { kind: "visual", visualId },
+    } as unknown as VisualElement;
   }
   return placeholderImageElement("Visual", BOX.spotlight, zIndex);
 }
@@ -236,21 +240,15 @@ function spotlightElement(
 function authoredSlide(
   layout: SlideLayoutHint,
   elements: SlideElement[],
-  visualIds: string[] = [],
 ): Slide {
   return {
     id: makeSlideId(),
     index: 0,
     title: "",
-    bullets: [],
-    visualIds,
-    layout,
     notes: "",
+    ...(layout !== "blank" ? { templateId: layout } : {}),
     elements,
-    // Hand-authored: the merge step must PRESERVE these elements rather than
-    // re-materialize them from document content (issue #221).
-    elementsDerived: false,
-  };
+  } as unknown as Slide;
 }
 
 function findDefaultLayout(
@@ -288,13 +286,9 @@ function blankSlide(): Slide {
     id: makeSlideId(),
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements: [],
-    elementsDerived: false,
-  };
+  } as unknown as Slide;
 }
 
 /**
@@ -325,7 +319,6 @@ export function buildTemplateSlide(
           visual,
           bodyTextElement("Caption", BOX.caption, 1, "center", "caption"),
         ],
-        ctx.visualId ? [ctx.visualId] : [],
       );
     }
 

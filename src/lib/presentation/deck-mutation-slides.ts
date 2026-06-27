@@ -83,10 +83,18 @@ export function duplicateSlide(deck: Deck, index: number): Deck {
   const copy: Slide = {
     ...original,
     id: makeSlideId(),
-    bullets: [...original.bullets],
-    visualIds: [...original.visualIds],
+    ...((original as any).bullets
+      ? { bullets: [...(original as any).bullets] }
+      : {}),
+    ...((original as any).visualIds
+      ? { visualIds: [...(original as any).visualIds] }
+      : {}),
     ...(original.elements
-      ? { elements: original.elements.map((element) => ({ ...element })) }
+      ? {
+          elements: original.elements.map((element) =>
+            structuredClone(element),
+          ),
+        }
       : {}),
   };
 

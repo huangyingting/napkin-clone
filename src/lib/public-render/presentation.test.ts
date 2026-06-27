@@ -14,10 +14,11 @@ function visualElement(id: string, visualId: string): SlideElement {
   return {
     id,
     kind: "visual",
-    visualId,
+    role: "visual",
+    content: { kind: "visual", visualId },
     zIndex: 0,
     box: { x: 0, y: 0, w: 50, h: 50 },
-  };
+  } as unknown as SlideElement;
 }
 
 function slide(partial: Partial<Slide>): Slide {
@@ -25,20 +26,20 @@ function slide(partial: Partial<Slide>): Slide {
     id: "slide-1",
     index: 0,
     title: "Slide",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     ...partial,
-  };
+  } as unknown as Slide;
 }
 
 function deck(slides: Slide[]): Deck {
   return {
-    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides,
-  };
+  } as unknown as Deck;
 }
 
 function contentWithVisual(visualId: string): unknown {
@@ -60,7 +61,6 @@ test("buildPublicPresentationModel strips orphan visual references from persiste
     contentJson: contentWithVisual("keep"),
     deckJson: deck([
       slide({
-        visualIds: ["keep", "gone"],
         elements: [
           visualElement("el-keep", "keep"),
           visualElement("el-gone", "gone"),

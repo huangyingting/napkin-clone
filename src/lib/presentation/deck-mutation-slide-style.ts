@@ -1,6 +1,33 @@
 import type { Deck } from "./deck-core";
 import { mapSlide } from "./deck-mutation-shared";
 
+function setSlideBackgroundOverride(
+  slide: Record<string, any>,
+  background: Record<string, unknown> | undefined,
+) {
+  return setSlideDesignOverride(slide, "background", background);
+}
+
+function setSlideDesignOverride(
+  slide: Record<string, any>,
+  key: string,
+  value: Record<string, unknown> | undefined,
+) {
+  const designOverrides = { ...(slide.designOverrides ?? {}) };
+  if (value === undefined) {
+    delete designOverrides[key];
+  } else {
+    designOverrides[key] = value;
+  }
+  const next = { ...slide };
+  if (Object.keys(designOverrides).length === 0) {
+    delete next.designOverrides;
+  } else {
+    next.designOverrides = designOverrides;
+  }
+  return next;
+}
+
 /** Sets (or clears, with `undefined`) a slide's background color override. */
 export function setSlideBackground(
   deck: Deck,
@@ -8,13 +35,12 @@ export function setSlideBackground(
   background: string | undefined,
 ): Deck {
   return mapSlide(deck, index, (slide) => {
-    const next = { ...slide };
-    if (background === undefined) {
-      delete next.background;
-    } else {
-      next.background = background;
-    }
-    return next;
+    return setSlideBackgroundOverride(
+      slide as Record<string, any>,
+      background === undefined
+        ? undefined
+        : { type: "solid", color: { value: background } },
+    ) as typeof slide;
   });
 }
 
@@ -25,13 +51,11 @@ export function setSlideAccent(
   accent: string | undefined,
 ): Deck {
   return mapSlide(deck, index, (slide) => {
-    const next = { ...slide };
-    if (accent === undefined) {
-      delete next.accent;
-    } else {
-      next.accent = accent;
-    }
-    return next;
+    return setSlideDesignOverride(
+      slide as Record<string, any>,
+      "accent",
+      accent === undefined ? undefined : { value: accent },
+    ) as typeof slide;
   });
 }
 
@@ -45,14 +69,17 @@ export function setSlideBackgroundGradient(
   gradient: { from: string; to: string; angle?: number } | undefined,
 ): Deck {
   return mapSlide(deck, index, (slide) => {
-    const next = { ...slide };
-    if (gradient === undefined) {
-      delete next.backgroundGradient;
-    } else {
-      next.backgroundGradient = gradient;
-      delete next.backgroundImage;
-    }
-    return next;
+    return setSlideBackgroundOverride(
+      slide as Record<string, any>,
+      gradient === undefined
+        ? undefined
+        : {
+            type: "gradient",
+            from: { value: gradient.from },
+            to: { value: gradient.to },
+            ...(gradient.angle !== undefined ? { angle: gradient.angle } : {}),
+          },
+    ) as typeof slide;
   });
 }
 
@@ -66,14 +93,10 @@ export function setSlideBackgroundImage(
   image: string | undefined,
 ): Deck {
   return mapSlide(deck, index, (slide) => {
-    const next = { ...slide };
-    if (image === undefined) {
-      delete next.backgroundImage;
-    } else {
-      next.backgroundImage = image;
-      delete next.backgroundGradient;
-    }
-    return next;
+    return setSlideBackgroundOverride(
+      slide as Record<string, any>,
+      image === undefined ? undefined : { type: "image", url: image },
+    ) as typeof slide;
   });
 }
 
@@ -90,15 +113,11 @@ export function setSlideBackgroundAsset(
   opts: { url: string; assetId: string } | undefined,
 ): Deck {
   return mapSlide(deck, index, (slide) => {
-    const next = { ...slide };
-    if (opts === undefined) {
-      delete next.backgroundImage;
-      delete next.backgroundAssetId;
-    } else {
-      next.backgroundImage = opts.url;
-      next.backgroundAssetId = opts.assetId;
-      delete next.backgroundGradient;
-    }
-    return next;
+    return setSlideBackgroundOverride(
+      slide as Record<string, any>,
+      opts === undefined
+        ? undefined
+        : { type: "image", url: opts.url, assetId: opts.assetId },
+    ) as typeof slide;
   });
 }

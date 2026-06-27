@@ -22,6 +22,36 @@ function elementKinds(kind: SlideTemplateKind, visualId?: string): string[] {
   return (slide.elements ?? []).map((element) => element.kind);
 }
 
+function v6Deck(slide: unknown) {
+  return {
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides: [{ ...(slide as object), index: 0 }],
+  };
+}
+
+function content(element: unknown): any {
+  return (element as any)?.content ?? {};
+}
+
+function role(element: unknown): string | undefined {
+  return (element as any)?.role;
+}
+
+function slideLayout(slide: unknown): string {
+  return (slide as any).templateId ?? "blank";
+}
+
+function slideVisualIds(slide: unknown): string[] {
+  return (((slide as any).elements ?? []) as unknown[])
+    .filter((element: any) => element.kind === "visual")
+    .map((element) => content(element).visualId)
+    .filter((id): id is string => typeof id === "string");
+}
+
 // ---------------------------------------------------------------------------
 // Template catalogue
 // ---------------------------------------------------------------------------
@@ -45,9 +75,9 @@ test("non-blank templates are authored (elementsDerived === false)", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
     assert.equal(
-      slide.elementsDerived,
+      "elementsDerived" in slide,
       false,
-      `${kind} must be flagged authored so sync preserves its elements`,
+      `${kind} must not persist removed elementsDerived`,
     );
     assert.ok(
       (slide.elements?.length ?? 0) > 0,
@@ -79,11 +109,7 @@ test("non-blank templates assign unique element ids", () => {
 test("template slides are valid deck payloads", () => {
   for (const kind of SLIDE_TEMPLATES.map((option) => option.kind)) {
     const slide = buildTemplateSlide(kind, {});
-    const result = safeParseDeck({
-      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-      themeId: "indigo",
-      slides: [{ ...slide, index: 0 }],
-    });
+    const result = safeParseDeck(v6Deck(slide));
     assert.equal(result.success, true, kind);
   }
 });
@@ -91,28 +117,28 @@ test("template slides are valid deck payloads", () => {
 test("title template = editable title, subtitle, and footer text", () => {
   assert.deepEqual(elementKinds("title"), ["text", "text", "text"]);
   const slide = buildTemplateSlide("title", {});
-  assert.equal(slide.layout, "title");
+  assert.equal(slideLayout(slide), "title");
   const textElements = slide.elements as TextElement[];
   assert.deepEqual(
-    textElements.map((element) => element.text),
+    textElements.map((element) => content(element).text),
     ["Title", "Subtitle", "Footer"],
   );
-  assert.equal(textElements[0]?.textRole, "h1");
+  assert.equal(role(textElements[0]), "title");
 });
 
 test("content template = editable title/body text plus image/footer", () => {
   assert.deepEqual(elementKinds("content"), ["text", "text", "image", "text"]);
   const slide = buildTemplateSlide("content", {});
-  assert.equal(slide.layout, "content");
+  assert.equal(slideLayout(slide), "content");
   const [title, body, image, footer] = slide.elements ?? [];
   assert.equal(title?.kind, "text");
-  assert.equal((title as TextElement).text, "Title");
+  assert.equal(content(title).text, "Title");
   assert.equal(body?.kind, "text");
-  assert.equal((body as TextElement).text, "Body");
+  assert.equal(content(body).text, "Body");
   assert.equal(image?.kind, "image");
-  assert.match((image as ImageElement).src, /^data:image\/svg\+xml,/);
+  assert.match(content(image).src, /^data:image\/svg\+xml,/);
   assert.equal(footer?.kind, "text");
-  assert.equal((footer as TextElement).text, "Footer");
+  assert.equal(content(footer).text, "Footer");
 });
 
 test("layout templates no longer emit non-editable placeholders", () => {
@@ -139,7 +165,10 @@ test("two-column template = title + two editable text columns + footer", () => {
     TextElement,
     TextElement,
   ];
-  assert.deepEqual([left.text, right.text], ["Left column", "Right column"]);
+  assert.deepEqual([content(left).text, content(right).text], [
+    "Left column",
+    "Right column",
+  ]);
   // Columns sit side by side: the right column starts past the left's edge.
   assert.ok(right.box.x >= left.box.x + left.box.w);
 });
@@ -151,10 +180,10 @@ test("two-column template = title + two editable text columns + footer", () => {
 test("visual spotlight without a visualId uses an image placeholder", () => {
   assert.deepEqual(elementKinds("visual"), ["image", "text"]);
   const slide = buildTemplateSlide("visual", {});
-  assert.equal(slide.layout, "media");
+  assert.equal(slideLayout(slide), "media");
   const image = slide.elements?.[0] as ImageElement;
-  assert.match(image.src, /^data:image\/svg\+xml,/);
-  assert.deepEqual(slide.visualIds, []);
+  assert.match(content(image).src, /^data:image\/svg\+xml,/);
+  assert.deepEqual(slideVisualIds(slide), []);
 });
 
 test("visual spotlight with a visualId references that document visual", () => {
@@ -164,8 +193,8 @@ test("visual spotlight with a visualId references that document visual", () => {
   });
   const visual = slide.elements?.[0];
   assert.equal(visual?.kind, "visual");
-  assert.equal((visual as { visualId: string }).visualId, "vis-42");
-  assert.deepEqual(slide.visualIds, ["vis-42"]);
+  assert.equal(content(visual).visualId, "vis-42");
+  assert.deepEqual(slideVisualIds(slide), ["vis-42"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -175,12 +204,11 @@ test("visual spotlight with a visualId references that document visual", () => {
 test("blank template creates an element-first blank slide", () => {
   const slide = buildTemplateSlide("blank", {});
   assert.equal(slide.title, "");
-  assert.deepEqual(slide.bullets, []);
-  assert.deepEqual(slide.visualIds, []);
-  assert.equal(slide.layout, "blank");
+  assert.deepEqual(slideVisualIds(slide), []);
+  assert.equal(slideLayout(slide), "blank");
   assert.equal(slide.notes, "");
   assert.deepEqual(slide.elements, []);
-  assert.equal(slide.elementsDerived, false);
+  assert.equal("elementsDerived" in slide, false);
 });
 
 test("every box stays within the 0–100 percent slide bounds", () => {
@@ -215,11 +243,7 @@ test("non-blank template elements do not carry layout-slot bindings", () => {
 test("template free-form elements survive schema validation", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
-    const result = safeParseDeck({
-      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-      themeId: "indigo",
-      slides: [{ ...slide, index: 0 }],
-    });
+    const result = safeParseDeck(v6Deck(slide));
     assert.ok(result.success, result.success ? "" : result.error);
     if (!result.success) return;
     assert.ok((result.data.slides[0].elements ?? []).length > 0);
@@ -234,8 +258,8 @@ test("title template text carries h1/subtitle/footer textRoles", () => {
   const slide = buildTemplateSlide("title", {});
   const roles = (slide.elements ?? [])
     .filter((el) => el.kind === "text")
-    .map((el) => (el.kind === "text" ? el.textRole : undefined));
-  assert.ok(roles.includes("h1"), roles.join(","));
+    .map((el) => (el.kind === "text" ? role(el) : undefined));
+  assert.ok(roles.includes("title"), roles.join(","));
   assert.ok(roles.includes("subtitle"), roles.join(","));
   assert.ok(roles.includes("footer"), roles.join(","));
 });
@@ -246,7 +270,7 @@ test("visual template caption text carries the caption role", () => {
   });
   const roles = (slide.elements ?? [])
     .filter((el) => el.kind === "text")
-    .map((el) => (el.kind === "text" ? el.textRole : undefined));
+    .map((el) => (el.kind === "text" ? role(el) : undefined));
   assert.ok(roles.includes("caption"), roles.join(","));
 });
 
@@ -255,7 +279,7 @@ test("every non-blank template text element carries a textRole", () => {
     const slide = buildTemplateSlide(kind, {});
     for (const el of slide.elements ?? []) {
       if (el.kind === "text") {
-        assert.ok(el.textRole !== undefined, `${kind} text needs a textRole`);
+        assert.ok(role(el) !== undefined, `${kind} text needs a role`);
       }
     }
   }

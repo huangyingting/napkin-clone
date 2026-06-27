@@ -169,9 +169,12 @@ export const DEFAULT_MAX_SLIDES = EXPORT_PREFLIGHT_MAX_SLIDES;
 
 /** Returns true when the image element will require a raster fallback in PPTX. */
 function imageNeedsRasterFallback(el: ImageElement): boolean {
-  if (el.fitMode === "none") return true;
-  if (el.maskShape && el.maskShape !== "none") return true;
-  if (el.crop) return true;
+  const fitMode = imageField<ImageElement["fitMode"]>(el, "fitMode");
+  const maskShape = imageField<ImageElement["maskShape"]>(el, "maskShape");
+  const crop = imageField<ImageElement["crop"]>(el, "crop");
+  if (fitMode === "none") return true;
+  if (maskShape && maskShape !== "none") return true;
+  if (crop) return true;
   return false;
 }
 
@@ -187,6 +190,24 @@ function primaryFontFamily(fontFamily: string): string {
     .trim()
     .replace(/^['"]|['"]$/g, "")
     .trim();
+}
+
+function elementContent(element: SlideElement): Record<string, any> {
+  const content = (element as any).content;
+  return content && typeof content === "object" ? content : {};
+}
+
+function elementDesign(element: SlideElement): Record<string, any> {
+  const design = (element as any).designOverrides;
+  return design && typeof design === "object" ? design : {};
+}
+
+function imageField<T>(element: ImageElement, field: string): T | undefined {
+  const content = elementContent(element);
+  const design = elementDesign(element);
+  return (content[field] ?? design[field] ?? (element as any)[field]) as
+    | T
+    | undefined;
 }
 
 function resolvePreflightOutputProfile(
@@ -228,8 +249,10 @@ function checkImageElement(
   target: PreflightTarget,
   diagnostics: PreflightDiagnostic[],
 ): void {
-  const hasSrc = el.src && el.src.trim() !== "";
-  const hasAssetId = Boolean(el.assetId);
+  const src = imageField<string>(el, "src");
+  const assetId = imageField<string>(el, "assetId");
+  const hasSrc = src && src.trim() !== "";
+  const hasAssetId = Boolean(assetId);
 
   // Missing-asset check (fatal for both targets).
   if (!hasSrc && !hasAssetId) {
@@ -252,19 +275,22 @@ function checkImageElement(
         message: `Slide ${slideIndex + 1}: image element will be rasterised in PPTX (fitMode/mask/crop).`,
         slideIndex,
         elementId: el.id,
-        detail: el.fitMode ?? el.maskShape ?? "crop",
+        detail:
+          imageField<string>(el, "fitMode") ??
+          imageField<string>(el, "maskShape") ??
+          "crop",
       });
     }
 
     // Remote-image warning.
-    if (hasSrc && isRemoteUrl(el.src)) {
+    if (hasSrc && src && isRemoteUrl(src)) {
       diagnostics.push({
         severity: "warning",
         code: "remote-image-failure",
         message: `Slide ${slideIndex + 1}: image references a remote URL that could fail at export time.`,
         slideIndex,
         elementId: el.id,
-        detail: el.src.slice(0, 80),
+        detail: src.slice(0, 80),
       });
     }
   }
@@ -283,7 +309,8 @@ function checkCustomTemplateFonts(
   customFontFamilies: ReadonlySet<string>,
   diagnostics: PreflightDiagnostic[],
 ): void {
-  const typography = deck.customTokenSet?.typography;
+  const typography = ((deck as any).design?.themeOverrides?.tokenSet
+    ?.typography ?? deck.customTokenSet?.typography) as any;
   if (!typography) return;
 
   const candidates: string[] = [typography.fontFamily];
@@ -291,7 +318,11 @@ function checkCustomTemplateFonts(
     candidates.push(typography.headingFontFamily);
   }
   if (typography.roles) {
-    for (const token of Object.values(typography.roles)) {
+    const roleTokens = typography.roles as Record<
+      string,
+      { fontFamily?: string } | undefined
+    >;
+    for (const token of Object.values(roleTokens)) {
       if (token?.fontFamily) candidates.push(token.fontFamily);
     }
   }
@@ -359,7 +390,8 @@ function checkPptxFidelityFeatures(
 ): void {
   // Connector routing — check for elbow connectors.
   for (const el of elements) {
-    if (el.kind === "connector" && el.routing === "elbow") {
+    const routing = elementContent(el).routing ?? (el as any).routing;
+    if (el.kind === "connector" && routing === "elbow") {
       const fidelity = getFidelity("connector-elbow", "pptx");
       if (fidelity === "partial" || fidelity === "degraded") {
         diagnostics.push({
@@ -375,7 +407,10 @@ function checkPptxFidelityFeatures(
   }
 
   // Background gradient.
-  if (slide.backgroundGradient !== undefined) {
+  if (
+    (slide as any).designOverrides?.background?.type === "gradient" ||
+    slide.backgroundGradient !== undefined
+  ) {
     diagnostics.push({
       severity: "warning",
       code: "unsupported-pptx-feature",

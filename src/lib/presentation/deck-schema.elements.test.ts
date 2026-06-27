@@ -13,36 +13,36 @@ test("safeParseDeck accepts a current deck", () => {
       Array.isArray(result.data.slides[0].elements) &&
         result.data.slides[0].elements.length > 0,
     );
-    assert.equal(result.data.slideFormat, "16:9");
+    assert.equal((result.data as any).canvas.format, "16:9");
   }
 });
 
-test("safeParseDeck round-trips a deck slide format", () => {
+test("safeParseDeck round-trips a deck canvas format", () => {
   const result = safeParseDeck({
     ...(currentDeck() as object),
-    slideFormat: "4:3",
+    canvas: { format: "4:3" },
   });
   assert.equal(result.success, true);
   if (result.success) {
-    assert.equal(result.data.slideFormat, "4:3");
+    assert.equal((result.data as any).canvas.format, "4:3");
   }
 });
 
-test("safeParseDeck preserves an optional deck themeId", () => {
+test("safeParseDeck preserves a presentation design themeId", () => {
   const result = safeParseDeck({
     ...(currentDeck() as object),
-    themeId: "amber",
+    design: { themeId: "amber" },
   });
   assert.equal(result.success, true);
   if (result.success) {
-    assert.equal(result.data.themeId, "amber");
+    assert.equal((result.data as any).design.themeId, "amber");
   }
 });
 
 test("safeParseDeck rejects an unknown slide format", () => {
   const result = safeParseDeck({
     ...(currentDeck() as object),
-    slideFormat: "1:1",
+    canvas: { format: "1:1" },
   });
   assert.equal(result.success, false);
 });
@@ -110,8 +110,11 @@ test("safeParseDeck round-trips every element kind", () => {
   if (result.success) {
     const slide = result.data.slides[0];
     assert.equal(slide.elements?.length, 6);
-    assert.equal(slide.background, "#101010");
-    assert.equal(slide.accent, "#abcdef");
+    assert.deepEqual((slide as any).designOverrides.background, {
+      type: "solid",
+      color: { value: "#101010" },
+    });
+    assert.deepEqual((slide as any).designOverrides.accent, { value: "#abcdef" });
   }
 });
 
@@ -142,10 +145,13 @@ test("safeParseDeck round-trips run-level underline and fontSize", () => {
     assert.ok(element);
     assert.equal(element.kind, "text");
     if (element.kind === "text") {
-      assert.equal(element.runs?.[0]?.underline, true);
-      assert.equal(element.runs?.[0]?.fontSize, 4);
-      assert.equal(element.paragraphs?.[0]?.runs?.[0]?.underline, true);
-      assert.equal(element.paragraphs?.[0]?.runs?.[0]?.fontSize, 4);
+      assert.equal((element as any).content.runs?.[0]?.underline, true);
+      assert.equal((element as any).content.runs?.[0]?.fontSize, 4);
+      assert.equal(
+        (element as any).content.paragraphs?.[0]?.runs?.[0]?.underline,
+        true,
+      );
+      assert.equal((element as any).content.paragraphs?.[0]?.runs?.[0]?.fontSize, 4);
     }
   }
 });
@@ -176,13 +182,15 @@ test("validateElement rejects a placeholder element", () => {
   );
 });
 
-test("safeParseDeck rejects a non-hex background", () => {
-  const input = elementDeck([]) as { slides: { background: string }[] };
-  input.slides[0].background = "red";
+test("safeParseDeck rejects an invalid slide background override", () => {
+  const input = elementDeck([]) as { slides: { designOverrides: unknown }[] };
+  input.slides[0].designOverrides = {
+    background: { type: "solid", color: { token: "not-a-token" } },
+  };
   assert.equal(safeParseDeck(input).success, false);
 });
 
-test("safeParseDeck rejects a text element missing its style", () => {
+test("safeParseDeck accepts a text element without local design overrides", () => {
   const result = safeParseDeck(
     elementDeck([
       {
@@ -195,7 +203,7 @@ test("safeParseDeck rejects a text element missing its style", () => {
       },
     ]),
   );
-  assert.equal(result.success, false);
+  assert.equal(result.success, true);
 });
 
 test("validated elements preserve a stable shape", () => {
@@ -217,8 +225,10 @@ test("validated elements preserve a stable shape", () => {
     const element = deck.slides[0].elements?.[0];
     assert.equal(element?.kind, "shape");
     if (element?.kind === "shape") {
-      assert.equal(element.color, "#123456");
-      assert.equal(element.shape, "rect");
+      assert.deepEqual((element as any).designOverrides.fill, {
+        value: "#123456",
+      });
+      assert.equal((element as any).content.shape, "rect");
     }
   }
 });

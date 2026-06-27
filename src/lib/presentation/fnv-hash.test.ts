@@ -60,10 +60,14 @@ for (const input of PROBE_STRINGS) {
 }
 
 // ---------------------------------------------------------------------------
-// deck.ts call site: sourceSectionId uses fnv1aHash32 via computeSectionId
+// deck.ts call site: source.sectionId uses fnv1aHash32 via computeSectionId
 // ---------------------------------------------------------------------------
 
-test("buildDeckFromBlocks derives sourceSectionId using shared hash (matches fnv1aHex of normalized title)", () => {
+function sectionId(slide: unknown): string | undefined {
+  return (slide as any).source?.sectionId;
+}
+
+test("buildDeckFromBlocks derives source.sectionId using shared hash (matches fnv1aHex of normalized title)", () => {
   const title = "Introduction";
   const blocks: DocumentBlock[] = [
     { kind: "text", blockType: "heading", level: 1, text: title },
@@ -71,19 +75,16 @@ test("buildDeckFromBlocks derives sourceSectionId using shared hash (matches fnv
   const deck = buildDeckFromBlocks(blocks);
   const slide = deck.slides[0];
   const expectedId = fnv1aHash32(title.trim().toLowerCase());
-  assert.equal(slide.sourceSectionId, expectedId);
+  assert.equal(sectionId(slide), expectedId);
   // Must also match the deck-hash.ts call site (fnv1aHex)
-  assert.equal(slide.sourceSectionId, fnv1aHex(title.trim().toLowerCase()));
+  assert.equal(sectionId(slide), fnv1aHex(title.trim().toLowerCase()));
 });
 
-test("buildDeckFromBlocks sourceSectionId is stable across calls", () => {
+test("buildDeckFromBlocks source.sectionId is stable across calls", () => {
   const blocks: DocumentBlock[] = [
     { kind: "text", blockType: "heading", level: 2, text: "  Section A  " },
   ];
   const deck1 = buildDeckFromBlocks(blocks);
   const deck2 = buildDeckFromBlocks(blocks);
-  assert.equal(
-    deck1.slides[0].sourceSectionId,
-    deck2.slides[0].sourceSectionId,
-  );
+  assert.equal(sectionId(deck1.slides[0]), sectionId(deck2.slides[0]));
 });

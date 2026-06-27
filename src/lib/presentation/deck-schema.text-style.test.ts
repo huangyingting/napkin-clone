@@ -50,7 +50,7 @@ test("safeParseDeck round-trips fitMode=fixed-box on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.fitMode, "fixed-box");
+      assert.equal((el as any).content.fitMode, "fixed-box");
     }
   }
 });
@@ -62,7 +62,7 @@ test("safeParseDeck round-trips fitMode=shrink-to-fit on a text element", () => 
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.fitMode, "shrink-to-fit");
+      assert.equal((el as any).content.fitMode, "shrink-to-fit");
     }
   }
 });
@@ -74,7 +74,7 @@ test("safeParseDeck omits fitMode when absent on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.fitMode, undefined);
+      assert.equal((el as any).content.fitMode, undefined);
     }
   }
 });
@@ -91,7 +91,7 @@ test("safeParseDeck round-trips fitMode=fixed-box on a bullets element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.fitMode, "fixed-box");
+      assert.equal((el as any).content.fitMode, "fixed-box");
     }
   }
 });
@@ -103,7 +103,7 @@ test("safeParseDeck round-trips fitMode=shrink-to-fit on a bullets element", () 
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.fitMode, "shrink-to-fit");
+      assert.equal((el as any).content.fitMode, "shrink-to-fit");
     }
   }
 });
@@ -160,12 +160,12 @@ test("safeParseDeck omits hidden when absent on a slide element", () => {
   }
 });
 
-test("safeParseDeck round-trips a non-empty name on a slide element", () => {
+test("safeParseDeck does not persist old layer names on slide elements", () => {
   const result = safeParseDeck(elementWithMetadata({ name: "My Layer" }));
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.name, "My Layer");
+    assert.equal((el as any)?.name, undefined);
   }
 });
 
@@ -221,7 +221,7 @@ test("safeParseDeck round-trips verticalAlign=top on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.style.verticalAlign, "top");
+      assert.equal((el as any).designOverrides.textStyle.verticalAlign, "top");
     }
   }
 });
@@ -241,7 +241,7 @@ test("safeParseDeck round-trips verticalAlign=bottom on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.style.verticalAlign, "bottom");
+      assert.equal((el as any).designOverrides.textStyle.verticalAlign, "bottom");
     }
   }
 });
@@ -260,7 +260,7 @@ test("safeParseDeck omits verticalAlign when absent on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.style.verticalAlign, undefined);
+      assert.equal((el as any).designOverrides.textStyle.verticalAlign, undefined);
     }
   }
 });
@@ -293,7 +293,7 @@ test("safeParseDeck round-trips lineHeight on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.style.lineHeight, 1.5);
+      assert.equal((el as any).designOverrides.textStyle.lineHeight, 1.5);
     }
   }
 });
@@ -326,7 +326,7 @@ test("safeParseDeck round-trips paragraphSpacing on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.style.paragraphSpacing, 2);
+      assert.equal((el as any).designOverrides.textStyle.paragraphSpacing, 2);
     }
   }
 });
@@ -374,7 +374,7 @@ test("safeParseDeck round-trips bulletGap on a bullets element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.bulletGap, 1.5);
+      assert.equal((el as any).content.bulletGap, 1.5);
     }
   }
 });
@@ -386,7 +386,7 @@ test("safeParseDeck omits bulletGap when absent on a bullets element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.bulletGap, undefined);
+      assert.equal((el as any).content.bulletGap, undefined);
     }
   }
 });
@@ -403,7 +403,7 @@ test("safeParseDeck round-trips bulletIndent on a bullets element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.bulletIndent, 5);
+      assert.equal((el as any).content.bulletIndent, 5);
     }
   }
 });
@@ -439,7 +439,7 @@ test("safeParseDeck round-trips verticalAlign=middle on a bullets element style"
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.style.verticalAlign, "middle");
+      assert.equal((el as any).designOverrides.textStyle.verticalAlign, "middle");
     }
   }
 });
@@ -463,12 +463,12 @@ test("safeParseDeck round-trips items[] with indent and listType", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.paragraphs?.length, 3);
-      assert.equal(el.paragraphs?.[0].indent, 0);
-      assert.equal(el.paragraphs?.[0].listType, "bullet");
-      assert.equal(el.paragraphs?.[1].indent, 1);
-      assert.equal(el.paragraphs?.[1].listType, "number");
-      assert.equal(el.paragraphs?.[2].indent, 2);
+      assert.equal((el as any).content.paragraphs?.length, 3);
+      assert.equal((el as any).content.paragraphs?.[0].indent, 0);
+      assert.equal((el as any).content.paragraphs?.[0].listType, "bullet");
+      assert.equal((el as any).content.paragraphs?.[1].indent, 1);
+      assert.equal((el as any).content.paragraphs?.[1].listType, "number");
+      assert.equal((el as any).content.paragraphs?.[2].indent, 2);
     }
   }
 });
@@ -502,9 +502,9 @@ test("safeParseDeck accepts items[] without optional indent/listType", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal(el.paragraphs?.[0].text, "Simple item");
-      assert.equal(el.paragraphs?.[0].indent, undefined);
-      assert.equal(el.paragraphs?.[0].listType, undefined);
+      assert.equal((el as any).content.paragraphs?.[0].text, "Simple item");
+      assert.equal((el as any).content.paragraphs?.[0].indent, undefined);
+      assert.equal((el as any).content.paragraphs?.[0].listType, undefined);
     }
   }
 });

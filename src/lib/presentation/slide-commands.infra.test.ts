@@ -580,7 +580,10 @@ test("applyPatch round-trip: SET_SLIDE_BACKGROUND", () => {
   });
   const reproduced = applyPatch(deck, result.patches[0]!);
   assert.ok(reproduced !== null);
-  assert.equal(reproduced!.slides[0]!.background, "#abcdef");
+  assert.deepEqual((reproduced!.slides[0] as any).designOverrides.background, {
+    type: "solid",
+    color: { value: "#abcdef" },
+  });
 });
 
 test("applyPatch returns null for ops without sufficient payload (slide.add)", () => {

@@ -109,9 +109,65 @@ export interface MergeOptions {
 function snapshot(slide: Slide): MergeSlideSnapshot {
   return {
     title: slide.title,
-    bulletCount: slide.bullets.length,
-    visualCount: slide.visualIds.length,
+    bulletCount: slideBullets(slide).length,
+    visualCount: slideVisualIds(slide).length,
   };
+}
+
+function elementContent(element: SlideElement | undefined): Record<string, any> {
+  if (element === undefined) return {};
+  return ((element as any).content ?? {}) as Record<string, any>;
+}
+
+function elementRole(element: SlideElement): string | undefined {
+  return (element as any).role ?? (element as any).textRole;
+}
+
+function elementVisualId(element: SlideElement): string | undefined {
+  return elementContent(element).visualId ?? (element as any).visualId;
+}
+
+function slideLayout(slide: Slide): string {
+  return (slide as any).templateId ?? (slide as any).layout ?? "blank";
+}
+
+function slideSectionId(slide: Slide): string | undefined {
+  return (slide as any).source?.sectionId ?? (slide as any).sourceSectionId;
+}
+
+function slideBullets(slide: Slide): string[] {
+  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
+  const bullet = (slide.elements ?? []).find(
+    (element) => element.kind === "text" && elementRole(element) === "bullet",
+  );
+  const paragraphs = elementContent(bullet as SlideElement).paragraphs ?? [];
+  return paragraphs.map((paragraph: any) => paragraph.text ?? "");
+}
+
+function slideVisualIds(slide: Slide): string[] {
+  if (Array.isArray((slide as any).visualIds)) return (slide as any).visualIds;
+  return (slide.elements ?? [])
+    .filter((element) => element.kind === "visual")
+    .map((element) => elementVisualId(element))
+    .filter((visualId): visualId is string => typeof visualId === "string");
+}
+
+function slideTitleRuns(slide: Slide): TextRun[] | undefined {
+  if ((slide as any).titleRuns !== undefined) return (slide as any).titleRuns;
+  const title = (slide.elements ?? []).find(
+    (element) => element.kind === "text" && elementRole(element) === "title",
+  );
+  return elementContent(title as SlideElement).runs;
+}
+
+function slideBulletRuns(slide: Slide): TextRun[][] | undefined {
+  if ((slide as any).bulletRuns !== undefined) return (slide as any).bulletRuns;
+  const bullet = (slide.elements ?? []).find(
+    (element) => element.kind === "text" && elementRole(element) === "bullet",
+  );
+  const paragraphs = elementContent(bullet as SlideElement).paragraphs;
+  if (!Array.isArray(paragraphs)) return undefined;
+  return paragraphs.map((paragraph: any) => paragraph.runs ?? []);
 }
 
 function elementCount(slide: Slide): number {
@@ -121,14 +177,14 @@ function elementCount(slide: Slide): number {
 function sameContent(existing: Slide, fresh: Slide): boolean {
   return (
     existing.title === fresh.title &&
-    existing.layout === fresh.layout &&
+    slideLayout(existing) === slideLayout(fresh) &&
     existing.notes === fresh.notes &&
-    existing.bullets.length === fresh.bullets.length &&
-    existing.bullets.every((bullet, i) => bullet === fresh.bullets[i]) &&
-    existing.visualIds.length === fresh.visualIds.length &&
-    existing.visualIds.every((id, i) => id === fresh.visualIds[i]) &&
-    sameRunList(existing.titleRuns, fresh.titleRuns) &&
-    sameBulletRuns(existing.bulletRuns, fresh.bulletRuns)
+    slideBullets(existing).length === slideBullets(fresh).length &&
+    slideBullets(existing).every((bullet, i) => bullet === slideBullets(fresh)[i]) &&
+    slideVisualIds(existing).length === slideVisualIds(fresh).length &&
+    slideVisualIds(existing).every((id, i) => id === slideVisualIds(fresh)[i]) &&
+    sameRunList(slideTitleRuns(existing), slideTitleRuns(fresh)) &&
+    sameBulletRuns(slideBulletRuns(existing), slideBulletRuns(fresh))
   );
 }
 
@@ -289,9 +345,9 @@ function mergeSlide(
   const refreshed: Slide = {
     ...existing,
     title: fresh.title,
-    bullets: [...fresh.bullets],
-    visualIds: [...fresh.visualIds],
-    layout: fresh.layout,
+    bullets: [...slideBullets(fresh)],
+    visualIds: [...slideVisualIds(fresh)],
+    layout: slideLayout(fresh) as any,
     notes: fresh.notes,
   };
 
@@ -301,9 +357,11 @@ function mergeSlide(
   // (issue #254), and SlideCanvas/exporter both prefer runs over text. So when
   // the document supplies fresh runs we adopt them; otherwise we drop the key so
   // materialization falls back to the fresh plain text instead of stale runs.
-  if (fresh.titleRuns) refreshed.titleRuns = fresh.titleRuns;
+  const freshTitleRuns = slideTitleRuns(fresh);
+  const freshBulletRuns = slideBulletRuns(fresh);
+  if (freshTitleRuns) refreshed.titleRuns = freshTitleRuns;
   else delete refreshed.titleRuns;
-  if (fresh.bulletRuns) refreshed.bulletRuns = fresh.bulletRuns;
+  if (freshBulletRuns) refreshed.bulletRuns = freshBulletRuns;
   else delete refreshed.bulletRuns;
 
   if (!elementsArePurelyDerived(existing)) {
@@ -326,10 +384,11 @@ function mergeSlide(
     const renderedVisualIds = new Set(
       elementsBefore
         .filter((el): el is VisualElement => el.kind === "visual")
-        .map((el) => el.visualId),
+        .map((el) => elementVisualId(el))
+        .filter((id): id is string => typeof id === "string"),
     );
     // New document visuals not yet present on this slide, in document order.
-    const newVisualIds = fresh.visualIds.filter(
+    const newVisualIds = slideVisualIds(fresh).filter(
       (id) => !renderedVisualIds.has(id),
     );
     if (newVisualIds.length === 0) {
@@ -360,6 +419,9 @@ function mergeSlide(
 
   const elements = buildSlideElementsFromContent({
     ...refreshed,
+    visualIds: slideVisualIds(fresh),
+    bullets: slideBullets(fresh),
+    layout: slideLayout(fresh) as any,
     elements: undefined,
   });
   return {
@@ -396,15 +458,17 @@ export function mergeDeckFromDocument(
   // rename and section reordering because the id is frozen from the doc heading.
   const existingBySectionId = new Map<string, number[]>();
   existing.slides.forEach((slide, i) => {
-    if (!slide.sourceSectionId) return;
-    const bucket = existingBySectionId.get(slide.sourceSectionId);
+    const sectionId = slideSectionId(slide);
+    if (!sectionId) return;
+    const bucket = existingBySectionId.get(sectionId);
     if (bucket) bucket.push(i);
-    else existingBySectionId.set(slide.sourceSectionId, [i]);
+    else existingBySectionId.set(sectionId, [i]);
   });
 
   fresh.slides.forEach((slide, freshIndex) => {
-    if (!slide.sourceSectionId) return;
-    const bucket = existingBySectionId.get(slide.sourceSectionId);
+    const sectionId = slideSectionId(slide);
+    if (!sectionId) return;
+    const bucket = existingBySectionId.get(sectionId);
     if (!bucket) return;
     const existingIndex = bucket.find((i) => !consumedExisting.has(i));
     if (existingIndex === undefined) return;

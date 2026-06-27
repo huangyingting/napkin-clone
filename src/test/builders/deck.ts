@@ -363,21 +363,186 @@ export function buildSlide(overrides: Partial<Slide> = {}): Slide {
 }
 
 export function buildDeck(overrides: Partial<Deck> = {}): Deck {
-  const themeId = overrides.themeId ?? "default";
+  const rawOverrides = overrides as any;
+  const themeId =
+    rawOverrides.design?.themeId ?? overrides.themeId ?? "default";
+  const themeOverrides = {
+    ...(rawOverrides.design?.themeOverrides ?? {}),
+    ...(overrides.customTokenSet !== undefined
+      ? { tokenSet: overrides.customTokenSet }
+      : {}),
+  };
+  const slides = overrides.slides ?? [buildSlide()];
   return {
-    themeId,
-    slideFormat: overrides.slideFormat ?? "16:9",
     schemaVersion: overrides.schemaVersion ?? CURRENT_DECK_SCHEMA_VERSION,
-    slides: overrides.slides ?? [buildSlide()],
-    ...(overrides.layouts !== undefined ? { layouts: overrides.layouts } : {}),
+    canvas: {
+      format: overrides.slideFormat ?? rawOverrides.canvas?.format ?? "16:9",
+    },
+    design: {
+      themeId,
+      ...(Object.keys(themeOverrides).length > 0 ? { themeOverrides } : {}),
+    },
+    masters: (overrides as any).masters ?? [
+      { id: "master-default", name: "Default", elements: [] },
+    ],
+    defaultMasterId: (overrides as any).defaultMasterId ?? "master-default",
+    slides: slides.map((slide) => toV6Slide(slide)) as Deck["slides"],
     ...(overrides.deckContentHash !== undefined
       ? { deckContentHash: overrides.deckContentHash }
       : {}),
-    ...(overrides.masters !== undefined ? { masters: overrides.masters } : {}),
-    ...(overrides.customTokenSet !== undefined
-      ? { customTokenSet: overrides.customTokenSet }
-      : {}),
+  } as unknown as Deck;
+}
+
+function toV6Slide(slide: Slide): Slide {
+  const raw = slide as any;
+  const designOverrides: Record<string, unknown> = {
+    ...(raw.designOverrides ?? {}),
   };
+  if (raw.background !== undefined) {
+    designOverrides.background = {
+      type: "solid",
+      color: { value: raw.background },
+    };
+  }
+  if (raw.backgroundGradient !== undefined) {
+    designOverrides.background = {
+      type: "gradient",
+      from: { value: raw.backgroundGradient.from },
+      to: { value: raw.backgroundGradient.to },
+      ...(raw.backgroundGradient.angle !== undefined
+        ? { angle: raw.backgroundGradient.angle }
+        : {}),
+    };
+  }
+  if (raw.backgroundImage !== undefined) {
+    designOverrides.background = {
+      type: "image",
+      url: raw.backgroundImage,
+      ...(raw.backgroundAssetId !== undefined
+        ? { assetId: raw.backgroundAssetId }
+        : {}),
+    };
+  }
+  if (raw.accent !== undefined) {
+    designOverrides.accent = { value: raw.accent };
+  }
+  return {
+    id: slide.id,
+    index: slide.index,
+    title: slide.title,
+    ...(slide.notes !== undefined ? { notes: slide.notes } : {}),
+    ...(raw.masterId !== undefined
+      ? { masterId: raw.masterId }
+      : raw.masterRef !== undefined
+        ? { masterId: raw.masterRef }
+        : {}),
+    ...(raw.templateId !== undefined
+      ? { templateId: raw.templateId }
+      : raw.layout !== undefined && raw.layout !== "blank"
+        ? { templateId: raw.layout }
+        : {}),
+    ...(Object.keys(designOverrides).length > 0 ? { designOverrides } : {}),
+    ...(raw.source !== undefined
+      ? { source: raw.source }
+      : raw.sourceSectionId !== undefined
+        ? { source: { sectionId: raw.sourceSectionId } }
+        : {}),
+    elements: (slide.elements ?? []).map((element) => toV6Element(element)),
+  } as unknown as Slide;
+}
+
+function toV6Element(element: SlideElement): SlideElement {
+  const raw = element as any;
+  if (raw.content !== undefined) return element;
+  const base = {
+    id: raw.id,
+    kind: raw.kind,
+    role: raw.role ?? textRoleToPresentationRole(raw.textRole, raw.kind),
+    box: raw.box,
+    zIndex: raw.zIndex,
+    ...(raw.locked !== undefined ? { locked: raw.locked } : {}),
+    ...(raw.hidden !== undefined ? { hidden: raw.hidden } : {}),
+    ...(raw.opacity !== undefined ? { opacity: raw.opacity } : {}),
+    ...(raw.rotation !== undefined ? { rotation: raw.rotation } : {}),
+    ...(raw.shadow !== undefined ? { shadow: raw.shadow } : {}),
+    ...(raw.name !== undefined ? { name: raw.name } : {}),
+    ...(raw.groupId !== undefined ? { groupId: raw.groupId } : {}),
+    ...(raw.source !== undefined
+      ? { source: raw.source }
+      : raw.sourceRef !== undefined
+        ? { source: raw.sourceRef }
+        : {}),
+  };
+  if (raw.kind === "text") {
+    return {
+      ...base,
+      content: {
+        kind: "text",
+        text: raw.text ?? "",
+        paragraphs: raw.paragraphs ?? [{ text: raw.text ?? "" }],
+        ...(raw.runs !== undefined ? { runs: raw.runs } : {}),
+        ...(raw.fitMode !== undefined ? { fitMode: raw.fitMode } : {}),
+        ...(raw.bulletGap !== undefined ? { bulletGap: raw.bulletGap } : {}),
+        ...(raw.bulletIndent !== undefined
+          ? { bulletIndent: raw.bulletIndent }
+          : {}),
+      },
+      designOverrides: {
+        textStyle: raw.style ?? raw.designOverrides?.textStyle,
+      },
+    } as unknown as SlideElement;
+  }
+  if (raw.kind === "visual") {
+    return {
+      ...base,
+      role: "visual",
+      content: {
+        kind: "visual",
+        visualId: raw.visualId,
+        ...(raw.styleThemeId !== undefined
+          ? { styleThemeId: raw.styleThemeId }
+          : {}),
+        ...(raw.alt !== undefined ? { alt: raw.alt } : {}),
+      },
+    } as unknown as SlideElement;
+  }
+  if (raw.kind === "image") {
+    return {
+      ...base,
+      role: "image",
+      content: {
+        kind: "image",
+        src: raw.src,
+        ...(raw.assetId !== undefined ? { assetId: raw.assetId } : {}),
+        ...(raw.alt !== undefined ? { alt: raw.alt } : {}),
+        ...(raw.crop !== undefined ? { crop: raw.crop } : {}),
+      },
+      designOverrides: {
+        ...(raw.fitMode !== undefined ? { fitMode: raw.fitMode } : {}),
+        ...(raw.maskShape !== undefined ? { maskShape: raw.maskShape } : {}),
+        ...(raw.radius !== undefined ? { radius: raw.radius } : {}),
+      },
+    } as unknown as SlideElement;
+  }
+  return element;
+}
+
+function textRoleToPresentationRole(
+  role: unknown,
+  kind: unknown,
+): string | undefined {
+  if (kind === "visual") return "visual";
+  if (kind === "image") return "image";
+  switch (role) {
+    case "h1":
+      return "title";
+    case "h2":
+      return "sectionTitle";
+    case "shapeLabel":
+      return "label";
+    default:
+      return typeof role === "string" ? role : undefined;
+  }
 }
 
 export function buildDeckWithElements(elements: SlideElement[]): Deck {

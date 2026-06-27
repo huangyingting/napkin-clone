@@ -46,12 +46,28 @@ export function normalizeTitle(title: string): string {
  * intentionally excluded so manual deck editing never shifts the signature.
  */
 function slideContentSignature(slide: Slide): string {
+  const elements = (slide.elements ?? []) as unknown as Array<
+    Record<string, unknown>
+  >;
+  const bullets = elements
+    .filter((element) => element.kind === "text" && element.role === "bullet")
+    .flatMap((element) => {
+      const content = element.content as { paragraphs?: Array<{ text?: string }> } | undefined;
+      return (content?.paragraphs ?? []).map((paragraph) => paragraph.text ?? "");
+    });
+  const visualIds = elements
+    .filter((element) => element.kind === "visual")
+    .map((element) => {
+      const content = element.content as { visualId?: string } | undefined;
+      return content?.visualId ?? "";
+    })
+    .filter((visualId) => visualId.length > 0);
   const parts = [
     `t:${slide.title.trim()}`,
-    `l:${slide.layout}`,
-    `b:${slide.bullets.map((bullet) => bullet.trim()).join("\u0001")}`,
-    `v:${slide.visualIds.join("\u0001")}`,
-    `n:${slide.notes.trim()}`,
+    `template:${(slide as any).templateId ?? "blank"}`,
+    `b:${bullets.map((bullet) => bullet.trim()).join("\u0001")}`,
+    `v:${visualIds.join("\u0001")}`,
+    `n:${(slide.notes ?? "").trim()}`,
   ];
   return parts.join("\u0002");
 }
@@ -61,8 +77,9 @@ function slideContentSignature(slide: Slide): string {
  * every slide's {@link slideContentSignature}, in order.
  */
 export function deckContentSignature(deck: Deck): string {
+  const themeId = (deck as any).design?.themeId ?? "";
   return [
-    `theme:${deck.themeId}`,
+    `theme:${themeId}`,
     ...deck.slides.map(slideContentSignature),
   ].join("\u0003");
 }

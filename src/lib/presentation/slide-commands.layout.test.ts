@@ -51,6 +51,12 @@ function buildCommandDeckWithElements(
   });
 }
 
+function elementText(element: SlideElement | undefined): string {
+  return element?.kind === "text"
+    ? ((element as any).content?.text ?? element.text)
+    : "";
+}
+
 // ---------------------------------------------------------------------------
 // Issue #398 — UPDATE_SLIDE_LAYOUT_HINT, APPLY_SLIDE_LAYOUT, RESET_SLIDE_LAYOUT
 // ---------------------------------------------------------------------------
@@ -133,7 +139,7 @@ test("APPLY_SLIDE_LAYOUT keeps authored elements and does not insert placeholder
   const els = result.deck.slides[0]!.elements ?? [];
   const movedTitle = els.find((e) => e.id === "t1");
   assert.deepEqual(movedTitle?.box, { x: 1, y: 1, w: 10, h: 10 });
-  assert.equal(movedTitle?.kind === "text" ? movedTitle.text : "", "Heading");
+  assert.equal(elementText(movedTitle), "Heading");
   const keptFree = els.find((e) => e.id === "f1");
   assert.deepEqual(keptFree?.box, { x: 70, y: 70, w: 20, h: 20 });
   assert.equal(els.length, 2);
@@ -216,6 +222,6 @@ test("RESET_SLIDE_LAYOUT keeps authored elements without inserting placeholders"
   // content preserved, NO placeholder inserted for empty body
   assert.equal(els.length, 1);
   assert.deepEqual(els[0]!.box, { x: 1, y: 1, w: 10, h: 10 });
-  assert.equal(els[0]!.kind === "text" ? els[0]!.text : "", "Heading");
+  assert.equal(elementText(els[0]), "Heading");
   assert.equal(result.patches[0]!.op, "slide.reset_layout");
 });

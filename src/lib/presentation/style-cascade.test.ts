@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION, type Deck, type Slide } from "./deck";
 import type { MasterSlide } from "./deck-theme-tokens";
 import {
   renderFooterText,
@@ -40,7 +40,12 @@ function makeMaster(overrides: Partial<MasterSlide> = {}): MasterSlide {
 // ---------------------------------------------------------------------------
 
 test("resolveMaster returns undefined when deck has no masters", () => {
-  const deck = makeDeck();
+  const deck = {
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    slides: [],
+  } as unknown as Deck;
   const slide = makeSlide();
   assert.equal(resolveMaster(deck, slide), undefined);
 });

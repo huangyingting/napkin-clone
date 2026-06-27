@@ -1,7 +1,7 @@
 # Presentation Architecture
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-27
 
 These documents describe the runtime presentation layer: the slide editor UI,
 stage interactions, present mode, and export pipeline. They sit between the
@@ -23,6 +23,8 @@ behavior documents above.
 
 | Document                                                         | Scope                                                                                                |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [deck-v6-design.md](deck-v6-design.md)                           | Accepted v6 data model for themes, masters, templates, elements, overrides, and render resolution.   |
+| [deck-v6-refactor-guide.md](deck-v6-refactor-guide.md)           | Implementation plan for the v6 schema, render resolver, commands, and slide editor UI refactor.      |
 | [slide-fonts-design.md](slide-fonts-design.md)                   | Self-hosted slide fonts, `fontId` registry, editable PPTX mapping, and migration plan.               |
 | [slide-editing-ui-redesign.md](slide-editing-ui-redesign.md)     | Object model, surface split (toolbar/popover/panel), and element-model consolidation for the editor. |
 | [slide-editor-panel-taxonomy.md](slide-editor-panel-taxonomy.md) | Accepted design for one-category right-side panels and dynamic toolbar panel menus.                  |

@@ -47,7 +47,7 @@ test("safeParseDeck round-trips an element sourceRef", () => {
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
-    assert.deepEqual(el?.sourceRef, makeSourceRef());
+    assert.deepEqual((el as any)?.source, makeSourceRef());
   }
 });
 
