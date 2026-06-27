@@ -9,7 +9,7 @@
  *    an exported PPTX.
  *
  * 2. Catalog parity (#1104): every STYLE_THEMES entry must be present in
- *    DECK_THEMES so AI generation and validation accept rose/amber/slate and
+ *    PRESENTATION_THEME_IDS so AI generation and validation accept rose/amber/slate and
  *    any future additions.
  */
 
@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide, TextElement } from "@/lib/presentation/deck";
-import { DECK_THEMES } from "@/lib/presentation/deck";
+import { PRESENTATION_THEME_IDS } from "@/lib/presentation/deck";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
   resolveRoleToken,
@@ -154,10 +154,10 @@ test("built-in themeId: inherited title color equals the token onBg", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Custom token set parity
+// Theme override token set parity
 // ---------------------------------------------------------------------------
 
-test("custom token set: renderer title color matches the brand onBg", () => {
+test("theme override token set: renderer title color matches the brand onBg", () => {
   const deck: Deck = buildDeck({
     design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [slide([titleEl()])],
@@ -165,7 +165,7 @@ test("custom token set: renderer title color matches the brand onBg", () => {
   assert.equal(rendererTitleColor(deck), "#fafafa");
 });
 
-test("custom token set: export inherits the brand heading font for h1", () => {
+test("theme override token set: export inherits the brand heading font for h1", () => {
   const deck: Deck = buildDeck({
     design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [slide([titleEl()])],
@@ -180,7 +180,7 @@ test("custom token set: export inherits the brand heading font for h1", () => {
   );
 });
 
-test("custom token set: export bullet color matches the brand onBg (body role)", () => {
+test("theme override token set: export bullet color matches the brand onBg (body role)", () => {
   const deck: Deck = buildDeck({
     design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [slide([titleEl(), bodyBulletsEl()])],
@@ -215,15 +215,15 @@ test("a local color override wins in export regardless of the theme", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Catalog parity: DECK_THEMES derived from STYLE_THEMES (#1104)
+// Catalog parity: PRESENTATION_THEME_IDS derived from STYLE_THEMES (#1104)
 // ---------------------------------------------------------------------------
 
-test("every STYLE_THEMES id is present in DECK_THEMES", () => {
-  const deckThemesSet = new Set<string>(DECK_THEMES);
+test("every STYLE_THEMES id is present in PRESENTATION_THEME_IDS", () => {
+  const presentationThemeIdsSet = new Set<string>(PRESENTATION_THEME_IDS);
   for (const theme of STYLE_THEMES) {
     assert.ok(
-      deckThemesSet.has(theme.id),
-      `DECK_THEMES is missing "${theme.id}" from STYLE_THEMES — update STYLE_THEME_IDS in deck-theme-ids.ts`,
+      presentationThemeIdsSet.has(theme.id),
+      `PRESENTATION_THEME_IDS is missing "${theme.id}" from STYLE_THEMES — update STYLE_THEME_IDS in presentation-theme-ids.ts`,
     );
   }
 });

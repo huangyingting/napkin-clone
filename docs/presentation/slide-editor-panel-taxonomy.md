@@ -102,7 +102,7 @@ panel for now, with internal sections for `Layout` and `Background`.
 
 It owns:
 
-- reusable layout selection;
+- slide template selection;
 - apply/reset layout actions;
 - per-slide background color;
 - per-slide accent color;

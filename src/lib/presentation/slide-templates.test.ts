@@ -254,7 +254,7 @@ test("template free-form elements survive schema validation", () => {
 // Semantic text roles on template text (#610)
 // ---------------------------------------------------------------------------
 
-test("title template text carries h1/subtitle/footer textRoles", () => {
+test("title template text carries title/subtitle/footer roles", () => {
   const slide = buildTemplateSlide("title", {});
   const roles = (slide.elements ?? [])
     .filter((el) => el.kind === "text")

@@ -1,5 +1,5 @@
 /**
- * Stable deck theme token facade.
+ * Stable presentation theme token facade.
  *
  * R39 splits token schema/data from resolver logic while preserving existing
  * public imports from `presentation-theme`.
@@ -8,8 +8,8 @@
 export { PRESENTATION_ROLES } from "./presentation-theme-types";
 export type {
   PresentationRole,
-  TextRoleToken,
-  TextRoleTokenMap,
+  PresentationRoleToken,
+  PresentationRoleTokenMap,
   ColorToken,
   FontScale,
   TypographyToken,
@@ -41,8 +41,8 @@ export {
 export {
   isPresentationRole,
   resolveThemeTokens,
-  resolveDeckThemeId,
-  resolveDeckThemeTokens,
+  resolvePresentationThemeId,
+  resolvePresentationThemeTokens,
   resolveSlideBackground,
   backgroundTreatmentToCss,
   allThemeTokenSets,

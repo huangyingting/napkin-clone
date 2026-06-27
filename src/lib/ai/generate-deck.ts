@@ -37,7 +37,7 @@ import {
 } from "@/lib/ai/generate";
 import { runGenerationAttempts } from "@/lib/ai/generation-runner";
 import { REPAIRED_DECK_MAX_SLIDES, repairDeck } from "@/lib/ai/deck-repair";
-import type { Deck, DeckTheme } from "@/lib/presentation/deck";
+import type { Deck, PresentationThemeId } from "@/lib/presentation/deck";
 import { normalizeGeneratedDeck } from "@/lib/presentation/deck-layout-assign";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
@@ -58,11 +58,11 @@ export interface GenerateDeckInput {
   /** Optional length/tone/audience tuning. */
   options?: DeckGenerationOptions;
   /**
-   * Optional document-derived vibrant theme (from `inferDeckTheme`) used by
+   * Optional document-derived vibrant theme (from `inferPresentationTheme`) used by
    * {@link normalizeGeneratedDeck} when the model returns `"default"` or a
    * missing/invalid theme (issue #281).
    */
-  preferredTheme?: DeckTheme;
+  preferredTheme?: PresentationThemeId;
 }
 
 export interface GenerateDeckDeps {
@@ -108,7 +108,11 @@ export async function generateDeck(
         retryReason,
       }),
     repair: (parsed) => {
-      const repaired = repairDeck(parsed, visualInventory, input.preferredTheme);
+      const repaired = repairDeck(
+        parsed,
+        visualInventory,
+        input.preferredTheme,
+      );
       return repaired
         ? {
             success: true,

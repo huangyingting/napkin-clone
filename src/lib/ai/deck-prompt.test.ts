@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildDeckGenerationMessages } from "@/lib/ai/deck-prompt";
-import { DECK_THEMES } from "@/lib/presentation/deck";
+import { PRESENTATION_THEME_IDS } from "@/lib/presentation/deck";
 import { SLIDE_TEMPLATES } from "@/lib/presentation/slide-templates";
 
 const INVENTORY = [
@@ -63,7 +63,7 @@ test("system message biases toward a vibrant theme (#281)", () => {
   // Vibrant-theme guidance is present.
   assert.match(content, /VIBRANT theme/i);
   // Every theme is named in the guidance.
-  for (const theme of DECK_THEMES) {
+  for (const theme of PRESENTATION_THEME_IDS) {
     assert.ok(
       content.includes(`"${theme}"`),
       `theme ${theme} missing from theme guidance`,
@@ -79,7 +79,7 @@ test("system message lists every template and theme value", () => {
   for (const { kind } of SLIDE_TEMPLATES) {
     assert.ok(system.content.includes(`"${kind}"`), `template ${kind} missing`);
   }
-  for (const theme of DECK_THEMES) {
+  for (const theme of PRESENTATION_THEME_IDS) {
     assert.ok(system.content.includes(`"${theme}"`), `theme ${theme} missing`);
   }
 });

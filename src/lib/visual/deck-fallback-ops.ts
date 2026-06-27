@@ -2,7 +2,7 @@ import type { ImageElement, VisualElement } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import type { PresentationTheme } from "@/lib/presentation/presentation-theme";
 import type { Visual } from "@/lib/visual/schema";
-import { resolveVisualThemeBridge } from "@/lib/visual/deck-visual-theme-bridge";
+import { resolveVisualThemeBridge } from "@/lib/visual/presentation-visual-theme-bridge";
 import { applyTheme } from "@/lib/visual/transforms";
 import {
   isImageFallback,

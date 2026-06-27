@@ -1,5 +1,5 @@
 /**
- * Deck theme token schema — pure types and layer documentation.
+ * Presentation theme token schema — pure types and layer documentation.
  *
  * This module contains only token shapes, semantic role names, and cascade layer
  * labels. Runtime lookup and fallback logic live in presentation-theme-resolvers;
@@ -13,7 +13,7 @@
  *  5. element override — concrete element styles and local override objects.
  *
  * Unit boundaries:
- *  - FontScale and TextRoleToken.fontSize are point sizes.
+ *  - FontScale and PresentationRoleToken.fontSize are point sizes.
  *  - ElementBox and TextElementStyle font sizes are slide-relative percentages.
  *  - Color tokens are CSS hex colors; typography fonts are CSS font stacks.
  *  - Export adapters convert to PPTX inches/points at the boundary.
@@ -52,7 +52,7 @@ export { PRESENTATION_ROLES, type PresentationRole };
  * or theme defaults.  Sizes are points (matching {@link FontScale}); colors are
  * hex strings.
  */
-export type TextRoleToken = {
+export type PresentationRoleToken = {
   /** Font stack.  Falls back to the theme heading/body font when absent. */
   fontFamily?: string;
   /** Point size for this role. */
@@ -72,7 +72,9 @@ export type TextRoleToken = {
 };
 
 /** A complete-or-partial map of role → token. */
-export type TextRoleTokenMap = Partial<Record<PresentationRole, TextRoleToken>>;
+export type PresentationRoleTokenMap = Partial<
+  Record<PresentationRole, PresentationRoleToken>
+>;
 
 // ---------------------------------------------------------------------------
 // Color tokens
@@ -126,7 +128,7 @@ export type TypographyToken = {
    * {@link deriveRoleTokens}.  Authoring this map lets a theme define full
    * per-role typography (font, color, weight, alignment, spacing).
    */
-  roles?: TextRoleTokenMap;
+  roles?: PresentationRoleTokenMap;
 };
 
 // ---------------------------------------------------------------------------
@@ -249,7 +251,7 @@ export type BackgroundTreatment =
  * exported below; custom sets can be created at runtime by brand-kit tooling.
  */
 export type PresentationTheme = {
-  /** Stable id.  Matches the `DeckTheme` / `themeId` value used on `Deck`. */
+  /** Stable id.  Matches the `PresentationThemeId` / `themeId` value used on `Deck`. */
   id: string;
   /** Display name shown in the theme picker UI. */
   name: string;

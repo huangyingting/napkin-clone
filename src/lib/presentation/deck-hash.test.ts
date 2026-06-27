@@ -164,7 +164,7 @@ test("content hash changes when document-derived content changes", () => {
   );
 });
 
-test("content hash changes with deck theme", () => {
+test("content hash changes with presentation theme", () => {
   const a = deck([slide({ title: "Intro" })], "default");
   const b = deck([slide({ title: "Intro" })], "ocean");
   assert.notEqual(computeDeckContentHash(a), computeDeckContentHash(b));

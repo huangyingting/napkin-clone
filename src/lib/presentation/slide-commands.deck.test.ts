@@ -32,7 +32,7 @@ function buildCommandDeck(slideIds: string[]): Deck {
 // Issue #400 — SET_PRESENTATION_THEME
 // ---------------------------------------------------------------------------
 
-test("SET_PRESENTATION_THEME changes deck theme and emits patch with deckFields", () => {
+test("SET_PRESENTATION_THEME changes presentation theme and emits patch with deckFields", () => {
   const deck = buildCommandDeck(["s1", "s2"]);
   const result = executeCommand(deck, {
     type: "SET_PRESENTATION_THEME",

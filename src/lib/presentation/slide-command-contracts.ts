@@ -2,7 +2,7 @@
 
 import type {
   Deck,
-  DeckTheme,
+  PresentationThemeId,
   Slide,
   SlideMaster,
   MasterElement,
@@ -340,7 +340,7 @@ export interface ReorderElementCommand {
 /** Changes the presentation theme. */
 export interface SetPresentationThemeCommand {
   type: "SET_PRESENTATION_THEME";
-  themeId: DeckTheme;
+  themeId: PresentationThemeId;
   commandId?: string;
 }
 
@@ -689,7 +689,7 @@ export interface DeckPatch {
    * Only JSON-serialisable fields are included.
    */
   deckFields?: {
-    design?: { themeId?: DeckTheme; themeOverrides?: unknown };
+    design?: { themeId?: PresentationThemeId; themeOverrides?: unknown };
     canvas?: { format?: SlideFormat };
     masters?: SlideMaster[];
     defaultMasterId?: string;

@@ -16,8 +16,11 @@ export {
 } from "@/lib/presentation/slide-format";
 export type { SlideFormat } from "@/lib/presentation/slide-format";
 
-export { CURRENT_DECK_SCHEMA_VERSION, DECK_THEMES } from "./deck-core";
-export type { DeckTheme, Slide, Deck } from "./deck-core";
+export {
+  CURRENT_DECK_SCHEMA_VERSION,
+  PRESENTATION_THEME_IDS,
+} from "./deck-core";
+export type { PresentationThemeId, Slide, Deck } from "./deck-core";
 
 export {
   normalizeTextParagraphs,

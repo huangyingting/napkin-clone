@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import type { Deck, DeckTheme } from "@/lib/presentation/deck";
+import type { Deck, PresentationThemeId } from "@/lib/presentation/deck";
 import {
   commitCommand,
   type DeckPatch,
@@ -413,8 +413,8 @@ export function useSlideBackgroundCommands({
     });
   }, [deck, doCommitAndChange]);
 
-  const handleApplyDeckTheme = useCallback(
-    (themeId: DeckTheme) => {
+  const handleApplyPresentationTheme = useCallback(
+    (themeId: PresentationThemeId) => {
       doCommitAndChange(deck, { type: "SET_PRESENTATION_THEME", themeId });
     },
     [deck, doCommitAndChange],
@@ -450,7 +450,7 @@ export function useSlideBackgroundCommands({
     handleSlideFormatChange,
     handleUpdateThemeOverrides,
     handleResetThemeOverrides,
-    handleApplyDeckTheme,
+    handleApplyPresentationTheme,
     activeSolidBackground,
     activeGradientBackground,
   };

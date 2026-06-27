@@ -119,7 +119,7 @@ function deck(slides: Slide[], themeId: string = "indigo"): Deck {
   } as unknown as Deck;
 }
 
-function deckThemeId(deck: Deck): string | undefined {
+function presentationThemeId(deck: Deck): string | undefined {
   return (deck as any).design?.themeId;
 }
 
@@ -299,17 +299,17 @@ test("keeps the generated theme at deck level", () => {
   );
 
   const result = normalizeGeneratedDeck(input, KNOWN);
-  assert.equal(deckThemeId(result), "ocean");
+  assert.equal(presentationThemeId(result), "ocean");
 });
 
-test("falls back to indigo when the deck theme is missing/invalid", () => {
+test("falls back to indigo when the presentation theme is missing/invalid", () => {
   const bad = {
     design: { themeId: "neon" },
     slides: [slide({ title: "A" })],
   } as Deck;
 
   const result = normalizeGeneratedDeck(bad, KNOWN);
-  assert.equal(deckThemeId(result), FALLBACK_THEME);
+  assert.equal(presentationThemeId(result), FALLBACK_THEME);
 });
 
 test("upgrades a model 'default' theme to preferredTheme (#281)", () => {
@@ -317,7 +317,7 @@ test("upgrades a model 'default' theme to preferredTheme (#281)", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN, "ocean");
 
-  assert.equal(deckThemeId(result), "ocean");
+  assert.equal(presentationThemeId(result), "ocean");
   assert.ok(safeParseDeck(result).success);
 });
 
@@ -326,8 +326,8 @@ test("upgrades a model 'default' theme to indigo when no preferred (#281)", () =
 
   const result = normalizeGeneratedDeck(input, KNOWN);
 
-  assert.equal(deckThemeId(result), FALLBACK_THEME);
-  assert.notEqual(deckThemeId(result), "default");
+  assert.equal(presentationThemeId(result), FALLBACK_THEME);
+  assert.notEqual(presentationThemeId(result), "default");
   assert.ok(safeParseDeck(result).success);
 });
 
@@ -336,11 +336,11 @@ test("preserves an explicit vibrant themeId over preferredTheme (#281)", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN, "ocean");
 
-  assert.equal(deckThemeId(result), "forest");
+  assert.equal(presentationThemeId(result), "forest");
   assert.ok(safeParseDeck(result).success);
 });
 
-test("uses preferredTheme when the deck theme is missing/invalid (#281)", () => {
+test("uses preferredTheme when the presentation theme is missing/invalid (#281)", () => {
   const bad = {
     design: { themeId: "neon" },
     slides: [slide({ title: "A" })],
@@ -348,7 +348,7 @@ test("uses preferredTheme when the deck theme is missing/invalid (#281)", () => 
 
   const result = normalizeGeneratedDeck(bad, KNOWN, "grape");
 
-  assert.equal(deckThemeId(result), "grape");
+  assert.equal(presentationThemeId(result), "grape");
   assert.ok(safeParseDeck(result).success);
 });
 

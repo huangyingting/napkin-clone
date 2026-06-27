@@ -5,10 +5,10 @@ import { safeParseDeck } from "./deck-schema";
 import { currentDeck } from "./deck-schema.test-helpers";
 
 // ---------------------------------------------------------------------------
-// Reusable layouts
+// Superseded layouts
 // ---------------------------------------------------------------------------
 
-test("safeParseDeck rejects reusable layouts on persisted v6 decks", () => {
+test("safeParseDeck rejects superseded layouts on persisted v6 decks", () => {
   const layouts: unknown[] = [];
   const result = safeParseDeck({
     ...(currentDeck() as object),

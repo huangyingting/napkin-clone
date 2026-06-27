@@ -119,7 +119,7 @@ test("resolveSlideStyle uses ocean token set for ocean theme", () => {
   assert.equal(resolved.accent, "#0284c7");
 });
 
-test("resolveSlideStyle uses custom token set when present", () => {
+test("resolveSlideStyle uses theme override token set when present", () => {
   const deck = makeDeck({
     design: {
       themeId: "default",
@@ -460,7 +460,7 @@ test("resolveSlideThemeColors uses deck cascade colors (default theme)", () => {
   assert.strictEqual(colors.mutedColor, "#64748b");
 });
 
-test("resolveSlideThemeColors resolves a different built-in deck theme", () => {
+test("resolveSlideThemeColors resolves a different built-in presentation theme", () => {
   const deck = makeDeck({ design: { themeId: "indigo" } });
   const colors = resolveSlideThemeColors(deck, makeSlide());
   // indigo token set: still a light background with a theme-dark onBg
@@ -469,7 +469,7 @@ test("resolveSlideThemeColors resolves a different built-in deck theme", () => {
   assert.strictEqual(colors.accentColor, "#4f46e5");
 });
 
-test("resolveSlideThemeColors honors a deck custom token set", () => {
+test("resolveSlideThemeColors honors a presentation theme override token set", () => {
   const deck = makeDeck({
     design: {
       themeId: "default",

@@ -47,7 +47,7 @@ type DoCommitAndChange = (
   cmd: Parameters<typeof commitCommand>[1],
 ) => void;
 
-function textRoleLabel(role: PresentationRole): string {
+function presentationRoleLabel(role: PresentationRole): string {
   switch (role) {
     case "title":
       return "Title";
@@ -82,7 +82,7 @@ function textRoleLabel(role: PresentationRole): string {
   }
 }
 
-function textRoleFontSize(role: PresentationRole): number {
+function presentationRoleFontSize(role: PresentationRole): number {
   switch (role) {
     case "title":
       return SLIDE_TEXT_FONT_SIZE.h1;
@@ -139,7 +139,7 @@ function buildDefaultTextElement(
   role: PresentationRole,
   id: string,
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
-  const label = textRoleLabel(role);
+  const label = presentationRoleLabel(role);
   const isBullet = role === "bullet";
   const text = isBullet ? "First point\nSecond point" : label;
   const paragraphs = isBullet
@@ -156,7 +156,7 @@ function buildDefaultTextElement(
     content: { kind: "text", text, paragraphs },
     designOverrides: {
       textStyle: {
-        fontSize: textRoleFontSize(role),
+        fontSize: presentationRoleFontSize(role),
         bold: role === "title" || role === "sectionTitle",
         italic: role === "caption",
         align: role === "title" || role === "subtitle" ? "center" : "left",
@@ -340,8 +340,8 @@ export function useSlideInsertCommands({
       const element = {
         ...baseElement,
         content: {
-          ...(((baseElement as unknown as { content?: Record<string, unknown> }).content) ??
-            {}),
+          ...((baseElement as unknown as { content?: Record<string, unknown> })
+            .content ?? {}),
           kind: "image",
           src,
           ...(assetId ? { assetId } : {}),

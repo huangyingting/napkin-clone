@@ -2,7 +2,7 @@ import type { Deck } from "./deck-core";
 import { insertSlide, updateSlide } from "./deck-mutation-slides";
 import {
   setDeckSlideFormat,
-  setDeckTheme,
+  setPresentationTheme,
 } from "./deck-mutation-deck-settings";
 import {
   resetPresentationThemeOverrides,
@@ -27,7 +27,7 @@ import type {
 import { failure, makePatch, success } from "./slide-command-executor-helpers";
 import { buildTemplateSlide, type SlideTemplateKind } from "./slide-templates";
 
-export type DeckThemeFamilyCommand =
+export type PresentationThemeFamilyCommand =
   | SetPresentationThemeCommand
   | UpdateThemeOverridesCommand
   | SetCanvasFormatCommand
@@ -122,14 +122,14 @@ function preserveExistingContent(
   });
 }
 
-export function executeDeckThemeFamilyCommand(
+export function executePresentationThemeFamilyCommand(
   deck: Deck,
-  cmd: DeckThemeFamilyCommand,
+  cmd: PresentationThemeFamilyCommand,
 ) {
   switch (cmd.type) {
     case "SET_PRESENTATION_THEME":
       return success(
-        setDeckTheme(deck, cmd.themeId),
+        setPresentationTheme(deck, cmd.themeId),
         deck.slides.map((s) => s.id),
         [],
         undefined,

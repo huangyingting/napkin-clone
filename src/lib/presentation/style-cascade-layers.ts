@@ -22,7 +22,7 @@ import type {
 } from "./presentation-theme-types";
 import {
   backgroundTreatmentToCss,
-  resolveDeckThemeTokens,
+  resolvePresentationThemeTokens,
 } from "./presentation-theme-resolvers";
 
 export const STYLE_CASCADE_LAYERS = [
@@ -53,7 +53,7 @@ export interface ResolvedSlideStyle {
 /** Resolves the presentation theme token set for a v6 deck. */
 export function resolveDeckTokenSet(deck: Deck): PresentationTheme {
   const raw = deck as any;
-  return resolveDeckThemeTokens({ design: raw.design });
+  return resolvePresentationThemeTokens({ design: raw.design });
 }
 
 function colorRefValue(

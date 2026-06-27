@@ -16,7 +16,7 @@ APIs see [theme-layout.md](theme-layout.md); for the persisted shape see
 ## The template contract
 
 A presentation theme is the outermost layer of the cascade and is represented by a
-`PresentationTheme` (`src/lib/presentation/deck-theme-tokens.ts`). It defines:
+`PresentationTheme` (`src/lib/presentation/presentation-theme-types.ts`). It defines:
 
 | Group                    | Fields                                                                                                              | Resolver                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
@@ -86,10 +86,10 @@ with `origin: deck`.
 
 `brandToTokenSet` (`src/lib/presentation/deck-brand-tokens.ts`) builds a
 `PresentationTheme` from a saved brand, and `applyBrandToDeck` stores it on
-`Deck.customTokenSet` and installs brand master chrome **without touching any
+`Deck.design.themeOverrides` and installs brand master chrome **without touching any
 element `style` / `designOverrides`**, so existing local overrides are preserved.
 
-When authoring or generating a custom token set:
+When authoring or generating a theme override token set:
 
 - It must pass `validateCustomTokenSet` (`deck-schema.ts`): all `colors` must be
   hex, `typography.scale` numeric, any `typography.roles[*]` must use a known

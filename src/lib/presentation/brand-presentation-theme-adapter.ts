@@ -1,5 +1,5 @@
 /**
- * Dedicated adapter boundary for BrandStyle → deck theme tokens/master chrome.
+ * Dedicated adapter boundary for BrandStyle → presentation theme tokens/master chrome.
  *
  * Brand records describe user chrome/assets; PresentationTheme describes slide
  * rendering tokens. Keep the conversion here so brand persistence and visual

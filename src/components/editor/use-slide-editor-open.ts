@@ -43,7 +43,7 @@ import {
   stampDeckContentHash,
 } from "@/lib/presentation/deck-hash";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
-import { inferDeckTheme } from "@/lib/presentation/infer-theme";
+import { inferPresentationTheme } from "@/lib/presentation/infer-theme";
 import { attemptPatchAutosave } from "@/lib/presentation/patch-autosave";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
@@ -213,9 +213,13 @@ export function useSlideEditorOpen({
   const buildOpenContext = useCallback(
     (json: string): OpenContext => {
       const blocks = collectDocumentBlocks(json);
-      const derived = buildDeckFromBlocks(blocks, inferDeckTheme(blocks), {
-        documentId,
-      });
+      const derived = buildDeckFromBlocks(
+        blocks,
+        inferPresentationTheme(blocks),
+        {
+          documentId,
+        },
+      );
       const currentContentHash = computeDeckContentHash(derived);
       const baseDeck = stampDeckContentHash(derived, currentContentHash);
 

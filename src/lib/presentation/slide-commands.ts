@@ -41,13 +41,13 @@
 import type { Deck } from "./deck-core";
 import {
   setDeckSlideFormat,
-  setDeckTheme,
+  setPresentationTheme,
 } from "./deck-mutation-deck-settings";
 import { setElementPatches } from "./deck-mutation-elements";
 import { updateSlide } from "./deck-mutation-slides";
 import { resetPresentationThemeOverrides } from "./presentation-theme-overrides";
 import { executeBackgroundFamilyCommand } from "./slide-command-background-executor";
-import { executeDeckThemeFamilyCommand } from "./slide-command-deck-theme-executor";
+import { executePresentationThemeFamilyCommand } from "./slide-command-presentation-executor";
 import { executeElementFamilyCommand } from "./slide-command-element-executor";
 import {
   canCoalesceSlideCommands,
@@ -170,7 +170,7 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     case "CREATE_CUSTOM_TEMPLATE":
     case "UPDATE_CUSTOM_TEMPLATE":
     case "DELETE_CUSTOM_TEMPLATE":
-      return executeDeckThemeFamilyCommand(deck, cmd);
+      return executePresentationThemeFamilyCommand(deck, cmd);
     case "SET_SLIDE_BACKGROUND":
     case "SET_SLIDE_BACKGROUND_GRADIENT":
     case "SET_SLIDE_BACKGROUND_IMAGE":
@@ -252,7 +252,7 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
     case "presentation.set_theme": {
       const theme = patch.deckFields?.design?.themeId;
       if (!theme) return null;
-      return setDeckTheme(deck, theme);
+      return setPresentationTheme(deck, theme);
     }
     case "presentation.update_theme_overrides": {
       if (patch.deckFields?.resetThemeOverrides) {

@@ -17,7 +17,7 @@ function rect(x: number, y: number, w: number, h: number): MarqueeRect {
   return { x, y, w, h };
 }
 
-// A reusable layout of four well-separated boxes.
+// A superseded layout of four well-separated boxes.
 function layout(): IdentifiedBox[] {
   return [
     { id: "a", box: box(10, 10, 10, 10) }, // 10..20 / 10..20

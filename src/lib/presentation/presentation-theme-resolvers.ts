@@ -1,5 +1,5 @@
 /**
- * Deck theme token resolvers.
+ * Presentation theme token resolvers.
  *
  * All fallback and normalization behavior for token data lives here so the
  * schema/data modules stay declarative. This file is pure and has no React,
@@ -11,7 +11,7 @@ import type {
   ImageFitMode,
   ImageMaskShape,
 } from "@/lib/presentation/deck-element-primitives";
-import type { DeckTheme } from "@/lib/presentation/deck-core";
+import type { PresentationThemeId } from "@/lib/presentation/deck-core";
 import {
   BUILT_IN_TOKEN_SETS,
   DEFAULT_TOKEN_SET,
@@ -28,7 +28,7 @@ import {
   type ConnectorDashStyle,
   type PresentationRole,
   type PresentationTheme,
-  type TextRoleToken,
+  type PresentationRoleToken,
 } from "./presentation-theme-types";
 import { ensureCjkFallback } from "./slide-fonts";
 
@@ -41,7 +41,7 @@ export function isPresentationRole(value: unknown): value is PresentationRole {
 }
 
 /**
- * Returns the `PresentationTheme` for a given `themeId` / `DeckTheme` value.
+ * Returns the `PresentationTheme` for a given `themeId` / `PresentationThemeId` value.
  * Falls back to {@link DEFAULT_TOKEN_SET} for unknown or absent ids.
  *
  * This is the primary entry point for renderers and exporters to access the
@@ -64,11 +64,13 @@ export interface PresentationThemeSource {
 /**
  * Returns the token id that names the deck's current theme source.
  *
- * `themeId` is the authoritative deck-theme key. There is intentionally no
+ * `themeId` is the authoritative presentation-theme key. There is intentionally no
  * fallback to a superseded `theme` field: current deck payloads must carry
  * `themeId`.
  */
-export function resolveDeckThemeId(source: PresentationThemeSource): string {
+export function resolvePresentationThemeId(
+  source: PresentationThemeSource,
+): string {
   return (
     source.design?.themeOverrides?.tokenSet?.id ??
     source.design?.themeId ??
@@ -77,19 +79,19 @@ export function resolveDeckThemeId(source: PresentationThemeSource): string {
 }
 
 /** Resolves the deck-level token set, preferring custom/brand tokens. */
-export function resolveDeckThemeTokens(
+export function resolvePresentationThemeTokens(
   source: PresentationThemeSource,
 ): PresentationTheme {
   return (
     source.design?.themeOverrides?.tokenSet ??
-    resolveThemeTokens(resolveDeckThemeId(source))
+    resolveThemeTokens(resolvePresentationThemeId(source))
   );
 }
 
 /**
  * Returns the resolved `BackgroundTreatment` for a slide, applying the
  * cascade: slide background image → slide overrides → master background →
- * deck theme default background.
+ * presentation theme default background.
  *
  * Accepts the three existing per-slide fields as optional parameters so
  * callers do not need to construct a `BackgroundTreatment` union themselves.
@@ -145,7 +147,7 @@ export function backgroundTreatmentToCss(bg: BackgroundTreatment): string {
 }
 
 /**
- * Looks up the built-in token set for each registered `DeckTheme` and returns
+ * Looks up the built-in token set for each registered `PresentationThemeId` and returns
  * the result.
  */
 export function allThemeTokenSets(): PresentationTheme[] {
@@ -156,7 +158,7 @@ export function allThemeTokenSets(): PresentationTheme[] {
  * Returns `true` when `id` matches one of the built-in token sets.
  * Helps validators distinguish known ids from custom/brand-kit ids.
  */
-export function isBuiltInTheme(id: string): id is DeckTheme {
+export function isBuiltInTheme(id: string): id is PresentationThemeId {
   return TOKEN_SET_BY_ID.has(id);
 }
 
@@ -165,7 +167,7 @@ export function isBuiltInTheme(id: string): id is DeckTheme {
 // ---------------------------------------------------------------------------
 
 /**
- * Derives a complete {@link TextRoleToken} for `role` from a token set's base
+ * Derives a complete {@link PresentationRoleToken} for `role` from a token set's base
  * {@link FontScale}, font stacks, and color tokens. This guarantees every
  * theme exposes usable role typography even when it omits an explicit
  * `typography.roles` map.
@@ -173,7 +175,7 @@ export function isBuiltInTheme(id: string): id is DeckTheme {
 export function deriveRoleToken(
   tokenSet: PresentationTheme,
   role: PresentationRole,
-): TextRoleToken {
+): PresentationRoleToken {
   const { typography, colors } = tokenSet;
   const sizeKey = ROLE_TO_SCALE_KEY[role];
   const baseFamily = HEADING_ROLES.has(role)
@@ -194,7 +196,7 @@ export function deriveRoleToken(
 }
 
 /**
- * Resolves the effective {@link TextRoleToken} for a role: an explicitly
+ * Resolves the effective {@link PresentationRoleToken} for a role: an explicitly
  * authored `typography.roles[role]` token (merged over derived defaults so a
  * partial authored token still yields complete typography) or, when absent,
  * the fully derived token.
@@ -206,7 +208,7 @@ export function deriveRoleToken(
 export function resolveRoleToken(
   tokenSet: PresentationTheme,
   role: PresentationRole,
-): TextRoleToken {
+): PresentationRoleToken {
   const derived = deriveRoleToken(tokenSet, role);
   const authored = tokenSet.typography.roles?.[role];
   if (!authored) return derived;

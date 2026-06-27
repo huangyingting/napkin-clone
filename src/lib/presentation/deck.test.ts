@@ -57,7 +57,7 @@ function visual(id: string): DocumentBlock {
   };
 }
 
-function deckThemeId(deck: unknown): string | undefined {
+function presentationThemeId(deck: unknown): string | undefined {
   return (deck as any).design?.themeId;
 }
 
@@ -125,12 +125,12 @@ test("empty input yields a single blank slide", () => {
 
 test("themeId is stored at deck level", () => {
   const deck = buildDeckFromBlocks([h1("Title"), para("Body")], "ocean");
-  assert.equal(deckThemeId(deck), "ocean");
+  assert.equal(presentationThemeId(deck), "ocean");
 });
 
 test("default themeId is 'indigo'", () => {
   const deck = buildDeckFromBlocks([h1("Hi")]);
-  assert.equal(deckThemeId(deck), "indigo");
+  assert.equal(presentationThemeId(deck), "indigo");
 });
 
 test("slide indexes are zero-based and sequential", () => {
@@ -311,12 +311,12 @@ test("deck.slides is always an array", () => {
 
 test("returned deck has theme matching the argument", () => {
   const deck = buildDeckFromBlocks([h1("T")], "forest");
-  assert.equal(deckThemeId(deck), "forest");
+  assert.equal(presentationThemeId(deck), "forest");
 });
 
 test("returned deck carries themeId matching the chosen theme", () => {
   const deck = buildDeckFromBlocks([h1("T")], "forest");
-  assert.equal(deckThemeId(deck), "forest");
+  assert.equal(presentationThemeId(deck), "forest");
 });
 
 test("complex document: h1 + two h2 sections + visuals", () => {

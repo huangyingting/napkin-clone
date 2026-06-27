@@ -1,5 +1,5 @@
 /**
- * Built-in deck theme token data and role default tables.
+ * Built-in presentation theme token data and role default tables.
  *
  * This module intentionally contains no resolver functions. Consumers that need
  * lookup/fallback behavior should import from presentation-theme-resolvers (or the
@@ -89,7 +89,7 @@ const DEFAULT_SPACING: SpacingToken = { slidePaddingPt: 36, gridUnitPt: 6 };
 const DEFAULT_SHAPE: ShapeToken = { cornerRadiusPt: 4, shadowCss: "none" };
 
 /**
- * Built-in `PresentationTheme` definitions.  Keyed by `DeckTheme` / `themeId`
+ * Built-in `PresentationTheme` definitions.  Keyed by `PresentationThemeId` / `themeId`
  * so they can be looked up with `resolveThemeTokens`.
  *
  * Color values are drawn from the same palette used in `src/lib/visual/themes.ts`

@@ -7,9 +7,9 @@
  */
 
 import {
-  DECK_THEMES,
+  PRESENTATION_THEME_IDS,
   type Deck,
-  type DeckTheme,
+  type PresentationThemeId,
   type Slide,
 } from "./deck-core";
 import { buildSlideElementsFromContent } from "./deck-derivation";
@@ -33,11 +33,11 @@ type GeneratedTemplateId =
 
 /**
  * Brand-aligned theme used when the deck carries no valid theme. Mirrors the
- * fallback in {@link inferDeckTheme}; we cannot call that helper here because it
+ * fallback in {@link inferPresentationTheme}; we cannot call that helper here because it
  * needs the document's visual blocks, which this normalization layer does not
  * receive.
  */
-export const FALLBACK_THEME: DeckTheme = "indigo";
+export const FALLBACK_THEME: PresentationThemeId = "indigo";
 
 /** Minimum body font size (percent of slide height) used for hierarchy. */
 const BODY_FONT_SIZE = 4.5;
@@ -378,16 +378,22 @@ function normalizeSlide(
   } as unknown as Slide;
 }
 
-function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
+function resolveThemeId(
+  deck: Deck,
+  preferredTheme?: PresentationThemeId,
+): PresentationThemeId {
   const themeId = (deck as any).design?.themeId;
   // Preserve an explicit, recognised named theme the model chose.
-  if (themeId !== "default" && DECK_THEMES.includes(themeId as DeckTheme)) {
-    return themeId as DeckTheme;
+  if (
+    themeId !== "default" &&
+    PRESENTATION_THEME_IDS.includes(themeId as PresentationThemeId)
+  ) {
+    return themeId as PresentationThemeId;
   }
   // Unrecognised themeId (e.g. a legacy persisted value) — substitute a
   // vibrant one (issue #281): prefer a document-derived theme when supplied,
   // otherwise fall back to the brand-aligned indigo.
-  if (preferredTheme && DECK_THEMES.includes(preferredTheme)) {
+  if (preferredTheme && PRESENTATION_THEME_IDS.includes(preferredTheme)) {
     return preferredTheme;
   }
   return FALLBACK_THEME;
@@ -395,7 +401,7 @@ function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
 
 /**
  * Normalizes a validated, repaired {@link Deck} (as produced by `generateDeck`)
- * so every slide snaps to a template-conformant, deck-theme-aware
+ * so every slide snaps to a template-conformant, presentation-theme-aware
  * set of positioned `elements[]`. Pure and deterministic except for generated
  * element ids. The result remains `safeParseDeck`-valid.
  *
@@ -404,7 +410,7 @@ function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
  *                   array of `{ id }` carriers. Visuals not present here are
  *                   dropped. Omit for "no known visuals".
  * @param preferredTheme  A document-derived vibrant theme (from
- *                   {@link inferDeckTheme}) used when the model returns an
+ *                   {@link inferPresentationTheme}) used when the model returns an
  *                   unrecognised themeId (issue #281). An explicit named theme
  *                   the model chose is always preserved. Falls back to
  *                   {@link FALLBACK_THEME} when omitted.
@@ -412,7 +418,7 @@ function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
 export function normalizeGeneratedDeck(
   deck: Deck,
   inventory?: VisualInventory,
-  preferredTheme?: DeckTheme,
+  preferredTheme?: PresentationThemeId,
 ): Deck {
   const knownIds = toKnownIds(inventory);
   const inventoryMap = toInventoryMap(inventory);

@@ -1,11 +1,11 @@
 /**
- * Pure helper that derives a deck's starting {@link DeckTheme} from the visual
+ * Pure helper that derives a deck's starting {@link PresentationThemeId} from the visual
  * blocks in a document's block list.
  *
- * The deck themes mirror the visual style-theme names, so the mapping is
+ * The presentation themes mirror the visual style-theme names, so the mapping is
  * direct: a visual whose colors match the `indigo` / `ocean` / `forest` /
  * `sunset` / `grape` STYLE_THEME contributes one vote to the same-named deck
- * theme. The most-frequently-used visual theme becomes the deck theme.
+ * theme. The most-frequently-used visual theme becomes the presentation theme.
  *
  * When no visual matches an inferable theme (no visuals, or all
  * custom-colored), the deck falls back to the brand-aligned `indigo`.
@@ -13,16 +13,16 @@
  * Pure and DOM-free — fully testable under `node --test`.
  */
 
-import type { DeckTheme } from "./deck-core";
+import type { PresentationThemeId } from "./deck-core";
 import type { DocumentBlock } from "@/lib/content";
 import { isThemeActive } from "@/lib/visual/transforms";
 
 /**
- * Deck themes that mirror a visual STYLE_THEME of the same id, listed in
+ * Presentation themes that mirror a visual STYLE_THEME of the same id, listed in
  * canonical tie-break order. When two themes are used equally often, the one
  * earlier in this list wins, keeping inference deterministic.
  */
-const INFERABLE_THEMES: readonly DeckTheme[] = [
+const INFERABLE_THEMES: readonly PresentationThemeId[] = [
   "indigo",
   "ocean",
   "forest",
@@ -31,16 +31,18 @@ const INFERABLE_THEMES: readonly DeckTheme[] = [
 ];
 
 /** Brand-aligned theme used when no dominant visual theme can be inferred. */
-const FALLBACK_THEME: DeckTheme = "indigo";
+const FALLBACK_THEME: PresentationThemeId = "indigo";
 
 /**
  * Inspects the visual blocks in `blocks` and returns the most-frequently-used
- * visual theme as a {@link DeckTheme}. Ties are broken deterministically by
+ * visual theme as a {@link PresentationThemeId}. Ties are broken deterministically by
  * {@link INFERABLE_THEMES} order. Returns {@link FALLBACK_THEME} when no visual
  * matches an inferable theme.
  */
-export function inferDeckTheme(blocks: DocumentBlock[]): DeckTheme {
-  const counts = new Map<DeckTheme, number>();
+export function inferPresentationTheme(
+  blocks: DocumentBlock[],
+): PresentationThemeId {
+  const counts = new Map<PresentationThemeId, number>();
 
   for (const block of blocks) {
     if (block.kind !== "visual") continue;
@@ -52,7 +54,7 @@ export function inferDeckTheme(blocks: DocumentBlock[]): DeckTheme {
     }
   }
 
-  let best: DeckTheme = FALLBACK_THEME;
+  let best: PresentationThemeId = FALLBACK_THEME;
   let bestCount = 0;
   // Iterate in canonical order so the first theme reaching the max count wins,
   // giving deterministic tie-breaking.

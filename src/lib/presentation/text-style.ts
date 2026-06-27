@@ -47,7 +47,7 @@ export function stepFontSize(current: number, delta: number): number {
 
 /**
  * Extracts a deduped, ordered list of preset colors from a theme record for a
- * given color key (e.g. `"accentColor"` or `"bgColor"`). Drives the deck-theme
+ * given color key (e.g. `"accentColor"` or `"bgColor"`). Drives the presentation-theme
  * swatch chips so the Style-tab overrides default to on-theme colors before any
  * custom value. Comparison is case-insensitive; the first-seen casing wins.
  */
@@ -71,7 +71,7 @@ export function themeSwatchColors<T extends Record<string, unknown>>(
 }
 
 /**
- * Extracts a deduped, ordered list of colors from deck theme token sets. The
+ * Extracts a deduped, ordered list of colors from presentation theme token sets. The
  * slide inspector uses this for built-in background/accent swatches so theme
  * chips stay coupled to the authoritative token cascade.
  */

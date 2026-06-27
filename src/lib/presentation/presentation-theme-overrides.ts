@@ -7,13 +7,13 @@ import type {
   PresentationRole,
   PresentationTheme,
   ImageDefaultsToken,
-  TextRoleToken,
-  TextRoleTokenMap,
+  PresentationRoleToken,
+  PresentationRoleTokenMap,
   VisualDefaultsToken,
 } from "./presentation-theme-types";
 import {
-  resolveDeckThemeId,
-  resolveDeckThemeTokens,
+  resolvePresentationThemeId,
+  resolvePresentationThemeTokens,
   resolveRoleToken,
 } from "./presentation-theme-resolvers";
 
@@ -28,7 +28,7 @@ export interface PresentationThemeOverridesPatch {
   typography?: {
     fontFamily?: string;
     headingFontFamily?: string;
-    roles?: Partial<Record<PresentationRole, Partial<TextRoleToken>>>;
+    roles?: Partial<Record<PresentationRole, Partial<PresentationRoleToken>>>;
   };
   defaultBackground?: BackgroundTreatment;
   bullet?: Partial<BulletDefaultsToken>;
@@ -39,10 +39,10 @@ export interface PresentationThemeOverridesPatch {
 
 function mergeRoleTokens(
   base: PresentationTheme,
-  existing: TextRoleTokenMap | undefined,
-  patchRoles: Partial<Record<PresentationRole, Partial<TextRoleToken>>>,
-): TextRoleTokenMap {
-  const out: TextRoleTokenMap = { ...(existing ?? {}) };
+  existing: PresentationRoleTokenMap | undefined,
+  patchRoles: Partial<Record<PresentationRole, Partial<PresentationRoleToken>>>,
+): PresentationRoleTokenMap {
+  const out: PresentationRoleTokenMap = { ...(existing ?? {}) };
   for (const key of Object.keys(patchRoles) as PresentationRole[]) {
     const partial = patchRoles[key];
     if (!partial) continue;
@@ -62,12 +62,12 @@ export function updatePresentationThemeOverrides(
   deck: Deck,
   patch: PresentationThemeOverridesPatch,
 ): Deck {
-  const themeId = resolveDeckThemeId(deck);
+  const themeId = resolvePresentationThemeId(deck);
   const existingTokenSet = (deck as any).design?.themeOverrides?.tokenSet as
     | PresentationTheme
     | undefined;
   const base: PresentationTheme = existingTokenSet ?? {
-    ...resolveDeckThemeTokens(deck),
+    ...resolvePresentationThemeTokens(deck),
     id: `custom:${themeId}`,
     name: `Custom (${themeId})`,
   };

@@ -5,22 +5,22 @@
  * whose slides carry concise, presentation-ready content and free-form
  * positioned `elements[]`. The allowed `templateId` and `design.themeId` value
  * lists are derived from the built-in slide template catalogue and
- * `DECK_THEMES` so this prompt stays in sync with `safeParseDeck`.
+ * `PRESENTATION_THEME_IDS` so this prompt stays in sync with `safeParseDeck`.
  *
  * This module is intentionally free of any network, DOM, or React dependencies
  * so it can be unit tested deterministically under `node --test`.
  */
 
 import type { ChatMessage } from "@/lib/ai/prompt";
-import { DECK_THEMES } from "@/lib/presentation/deck";
+import { PRESENTATION_THEME_IDS } from "@/lib/presentation/deck";
 import { SLIDE_TEMPLATES } from "@/lib/presentation/slide-templates";
 
 /**
  * The named visual-content themes the model should choose from (all entries
- * in {@link DECK_THEMES}).  Kept as a named constant so the theme-rules
+ * in {@link PRESENTATION_THEME_IDS}).  Kept as a named constant so the theme-rules
  * section of the prompt and the schema description share the same list.
  */
-const VIBRANT_THEMES: readonly string[] = DECK_THEMES;
+const VIBRANT_THEMES: readonly string[] = PRESENTATION_THEME_IDS;
 const TEMPLATE_IDS = SLIDE_TEMPLATES.map((template) => template.kind);
 
 /** A single visual the model may reference (and ONLY these) by `id`. */

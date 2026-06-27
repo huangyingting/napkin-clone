@@ -229,7 +229,7 @@ function samePreselection(
 
 interface SlideStageEditorProps {
   slide: Slide;
-  /** Deck context for full cascade resolution (custom token set / masters). */
+  /** Deck context for full cascade resolution (theme override token set / masters). */
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   width: number;

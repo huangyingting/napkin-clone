@@ -1,5 +1,5 @@
 /**
- * Bridge between deck theme defaults and visual-content theme application.
+ * Bridge between presentation theme defaults and visual-content theme application.
  *
  * Deck tokens can suggest which visual style theme to apply to embedded Visual
  * payloads, but the visual theme/display-style catalogs remain separate data

@@ -82,7 +82,7 @@ import {
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
 import { PresentationThemePanel } from "@/components/presentation/presentation-theme-panel";
-import { resolveDeckThemeTokens } from "@/lib/presentation/presentation-theme";
+import { resolvePresentationThemeTokens } from "@/lib/presentation/presentation-theme";
 import {
   SLIDE_TEMPLATES,
   type SlideTemplateKind,
@@ -1282,7 +1282,7 @@ export function SlideEditor({
     handleSlideFormatChange,
     handleUpdateThemeOverrides,
     handleResetThemeOverrides,
-    handleApplyDeckTheme,
+    handleApplyPresentationTheme,
   } = useSlideBackgroundCommands({
     deck,
     safeSelected,
@@ -1292,7 +1292,7 @@ export function SlideEditor({
     setThemeMenuOpen: () => undefined,
   });
 
-  const presentationThemeTokenSet = resolveDeckThemeTokens(deck);
+  const presentationThemeTokenSet = resolvePresentationThemeTokens(deck);
   const activeSlideTemplateId = useMemo<SlideTemplateKind>(() => {
     const selectedTemplateId = selectedSlide?.templateId;
     if (selectedTemplateId === "title") return "title";
@@ -1497,15 +1497,15 @@ export function SlideEditor({
               <Popover
                 open={themeOverridesOpen}
                 onClose={() => setThemeOverridesOpen(false)}
-                aria-label="Edit deck theme"
+                aria-label="Edit presentation theme"
                 portal
                 layer="tooltip"
                 className="p-3"
                 trigger={
-                  <Tooltip label="Deck theme" side="bottom">
+                  <Tooltip label="Presentation theme" side="bottom">
                     <button
                       type="button"
-                      aria-label="Edit deck theme"
+                      aria-label="Edit presentation theme"
                       aria-haspopup="dialog"
                       aria-expanded={themeOverridesOpen}
                       onClick={() => setThemeOverridesOpen((open) => !open)}
@@ -1523,7 +1523,7 @@ export function SlideEditor({
                   themeId={deckPresentationThemeId(deck)}
                   onUpdate={handleUpdateThemeOverrides}
                   onReset={handleResetThemeOverrides}
-                  onApplyTheme={handleApplyDeckTheme}
+                  onApplyTheme={handleApplyPresentationTheme}
                 />
               </Popover>
               <span className="hidden min-w-0 shrink truncate text-xs text-ds-text-muted 2xl:inline">

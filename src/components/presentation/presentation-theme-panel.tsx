@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Deck theme panel (#613, #611, #612 + palette/gradient + presets).
+ * Presentation theme panel (#613, #611, #612 + palette/gradient + presets).
  *
  * A compact two-view popover for the deck's *global* visual language (mirrors
  * the `theme-panel-palette` design exploration):
@@ -15,12 +15,12 @@
  *        {@link PresentationRole}, each with a live sample.
  *    Edits dispatch `UPDATE_THEME_OVERRIDES` patches (undoable, autosaved).
  *    **Save preset** snapshots the current token set into your library;
- *    **Reset to theme** clears the deck's custom token set.
+ *    **Reset to theme** clears the deck's theme override token set.
  */
 
 import { useMemo, useState } from "react";
 
-import type { DeckTheme } from "@/lib/presentation/deck";
+import type { PresentationThemeId } from "@/lib/presentation/deck";
 import {
   allThemeTokenSets,
   isBuiltInTheme,
@@ -30,7 +30,7 @@ import {
   type ColorToken,
   type PresentationRole,
   type PresentationTheme,
-  type TextRoleToken,
+  type PresentationRoleToken,
 } from "@/lib/presentation/presentation-theme";
 import type { PresentationThemeOverridesPatch } from "@/lib/presentation/deck-mutations";
 import {
@@ -117,7 +117,9 @@ function gradientCss(g: { from: string; to: string; angle?: number }): string {
 function tokenSetToTemplatePatch(
   ts: PresentationTheme,
 ): PresentationThemeOverridesPatch {
-  const roles: Partial<Record<PresentationRole, Partial<TextRoleToken>>> = {};
+  const roles: Partial<
+    Record<PresentationRole, Partial<PresentationRoleToken>>
+  > = {};
   for (const role of PRESENTATION_ROLES) {
     roles[role] = { ...resolveRoleToken(ts, role) };
   }
@@ -477,14 +479,14 @@ export function PresentationThemePanel({
 }: {
   /** The deck's resolved token set (custom set when present, else built-in). */
   tokenSet: PresentationTheme;
-  /** Whether the deck currently has a custom token set (enables Reset). */
+  /** Whether the deck currently has a theme override token set (enables Reset). */
   isCustom: boolean;
   /** The deck's active theme token id (for preset highlighting). */
   themeId: string;
   onUpdate: (patch: PresentationThemeOverridesPatch) => void;
   onReset: () => void;
-  /** Applies a built-in theme preset cleanly (clears any custom token set). */
-  onApplyTheme: (themeId: DeckTheme) => void;
+  /** Applies a built-in theme preset cleanly (clears any theme override token set). */
+  onApplyTheme: (themeId: PresentationThemeId) => void;
 }) {
   const [view, setView] = useState<PanelView>("preset");
   const [tab, setTab] = useState<PanelTab>("palette");

@@ -31,6 +31,7 @@ import {
   type VerticalAlign,
   isHexColor,
   isPlainObject,
+  rejectUnknownKeys,
   validateFiniteNumber,
   validateOpacity,
 } from "./shared";
@@ -62,41 +63,33 @@ const COLOR_REF_TOKENS = [
   "muted",
 ] as const;
 
-const REMOVED_ELEMENT_FIELDS = [
-  "alt",
-  "arrowEnd",
-  "arrowStart",
-  "assetId",
-  "bulletGap",
-  "bulletIndent",
-  "color",
-  "crop",
-  "dash",
-  "fitMode",
-  "groupId",
-  "maskShape",
-  "name",
+const BASE_ELEMENT_KEYS = [
+  "id",
+  "kind",
+  "box",
+  "zIndex",
   "opacity",
-  "paragraphs",
-  "radius",
   "rotation",
-  "routing",
-  "runs",
   "shadow",
-  "shape",
-  "src",
-  "start",
-  "stroke",
-  "style",
-  "styleOverride",
-  "styleThemeId",
-  "text",
-  "textRole",
-  "textRuns",
-  "textStyle",
-  "textStyleOverride",
-  "visualId",
+  "locked",
+  "hidden",
+  "name",
+  "groupId",
+  "source",
+  "role",
+  "designOverrides",
+  "content",
 ] as const;
+
+const MASTER_ELEMENT_KEYS = [...BASE_ELEMENT_KEYS, "layer"] as const;
+
+const ELEMENT_CONTENT_KEYS: Record<string, readonly string[]> = {
+  text: ["kind", "text", "paragraphs", "runs", "fitMode", "bulletGap", "bulletIndent"],
+  visual: ["kind", "visualId", "styleThemeId", "alt"],
+  image: ["kind", "src", "assetId", "alt", "crop"],
+  shape: ["kind", "shape", "text", "textRuns"],
+  connector: ["kind", "start", "end", "routing"],
+};
 
 function validatePresentationRole(input: unknown, context: string): string {
   if (
@@ -269,27 +262,6 @@ function validateElementSource(
     string,
     unknown
   >;
-}
-
-function rejectRemovedElementFields(
-  input: Record<string, unknown>,
-  context: string,
-): void {
-  for (const field of REMOVED_ELEMENT_FIELDS) {
-    if (field in input) {
-      throw new DeckValidationError(
-        `${context}.${field} has moved to content or designOverrides`,
-      );
-    }
-  }
-  if (input.layoutSlot !== undefined) {
-    throw new DeckValidationError(
-      `${context}.layoutSlot is no longer supported`,
-    );
-  }
-  if (input.sourceRef !== undefined) {
-    throw new DeckValidationError(`${context}.sourceRef has moved to source`);
-  }
 }
 
 function validateTextFitMode(
@@ -570,7 +542,9 @@ function validateParagraphs(value: unknown, context: string): Paragraph[] {
 function validateBaseElementFields(
   input: Record<string, unknown>,
   context: string,
+  allowedKeys: readonly string[] = BASE_ELEMENT_KEYS,
 ): Record<string, unknown> {
+  rejectUnknownKeys(input, allowedKeys, context);
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
   }
@@ -584,10 +558,28 @@ function validateBaseElementFields(
   }
   const box = validateBox(input.box, `${context}.box`);
   const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
-  rejectRemovedElementFields(input, context);
+  if (input.opacity !== undefined) {
+    validateOpacity(input.opacity, `${context}.opacity`);
+  }
+  if (input.rotation !== undefined) {
+    validateFiniteNumber(input.rotation, `${context}.rotation`);
+  }
+  if (input.name !== undefined && (typeof input.name !== "string" || input.name.length === 0)) {
+    throw new DeckValidationError(`${context}.name must be a non-empty string`);
+  }
+  if (input.groupId !== undefined && (typeof input.groupId !== "string" || input.groupId.length === 0)) {
+    throw new DeckValidationError(`${context}.groupId must be a non-empty string`);
+  }
   return {
     id: input.id,
     kind: input.kind,
+    ...(input.opacity !== undefined
+      ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
+      : {}),
+    ...(input.rotation !== undefined
+      ? { rotation: validateFiniteNumber(input.rotation, `${context}.rotation`) }
+      : {}),
+    ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.role !== undefined
       ? { role: validatePresentationRole(input.role, `${context}.role`) }
       : {}),
@@ -603,6 +595,12 @@ function validateBaseElementFields(
       : {}),
     ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
     ...(input.hidden !== undefined ? { hidden: Boolean(input.hidden) } : {}),
+    ...(typeof input.name === "string" && input.name.length > 0
+      ? { name: input.name }
+      : {}),
+    ...(typeof input.groupId === "string" && input.groupId.length > 0
+      ? { groupId: input.groupId }
+      : {}),
     ...(input.source !== undefined
       ? { source: validateElementSource(input.source, `${context}.source`) }
       : {}),
@@ -617,6 +615,7 @@ function validateElementContent(
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
+  rejectUnknownKeys(input, ELEMENT_CONTENT_KEYS[kind] ?? ["kind"], context);
   if (input.kind !== kind) {
     throw new DeckValidationError(`${context}.kind must match element kind`);
   }
@@ -783,7 +782,7 @@ export function validateMasterElement(
   if (input.locked !== true) {
     throw new DeckValidationError(`${context}.locked must be true`);
   }
-  const base = validateBaseElementFields(input, context);
+  const base = validateBaseElementFields(input, context, MASTER_ELEMENT_KEYS);
   const kind = base.kind as string;
   const content = validateElementContent(
     kind,

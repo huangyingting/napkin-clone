@@ -1013,14 +1013,14 @@ export const TEXT_ROLE_OPTIONS: Readonly<
 };
 
 /** The role an element inherits when it carries no explicit presentation role. */
-function defaultTextRole(element: SlideElement): PresentationRole {
+function defaultPresentationRole(element: SlideElement): PresentationRole {
   return presentationRoleToPresentationRole(
     (element as { role?: string }).role,
     element.kind === "text" ? "body" : "label",
   );
 }
 
-function deckTextRoleToPresentationRole(role: PresentationRole): string {
+function presentationRoleValue(role: PresentationRole): string {
   switch (role) {
     case "title":
       return "title";
@@ -1046,7 +1046,7 @@ export function RoleSelectControl({
 }) {
   const kindKey = element.kind === "shape" ? "shape" : "text";
   const options = TEXT_ROLE_OPTIONS[kindKey];
-  const current = defaultTextRole(element);
+  const current = defaultPresentationRole(element);
   return (
     <div className="flex flex-col gap-1.5">
       <PropRow label="Role">
@@ -1314,7 +1314,7 @@ export function TextPanel({
 
   // Resolve the inherited (role-token) values so the panel can show what the
   // element falls back to and mark per-property local overrides (#615).
-  const role = defaultTextRole(element);
+  const role = defaultPresentationRole(element);
   const tokenSet = resolveSlideTokenSet(deck, slide);
   const roleToken = resolveRoleToken(tokenSet, role);
   const inheritedColor = roleToken.color;
@@ -1335,7 +1335,7 @@ export function TextPanel({
           element={element}
           onChange={(role) =>
             onUpdateElement(element.id, {
-              role: deckTextRoleToPresentationRole(role),
+              role: presentationRoleValue(role),
             } as ElementPatch)
           }
         />
@@ -2611,7 +2611,7 @@ export function SourceSummary({
 }
 
 /**
- * Per-slide color override. The deck-theme preset swatches are the primary
+ * Per-slide color override. The presentation-theme preset swatches are the primary
  * interaction; the raw `<input type=color>` is hidden behind a "Custom…"
  * progressive-disclosure toggle so the token-driven theme colors stay
  * front-and-centre. "Theme" clears the override entirely.

@@ -2,7 +2,7 @@
 
 import type { SlideFormat } from "@/lib/presentation/slide-format";
 import type { SlideElement } from "./deck-elements";
-import { STYLE_THEME_IDS } from "./deck-theme-ids";
+import { STYLE_THEME_IDS } from "./presentation-theme-ids";
 
 /** Increment this for future structural deck schema changes. */
 export const CURRENT_DECK_SCHEMA_VERSION = 6;
@@ -15,13 +15,13 @@ export const CURRENT_DECK_SCHEMA_VERSION = 6;
  * resolver fallback.
  *
  * Exported as a `const` array so it is the single source of truth for both the
- * {@link DeckTheme} type and any code (validators, AI prompts) that needs to
+ * {@link PresentationThemeId} type and any code (validators, AI prompts) that needs to
  * enumerate the allowed values at runtime.
  */
-export const DECK_THEMES = [...STYLE_THEME_IDS] as const;
+export const PRESENTATION_THEME_IDS = [...STYLE_THEME_IDS] as const;
 
 /** Presentation themes — derived from the visual style theme catalog. */
-export type DeckTheme = (typeof DECK_THEMES)[number];
+export type PresentationThemeId = (typeof PRESENTATION_THEME_IDS)[number];
 
 export type ColorRef = { token: string } | { value: string };
 

@@ -1,14 +1,17 @@
-import type { Deck, DeckTheme } from "./deck-core";
+import type { Deck, PresentationThemeId } from "./deck-core";
 import type { SlideFormat } from "./slide-format";
 
 /**
- * Changes the deck theme id.
+ * Changes the presentation theme id.
  *
  * The style cascade resolves deck tokens exclusively through the deck-level
- * theme resolver. Applying a built-in theme also clears a custom token set so
+ * theme resolver. Applying a built-in theme also clears a theme override token set so
  * the built-in token set is visible immediately.
  */
-export function setDeckTheme(deck: Deck, themeId: DeckTheme): Deck {
+export function setPresentationTheme(
+  deck: Deck,
+  themeId: PresentationThemeId,
+): Deck {
   const design = { ...((deck as any).design ?? {}), themeId };
   delete (design as { themeOverrides?: unknown }).themeOverrides;
   return { ...deck, design } as Deck;

@@ -19,7 +19,7 @@ export {
 } from "./deck-mutation-slides";
 
 export {
-  setDeckTheme,
+  setPresentationTheme,
   setDeckSlideFormat,
 } from "./deck-mutation-deck-settings";
 

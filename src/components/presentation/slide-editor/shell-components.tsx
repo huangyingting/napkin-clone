@@ -626,7 +626,7 @@ const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
     { kind: "triangle", label: "Triangle" },
   ];
 
-function textRoleIcon(role: PresentationRole): ReactNode {
+function presentationRoleIcon(role: PresentationRole): ReactNode {
   switch (role) {
     case "title":
       return <Heading1 size={16} aria-hidden="true" />;
@@ -1875,7 +1875,7 @@ export function SlideToolbar({
   const textItems = PRESENTATION_ROLES.map((role) => ({
     key: role,
     label: TEXT_ROLE_LABELS[role],
-    icon: textRoleIcon(role),
+    icon: presentationRoleIcon(role),
     onClick: () => onAddElement(role),
   }));
   const mediaItems = [

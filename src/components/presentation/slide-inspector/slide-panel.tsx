@@ -6,7 +6,7 @@ import { ColorPicker, Swatch } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
 
 /**
- * Per-slide color override. The deck-theme preset swatches are the primary
+ * Per-slide color override. The presentation-theme preset swatches are the primary
  * interaction; the raw `<input type=color>` is hidden behind a "Custom…"
  * progressive-disclosure toggle so the token-driven theme colors stay
  * front-and-centre. "Theme" clears the override entirely.

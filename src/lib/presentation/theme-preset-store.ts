@@ -2,7 +2,7 @@
 
 /**
  * Client-local store for saved deck **theme presets** (the "Save preset"
- * library in the deck theme panel).
+ * library in the presentation theme panel).
  *
  * A preset is a named snapshot of a {@link PresentationTheme} the user can
  * reapply to any deck. This is intentionally a *client-local* store backed by
@@ -16,7 +16,7 @@
 
 import type { PresentationTheme } from "./presentation-theme-types";
 
-const STORAGE_KEY = "textiq:deck-theme-presets:v1";
+const STORAGE_KEY = "textiq:presentation-theme-presets:v1";
 
 export interface CustomThemePreset {
   /** Stable id (also used as the token set's id when applied). */

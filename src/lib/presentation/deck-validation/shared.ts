@@ -1,4 +1,4 @@
-import { DECK_THEMES, type DeckTheme } from "../deck-core";
+import { PRESENTATION_THEME_IDS, type PresentationThemeId } from "../deck-core";
 import type {
   ElementAlign,
   ShapeKind,
@@ -22,8 +22,26 @@ export function isPlainObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function isDeckTheme(value: unknown): value is DeckTheme {
-  return typeof value === "string" && DECK_THEMES.includes(value as DeckTheme);
+export function rejectUnknownKeys(
+  input: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  context: string,
+): void {
+  const allowed = new Set(allowedKeys);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      throw new DeckValidationError(`${context}.${key} is not part of the current schema`);
+    }
+  }
+}
+
+export function isPresentationThemeId(
+  value: unknown,
+): value is PresentationThemeId {
+  return (
+    typeof value === "string" &&
+    PRESENTATION_THEME_IDS.includes(value as PresentationThemeId)
+  );
 }
 
 export function isSlideFormat(value: unknown): value is SlideFormat {

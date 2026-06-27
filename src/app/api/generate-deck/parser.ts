@@ -18,7 +18,7 @@ import {
   formatDeckInputTooLongError,
 } from "@/lib/limits";
 import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
-import { inferDeckTheme } from "@/lib/presentation/infer-theme";
+import { inferPresentationTheme } from "@/lib/presentation/infer-theme";
 import type { Visual } from "@/lib/visual/schema";
 
 const DECK_LENGTHS: readonly NonNullable<DeckGenerationOptions["length"]>[] = [
@@ -34,7 +34,7 @@ export interface GenerateDeckPayload {
   visuals: Map<string, Visual>;
   outline: string;
   truncated: boolean;
-  preferredTheme: ReturnType<typeof inferDeckTheme>;
+  preferredTheme: ReturnType<typeof inferPresentationTheme>;
 }
 
 export function visualsFromContent(
@@ -117,7 +117,7 @@ export function parseGenerateDeckPayload(
   const blocks = collectDocumentBlocks(body.contentJson);
   const visuals = visualsFromContent(blocks);
   const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
-  const preferredTheme = inferDeckTheme(blocks);
+  const preferredTheme = inferPresentationTheme(blocks);
 
   if (outline.trim().length === 0) {
     return {

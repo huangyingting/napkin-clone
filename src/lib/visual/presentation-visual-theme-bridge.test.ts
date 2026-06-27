@@ -4,7 +4,7 @@ import { test } from "node:test";
 import {
   isVisualStyleThemeId,
   resolveVisualThemeBridge,
-} from "@/lib/visual/deck-visual-theme-bridge";
+} from "@/lib/visual/presentation-visual-theme-bridge";
 
 test("visual theme bridge recognizes visual-content themes independently", () => {
   assert.equal(isVisualStyleThemeId("indigo"), true);

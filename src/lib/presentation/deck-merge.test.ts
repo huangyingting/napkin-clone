@@ -267,7 +267,7 @@ test("appends new slides with no match", () => {
   assert.equal(merged.slides.length, 2);
   assert.equal(merged.slides[1].title, "Brand New");
   assert.deepEqual(bulletsOf(merged.slides[1]), ["fresh"]);
-  // New slides carry contiguous indices; deck theme is deck-level.
+  // New slides carry contiguous indices; presentation theme is deck-level.
   assert.equal(merged.slides[1].index, 1);
   assert.equal(summary.appendedCount, 1);
 });

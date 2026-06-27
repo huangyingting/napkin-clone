@@ -93,10 +93,10 @@ Migrated **off** the top toolbar:
 
 ### 4.1 Theme vs background
 
-"Deck theme" (global colors/fonts, affects all slides) and "per-slide
+"Presentation theme" (global colors/fonts, affects all slides) and "per-slide
 background" (overrides one slide) are distinct concepts:
 
-- Deck theme stays in the top toolbar.
+- Presentation theme stays in the top toolbar.
 - Per-slide background lives on the Slide object.
 
 ---
@@ -267,20 +267,19 @@ creation. There is no stored binding and no content-preserving "switch layout"
 on a filled slide.
 
 If content-preserving re-flow is wanted later, it is a **pure function** driven
-by `textRole` (see §7.4): group elements by role, order within a role by reading
+by `role` (see §7.4): group elements by role, order within a role by reading
 order (top→bottom, left→right) to recover ordering implicitly, and map to the
 target layout's regions of the same role. Role-less elements are never moved.
 
 ### 7.3 Removed: legacy semantic `role`
 
 The legacy `TextElement.role: "title" | "body"` is removed. Semantic identity is
-unified onto `textRole`.
+unified onto `role`.
 
-### 7.4 Canonical classification: `textRole`
+### 7.4 Canonical classification: `role`
 
-The existing `DECK_TEXT_ROLES`
-(`h1 · h2 · h3 · subtitle · body · bullet · caption · footer · shapeLabel`,
-see [deck-theme-token-primitives.ts](../../src/lib/presentation/deck-theme-token-primitives.ts))
+The current `PRESENTATION_ROLES`
+(`title · subtitle · sectionTitle · body · bullet · quote · caption · footer · label · media · visual · image · logo · pageNumber · background`)
 is the single classification and does triple duty:
 
 1. **Typography** (already implemented): selects the theme role token.
@@ -293,7 +292,7 @@ Decisions:
 
 - **Semantic = typographic coupling is accepted.** "`h1` is the title." The rare
   case of an h1-sized non-title decorative text is not worth a separate field.
-- **`textRole` stays optional with a default.** Absent resolves to `body`
+- **`role` stays optional with a default.** Absent resolves to `body`
   (bullets to `bullet`). Import/generation should set explicit headings but are
   not required to.
 
@@ -333,10 +332,10 @@ Schema and library (`src/lib/presentation/`):
   around `paragraphs: Paragraph[]`; keep five kinds in the `SlideElement` union.
 - `layout-apply.ts`: stop producing placeholders/slot bindings; templates
   instantiate typed positioned elements. Re-flow, if added, is a pure function
-  keyed on `textRole`.
+  keyed on `role`.
 - `slide-title.ts`: derive the title from the first `h1` (fallback h2/h3)
   instead of `role === "title"` / title placeholder.
-- `slide-slots.ts`: removed or reduced to the `textRole` re-flow helper.
+- `slide-slots.ts`: removed or reduced to the `role` re-flow helper.
 - `deck-diff.ts`, `element-accessible-name.ts`, `stage-resize.ts`: remove the
   `placeholder` branches; bullets folds into text.
 
@@ -365,7 +364,7 @@ superseded shapes).
   state machine that the selection grammar (§5.6) and text states (§5.4) extend.
 - [../data-model/deck.md](../data-model/deck.md) — persisted deck shape to update
   for the element-model changes.
-- [../editor/theme-layout.md](../editor/theme-layout.md) — `textRole` token
+- [../editor/theme-layout.md](../editor/theme-layout.md) — `role` token
   resolution that §7.4 builds on.
 - [new-element-kind-checklist.md](new-element-kind-checklist.md) — revisit after
   the kind count drops to five.

@@ -7,7 +7,7 @@
  * deck data model: rail open/close, desktop inspector panel, mobile inspector
  * sheet, right panel tab routing, zoom level, and the seven toolbar popovers
  * (insert, from-document, add-slide template, spotlight picker, background,
- * deck theme, insert-menu visual picker).  Also owns the merge-sync dialog
+ * presentation theme, insert-menu visual picker).  Also owns the merge-sync dialog
  * state and the session-scoped staleness-resolved flag, which are purely
  * dialog open/close concerns even though their confirmation handler touches
  * the deck (the deck mutation callback is passed in as a stable dep).

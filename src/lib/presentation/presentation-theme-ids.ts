@@ -1,6 +1,6 @@
 /**
- * Canonical visual/deck theme ID catalog — single source of truth shared
- * between the presentation layer ({@link DECK_THEMES} in deck-core.ts) and
+ * Canonical visual/presentation theme ID catalog — single source of truth shared
+ * between the presentation layer ({@link PRESENTATION_THEME_IDS} in deck-core.ts) and
  * the visual layer (STYLE_THEMES in lib/visual/themes.ts).
  *
  * Kept in lib/presentation rather than lib/visual to avoid an import cycle:

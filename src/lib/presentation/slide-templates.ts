@@ -114,9 +114,14 @@ function textStyle(
   return { fontSize, align, bold, italic: false };
 }
 
-type TemplateTextRole = "title" | "subtitle" | "body" | "caption" | "footer";
+type TemplatePresentationRole =
+  | "title"
+  | "subtitle"
+  | "body"
+  | "caption"
+  | "footer";
 
-function templateTextStyle(role: TemplateTextRole): TextElementStyle {
+function templateTextStyle(role: TemplatePresentationRole): TextElementStyle {
   switch (role) {
     case "title":
       return textStyle(6.5, "center", true);
@@ -133,7 +138,7 @@ function templateTextStyle(role: TemplateTextRole): TextElementStyle {
 
 function textTemplateElement(
   id: string,
-  role: TemplateTextRole,
+  role: TemplatePresentationRole,
   text: string,
   box: ElementBox,
 ): SlideTemplateElement {

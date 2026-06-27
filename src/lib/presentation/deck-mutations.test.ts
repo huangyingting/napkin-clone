@@ -23,7 +23,7 @@ import {
   moveSlide,
   sendElementToBack,
   setDeckSlideFormat,
-  setDeckTheme,
+  setPresentationTheme,
   setElementHidden,
   setElementLocked,
   setSlideAccent,
@@ -321,12 +321,12 @@ test("updateSlide applies mixed slide fields", () => {
 });
 
 // ---------------------------------------------------------------------------
-// setDeckTheme
+// setPresentationTheme
 // ---------------------------------------------------------------------------
 
-test("setDeckTheme changes the deck-level themeId", () => {
+test("setPresentationTheme changes the deck-level themeId", () => {
   const deck = makeDeck(["A", "B"]);
-  const next = setDeckTheme(deck, "ocean");
+  const next = setPresentationTheme(deck, "ocean");
 
   assert.equal((next as any).design.themeId, "ocean");
   // original untouched
@@ -1015,7 +1015,7 @@ test("reorderElement is a no-op when ids are equal or missing (#639)", () => {
   );
 });
 
-test("updatePresentationThemeOverrides materializes a custom token set from the theme then patches colors (#614)", () => {
+test("updatePresentationThemeOverrides materializes a theme override token set from the theme then patches colors (#614)", () => {
   const deck: Deck = makeDeck([]);
   const next = updatePresentationThemeOverrides(deck, {
     colors: { accent: "#ff0000" },
@@ -1040,7 +1040,7 @@ test("updatePresentationThemeOverrides merges a partial role token over the reso
   assert.equal(title.weight, 700);
 });
 
-test("updatePresentationThemeOverrides merges over an existing custom token set (#614)", () => {
+test("updatePresentationThemeOverrides merges over an existing theme override token set (#614)", () => {
   const deck: Deck = makeDeck([]);
   const once = updatePresentationThemeOverrides(deck, {
     colors: { accent: "#ff0000" },

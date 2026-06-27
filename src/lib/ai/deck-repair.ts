@@ -11,7 +11,7 @@ import {
   normalizeGeneratedDeck,
   type VisualInventory,
 } from "@/lib/presentation/deck-layout-assign";
-import type { DeckTheme } from "@/lib/presentation/deck";
+import type { PresentationThemeId } from "@/lib/presentation/deck";
 
 export const REPAIRED_DECK_MAX_SLIDES = GENERATED_DECK_MAX_SLIDES;
 
@@ -27,13 +27,13 @@ const SLIDE_TEMPLATE_IDS = [
 type SlideTemplateId = (typeof SLIDE_TEMPLATE_IDS)[number];
 const DEFAULT_TEMPLATE: SlideTemplateId = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
-const PRESENTATION_TEXT_ROLES = [
+const GENERATED_PRESENTATION_ROLES = [
   "title",
   "sectionTitle",
   "body",
   "bullet",
 ] as const;
-type PresentationTextRole = (typeof PRESENTATION_TEXT_ROLES)[number];
+type GeneratedPresentationRole = (typeof GENERATED_PRESENTATION_ROLES)[number];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -64,10 +64,12 @@ function fallbackElementId(
   return id;
 }
 
-function isPresentationTextRole(value: unknown): value is PresentationTextRole {
+function isGeneratedPresentationRole(
+  value: unknown,
+): value is GeneratedPresentationRole {
   return (
     typeof value === "string" &&
-    (PRESENTATION_TEXT_ROLES as readonly string[]).includes(value)
+    (GENERATED_PRESENTATION_ROLES as readonly string[]).includes(value)
   );
 }
 
@@ -130,7 +132,9 @@ export function repairElement(
 
   switch (input.kind) {
     case "text": {
-      const role: PresentationTextRole = isPresentationTextRole(input.role)
+      const role: GeneratedPresentationRole = isGeneratedPresentationRole(
+        input.role,
+      )
         ? input.role
         : "body";
       const text = typeof content.text === "string" ? content.text : "";
@@ -234,13 +238,13 @@ export function repairSlide(input: unknown, index: number): RepairedSlide {
 
 /**
  * Turns the raw parsed model payload into a repaired deck candidate: resolves
- * the deck theme id, regenerates missing ids, repairs v6 elements, and caps the
+ * the presentation theme id, regenerates missing ids, repairs v6 elements, and caps the
  * slide count.
  */
 export function repairDeck(
   parsed: unknown,
   inventory?: VisualInventory,
-  preferredTheme?: DeckTheme,
+  preferredTheme?: PresentationThemeId,
 ): Deck | undefined {
   const candidate = Array.isArray(parsed) ? parsed[0] : parsed;
   if (!isPlainObject(candidate) || !Array.isArray(candidate.slides)) {

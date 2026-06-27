@@ -5,7 +5,7 @@ import type { DocumentBlock } from "@/lib/content";
 import { createBlankVisual } from "@/lib/visual/blank";
 import { applyTheme } from "@/lib/visual/transforms";
 
-import { inferDeckTheme } from "./infer-theme";
+import { inferPresentationTheme } from "./infer-theme";
 
 /** A visual block themed with the given style-theme id. */
 function visualBlock(themeId: string, idx: number): DocumentBlock {
@@ -28,11 +28,11 @@ test("majority theme wins", () => {
     visualBlock("forest", 0),
     textBlock("ignored"),
   ];
-  assert.equal(inferDeckTheme(blocks), "ocean");
+  assert.equal(inferPresentationTheme(blocks), "ocean");
 });
 
-test("a single themed visual decides the deck theme", () => {
-  assert.equal(inferDeckTheme([visualBlock("grape", 0)]), "grape");
+test("a single themed visual decides the presentation theme", () => {
+  assert.equal(inferPresentationTheme([visualBlock("grape", 0)]), "grape");
 });
 
 test("tie-breaking is deterministic by canonical order", () => {
@@ -44,24 +44,24 @@ test("tie-breaking is deterministic by canonical order", () => {
     visualBlock("sunset", 1),
     visualBlock("forest", 1),
   ];
-  assert.equal(inferDeckTheme(blocks), "forest");
+  assert.equal(inferPresentationTheme(blocks), "forest");
 
   // Reversing the document order yields the same deterministic winner.
-  assert.equal(inferDeckTheme([...blocks].reverse()), "forest");
+  assert.equal(inferPresentationTheme([...blocks].reverse()), "forest");
 });
 
 test("no visuals falls back to indigo", () => {
-  assert.equal(inferDeckTheme([]), "indigo");
+  assert.equal(inferPresentationTheme([]), "indigo");
   assert.equal(
-    inferDeckTheme([textBlock("just"), textBlock("text")]),
+    inferPresentationTheme([textBlock("just"), textBlock("text")]),
     "indigo",
   );
 });
 
 test("visuals with no inferable theme fall back to indigo", () => {
-  // `rose` is a valid STYLE_THEME but has no mirrored deck theme, so it cannot
+  // `rose` is a valid STYLE_THEME but has no mirrored presentation theme, so it cannot
   // be inferred and the deck falls back to indigo.
-  assert.equal(inferDeckTheme([visualBlock("rose", 0)]), "indigo");
+  assert.equal(inferPresentationTheme([visualBlock("rose", 0)]), "indigo");
 });
 
 test("default is never inferred", () => {
@@ -69,5 +69,5 @@ test("default is never inferred", () => {
     visualBlock("rose", 0),
     visualBlock("amber", 0),
   ];
-  assert.notEqual(inferDeckTheme(blocks), "default");
+  assert.notEqual(inferPresentationTheme(blocks), "default");
 });

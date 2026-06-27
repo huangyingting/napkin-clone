@@ -197,7 +197,7 @@ conservative. Future scoring may need additional signals, such as:
 
 ### Empty Template Elements
 
-Reusable layouts materialize real typed elements, not placeholder elements.
+Slide templates materialize real typed elements, not placeholder elements.
 Empty template text/image/visual affordances are therefore hit-tested through
 their normal element kind and should not beat text content, line strokes, or
 explicit shape edges unless the pointer is clearly targeting them.

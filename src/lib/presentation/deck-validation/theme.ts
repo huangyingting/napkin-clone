@@ -12,7 +12,7 @@ import type {
   MasterSlide,
   ShapeToken,
   SpacingToken,
-  TextRoleToken,
+  PresentationRoleToken,
   TypographyToken,
   VisualDefaultsToken,
 } from "../presentation-theme-types";
@@ -177,7 +177,10 @@ function validateFontScale(input: unknown, context: string): FontScale {
 }
 
 /** Validates a single semantic-role typography token (#603 / #604). */
-function validateTextRoleToken(input: unknown, context: string): TextRoleToken {
+function validatePresentationRoleToken(
+  input: unknown,
+  context: string,
+): PresentationRoleToken {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
@@ -192,7 +195,7 @@ function validateTextRoleToken(input: unknown, context: string): TextRoleToken {
       `${context}.align must be one of: ${ELEMENT_ALIGNS.join(", ")}`,
     );
   }
-  const token: TextRoleToken = {
+  const token: PresentationRoleToken = {
     fontSize: validateFiniteNumber(input.fontSize, `${context}.fontSize`),
     color: input.color as string,
     weight: validateFiniteNumber(input.weight, `${context}.weight`),
@@ -227,11 +230,11 @@ function validateTextRoleToken(input: unknown, context: string): TextRoleToken {
 function validateRoleTokenMap(
   input: unknown,
   context: string,
-): Partial<Record<PresentationRole, TextRoleToken>> {
+): Partial<Record<PresentationRole, PresentationRoleToken>> {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
-  const roles: Partial<Record<PresentationRole, TextRoleToken>> = {};
+  const roles: Partial<Record<PresentationRole, PresentationRoleToken>> = {};
   for (const key of Object.keys(input)) {
     if (!isPresentationRole(key)) {
       throw new DeckValidationError(
@@ -240,7 +243,7 @@ function validateRoleTokenMap(
         )})`,
       );
     }
-    roles[key] = validateTextRoleToken(input[key], `${context}.${key}`);
+    roles[key] = validatePresentationRoleToken(input[key], `${context}.${key}`);
   }
   return roles;
 }
@@ -464,7 +467,7 @@ function validateImageDefaults(
   return token;
 }
 
-export function validateCustomTokenSet(
+export function validatePresentationTheme(
   input: unknown,
   context: string,
 ): PresentationTheme {

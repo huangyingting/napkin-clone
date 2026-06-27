@@ -6,7 +6,7 @@ import { DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT } from "@/lib/present
 import {
   CURRENT_DECK_SCHEMA_VERSION,
   type Deck,
-  type DeckTheme,
+  type PresentationThemeId,
   type Slide,
 } from "./deck-core";
 import { makeElementId, makeSlideId } from "./deck-ids";
@@ -66,7 +66,7 @@ export interface BuildDeckFromBlocksOptions {
 }
 
 interface NormalizedBuildOptions {
-  themeId: DeckTheme;
+  themeId: PresentationThemeId;
   source?: { documentId: string; linkedAt: string };
 }
 
@@ -81,7 +81,7 @@ function computeSectionId(title: string): string | undefined {
 }
 
 function normalizeBuildOptions(
-  themeOrOptions: DeckTheme | BuildDeckFromBlocksOptions = "indigo",
+  themeOrOptions: PresentationThemeId | BuildDeckFromBlocksOptions = "indigo",
   maybeOptions: BuildDeckFromBlocksOptions = {},
 ): NormalizedBuildOptions {
   const themeId =
@@ -362,7 +362,7 @@ function finaliseSlide(builder: SlideBuilder, index: number): Slide {
  */
 export function buildDeckFromBlocks(
   blocks: DocumentBlock[],
-  themeOrOptions: DeckTheme | BuildDeckFromBlocksOptions = "indigo",
+  themeOrOptions: PresentationThemeId | BuildDeckFromBlocksOptions = "indigo",
   maybeOptions: BuildDeckFromBlocksOptions = {},
 ): Deck {
   const options = normalizeBuildOptions(themeOrOptions, maybeOptions);

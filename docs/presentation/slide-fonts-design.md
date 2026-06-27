@@ -447,7 +447,7 @@ This design only covers presentation slides.
 
 Visual renderer fonts and Brand Studio custom fonts keep their existing paths.
 Brand Studio font upload does not feed the slide font picker in the MVP. If a
-brand is converted to a deck theme, its custom font should map to the nearest
+brand is converted to a presentation theme, its custom font should map to the nearest
 registry slide font or the default slide font instead of introducing a tenant
 font into deck typography.
 
