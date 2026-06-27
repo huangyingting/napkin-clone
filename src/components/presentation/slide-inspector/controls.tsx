@@ -188,7 +188,7 @@ export function RichTextBox({
     const serialized = serializeRichText(node);
     lastHtmlRef.current = node.innerHTML;
     onChange(serialized, coalesceKeyRef.current ?? undefined);
-  }, [onChange]);
+  }, [coalesceKeyRef, onChange]);
 
   const applyCommand = useCallback(
     (command: "bold" | "italic" | "foreColor", value?: string) => {
@@ -2195,7 +2195,7 @@ export function ElementArrangeControl({
 
 /**
  * Shared drop-shadow toggle for any selected element. Lock is not a visual
- * effect; it lives in the Layers panel (slide-editor-panel-taxonomy.md).
+ * effect; it lives in the Layers panel.
  */
 export function ElementEffectsControl({
   element,

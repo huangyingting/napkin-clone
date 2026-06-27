@@ -146,11 +146,9 @@ only; it does not make `SlideCanvas` mutate state.
 router that renders exactly one active panel at a time —
 `Slide / Arrange / Text / Appearance / Effects / Source / Notes / Layers` — with
 a compact in-panel switcher for moving between the panels available to the
-current selection (see
-[slide-editor-panel-taxonomy.md](slide-editor-panel-taxonomy.md)). The panel
-open state is persisted in local storage; wide screens default open when no
-preference exists, while narrow screens use a bottom sheet. `Layers` is a normal
-panel rather than a separate inspector mode.
+current selection. The panel open state is persisted in local storage; wide
+screens default open when no preference exists, while narrow screens use a
+bottom sheet. `Layers` is a normal panel rather than a separate inspector mode.
 
 The available panel set is computed from the selection by `availablePanels`
 (`slide-panel-ui.ts`), which also powers the canvas toolbar `...` menu so the two

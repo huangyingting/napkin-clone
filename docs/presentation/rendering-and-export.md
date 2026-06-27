@@ -37,6 +37,9 @@ The render model resolves canvas format/dimensions, background, accent, token
 defaults, master background elements, slide elements, master foreground
 elements, flat rendered element order, and concrete per-element design metadata
 before React rendering.
+Design token refs and partial overrides are resolved before reaching React or
+export appliers; renderers do not receive unresolved color refs, theme ids, or
+template blueprints.
 Normal rendering order is:
 
 ```text
@@ -147,8 +150,22 @@ deterministic across platforms.
   `loadSlideFonts()` so output/first paint use the real fonts. The shrink-to-fit
   measurement re-runs once fonts are ready.
 
-For the full design and scope, see
-[slide-fonts-design.md](slide-fonts-design.md).
+Current bundled registry entries are:
+
+| `fontId`         | CSS family     | Editable PPTX mapping | CJK PPTX mapping |
+| ---------------- | -------------- | --------------------- | ---------------- |
+| `inter`          | Inter          | Aptos                 | Microsoft YaHei  |
+| `source-sans-3`  | Source Sans 3  | Aptos                 | Microsoft YaHei  |
+| `ibm-plex-sans`  | IBM Plex Sans  | Aptos                 | Microsoft YaHei  |
+| `manrope`        | Manrope        | Aptos                 | Microsoft YaHei  |
+| `space-grotesk`  | Space Grotesk  | Aptos Display         | Microsoft YaHei  |
+| `source-serif-4` | Source Serif 4 | Georgia               | Microsoft YaHei  |
+| `jetbrains-mono` | JetBrains Mono | Consolas              | Microsoft YaHei  |
+| `noto-sans-sc`   | Noto Sans SC   | Microsoft YaHei       | Microsoft YaHei  |
+
+Editable PPTX export remains native and editable. It maps TextIQ-hosted fonts
+to Office-compatible faces and may differ slightly from TextIQ browser
+rendering on machines without the same fonts.
 
 ## Slide Format And Geometry
 

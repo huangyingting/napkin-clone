@@ -1511,7 +1511,7 @@ export function SlideSelectionToolbar({
         )
       : null;
   // Same availability calculation as the right-panel switcher so a toolbar
-  // hand-off always opens a panel that can render (slide-editor-panel-taxonomy.md).
+  // hand-off always opens a panel that can render.
   const panels = availablePanels({
     kind: selectedCount >= 2 ? null : selectionKind,
     selectedCount,

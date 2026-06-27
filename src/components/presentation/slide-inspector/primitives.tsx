@@ -19,11 +19,11 @@ const FIELD_CLASS =
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
 /**
- * Option-3 panel scaffolding (slide-editor-panel-taxonomy.md + the chosen
- * "borderless rows" mock). A panel body is a vertical stack of {@link
- * PanelSection}s separated by hairline dividers (`divide-y` on the parent), each
- * with a small uppercase caption; properties inside render as {@link PropRow}s
- * with the label on the left and the control flush right.
+ * Task-panel scaffolding for the current inspector layout. A panel body is a
+ * vertical stack of {@link PanelSection}s separated by hairline dividers
+ * (`divide-y` on the parent), each with a small uppercase caption; properties
+ * inside render as {@link PropRow}s with the label on the left and the control
+ * flush right.
  */
 export const PANEL_BODY_CLASS = "divide-y divide-ds-border-subtle";
 

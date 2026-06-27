@@ -4,13 +4,13 @@
  * Slide Editor — a full-page presentation editing surface.
  *
  * Opens over the whole viewport (portaled to `document.body`, `z-modal`) with a
- * surface-ownership layout (see `Slides-UI.md`): a top toolbar for global
- * actions, a slide rail (reorder via HTML5 drag-and-drop, add / duplicate /
- * delete), a large live stage that renders the selected slide with the shared
- * {@link SlideCanvas}, a selected-object context toolbar, a right properties
- * panel (Arrange / Text / Media / Layers / Slide / Notes / Source), and a
- * bottom dock (zoom / notes / status). A theme picker lives in the top bar; arrow keys page
- * between slides (unless a field is focused), Escape closes.
+ * current-object layout: a top toolbar for global actions, a slide rail
+ * (reorder via HTML5 drag-and-drop, add / duplicate / delete), a large live
+ * stage that renders the selected slide with the shared {@link SlideCanvas}, a
+ * selected-object context toolbar, a right task panel (Slide / Arrange / Text /
+ * Appearance / Effects / Source / Notes / Layers), and a bottom dock (zoom /
+ * notes / status). A theme picker lives in the top bar; arrow keys page between
+ * slides (unless a field is focused), Escape closes.
  *
  * Every change flows through the pure `deck-mutations` helpers and is reported
  * via `onDeckChange`; edits are persisted automatically by a debounced autosave
@@ -627,7 +627,7 @@ export function SlideEditor({
 
   // No fallback panel routing: when the selection changes so the active
   // right-panel tab no longer applies, close the panel instead of guessing a
-  // replacement (slide-editor-panel-taxonomy.md).
+  // replacement.
   useEffect(() => {
     if (!inspectorOpen && !inspectorSheetOpen) return;
     const elements = selectedSlide?.elements ?? [];

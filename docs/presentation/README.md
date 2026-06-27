@@ -7,27 +7,12 @@ These documents describe the runtime presentation layer: the slide editor UI,
 stage interactions, present mode, and export pipeline. They sit between the
 persisted deck contract and the React components that render/edit slides.
 
-| Document                                                       | Scope                                                                                    |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [assets.md](assets.md)                                         | Slide image upload, storage, protected serving, deck references, and cleanup.            |
-| [slide-editor.md](slide-editor.md)                             | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.  |
-| [slide-stage-interactions.md](slide-stage-interactions.md)     | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior. |
-| [rendering-and-export.md](rendering-and-export.md)             | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics. |
-| [new-element-kind-checklist.md](new-element-kind-checklist.md) | Step-by-step checklist for adding a new `SlideElement` kind to the stack.                |
-
-## Design Proposals
-
-These documents record accepted designs that are not yet fully implemented.
-When implemented, fold the resulting runtime contracts back into the current
-behavior documents above.
-
-| Document                                                         | Scope                                                                                                |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [deck-v6-design.md](deck-v6-design.md)                           | Accepted v6 data model for themes, masters, templates, elements, overrides, and render resolution.   |
-| [deck-v6-refactor-guide.md](deck-v6-refactor-guide.md)           | Implementation plan for the v6 schema, render resolver, commands, and slide editor UI refactor.      |
-| [slide-fonts-design.md](slide-fonts-design.md)                   | Self-hosted slide fonts, `fontId` registry, editable PPTX mapping, and migration plan.               |
-| [slide-editing-ui-redesign.md](slide-editing-ui-redesign.md)     | Object model, surface split (toolbar/popover/panel), and element-model consolidation for the editor. |
-| [slide-editor-panel-taxonomy.md](slide-editor-panel-taxonomy.md) | Accepted design for one-category right-side panels and dynamic toolbar panel menus.                  |
+| Document                                                   | Scope                                                                                    |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [assets.md](assets.md)                                     | Slide image upload, storage, protected serving, deck references, and cleanup.            |
+| [slide-editor.md](slide-editor.md)                         | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.  |
+| [slide-stage-interactions.md](slide-stage-interactions.md) | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior. |
+| [rendering-and-export.md](rendering-and-export.md)         | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics. |
 
 ## Related Contracts
 

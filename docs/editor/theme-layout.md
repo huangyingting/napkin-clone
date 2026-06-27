@@ -48,6 +48,19 @@ background/foreground `MasterElement` records such as logos, watermarks,
 footers, brand marks, and page numbers. Master elements render around slide
 elements but are not selectable in normal slide editing.
 
+Render order is stable across editor, present mode, public viewers, thumbnails,
+and export:
+
+```text
+theme/master/slide background
+  -> master background elements
+  -> slide elements
+  -> master foreground elements
+```
+
+Master background, slide element, and master foreground z-indexes are each
+sorted within their own band.
+
 ## Templates
 
 Built-in templates live in code as `SlideTemplate` blueprints. Deck-local custom
@@ -73,6 +86,10 @@ Element content changes write `element.content`. Element visual formatting write
 returns canvas metadata, resolved background/accent, master background elements,
 slide elements, master foreground elements, flat rendered element order, and
 concrete per-element design metadata.
+
+Token refs and partial override values are resolved at this boundary. React
+renderers, present/public viewers, and export spec builders consume concrete
+colors, font stacks, element defaults, and ordered element lists.
 
 `inspectSlideDesignOrigins(deck, slide)` reports where slide-level design values
 come from for inspector labels. Rendering consumes the resolved render model;

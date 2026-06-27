@@ -122,16 +122,16 @@ export function useSlideEditorShell({
     }
     setInspectorSheetOpenState(false);
     setInspectorOpen(true);
-  }, []);
+  }, [setInspectorOpen, setInspectorSheetOpen]);
 
   const closeRightPanel = useCallback(() => {
     setInspectorOpen(false);
     setInspectorSheetOpen(false);
-  }, []);
+  }, [setInspectorOpen, setInspectorSheetOpen]);
 
   // ── Right-panel tab routing ───────────────────────────────────────────────
   // Exactly one task panel is active at a time. `Layers` is a normal panel, not
-  // a separate inspector mode (slide-editor-panel-taxonomy.md).
+  // a separate inspector mode.
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("slide");
 
   const openRightPanel = useCallback(

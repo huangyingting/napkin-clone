@@ -3,10 +3,9 @@
 /**
  * Right-side task-panel router for the slide editor.
  *
- * The inspector renders exactly one active panel at a time
- * (slide-editor-panel-taxonomy.md). Each panel owns one broad property
- * category — Slide, Arrange, Text, Appearance, Effects, Source, Notes, or
- * Layers — and the available set is computed from the current selection by
+ * The inspector renders exactly one active panel at a time. Each panel owns one
+ * broad property category — Slide, Arrange, Text, Appearance, Effects, Source,
+ * Notes, or Layers — and the available set is computed from the current selection by
  * {@link availablePanels}. A compact in-panel switcher moves between the
  * available panels; it mirrors the toolbar `...` menu and never offers a panel
  * that cannot render.
@@ -16,7 +15,7 @@
  */
 
 import { Check, ChevronDown, Upload, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import {
@@ -131,8 +130,7 @@ function designOriginLabel(layer: SlideDesignOriginLayer): string {
 
 /**
  * Compact dropdown that switches between the available task panels. Hidden when
- * there is zero or one choice, matching the toolbar `...` menu rules
- * (slide-editor-panel-taxonomy.md).
+ * there is zero or one choice, matching the toolbar `...` menu rules.
  */
 function PanelSwitcher({
   panels,
@@ -266,7 +264,7 @@ function SelectionBoundsControl({
 
 /**
  * Batch effects for a multi-selection. Effects own visual effects only; lock is
- * not a visual effect and lives in Layers (slide-editor-panel-taxonomy.md).
+ * not a visual effect and lives in Layers.
  */
 function SelectionEffectsControl({
   elements,
@@ -366,14 +364,30 @@ function SlidePanelBody({
   onBackgroundAssetChange?: SlideInspectorProps["onBackgroundAssetChange"];
   onAccentChange: SlideInspectorProps["onAccentChange"];
 }) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() =>
-    slideTemplateKind(slide),
-  );
+  const slideTemplateId = slideTemplateKind(slide);
+  const [templateSelection, setTemplateSelection] = useState<{
+    slideId: string;
+    slideTemplateId: string;
+    templateId: string;
+  }>(() => ({
+    slideId: slide.id,
+    slideTemplateId,
+    templateId: slideTemplateId,
+  }));
+  const selectedTemplateId =
+    templateSelection.slideId === slide.id &&
+    templateSelection.slideTemplateId === slideTemplateId
+      ? templateSelection.templateId
+      : slideTemplateId;
+  const setSelectedTemplateId = (templateId: string) => {
+    setTemplateSelection({
+      slideId: slide.id,
+      slideTemplateId,
+      templateId,
+    });
+  };
   const [bgImageError, setBgImageError] = useState<string | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    setSelectedTemplateId(slideTemplateKind(slide));
-  }, [slide]);
   const templateOptions: TemplateOption[] = [
     ...SLIDE_TEMPLATES.map((template) => ({
       id: template.kind,

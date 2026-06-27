@@ -8,7 +8,7 @@
  *  - the `@font-face` CSS used to load the self-hosted assets;
  *  - editable PPTX export (font-id → Office-compatible font face mapping).
  *
- * Design contract: see `docs/presentation/slide-fonts-design.md`.
+ * Runtime contract: see `docs/presentation/rendering-and-export.md`.
  *
  * Fonts keep their own names (no product prefix). The asset files live under
  * `public/fonts/slides/<id>/` and are served as static `/fonts/slides/...`

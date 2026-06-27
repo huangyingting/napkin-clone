@@ -52,6 +52,51 @@ There is no deck migration shim. A schema bump means fixtures, generators, and
 persisted development data must be updated to the new shape. Current decks use
 schema v6.
 
+## v6 Vocabulary
+
+| Term                 | Current meaning                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                          |
+| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                             |
+| `SlideMaster`        | Deck-owned live shared chrome: background treatment and locked background/foreground master elements.                     |
+| `SlideTemplate`      | Creation or explicit-reapply blueprint. Templates materialize elements and are not normal render dependencies.            |
+| `Slide`              | Authored page instance with metadata, optional master/template provenance, optional slide design overrides, and elements. |
+| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.                  |
+| `MasterElement`      | Locked shared chrome element from a master, rendered before or after slide elements according to its layer.               |
+| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.                   |
+| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                                |
+
+The current schema uses presentation-native vocabulary. Superseded names such
+as top-level `themeId`, `customTokenSet`, `slideFormat`, `layouts`, slide
+`layout`, slide `visualIds`, slide `bullets`, and layout placeholders are not
+accepted persisted deck fields.
+
+## Deck Shape
+
+The persisted object is shaped as:
+
+```ts
+type Deck = {
+  schemaVersion: 6;
+  canvas: { format: SlideFormat };
+  design: PresentationDesign;
+  masters: SlideMaster[];
+  defaultMasterId: string;
+  customTemplates?: SlideTemplate[];
+  slides: Slide[];
+  deckContentHash?: string;
+};
+
+type PresentationDesign = {
+  themeId: string;
+  themeOverrides?: Record<string, unknown>;
+};
+```
+
+`canvas` owns geometry. `design` owns global visual language. `masters` own live
+shared chrome. `customTemplates` stores only deck-local template blueprints;
+built-in templates live in code. `slides[]` owns authored page content.
+
 ## Slide Content Model
 
 ### `Slide.elements[]`
@@ -79,6 +124,20 @@ optional `indent`. `content.text` is the compact text string, and `content.runs`
 Templates are blueprints. Applying or creating from a template materializes real
 typed elements with `content`; `Slide.templateId` is provenance only.
 
+Masters are live deck data, not creation-time blueprints. A slide uses
+`Slide.masterId` when present, otherwise `Deck.defaultMasterId`. Master elements
+are locked chrome and render in separate layer bands around slide content:
+
+```text
+theme/master/slide background
+  -> master background elements
+  -> slide elements
+  -> master foreground elements
+```
+
+Master and slide element z-indexes are sorted inside their own layer bands, not
+merged into one cross-layer z-index space.
+
 ### Document-derived metadata
 
 Slides keep only metadata such as `title`, optional `notes`, optional
@@ -90,6 +149,27 @@ lives in `elements[]`.
 Element-level `source` links preserve the document block or visual an element
 came from. `Slide.source.sectionId` is the heading-derived key used to match
 document-derived slides even when the on-slide title has been edited.
+
+## Design Overrides And Resolution
+
+Persisted design values are partial overrides. Resetting a local style means
+removing the local key so the resolver can inherit again; resolved concrete
+values are not copied back into lower layers.
+
+The current runtime resolves deck state in these stages:
+
+```text
+Deck.design theme/themeOverrides
+  -> SlideMaster background/chrome
+  -> SlideTemplate materialization at create or reapply time
+  -> Slide.designOverrides
+  -> SlideElement.designOverrides
+  -> ResolvedSlideRenderModel
+```
+
+`SlideTemplate` participates only when a slide is created or explicitly
+reapplied. Normal render/export does not look up `Slide.templateId` to derive
+content.
 
 ## Source References
 

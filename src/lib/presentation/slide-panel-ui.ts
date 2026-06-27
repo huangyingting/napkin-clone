@@ -1,5 +1,6 @@
 /**
- * Pure UI helpers for the slide editor's Concept B layout (Slides-UI.md).
+ * Pure UI helpers for the slide editor's current-object layout, documented in
+ * docs/presentation/slide-editor.md.
  *
  * These keep the decision logic for the selected-object context toolbar and the
  * right supplemental panel out of the large `SlideEditor` component so it can be
@@ -8,10 +9,9 @@
 
 /**
  * Task panels available in the right supplemental panel. Each panel owns one
- * broad property category and exactly one is rendered at a time
- * (slide-editor-panel-taxonomy.md). `Layers` is a normal panel, not a separate
- * inspector mode; `appearance` replaces the older `media` id and `arrange`
- * replaces `position`.
+ * broad property category and exactly one is rendered at a time. `Layers` is a
+ * normal panel, not a separate inspector mode; `appearance` replaces the older
+ * `media` id and `arrange` replaces `position`.
  */
 export type RightPanelTab =
   | "slide"
@@ -93,8 +93,8 @@ export function shouldShowRichToolbarControls(input: {
 }
 
 /**
- * The selection shapes the context-toolbar contract recognises (Slides-UI.md,
- * #651). `"line"` is a shape element whose `shape === "line"` (no text label).
+ * The selection shapes the context-toolbar contract recognises. `"line"` is a
+ * shape element whose `shape === "line"` (no text label).
  */
 export type ToolbarSelectionKind =
   | "text"
@@ -175,7 +175,7 @@ export interface PanelAvailabilityContext {
  * The dynamic set of panels valid for the current object or selection, in
  * canonical {@link PANEL_ORDER}. This single helper powers the toolbar `...`
  * menu, the in-panel switcher, and active-panel invalidation, so they can never
- * drift (slide-editor-panel-taxonomy.md).
+ * drift.
  *
  * - Empty selection (slide is the current object): `slide`, `notes`, `layers`.
  * - Multi-selection: `arrange`, `effects`, `layers`.
