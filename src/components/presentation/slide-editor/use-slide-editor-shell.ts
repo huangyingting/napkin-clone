@@ -5,9 +5,9 @@
  *
  * Owns all panel/popover/zoom/open-state that have no direct effect on the
  * deck data model: rail open/close, desktop inspector panel, mobile inspector
- * sheet, right panel tab routing, zoom level, and the seven toolbar popovers
- * (insert, from-document, add-slide template, spotlight picker, background,
- * presentation theme, insert-menu visual picker).  Also owns the merge-sync dialog
+ * sheet, right panel tab routing, zoom level, and the toolbar popovers
+ * (add-slide template, spotlight picker, insert, from-document, visual picker,
+ * design, presentation theme, source, view). Also owns the merge-sync dialog
  * state and the session-scoped staleness-resolved flag, which are purely
  * dialog open/close concerns even though their confirmation handler touches
  * the deck (the deck mutation callback is passed in as a stable dep).
@@ -170,6 +170,10 @@ export function useSlideEditorShell({
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   // Deck typography / token theme popover.
   const [themeOverridesOpen, setThemeOverridesOpen] = useState(false);
+  // Source sync / source-link actions menu.
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
+  // View toggles / shortcuts menu.
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
 
   // ── Merge / sync dialog ──────────────────────────────────────────────────
   // Pending sync from the live document: a computed merge awaiting user
@@ -251,6 +255,10 @@ export function useSlideEditorShell({
     setThemeMenuOpen,
     themeOverridesOpen,
     setThemeOverridesOpen,
+    sourceMenuOpen,
+    setSourceMenuOpen,
+    viewMenuOpen,
+    setViewMenuOpen,
     // Merge / sync dialog
     mergePreview,
     canSyncFromDocument,

@@ -67,7 +67,7 @@ The desktop editor is a current-object workflow:
 
 | Surface        | Responsibility                                                                                            |
 | -------------- | --------------------------------------------------------------------------------------------------------- |
-| Top toolbar    | Deck/app controls: slide creation templates, presentation theme, canvas size, undo/redo, sync, save.      |
+| Top toolbar    | Deck/session menus: Add, Insert, Design, Source, View, plus undo/redo, save, and close.                   |
 | Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.          |
 | Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                           |
 | Inspector      | One active task panel (Slide/Arrange/Text/Appearance/Effects/Source/Notes/Layers) for the current object. |
@@ -76,6 +76,33 @@ The desktop editor is a current-object workflow:
 
 On smaller surfaces, the inspector can render as a sheet while the stage remains
 the same controlled editor surface.
+
+## Top Toolbar
+
+The top toolbar is a compact deck/session command surface. It uses stable
+first-level text controls:
+
+```text
+Add | Insert | Design | Source | View                    Undo Redo | Save status | Save | Close
+```
+
+- **Add** opens the slide template picker and creates a new slide.
+- **Insert** creates new current-slide objects through slide commands: text,
+  image, shape, visual, connector when two connectable objects are selected, and
+  document text/visuals when insertable source content exists. Newly inserted
+  objects become selected so the canvas popover and inspector take over editing.
+- **Design** owns deck canvas size, presentation theme/tokens, current-slide
+  background, current-slide accent, and applying the selected solid/gradient
+  background across the deck.
+- **Source** owns document sync status, sync from document, stale-link review,
+  and source-link actions that apply to the selected linked element.
+- **View** owns view toggles and shortcuts: thumbnails, snap to grid, and the
+  keyboard shortcut dialog. Zoom remains in the bottom dock.
+
+Fine-grained selected-element formatting stays out of the top toolbar. The
+canvas popover and inspector continue to own text style, arrangement,
+appearance, effects, notes, layers, and detailed source review for the current
+object.
 
 ## Stage Runtime
 
@@ -126,7 +153,7 @@ decision logic lives in `src/lib/presentation/canvas-a11y.ts` (unit-tested by
   default-endpoint connector; with a connector selected, `C` / `Shift+C` cycle its
   end / start endpoint anchor. Free-draw routing remains pointer-only and is
   tracked in #930.
-- **Help:** `?` (or the toolbar keyboard button) opens the shortcut help dialog
+- **Help:** `?` (or View > Keyboard shortcuts) opens the shortcut help dialog
   (`canvasShortcutHelp`).
 
 ## Canvas Contract
