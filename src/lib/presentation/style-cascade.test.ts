@@ -326,12 +326,12 @@ test("renderFooterText returns template unchanged when no token present", () => 
 test("resolveRoleTextStyle uses the deck role token when no override", () => {
   const deck = makeDeck();
   const tokenSet = resolveSlideStyle(deck, makeSlide()).tokenSet;
-  const style = resolveRoleTextStyle(tokenSet, "h1");
-  // default themeId: h1 size 36, bold weight 700, centered
+  const style = resolveRoleTextStyle(tokenSet, "title");
+  // default themeId: title size 36, bold weight 700, centered
   assert.strictEqual(style.fontSize, 36);
   assert.strictEqual(style.weight, 700);
   assert.strictEqual(style.align, "center");
-  assert.strictEqual(style.role, "h1");
+  assert.strictEqual(style.role, "title");
   assert.strictEqual(style.origin.fontSize, "deck");
   assert.strictEqual(style.origin.color, "deck");
 });
@@ -355,8 +355,10 @@ test("resolveRoleTextStyle: a local override wins and is tagged element", () => 
 
 test("resolveRoleTextStyle: deleting an override restores the inherited value", () => {
   const tokenSet = resolveSlideStyle(makeDeck(), makeSlide()).tokenSet;
-  const overridden = resolveRoleTextStyle(tokenSet, "h2", { color: "#123456" });
-  const reset = resolveRoleTextStyle(tokenSet, "h2", {});
+  const overridden = resolveRoleTextStyle(tokenSet, "sectionTitle", {
+    color: "#123456",
+  });
+  const reset = resolveRoleTextStyle(tokenSet, "sectionTitle", {});
   assert.strictEqual(overridden.color, "#123456");
   assert.strictEqual(overridden.origin.color, "element");
   // reset (override field removed) -> inherited deck color
@@ -374,29 +376,29 @@ test("resolveRoleTextStyle tracks absent optional fields as deck fallbacks", () 
   assert.equal(style.origin.paragraphSpacing, "deck");
 });
 
-test("resolveTextElementStyle maps text role title -> h1, body -> body", () => {
+test("resolveTextElementStyle maps presentation roles directly", () => {
   const deck = makeDeck();
-  const title = resolveTextElementStyle(deck, { textRole: "h1" });
+  const title = resolveTextElementStyle(deck, { role: "title" });
   const body = resolveTextElementStyle(deck, {});
-  assert.strictEqual(title.role, "h1");
+  assert.strictEqual(title.role, "title");
   assert.strictEqual(body.role, "body");
   assert.strictEqual(title.fontSize, 36);
   assert.strictEqual(body.fontSize, 16);
 });
 
-test("resolveTextElementStyle honors an explicit textRole over text role", () => {
+test("resolveTextElementStyle honors an explicit presentation role", () => {
   const deck = makeDeck();
   const style = resolveTextElementStyle(deck, {
-    textRole: "caption",
+    role: "caption",
   });
   assert.strictEqual(style.role, "caption");
 });
 
-test("resolveShapeLabelStyle defaults to shapeLabel and reads textStyleOverride", () => {
+test("resolveShapeLabelStyle defaults to label and reads designOverrides.textStyle", () => {
   const style = resolveShapeLabelStyle(makeDeck(), {
-    textStyleOverride: { color: "#0a0a0a" },
+    designOverrides: { textStyle: { color: "#0a0a0a" } },
   });
-  assert.strictEqual(style.role, "shapeLabel");
+  assert.strictEqual(style.role, "label");
   assert.strictEqual(style.color, "#0a0a0a");
   assert.strictEqual(style.origin.color, "element");
 });

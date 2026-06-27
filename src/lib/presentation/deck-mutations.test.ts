@@ -51,7 +51,7 @@ function slide(index: number, title: string): Slide {
       {
         id: `title-${index}`,
         kind: "text",
-        textRole: "h1",
+        textRole: "title",
         text: title,
         paragraphs: [{ text: title }],
         zIndex: 0,
@@ -1091,13 +1091,14 @@ test("updatePresentationThemeOverrides materializes a custom token set from the 
 test("updatePresentationThemeOverrides merges a partial role token over the resolved role (#614)", () => {
   const deck: Deck = makeDeck([]);
   const next = updatePresentationThemeOverrides(deck, {
-    typography: { roles: { h1: { color: "#abcdef" } } },
+    typography: { roles: { title: { color: "#abcdef" } } },
   });
-  const h1 = (next as any).design.themeOverrides.tokenSet.typography.roles.h1;
-  assert.equal(h1.color, "#abcdef");
-  // fontSize/weight come from the resolved default h1 role
-  assert.equal(h1.fontSize, 36);
-  assert.equal(h1.weight, 700);
+  const title = (next as any).design.themeOverrides.tokenSet.typography.roles
+    .title;
+  assert.equal(title.color, "#abcdef");
+  // fontSize/weight come from the resolved default title role
+  assert.equal(title.fontSize, 36);
+  assert.equal(title.weight, 700);
 });
 
 test("updatePresentationThemeOverrides merges over an existing custom token set (#614)", () => {

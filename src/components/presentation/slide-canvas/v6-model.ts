@@ -60,20 +60,23 @@ export function presentationRoleToPresentationRole(
 ): PresentationRole {
   switch (role) {
     case "title":
-      return "h1";
+      return "title";
     case "sectionTitle":
-      return "h2";
+      return "sectionTitle";
     case "label":
-      return "shapeLabel";
+      return "label";
     case "subtitle":
     case "body":
     case "bullet":
+    case "quote":
     case "caption":
     case "footer":
-    case "h1":
-    case "h2":
-    case "h3":
-    case "shapeLabel":
+    case "media":
+    case "visual":
+    case "image":
+    case "logo":
+    case "pageNumber":
+    case "background":
       return role;
     default:
       return fallback;

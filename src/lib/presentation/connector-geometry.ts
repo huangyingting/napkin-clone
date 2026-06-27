@@ -237,6 +237,10 @@ export function resolveConnectorElementPoints(
   elements: readonly SlideElement[],
   resolveBox: ConnectorBoxResolver,
 ): { start: PointPct; end: PointPct } {
+  const content = (element as any).content as {
+    start: ConnectorPoint;
+    end: ConnectorPoint;
+  };
   function resolve(point: ConnectorPoint): PointPct {
     if ("elementId" in point) {
       const resolved = resolveConnectorEndpoint(
@@ -256,7 +260,7 @@ export function resolveConnectorElementPoints(
     }
     return point as PointPct;
   }
-  return { start: resolve(element.start), end: resolve(element.end) };
+  return { start: resolve(content.start), end: resolve(content.end) };
 }
 
 /**

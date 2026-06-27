@@ -5,10 +5,7 @@ import { elementAccessibleName } from "./element-accessible-name";
 import {
   buildBulletsElement,
   buildConnectorElement,
-  buildImageElement,
-  buildShapeElement,
   buildTextElement,
-  buildVisualElement,
 } from "@/test/builders";
 import type { SlideElement } from "./deck";
 
@@ -27,23 +24,39 @@ function bulletsEl(bullets: string[]): SlideElement {
 }
 
 function imageEl(alt?: string): SlideElement {
-  return buildImageElement({
+  return {
     ...BASE,
-    src: "https://example.com/img.png",
-    ...(alt !== undefined ? { alt } : {}),
-  });
+    kind: "image",
+    role: "image",
+    content: {
+      kind: "image",
+      src: "https://example.com/img.png",
+      ...(alt !== undefined ? { alt } : {}),
+    },
+  } as unknown as SlideElement;
 }
 
 function visualEl(alt?: string): SlideElement {
-  return buildVisualElement({
+  return {
     ...BASE,
-    visualId: "v1",
-    ...(alt !== undefined ? { alt } : {}),
-  });
+    kind: "visual",
+    role: "visual",
+    content: {
+      kind: "visual",
+      visualId: "v1",
+      ...(alt !== undefined ? { alt } : {}),
+    },
+  } as unknown as SlideElement;
 }
 
 function fixtureShape(shape: "rect" | "ellipse" | "line" | "triangle") {
-  return buildShapeElement({ ...BASE, shape, color: "#ff0000" });
+  return {
+    ...BASE,
+    kind: "shape",
+    role: "label",
+    content: { kind: "shape", shape },
+    designOverrides: { fill: { value: "#ff0000" } },
+  } as unknown as SlideElement;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,21 +164,25 @@ test("shape element returns 'Shape: line'", () => {
 // Connector element
 // ---------------------------------------------------------------------------
 
-const SHAPE_ONE = buildShapeElement({
+const SHAPE_ONE = {
   id: "shape1",
   box: { x: 0, y: 0, w: 20, h: 20 },
   zIndex: 0,
-  shape: "rect",
-  color: "#ff0000",
-});
+  kind: "shape",
+  role: "label",
+  content: { kind: "shape", shape: "rect" },
+  designOverrides: { fill: { value: "#ff0000" } },
+} as unknown as SlideElement;
 
-const SHAPE_TWO = buildShapeElement({
+const SHAPE_TWO = {
   id: "shape2",
   box: { x: 80, y: 80, w: 20, h: 20 },
   zIndex: 0,
-  shape: "ellipse",
-  color: "#0000ff",
-});
+  kind: "shape",
+  role: "label",
+  content: { kind: "shape", shape: "ellipse" },
+  designOverrides: { fill: { value: "#0000ff" } },
+} as unknown as SlideElement;
 
 function connectorEl(startBound?: boolean, endBound?: boolean) {
   return buildConnectorElement({

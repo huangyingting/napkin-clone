@@ -986,11 +986,11 @@ export const TEXT_ROLE_OPTIONS: Readonly<
   >
 > = {
   text: [
-    { value: "h1", label: "Heading 1" },
-    { value: "h2", label: "Heading 2" },
-    { value: "h3", label: "Heading 3" },
+    { value: "title", label: "Title" },
+    { value: "sectionTitle", label: "Section title" },
     { value: "subtitle", label: "Subtitle" },
     { value: "body", label: "Body" },
+    { value: "quote", label: "Quote" },
     { value: "caption", label: "Caption" },
   ],
   bullets: [
@@ -998,30 +998,29 @@ export const TEXT_ROLE_OPTIONS: Readonly<
     { value: "body", label: "Body" },
   ],
   shape: [
-    { value: "shapeLabel", label: "Shape label" },
-    { value: "h1", label: "Heading 1" },
-    { value: "h2", label: "Heading 2" },
-    { value: "h3", label: "Heading 3" },
+    { value: "label", label: "Label" },
+    { value: "title", label: "Title" },
+    { value: "sectionTitle", label: "Section title" },
     { value: "body", label: "Body" },
     { value: "caption", label: "Caption" },
   ],
 };
 
-/** The role an element inherits when it carries no explicit `textRole`. */
+/** The role an element inherits when it carries no explicit presentation role. */
 function defaultTextRole(element: SlideElement): PresentationRole {
   return presentationRoleToPresentationRole(
     (element as { role?: string }).role,
-    element.kind === "text" ? "body" : "shapeLabel",
+    element.kind === "text" ? "body" : "label",
   );
 }
 
 function deckTextRoleToPresentationRole(role: PresentationRole): string {
   switch (role) {
-    case "h1":
+    case "title":
       return "title";
-    case "h2":
+    case "sectionTitle":
       return "sectionTitle";
-    case "shapeLabel":
+    case "label":
       return "label";
     default:
       return role;

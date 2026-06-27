@@ -34,7 +34,7 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
       elements: [
         buildTextElement({
           id: "title-el",
-          textRole: "h1",
+          textRole: "title",
           text: "Regression Title",
           box: { x: 5, y: 5, w: 90, h: 15 },
           zIndex: 0,

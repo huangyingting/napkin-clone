@@ -34,11 +34,11 @@ function textElement(
     kind: "text",
     id,
     text,
-    ...(kind === "title" ? { textRole: "h1" as const } : {}),
+    ...(kind === "title" ? { role: "title" as const } : {}),
     style: STYLE,
     zIndex,
     box: { x: 0, y: 0, w: 50, h: 10 },
-  };
+  } as unknown as SlideElement;
 }
 
 test("deriveSlideTitle ignores flat slide title without elements", () => {

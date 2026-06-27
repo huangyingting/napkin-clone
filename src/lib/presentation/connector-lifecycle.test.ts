@@ -73,11 +73,19 @@ function makeConnector(
     kind: "connector",
     zIndex: 1,
     box: BOX_CONNECTOR,
-    start,
-    end,
-    routing: "straight",
-    stroke: { color: "#000000", width: 0.4 },
-  };
+    content: { kind: "connector", start, end, routing: "straight" },
+    designOverrides: { stroke: { color: "#000000", width: 0.4 } },
+  } as unknown as ConnectorElement;
+}
+
+function connectorStart(element: ConnectorElement): any {
+  return ((element as any).content as { start: ConnectorElement["start"] })[
+    "start"
+  ];
+}
+
+function connectorEnd(element: ConnectorElement): any {
+  return ((element as any).content as { end: ConnectorElement["end"] })["end"];
 }
 
 const BOUND_START: ConnectorEndpoint = {
@@ -149,14 +157,14 @@ test("updateConnectorBindingsOnDelete — detaches bound start when its shape is
   const conn = result.find((el) => el.id === "conn-1") as ConnectorElement;
   assert.ok(conn, "connector still present");
   // start was bound → should now be a free point
-  assert.ok("x" in conn.start, "start converted to free point");
-  if ("x" in conn.start) {
+  assert.ok("x" in connectorStart(conn), "start converted to free point");
+  if ("x" in connectorStart(conn)) {
     // right anchor of BOX_A: x=30, y=20
-    assert.equal(conn.start.x, 30);
-    assert.equal(conn.start.y, 20);
+    assert.equal(connectorStart(conn).x, 30);
+    assert.equal(connectorStart(conn).y, 20);
   }
   // end was already free → unchanged
-  assert.deepEqual(conn.end, FREE_END);
+  assert.deepEqual(connectorEnd(conn), FREE_END);
 });
 
 test("updateConnectorBindingsOnDelete — detaches bound end when its shape is deleted", () => {
@@ -170,14 +178,14 @@ test("updateConnectorBindingsOnDelete — detaches bound end when its shape is d
   );
 
   const conn = result.find((el) => el.id === "conn-1") as ConnectorElement;
-  assert.ok("x" in conn.end, "end converted to free point");
-  if ("x" in conn.end) {
+  assert.ok("x" in connectorEnd(conn), "end converted to free point");
+  if ("x" in connectorEnd(conn)) {
     // left anchor of BOX_B: x=60, y=20
-    assert.equal(conn.end.x, 60);
-    assert.equal(conn.end.y, 20);
+    assert.equal(connectorEnd(conn).x, 60);
+    assert.equal(connectorEnd(conn).y, 20);
   }
   // start was free → unchanged
-  assert.deepEqual(conn.start, FREE_START);
+  assert.deepEqual(connectorStart(conn), FREE_START);
 });
 
 test("updateConnectorBindingsOnDelete — detaches both endpoints when both shapes are deleted", () => {
@@ -192,8 +200,8 @@ test("updateConnectorBindingsOnDelete — detaches both endpoints when both shap
   );
 
   const conn = result.find((el) => el.id === "conn-1") as ConnectorElement;
-  assert.ok("x" in conn.start, "start converted to free point");
-  assert.ok("x" in conn.end, "end converted to free point");
+  assert.ok("x" in connectorStart(conn), "start converted to free point");
+  assert.ok("x" in connectorEnd(conn), "end converted to free point");
 });
 
 test("updateConnectorBindingsOnDelete — leaves free endpoints untouched", () => {
@@ -207,8 +215,8 @@ test("updateConnectorBindingsOnDelete — leaves free endpoints untouched", () =
   );
 
   const conn = result.find((el) => el.id === "conn-1") as ConnectorElement;
-  assert.deepEqual(conn.start, FREE_START);
-  assert.deepEqual(conn.end, FREE_END);
+  assert.deepEqual(connectorStart(conn), FREE_START);
+  assert.deepEqual(connectorEnd(conn), FREE_END);
   // connector is reference-equal (nothing changed)
   assert.equal(conn, connector);
 });
@@ -260,11 +268,14 @@ test("remapConnectorBindings — remaps both endpoints when both shapes are incl
 
   assert.ok(result?.kind === "connector");
   if (result?.kind === "connector") {
-    assert.ok("elementId" in result.start, "start still bound");
-    assert.ok("elementId" in result.end, "end still bound");
-    if ("elementId" in result.start && "elementId" in result.end) {
-      assert.equal(result.start.elementId, "shape-a-copy");
-      assert.equal(result.end.elementId, "shape-b-copy");
+    assert.ok("elementId" in connectorStart(result), "start still bound");
+    assert.ok("elementId" in connectorEnd(result), "end still bound");
+    if (
+      "elementId" in connectorStart(result) &&
+      "elementId" in connectorEnd(result)
+    ) {
+      assert.equal(connectorStart(result).elementId, "shape-a-copy");
+      assert.equal(connectorEnd(result).elementId, "shape-b-copy");
     }
   }
 });
@@ -283,11 +294,11 @@ test("remapConnectorBindings — detaches start when only end shape is duplicate
   assert.ok(result?.kind === "connector");
   if (result?.kind === "connector") {
     // start.elementId = shape-a → not in idMap → should be detached
-    assert.ok("x" in result.start, "start detached to free point");
+    assert.ok("x" in connectorStart(result), "start detached to free point");
     // end.elementId = shape-b → in idMap → should be remapped
-    assert.ok("elementId" in result.end, "end still bound");
-    if ("elementId" in result.end) {
-      assert.equal(result.end.elementId, "shape-b-copy");
+    assert.ok("elementId" in connectorEnd(result), "end still bound");
+    if ("elementId" in connectorEnd(result)) {
+      assert.equal(connectorEnd(result).elementId, "shape-b-copy");
     }
   }
 });
@@ -305,8 +316,8 @@ test("remapConnectorBindings — detaches both endpoints when neither shape is d
 
   assert.ok(result?.kind === "connector");
   if (result?.kind === "connector") {
-    assert.ok("x" in result.start, "start detached");
-    assert.ok("x" in result.end, "end detached");
+    assert.ok("x" in connectorStart(result), "start detached");
+    assert.ok("x" in connectorEnd(result), "end detached");
   }
 });
 
@@ -319,8 +330,8 @@ test("remapConnectorBindings — leaves free endpoints unchanged", () => {
 
   assert.ok(result?.kind === "connector");
   if (result?.kind === "connector") {
-    assert.deepEqual(result.start, FREE_START);
-    assert.deepEqual(result.end, FREE_END);
+    assert.deepEqual(connectorStart(result), FREE_START);
+    assert.deepEqual(connectorEnd(result), FREE_END);
     // Reference equality — no change
     assert.equal(result, connectorCopy);
   }
@@ -357,9 +368,9 @@ test("removeElement — detaches connector start endpoint when shape is deleted 
     | undefined;
   assert.ok(conn, "connector still present after shape deletion");
   // start was bound to shape-a → must now be a free point
-  assert.ok(conn && "x" in conn.start, "start is now a free point");
+  assert.ok(conn && "x" in connectorStart(conn), "start is now a free point");
   // end was free → unchanged
-  if (conn) assert.deepEqual(conn.end, FREE_END);
+  if (conn) assert.deepEqual(connectorEnd(conn), FREE_END);
 });
 
 test("removeElement — connector with free endpoints unaffected when shape deleted", () => {
@@ -375,8 +386,8 @@ test("removeElement — connector with free endpoints unaffected when shape dele
     | undefined;
   assert.ok(conn);
   if (conn) {
-    assert.deepEqual(conn.start, FREE_START);
-    assert.deepEqual(conn.end, FREE_END);
+    assert.deepEqual(connectorStart(conn), FREE_START);
+    assert.deepEqual(connectorEnd(conn), FREE_END);
   }
 });
 
@@ -407,8 +418,8 @@ test("removeElements — detaches connector endpoints for all deleted shapes (AC
     | undefined;
   assert.ok(conn, "connector still present");
   if (conn) {
-    assert.ok("x" in conn.start, "start detached");
-    assert.ok("x" in conn.end, "end detached");
+    assert.ok("x" in connectorStart(conn), "start detached");
+    assert.ok("x" in connectorEnd(conn), "end detached");
   }
 });
 
@@ -432,16 +443,19 @@ test("duplicateElement of a connector detaches both bound endpoints (AC-3)", () 
   assert.ok(copy, "copy exists");
   // Neither shape was duplicated → both endpoints must be detached
   if (copy) {
-    assert.ok("x" in copy.start, "copy start is free point");
-    assert.ok("x" in copy.end, "copy end is free point");
+    assert.ok("x" in connectorStart(copy), "copy start is free point");
+    assert.ok("x" in connectorEnd(copy), "copy end is free point");
   }
   // Original connector is unchanged
   const orig = slide.elements?.find((el) => el.id === "conn-1") as
     | ConnectorElement
     | undefined;
   if (orig) {
-    assert.ok("elementId" in orig.start, "original start still bound");
-    assert.ok("elementId" in orig.end, "original end still bound");
+    assert.ok(
+      "elementId" in connectorStart(orig),
+      "original start still bound",
+    );
+    assert.ok("elementId" in connectorEnd(orig), "original end still bound");
   }
 });
 
@@ -460,9 +474,9 @@ test("duplicateElement of a plain shape leaves connectors untouched", () => {
     | undefined;
   assert.ok(conn);
   if (conn) {
-    assert.ok("elementId" in conn.start);
-    if ("elementId" in conn.start) {
-      assert.equal(conn.start.elementId, "shape-a");
+    assert.ok("elementId" in connectorStart(conn));
+    if ("elementId" in connectorStart(conn)) {
+      assert.equal(connectorStart(conn).elementId, "shape-a");
     }
   }
 });
@@ -495,15 +509,18 @@ test("duplicateElements with shape+connector preserves connection between duplic
 
   if (connCopy) {
     // Both endpoints must be bound (remapped to copies)
-    assert.ok("elementId" in connCopy.start, "start still bound");
-    assert.ok("elementId" in connCopy.end, "end still bound");
+    assert.ok("elementId" in connectorStart(connCopy), "start still bound");
+    assert.ok("elementId" in connectorEnd(connCopy), "end still bound");
 
-    if ("elementId" in connCopy.start && "elementId" in connCopy.end) {
+    if (
+      "elementId" in connectorStart(connCopy) &&
+      "elementId" in connectorEnd(connCopy)
+    ) {
       // Must point to the new copy IDs, not the originals
-      assert.notEqual(connCopy.start.elementId, "shape-a");
-      assert.notEqual(connCopy.end.elementId, "shape-b");
-      assert.equal(connCopy.start.elementId, newElementIds[0]);
-      assert.equal(connCopy.end.elementId, newElementIds[1]);
+      assert.notEqual(connectorStart(connCopy).elementId, "shape-a");
+      assert.notEqual(connectorEnd(connCopy).elementId, "shape-b");
+      assert.equal(connectorStart(connCopy).elementId, newElementIds[0]);
+      assert.equal(connectorEnd(connCopy).elementId, newElementIds[1]);
     }
   }
 });
@@ -529,12 +546,15 @@ test("duplicateElements with only one endpoint shape detaches the other endpoint
 
   if (connCopy) {
     // start was bound to shape-a (which IS in idMap) → remapped to copy
-    assert.ok("elementId" in connCopy.start, "start still bound to copy");
-    if ("elementId" in connCopy.start) {
-      assert.equal(connCopy.start.elementId, shapeANewId);
+    assert.ok(
+      "elementId" in connectorStart(connCopy),
+      "start still bound to copy",
+    );
+    if ("elementId" in connectorStart(connCopy)) {
+      assert.equal(connectorStart(connCopy).elementId, shapeANewId);
     }
     // end was bound to shape-b (NOT in idMap) → detached
-    assert.ok("x" in connCopy.end, "end detached to free point");
+    assert.ok("x" in connectorEnd(connCopy), "end detached to free point");
   }
 });
 
@@ -555,8 +575,8 @@ test("duplicateElements with only connector detaches both endpoints (AC-3)", () 
   assert.ok(connCopy, "connector copy exists");
 
   if (connCopy) {
-    assert.ok("x" in connCopy.start, "start detached");
-    assert.ok("x" in connCopy.end, "end detached");
+    assert.ok("x" in connectorStart(connCopy), "start detached");
+    assert.ok("x" in connectorEnd(connCopy), "end detached");
   }
 });
 
@@ -574,14 +594,14 @@ test("duplicateElements original connectors are not modified", () => {
   ) as ConnectorElement | undefined;
   assert.ok(origConnector);
   if (origConnector) {
-    assert.ok("elementId" in origConnector.start);
-    assert.ok("elementId" in origConnector.end);
+    assert.ok("elementId" in connectorStart(origConnector));
+    assert.ok("elementId" in connectorEnd(origConnector));
     if (
-      "elementId" in origConnector.start &&
-      "elementId" in origConnector.end
+      "elementId" in connectorStart(origConnector) &&
+      "elementId" in connectorEnd(origConnector)
     ) {
-      assert.equal(origConnector.start.elementId, "shape-a");
-      assert.equal(origConnector.end.elementId, "shape-b");
+      assert.equal(connectorStart(origConnector).elementId, "shape-a");
+      assert.equal(connectorEnd(origConnector).elementId, "shape-b");
     }
   }
 });
@@ -606,8 +626,8 @@ test("ungroupElements — connectors bound to grouped shapes stay bound after un
     (el) => el.id === "conn-1",
   ) as ConnectorElement | undefined;
   assert.ok(groupedConn);
-  assert.ok("elementId" in (groupedConn?.start ?? {}));
-  assert.ok("elementId" in (groupedConn?.end ?? {}));
+  assert.ok(groupedConn && "elementId" in connectorStart(groupedConn));
+  assert.ok(groupedConn && "elementId" in connectorEnd(groupedConn));
 
   // Now ungroup.
   const next = ungroupElements(grouped, 0, groupId);
@@ -617,11 +637,15 @@ test("ungroupElements — connectors bound to grouped shapes stay bound after un
 
   assert.ok(conn, "connector still present after ungroup");
   // start and end must remain bound — ungroupElements must not touch connectors.
-  assert.ok("elementId" in (conn?.start ?? {}), "start still bound");
-  assert.ok("elementId" in (conn?.end ?? {}), "end still bound");
-  if (conn && "elementId" in conn.start && "elementId" in conn.end) {
-    assert.equal(conn.start.elementId, "shape-a");
-    assert.equal(conn.end.elementId, "shape-b");
+  assert.ok(conn && "elementId" in connectorStart(conn), "start still bound");
+  assert.ok(conn && "elementId" in connectorEnd(conn), "end still bound");
+  if (
+    conn &&
+    "elementId" in connectorStart(conn) &&
+    "elementId" in connectorEnd(conn)
+  ) {
+    assert.equal(connectorStart(conn).elementId, "shape-a");
+    assert.equal(connectorEnd(conn).elementId, "shape-b");
   }
 });
 
@@ -642,13 +666,21 @@ test("ungroupElements — connectors bound across group members are preserved wi
     | ConnectorElement
     | undefined;
   assert.ok(conn, "connector present after ungroup");
-  if (conn && "elementId" in conn.start && "elementId" in conn.end) {
+  if (
+    conn &&
+    "elementId" in connectorStart(conn) &&
+    "elementId" in connectorEnd(conn)
+  ) {
     assert.equal(
-      conn.start.elementId,
+      connectorStart(conn).elementId,
       "shape-a",
       "start still bound to shape-a",
     );
-    assert.equal(conn.end.elementId, "shape-x", "end still bound to shape-x");
+    assert.equal(
+      connectorEnd(conn).elementId,
+      "shape-x",
+      "end still bound to shape-x",
+    );
   }
 
   // shape-a must have no groupId anymore.

@@ -113,7 +113,7 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
         elements: [
           buildTextElement({
             id: "fixture-title",
-            textRole: "h1",
+            textRole: "title",
             text: F.slideTitleText,
             box: { x: 6, y: 6, w: 88, h: 14 },
             zIndex: 0,

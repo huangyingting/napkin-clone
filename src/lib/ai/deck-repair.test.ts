@@ -45,12 +45,20 @@ test("repairElement drops unsupported and unusable visual elements", () => {
   const usedIds = new Set<string>();
   assert.equal(repairElement({ kind: "unknown" }, 0, usedIds), undefined);
   assert.equal(
-    repairElement({ kind: "visual", visualId: "" }, 0, usedIds),
+    repairElement(
+      { kind: "visual", content: { kind: "visual", visualId: "" } },
+      0,
+      usedIds,
+    ),
     undefined,
   );
 
   const visual = repairElement(
-    { kind: "visual", visualId: "vis-1", box: {} },
+    {
+      kind: "visual",
+      content: { kind: "visual", visualId: "vis-1" },
+      box: {},
+    },
     0,
     usedIds,
   );
@@ -64,8 +72,10 @@ test("repairElement emits text elements in v6 content/designOverrides shape", ()
     {
       kind: "text",
       role: "title",
-      text: "Launch plan",
-      style: { fontSize: 7, bold: true, italic: false, align: "center" },
+      content: { kind: "text", text: "Launch plan" },
+      designOverrides: {
+        textStyle: { fontSize: 7, bold: true, italic: false, align: "center" },
+      },
     },
     0,
   );
@@ -81,12 +91,11 @@ test("repairElement emits text elements in v6 content/designOverrides shape", ()
   assert.equal((text as any).style, undefined);
 });
 
-test("repairSlide normalizes ids, layout, bullets, and duplicate element ids", () => {
+test("repairSlide normalizes ids, template ids, and duplicate element ids", () => {
   const [rawSlide] = repairableDeckModelOutput().slides as unknown[];
   const slide = repairSlide(rawSlide, 0);
   assert.equal(slide.id, "sl-1");
-  assert.equal(slide.layout, "blank");
-  assert.deepEqual(slide.bullets, ["Keep this"]);
+  assert.equal(slide.templateId, undefined);
   assert.equal(slide.elements?.length, 3);
   const ids = slide.elements?.map((element) => element.id) ?? [];
   assert.equal(new Set(ids).size, ids.length);

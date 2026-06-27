@@ -15,7 +15,6 @@ import type {
   MoveSlideCommand,
   RemoveSlideCommand,
   ReorderSlideCommand,
-  UpdateSlideBodyCommand,
   UpdateSlideCommand,
   UpdateSlideNotesCommand,
   UpdateSlideTitleCommand,
@@ -36,7 +35,6 @@ export type SlideFamilyCommand =
   | MoveSlideCommand
   | InsertTemplateSlideCommand
   | UpdateSlideTitleCommand
-  | UpdateSlideBodyCommand
   | UpdateSlideNotesCommand;
 
 export function executeSlideFamilyCommand(deck: Deck, cmd: SlideFamilyCommand) {
@@ -165,21 +163,6 @@ export function executeSlideFamilyCommand(deck: Deck, cmd: SlideFamilyCommand) {
         [
           makePatch("slide.update_title", [cmd.slideId], [], {
             slideFields: { [cmd.slideId]: { title: cmd.title } },
-          }),
-        ],
-      );
-    }
-    case "UPDATE_SLIDE_BODY": {
-      const index = findSlideIndex(deck, cmd.slideId);
-      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
-      return success(
-        updateSlide(deck, index, { bullets: cmd.bullets }),
-        [cmd.slideId],
-        [],
-        cmd.coalesceKey,
-        [
-          makePatch("slide.update_body", [cmd.slideId], [], {
-            slideFields: { [cmd.slideId]: { bullets: cmd.bullets } },
           }),
         ],
       );

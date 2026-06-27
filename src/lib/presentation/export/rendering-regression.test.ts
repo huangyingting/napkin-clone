@@ -666,9 +666,12 @@ test("[AC-6] resolveConnectorElementPoints returns correct points for free endpo
     kind: "connector",
     zIndex: 0,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { x: 15, y: 25 },
-    end: { x: 85, y: 60 },
-  };
+    content: {
+      kind: "connector",
+      start: { x: 15, y: 25 },
+      end: { x: 85, y: 60 },
+    },
+  } as unknown as ConnectorElement;
 
   const result = resolveConnectorElementPoints(
     connector,
@@ -694,9 +697,12 @@ test("[AC-6] resolveConnectorElementPoints resolves bound start endpoint", () =>
     kind: "connector",
     zIndex: 1,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "A", anchor: "center" },
-    end: { x: 80, y: 50 },
-  };
+    content: {
+      kind: "connector",
+      start: { elementId: "A", anchor: "center" },
+      end: { x: 80, y: 50 },
+    },
+  } as unknown as ConnectorElement;
 
   const result = resolveConnectorElementPoints(
     connector,
@@ -724,9 +730,12 @@ test("[AC-6] connector follows shape A when A is moved to new position", () => {
     kind: "connector",
     zIndex: 1,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "A", anchor: "center" },
-    end: { x: 90, y: 90 },
-  };
+    content: {
+      kind: "connector",
+      start: { elementId: "A", anchor: "center" },
+      end: { x: 90, y: 90 },
+    },
+  } as unknown as ConnectorElement;
 
   // resolveConnectorElementPoints is stateless — it reads the current element
   // list on every call, so it automatically reflects the moved box.
@@ -759,9 +768,12 @@ test("[AC-6] connector end follows shape B when B is moved", () => {
     kind: "connector",
     zIndex: 1,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { x: 5, y: 5 },
-    end: { elementId: "B", anchor: "top" },
-  };
+    content: {
+      kind: "connector",
+      start: { x: 5, y: 5 },
+      end: { elementId: "B", anchor: "top" },
+    },
+  } as unknown as ConnectorElement;
 
   // Initial resolution: B.top = (65, 40)
   const before = resolveConnectorElementPoints(
@@ -810,9 +822,12 @@ test("[AC-6] connector between two shapes tracks both when both move", () => {
     kind: "connector",
     zIndex: 2,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "A", anchor: "right" },
-    end: { elementId: "B", anchor: "left" },
-  };
+    content: {
+      kind: "connector",
+      start: { elementId: "A", anchor: "right" },
+      end: { elementId: "B", anchor: "left" },
+    },
+  } as unknown as ConnectorElement;
 
   // Before: A at (0,0,20,20) → right=(20,10); B at (80,0,20,20) → left=(80,10)
   const r1 = resolveConnectorElementPoints(
@@ -1123,10 +1138,10 @@ test("[AC-10] grouped shapes each export individually (group membership not merg
 // ---------------------------------------------------------------------------
 
 function deckWith(slideOverrides: Partial<Slide>): Deck {
-  return {
+  return buildDeck({
     themeId: "default",
     slides: [slide([], slideOverrides)],
-  };
+  });
 }
 
 test("[AC-11] per-slide background color override is in the spec", () => {
@@ -1168,7 +1183,7 @@ test("[AC-11] backgroundImage is forwarded to the slide spec", () => {
 
 test("[AC-11] slide without background overrides falls back to theme defaults", () => {
   const [spec] = buildDeckSpecs(
-    { themeId: "ocean", slides: [slide([])] },
+    buildDeck({ themeId: "ocean", slides: [slide([])] }),
     new Map(),
   );
 
@@ -1306,7 +1321,7 @@ function titleOpColor(deckObj: Deck): string {
 }
 
 test("[#618] inherited title color tracks a presentation theme change", () => {
-  const el = () => fixtureTextElement("t", "Heading", { textRole: "h1" });
+  const el = () => fixtureTextElement("t", "Heading", { textRole: "title" });
   const a = titleOpColor(
     deck([el()], {
       customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
@@ -1323,7 +1338,7 @@ test("[#618] inherited title color tracks a presentation theme change", () => {
 });
 
 test("[#618] inherited role font tracks a presentation theme heading-font change", () => {
-  const el = () => fixtureTextElement("t", "Heading", { textRole: "h1" });
+  const el = () => fixtureTextElement("t", "Heading", { textRole: "title" });
   const fontOf = (d: Deck) =>
     (
       buildDeckSpecs(d, new Map())[0].ops.find(
@@ -1353,7 +1368,7 @@ test("[#618] inherited role font tracks a presentation theme heading-font change
 test("[#618] a local color override is NOT clobbered by a global template change", () => {
   const el = () =>
     fixtureTextElement("t", "Heading", {
-      textRole: "h1",
+      textRole: "title",
       style: {
         fontSize: 6,
         bold: true,
@@ -1387,7 +1402,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
   };
   const d = deck(
     [
-      fixtureTextElement("t", "Title", { textRole: "h1" }),
+      fixtureTextElement("t", "Title", { textRole: "title" }),
       bulletsEl("b", ["a", "b"]),
       fixtureShapeElement("s", { text: "Label" }),
       connectorEl("c"),
@@ -1405,7 +1420,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
           notes: "",
           backgroundGradient: { from: "#123456", to: "#654321" },
           elements: [
-            fixtureTextElement("t", "Title", { textRole: "h1" }),
+            fixtureTextElement("t", "Title", { textRole: "title" }),
             bulletsEl("b", ["a", "b"]),
           ],
         },

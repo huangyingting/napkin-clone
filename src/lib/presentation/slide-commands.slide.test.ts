@@ -441,7 +441,7 @@ test("INSERT_TEMPLATE_SLIDE inserts after specified index", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Issue #398 — UPDATE_SLIDE_TITLE, UPDATE_SLIDE_BODY, UPDATE_SLIDE_NOTES
+// Issue #398 — UPDATE_SLIDE_TITLE, UPDATE_SLIDE_NOTES
 // ---------------------------------------------------------------------------
 
 test("UPDATE_SLIDE_TITLE updates the title and emits patch", () => {
@@ -478,18 +478,6 @@ test("UPDATE_SLIDE_TITLE fails for missing slide", () => {
   });
   assert.equal(result.ok, false);
   assert.equal(result.deck, deck);
-});
-
-test("UPDATE_SLIDE_BODY updates bullets and emits patch", () => {
-  const deck = buildCommandDeck(["s1"]);
-  const result = executeCommand(deck, {
-    type: "UPDATE_SLIDE_BODY",
-    slideId: "s1",
-    bullets: ["bullet 1", "bullet 2"],
-  });
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.deck.slides[0]!.bullets, ["bullet 1", "bullet 2"]);
-  assert.equal(result.patches[0]!.op, "slide.update_body");
 });
 
 test("UPDATE_SLIDE_NOTES updates notes and emits patch", () => {

@@ -87,9 +87,7 @@ function slideBackgroundImageUrl(
   if (background?.type === "image" && typeof background.url === "string") {
     return background.url;
   }
-  return typeof (slide as any).backgroundImage === "string"
-    ? (slide as any).backgroundImage
-    : undefined;
+  return undefined;
 }
 
 /**

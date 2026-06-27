@@ -10,10 +10,6 @@ import {
   type TextElementStyle,
 } from "@/lib/presentation/deck";
 import {
-  type PresentationRole,
-  isPresentationRole,
-} from "@/lib/presentation/presentation-theme";
-import {
   normalizeGeneratedDeck,
   type VisualInventory,
 } from "@/lib/presentation/deck-layout-assign";
@@ -68,15 +64,6 @@ function isPresentationTextRole(value: unknown): value is PresentationTextRole {
   );
 }
 
-function textRoleToPresentationRole(role: PresentationRole): PresentationTextRole {
-  if (role === "h1") return "title";
-  if (role === "h2" || role === "h3" || role === "subtitle") {
-    return "sectionTitle";
-  }
-  if (role === "bullet") return "bullet";
-  return "body";
-}
-
 /** Coerces an arbitrary box-ish value into a finite, in-range {@link ElementBox}. */
 export function repairBox(input: unknown): ElementBox {
   const box = isPlainObject(input) ? input : {};
@@ -104,13 +91,6 @@ export function repairTextStyle(input: unknown): TextElementStyle {
     align,
     ...(isHexColor(style.color) ? { color: style.color } : {}),
   };
-}
-
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 /**
@@ -145,15 +125,8 @@ export function repairElement(
     case "text": {
       const role: PresentationTextRole = isPresentationTextRole(input.role)
         ? input.role
-        : isPresentationRole(input.textRole)
-          ? textRoleToPresentationRole(input.textRole)
-          : "body";
-      const text =
-        typeof content.text === "string"
-          ? content.text
-          : typeof input.text === "string"
-            ? input.text
-            : "";
+        : "body";
+      const text = typeof content.text === "string" ? content.text : "";
       return {
         ...base,
         kind: "text",
@@ -164,29 +137,21 @@ export function repairElement(
           paragraphs: Array.isArray(content.paragraphs)
             ? content.paragraphs
             : [{ text }],
-          ...(Array.isArray(content.runs)
-            ? { runs: content.runs }
-            : Array.isArray(input.runs)
-              ? { runs: input.runs }
-              : {}),
+          ...(Array.isArray(content.runs) ? { runs: content.runs } : {}),
         },
         designOverrides: {
           ...designOverrides,
           textStyle: repairTextStyle(
             isPlainObject(designOverrides.textStyle)
               ? designOverrides.textStyle
-              : input.style,
+              : {},
           ),
         },
       } as unknown as SlideElement;
     }
     case "visual": {
       const visualId =
-        typeof content.visualId === "string"
-          ? content.visualId
-          : typeof input.visualId === "string"
-            ? input.visualId
-            : "";
+        typeof content.visualId === "string" ? content.visualId : "";
       if (visualId.length === 0) {
         return undefined;
       }
@@ -195,9 +160,7 @@ export function repairElement(
           ? designOverrides.styleThemeId
           : typeof content.styleThemeId === "string"
             ? content.styleThemeId
-            : typeof input.styleThemeId === "string"
-              ? input.styleThemeId
-              : undefined;
+            : undefined;
       return {
         ...base,
         kind: "visual",
@@ -208,9 +171,7 @@ export function repairElement(
           ...(styleThemeId && styleThemeId.length > 0 ? { styleThemeId } : {}),
           ...(typeof content.alt === "string" && content.alt.length > 0
             ? { alt: content.alt }
-            : typeof input.alt === "string" && input.alt.length > 0
-              ? { alt: input.alt }
-              : {}),
+            : {}),
         },
       } as unknown as SlideElement;
     }
@@ -223,9 +184,7 @@ export interface RepairedSlide {
   id: string;
   index: number;
   title: string;
-  bullets: string[];
-  visualIds: string[];
-  layout: SlideLayoutHint;
+  templateId?: SlideLayoutHint;
   notes: string;
   elements?: SlideElement[];
 }
@@ -233,8 +192,8 @@ export interface RepairedSlide {
 export function repairSlide(input: unknown, index: number): RepairedSlide {
   const slide = isPlainObject(input) ? input : {};
 
-  const layout = SLIDE_LAYOUTS.includes(slide.layout as SlideLayoutHint)
-    ? (slide.layout as SlideLayoutHint)
+  const templateId = SLIDE_LAYOUTS.includes(slide.templateId as SlideLayoutHint)
+    ? (slide.templateId as SlideLayoutHint)
     : DEFAULT_LAYOUT;
 
   const normalized: RepairedSlide = {
@@ -244,9 +203,7 @@ export function repairSlide(input: unknown, index: number): RepairedSlide {
         : `sl-${index + 1}`,
     index,
     title: typeof slide.title === "string" ? slide.title : "",
-    bullets: toStringArray(slide.bullets),
-    visualIds: toStringArray(slide.visualIds),
-    layout,
+    ...(templateId !== "blank" ? { templateId } : {}),
     notes: typeof slide.notes === "string" ? slide.notes : "",
   };
 
@@ -268,8 +225,8 @@ export function repairSlide(input: unknown, index: number): RepairedSlide {
 
 /**
  * Turns the raw parsed model payload into a repaired deck candidate: resolves
- * the deck theme id, maps unknown layouts to `"blank"`, regenerates missing ids, fills
- * sparse content fields, and caps the slide count.
+ * the deck theme id, regenerates missing ids, repairs v6 elements, and caps the
+ * slide count.
  */
 export function repairDeck(
   parsed: unknown,
@@ -281,19 +238,17 @@ export function repairDeck(
     return undefined;
   }
 
-  // Preserve any non-empty string themeId from the model so the downstream
+  // Preserve any non-empty design.themeId from the model so the downstream
   // normalizer (normalizeGeneratedDeck) can apply the generic resolver
   // fallback — including substituting preferredTheme when the value is
-  // unrecognised. Fall back to DEFAULT_THEME only when themeId is absent.
+  // unrecognised. Fall back to DEFAULT_THEME only when design.themeId is absent.
   const candidateDesign = isPlainObject(candidate.design)
     ? candidate.design
     : {};
   const rawThemeId =
     typeof candidateDesign.themeId === "string"
       ? candidateDesign.themeId.trim()
-      : typeof candidate.themeId === "string"
-        ? candidate.themeId.trim()
-        : "";
+      : "";
   const themeId: string = rawThemeId.length > 0 ? rawThemeId : DEFAULT_THEME;
 
   const slides = candidate.slides
@@ -303,7 +258,7 @@ export function repairDeck(
   return normalizeGeneratedDeck(
     {
       slides,
-      themeId,
+      design: { themeId },
       schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     } as unknown as Deck,
     inventory,

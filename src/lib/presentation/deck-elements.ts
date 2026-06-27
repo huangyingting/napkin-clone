@@ -362,7 +362,7 @@ export interface ShapeElement extends BaseElement {
   textStyle?: TextElementStyle;
   /**
    * Optional semantic presentation theme role for the shape label (#605). Defaults
-   * conceptually to `"shapeLabel"` when inheriting from the template. Absent →
+   * conceptually to `"label"` when inheriting from the template. Absent →
    * styled by concrete `textStyle`.
    */
   textRole?: PresentationRole;

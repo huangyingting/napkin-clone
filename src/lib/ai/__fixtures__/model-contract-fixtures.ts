@@ -56,34 +56,51 @@ export function deckModelOutput(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    themeId: "indigo",
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
+        id: "slide-welcome",
+        index: 0,
         title: "Welcome",
-        bullets: ["First point", "Second point"],
         notes: "Speaker notes here.",
-        layout: "title",
+        templateId: "title",
         elements: [
           {
+            id: "title-welcome",
             kind: "text",
-            text: "Welcome",
-            paragraphs: [{ text: "Welcome" }],
-            textRole: "h1",
+            role: "title",
             box: { x: 8, y: 8, w: 84, h: 20 },
+            zIndex: 0,
+            content: {
+              kind: "text",
+              text: "Welcome",
+              paragraphs: [{ text: "Welcome" }],
+            },
           },
         ],
       },
       {
+        id: "slide-details",
+        index: 1,
         title: "Details",
-        bullets: ["More"],
-        layout: "content",
+        templateId: "content",
+        notes: "",
         elements: [
           {
+            id: "body-details",
             kind: "text",
-            text: "More",
-            paragraphs: [{ text: "More", listType: "bullet" }],
-            textRole: "bullet",
+            role: "bullet",
             box: { x: 12, y: 24, w: 76, h: 48 },
+            zIndex: 0,
+            content: {
+              kind: "text",
+              text: "More",
+              paragraphs: [{ text: "More", listType: "bullet" }],
+            },
           },
         ],
       },
@@ -94,42 +111,60 @@ export function deckModelOutput(
 
 export function repairableDeckModelOutput(): Record<string, unknown> {
   return deckModelOutput({
-    themeId: "not-a-theme",
+    design: { themeId: "not-a-theme" },
     slides: [
       {
+        id: "sl-1",
+        index: 0,
         title: "Repair me",
-        bullets: ["Keep this"],
-        layout: "carousel",
+        templateId: "carousel",
+        notes: "",
         elements: [
           {
             id: "same",
             kind: "text",
-            text: "Repair me",
-            paragraphs: [{ text: "Repair me" }],
-            textRole: "h1",
+            role: "title",
             box: { x: -50, y: 150, w: 999, h: -10 },
-            style: { fontSize: 6, align: "sideways", color: "not-a-color" },
+            zIndex: 0,
+            content: {
+              kind: "text",
+              text: "Repair me",
+              paragraphs: [{ text: "Repair me" }],
+            },
+            designOverrides: {
+              textStyle: {
+                fontSize: 6,
+                align: "sideways",
+                color: "not-a-color",
+              },
+            },
           },
           {
             id: "same",
             kind: "text",
-            text: "One\nTwo",
-            paragraphs: [
-              { text: "One", listType: "bullet" },
-              { text: "Two", listType: "bullet" },
-            ],
-            textRole: "bullet",
+            role: "bullet",
             box: null,
+            zIndex: 1,
+            content: {
+              kind: "text",
+              text: "One\nTwo",
+              paragraphs: [
+                { text: "One", listType: "bullet" },
+                { text: "Two", listType: "bullet" },
+              ],
+            },
           },
           {
             kind: "visual",
-            visualId: "vis-1",
             box: { x: 10, y: 20, w: 30, h: 40 },
+            zIndex: 2,
+            content: { kind: "visual", visualId: "vis-1" },
           },
           {
             kind: "visual",
-            visualId: "",
             box: { x: 10, y: 20, w: 30, h: 40 },
+            zIndex: 3,
+            content: { kind: "visual", visualId: "" },
           },
         ],
       },

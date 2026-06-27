@@ -69,11 +69,10 @@ function elementContent(element: any): Record<string, any> {
 }
 
 function elementRole(element: any): string | undefined {
-  return element?.role ?? element?.textRole;
+  return element?.role;
 }
 
 function slideBullets(slide: Slide): string[] {
-  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
   const bullet = (slide.elements ?? []).find(
     (element) => element.kind === "text" && elementRole(element) === "bullet",
   );
@@ -83,7 +82,6 @@ function slideBullets(slide: Slide): string[] {
 }
 
 function slideVisualIds(slide: Slide): string[] {
-  if (Array.isArray((slide as any).visualIds)) return (slide as any).visualIds;
   return (slide.elements ?? [])
     .filter((element) => element.kind === "visual")
     .map((element) => elementContent(element).visualId)
@@ -91,16 +89,14 @@ function slideVisualIds(slide: Slide): string[] {
 }
 
 /**
- * A content fingerprint capturing whatever carries a slide's meaning, whether it
- * lives in the document-derived `title`/`bullets`/`visualIds`/`notes` fields or in
- * authoritative free-form `elements[]` (AI decks keep their content in
- * `elements[]` with `elementsDerived=false`). Used only to decide
- * `changed` vs `unchanged` for an already-matched pair.
+ * A content fingerprint capturing v6 slide metadata and authoritative
+ * `elements[]`. Used only to decide `changed` vs `unchanged` for an
+ * already-matched pair.
  */
 function contentSignature(slide: Slide): string {
   const parts: string[] = [
     `t:${normalizeTitle(slideEffectiveTitle(slide))}`,
-    `l:${(slide as any).templateId ?? (slide as any).layout ?? "blank"}`,
+    `l:${(slide as any).templateId ?? "blank"}`,
     `b:${slideBullets(slide)
       .map((bullet) => bullet.trim())
       .join("\u0001")}`,

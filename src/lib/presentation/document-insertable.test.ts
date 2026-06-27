@@ -38,6 +38,22 @@ function visual(visualId: string): DocumentBlock {
   return { kind: "visual", visualId, visual: FAKE_VISUAL };
 }
 
+function elementRole(element: unknown): string | undefined {
+  return (element as any).role;
+}
+
+function elementText(element: unknown): string | undefined {
+  return (element as any).content?.text;
+}
+
+function elementRuns(element: unknown): unknown {
+  return (element as any).content?.runs;
+}
+
+function elementTextStyle(element: unknown): any {
+  return (element as any).designOverrides?.textStyle;
+}
+
 function textItems(
   items: Insertable[],
 ): Extract<Insertable, { kind: "text" }>[] {
@@ -135,40 +151,40 @@ test("maps a level-1 heading to a large bold title element", () => {
   const el = insertableTextElement(item, { id: "fixed" });
   assert.equal(el.id, "fixed");
   assert.equal(el.kind, "text");
-  assert.equal(el.textRole, "h1");
-  assert.equal(el.text, "Hello");
-  assert.equal(el.style.bold, true);
-  assert.equal(el.style.fontSize, 6.5);
-  assert.equal(el.style.italic, false);
-  assert.equal(el.style.align, "left");
+  assert.equal(elementRole(el), "title");
+  assert.equal(elementText(el), "Hello");
+  assert.equal(elementTextStyle(el).bold, true);
+  assert.equal(elementTextStyle(el).fontSize, 6.5);
+  assert.equal(elementTextStyle(el).italic, false);
+  assert.equal(elementTextStyle(el).align, "left");
 });
 
 test("maps lower-level headings to bold body elements with smaller sizes", () => {
   const [h2] = textItems(buildInsertables([heading("H2", 2)]));
   const [h3] = textItems(buildInsertables([heading("H3", 3)]));
-  assert.equal(insertableTextElement(h2).textRole, "h2");
-  assert.equal(insertableTextElement(h2).style.fontSize, 5.5);
-  assert.equal(insertableTextElement(h2).style.bold, true);
-  assert.equal(insertableTextElement(h3).style.fontSize, 5);
+  assert.equal(elementRole(insertableTextElement(h2)), "sectionTitle");
+  assert.equal(elementTextStyle(insertableTextElement(h2)).fontSize, 5.5);
+  assert.equal(elementTextStyle(insertableTextElement(h2)).bold, true);
+  assert.equal(elementTextStyle(insertableTextElement(h3)).fontSize, 5);
 });
 
-test("maps document heading levels to semantic textRole h1/h2/h3 (#610)", () => {
+test("maps document heading levels to semantic presentation roles (#610)", () => {
   const [h1] = textItems(buildInsertables([heading("H1", 1)]));
   const [h2] = textItems(buildInsertables([heading("H2", 2)]));
   const [h3] = textItems(buildInsertables([heading("H3", 3)]));
   const [body] = textItems(buildInsertables([para("Body")]));
-  assert.equal(insertableTextElement(h1).textRole, "h1");
-  assert.equal(insertableTextElement(h2).textRole, "h2");
-  assert.equal(insertableTextElement(h3).textRole, "h3");
-  assert.equal(insertableTextElement(body).textRole, "body");
+  assert.equal(elementRole(insertableTextElement(h1)), "title");
+  assert.equal(elementRole(insertableTextElement(h2)), "sectionTitle");
+  assert.equal(elementRole(insertableTextElement(h3)), "body");
+  assert.equal(elementRole(insertableTextElement(body)), "body");
 });
 
 test("maps a paragraph to a non-bold body element at body size", () => {
   const [item] = textItems(buildInsertables([para("Body text")]));
   const el = insertableTextElement(item);
-  assert.equal(el.textRole, "body");
-  assert.equal(el.style.bold, false);
-  assert.equal(el.style.fontSize, 4);
+  assert.equal(elementRole(el), "body");
+  assert.equal(elementTextStyle(el).bold, false);
+  assert.equal(elementTextStyle(el).fontSize, 4);
   assert.ok(el.id.length > 0);
 });
 
@@ -176,8 +192,8 @@ test("passes runs through to the built element only when present", () => {
   const runs = [{ text: "Hi", italic: true }];
   const [withRuns] = textItems(buildInsertables([para("Hi", runs)]));
   const [plain] = textItems(buildInsertables([para("Plain")]));
-  assert.deepEqual(insertableTextElement(withRuns).runs, runs);
-  assert.equal(insertableTextElement(plain).runs, undefined);
+  assert.deepEqual(elementRuns(insertableTextElement(withRuns)), runs);
+  assert.equal(elementRuns(insertableTextElement(plain)), undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -336,8 +352,8 @@ test("insertableTextElement heading stamps sourceRef when both ids present", () 
   });
   assert.equal(el.source!.documentId, "doc-2");
   assert.equal(el.source!.blockId, "blk-h2");
-  assert.equal(el.textRole, "h2");
-  assert.equal(el.style.bold, true);
+  assert.equal(elementRole(el), "sectionTitle");
+  assert.equal(elementTextStyle(el).bold, true);
 });
 
 // ---------------------------------------------------------------------------

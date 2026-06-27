@@ -53,19 +53,19 @@ function constantComplete(response: string) {
   return async () => response;
 }
 
-function deckJson(slides: unknown[]): string {
+function deckJson(slides: unknown[], themeId = "indigo"): string {
   return JSON.stringify({
     schemaVersion: 6,
     canvas: { format: "16:9" },
-    design: { themeId: "indigo" },
+    design: { themeId },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
     defaultMasterId: "master-default",
     slides: slides.map((slide, index) => ({
       id: `slide-${index}`,
       index,
       title: (slide as any).title ?? "",
-      ...((slide as any).templateId || (slide as any).layout
-        ? { templateId: (slide as any).templateId ?? (slide as any).layout }
+      ...((slide as any).templateId
+        ? { templateId: (slide as any).templateId }
         : {}),
       elements: (slide as any).elements ?? [],
     })),
@@ -83,15 +83,18 @@ function themeId(deck: unknown): string | undefined {
 test("success: returns a safeParseDeck-valid deck from fixture JSON", async () => {
   const complete = constantComplete(
     deckJson([
-      { title: "Welcome", bullets: ["First point"], layout: "title" },
+      { title: "Welcome", templateId: "title" },
       {
         title: "Section",
-        layout: "content",
+        templateId: "content",
         elements: [
           {
+            id: "visual-v1",
             kind: "visual",
-            visualId: "v1",
+            role: "visual",
             box: { x: 10, y: 10, w: 80, h: 60 },
+            zIndex: 0,
+            content: { kind: "visual", visualId: "v1" },
           },
         ],
       },
@@ -148,17 +151,23 @@ test("no visuals: the generated deck contains no visual elements", async () => {
     deckJson([
       {
         title: "Section",
-        layout: "content",
+        templateId: "content",
         elements: [
           {
+            id: "visual-v1",
             kind: "visual",
-            visualId: "v1",
+            role: "visual",
             box: { x: 10, y: 10, w: 80, h: 60 },
+            zIndex: 0,
+            content: { kind: "visual", visualId: "v1" },
           },
           {
+            id: "body",
             kind: "text",
-            text: "Body",
+            role: "body",
             box: { x: 10, y: 10, w: 80, h: 20 },
+            zIndex: 1,
+            content: { kind: "text", text: "Body" },
           },
         ],
       },
@@ -180,10 +189,7 @@ test("no visuals: the generated deck contains no visual elements", async () => {
 
 test("threads preferredTheme through to upgrade a model 'default' (#281)", async () => {
   const complete = constantComplete(
-    JSON.stringify({
-      themeId: "default",
-      slides: [{ title: "Welcome", layout: "title" }],
-    }),
+    deckJson([{ title: "Welcome", templateId: "title" }], "default"),
   );
 
   const { deck } = await runDeckGeneration({
@@ -199,10 +205,7 @@ test("threads preferredTheme through to upgrade a model 'default' (#281)", async
 
 test("preferredTheme does not override an explicit vibrant model theme (#281)", async () => {
   const complete = constantComplete(
-    JSON.stringify({
-      themeId: "forest",
-      slides: [{ title: "Welcome", layout: "title" }],
-    }),
+    deckJson([{ title: "Welcome", templateId: "title" }], "forest"),
   );
 
   const { deck } = await runDeckGeneration({

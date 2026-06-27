@@ -29,6 +29,7 @@ import {
   type DeckBulletsOp,
   type DeckTextOp,
 } from "@/lib/presentation/export/deck-export";
+import { buildDeck } from "@/test/builders/deck";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 
 function titleEl(overrides: Partial<TextElement> = {}): TextElement {
@@ -36,7 +37,7 @@ function titleEl(overrides: Partial<TextElement> = {}): TextElement {
   return {
     id: "title",
     kind: "text",
-    textRole: "h1",
+    textRole: "title",
     text,
     paragraphs: overrides.paragraphs ?? [{ text }],
     zIndex: 0,
@@ -129,7 +130,10 @@ function exportBulletColor(deck: Deck): string {
 // ---------------------------------------------------------------------------
 
 test("built-in themeId: renderer and export emit the same inherited title color", () => {
-  const deck: Deck = { themeId: "default", slides: [slide([titleEl()])] };
+  const deck: Deck = buildDeck({
+    themeId: "default",
+    slides: [slide([titleEl()])],
+  });
   // toHex normalises to a 6-digit lowercase hex; renderer keeps the cascade hex.
   assert.equal(
     exportTitleColor(deck).toLowerCase(),
@@ -138,7 +142,10 @@ test("built-in themeId: renderer and export emit the same inherited title color"
 });
 
 test("built-in themeId: inherited title color equals the token onBg", () => {
-  const deck: Deck = { themeId: "indigo", slides: [slide([titleEl()])] };
+  const deck: Deck = buildDeck({
+    themeId: "indigo",
+    slides: [slide([titleEl()])],
+  });
   const onBg = resolveThemeTokens("indigo").colors.onBg;
   assert.equal(rendererTitleColor(deck), onBg);
 });
@@ -148,36 +155,36 @@ test("built-in themeId: inherited title color equals the token onBg", () => {
 // ---------------------------------------------------------------------------
 
 test("custom token set: renderer title color matches the brand onBg", () => {
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "default",
     customTokenSet: BRAND,
     slides: [slide([titleEl()])],
-  };
+  });
   assert.equal(rendererTitleColor(deck), "#fafafa");
 });
 
 test("custom token set: export inherits the brand heading font for h1", () => {
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "default",
     customTokenSet: BRAND,
     slides: [slide([titleEl()])],
-  };
+  });
   // h1 is a heading role → heading font stack "Oswald".
   assert.equal(exportTitleFont(deck), "Oswald");
   // and matches the cascade role token the renderer would inherit (with the
   // self-hosted CJK fallback inserted by the resolver).
   assert.equal(
-    resolveRoleToken(BRAND, "h1").fontFamily,
+    resolveRoleToken(BRAND, "title").fontFamily,
     "Oswald, 'Noto Sans SC', sans-serif",
   );
 });
 
 test("custom token set: export bullet color matches the brand onBg (body role)", () => {
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "default",
     customTokenSet: BRAND,
     slides: [slide([titleEl(), bodyBulletsEl()])],
-  };
+  });
   assert.equal(exportBulletColor(deck).toLowerCase(), "fafafa");
 });
 
@@ -186,7 +193,7 @@ test("custom token set: export bullet color matches the brand onBg (body role)",
 // ---------------------------------------------------------------------------
 
 test("a local color override wins in export regardless of the theme", () => {
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "default",
     customTokenSet: BRAND,
     slides: [
@@ -202,7 +209,7 @@ test("a local color override wins in export regardless of the theme", () => {
         }),
       ]),
     ],
-  };
+  });
   assert.equal(exportTitleColor(deck).toLowerCase(), "00ff00");
 });
 

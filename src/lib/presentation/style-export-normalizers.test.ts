@@ -9,11 +9,16 @@ import {
 
 const SLIDE_HEIGHT_PT = 540;
 
-function textElement(overrides: Partial<TextElement> = {}): TextElement {
+function textElement(
+  overrides: Partial<TextElement> & {
+    designOverrides?: unknown;
+    role?: string;
+  } = {},
+): TextElement {
   return {
     id: "t1",
     kind: "text",
-    textRole: "h1",
+    role: "title",
     text: "Hello",
     zIndex: 0,
     box: { x: 5, y: 5, w: 90, h: 20 },
@@ -24,33 +29,41 @@ function textElement(overrides: Partial<TextElement> = {}): TextElement {
       align: "left",
     },
     ...overrides,
-  };
+  } as unknown as TextElement;
 }
 
 function deck(element: TextElement): Deck {
   return {
-    themeId: "default",
-    customTokenSet: {
-      id: "brand:x",
-      name: "Brand X",
-      colors: {
-        slideBg: "#101010",
-        surface: "#202020",
-        accent: "#ff8800",
-        onBg: "#fafafa",
-        onSurface: "#eeeeee",
-        onAccent: "#000000",
-        muted: "#999999",
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: {
+      themeId: "default",
+      themeOverrides: {
+        tokenSet: {
+          id: "brand:x",
+          name: "Brand X",
+          colors: {
+            slideBg: "#101010",
+            surface: "#202020",
+            accent: "#ff8800",
+            onBg: "#fafafa",
+            onSurface: "#eeeeee",
+            onAccent: "#000000",
+            muted: "#999999",
+          },
+          typography: {
+            fontFamily: "Roboto, sans-serif",
+            headingFontFamily: "Oswald, sans-serif",
+            scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+          },
+          spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+          shape: { cornerRadiusPt: 4, shadowCss: "none" },
+          defaultBackground: { type: "solid", color: "#101010" },
+        },
       },
-      typography: {
-        fontFamily: "Roboto, sans-serif",
-        headingFontFamily: "Oswald, sans-serif",
-        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
-      },
-      spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
-      shape: { cornerRadiusPt: 4, shadowCss: "none" },
-      defaultBackground: { type: "solid", color: "#101010" },
     },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
@@ -63,7 +76,7 @@ function deck(element: TextElement): Deck {
         elements: [element],
       },
     ],
-  };
+  } as Deck;
 }
 
 test("renderer/export text adapters keep inherited color and font in parity", () => {
@@ -82,11 +95,13 @@ test("renderer/export text adapters keep inherited color and font in parity", ()
 
 test("renderer/export text adapters track local override origin consistently", () => {
   const element = textElement({
-    styleOverride: {
-      color: "#00ff00",
-      fontId: "inter",
-      bold: false,
-      italic: true,
+    designOverrides: {
+      textStyle: {
+        color: "#00ff00",
+        fontId: "inter",
+        bold: false,
+        italic: true,
+      },
     },
   });
   const source = deck(element);

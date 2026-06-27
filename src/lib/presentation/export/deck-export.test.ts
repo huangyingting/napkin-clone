@@ -37,6 +37,7 @@ import {
 import { deckExportTestHelpers } from "@/test/deck-export-helpers";
 import {
   buildBulletsElement,
+  buildDeck,
   buildConnectorElement,
   buildImageElement,
   buildShapeElement,
@@ -87,7 +88,7 @@ function fixtureTextElement(
 ): TextElement {
   return buildTextElement({
     id,
-    textRole: "h1",
+    textRole: "title",
     text,
     zIndex: 0,
     box: { x: 6, y: 6, w: 88, h: 16 },
@@ -283,8 +284,11 @@ test("edited title and bullet text are present in the ops", () => {
 
 test("4:3 decks convert percentage boxes against the standard 4:3 slide size", () => {
   const deck: Deck = {
-    themeId: "indigo",
-    slideFormat: "4:3",
+    schemaVersion: 6,
+    canvas: { format: "4:3" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("t", "Standard", {
@@ -434,10 +438,10 @@ test("per-slide background and accent overrides are applied", () => {
 });
 
 test("slide without overrides uses the theme background/accent", () => {
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "ocean",
     slides: [freeFormSlide(0, [fixtureTextElement("t", "Theme defaults")])],
-  };
+  });
 
   const [spec] = buildDeckSpecs(deck, new Map());
   assert.equal(spec.background, "F6FBFF"); // ocean slideBg (light)
@@ -886,17 +890,17 @@ test("image element with sourceRef still emits a normal image op", () => {
 
 test("exported text inherits the presentation theme role font when no element override (#606)", () => {
   // indigo themeId: heading font "Space Grotesk", body font "Inter".
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("title", "Heading", {
-          textRole: "h1",
+          textRole: "title",
         }),
         bulletsEl("b", ["point"]),
       ]),
     ],
-  };
+  });
   const [spec] = buildDeckSpecs(deck, new Map());
   const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
   const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
@@ -905,12 +909,12 @@ test("exported text inherits the presentation theme role font when no element ov
 });
 
 test("an explicit element fontId still wins over the role font (#606)", () => {
-  const deck: Deck = {
+  const deck: Deck = buildDeck({
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("title", "Heading", {
-          textRole: "h1",
+          textRole: "title",
           style: {
             fontSize: 6,
             bold: true,
@@ -921,7 +925,7 @@ test("an explicit element fontId still wins over the role font (#606)", () => {
         }),
       ]),
     ],
-  };
+  });
   const [spec] = buildDeckSpecs(deck, new Map());
   const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
   assert.equal(title.fontFace, "Consolas");
@@ -935,7 +939,7 @@ function brandDeckWith(
   elements: SlideElement[],
   tokenExtras: Record<string, unknown>,
 ): Deck {
-  return {
+  return buildDeck({
     themeId: "default",
     customTokenSet: {
       id: "brand:nt",
@@ -959,7 +963,7 @@ function brandDeckWith(
       ...tokenExtras,
     },
     slides: [freeFormSlide(0, elements)],
-  } as unknown as Deck;
+  });
 }
 
 test("export inherits the template image fit mode when the element omits it (#607)", () => {

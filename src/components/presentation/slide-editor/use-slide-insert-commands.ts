@@ -49,41 +49,58 @@ type DoCommitAndChange = (
 
 function textRoleLabel(role: PresentationRole): string {
   switch (role) {
-    case "h1":
+    case "title":
       return "Title";
-    case "h2":
+    case "sectionTitle":
       return "Section title";
-    case "h3":
-      return "Body heading";
     case "subtitle":
       return "Subtitle";
     case "body":
       return "Body";
     case "bullet":
       return "Bullet";
+    case "quote":
+      return "Quote";
     case "caption":
       return "Caption";
     case "footer":
       return "Footer";
-    case "shapeLabel":
+    case "label":
       return "Label";
+    case "media":
+      return "Media";
+    case "visual":
+      return "Visual";
+    case "image":
+      return "Image";
+    case "logo":
+      return "Logo";
+    case "pageNumber":
+      return "Page number";
+    case "background":
+      return "Background";
   }
 }
 
 function textRoleFontSize(role: PresentationRole): number {
   switch (role) {
-    case "h1":
+    case "title":
       return SLIDE_TEXT_FONT_SIZE.h1;
-    case "h2":
+    case "sectionTitle":
       return SLIDE_TEXT_FONT_SIZE.h2;
-    case "h3":
-      return SLIDE_TEXT_FONT_SIZE.h3;
     case "bullet":
       return SLIDE_TEXT_FONT_SIZE.list;
     case "subtitle":
     case "caption":
     case "footer":
-    case "shapeLabel":
+    case "label":
+    case "quote":
+    case "media":
+    case "visual":
+    case "image":
+    case "logo":
+    case "pageNumber":
+    case "background":
     case "body":
       return SLIDE_TEXT_FONT_SIZE.text;
   }
@@ -91,12 +108,10 @@ function textRoleFontSize(role: PresentationRole): number {
 
 function defaultTextBox(role: PresentationRole): ElementBox {
   switch (role) {
-    case "h1":
+    case "title":
       return { x: 10, y: 18, w: 80, h: 14 };
-    case "h2":
+    case "sectionTitle":
       return { x: 14, y: 26, w: 72, h: 10 };
-    case "h3":
-      return { x: 16, y: 30, w: 68, h: 9 };
     case "subtitle":
       return { x: 14, y: 34, w: 72, h: 9 };
     case "bullet":
@@ -105,8 +120,16 @@ function defaultTextBox(role: PresentationRole): ElementBox {
       return { x: 18, y: 78, w: 64, h: 8 };
     case "footer":
       return { x: 8, y: 90, w: 84, h: 5 };
-    case "shapeLabel":
+    case "label":
       return { x: 30, y: 44, w: 40, h: 10 };
+    case "quote":
+      return { x: 18, y: 36, w: 64, h: 18 };
+    case "media":
+    case "visual":
+    case "image":
+    case "logo":
+    case "pageNumber":
+    case "background":
     case "body":
       return { x: 20, y: 40, w: 60, h: 16 };
   }
@@ -128,22 +151,15 @@ function buildDefaultTextElement(
   return {
     id,
     kind: "text",
-    role:
-      role === "h1"
-        ? "title"
-        : role === "h2"
-          ? "sectionTitle"
-          : role === "shapeLabel"
-            ? "label"
-            : role,
+    role,
     box: defaultTextBox(role),
     content: { kind: "text", text, paragraphs },
     designOverrides: {
       textStyle: {
         fontSize: textRoleFontSize(role),
-        bold: role === "h1" || role === "h2" || role === "h3",
+        bold: role === "title" || role === "sectionTitle",
         italic: role === "caption",
-        align: role === "h1" || role === "subtitle" ? "center" : "left",
+        align: role === "title" || role === "subtitle" ? "center" : "left",
       },
     },
   } as unknown as DistributiveOmit<SlideElement, "id" | "zIndex"> & {

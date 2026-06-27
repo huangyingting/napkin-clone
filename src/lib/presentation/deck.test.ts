@@ -420,9 +420,9 @@ test("buildSlideElementsFromContent builds a title element from slide content", 
     id: "test-id",
     index: 0,
     title: "Hello",
-    bullets: [],
-    visualIds: [],
-    layout: "title",
+    bodyTexts: [],
+    visualRefs: [],
+    templateId: "title",
     notes: "",
   });
   const title = elements.find((e) => e.kind === "text");
@@ -439,12 +439,14 @@ test("buildSlideElementsFromContent pairs bullets and a visual side by side", as
     id: "test-id",
     index: 0,
     title: "T",
-    bullets: ["a", "b"],
-    visualIds: ["vis-1"],
-    layout: "content",
+    bodyTexts: ["a", "b"],
+    visualRefs: ["vis-1"],
+    templateId: "content",
     notes: "",
   });
-  assert.ok(elements.some((e) => e.kind === "text" && (e as any).role === "bullet"));
+  assert.ok(
+    elements.some((e) => e.kind === "text" && (e as any).role === "bullet"),
+  );
   assert.ok(elements.some((e) => e.kind === "visual"));
 });
 
@@ -454,9 +456,9 @@ test("buildSlideElementsFromContent emits free-form elements without layout slot
     id: "test-id",
     index: 0,
     title: "T",
-    bullets: ["a", "b"],
-    visualIds: ["vis-1", "vis-2"],
-    layout: "content",
+    bodyTexts: ["a", "b"],
+    visualRefs: ["vis-1", "vis-2"],
+    templateId: "content",
     notes: "",
   });
   assert.ok(elements.every((element) => !("layoutSlot" in element)));
@@ -473,9 +475,9 @@ test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", asyn
     id: "test-id",
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: ["vis-a", "vis-b", "vis-c"],
-    layout: "media",
+    bodyTexts: [],
+    visualRefs: ["vis-a", "vis-b", "vis-c"],
+    templateId: "media",
     notes: "",
   });
 
@@ -483,7 +485,9 @@ test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", asyn
   // One element per source visual, in source order (no dedupe, no drop).
   assert.equal(visuals.length, 3);
   assert.deepEqual(
-    visuals.map((e) => (e.kind === "visual" ? elementContent(e).visualId : null)),
+    visuals.map((e) =>
+      e.kind === "visual" ? elementContent(e).visualId : null,
+    ),
     ["vis-a", "vis-b", "vis-c"],
   );
 
@@ -519,21 +523,24 @@ test("buildSlideElementsFromContent tiles extra visuals alongside bullets", asyn
     id: "test-id",
     index: 0,
     title: "T",
-    bullets: ["a", "b"],
-    visualIds: ["vis-1", "vis-2", "vis-3"],
-    layout: "content",
+    bodyTexts: ["a", "b"],
+    visualRefs: ["vis-1", "vis-2", "vis-3"],
+    templateId: "content",
     notes: "",
   });
 
   // The bullets keep their pane; every visual still materializes (1 paired +
   // 2 cascaded), preserving source order.
   assert.equal(
-    elements.filter((e) => e.kind === "text" && (e as any).role === "bullet").length,
+    elements.filter((e) => e.kind === "text" && (e as any).role === "bullet")
+      .length,
     1,
   );
   const visuals = elements.filter((e) => e.kind === "visual");
   assert.deepEqual(
-    visuals.map((e) => (e.kind === "visual" ? elementContent(e).visualId : null)),
+    visuals.map((e) =>
+      e.kind === "visual" ? elementContent(e).visualId : null,
+    ),
     ["vis-1", "vis-2", "vis-3"],
   );
 
@@ -614,7 +621,11 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
             role: "visual",
             zIndex: 0,
             box: { x: 25, y: 18, w: 50, h: 64 },
-            content: { kind: "visual", visualId: "vis-1", styleThemeId: "forest" },
+            content: {
+              kind: "visual",
+              visualId: "vis-1",
+              styleThemeId: "forest",
+            },
           },
         ],
       },
@@ -625,7 +636,9 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
   const element = parsed.data.slides[0].elements?.[0];
   assert.ok(element && element.kind === "visual");
   assert.equal(
-    element.kind === "visual" ? elementContent(element).styleThemeId : undefined,
+    element.kind === "visual"
+      ? elementContent(element).styleThemeId
+      : undefined,
     "forest",
   );
 });
@@ -720,10 +733,10 @@ test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements"
     index: 0,
     title: "Title",
     titleRuns: [{ text: "Title", bold: true }],
-    bullets: ["one", "two"],
-    bulletRuns: [[], [{ text: "two", italic: true }]],
-    visualIds: [],
-    layout: "content",
+    bodyTexts: ["one", "two"],
+    bodyRuns: [[], [{ text: "two", italic: true }]],
+    visualRefs: [],
+    templateId: "content",
     notes: "",
   });
   const title = elements.find((e) => e.kind === "text");
@@ -739,7 +752,9 @@ test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements"
   assert.ok(bullets && bullets.kind === "text");
   if (bullets.kind === "text") {
     assert.deepEqual(
-      elementContent(bullets).paragraphs?.map((paragraph: any) => paragraph.runs),
+      elementContent(bullets).paragraphs?.map(
+        (paragraph: any) => paragraph.runs,
+      ),
       [undefined, [{ text: "two", italic: true }]],
     );
   }
@@ -838,21 +853,27 @@ test("normalizeTextParagraphs returns empty current paragraphs", async () => {
   assert.equal(result.length, 0);
 });
 
-test("buildSlideElementsFromContent stamps semantic textRole h1/bullet (#610)", async () => {
+test("buildSlideElementsFromContent stamps semantic roles title/bullet (#610)", async () => {
   const { buildSlideElementsFromContent } = await import("./deck");
   const elements = buildSlideElementsFromContent({
     id: "test-id",
     index: 0,
     title: "Title",
-    bullets: ["a", "b"],
-    visualIds: [],
-    layout: "content",
+    bodyTexts: ["a", "b"],
+    visualRefs: [],
+    templateId: "content",
     notes: "",
   });
   const title = elements.find((e) => e.kind === "text");
   const bullets = elements.find(
     (e) => e.kind === "text" && (e as any).role === "bullet",
   );
-  assert.equal(title?.kind === "text" ? (title as any).role : undefined, "title");
-  assert.equal(bullets?.kind === "text" ? (bullets as any).role : undefined, "bullet");
+  assert.equal(
+    title?.kind === "text" ? (title as any).role : undefined,
+    "title",
+  );
+  assert.equal(
+    bullets?.kind === "text" ? (bullets as any).role : undefined,
+    "bullet",
+  );
 });

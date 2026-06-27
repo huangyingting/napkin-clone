@@ -13,7 +13,10 @@
 
 import type { Deck } from "./deck-core";
 import type { TextElementStyle } from "./deck-elements";
-import type { PresentationRole, PresentationTheme } from "./presentation-theme-types";
+import type {
+  PresentationRole,
+  PresentationTheme,
+} from "./presentation-theme-types";
 import { resolveRoleToken } from "./presentation-theme-resolvers";
 import { slideFontCssStack } from "./slide-fonts";
 import { resolveDeckTokenSet } from "./style-cascade-layers";
@@ -64,7 +67,7 @@ export interface ResolvedTextStyle {
 /** Default semantic role per text-bearing element kind (#605). */
 const ELEMENT_DEFAULT_ROLE = {
   bullet: "bullet",
-  shapeLabel: "shapeLabel",
+  label: "label",
 } as const;
 
 function presentationRoleToPresentationRole(
@@ -72,20 +75,23 @@ function presentationRoleToPresentationRole(
 ): PresentationRole | undefined {
   switch (role) {
     case "title":
-      return "h1";
+      return "title";
     case "sectionTitle":
-      return "h2";
+      return "sectionTitle";
     case "label":
-      return "shapeLabel";
+      return "label";
     case "subtitle":
     case "body":
     case "bullet":
+    case "quote":
     case "caption":
     case "footer":
-    case "h1":
-    case "h2":
-    case "h3":
-    case "shapeLabel":
+    case "media":
+    case "visual":
+    case "image":
+    case "logo":
+    case "pageNumber":
+    case "background":
       return role as PresentationRole;
     default:
       return undefined;
@@ -96,7 +102,7 @@ function elementTextStyleOverride(
   element: TextBearingElementLike,
 ): Partial<TextElementStyle> | undefined {
   const raw = element as any;
-  return element.styleOverride ?? raw.designOverrides?.textStyle ?? raw.style;
+  return raw.designOverrides?.textStyle;
 }
 
 /**
@@ -218,22 +224,21 @@ export function resolveRoleTextStyle(
 
 /** Element shape accepted by the text-bearing resolvers (kind-agnostic). */
 interface TextBearingElementLike {
-  textRole?: PresentationRole;
+  kind?: string;
   role?: string;
-  styleOverride?: Partial<TextElementStyle>;
+  designOverrides?: { textStyle?: Partial<TextElementStyle> };
 }
 
 /**
  * Resolves the final style for a `text` element. The role comes from
- * `element.textRole`, defaulting to `"body"` when unset.
+ * `element.role`, defaulting to `"body"` when unset.
  */
 export function resolveTextElementStyle(
   deck: Deck,
   element: TextBearingElementLike,
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
-  const role =
-    presentationRoleToPresentationRole(element.role) ?? element.textRole ?? "body";
+  const role = presentationRoleToPresentationRole(element.role) ?? "body";
   return resolveRoleTextStyle(
     tokenSet,
     role,
@@ -242,26 +247,25 @@ export function resolveTextElementStyle(
 }
 
 /**
- * Resolves the final style for a shape label, defaulting to the
- * `"shapeLabel"` role. Shape labels carry their override on
- * `textStyleOverride` rather than `styleOverride`.
+ * Resolves the final style for a shape label, defaulting to the `"label"`
+ * role. Shape labels carry their local typography override in
+ * `designOverrides.textStyle`.
  */
 export function resolveShapeLabelStyle(
   deck: Deck,
   element: {
+    kind?: string;
     role?: string;
-    textRole?: PresentationRole;
-    textStyleOverride?: Partial<TextElementStyle>;
+    designOverrides?: { textStyle?: Partial<TextElementStyle> };
   },
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
   const role: PresentationRole =
     presentationRoleToPresentationRole(element.role) ??
-    element.textRole ??
-    ELEMENT_DEFAULT_ROLE.shapeLabel;
+    ELEMENT_DEFAULT_ROLE.label;
   return resolveRoleTextStyle(
     tokenSet,
     role,
-    element.textStyleOverride ?? (element as any).designOverrides?.textStyle,
+    element.designOverrides?.textStyle,
   );
 }

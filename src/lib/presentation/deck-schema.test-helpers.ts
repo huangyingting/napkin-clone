@@ -31,7 +31,7 @@ export function currentDeck(): unknown {
             id: "txt-1",
             kind: "text",
             text: "Current",
-            textRole: "h1",
+            textRole: "title",
             zIndex: 0,
             box: { x: 6, y: 6, w: 88, h: 16 },
             style: { fontSize: 6, bold: true, italic: false, align: "left" },
@@ -42,9 +42,7 @@ export function currentDeck(): unknown {
   };
 }
 
-export function slideFixture(
-  overrides: RawObject = {},
-): RawObject {
+export function slideFixture(overrides: RawObject = {}): RawObject {
   return {
     id: "sl-fixture",
     index: 0,
@@ -81,7 +79,7 @@ function toV6Element(input: unknown): RawObject {
     typeof input.role === "string"
       ? input.role
       : typeof input.textRole === "string"
-        ? textRoleMap[input.textRole] ?? input.textRole
+        ? (textRoleMap[input.textRole] ?? input.textRole)
         : kind === "image" || kind === "visual"
           ? kind
           : undefined;
@@ -112,10 +110,14 @@ function toContent(input: RawObject, kind: string | undefined): RawObject {
       return {
         kind,
         text: typeof input.text === "string" ? input.text : "",
-        ...(input.paragraphs !== undefined ? { paragraphs: input.paragraphs } : {}),
+        ...(input.paragraphs !== undefined
+          ? { paragraphs: input.paragraphs }
+          : {}),
         ...(input.runs !== undefined ? { runs: input.runs } : {}),
         ...(input.fitMode !== undefined ? { fitMode: input.fitMode } : {}),
-        ...(input.bulletGap !== undefined ? { bulletGap: input.bulletGap } : {}),
+        ...(input.bulletGap !== undefined
+          ? { bulletGap: input.bulletGap }
+          : {}),
         ...(input.bulletIndent !== undefined
           ? { bulletIndent: input.bulletIndent }
           : {}),
@@ -167,7 +169,8 @@ function toDesignOverrides(input: RawObject): RawObject | undefined {
       ...(isRecord(input.styleOverride) ? input.styleOverride : {}),
     };
   }
-  if (input.textStyle !== undefined) designOverrides.textStyle = input.textStyle;
+  if (input.textStyle !== undefined)
+    designOverrides.textStyle = input.textStyle;
   if (input.textStyleOverride !== undefined) {
     designOverrides.textStyle = {
       ...(isRecord(designOverrides.textStyle) ? designOverrides.textStyle : {}),
@@ -182,9 +185,11 @@ function toDesignOverrides(input: RawObject): RawObject | undefined {
   if (input.fitMode !== undefined && input.kind === "image") {
     designOverrides.fitMode = input.fitMode;
   }
-  if (input.maskShape !== undefined) designOverrides.maskShape = input.maskShape;
+  if (input.maskShape !== undefined)
+    designOverrides.maskShape = input.maskShape;
   if (input.shadow !== undefined) designOverrides.shadow = input.shadow;
-  if (input.arrowStart !== undefined) designOverrides.arrowStart = input.arrowStart;
+  if (input.arrowStart !== undefined)
+    designOverrides.arrowStart = input.arrowStart;
   if (input.arrowEnd !== undefined) designOverrides.arrowEnd = input.arrowEnd;
   if (input.dash !== undefined) designOverrides.dash = input.dash;
   if (input.opacity !== undefined) designOverrides.opacity = input.opacity;

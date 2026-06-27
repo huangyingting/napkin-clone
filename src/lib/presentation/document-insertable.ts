@@ -187,16 +187,14 @@ export function insertableTextElement(
   const fontSize = heading
     ? headingFontSize(item.level)
     : SLIDE_TEXT_FONT_SIZE.text;
-  // Semantic presentation theme role (#610): map document heading levels onto
-  // h1/h2/h3 deterministically; non-heading text is body. The concrete `style`
-  // below remains the authoritative local style during the render-wiring
-  // transition (#598), so this is additive and does not change visual output.
-  const textRole: PresentationRole = heading
+  // Semantic presentation role (#610): map document heading levels at
+  // derivation time; non-heading text is body.
+  const role: PresentationRole = heading
     ? item.level === 2
-      ? "h2"
+      ? "sectionTitle"
       : item.level === 3
-        ? "h3"
-        : "h1"
+        ? "body"
+        : "title"
     : "body";
 
   const source: BaseElement["source"] =
@@ -212,18 +210,24 @@ export function insertableTextElement(
   return {
     id: options.id ?? makeElementId(),
     kind: "text",
-    textRole,
-    text: item.text,
-    ...(item.runs && item.runs.length > 0 ? { runs: item.runs } : {}),
+    role,
     box: { ...DEFAULT_TEXT_BOX },
-    style: {
-      fontSize,
-      bold: heading,
-      italic: false,
-      align: "left",
+    content: {
+      kind: "text",
+      text: item.text,
+      paragraphs: [{ text: item.text }],
+      ...(item.runs && item.runs.length > 0 ? { runs: item.runs } : {}),
+    },
+    designOverrides: {
+      textStyle: {
+        fontSize,
+        bold: heading,
+        italic: false,
+        align: "left",
+      },
     },
     ...(source !== undefined ? { source } : {}),
-  };
+  } as unknown as Omit<TextElement, "zIndex"> & { id: string };
 }
 
 /**

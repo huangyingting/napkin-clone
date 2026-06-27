@@ -28,18 +28,20 @@ type DerivedSlideContent = {
   index?: number;
   title: string;
   titleRuns?: TextRun[];
-  bullets: string[];
-  bulletRuns?: TextRun[][];
-  visualIds: string[];
+  bodyTexts: string[];
+  bodyRuns?: TextRun[][];
+  visualRefs: string[];
   notes?: string;
   elements?: unknown;
-  elementsDerived?: unknown;
   noteLines?: string[];
-  layout: SlideLayoutHint;
+  templateId: SlideLayoutHint;
 };
 
-interface SlideBuilder extends Omit<DerivedSlideContent, "bulletRuns" | "noteLines"> {
-  bulletRuns: TextRun[][];
+interface SlideBuilder extends Omit<
+  DerivedSlideContent,
+  "bodyRuns" | "noteLines"
+> {
+  bodyRuns: TextRun[][];
   noteLines: string[];
 }
 
@@ -55,31 +57,31 @@ function computeSectionId(title: string): string | undefined {
 
 function freshSlide(
   title: string,
-  layout: SlideLayoutHint = "content",
+  templateId: SlideLayoutHint = "content",
   titleRuns?: TextRun[],
 ): SlideBuilder {
   return {
     title,
     ...(titleRuns ? { titleRuns } : {}),
-    bullets: [],
-    bulletRuns: [],
-    visualIds: [],
+    bodyTexts: [],
+    bodyRuns: [],
+    visualRefs: [],
     noteLines: [],
-    layout,
+    templateId,
   };
 }
 
-function resolveLayout(builder: SlideBuilder): SlideLayoutHint {
-  if (builder.layout === "title" || builder.layout === "section") {
-    return builder.layout;
+function resolveTemplateId(builder: SlideBuilder): SlideLayoutHint {
+  if (builder.templateId === "title" || builder.templateId === "section") {
+    return builder.templateId;
   }
-  if (builder.visualIds.length > 0 && builder.bullets.length === 0) {
+  if (builder.visualRefs.length > 0 && builder.bodyTexts.length === 0) {
     return "media";
   }
   if (
-    builder.visualIds.length > 0 ||
-    builder.bullets.length > 0 ||
-    builder.layout === "content"
+    builder.visualRefs.length > 0 ||
+    builder.bodyTexts.length > 0 ||
+    builder.templateId === "content"
   ) {
     return "content";
   }
@@ -141,17 +143,18 @@ export function buildSlideElementsFromContent(
   const elements: SlideElement[] = [];
   let zIndex = 0;
 
-  const visualIds = slide.visualIds;
-  const bullets = slide.bullets;
-  const hasVisual = visualIds.length > 0;
-  const hasBullets = bullets.length > 0;
-  const isBigTitle = slide.layout === "title" || slide.layout === "section";
+  const visualRefs = slide.visualRefs;
+  const bodyTexts = slide.bodyTexts;
+  const hasVisual = visualRefs.length > 0;
+  const hasBodyTexts = bodyTexts.length > 0;
+  const isBigTitle =
+    slide.templateId === "title" || slide.templateId === "section";
 
   if (slide.title) {
     const titleRuns = slide.titleRuns?.length ? slide.titleRuns : undefined;
     elements.push(
       buildTextElement({
-        role: slide.layout === "section" ? "sectionTitle" : "title",
+        role: slide.templateId === "section" ? "sectionTitle" : "title",
         text: slide.title,
         paragraphs: [
           {
@@ -173,25 +176,25 @@ export function buildSlideElementsFromContent(
     );
   }
 
-  const bulletRuns = slide.bulletRuns?.length ? slide.bulletRuns : undefined;
-  const bulletParagraphs = bullets.map((text, index) => ({
+  const bodyRuns = slide.bodyRuns?.length ? slide.bodyRuns : undefined;
+  const bodyParagraphs = bodyTexts.map((text, index) => ({
     text,
-    ...(bulletRuns?.[index]?.length ? { runs: bulletRuns[index] } : {}),
+    ...(bodyRuns?.[index]?.length ? { runs: bodyRuns[index] } : {}),
     listType: "bullet" as const,
   }));
 
-  if (hasVisual && hasBullets) {
+  if (hasVisual && hasBodyTexts) {
     elements.push(
       buildTextElement({
         role: "bullet",
-        text: bullets.join("\n"),
-        paragraphs: bulletParagraphs,
+        text: bodyTexts.join("\n"),
+        paragraphs: bodyParagraphs,
         zIndex: zIndex++,
         box: { x: 6, y: 26, w: 46, h: 66 },
         style: textStyle(4.5, "left", false),
       }),
       buildVisualContentElement({
-        visualId: visualIds[0],
+        visualId: visualRefs[0],
         zIndex: zIndex++,
         box: { x: 54, y: 26, w: 40, h: 66 },
       }),
@@ -199,17 +202,17 @@ export function buildSlideElementsFromContent(
   } else if (hasVisual) {
     elements.push(
       buildVisualContentElement({
-        visualId: visualIds[0],
+        visualId: visualRefs[0],
         zIndex: zIndex++,
         box: { x: 8, y: 24, w: 84, h: 68 },
       }),
     );
-  } else if (hasBullets) {
+  } else if (hasBodyTexts) {
     elements.push(
       buildTextElement({
         role: "bullet",
-        text: bullets.join("\n"),
-        paragraphs: bulletParagraphs,
+        text: bodyTexts.join("\n"),
+        paragraphs: bodyParagraphs,
         zIndex: zIndex++,
         box: { x: 6, y: 26, w: 88, h: 66 },
         style: textStyle(4.5, "left", false),
@@ -217,10 +220,10 @@ export function buildSlideElementsFromContent(
     );
   }
 
-  for (let index = 1; index < visualIds.length; index += 1) {
+  for (let index = 1; index < visualRefs.length; index += 1) {
     elements.push(
       buildVisualContentElement({
-        visualId: visualIds[index],
+        visualId: visualRefs[index],
         zIndex: zIndex++,
         box: { x: 12 + index * 4, y: 30 + index * 4, w: 38, h: 38 },
       }),
@@ -231,28 +234,26 @@ export function buildSlideElementsFromContent(
 }
 
 function finaliseSlide(builder: SlideBuilder, index: number): Slide {
-  const layout = resolveLayout(builder);
-  const hasBulletRuns = builder.bulletRuns.some((runs) => runs.length > 0);
+  const templateId = resolveTemplateId(builder);
+  const hasBodyRuns = builder.bodyRuns.some((runs) => runs.length > 0);
   const content: DerivedSlideContent = {
     title: builder.title,
     ...(builder.titleRuns?.length ? { titleRuns: builder.titleRuns } : {}),
-    bullets: builder.bullets,
-    ...(hasBulletRuns ? { bulletRuns: builder.bulletRuns } : {}),
-    visualIds: builder.visualIds,
+    bodyTexts: builder.bodyTexts,
+    ...(hasBodyRuns ? { bodyRuns: builder.bodyRuns } : {}),
+    visualRefs: builder.visualRefs,
     noteLines: builder.noteLines,
-    layout,
+    templateId,
   };
-  const sourceSectionId = computeSectionId(builder.title);
+  const sectionId = computeSectionId(builder.title);
 
   return {
     id: makeSlideId(),
     index,
     title: builder.title,
     notes: builder.noteLines.join("\n").trim(),
-    ...(layout !== "blank" ? { templateId: layout } : {}),
-    ...(sourceSectionId !== undefined
-      ? { source: { sectionId: sourceSectionId } }
-      : {}),
+    ...(templateId !== "blank" ? { templateId } : {}),
+    ...(sectionId !== undefined ? { source: { sectionId } } : {}),
     elements: buildSlideElementsFromContent(content),
   } as unknown as Slide;
 }
@@ -273,8 +274,8 @@ export function buildDeckFromBlocks(
   const flush = () => {
     if (
       current.title ||
-      current.bullets.length > 0 ||
-      current.visualIds.length > 0 ||
+      current.bodyTexts.length > 0 ||
+      current.visualRefs.length > 0 ||
       current.noteLines.length > 0
     ) {
       slides.push(finaliseSlide(current, slides.length));
@@ -321,9 +322,9 @@ export function buildDeckFromBlocks(
 
       if (!trimmed) continue;
 
-      if (current.bullets.length < MAX_BULLETS) {
-        current.bullets.push(trimmed);
-        current.bulletRuns.push(block.runs ?? []);
+      if (current.bodyTexts.length < MAX_BULLETS) {
+        current.bodyTexts.push(trimmed);
+        current.bodyRuns.push(block.runs ?? []);
       } else {
         current.noteLines.push(trimmed);
       }
@@ -333,12 +334,12 @@ export function buildDeckFromBlocks(
 
     if (!hasContent) hasContent = true;
 
-    if (current.visualIds.length === 0) {
-      current.visualIds.push(block.visualId);
+    if (current.visualRefs.length === 0) {
+      current.visualRefs.push(block.visualId);
     } else {
       flush();
       current = freshSlide(sectionTitle, "media");
-      current.visualIds.push(block.visualId);
+      current.visualRefs.push(block.visualId);
     }
   }
 

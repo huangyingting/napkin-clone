@@ -232,9 +232,8 @@ export type ImageDefaultsToken = {
  * Typed union representing the three supported background modes for a slide or
  * master.  A renderer inspects `type` and reads the corresponding fields.
  *
- * Corresponds to the existing `Slide.background` / `Slide.backgroundGradient` /
- * `Slide.backgroundImage` fields; this union is the normalized form used at
- * the token / master layer.
+ * Normalized background form used at the token, master, slide, and element
+ * design-override layers.
  */
 export type BackgroundTreatment =
   | { type: "solid"; color: string }
@@ -292,7 +291,7 @@ export type LogoPlacement =
  * and slide-level overrides are applied.
  */
 export type MasterSlide = {
-  /** Stable id referenced by `Slide.masterRef`. */
+  /** Stable id referenced by `Slide.masterId`. */
   id: string;
   /** Display name (e.g., "Title", "Content", "Section"). */
   name: string;

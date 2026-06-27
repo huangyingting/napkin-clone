@@ -232,11 +232,12 @@ test("clamps out-of-range element boxes into [0,100]", async () => {
         title: "Box",
         elements: [
           {
+            id: "text-box",
             kind: "text",
-            text: "Hi",
-            textRole: "h1",
+            role: "title",
             box: { x: -50, y: 150, w: 999, h: -10 },
-            style: { fontSize: 6, align: "left" },
+            content: { kind: "text", text: "Hi" },
+            designOverrides: { textStyle: { fontSize: 6, align: "left" } },
           },
         ],
       },
@@ -257,7 +258,7 @@ test("clamps out-of-range element boxes into [0,100]", async () => {
 
 test("maps an unknown layout to 'blank'", async () => {
   const payload = JSON.stringify({
-    slides: [{ title: "Odd", layout: "carousel" }],
+    slides: [{ title: "Odd", templateId: "carousel" }],
   });
   const { complete } = sequence([payload]);
   const result = await generateDeck(
@@ -275,14 +276,16 @@ test("strips a visual element referencing an unknown visualId", async () => {
         title: "Visuals",
         elements: [
           {
+            id: "visual-good",
             kind: "visual",
-            visualId: "vis-1",
             box: { x: 10, y: 10, w: 40, h: 40 },
+            content: { kind: "visual", visualId: "vis-1" },
           },
           {
+            id: "visual-ghost",
             kind: "visual",
-            visualId: "ghost-id",
             box: { x: 50, y: 10, w: 40, h: 40 },
+            content: { kind: "visual", visualId: "ghost-id" },
           },
         ],
       },
@@ -309,16 +312,18 @@ test("regenerates duplicate element ids within a slide", async () => {
           {
             id: "same",
             kind: "text",
-            text: "A",
+            role: "body",
             box: { x: 0, y: 0, w: 10, h: 10 },
-            style: { fontSize: 4, align: "left" },
+            content: { kind: "text", text: "A" },
+            designOverrides: { textStyle: { fontSize: 4, align: "left" } },
           },
           {
             id: "same",
             kind: "text",
-            text: "B",
+            role: "body",
             box: { x: 0, y: 20, w: 10, h: 10 },
-            style: { fontSize: 4, align: "left" },
+            content: { kind: "text", text: "B" },
+            designOverrides: { textStyle: { fontSize: 4, align: "left" } },
           },
         ],
       },
@@ -371,7 +376,8 @@ test("preserves an explicit vibrant theme over preferredTheme (#281)", async () 
 test("caps the deck to MAX_DECK_SLIDES slides", async () => {
   const slides = Array.from({ length: MAX_DECK_SLIDES + 5 }, (_, i) => ({
     title: `Slide ${i}`,
-    layout: "content",
+    templateId: "content",
+    elements: [],
   }));
   const { complete } = sequence([JSON.stringify({ slides })]);
   const result = await generateDeck(
@@ -396,12 +402,63 @@ test("rejects an empty outline before any LLM call", async () => {
 });
 
 test("normalizes generateDeck output: every slide has authored elements", async () => {
-  const payload = JSON.stringify({
-    themeId: "indigo",
+  const payload = deck({
     slides: [
-      { title: "Welcome", layout: "title" },
-      { title: "Details", bullets: ["One", "Two"], layout: "content" },
-      { title: "Picture", visualIds: ["vis-1"], layout: "media" },
+      {
+        id: "welcome",
+        index: 0,
+        title: "Welcome",
+        templateId: "title",
+        elements: [
+          {
+            id: "welcome-title",
+            kind: "text",
+            role: "title",
+            box: { x: 6, y: 6, w: 88, h: 16 },
+            zIndex: 0,
+            content: { kind: "text", text: "Welcome" },
+          },
+        ],
+      },
+      {
+        id: "details",
+        index: 1,
+        title: "Details",
+        templateId: "content",
+        elements: [
+          {
+            id: "details-body",
+            kind: "text",
+            role: "bullet",
+            box: { x: 6, y: 26, w: 88, h: 66 },
+            zIndex: 0,
+            content: {
+              kind: "text",
+              text: "One\nTwo",
+              paragraphs: [
+                { text: "One", listType: "bullet" },
+                { text: "Two", listType: "bullet" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        id: "picture",
+        index: 2,
+        title: "Picture",
+        templateId: "media",
+        elements: [
+          {
+            id: "picture-visual",
+            kind: "visual",
+            role: "visual",
+            box: { x: 8, y: 24, w: 84, h: 68 },
+            zIndex: 0,
+            content: { kind: "visual", visualId: "vis-1" },
+          },
+        ],
+      },
     ],
   });
   const { complete } = sequence([payload]);

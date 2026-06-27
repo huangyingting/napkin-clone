@@ -78,6 +78,13 @@ export type {
 
 export { makeElementId, makeSlideId } from "./deck-ids";
 
+export { inspectSlideDesignOrigins } from "./slide-design-origins";
+export type {
+  SlideDesignOrigin,
+  SlideDesignOriginLayer,
+  SlideDesignOriginReport,
+} from "./slide-design-origins";
+
 export {
   MAX_BULLETS,
   buildSlideElementsFromContent,

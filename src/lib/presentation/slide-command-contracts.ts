@@ -9,10 +9,6 @@ import type {
   SlideTemplate,
 } from "./deck-core";
 import type { ElementBox, SlideElement, TextRun } from "./deck-elements";
-import type {
-  SlideLayout as ReusableSlideLayout,
-  SlideLayoutHint,
-} from "./deck-layouts-model";
 import type { SourceRef } from "./deck-source-refs";
 import type { DistributiveOmit, ElementPatch } from "./deck-mutation-shared";
 import type { PresentationThemeOverridesPatch } from "./presentation-theme-overrides";
@@ -156,45 +152,12 @@ export interface UpdateSlideTitleCommand {
   commandId?: string;
 }
 
-/** Updates the body bullets mirrored on a slide. */
-export interface UpdateSlideBodyCommand {
-  type: "UPDATE_SLIDE_BODY";
-  slideId: string;
-  bullets: string[];
-  coalesceKey?: string;
-  commandId?: string;
-}
-
 /** Updates the speaker notes of a slide. */
 export interface UpdateSlideNotesCommand {
   type: "UPDATE_SLIDE_NOTES";
   slideId: string;
   notes: string;
   coalesceKey?: string;
-  commandId?: string;
-}
-
-/** Applies a {@link SlideLayoutHint} to a slide's `layout` field. */
-export interface UpdateSlideLayoutHintCommand {
-  type: "UPDATE_SLIDE_LAYOUT_HINT";
-  slideId: string;
-  layout: SlideLayoutHint;
-  commandId?: string;
-}
-
-/** Applies a reusable layout to the selected slide while preserving authored content. */
-export interface ApplySlideLayoutCommand {
-  type: "APPLY_SLIDE_LAYOUT";
-  slideIndex: number;
-  layout: ReusableSlideLayout;
-  commandId?: string;
-}
-
-/** Resets bound element positions to a reusable layout without changing content. */
-export interface ResetSlideLayoutCommand {
-  type: "RESET_SLIDE_LAYOUT";
-  slideIndex: number;
-  layout: ReusableSlideLayout;
   commandId?: string;
 }
 
@@ -583,11 +546,7 @@ export type SlideCommand =
   | MoveSlideCommand
   | InsertTemplateSlideCommand
   | UpdateSlideTitleCommand
-  | UpdateSlideBodyCommand
   | UpdateSlideNotesCommand
-  | UpdateSlideLayoutHintCommand
-  | ApplySlideLayoutCommand
-  | ResetSlideLayoutCommand
   // #399 — multi-element, group, align/arrange
   | RemoveElementsCommand
   | DuplicateElementCommand
@@ -652,11 +611,7 @@ export type PatchOp =
   | "slide.insert_template"
   | "slide.update"
   | "slide.update_title"
-  | "slide.update_body"
   | "slide.update_notes"
-  | "slide.update_layout_hint"
-  | "slide.apply_layout"
-  | "slide.reset_layout"
   | "slide.materialize"
   | "slide.set_background"
   | "slide.set_background_gradient"
@@ -752,9 +707,7 @@ export interface DeckPatch {
       Pick<
         Slide,
         | "title"
-        | "bullets"
         | "notes"
-        | "layout"
         | "background"
         | "backgroundGradient"
         | "backgroundImage"

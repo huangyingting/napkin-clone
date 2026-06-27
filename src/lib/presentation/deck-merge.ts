@@ -4,12 +4,10 @@
  *
  * A naive full re-derive (`buildDeckFromBlocks`) would clobber every free-form
  * element the user positioned by hand. Instead this merges the refreshed
- * document content (title / bullets / visualIds / notes / layout) into matching
- * slides. For slides whose `elements[]` are still purely auto-derived
- * (`elementsDerived === true`) the elements are rebuilt from refreshed content
- * so the rendered slide actually updates (issue #221). For hand-edited slides
- * (`elementsDerived === false`)
- * each slide's `elements[]`, `background`, `accent` and theme are PRESERVED
+ * document content into matching slides. For slides whose `elements[]` are
+ * still recognizable as auto-derived, the elements are rebuilt from refreshed
+ * content so the rendered slide actually updates. For hand-edited slides
+ * each slide's `elements[]`, design overrides and theme are PRESERVED
  * verbatim. Slides in the fresh deck with no match are optionally appended;
  * slides in the existing deck with no fresh match (orphans) are always kept —
  * manual work is never silently discarded.
@@ -98,8 +96,8 @@ export interface MergeOptions {
   appendNew?: boolean;
   /**
    * The raw document blocks from the current document state. When provided,
-   * the merge applies element-level source-ref precedence for hand-edited
-   * slides (issue #409): text/visual elements with an active `sourceRef` that
+   * the merge applies element-level source precedence for hand-edited
+   * slides (issue #409): text/visual elements with active source metadata that
    * matches a changed block are updated in place, preserving geometry and style.
    * Elements whose source block is missing (orphaned) are left untouched —
    * they are never auto-deleted (#410).
@@ -123,27 +121,26 @@ function elementContent(
 }
 
 function elementRole(element: SlideElement): string | undefined {
-  return (element as any).role ?? (element as any).textRole;
+  return (element as { role?: string }).role;
 }
 
 function elementVisualId(element: SlideElement): string | undefined {
-  return elementContent(element).visualId ?? (element as any).visualId;
+  return elementContent(element).visualId;
 }
 
-function elementSourceRef(element: SlideElement): SourceRef | undefined {
+function elementSource(element: SlideElement): SourceRef | undefined {
   return (element as { source?: SourceRef }).source;
 }
 
 function slideLayout(slide: Slide): string {
-  return (slide as any).templateId ?? (slide as any).layout ?? "blank";
+  return (slide as any).templateId ?? "blank";
 }
 
 function slideSectionId(slide: Slide): string | undefined {
-  return (slide as any).source?.sectionId ?? (slide as any).sourceSectionId;
+  return (slide as any).source?.sectionId;
 }
 
 function slideBullets(slide: Slide): string[] {
-  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
   const bullet = (slide.elements ?? []).find(
     (element) => element.kind === "text" && elementRole(element) === "bullet",
   );
@@ -152,7 +149,6 @@ function slideBullets(slide: Slide): string[] {
 }
 
 function slideVisualIds(slide: Slide): string[] {
-  if (Array.isArray((slide as any).visualIds)) return (slide as any).visualIds;
   return (slide.elements ?? [])
     .filter((element) => element.kind === "visual")
     .map((element) => elementVisualId(element))
@@ -160,7 +156,6 @@ function slideVisualIds(slide: Slide): string[] {
 }
 
 function slideTitleRuns(slide: Slide): TextRun[] | undefined {
-  if ((slide as any).titleRuns !== undefined) return (slide as any).titleRuns;
   const title = (slide.elements ?? []).find(
     (element) => element.kind === "text" && elementRole(element) === "title",
   );
@@ -168,7 +163,6 @@ function slideTitleRuns(slide: Slide): TextRun[] | undefined {
 }
 
 function slideBulletRuns(slide: Slide): TextRun[][] | undefined {
-  if ((slide as any).bulletRuns !== undefined) return (slide as any).bulletRuns;
   const bullet = (slide.elements ?? []).find(
     (element) => element.kind === "text" && elementRole(element) === "bullet",
   );
@@ -213,7 +207,8 @@ function sameTextRun(a: TextRun, b: TextRun): boolean {
 
 /**
  * Length-then-elementwise equality of two run lists, treating `undefined` as an
- * empty list — consistent with how {@link sameContent} compares bullets/visualIds.
+ * empty list — consistent with how {@link sameContent} compares body paragraphs
+ * and visual references.
  */
 function sameRunList(
   a: TextRun[] | undefined,
@@ -239,7 +234,7 @@ function sameBulletRuns(
 }
 
 /**
- * Builds lookup maps from fresh document blocks for element-level source-ref
+ * Builds lookup maps from fresh document blocks for element-level source
  * precedence (issue #409): text blocks indexed by blockId, visual blocks
  * indexed by visualId.
  */
@@ -260,8 +255,8 @@ function buildFreshBlockMaps(freshBlocks: readonly DocumentBlock[]): {
 }
 
 /**
- * Applies element-level source-ref updates to a hand-edited slide's elements
- * (issue #409). For each element with an active `sourceRef` whose source
+ * Applies element-level source updates to a hand-edited slide's elements
+ * (issue #409). For each element with active source metadata whose source
  * block has changed, the element's content is refreshed while geometry, style,
  * and z-order are preserved. Orphaned elements (missing source block) are left
  * untouched — they are never auto-deleted (#410).
@@ -276,26 +271,26 @@ function applyElementSourceUpdates(
 ): { elements: SlideElement[]; sourceUpdatedCount: number } {
   let sourceUpdatedCount = 0;
   const updated = elements.map((el): SlideElement => {
-    const sourceRef = elementSourceRef(el);
+    const source = elementSource(el);
     if (
-      sourceRef === undefined ||
-      sourceRef.unlinked === true ||
-      sourceRef.contentHash === undefined
+      source === undefined ||
+      source.unlinked === true ||
+      source.contentHash === undefined
     ) {
       return el;
     }
 
-    const blockKind = sourceRef.blockKind;
+    const blockKind = source.blockKind;
 
     if (blockKind === "visual") {
-      const freshBlock = visualByVisualId.get(sourceRef.blockId);
+      const freshBlock = visualByVisualId.get(source.blockId);
       if (freshBlock === undefined) return el; // orphan — never auto-delete
       const freshHash = hashDocumentBlock(freshBlock);
-      if (freshHash === sourceRef.contentHash) return el; // up-to-date
+      if (freshHash === source.contentHash) return el; // up-to-date
       // Visual id stayed the same; update the contentHash.
       const newRef = buildRefreshSourceRef(
-        sourceRef,
-        sourceRef.blockId,
+        source,
+        source.blockId,
         freshHash,
         linkedAt,
         "visual",
@@ -303,14 +298,14 @@ function applyElementSourceUpdates(
       sourceUpdatedCount += 1;
       return { ...el, source: newRef };
     } else {
-      const freshBlock = textById.get(sourceRef.blockId);
+      const freshBlock = textById.get(source.blockId);
       if (freshBlock === undefined) return el; // orphan — never auto-delete
       const freshHash = hashDocumentBlock(freshBlock);
-      if (freshHash === sourceRef.contentHash) return el; // up-to-date
+      if (freshHash === source.contentHash) return el; // up-to-date
       if (el.kind !== "text") return el; // can only update text elements
       const newRef = buildRefreshSourceRef(
-        sourceRef,
-        sourceRef.blockId,
+        source,
+        source.blockId,
         freshHash,
         linkedAt,
         "text",
@@ -325,9 +320,7 @@ function applyElementSourceUpdates(
 /**
  * True when a slide's `elements[]` are still purely auto-derived from document
  * content (issue #221) and may therefore be safely rebuilt from refreshed
- * document content: `elementsDerived === true`
- * means the elements were generated by the document-derived deck builder and
- * have not been hand-edited since.
+ * document content.
  */
 function elementsArePurelyDerived(slide: Slide): boolean {
   const elements = slide.elements ?? [];
@@ -347,13 +340,13 @@ function elementsArePurelyDerived(slide: Slide): boolean {
  * Produces a merged slide: refreshed document content from `fresh`. For slides
  * whose `elements[]` are still purely derived, the elements are RE-MATERIALIZED
  * from the freshly-derived content so the rendered slide actually updates
- * (issue #221). For hand-edited slides (`elementsDerived === false`), every
+ * (issue #221). For hand-edited slides, every
  * manual aspect of `existing` (free-form `elements[]`, `background`, `accent`,
  * theme) is preserved verbatim. Additionally, any document visuals in
- * `fresh.visualIds` that are NOT already rendered on the hand-edited slide are
+ * `fresh.elements[]` that are NOT already rendered on the hand-edited slide are
  * appended as new visual elements (issue #294).
  *
- * When `freshBlockMaps` is provided, element-level source refs on hand-edited
+ * When `freshBlockMaps` is provided, element-level source metadata on hand-edited
  * slides are checked: elements with an active source ref whose content changed
  * are updated in place (#409). Orphaned elements (missing source block) are
  * never auto-deleted (#410).
@@ -363,30 +356,21 @@ function mergeSlide(
   fresh: Slide,
   freshBlockMaps?: ReturnType<typeof buildFreshBlockMaps>,
 ): { slide: Slide; visualsAdded: number } {
+  const {
+    elements: _existingElements,
+    templateId: _existingTemplateId,
+    ...existingBase
+  } = existing as any;
+  const freshTemplateId = slideLayout(fresh);
   const refreshed: Slide = {
-    ...existing,
+    ...existingBase,
     title: fresh.title,
-    bullets: [...slideBullets(fresh)],
-    visualIds: [...slideVisualIds(fresh)],
-    layout: slideLayout(fresh) as any,
     notes: fresh.notes,
+    ...(freshTemplateId !== "blank" ? { templateId: freshTemplateId } : {}),
   };
 
-  // Refresh the rich-text runs alongside their plain-text fields. `...existing`
-  // carries the STALE existing.titleRuns/bulletRuns; if we leave them in place
-  // a re-materialized derived slide reads old runs onto the new plain text
-  // (issue #254), and SlideCanvas/exporter both prefer runs over text. So when
-  // the document supplies fresh runs we adopt them; otherwise we drop the key so
-  // materialization falls back to the fresh plain text instead of stale runs.
-  const freshTitleRuns = slideTitleRuns(fresh);
-  const freshBulletRuns = slideBulletRuns(fresh);
-  if (freshTitleRuns) refreshed.titleRuns = freshTitleRuns;
-  else delete refreshed.titleRuns;
-  if (freshBulletRuns) refreshed.bulletRuns = freshBulletRuns;
-  else delete refreshed.bulletRuns;
-
   if (!elementsArePurelyDerived(existing)) {
-    // Apply element-level source-ref updates when freshBlockMaps are provided
+    // Apply element-level source updates when freshBlockMaps are provided
     // (#409). Text/visual elements with a matching changed source block are
     // refreshed in place; orphaned elements (missing block) are left untouched.
     const baseElements = existing.elements ?? [];
@@ -401,7 +385,7 @@ function mergeSlide(
       : baseElements;
 
     // Collect visual ids already rendered as elements on this hand-edited slide
-    // so we can diff against fresh.visualIds without duplicating anything.
+    // so we can diff against fresh slide visuals without duplicating anything.
     const renderedVisualIds = new Set(
       elementsBefore
         .filter((el): el is VisualElement => el.kind === "visual")
@@ -440,13 +424,15 @@ function mergeSlide(
 
   const elements = buildSlideElementsFromContent({
     ...refreshed,
-    visualIds: slideVisualIds(fresh),
-    bullets: slideBullets(fresh),
-    layout: slideLayout(fresh) as any,
+    visualRefs: slideVisualIds(fresh),
+    bodyTexts: slideBullets(fresh),
+    bodyRuns: slideBulletRuns(fresh),
+    titleRuns: slideTitleRuns(fresh),
+    templateId: slideLayout(fresh) as any,
     elements: undefined,
   });
   return {
-    slide: { ...refreshed, elements, elementsDerived: true },
+    slide: { ...refreshed, elements },
     visualsAdded: 0,
   };
 }
@@ -474,7 +460,7 @@ export function mergeDeckFromDocument(
   const consumedExisting = new Set<number>();
   const matchedFresh = new Set<number>();
 
-  // Pass 0 — match by sourceSectionId (both present and equal; first-unconsumed-
+  // Pass 0 — match by source section id (both present and equal; first-unconsumed-
   // wins to handle duplicate headings). This survives a slide's on-stage title
   // rename and section reordering because the id is frozen from the doc heading.
   const existingBySectionId = new Map<string, number[]>();

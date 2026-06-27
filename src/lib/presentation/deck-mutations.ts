@@ -31,11 +31,6 @@ export {
 export type { PresentationThemeOverridesPatch } from "./presentation-theme-overrides";
 
 export {
-  applySlideLayoutPreservingContent,
-  resetSlideLayoutPositions,
-} from "./deck-mutation-layout";
-
-export {
   addElement,
   updateElement,
   DUPLICATE_ELEMENT_OFFSET_PCT,

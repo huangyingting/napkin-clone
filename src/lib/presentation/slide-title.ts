@@ -21,14 +21,14 @@ import { type Slide, type TextElement } from "./deck";
  * matching key) so the displayed title and the matching key never drift apart —
  * a renamed title element matches its slide instead of orphaning it.
  */
-const TITLE_ROLE_PRIORITY = ["title", "sectionTitle", "h1", "h2", "h3"] as const;
+const TITLE_ROLE_PRIORITY = ["title", "sectionTitle"] as const;
 
 function textOf(element: TextElement): string {
   return ((element as any).content?.text ?? element.text ?? "") as string;
 }
 
 function roleOf(element: TextElement): string | undefined {
-  return (element as any).role ?? element.textRole;
+  return (element as { role?: string }).role;
 }
 
 export function slideEffectiveTitle(slide: Slide): string {

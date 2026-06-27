@@ -49,7 +49,6 @@ import { resetPresentationThemeOverrides } from "./presentation-theme-overrides"
 import { executeBackgroundFamilyCommand } from "./slide-command-background-executor";
 import { executeDeckThemeFamilyCommand } from "./slide-command-deck-theme-executor";
 import { executeElementFamilyCommand } from "./slide-command-element-executor";
-import { executeLayoutFamilyCommand } from "./slide-command-layout-executor";
 import {
   canCoalesceSlideCommands,
   mergeCoalescedSlideCommands,
@@ -70,7 +69,6 @@ export type {
   AddElementCommand,
   AddSlideCommand,
   AlignElementsCommand,
-  ApplySlideLayoutCommand,
   ArrangeElementsCommand,
   BringElementToFrontCommand,
   CommandResult,
@@ -93,7 +91,6 @@ export type {
   RenameElementCommand,
   ReorderElementCommand,
   ReorderSlideCommand,
-  ResetSlideLayoutCommand,
   SendElementToBackCommand,
   SetCanvasFormatCommand,
   SetPresentationThemeCommand,
@@ -113,9 +110,7 @@ export type {
   UpdateElementContentCommand,
   UpdateElementCommand,
   UpdateElementDesignOverridesCommand,
-  UpdateSlideBodyCommand,
   UpdateSlideCommand,
-  UpdateSlideLayoutHintCommand,
   UpdateSlideNotesCommand,
   UpdateSlideTitleCommand,
 } from "./slide-command-contracts";
@@ -134,13 +129,8 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     case "MOVE_SLIDE":
     case "INSERT_TEMPLATE_SLIDE":
     case "UPDATE_SLIDE_TITLE":
-    case "UPDATE_SLIDE_BODY":
     case "UPDATE_SLIDE_NOTES":
       return executeSlideFamilyCommand(deck, cmd);
-    case "UPDATE_SLIDE_LAYOUT_HINT":
-    case "APPLY_SLIDE_LAYOUT":
-    case "RESET_SLIDE_LAYOUT":
-      return executeLayoutFamilyCommand(deck, cmd);
     case "ADD_ELEMENT":
     case "UPDATE_ELEMENT":
     case "UPDATE_ELEMENT_CONTENT":
@@ -301,9 +291,7 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
       return { ...deck, customTemplates } as Deck;
     }
     case "slide.update_title":
-    case "slide.update_body":
     case "slide.update_notes":
-    case "slide.update_layout_hint":
     case "slide.set_background":
     case "slide.set_background_gradient":
     case "slide.set_background_image":

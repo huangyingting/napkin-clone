@@ -53,11 +53,7 @@ const SLIDE_COMMAND_TYPES = [
   "MOVE_SLIDE",
   "INSERT_TEMPLATE_SLIDE",
   "UPDATE_SLIDE_TITLE",
-  "UPDATE_SLIDE_BODY",
   "UPDATE_SLIDE_NOTES",
-  "UPDATE_SLIDE_LAYOUT_HINT",
-  "APPLY_SLIDE_LAYOUT",
-  "RESET_SLIDE_LAYOUT",
   "REMOVE_ELEMENTS",
   "DUPLICATE_ELEMENT",
   "DUPLICATE_ELEMENTS",
@@ -238,9 +234,7 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
     case "REMOVE_SLIDE":
     case "DUPLICATE_SLIDE":
     case "UPDATE_SLIDE_TITLE":
-    case "UPDATE_SLIDE_BODY":
     case "UPDATE_SLIDE_NOTES":
-    case "UPDATE_SLIDE_LAYOUT_HINT":
     case "SET_SLIDE_BACKGROUND":
     case "SET_SLIDE_BACKGROUND_GRADIENT":
     case "SET_SLIDE_BACKGROUND_IMAGE":
@@ -368,28 +362,9 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.title must be a string.");
       }
       break;
-    case "UPDATE_SLIDE_BODY":
-      if (!isStringArray(payload.bullets)) {
-        errors.push("payload.bullets must be an array of strings.");
-      }
-      break;
     case "UPDATE_SLIDE_NOTES":
       if (typeof payload.notes !== "string") {
         errors.push("payload.notes must be a string.");
-      }
-      break;
-    case "UPDATE_SLIDE_LAYOUT_HINT":
-      if (!isNonEmptyString(payload.layout)) {
-        errors.push("payload.layout must be a non-empty string.");
-      }
-      break;
-    case "APPLY_SLIDE_LAYOUT":
-    case "RESET_SLIDE_LAYOUT":
-      if (!isInteger(payload.slideIndex)) {
-        errors.push("payload.slideIndex must be an integer.");
-      }
-      if (!isPlainObject(payload.layout)) {
-        errors.push("payload.layout must be an object.");
       }
       break;
     case "REMOVE_ELEMENTS":
@@ -702,25 +677,12 @@ export const SLIDE_COMMAND_METADATA = {
     { slideId: "required" },
     { kind: "by-slide" },
   ),
-  UPDATE_SLIDE_BODY: makeMetadata(
-    "UPDATE_SLIDE_BODY",
-    "slide.update_body",
-    { slideId: "required" },
-    { kind: "by-slide" },
-  ),
   UPDATE_SLIDE_NOTES: makeMetadata(
     "UPDATE_SLIDE_NOTES",
     "slide.update_notes",
     { slideId: "required" },
     { kind: "by-slide" },
   ),
-  UPDATE_SLIDE_LAYOUT_HINT: makeMetadata(
-    "UPDATE_SLIDE_LAYOUT_HINT",
-    "slide.update_layout_hint",
-    { slideId: "required" },
-  ),
-  APPLY_SLIDE_LAYOUT: makeMetadata("APPLY_SLIDE_LAYOUT", "slide.apply_layout"),
-  RESET_SLIDE_LAYOUT: makeMetadata("RESET_SLIDE_LAYOUT", "slide.reset_layout"),
   REMOVE_ELEMENTS: makeMetadata("REMOVE_ELEMENTS", "element.remove_multi", {
     slideId: "required",
   }),
@@ -963,9 +925,6 @@ export function mergeCoalescedSlideCommands(
   }
   if (a.type === "UPDATE_SLIDE_TITLE" && b.type === "UPDATE_SLIDE_TITLE") {
     return { ...a, title: b.title };
-  }
-  if (a.type === "UPDATE_SLIDE_BODY" && b.type === "UPDATE_SLIDE_BODY") {
-    return { ...a, bullets: b.bullets };
   }
   if (a.type === "UPDATE_SLIDE_NOTES" && b.type === "UPDATE_SLIDE_NOTES") {
     return { ...a, notes: b.notes };

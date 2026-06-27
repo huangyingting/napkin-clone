@@ -212,17 +212,20 @@ test("budget derived from cap: MAX_IMAGE_UPLOAD_BYTES inlined stays within budge
 test("totalInlineImageBytes: background data URL counts toward the total", () => {
   const bgUrl = dataUrlOfBytes(5000);
   const deck: Deck = {
-    themeId: "default",
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "test-id",
         index: 0,
         title: "Slide",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
         notes: "",
-        backgroundImage: bgUrl,
+        designOverrides: {
+          background: { type: "image", url: bgUrl },
+        },
         elements: [imageElement(dataUrlOfBytes(1000))],
       },
     ],

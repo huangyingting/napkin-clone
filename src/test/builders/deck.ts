@@ -273,20 +273,27 @@ export function buildConnectorElement(
     kind: "connector",
     zIndex: overrides.zIndex ?? 4,
     box: buildElementBox(overrides.box ?? { x: 0, y: 0, w: 100, h: 100 }),
-    start: overrides.start ?? { x: 10, y: 20 },
-    end: overrides.end ?? { x: 80, y: 70 },
-    ...(overrides.stroke !== undefined ? { stroke: overrides.stroke } : {}),
-    ...(overrides.arrowStart !== undefined
-      ? { arrowStart: overrides.arrowStart }
-      : {}),
-    ...(overrides.arrowEnd !== undefined
-      ? { arrowEnd: overrides.arrowEnd }
-      : {}),
-    ...(overrides.dash !== undefined ? { dash: overrides.dash } : {}),
-    ...(overrides.routing !== undefined ? { routing: overrides.routing } : {}),
+    content: {
+      kind: "connector",
+      start: overrides.start ?? { x: 10, y: 20 },
+      end: overrides.end ?? { x: 80, y: 70 },
+      ...(overrides.routing !== undefined
+        ? { routing: overrides.routing }
+        : {}),
+    },
+    designOverrides: {
+      ...(overrides.stroke !== undefined ? { stroke: overrides.stroke } : {}),
+      ...(overrides.arrowStart !== undefined
+        ? { arrowStart: overrides.arrowStart }
+        : {}),
+      ...(overrides.arrowEnd !== undefined
+        ? { arrowEnd: overrides.arrowEnd }
+        : {}),
+      ...(overrides.dash !== undefined ? { dash: overrides.dash } : {}),
+    },
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.source !== undefined ? { source: overrides.source } : {}),
-  };
+  } as unknown as ConnectorElement;
 }
 
 export function buildPlaceholderElement(
@@ -341,7 +348,7 @@ export function buildSlide(overrides: SlideBuilderOverrides = {}): Slide {
     elements: overrides.elements ?? [
       buildTextElement({
         id: "slide-title",
-        textRole: "h1",
+        textRole: "title",
         text: title,
         style: { fontSize: 6, bold: true, italic: false, align: "left" },
       }),
@@ -537,6 +544,44 @@ function toV6Element(element: SlideElement): SlideElement {
         ...(raw.fitMode !== undefined ? { fitMode: raw.fitMode } : {}),
         ...(raw.maskShape !== undefined ? { maskShape: raw.maskShape } : {}),
         ...(raw.radius !== undefined ? { radius: raw.radius } : {}),
+      },
+    } as unknown as SlideElement;
+  }
+  if (raw.kind === "shape") {
+    return {
+      ...base,
+      role: raw.role ?? textRoleToPresentationRole(raw.textRole, raw.kind),
+      content: {
+        kind: "shape",
+        shape: raw.shape,
+        ...(raw.text !== undefined ? { text: raw.text } : {}),
+        ...(raw.textRuns !== undefined ? { textRuns: raw.textRuns } : {}),
+      },
+      designOverrides: {
+        fill: { value: raw.color },
+        ...(raw.textStyle !== undefined ? { textStyle: raw.textStyle } : {}),
+        ...(raw.textStyleOverride !== undefined
+          ? { textStyle: raw.textStyleOverride }
+          : {}),
+        ...(raw.stroke !== undefined ? { stroke: raw.stroke } : {}),
+        ...(raw.radius !== undefined ? { radius: raw.radius } : {}),
+      },
+    } as unknown as SlideElement;
+  }
+  if (raw.kind === "connector") {
+    return {
+      ...base,
+      content: {
+        kind: "connector",
+        start: raw.start,
+        end: raw.end,
+        ...(raw.routing !== undefined ? { routing: raw.routing } : {}),
+      },
+      designOverrides: {
+        ...(raw.stroke !== undefined ? { stroke: raw.stroke } : {}),
+        ...(raw.dash !== undefined ? { dash: raw.dash } : {}),
+        ...(raw.arrowStart !== undefined ? { arrowStart: raw.arrowStart } : {}),
+        ...(raw.arrowEnd !== undefined ? { arrowEnd: raw.arrowEnd } : {}),
       },
     } as unknown as SlideElement;
   }

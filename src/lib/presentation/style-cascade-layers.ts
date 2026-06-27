@@ -51,13 +51,10 @@ export interface ResolvedSlideStyle {
   tokenSet: PresentationTheme;
 }
 
-/** Resolves the token set for a deck, checking customTokenSet first. */
+/** Resolves the presentation theme token set for a v6 deck. */
 export function resolveDeckTokenSet(deck: Deck): PresentationTheme {
   const raw = deck as any;
-  return resolveDeckThemeTokens({
-    themeId: raw.design?.themeId ?? raw.themeId,
-    customTokenSet: raw.design?.themeOverrides?.tokenSet ?? raw.customTokenSet,
-  });
+  return resolveDeckThemeTokens({ design: raw.design });
 }
 
 function colorRefValue(
@@ -105,7 +102,7 @@ function backgroundFromDesign(
 
 /**
  * Resolves the master for a slide.
- * Falls back: masterRef → deck.masters[0] → undefined.
+ * Falls back: slide.masterId → deck.defaultMasterId → first master → undefined.
  */
 export function resolveMaster(
   deck: Deck,
@@ -115,7 +112,7 @@ export function resolveMaster(
   const rawSlide = slide as any;
   const masters = rawDeck.masters as MasterSlide[] | undefined;
   if (!masters || masters.length === 0) return undefined;
-  const masterId = rawSlide.masterId ?? rawSlide.masterRef;
+  const masterId = rawSlide.masterId;
   if (masterId) {
     return masters.find((m) => m.id === masterId);
   }
@@ -135,27 +132,16 @@ export function resolveSlideStyle(
   const rawSlide = slide as any;
 
   const masterBackground = backgroundFromDesign(master?.background, tokenSet);
-  const slideBackground =
-    backgroundFromDesign(rawSlide.designOverrides?.background, tokenSet) ??
-    (rawSlide.backgroundImage
-      ? ({ type: "image", url: rawSlide.backgroundImage } as const)
-      : rawSlide.backgroundGradient
-        ? ({
-            type: "gradient",
-            from: rawSlide.backgroundGradient.from,
-            to: rawSlide.backgroundGradient.to,
-            angle: rawSlide.backgroundGradient.angle,
-          } as const)
-        : typeof rawSlide.background === "string"
-          ? ({ type: "solid", color: rawSlide.background } as const)
-          : undefined);
+  const slideBackground = backgroundFromDesign(
+    rawSlide.designOverrides?.background,
+    tokenSet,
+  );
 
   const background =
     slideBackground ?? masterBackground ?? tokenSet.defaultBackground;
 
   const accent =
     colorRefValue(rawSlide.designOverrides?.accent, tokenSet) ??
-    rawSlide.accent ??
     tokenSet.colors.accent;
   const titleColor = tokenSet.colors.onBg;
   const bodyColor = tokenSet.colors.onBg;

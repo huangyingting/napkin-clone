@@ -59,10 +59,6 @@ export interface PresentationThemeSource {
     themeId?: string;
     themeOverrides?: { tokenSet?: PresentationTheme } & Record<string, unknown>;
   };
-  /** Legacy in-memory token-set id used by older tests/builders. */
-  themeId?: string;
-  /** Legacy in-memory custom token set used by older tests/builders. */
-  customTokenSet?: PresentationTheme;
 }
 
 /**
@@ -75,9 +71,7 @@ export interface PresentationThemeSource {
 export function resolveDeckThemeId(source: PresentationThemeSource): string {
   return (
     source.design?.themeOverrides?.tokenSet?.id ??
-    source.customTokenSet?.id ??
     source.design?.themeId ??
-    source.themeId ??
     DEFAULT_TOKEN_SET.id
   );
 }
@@ -88,7 +82,6 @@ export function resolveDeckThemeTokens(
 ): PresentationTheme {
   return (
     source.design?.themeOverrides?.tokenSet ??
-    source.customTokenSet ??
     resolveThemeTokens(resolveDeckThemeId(source))
   );
 }

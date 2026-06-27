@@ -2,10 +2,8 @@
  * Layout / template / theme normalization for AI-generated decks (issue #264).
  *
  * `generateDeck` repairs raw model output into a current-schema {@link Deck},
- * but the model may still emit sparse slide content or positioned `elements[]`
- * that do not match the slide's declared {@link SlideLayoutHint}. This module
- * normalizes that output into the same element-first vocabulary used by the
- * editor, preview, and present routes.
+ * and this module normalizes that output into the same element-first vocabulary
+ * used by the editor, preview, and present routes.
  */
 
 import {
@@ -33,14 +31,6 @@ import { DEFAULT_SLIDE_FORMAT } from "./slide-format";
  * receive.
  */
 export const FALLBACK_THEME: DeckTheme = "indigo";
-
-/**
- * Prominent visual box used when injecting a document visual into a `media`
- * slide that is missing one. Mirrors the visual-only box in
- * {@link buildSlideElementsFromContent} so generated slides share the
- * same approved geometry.
- */
-const PROMINENT_VISUAL_BOX: ElementBox = { x: 8, y: 24, w: 84, h: 68 };
 
 /** Minimum body font size (percent of slide height) used for hierarchy. */
 const BODY_FONT_SIZE = 4.5;
@@ -125,32 +115,31 @@ function isVisualSlot(element: SlideElement): boolean {
   return element.kind === "visual" || element.kind === "image";
 }
 
-function elementContent(element: SlideElement | undefined): Record<string, any> {
+function elementContent(
+  element: SlideElement | undefined,
+): Record<string, any> {
   if (element === undefined) return {};
   return ((element as any).content ?? {}) as Record<string, any>;
 }
 
 function elementRole(element: SlideElement): string | undefined {
-  return (element as any).role ?? (element as any).textRole;
+  return (element as any).role;
 }
 
 function elementText(element: SlideElement): string {
-  return elementContent(element).text ?? (element as any).text ?? "";
+  return elementContent(element).text ?? "";
 }
 
 function elementVisualId(element: SlideElement): string | undefined {
-  return elementContent(element).visualId ?? (element as any).visualId;
+  return elementContent(element).visualId;
 }
 
 function slideLayout(slide: Slide): SlideLayoutHint {
-  return ((slide as any).templateId ?? (slide as any).layout ?? "blank") as SlideLayoutHint;
+  return ((slide as any).templateId ?? "blank") as SlideLayoutHint;
 }
 
 function slideVisualIds(slide: Slide): string[] {
   const ids = new Set<string>();
-  for (const id of ((slide as any).visualIds ?? []) as unknown[]) {
-    if (typeof id === "string" && id.length > 0) ids.add(id);
-  }
   for (const element of slide.elements ?? []) {
     const visualId = elementVisualId(element);
     if (visualId) ids.add(visualId);
@@ -159,7 +148,6 @@ function slideVisualIds(slide: Slide): string[] {
 }
 
 function slideBullets(slide: Slide): string[] {
-  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
   const bullet = (slide.elements ?? []).find(
     (element) => element.kind === "text" && elementRole(element) === "bullet",
   );
@@ -170,21 +158,21 @@ function slideBullets(slide: Slide): string[] {
 function isTitleText(element: SlideElement): element is TextElement {
   return (
     element.kind === "text" &&
-    ["title", "sectionTitle", "h1"].includes(elementRole(element) ?? "") &&
+    ["title", "sectionTitle"].includes(elementRole(element) ?? "") &&
     elementText(element).trim().length > 0
   );
 }
 
 /**
  * Returns `true` when `elements` already carry the kind of content the declared
- * `layout` implies, so they can be cleaned in place rather than re-scaffolded.
+ * template implies, so they can be cleaned in place rather than re-scaffolded.
  */
-function elementsMatchLayout(
-  layout: SlideLayoutHint,
+function elementsMatchTemplate(
+  templateId: SlideLayoutHint,
   elements: readonly SlideElement[],
 ): boolean {
   if (elements.length === 0) return false;
-  switch (layout) {
+  switch (templateId) {
     case "media":
       return elements.some(isVisualSlot);
     case "title":
@@ -207,12 +195,14 @@ function elementsMatchLayout(
 function applyTextHierarchy(element: TextElement): TextElement {
   const role = elementRole(element);
   const style: TextElementStyle = {
-    ...(((element as any).designOverrides?.textStyle ?? (element as any).style ?? {}) as TextElementStyle),
+    ...(((element as any).designOverrides?.textStyle ??
+      {}) as TextElementStyle),
   };
   if (!Number.isFinite(style.fontSize) || style.fontSize <= 0) {
-    style.fontSize = role === "title" || role === "sectionTitle" || role === "h1" ? 6 : BODY_FONT_SIZE;
+    style.fontSize =
+      role === "title" || role === "sectionTitle" ? 6 : BODY_FONT_SIZE;
   }
-  if (role === "title" || role === "sectionTitle" || role === "h1") {
+  if (role === "title" || role === "sectionTitle") {
     style.bold = true;
     if (style.fontSize < BODY_FONT_SIZE) {
       style.fontSize = BODY_FONT_SIZE;
@@ -220,7 +210,7 @@ function applyTextHierarchy(element: TextElement): TextElement {
   }
   return {
     ...(element as any),
-    role: role === "h1" ? "title" : role,
+    role,
     designOverrides: {
       ...((element as any).designOverrides ?? {}),
       textStyle: style,
@@ -236,7 +226,7 @@ function toV6Element(
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): SlideElement {
   if (element.kind === "text") {
-    const role = elementRole(element) === "h1" ? "title" : elementRole(element);
+    const role = elementRole(element);
     const text = elementText(element);
     const content = elementContent(element);
     return applyTextHierarchy({
@@ -248,15 +238,12 @@ function toV6Element(
       content: {
         kind: "text",
         text,
-        paragraphs: content.paragraphs ?? (element as any).paragraphs ?? [{ text }],
-        ...(content.runs ?? (element as any).runs
-          ? { runs: content.runs ?? (element as any).runs }
-          : {}),
+        paragraphs: content.paragraphs ?? [{ text }],
+        ...(content.runs ? { runs: content.runs } : {}),
       },
       designOverrides: {
         ...((element as any).designOverrides ?? {}),
-        textStyle:
-          (element as any).designOverrides?.textStyle ?? (element as any).style,
+        textStyle: (element as any).designOverrides?.textStyle,
       },
     } as unknown as TextElement) as SlideElement;
   }
@@ -264,9 +251,7 @@ function toV6Element(
     const visualId = elementVisualId(element) ?? "";
     const content = elementContent(element);
     const alt =
-      content.alt ??
-      (element as any).alt ??
-      deriveVisualAccessibleName(inventory.get(visualId));
+      content.alt ?? deriveVisualAccessibleName(inventory.get(visualId));
     return {
       id,
       kind: "visual",
@@ -276,9 +261,7 @@ function toV6Element(
       content: {
         kind: "visual",
         visualId,
-        ...(content.styleThemeId ?? (element as any).styleThemeId
-          ? { styleThemeId: content.styleThemeId ?? (element as any).styleThemeId }
-          : {}),
+        ...(content.styleThemeId ? { styleThemeId: content.styleThemeId } : {}),
         ...(alt ? { alt } : {}),
       },
     } as unknown as SlideElement;
@@ -299,7 +282,10 @@ function cleanElement(
   knownIds: ReadonlySet<string>,
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): SlideElement | undefined {
-  if (element.kind === "visual" && !knownIds.has(elementVisualId(element) ?? "")) {
+  if (
+    element.kind === "visual" &&
+    !knownIds.has(elementVisualId(element) ?? "")
+  ) {
     return undefined;
   }
 
@@ -319,7 +305,7 @@ function cleanElement(
  */
 function buildElements(
   slide: Slide,
-  visualIds: string[],
+  visualRefs: string[],
   knownIds: ReadonlySet<string>,
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): SlideElement[] {
@@ -329,17 +315,16 @@ function buildElements(
   if (
     slide.elements &&
     slide.elements.length > 0 &&
-    elementsMatchLayout(slideLayout(slide), slide.elements)
+    elementsMatchTemplate(slideLayout(slide), slide.elements)
   ) {
     source = slide.elements;
   } else {
     source = buildSlideElementsFromContent({
       ...slide,
-      layout: slideLayout(slide),
-      visualIds,
-      bullets: slideBullets(slide),
+      templateId: slideLayout(slide),
+      visualRefs,
+      bodyTexts: slideBullets(slide),
       elements: undefined,
-      elementsDerived: undefined,
     });
   }
 
@@ -354,28 +339,6 @@ function buildElements(
     );
     if (cleaned) {
       elements.push(cleaned);
-    }
-  }
-
-  // Rule 2: a media slide must place its document visual prominently. If a
-  // known visual is referenced but no visual/image element carries it, inject
-  // one into the prominent slot.
-  if (slideLayout(slide) === "media") {
-    const hasVisualElement = elements.some(isVisualSlot);
-    const visualId = visualIds.find((id) => knownIds.has(id));
-    if (!hasVisualElement && visualId) {
-      elements.push({
-        id: makeElementId(),
-        kind: "visual",
-        role: "visual",
-        zIndex: elements.length,
-        box: { ...PROMINENT_VISUAL_BOX },
-        content: {
-          kind: "visual",
-          visualId,
-          alt: deriveVisualAccessibleName(inventory.get(visualId)),
-        },
-      } as unknown as SlideElement);
     }
   }
 
@@ -403,7 +366,7 @@ function normalizeSlide(
 }
 
 function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
-  const themeId = (deck as any).design?.themeId ?? (deck as any).themeId;
+  const themeId = (deck as any).design?.themeId;
   // Preserve an explicit, recognised named theme the model chose.
   if (themeId !== "default" && DECK_THEMES.includes(themeId as DeckTheme)) {
     return themeId as DeckTheme;

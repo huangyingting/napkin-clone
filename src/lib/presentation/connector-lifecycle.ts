@@ -43,6 +43,38 @@ function isBound(ep: ConnectorPoint): ep is ConnectorEndpoint {
   return "elementId" in ep;
 }
 
+function connectorContent(element: ConnectorElement): {
+  start: ConnectorPoint;
+  end: ConnectorPoint;
+  routing?: string;
+} {
+  return (element as any).content;
+}
+
+function connectorStart(element: ConnectorElement): ConnectorPoint {
+  return connectorContent(element).start;
+}
+
+function connectorEnd(element: ConnectorElement): ConnectorPoint {
+  return connectorContent(element).end;
+}
+
+function withConnectorEndpoints(
+  element: ConnectorElement,
+  start: ConnectorPoint,
+  end: ConnectorPoint,
+): ConnectorElement {
+  const content = connectorContent(element);
+  return {
+    ...(element as any),
+    content: {
+      ...content,
+      start,
+      end,
+    },
+  } as ConnectorElement;
+}
+
 // ---------------------------------------------------------------------------
 // detachConnectorEndpoint
 // ---------------------------------------------------------------------------
@@ -125,21 +157,22 @@ function patchConnectorOnDelete(
   deletedIds: ReadonlySet<string>,
   elements: readonly SlideElement[],
 ): ConnectorElement {
-  const startNeedsDetach =
-    isBound(el.start) && deletedIds.has(el.start.elementId);
-  const endNeedsDetach = isBound(el.end) && deletedIds.has(el.end.elementId);
+  const start = connectorStart(el);
+  const end = connectorEnd(el);
+  const startNeedsDetach = isBound(start) && deletedIds.has(start.elementId);
+  const endNeedsDetach = isBound(end) && deletedIds.has(end.elementId);
 
   if (!startNeedsDetach && !endNeedsDetach) return el;
 
-  return {
-    ...el,
-    start: startNeedsDetach
-      ? detachConnectorEndpoint(el.start as ConnectorEndpoint, elements)
-      : el.start,
-    end: endNeedsDetach
-      ? detachConnectorEndpoint(el.end as ConnectorEndpoint, elements)
-      : el.end,
-  };
+  return withConnectorEndpoints(
+    el,
+    startNeedsDetach
+      ? detachConnectorEndpoint(start as ConnectorEndpoint, elements)
+      : start,
+    endNeedsDetach
+      ? detachConnectorEndpoint(end as ConnectorEndpoint, elements)
+      : end,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -196,10 +229,12 @@ function remapConnectorElement(
   idMap: ReadonlyMap<string, string>,
   allElements: readonly SlideElement[],
 ): ConnectorElement {
-  const newStart = remapEndpoint(el.start, idMap, allElements);
-  const newEnd = remapEndpoint(el.end, idMap, allElements);
-  if (newStart === el.start && newEnd === el.end) return el;
-  return { ...el, start: newStart, end: newEnd };
+  const start = connectorStart(el);
+  const end = connectorEnd(el);
+  const newStart = remapEndpoint(start, idMap, allElements);
+  const newEnd = remapEndpoint(end, idMap, allElements);
+  if (newStart === start && newEnd === end) return el;
+  return withConnectorEndpoints(el, newStart, newEnd);
 }
 
 /**

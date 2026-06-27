@@ -8,42 +8,80 @@ import { test } from "node:test";
 
 import type { Deck, Slide, SlideElement } from "./deck";
 import { diffDecks } from "./deck-diff";
+import { buildDeck } from "@/test/builders/deck";
 
 function slide(partial: Partial<Slide>): Slide {
   const title = partial.title ?? "";
-  const elements =
-    partial.elements ??
-    (title.trim().length > 0 ? [titleElement("title", title.trim())] : []);
+  const suppliedElements = partial.elements ?? [];
+  const elements = [
+    ...(title.trim().length > 0 ? [titleElement("title", title.trim())] : []),
+    ...((((partial as any).bullets ?? []) as string[]).length > 0
+      ? [bulletsElement("body", ((partial as any).bullets ?? []) as string[])]
+      : []),
+    ...(((partial as any).visualIds ?? []) as string[]).map((visualId, index) =>
+      visualElement(`visual-${index}`, visualId),
+    ),
+    ...suppliedElements,
+  ];
   return {
     id: "test-id",
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
+    templateId: "content",
     notes: "",
     elements,
     ...partial,
+    bullets: undefined,
+    visualIds: undefined,
+    layout: undefined,
   };
 }
 
 function deck(slides: Slide[], themeId = "default"): Deck {
-  return {
+  return buildDeck({
     slides: slides.map((s, index) => ({ ...s, index })),
     themeId,
-  };
+  });
 }
 
 function titleElement(id: string, text: string): SlideElement {
   return {
     id,
     kind: "text",
-    textRole: "h1",
-    text,
+    role: "title",
     zIndex: 0,
     box: { x: 5, y: 5, w: 90, h: 15 },
-    style: { fontSize: 8, bold: true, italic: false, align: "left" },
-  };
+    content: { kind: "text", text, paragraphs: [{ text }] },
+    designOverrides: {
+      textStyle: { fontSize: 8, bold: true, italic: false, align: "left" },
+    },
+  } as unknown as SlideElement;
+}
+
+function bulletsElement(id: string, bullets: string[]): SlideElement {
+  return {
+    id,
+    kind: "text",
+    role: "bullet",
+    zIndex: 1,
+    box: { x: 5, y: 24, w: 90, h: 50 },
+    content: {
+      kind: "text",
+      text: bullets.join("\n"),
+      paragraphs: bullets.map((text) => ({ text, listType: "bullet" })),
+    },
+  } as unknown as SlideElement;
+}
+
+function visualElement(id: string, visualId: string): SlideElement {
+  return {
+    id,
+    kind: "visual",
+    role: "visual",
+    zIndex: 2,
+    box: { x: 55, y: 24, w: 36, h: 50 },
+    content: { kind: "visual", visualId },
+  } as unknown as SlideElement;
 }
 
 test("identical decks → no changes", () => {

@@ -1281,12 +1281,13 @@ export function SlideEditor({
     return filtered.length > 0 ? filtered : source;
   }, [deckFormat]);
   const activeSlideToolbarLayoutId = useMemo(() => {
+    const selectedTemplateId = selectedSlide?.templateId ?? "blank";
     const preferredName =
-      selectedSlide?.layout === "title" || selectedSlide?.layout === "section"
+      selectedTemplateId === "title" || selectedTemplateId === "section"
         ? "title-slide"
-        : selectedSlide?.layout === "content"
+        : selectedTemplateId === "content"
           ? "title-content"
-          : selectedSlide?.layout === "blank"
+          : selectedTemplateId === "blank"
             ? "blank"
             : "title-content";
     return (
@@ -1294,7 +1295,7 @@ export function SlideEditor({
       toolbarLayouts[0]?.id ??
       ""
     );
-  }, [selectedSlide?.layout, toolbarLayouts]);
+  }, [selectedSlide?.templateId, toolbarLayouts]);
   const showSlideToolbar = selectedSlide
     ? slideSelectionActive &&
       isSlideToolbarVisible({

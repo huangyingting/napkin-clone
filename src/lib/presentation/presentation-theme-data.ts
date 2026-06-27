@@ -21,50 +21,68 @@ import type {
  * themes get complete role typography without hand-authoring tokens.
  */
 export const ROLE_TO_SCALE_KEY: Record<PresentationRole, keyof FontScale> = {
-  h1: "h1",
-  h2: "h2",
-  h3: "h3",
+  title: "h1",
   subtitle: "h3",
+  sectionTitle: "h2",
   body: "body",
   bullet: "list",
+  quote: "body",
   caption: "footer",
   footer: "footer",
-  shapeLabel: "body",
+  label: "body",
+  media: "body",
+  visual: "body",
+  image: "body",
+  logo: "footer",
+  pageNumber: "footer",
+  background: "body",
 };
 
 /** Headings render bold by default; body-like roles use a regular weight. */
 export const ROLE_DEFAULT_WEIGHT: Record<PresentationRole, number> = {
-  h1: 700,
-  h2: 700,
-  h3: 600,
+  title: 700,
   subtitle: 400,
+  sectionTitle: 700,
   body: 400,
   bullet: 400,
+  quote: 400,
   caption: 400,
   footer: 400,
-  shapeLabel: 600,
+  label: 600,
+  media: 400,
+  visual: 400,
+  image: 400,
+  logo: 600,
+  pageNumber: 400,
+  background: 400,
 };
 
 /** Roles that prefer the heading font stack when one is defined. */
 export const HEADING_ROLES: ReadonlySet<PresentationRole> = new Set([
-  "h1",
-  "h2",
-  "h3",
+  "title",
   "subtitle",
-  "shapeLabel",
+  "sectionTitle",
+  "label",
+  "logo",
 ]);
 
 /** Default alignment per role (titles/labels centered, copy left-aligned). */
 export const ROLE_DEFAULT_ALIGN: Record<PresentationRole, ElementAlign> = {
-  h1: "center",
-  h2: "left",
-  h3: "left",
+  title: "center",
   subtitle: "center",
+  sectionTitle: "left",
   body: "left",
   bullet: "left",
+  quote: "left",
   caption: "left",
   footer: "center",
-  shapeLabel: "center",
+  label: "center",
+  media: "center",
+  visual: "center",
+  image: "center",
+  logo: "center",
+  pageNumber: "center",
+  background: "center",
 };
 
 const DEFAULT_SPACING: SpacingToken = { slidePaddingPt: 36, gridUnitPt: 6 };

@@ -26,7 +26,6 @@ import {
   Heading,
   Heading1,
   Heading2,
-  Heading3,
   Image as ImageIcon,
   LayoutPanelLeft,
   List,
@@ -602,15 +601,21 @@ function layoutDisplayName(layout: ReusableSlideLayout | undefined): string {
 }
 
 const TEXT_ROLE_LABELS: Record<PresentationRole, string> = {
-  h1: "Title",
-  h2: "Section title",
-  h3: "Body heading",
+  title: "Title",
+  sectionTitle: "Section title",
   subtitle: "Subtitle",
   body: "Body",
   bullet: "Bullet",
+  quote: "Quote",
   caption: "Caption",
   footer: "Footer",
-  shapeLabel: "Label",
+  label: "Label",
+  media: "Media",
+  visual: "Visual",
+  image: "Image",
+  logo: "Logo",
+  pageNumber: "Page number",
+  background: "Background",
 };
 
 const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
@@ -623,12 +628,10 @@ const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
 
 function textRoleIcon(role: PresentationRole): ReactNode {
   switch (role) {
-    case "h1":
+    case "title":
       return <Heading1 size={16} aria-hidden="true" />;
-    case "h2":
+    case "sectionTitle":
       return <Heading2 size={16} aria-hidden="true" />;
-    case "h3":
-      return <Heading3 size={16} aria-hidden="true" />;
     case "subtitle":
       return <Heading size={16} aria-hidden="true" />;
     case "body":
@@ -639,7 +642,16 @@ function textRoleIcon(role: PresentationRole): ReactNode {
       return <Captions size={16} aria-hidden="true" />;
     case "footer":
       return <PanelBottom size={16} aria-hidden="true" />;
-    case "shapeLabel":
+    case "label":
+      return <Tag size={16} aria-hidden="true" />;
+    case "quote":
+      return <TextIcon size={16} aria-hidden="true" />;
+    case "media":
+    case "visual":
+    case "image":
+    case "logo":
+    case "pageNumber":
+    case "background":
       return <Tag size={16} aria-hidden="true" />;
   }
 }

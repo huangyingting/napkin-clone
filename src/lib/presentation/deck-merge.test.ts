@@ -70,7 +70,7 @@ function withTitleElement(
   elements: SlideElement[],
 ): SlideElement[] {
   if (!title.trim()) return elements;
-  if (elements.some((el) => el.kind === "text" && el.textRole === "h1")) {
+  if (elements.some((el) => el.kind === "text" && el.textRole === "title")) {
     return elements;
   }
   const id = `title-${title.toLowerCase().replace(/\s+/g, "-") || "slide"}`;
@@ -142,8 +142,8 @@ test("matched slide: refreshes content but preserves elements", () => {
 
   assert.equal(merged.slides.length, 1);
   const s = merged.slides[0];
-  assert.deepEqual(bulletsOf(s), ["new", "extra"]);
-  // Title + manual elements + colors preserved.
+  assert.deepEqual(bulletsOf(s), []);
+  // Title + manual elements + colors preserved; no removed slide-level bullet mirror is written.
   assert.equal(s.elements?.length, 3);
   assert.deepEqual(
     s.elements?.map((e) => e.id),
@@ -174,10 +174,10 @@ test("title match wins over index ordering", () => {
   assert.equal(merged.slides.length, 2);
   // Existing order is preserved; each keeps its own elements.
   assert.equal(merged.slides[0].title, "First");
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["y"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   assert.equal(merged.slides[0].elements?.[1].id, "a");
   assert.equal(merged.slides[1].title, "Second");
-  assert.deepEqual(bulletsOf(merged.slides[1]), ["x"]);
+  assert.deepEqual(bulletsOf(merged.slides[1]), []);
   assert.equal(merged.slides[1].elements?.[1].id, "b");
 });
 
@@ -190,7 +190,7 @@ test("index match used when titles differ/empty", () => {
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
   assert.equal(merged.slides.length, 1);
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["new"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   assert.equal(merged.slides[0].elements?.[0].id, "a");
   assert.equal(summary.updatedCount, 1);
 });
@@ -198,7 +198,7 @@ test("index match used when titles differ/empty", () => {
 function titleElement(id: string, text: string): SlideElement {
   return buildTextElement({
     id,
-    textRole: "h1",
+    textRole: "title",
     text,
     zIndex: 1,
     box: { x: 6, y: 6, w: 88, h: 16 },
@@ -222,7 +222,7 @@ test("renamed title element matches its slide instead of appending a duplicate (
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
   assert.equal(merged.slides.length, 1);
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["fresh"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   assert.deepEqual(
     merged.slides[0].elements?.map((e) => e.id),
     ["t1", "b1"],
@@ -358,7 +358,7 @@ test("derived slide: sync re-materializes elements so document edits render", ()
         {
           id: "title",
           kind: "text",
-          textRole: "h1",
+          textRole: "title",
           text: "Intro",
           paragraphs: [{ text: "Intro" }],
           zIndex: 0,
@@ -408,8 +408,8 @@ test("hand-edited slide: sync preserves elements verbatim", () => {
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
   const s = merged.slides[0];
-  // Document-derived fields still refreshed.
-  assert.deepEqual(bulletsOf(s), ["new bullet"]);
+  // No removed slide-level bullet mirror is written for hand-authored elements.
+  assert.deepEqual(bulletsOf(s), []);
   // Title + hand-authored elements preserved untouched.
   assert.deepEqual(
     s.elements?.map((e) => e.id),
@@ -499,7 +499,7 @@ test("derived slide: document run text change reaches re-materialized elements",
         {
           id: "title",
           kind: "text",
-          textRole: "h1",
+          textRole: "title",
           text: "Intro",
           runs: [{ text: "Intro" }],
           paragraphs: [{ text: "Intro", runs: [{ text: "Intro" }] }],
@@ -548,9 +548,8 @@ test("derived slide: document run text change reaches re-materialized elements",
     !JSON.stringify(bulletElementRuns(s)).includes("old bullet"),
     "stale bullet runs leaked into re-materialized elements",
   );
-  // Plain bullet mirror refreshed too.
+  // The current schema carries the plain bullet text in element paragraphs.
   assert.deepEqual(bulletsOf(s), ["new bullet"]);
-  assert.equal(s.elementsDerived, true);
   assert.equal(summary.updatedCount, 1);
 });
 
@@ -564,7 +563,7 @@ test("derived slide: stale title runs dropped when fresh has none", () => {
         {
           id: "title",
           kind: "text",
-          textRole: "h1",
+          textRole: "title",
           text: "Intro",
           runs: [{ text: "Intro", bold: true }],
           zIndex: 0,
@@ -658,9 +657,9 @@ test("hand-edited slide: run refresh never clobbers verbatim elements", () => {
     s.elements?.map((e) => e.id),
     ["title-intro", "manual-1", "manual-2"],
   );
-  // Document-derived fields are refreshed alongside the preserved elements.
-  assert.deepEqual(bulletsOf(s), ["new bullet"]);
-  assert.deepEqual(s.bulletRuns, [[{ text: "new bullet", bold: true }]]);
+  // No removed slide-level bullet mirror is written alongside preserved elements.
+  assert.deepEqual(bulletsOf(s), []);
+  assert.equal((s as any).bulletRuns, undefined);
   assert.equal(summary.updatedCount, 1);
   assert.equal(summary.preservedElementCount, 3);
 });
@@ -809,7 +808,7 @@ test("renamed on-stage title: Pass 0 matches by sourceSectionId, no duplicate (#
 
   // One slide updated in-place — no duplicate appended.
   assert.equal(merged.slides.length, 1);
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["updated content"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   // Hand-edited elements preserved.
   assert.deepEqual(
     merged.slides[0].elements?.map((e) => e.id),
@@ -842,7 +841,7 @@ test("renamed slide title diverges from doc heading: sourceSectionId still match
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
   assert.equal(merged.slides.length, 1);
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["fresh bullets"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   assert.equal(summary.updatedCount, 1);
   assert.equal(summary.appendedCount, 0);
 });
@@ -875,10 +874,10 @@ test("reordered sections: match by sourceSectionId, existing order preserved (#2
   // Existing order is preserved; content is refreshed.
   assert.equal(merged.slides.length, 2);
   assert.equal(merged.slides[0].title, "Alpha");
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["a-new"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   assert.equal(merged.slides[0].elements?.[1].id, "el-a");
   assert.equal(merged.slides[1].title, "Beta");
-  assert.deepEqual(bulletsOf(merged.slides[1]), ["b-new"]);
+  assert.deepEqual(bulletsOf(merged.slides[1]), []);
   assert.equal(merged.slides[1].elements?.[1].id, "el-b");
   assert.equal(summary.updatedCount, 2);
   assert.equal(summary.appendedCount, 0);
@@ -921,8 +920,8 @@ test("duplicate section ids: first-unconsumed pairing, no crash or over-duplicat
 
   // Both slides matched and updated; no duplicates appended.
   assert.equal(merged.slides.length, 2);
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["fresh-1"]);
-  assert.deepEqual(bulletsOf(merged.slides[1]), ["fresh-2"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
+  assert.deepEqual(bulletsOf(merged.slides[1]), []);
   assert.equal(merged.slides[0].elements?.[1].id, "el-1");
   assert.equal(merged.slides[1].elements?.[1].id, "el-2");
   assert.equal(summary.updatedCount, 2);
@@ -957,7 +956,7 @@ test("slides without sourceSectionId still match by title element (#296 regressi
 
   assert.equal(merged.slides.length, 2);
   assert.equal(merged.slides[0].title, "Intro");
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["intro-new"]);
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
   assert.equal(merged.slides[0].elements?.[1].id, "intro-el");
   assert.equal(merged.slides[1].title, "Outro");
   assert.deepEqual(bulletsOf(merged.slides[1]), ["outro-new"]);
@@ -1236,8 +1235,9 @@ test("element-level merge: decks without freshBlocks fall back to slide-level me
   const updatedEl = merged.slides[0].elements?.find((e) => e.id === "el-1");
   assert.ok(updatedEl !== undefined);
   assert.equal(textOf(updatedEl), "Original"); // unchanged
-  // But slide-level bullet was updated:
-  assert.deepEqual(bulletsOf(merged.slides[0]), ["new bullet"]);
+  // Without freshBlocks, preserved elements are not rewritten and no removed
+  // slide-level bullet mirror is written.
+  assert.deepEqual(bulletsOf(merged.slides[0]), []);
 });
 
 test("element-level merge: mixed linked/unlinked/manual elements on one slide (#409)", () => {

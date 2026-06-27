@@ -1,6 +1,10 @@
 import { normalizeTextParagraphs, type SlideElement } from "./deck";
 import { assertNever } from "@/lib/assert-never";
 
+function elementContent(element: SlideElement): Record<string, any> {
+  return ((element as any).content ?? {}) as Record<string, any>;
+}
+
 /**
  * Returns a concise, screen-reader–friendly accessible name for a slide
  * element.  The name is derived from the element's content rather than its
@@ -29,22 +33,24 @@ export function elementAccessibleName(
       return raw.length > 60 ? `${raw.slice(0, 60)}…` : raw;
     }
     case "image": {
-      const alt = element.alt?.trim();
+      const alt = elementContent(element).alt?.trim();
       return alt ? alt : "Image";
     }
     case "visual": {
-      const alt = element.alt?.trim();
+      const alt = elementContent(element).alt?.trim();
       return alt ? alt : "Visual";
     }
     case "shape": {
-      const text = element.text?.trim();
+      const content = elementContent(element);
+      const text = content.text?.trim();
       if (text) return text.length > 60 ? `${text.slice(0, 60)}…` : text;
-      return `Shape: ${element.shape}`;
+      return `Shape: ${content.shape}`;
     }
     case "connector": {
       if (!allElements) return "Connector";
-      const start = element.start;
-      const end = element.end;
+      const content = elementContent(element);
+      const start = content.start;
+      const end = content.end;
       const startEl =
         "elementId" in start
           ? allElements.find((el) => el.id === start.elementId)
@@ -76,11 +82,11 @@ function connectorTargetLabel(element: SlideElement): string {
         : "text";
     }
     case "image":
-      return element.alt?.trim() || "image";
+      return elementContent(element).alt?.trim() || "image";
     case "visual":
-      return element.alt?.trim() || "visual";
+      return elementContent(element).alt?.trim() || "visual";
     case "shape":
-      return element.shape;
+      return elementContent(element).shape;
     default:
       return "element";
   }

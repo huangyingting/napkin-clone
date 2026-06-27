@@ -264,22 +264,29 @@ describe("isBuiltInTheme", () => {
 describe("semantic text roles (#603)", () => {
   it("exposes the canonical role list", () => {
     assert.deepStrictEqual(PRESENTATION_ROLES, [
-      "h1",
-      "h2",
-      "h3",
+      "title",
       "subtitle",
+      "sectionTitle",
       "body",
       "bullet",
+      "quote",
       "caption",
       "footer",
-      "shapeLabel",
+      "label",
+      "media",
+      "visual",
+      "image",
+      "logo",
+      "pageNumber",
+      "background",
     ]);
   });
 
   it("isPresentationRole recognizes valid and rejects invalid roles", () => {
-    assert.strictEqual(isPresentationRole("h1"), true);
-    assert.strictEqual(isPresentationRole("shapeLabel"), true);
-    assert.strictEqual(isPresentationRole("title"), false);
+    assert.strictEqual(isPresentationRole("title"), true);
+    assert.strictEqual(isPresentationRole("label"), true);
+    assert.strictEqual(isPresentationRole("h1"), false);
+    assert.strictEqual(isPresentationRole("shapeLabel"), false);
     assert.strictEqual(isPresentationRole(undefined), false);
     assert.strictEqual(isPresentationRole(42), false);
   });
@@ -307,17 +314,17 @@ describe("semantic text roles (#603)", () => {
   });
 
   it("derives heading roles bold and body roles regular", () => {
-    const h1 = deriveRoleToken(DEFAULT_TOKEN_SET, "h1");
+    const title = deriveRoleToken(DEFAULT_TOKEN_SET, "title");
     const body = deriveRoleToken(DEFAULT_TOKEN_SET, "body");
-    assert.strictEqual(h1.weight, 700);
+    assert.strictEqual(title.weight, 700);
     assert.strictEqual(body.weight, 400);
   });
 
   it("derives heading roles from the heading font when defined", () => {
     const indigo = resolveThemeTokens("indigo");
-    const h1 = deriveRoleToken(indigo, "h1");
+    const title = deriveRoleToken(indigo, "title");
     const body = deriveRoleToken(indigo, "body");
-    assert.ok(h1.fontFamily?.startsWith("Space Grotesk"));
+    assert.ok(title.fontFamily?.startsWith("Space Grotesk"));
     assert.ok(body.fontFamily?.startsWith("Inter"));
   });
 
@@ -331,10 +338,10 @@ describe("semantic text roles (#603)", () => {
       ...DEFAULT_TOKEN_SET,
       typography: {
         ...DEFAULT_TOKEN_SET.typography,
-        roles: { h1: { fontSize: 48, color: "#ff0000", weight: 800 } },
+        roles: { title: { fontSize: 48, color: "#ff0000", weight: 800 } },
       },
     };
-    const token = resolveRoleToken(themed, "h1");
+    const token = resolveRoleToken(themed, "title");
     assert.strictEqual(token.fontSize, 48);
     assert.strictEqual(token.color, "#ff0000");
     assert.strictEqual(token.weight, 800);
