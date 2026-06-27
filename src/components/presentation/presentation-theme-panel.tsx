@@ -40,7 +40,12 @@ import {
   type CustomThemePreset,
 } from "@/lib/presentation/theme-preset-store";
 import { SLIDE_FONT_OPTIONS } from "@/lib/presentation/slide-fonts";
-import { ColorPicker, SegmentedControl } from "@/components/ui";
+import {
+  ColorPicker,
+  SegmentedControl,
+  SelectMenu,
+  type SelectMenuOption,
+} from "@/components/ui";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 
 // ---------------------------------------------------------------------------
@@ -142,11 +147,6 @@ function tokenSetToTemplatePatch(
 // Small styled controls (ds-token driven)
 // ---------------------------------------------------------------------------
 
-const SELECT_CLASS = cx(
-  "h-7 w-full rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-1.5 text-[11px] text-ds-text-primary",
-  FOCUS_RING,
-);
-
 const LINK_BTN = cx(
   "rounded-ds-sm px-1.5 py-1 text-xs font-semibold text-ds-text-secondary transition-colors",
   "hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-40",
@@ -163,20 +163,18 @@ function FontSelect({
   "aria-label": string;
 }) {
   const known = FONT_OPTIONS.some((f) => f.value === value);
+  const options: SelectMenuOption[] = [
+    ...(!known && value ? [{ value, label: "Current" }] : []),
+    ...FONT_OPTIONS.map((f) => ({ value: f.value, label: f.label })),
+  ];
   return (
-    <select
-      aria-label={ariaLabel}
+    <SelectMenu
+      variant="field"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={SELECT_CLASS}
-    >
-      {!known && value ? <option value={value}>Current</option> : null}
-      {FONT_OPTIONS.map((f) => (
-        <option key={f.value} value={f.value}>
-          {f.label}
-        </option>
-      ))}
-    </select>
+      options={options}
+      onChange={onChange}
+      aria-label={ariaLabel}
+    />
   );
 }
 
@@ -361,6 +359,7 @@ function BackgroundSection({
         aria-label="Background type"
         size="sm"
         className="w-full"
+        stretch
         value={mode}
         options={[
           { value: "solid", label: "Solid" },
@@ -516,15 +515,17 @@ export function PresentationThemePanel({
     return (
       <div className="flex w-[300px] flex-col gap-3 p-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
-            Theme
-          </span>
-          <div className="flex items-center gap-1.5">
+          <span className="flex flex-1 justify-start">
             {isCustom ? (
               <span className="rounded-ds-pill bg-ds-accent-surface px-2 py-0.5 text-[10px] font-bold text-ds-accent-text">
                 Customized
               </span>
             ) : null}
+          </span>
+          <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
+            Theme
+          </span>
+          <span className="flex flex-1 justify-end">
             <button
               type="button"
               onClick={() => setView("customize")}
@@ -532,7 +533,7 @@ export function PresentationThemePanel({
             >
               Customize
             </button>
-          </div>
+          </span>
         </div>
 
         <div className="flex max-h-[52vh] flex-col gap-3 overflow-y-auto pr-0.5">
@@ -589,25 +590,29 @@ export function PresentationThemePanel({
     <div className="flex w-[300px] flex-col gap-3 p-1">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => setView("preset")}
-          aria-label="Back to presets"
-          className={cx(LINK_BTN, "px-1")}
-        >
-          ‹ Back
-        </button>
+        <span className="flex flex-1 justify-start">
+          <button
+            type="button"
+            onClick={() => setView("preset")}
+            aria-label="Back to presets"
+            className={cx(LINK_BTN, "px-1")}
+          >
+            ‹ Back
+          </button>
+        </span>
         <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
           Customize
         </span>
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!isCustom}
-          className={LINK_BTN}
-        >
-          Reset
-        </button>
+        <span className="flex flex-1 justify-end">
+          <button
+            type="button"
+            onClick={onReset}
+            disabled={!isCustom}
+            className={LINK_BTN}
+          >
+            Reset
+          </button>
+        </span>
       </div>
 
       {/* Tabs */}
@@ -615,6 +620,7 @@ export function PresentationThemePanel({
         aria-label="Theme editor section"
         size="sm"
         className="w-full"
+        stretch
         value={tab}
         options={[
           { value: "palette", label: "Palette" },

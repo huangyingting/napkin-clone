@@ -26,20 +26,34 @@
 import {
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  Captions,
+  Circle,
   Copy,
   Edit3,
   FileText,
   Grid3x3,
+  Heading,
+  Heading1,
+  Heading2,
   Image as ImageIcon,
   Keyboard,
+  List,
   Minus,
   Palette,
+  PanelBottom,
   Plus,
+  Quote,
+  RectangleHorizontal,
   Redo2,
   RefreshCw,
+  Shapes,
   Sparkles,
+  Spline,
   Square,
+  Tag,
   Trash2,
+  Triangle,
   Undo2,
   X,
   Type,
@@ -68,7 +82,7 @@ import {
   SlideStageEditorFromContext,
 } from "@/components/presentation/slide-editor/slide-editor-context";
 import { VisualPicker } from "@/components/presentation/visual-picker";
-import { IconButton, Tooltip } from "@/components/ui";
+import { IconButton, SelectMenu, Tooltip } from "@/components/ui";
 import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import {
@@ -76,9 +90,17 @@ import {
   DEFAULT_SCREEN_SIZE,
   type Size,
 } from "@/lib/presentation/stage-fit";
-import { makeElementId, type Deck } from "@/lib/presentation/deck";
+import {
+  makeElementId,
+  type Deck,
+  type ShapeKind,
+} from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
-import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import {
+  SLIDE_FORMATS,
+  slideAspectRatio,
+  slideFormatConfig,
+} from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
@@ -88,6 +110,7 @@ import {
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
 import { PresentationThemePanel } from "@/components/presentation/presentation-theme-panel";
+import { type PresentationRole } from "@/lib/presentation/presentation-theme";
 import { resolvePresentationThemeTokens } from "@/lib/presentation/presentation-theme";
 import {
   SLIDE_TEMPLATES,
@@ -128,13 +151,7 @@ import { useSlideEditorShell } from "@/components/presentation/slide-editor/use-
 import { useSlideRailController } from "@/components/presentation/slide-editor/use-slide-rail-controller";
 import { useSlideEditorKeyboardController } from "@/components/presentation/slide-editor/use-slide-keyboard-controller";
 import { useSlideElementCommands } from "@/components/presentation/slide-editor/use-slide-element-commands";
-import {
-  GRADIENT_BACKGROUND_OPTIONS,
-  SOLID_BACKGROUND_OPTIONS,
-  gradientCss,
-  sameGradient,
-  useSlideBackgroundCommands,
-} from "@/components/presentation/slide-editor/use-slide-background-commands";
+import { useSlideBackgroundCommands } from "@/components/presentation/slide-editor/use-slide-background-commands";
 import { useSlideInsertCommands } from "@/components/presentation/slide-editor/use-slide-insert-commands";
 import { useSlideManagementCommands } from "@/components/presentation/slide-editor/use-slide-management-commands";
 import {
@@ -143,14 +160,12 @@ import {
   emitProductTelemetry,
 } from "@/lib/telemetry/product";
 import {
-  ColorThemePanel,
   FromDocumentPanel,
   MergeSummaryDialog,
   SlideBottomDock,
   SlideEditorTopToolbar,
   SlideRail,
   SlideToolbar,
-  SlideSizeControl,
   SlideTemplatePicker,
   ThumbnailAction,
 } from "@/components/presentation/slide-editor/shell-components";
@@ -159,9 +174,6 @@ import {
   deckHasThemeOverrides,
   deckPresentationThemeId,
   slideAccentValue,
-  slideBackgroundGradientValue,
-  slideBackgroundImageValue,
-  slideSolidBackgroundValue,
 } from "@/components/presentation/v6-deck-ui";
 import {
   elementContent,
@@ -243,31 +255,73 @@ function FocusTrapped({ children }: { children: React.ReactNode }) {
   return <div ref={ref}>{children}</div>;
 }
 
-function TopToolbarMenuTrigger({
+function ToolbarIconTrigger({
+  icon,
   label,
   open,
   onClick,
+  badge,
 }: {
+  icon: React.ReactNode;
   label: string;
   open: boolean;
   onClick: () => void;
+  badge?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      aria-expanded={open}
-      onClick={onClick}
-      className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-    >
-      {label}
-      <ChevronDown
-        aria-hidden="true"
-        className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-      />
-    </button>
+    <Tooltip label={label} side="bottom">
+      <button
+        type="button"
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={onClick}
+        className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md border transition-colors ${
+          open
+            ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+            : "border-transparent text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+        } ${FOCUS_RING}`}
+      >
+        {icon}
+        {badge ? (
+          <span
+            aria-hidden="true"
+            className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-ds-warning-text"
+          />
+        ) : null}
+      </button>
+    </Tooltip>
   );
 }
+
+/** Text-role insert options for the Insert ▸ Text tab (semantic roles, #603). */
+const INSERT_TEXT_ROLES: ReadonlyArray<{
+  role: PresentationRole;
+  label: string;
+  icon: React.ReactNode;
+}> = [
+  { role: "title", label: "Title", icon: <Heading1 size={17} /> },
+  { role: "sectionTitle", label: "Section", icon: <Heading2 size={17} /> },
+  { role: "subtitle", label: "Subtitle", icon: <Heading size={17} /> },
+  { role: "body", label: "Body", icon: <Type size={17} /> },
+  { role: "bullet", label: "Bullet", icon: <List size={17} /> },
+  { role: "quote", label: "Quote", icon: <Quote size={17} /> },
+  { role: "caption", label: "Caption", icon: <Captions size={17} /> },
+  { role: "footer", label: "Footer", icon: <PanelBottom size={17} /> },
+  { role: "label", label: "Label", icon: <Tag size={17} /> },
+];
+
+/** Shape insert options for the Insert ▸ Shape tab. */
+const INSERT_SHAPES: ReadonlyArray<{
+  kind: ShapeKind;
+  label: string;
+  icon: React.ReactNode;
+}> = [
+  { kind: "rect", label: "Rectangle", icon: <Square size={17} /> },
+  { kind: "ellipse", label: "Ellipse", icon: <Circle size={17} /> },
+  { kind: "line", label: "Line", icon: <Minus size={17} /> },
+  { kind: "triangle", label: "Triangle", icon: <Triangle size={17} /> },
+];
 
 function TopToolbarMenuSection({
   title,
@@ -332,35 +386,127 @@ function TopToolbarMenuAction({
   );
 }
 
-function SolidColorSwatches({
-  activeColor,
-  onPick,
+/**
+ * Panel header row (icon chip + title + optional trailing note) shown at the
+ * top of a toolbar popover, matching the prototype's `.phead`. Assumes the
+ * parent panel uses `p-3`; the negative margins let the header span full width
+ * with a divider below.
+ */
+function TopToolbarPanelHeader({
+  icon,
+  title,
+  note,
 }: {
-  activeColor: string | undefined;
-  onPick: (color: string) => void;
+  icon: React.ReactNode;
+  title: string;
+  note?: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-2">
-      {SOLID_BACKGROUND_OPTIONS.map((option) => {
-        const active = activeColor === option.color;
+    <div className="-mx-3 -mt-3 mb-1 flex items-center gap-2.5 border-b border-ds-border-subtle px-3 py-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm bg-ds-accent-surface text-ds-accent-text">
+        {icon}
+      </span>
+      <span className="text-[13px] font-semibold text-ds-text-primary">
+        {title}
+      </span>
+      {note ? (
+        <span className="ml-auto truncate text-[11px] text-ds-text-muted">
+          {note}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Underlined tab bar used at the top of the Insert panel to separate object
+ * categories (text roles, shapes, media).
+ */
+function ToolbarTabs<T extends string>({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: {
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      className="flex gap-1 border-b border-ds-border-subtle"
+    >
+      {options.map((option) => {
+        const selected = option.value === value;
         return (
           <button
-            key={option.id}
+            key={option.value}
             type="button"
-            aria-label={`Set slide accent to ${option.label}`}
-            aria-pressed={active}
-            onClick={() => onPick(option.color)}
-            title={option.label}
-            className={`h-7 w-7 rounded-full border shadow-sm transition-transform hover:scale-105 ${
-              active
-                ? "border-ds-accent ring-2 ring-ds-accent ring-offset-2 ring-offset-ds-surface-overlay"
-                : "border-ds-border-subtle"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(option.value)}
+            className={`relative flex-1 px-2 py-2 text-xs font-semibold transition-colors ${
+              selected
+                ? "text-ds-accent-text"
+                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
             } ${FOCUS_RING}`}
-            style={{ backgroundColor: option.color }}
-          />
+          >
+            {option.label}
+            {selected ? (
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-ds-accent"
+              />
+            ) : null}
+          </button>
         );
       })}
     </div>
+  );
+}
+
+/**
+ * A square icon tile for the Insert panel's object grid. Disabled tiles (e.g.
+ * Connector without a valid selection) read as unavailable but stay visible.
+ */
+function ToolbarObjectTile({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-col items-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-1 py-2.5 transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+        disabled
+          ? ""
+          : "hover:border-ds-accent-border hover:bg-ds-surface-raised hover:shadow-sm"
+      } ${FOCUS_RING}`}
+    >
+      <span
+        className={`flex h-8 w-8 items-center justify-center rounded-ds-md ${
+          disabled
+            ? "bg-ds-surface-sunken text-ds-text-muted"
+            : "bg-ds-accent-surface text-ds-accent-text"
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="text-[11px] font-semibold text-ds-text-primary">
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -620,14 +766,11 @@ export function SlideEditor({
     setVisualPickerOpen,
     fromDocOpen,
     setFromDocOpen,
-    themeMenuOpen,
     setThemeMenuOpen,
     themeOverridesOpen,
     setThemeOverridesOpen,
     sourceMenuOpen,
     setSourceMenuOpen,
-    viewMenuOpen,
-    setViewMenuOpen,
     mergePreview,
     canSyncFromDocument,
     showStaleBanner,
@@ -643,6 +786,9 @@ export function SlideEditor({
     onDeckChange,
   });
   const [snapToGrid, setSnapToGrid] = useState(false);
+  const [insertTab, setInsertTab] = useState<"text" | "shape" | "media">(
+    "text",
+  );
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [stageInsets, setStageInsets] = useState({
     top: 0,
@@ -1047,42 +1193,6 @@ export function SlideEditor({
   const accentForSelected = selectedSlide
     ? (slideAccentValue(selectedSlide) ?? selectedTheme.accentColor)
     : selectedTheme.accentColor;
-
-  const selectedSlideBackgroundImage = selectedSlide
-    ? slideBackgroundImageValue(selectedSlide)
-    : undefined;
-  const selectedSlideBackgroundGradient = selectedSlide
-    ? slideBackgroundGradientValue(selectedSlide)
-    : undefined;
-  const selectedSlideBackgroundColor = selectedSlide
-    ? slideSolidBackgroundValue(selectedSlide)
-    : undefined;
-  const activeSlideSolidBackgroundId =
-    selectedSlideBackgroundImage === undefined &&
-    selectedSlideBackgroundGradient === undefined
-      ? SOLID_BACKGROUND_OPTIONS.find(
-          (option) => option.color === selectedSlideBackgroundColor,
-        )?.id
-      : undefined;
-  const activeSlideGradientBackgroundId =
-    selectedSlideBackgroundImage === undefined &&
-    selectedSlideBackgroundColor === undefined
-      ? GRADIENT_BACKGROUND_OPTIONS.find((option) =>
-          sameGradient(selectedSlideBackgroundGradient, option.gradient),
-        )?.id
-      : undefined;
-  const canApplyCurrentBackgroundToAll =
-    selectedSlideBackgroundImage === undefined &&
-    (selectedSlideBackgroundGradient !== undefined ||
-      selectedSlideBackgroundColor !== undefined);
-  const selectedSlideAccent = selectedSlide
-    ? slideAccentValue(selectedSlide)
-    : undefined;
-  const canClearCurrentSlideDesignOverrides =
-    selectedSlideBackgroundImage !== undefined ||
-    selectedSlideBackgroundGradient !== undefined ||
-    selectedSlideBackgroundColor !== undefined ||
-    selectedSlideAccent !== undefined;
 
   const handleClearSelection = useCallback(() => {
     setSelectedSlideFrameId(null);
@@ -1503,15 +1613,11 @@ export function SlideEditor({
   });
 
   const {
-    applyDeckSolidBackground,
-    applyDeckGradientBackground,
-    applyDeckAccent,
     handleBackgroundChange,
     handleAccentChange,
     handleBackgroundGradientChange,
     handleBackgroundImageChange,
     handleBackgroundAssetChange,
-    handleClearSlideDesignOverrides,
     handleSlideFormatChange,
     handleUpdateThemeOverrides,
     handleResetThemeOverrides,
@@ -1539,21 +1645,6 @@ export function SlideEditor({
         : canSyncFromDocument
           ? "Up to date"
           : "No live document source";
-
-  const handleApplyCurrentBackgroundToAll = useCallback(() => {
-    if (selectedSlideBackgroundGradient !== undefined) {
-      applyDeckGradientBackground(selectedSlideBackgroundGradient);
-      return;
-    }
-    if (selectedSlideBackgroundColor !== undefined) {
-      applyDeckSolidBackground(selectedSlideBackgroundColor);
-    }
-  }, [
-    applyDeckGradientBackground,
-    applyDeckSolidBackground,
-    selectedSlideBackgroundColor,
-    selectedSlideBackgroundGradient,
-  ]);
 
   const handleReviewStaleLinks = useCallback(() => {
     const [link] = staleLinks;
@@ -1727,12 +1818,13 @@ export function SlideEditor({
           }}
         />
         {/* ── Top bar ─────────────────────────────────────────────────────── */}
-        <SlideEditorTopToolbar slideCount={deck.slides.length}>
+        <SlideEditorTopToolbar>
+          <div className="hidden min-w-0 flex-1 sm:block" aria-hidden="true" />
           {selectedSlide ? (
             <div
               role="toolbar"
               aria-label="Slide editing tools"
-              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-none [&::-webkit-scrollbar]:hidden"
             >
               <Popover
                 open={addTemplateOpen || spotlightPickerOpen}
@@ -1781,267 +1873,220 @@ export function SlideEditor({
                 aria-hidden="true"
               />
               <Popover
-                open={insertMenuOpen || visualPickerOpen || fromDocOpen}
+                open={insertMenuOpen}
                 onClose={() => {
                   setInsertMenuOpen(false);
                   setVisualPickerOpen(false);
-                  setFromDocOpen(false);
                 }}
-                aria-label="Insert"
+                aria-label="Insert object"
                 align="start"
                 portal
                 layer="tooltip"
-                className={
-                  visualPickerOpen || fromDocOpen ? "w-[340px] p-0" : "w-64 p-2"
-                }
+                className={visualPickerOpen ? "w-[340px] p-0" : "w-[300px] p-3"}
                 trigger={
-                  <TopToolbarMenuTrigger
-                    label="Insert"
-                    open={insertMenuOpen || visualPickerOpen || fromDocOpen}
+                  <ToolbarIconTrigger
+                    icon={<Shapes size={17} aria-hidden="true" />}
+                    label="Insert object"
+                    open={insertMenuOpen}
                     onClick={() => {
-                      const nextOpen = !(
-                        insertMenuOpen ||
-                        visualPickerOpen ||
-                        fromDocOpen
-                      );
+                      const nextOpen = !insertMenuOpen;
                       setVisualPickerOpen(false);
-                      setFromDocOpen(false);
                       setInsertMenuOpen(nextOpen);
                     }}
                   />
                 }
               >
                 {visualPickerOpen ? (
-                  <VisualPicker
-                    className="w-full p-3"
-                    visuals={visuals}
-                    onPick={handleAddVisual}
-                    onClose={() => setVisualPickerOpen(false)}
-                  />
-                ) : fromDocOpen ? (
                   <div className="flex max-h-[70vh] flex-col">
                     <div className="border-b border-ds-border-subtle p-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setFromDocOpen(false);
-                          setInsertMenuOpen(true);
-                        }}
-                        className={`rounded-ds-sm px-2 py-1 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                        onClick={() => setVisualPickerOpen(false)}
+                        className={`flex items-center gap-1 rounded-ds-sm px-2 py-1 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                       >
+                        <ChevronLeft size={14} aria-hidden="true" />
                         Back to Insert
                       </button>
                     </div>
-                    <FromDocumentPanel
-                      visuals={documentVisualEntries}
-                      textItems={documentTextInsertables}
-                      documentVisualInsertables={documentVisualInsertables}
-                      documentTextInsertables={documentTextInsertables}
-                      onAddAllVisuals={handleAddAllVisuals}
-                      onInsertVisual={handleInsertDocumentVisual}
-                      onInsertText={handleInsertDocumentText}
+                    <VisualPicker
+                      className="w-full p-3"
+                      visuals={visuals}
+                      onPick={handleAddVisual}
+                      onClose={() => setVisualPickerOpen(false)}
                     />
                   </div>
                 ) : (
-                  <div
-                    role="menu"
-                    aria-label="Insert"
-                    className="flex flex-col gap-1"
-                  >
-                    <TopToolbarMenuAction
-                      icon={<Type size={15} aria-hidden="true" />}
-                      label="Text"
-                      detail="Add body text to this slide"
-                      onClick={() => handleAddElement("body")}
+                  <div className="flex flex-col">
+                    <ToolbarTabs
+                      ariaLabel="Insert object category"
+                      value={insertTab}
+                      onChange={setInsertTab}
+                      options={[
+                        { value: "text", label: "Text" },
+                        { value: "shape", label: "Shape" },
+                        { value: "media", label: "Media" },
+                      ]}
                     />
-                    <TopToolbarMenuAction
-                      icon={<ImageIcon size={15} aria-hidden="true" />}
-                      label="Image"
-                      detail="Upload an image"
-                      onClick={() => handleAddElement("image")}
-                    />
-                    <TopToolbarMenuAction
-                      icon={<Square size={15} aria-hidden="true" />}
-                      label="Shape"
-                      detail="Add a rectangle"
-                      onClick={() => handleAddElement("shape", "rect")}
-                    />
-                    {selectedConnectorsPair ? (
-                      <TopToolbarMenuAction
-                        icon={<Minus size={15} aria-hidden="true" />}
-                        label="Connector"
-                        detail="Connect the two selected objects"
-                        onClick={handleAddConnector}
-                      />
-                    ) : null}
-                    {visuals.size > 0 ? (
-                      <TopToolbarMenuAction
-                        icon={<Sparkles size={15} aria-hidden="true" />}
-                        label="Visual"
-                        detail="Insert a document visual"
-                        onClick={() => {
-                          setInsertMenuOpen(false);
-                          setVisualPickerOpen(true);
-                        }}
-                      />
-                    ) : null}
-                    {hasDocumentInsertables ? (
-                      <TopToolbarMenuAction
-                        icon={<FileText size={15} aria-hidden="true" />}
-                        label="From document"
-                        detail="Reuse source text or visuals"
-                        onClick={() => {
-                          setInsertMenuOpen(false);
-                          setFromDocOpen(true);
-                        }}
-                      />
-                    ) : null}
-                    {insertImageError ? (
-                      <p
-                        role="alert"
-                        className="px-2 py-1 text-xs text-ds-danger-text"
-                      >
-                        {insertImageError}
-                      </p>
-                    ) : null}
+                    <div className="pt-3">
+                      {insertTab === "text" ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {INSERT_TEXT_ROLES.map((item) => (
+                            <ToolbarObjectTile
+                              key={item.role}
+                              icon={item.icon}
+                              label={item.label}
+                              onClick={() => handleAddElement(item.role)}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {insertTab === "shape" ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {INSERT_SHAPES.map((item) => (
+                            <ToolbarObjectTile
+                              key={item.kind}
+                              icon={item.icon}
+                              label={item.label}
+                              onClick={() =>
+                                handleAddElement("shape", item.kind)
+                              }
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {insertTab === "media" ? (
+                        <>
+                          <div className="grid grid-cols-3 gap-2">
+                            <ToolbarObjectTile
+                              icon={<ImageIcon size={17} aria-hidden="true" />}
+                              label="Image"
+                              onClick={() => handleAddElement("image")}
+                            />
+                            {visuals.size > 0 ? (
+                              <ToolbarObjectTile
+                                icon={<Sparkles size={17} aria-hidden="true" />}
+                                label="Visual"
+                                onClick={() => setVisualPickerOpen(true)}
+                              />
+                            ) : null}
+                            <ToolbarObjectTile
+                              icon={<Spline size={17} aria-hidden="true" />}
+                              label="Connector"
+                              disabled={!selectedConnectorsPair}
+                              onClick={
+                                selectedConnectorsPair
+                                  ? handleAddConnector
+                                  : undefined
+                              }
+                            />
+                          </div>
+                          {!selectedConnectorsPair ? (
+                            <p className="px-1 pt-2 text-[11px] leading-relaxed text-ds-text-muted">
+                              Select two connectable objects to add a connector.
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
+
+                      {insertImageError ? (
+                        <p
+                          role="alert"
+                          className="px-1 pt-2 text-xs text-ds-danger-text"
+                        >
+                          {insertImageError}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 )}
               </Popover>
+              {hasDocumentInsertables ? (
+                <Popover
+                  open={fromDocOpen}
+                  onClose={() => setFromDocOpen(false)}
+                  aria-label="Insert from document"
+                  align="start"
+                  portal
+                  layer="tooltip"
+                  className="w-[340px] p-0"
+                  trigger={
+                    <ToolbarIconTrigger
+                      icon={<FileText size={17} aria-hidden="true" />}
+                      label="Insert from document"
+                      open={fromDocOpen}
+                      onClick={() => setFromDocOpen((open) => !open)}
+                    />
+                  }
+                >
+                  <FromDocumentPanel
+                    visuals={documentVisualEntries}
+                    textItems={documentTextInsertables}
+                    documentVisualInsertables={documentVisualInsertables}
+                    documentTextInsertables={documentTextInsertables}
+                    onAddAllVisuals={handleAddAllVisuals}
+                    onInsertVisual={handleInsertDocumentVisual}
+                    onInsertText={handleInsertDocumentText}
+                  />
+                </Popover>
+              ) : null}
+              <div
+                className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
+                aria-hidden="true"
+              />
+
+              <SelectMenu
+                aria-label="Slide ratio"
+                tooltipLabel="Slide ratio"
+                value={deckFormat}
+                onChange={(next) =>
+                  handleSlideFormatChange(
+                    next as (typeof SLIDE_FORMATS)[number],
+                  )
+                }
+                triggerIcon={
+                  <RectangleHorizontal size={16} aria-hidden="true" />
+                }
+                buttonClassName="h-8"
+                options={SLIDE_FORMATS.map((format) => ({
+                  value: format,
+                  label: format,
+                  description: slideFormatConfig(format).label,
+                  icon: <RectangleHorizontal size={15} aria-hidden="true" />,
+                }))}
+              />
               <Popover
-                open={themeMenuOpen || themeOverridesOpen}
-                onClose={() => {
-                  setThemeMenuOpen(false);
-                  setThemeOverridesOpen(false);
-                }}
-                aria-label="Design"
+                open={themeOverridesOpen}
+                onClose={() => setThemeOverridesOpen(false)}
+                aria-label="Presentation theme"
                 align="start"
                 portal
                 layer="tooltip"
-                className={
-                  themeOverridesOpen ? "w-[680px] p-3" : "w-[360px] p-3"
-                }
+                className="w-auto p-2"
                 trigger={
-                  <TopToolbarMenuTrigger
-                    label="Design"
-                    open={themeMenuOpen || themeOverridesOpen}
-                    onClick={() => {
-                      const nextOpen = !(themeMenuOpen || themeOverridesOpen);
-                      setThemeOverridesOpen(false);
-                      setThemeMenuOpen(nextOpen);
-                    }}
+                  <ToolbarIconTrigger
+                    icon={<Palette size={17} aria-hidden="true" />}
+                    label="Presentation theme"
+                    open={themeOverridesOpen}
+                    onClick={() => setThemeOverridesOpen((open) => !open)}
+                    badge={deckHasThemeOverrides(deck)}
                   />
                 }
               >
-                {themeOverridesOpen ? (
-                  <div className="flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setThemeOverridesOpen(false);
-                        setThemeMenuOpen(true);
-                      }}
-                      className={`self-start rounded-ds-sm px-2 py-1 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                    >
-                      Back to Design
-                    </button>
-                    <PresentationThemePanel
-                      tokenSet={presentationThemeTokenSet}
-                      isCustom={deckHasThemeOverrides(deck)}
-                      themeId={deckPresentationThemeId(deck)}
-                      onUpdate={handleUpdateThemeOverrides}
-                      onReset={handleResetThemeOverrides}
-                      onApplyTheme={handleApplyPresentationTheme}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex max-h-[min(34rem,calc(100vh-6rem))] flex-col gap-4 overflow-y-auto">
-                    <TopToolbarMenuSection title="Canvas">
-                      <SlideSizeControl
-                        value={deckFormat}
-                        onChange={handleSlideFormatChange}
-                      />
-                    </TopToolbarMenuSection>
-                    <TopToolbarMenuSection title="Presentation">
-                      <TopToolbarMenuAction
-                        icon={<Palette size={15} aria-hidden="true" />}
-                        label="Theme and tokens"
-                        detail={
-                          deckHasThemeOverrides(deck)
-                            ? "Custom theme overrides active"
-                            : "Choose or tune the deck theme"
-                        }
-                        onClick={() => {
-                          setThemeMenuOpen(false);
-                          setThemeOverridesOpen(true);
-                        }}
-                      />
-                    </TopToolbarMenuSection>
-                    <TopToolbarMenuSection title="Current Slide Background">
-                      <ColorThemePanel
-                        activeSolidId={activeSlideSolidBackgroundId}
-                        activeGradientId={activeSlideGradientBackgroundId}
-                        onPickSolid={handleBackgroundChange}
-                        onPickGradient={handleBackgroundGradientChange}
-                      />
-                    </TopToolbarMenuSection>
-                    <TopToolbarMenuSection title="Current Slide Accent">
-                      <SolidColorSwatches
-                        activeColor={accentForSelected}
-                        onPick={handleAccentChange}
-                      />
-                      {canClearCurrentSlideDesignOverrides ? (
-                        <TopToolbarMenuAction
-                          icon={<X size={15} aria-hidden="true" />}
-                          label="Clear slide overrides"
-                          detail="Reset background and accent"
-                          onClick={handleClearSlideDesignOverrides}
-                        />
-                      ) : null}
-                    </TopToolbarMenuSection>
-                    {canApplyCurrentBackgroundToAll || selectedSlide ? (
-                      <TopToolbarMenuSection title="Apply">
-                        {canApplyCurrentBackgroundToAll ? (
-                          <TopToolbarMenuAction
-                            icon={
-                              <span
-                                aria-hidden="true"
-                                className="h-4 w-4 rounded-full border border-ds-border-subtle"
-                                style={
-                                  selectedSlideBackgroundGradient
-                                    ? {
-                                        background: gradientCss(
-                                          selectedSlideBackgroundGradient,
-                                        ),
-                                      }
-                                    : {
-                                        backgroundColor:
-                                          selectedSlideBackgroundColor,
-                                      }
-                                }
-                              />
-                            }
-                            label="Apply background to all slides"
-                            onClick={handleApplyCurrentBackgroundToAll}
-                          />
-                        ) : null}
-                        {selectedSlide ? (
-                          <TopToolbarMenuAction
-                            icon={
-                              <span
-                                aria-hidden="true"
-                                className="h-4 w-4 rounded-full border border-ds-border-subtle"
-                                style={{ backgroundColor: accentForSelected }}
-                              />
-                            }
-                            label="Apply accent to all slides"
-                            onClick={() => applyDeckAccent(accentForSelected)}
-                          />
-                        ) : null}
-                      </TopToolbarMenuSection>
-                    ) : null}
-                  </div>
-                )}
+                <PresentationThemePanel
+                  tokenSet={presentationThemeTokenSet}
+                  isCustom={deckHasThemeOverrides(deck)}
+                  themeId={deckPresentationThemeId(deck)}
+                  onUpdate={handleUpdateThemeOverrides}
+                  onReset={handleResetThemeOverrides}
+                  onApplyTheme={handleApplyPresentationTheme}
+                />
               </Popover>
+              <div
+                className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
+                aria-hidden="true"
+              />
               <Popover
                 open={sourceMenuOpen}
                 onClose={() => setSourceMenuOpen(false)}
@@ -2051,14 +2096,20 @@ export function SlideEditor({
                 layer="tooltip"
                 className="w-72 p-3"
                 trigger={
-                  <TopToolbarMenuTrigger
-                    label="Source"
+                  <ToolbarIconTrigger
+                    icon={<RefreshCw size={17} aria-hidden="true" />}
+                    label="Document source"
                     open={sourceMenuOpen}
                     onClick={() => setSourceMenuOpen((open) => !open)}
+                    badge={isDeckStale || staleLinks.length > 0}
                   />
                 }
               >
                 <div className="flex flex-col gap-3">
+                  <TopToolbarPanelHeader
+                    icon={<FileText size={16} aria-hidden="true" />}
+                    title="Document source"
+                  />
                   <TopToolbarMenuSection title="Document">
                     <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary">
                       {sourceStatusLabel}
@@ -2140,59 +2191,39 @@ export function SlideEditor({
                   ) : null}
                 </div>
               </Popover>
-              <Popover
-                open={viewMenuOpen}
-                onClose={() => setViewMenuOpen(false)}
-                aria-label="View"
-                align="start"
-                portal
-                layer="tooltip"
-                className="w-60 p-2"
-                trigger={
-                  <TopToolbarMenuTrigger
-                    label="View"
-                    open={viewMenuOpen}
-                    onClick={() => setViewMenuOpen((open) => !open)}
-                  />
-                }
+              <div
+                className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
+                aria-hidden="true"
+              />
+              <Tooltip
+                label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"}
+                side="bottom"
               >
-                <div
-                  role="menu"
-                  aria-label="View"
-                  className="flex flex-col gap-1"
+                <IconButton
+                  aria-label="Toggle snap to grid"
+                  size="sm"
+                  variant="plain"
+                  active={snapToGrid}
+                  onClick={() => setSnapToGrid((on) => !on)}
                 >
-                  <TopToolbarMenuAction
-                    icon={<Grid3x3 size={15} aria-hidden="true" />}
-                    label={railOpen ? "Hide thumbnails" : "Show thumbnails"}
-                    onClick={() => {
-                      handleToggleRail();
-                      setViewMenuOpen(false);
-                    }}
-                    active={railOpen}
-                  />
-                  <TopToolbarMenuAction
-                    icon={<Grid3x3 size={15} aria-hidden="true" />}
-                    label="Snap to grid"
-                    onClick={() => setSnapToGrid((on) => !on)}
-                    active={snapToGrid}
-                  />
-                  <TopToolbarMenuAction
-                    icon={<Keyboard size={15} aria-hidden="true" />}
-                    label="Keyboard shortcuts"
-                    onClick={() => {
-                      setKeyboardHelpOpen(true);
-                      setViewMenuOpen(false);
-                    }}
-                    active={keyboardHelpOpen}
-                  />
-                </div>
-              </Popover>
+                  <Grid3x3 aria-hidden className="h-4 w-4" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip label="Keyboard shortcuts" side="bottom">
+                <IconButton
+                  aria-label="Keyboard shortcuts"
+                  size="sm"
+                  variant="plain"
+                  active={keyboardHelpOpen}
+                  onClick={() => setKeyboardHelpOpen(true)}
+                >
+                  <Keyboard aria-hidden className="h-4 w-4" />
+                </IconButton>
+              </Tooltip>
             </div>
-          ) : (
-            <div className="min-w-0 flex-1" />
-          )}
+          ) : null}
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center justify-end gap-1.5 sm:min-w-0 sm:flex-1">
             {/* Undo / redo deck history */}
             <div
               role="group"

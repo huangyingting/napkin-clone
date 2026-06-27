@@ -22,6 +22,11 @@ export type SegmentedControlProps<T extends string> = {
   "aria-label": string;
   size?: ButtonSize;
   className?: string;
+  /**
+   * Stretch segments to equal width so they fill the track and each label is
+   * centered within its segment (instead of content-width, left-packed).
+   */
+  stretch?: boolean;
 };
 
 const SIZE: Record<ButtonSize, string> = {
@@ -41,6 +46,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   size = "md",
   className,
+  stretch = false,
   ...rest
 }: SegmentedControlProps<T>) {
   const groupId = useId();
@@ -80,7 +86,8 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       className={cx(
-        "inline-flex items-center gap-0.5 border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-segment-track,#f4f8fb)] p-0.5",
+        "items-center gap-0.5 border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-segment-track,#f4f8fb)] p-0.5",
+        stretch ? "flex w-full" : "inline-flex",
         RADIUS.lg,
         className,
       )}
@@ -106,6 +113,7 @@ export function SegmentedControl<T extends string>({
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cx(
               "inline-flex select-none items-center justify-center font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+              stretch ? "flex-1" : "",
               SIZE[size],
               RADIUS.md,
               active
