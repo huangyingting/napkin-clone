@@ -66,7 +66,12 @@ import {
   PRESENTATION_ROLES,
   type PresentationRole,
 } from "@/lib/presentation/presentation-theme";
-import type { ShapeKind, Slide, SlideElement } from "@/lib/presentation/deck";
+import type {
+  Deck,
+  ShapeKind,
+  Slide,
+  SlideElement,
+} from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { SlideFormat } from "@/lib/presentation/slide-format";
@@ -977,9 +982,11 @@ export function ColorThemePanel({
 }
 
 export function SlideTemplatePicker({
+  customTemplates = [],
   onPick,
 }: {
-  onPick: (kind: SlideTemplateKind) => void;
+  customTemplates?: NonNullable<Deck["customTemplates"]>;
+  onPick: (kind: SlideTemplateKind | string) => void;
 }) {
   return (
     <div
@@ -1017,6 +1024,34 @@ export function SlideTemplatePicker({
             </span>
           </button>
         ))}
+        {customTemplates.length > 0 ? (
+          <>
+            <div className="my-1 border-t border-ds-border-subtle" />
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+              Custom
+            </p>
+            {customTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                role="menuitem"
+                onClick={() => onPick(template.id)}
+                title={template.name}
+                className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                <TemplatePreview kind="blank" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
+                    {template.name}
+                  </span>
+                  <span className="truncate text-[10px] leading-tight text-ds-text-muted">
+                    Deck template
+                  </span>
+                </span>
+              </button>
+            ))}
+          </>
+        ) : null}
       </div>
     </div>
   );

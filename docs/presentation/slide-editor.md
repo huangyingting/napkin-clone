@@ -86,14 +86,16 @@ first-level text controls:
 Add | Insert | Design | Source | View                    Undo Redo | Save status | Save | Close
 ```
 
-- **Add** opens the slide template picker and creates a new slide.
+- **Add** opens the slide template picker and creates a new slide from built-in
+  or deck-local custom templates.
 - **Insert** creates new current-slide objects through slide commands: text,
   image, shape, visual, connector when two connectable objects are selected, and
   document text/visuals when insertable source content exists. Newly inserted
   objects become selected so the canvas popover and inspector take over editing.
 - **Design** owns deck canvas size, presentation theme/tokens, current-slide
-  background, current-slide accent, and applying the selected solid/gradient
-  background across the deck.
+  background, current-slide accent, clearing current-slide background/accent
+  overrides, and applying the selected solid/gradient background or accent
+  across the deck.
 - **Source** owns document sync status, sync from document, stale-link review,
   and source-link actions that apply to the selected linked element.
 - **View** owns view toggles and shortcuts: thumbnails, snap to grid, and the

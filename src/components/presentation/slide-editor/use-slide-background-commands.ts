@@ -16,6 +16,7 @@ import {
 import { appendPendingPatches } from "./use-slide-editor-commit";
 import { type SlideFormat } from "@/lib/presentation/slide-format";
 import {
+  slideAccentValue,
   slideBackgroundGradientValue,
   slideBackgroundImageValue,
   slideSolidBackgroundValue,
@@ -316,6 +317,38 @@ export function useSlideBackgroundCommands({
     [deck, onDeckChange, pendingPatchesRef, setThemeMenuOpen],
   );
 
+  const applyDeckAccent = useCallback(
+    (accent: string) => {
+      let nextDeck = deck;
+      const patches: DeckPatch[] = [];
+      for (const slide of deck.slides) {
+        if (slideAccentValue(slide) === accent) {
+          continue;
+        }
+        const { result, patches: commandPatches } = commitCommand(nextDeck, {
+          type: "SET_SLIDE_ACCENT",
+          slideId: slide.id,
+          accent,
+        });
+        if (!result.ok) return;
+        nextDeck = result.deck;
+        patches.push(...commandPatches);
+      }
+      if (patches.length > 0) {
+        appendPendingPatches(pendingPatchesRef, patches);
+        onDeckChange(nextDeck);
+        emitProductTelemetry("product.editor.command.succeeded", {
+          commandName: "apply_deck_accent",
+          elementCountBucket: bucketCount(patches.length),
+          slideCount: nextDeck.slides.length,
+          surface: "slide-editor",
+        });
+      }
+      setThemeMenuOpen(false);
+    },
+    [deck, onDeckChange, pendingPatchesRef, setThemeMenuOpen],
+  );
+
   const handleBackgroundChange = useCallback(
     (color: string | undefined) => {
       const slideId = deck.slides[safeSelected]?.id;
@@ -381,6 +414,58 @@ export function useSlideBackgroundCommands({
     [deck, doCommitAndChange, safeSelected],
   );
 
+  const handleClearSlideDesignOverrides = useCallback(() => {
+    const slide = deck.slides[safeSelected];
+    const slideId = slide?.id;
+    if (!slide || !slideId) return;
+    let nextDeck = deck;
+    const patches: DeckPatch[] = [];
+    const commands: Parameters<typeof commitCommand>[1][] = [];
+    if (slideBackgroundImageValue(slide) !== undefined) {
+      commands.push({
+        type: "SET_SLIDE_BACKGROUND_ASSET",
+        slideId,
+        opts: undefined,
+      });
+      commands.push({
+        type: "SET_SLIDE_BACKGROUND_IMAGE",
+        slideId,
+        image: undefined,
+      });
+    }
+    if (slideBackgroundGradientValue(slide) !== undefined) {
+      commands.push({
+        type: "SET_SLIDE_BACKGROUND_GRADIENT",
+        slideId,
+        gradient: undefined,
+      });
+    }
+    if (slideSolidBackgroundValue(slide) !== undefined) {
+      commands.push({
+        type: "SET_SLIDE_BACKGROUND",
+        slideId,
+        background: undefined,
+      });
+    }
+    if (slideAccentValue(slide) !== undefined) {
+      commands.push({ type: "SET_SLIDE_ACCENT", slideId, accent: undefined });
+    }
+    for (const command of commands) {
+      const { result, patches: commandPatches } = commitCommand(
+        nextDeck,
+        command,
+      );
+      if (!result.ok) return;
+      nextDeck = result.deck;
+      patches.push(...commandPatches);
+    }
+    if (patches.length > 0) {
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(nextDeck);
+    }
+    setThemeMenuOpen(false);
+  }, [deck, onDeckChange, pendingPatchesRef, safeSelected, setThemeMenuOpen]);
+
   const handleSlideFormatChange = useCallback(
     (slideFormat: SlideFormat) => {
       const startedAt = performance.now();
@@ -442,11 +527,13 @@ export function useSlideBackgroundCommands({
   return {
     applyDeckSolidBackground,
     applyDeckGradientBackground,
+    applyDeckAccent,
     handleBackgroundChange,
     handleAccentChange,
     handleBackgroundGradientChange,
     handleBackgroundImageChange,
     handleBackgroundAssetChange,
+    handleClearSlideDesignOverrides,
     handleSlideFormatChange,
     handleUpdateThemeOverrides,
     handleResetThemeOverrides,

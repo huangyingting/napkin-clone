@@ -1075,6 +1075,14 @@ export function SlideEditor({
     selectedSlideBackgroundImage === undefined &&
     (selectedSlideBackgroundGradient !== undefined ||
       selectedSlideBackgroundColor !== undefined);
+  const selectedSlideAccent = selectedSlide
+    ? slideAccentValue(selectedSlide)
+    : undefined;
+  const canClearCurrentSlideDesignOverrides =
+    selectedSlideBackgroundImage !== undefined ||
+    selectedSlideBackgroundGradient !== undefined ||
+    selectedSlideBackgroundColor !== undefined ||
+    selectedSlideAccent !== undefined;
 
   const handleClearSelection = useCallback(() => {
     setSelectedSlideFrameId(null);
@@ -1497,11 +1505,13 @@ export function SlideEditor({
   const {
     applyDeckSolidBackground,
     applyDeckGradientBackground,
+    applyDeckAccent,
     handleBackgroundChange,
     handleAccentChange,
     handleBackgroundGradientChange,
     handleBackgroundImageChange,
     handleBackgroundAssetChange,
+    handleClearSlideDesignOverrides,
     handleSlideFormatChange,
     handleUpdateThemeOverrides,
     handleResetThemeOverrides,
@@ -1760,7 +1770,10 @@ export function SlideEditor({
                     onClose={() => setSpotlightPickerOpen(false)}
                   />
                 ) : (
-                  <SlideTemplatePicker onPick={handleAddTemplate} />
+                  <SlideTemplatePicker
+                    customTemplates={deck.customTemplates}
+                    onPick={handleAddTemplate}
+                  />
                 )}
               </Popover>
               <div
@@ -1976,31 +1989,54 @@ export function SlideEditor({
                         activeColor={accentForSelected}
                         onPick={handleAccentChange}
                       />
-                    </TopToolbarMenuSection>
-                    {canApplyCurrentBackgroundToAll ? (
-                      <TopToolbarMenuSection title="Apply">
+                      {canClearCurrentSlideDesignOverrides ? (
                         <TopToolbarMenuAction
-                          icon={
-                            <span
-                              aria-hidden="true"
-                              className="h-4 w-4 rounded-full border border-ds-border-subtle"
-                              style={
-                                selectedSlideBackgroundGradient
-                                  ? {
-                                      background: gradientCss(
-                                        selectedSlideBackgroundGradient,
-                                      ),
-                                    }
-                                  : {
-                                      backgroundColor:
-                                        selectedSlideBackgroundColor,
-                                    }
-                              }
-                            />
-                          }
-                          label="Apply background to all slides"
-                          onClick={handleApplyCurrentBackgroundToAll}
+                          icon={<X size={15} aria-hidden="true" />}
+                          label="Clear slide overrides"
+                          detail="Reset background and accent"
+                          onClick={handleClearSlideDesignOverrides}
                         />
+                      ) : null}
+                    </TopToolbarMenuSection>
+                    {canApplyCurrentBackgroundToAll || selectedSlide ? (
+                      <TopToolbarMenuSection title="Apply">
+                        {canApplyCurrentBackgroundToAll ? (
+                          <TopToolbarMenuAction
+                            icon={
+                              <span
+                                aria-hidden="true"
+                                className="h-4 w-4 rounded-full border border-ds-border-subtle"
+                                style={
+                                  selectedSlideBackgroundGradient
+                                    ? {
+                                        background: gradientCss(
+                                          selectedSlideBackgroundGradient,
+                                        ),
+                                      }
+                                    : {
+                                        backgroundColor:
+                                          selectedSlideBackgroundColor,
+                                      }
+                                }
+                              />
+                            }
+                            label="Apply background to all slides"
+                            onClick={handleApplyCurrentBackgroundToAll}
+                          />
+                        ) : null}
+                        {selectedSlide ? (
+                          <TopToolbarMenuAction
+                            icon={
+                              <span
+                                aria-hidden="true"
+                                className="h-4 w-4 rounded-full border border-ds-border-subtle"
+                                style={{ backgroundColor: accentForSelected }}
+                              />
+                            }
+                            label="Apply accent to all slides"
+                            onClick={() => applyDeckAccent(accentForSelected)}
+                          />
+                        ) : null}
                       </TopToolbarMenuSection>
                     ) : null}
                   </div>

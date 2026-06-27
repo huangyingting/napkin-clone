@@ -4,19 +4,14 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { Deck, ShapeKind, SlideElement } from "@/lib/presentation/deck";
 import { buildVisualElement, makeElementId } from "@/lib/presentation/deck";
-import {
-  addElement,
-  type DistributiveOmit,
-} from "@/lib/presentation/deck-mutations";
+import { type DistributiveOmit } from "@/lib/presentation/deck-mutations";
 import type { AddElementKind } from "@/components/presentation/slide-inspector";
 import {
   commitCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
-import { clearPendingPatches } from "./use-slide-editor-commit";
 import {
   TEMPLATE_IMAGE_PLACEHOLDER_SRC,
-  buildTemplateSlide,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
 import {
@@ -25,7 +20,6 @@ import {
   insertableVisualElement,
   type Insertable,
 } from "@/lib/presentation/document-insertable";
-import { insertSlide } from "@/lib/presentation/deck-mutations";
 import { DEFAULT_VISUAL_BOX } from "@/lib/presentation/deck";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import {
@@ -40,7 +34,7 @@ import type { ElementBox } from "@/lib/presentation/deck";
 import type { PresentationRole } from "@/lib/presentation/presentation-theme";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
-import { deckCanvasFormat } from "@/components/presentation/v6-deck-ui";
+import { appendPendingPatches } from "./use-slide-editor-commit";
 
 type DoCommitAndChange = (
   deck: Deck,
@@ -212,7 +206,7 @@ interface UseSlideInsertCommandsOptions {
   deck: Deck;
   safeSelected: number;
   pendingPatchesRef: { current: DeckPatch[] };
-  onDeckChange: (deck: Deck) => void;
+  onDeckChange: (deck: Deck, opts?: { coalesceKey?: string }) => void;
   doCommitAndChange: DoCommitAndChange;
   handleSelectElement: (id: string) => void;
   fittedStageSize: { width: number; height: number };
@@ -269,25 +263,45 @@ export function useSlideInsertCommands({
     },
     [fittedStageSize.height, fittedStageSize.width, zoom],
   );
+
+  const selectInsertedSlide = useCallback(
+    (nextDeck: Deck, insertedSlideId: string | undefined) => {
+      if (insertedSlideId) {
+        const insertedIndex = nextDeck.slides.findIndex(
+          (slide) => slide.id === insertedSlideId,
+        );
+        if (insertedIndex >= 0) {
+          setSelectedIndex(insertedIndex);
+          return;
+        }
+      }
+      setSelectedIndex(Math.min(safeSelected + 1, nextDeck.slides.length - 1));
+    },
+    [safeSelected, setSelectedIndex],
+  );
+
   const handleAddTemplate = useCallback(
-    (kind: SlideTemplateKind) => {
+    (kind: SlideTemplateKind | string) => {
       if (kind === "visual" && visuals.size > 0) {
         setAddTemplateOpen(false);
         setSpotlightPickerOpen(true);
         return;
       }
-      const slide = buildTemplateSlide(kind, {
-        slideFormat: deckCanvasFormat(deck),
-      });
-      const next = insertSlide(deck, safeSelected, slide);
-      clearPendingPatches(pendingPatchesRef);
-      onDeckChange(next);
+      const { result, commitOptions, patches, affectedSlideIds } =
+        commitCommand(deck, {
+          type: "ADD_SLIDE_FROM_TEMPLATE",
+          templateId: kind,
+          afterSlideId: deck.slides[safeSelected]?.id ?? null,
+        });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
       emitProductTelemetry("product.editor.command.succeeded", {
         commandName: "add_template_slide",
-        slideCount: next.slides.length,
+        slideCount: result.deck.slides.length,
         surface: "slide-editor",
       });
-      setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
+      selectInsertedSlide(result.deck, affectedSlideIds[0]);
       setAddTemplateOpen(false);
     },
     [
@@ -295,28 +309,31 @@ export function useSlideInsertCommands({
       onDeckChange,
       pendingPatchesRef,
       safeSelected,
+      selectInsertedSlide,
       visuals,
       setAddTemplateOpen,
       setSpotlightPickerOpen,
-      setSelectedIndex,
     ],
   );
 
   const handleSpotlightPick = useCallback(
     (visualId: string) => {
-      const slide = buildTemplateSlide("visual", {
-        slideFormat: deckCanvasFormat(deck),
-        visualId,
-      });
-      const next = insertSlide(deck, safeSelected, slide);
-      clearPendingPatches(pendingPatchesRef);
-      onDeckChange(next);
+      const { result, commitOptions, patches, affectedSlideIds } =
+        commitCommand(deck, {
+          type: "ADD_SLIDE_FROM_TEMPLATE",
+          templateId: "visual",
+          visualId,
+          afterSlideId: deck.slides[safeSelected]?.id ?? null,
+        });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
       emitProductTelemetry("product.editor.command.succeeded", {
         commandName: "add_visual_spotlight_slide",
-        slideCount: next.slides.length,
+        slideCount: result.deck.slides.length,
         surface: "slide-editor",
       });
-      setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
+      selectInsertedSlide(result.deck, affectedSlideIds[0]);
       setSpotlightPickerOpen(false);
     },
     [
@@ -324,8 +341,8 @@ export function useSlideInsertCommands({
       onDeckChange,
       pendingPatchesRef,
       safeSelected,
+      selectInsertedSlide,
       setSpotlightPickerOpen,
-      setSelectedIndex,
     ],
   );
 
@@ -533,9 +550,11 @@ export function useSlideInsertCommands({
   );
 
   const handleAddAllVisuals = useCallback(() => {
+    const slideId = deck.slides[safeSelected]?.id;
     const ids = [...visuals.keys()];
-    if (ids.length === 0) return;
-    let next = deck;
+    if (!slideId || ids.length === 0) return;
+    let nextDeck = deck;
+    const patches: DeckPatch[] = [];
     ids.forEach((visualId, i) => {
       const offset = Math.min(i, 8) * 2;
       const element = buildVisualElement(visualId, {
@@ -546,10 +565,18 @@ export function useSlideInsertCommands({
           h: DEFAULT_VISUAL_BOX.h,
         },
       });
-      next = addElement(next, safeSelected, element);
+      const { result, patches: commandPatches } = commitCommand(nextDeck, {
+        type: "ADD_ELEMENT",
+        slideId,
+        element,
+      });
+      if (!result.ok) return;
+      nextDeck = result.deck;
+      patches.push(...commandPatches);
     });
-    clearPendingPatches(pendingPatchesRef);
-    onDeckChange(next);
+    if (patches.length === 0) return;
+    appendPendingPatches(pendingPatchesRef, patches);
+    onDeckChange(nextDeck);
   }, [deck, onDeckChange, pendingPatchesRef, safeSelected, visuals]);
 
   const documentTextInsertables = useMemo(
