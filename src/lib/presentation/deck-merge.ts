@@ -26,6 +26,7 @@
 
 import type { Deck, Slide } from "./deck-core";
 import type { SlideElement, TextRun, VisualElement } from "./deck-elements";
+import type { SourceRef } from "./deck-source-refs";
 import { buildSlideElementsFromContent } from "./deck-derivation";
 import { buildVisualElement } from "./deck-elements";
 import { normalizeTitle } from "./deck-hash";
@@ -114,7 +115,9 @@ function snapshot(slide: Slide): MergeSlideSnapshot {
   };
 }
 
-function elementContent(element: SlideElement | undefined): Record<string, any> {
+function elementContent(
+  element: SlideElement | undefined,
+): Record<string, any> {
   if (element === undefined) return {};
   return ((element as any).content ?? {}) as Record<string, any>;
 }
@@ -125,6 +128,12 @@ function elementRole(element: SlideElement): string | undefined {
 
 function elementVisualId(element: SlideElement): string | undefined {
   return elementContent(element).visualId ?? (element as any).visualId;
+}
+
+function elementSourceRef(element: SlideElement): SourceRef | undefined {
+  return ((element as any).source ?? (element as any).sourceRef) as
+    | SourceRef
+    | undefined;
 }
 
 function slideLayout(slide: Slide): string {
@@ -180,9 +189,13 @@ function sameContent(existing: Slide, fresh: Slide): boolean {
     slideLayout(existing) === slideLayout(fresh) &&
     existing.notes === fresh.notes &&
     slideBullets(existing).length === slideBullets(fresh).length &&
-    slideBullets(existing).every((bullet, i) => bullet === slideBullets(fresh)[i]) &&
+    slideBullets(existing).every(
+      (bullet, i) => bullet === slideBullets(fresh)[i],
+    ) &&
     slideVisualIds(existing).length === slideVisualIds(fresh).length &&
-    slideVisualIds(existing).every((id, i) => id === slideVisualIds(fresh)[i]) &&
+    slideVisualIds(existing).every(
+      (id, i) => id === slideVisualIds(fresh)[i],
+    ) &&
     sameRunList(slideTitleRuns(existing), slideTitleRuns(fresh)) &&
     sameBulletRuns(slideBulletRuns(existing), slideBulletRuns(fresh))
   );
@@ -265,7 +278,7 @@ function applyElementSourceUpdates(
 ): { elements: SlideElement[]; sourceUpdatedCount: number } {
   let sourceUpdatedCount = 0;
   const updated = elements.map((el): SlideElement => {
-    const { sourceRef } = el;
+    const sourceRef = elementSourceRef(el);
     if (
       sourceRef === undefined ||
       sourceRef.unlinked === true ||
@@ -319,7 +332,17 @@ function applyElementSourceUpdates(
  * have not been hand-edited since.
  */
 function elementsArePurelyDerived(slide: Slide): boolean {
-  return slide.elementsDerived === true;
+  const elements = slide.elements ?? [];
+  if (elements.length === 0) return false;
+  return elements.every((element) => {
+    const role = elementRole(element);
+    return (
+      role === "title" ||
+      role === "sectionTitle" ||
+      role === "bullet" ||
+      role === "visual"
+    );
+  });
 }
 
 /**

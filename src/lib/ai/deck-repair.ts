@@ -113,34 +113,66 @@ export function repairElement(
   }
 
   const base = { id, box: repairBox(input.box), zIndex };
+  const content = isPlainObject(input.content) ? input.content : {};
+  const designOverrides = isPlainObject(input.designOverrides)
+    ? input.designOverrides
+    : {};
 
   switch (input.kind) {
     case "text": {
       const textRole: DeckTextRole | undefined = isDeckTextRole(input.textRole)
         ? input.textRole
-        : undefined;
-      const text = typeof input.text === "string" ? input.text : "";
+        : input.role === "title"
+          ? "h1"
+          : input.role === "sectionTitle"
+            ? "h2"
+            : input.role === "bullet"
+              ? "bullet"
+              : undefined;
+      const text =
+        typeof content.text === "string"
+          ? content.text
+          : typeof input.text === "string"
+            ? input.text
+            : "";
       return {
         ...base,
         kind: "text",
         text,
-        paragraphs: [{ text }],
+        paragraphs: Array.isArray(content.paragraphs)
+          ? content.paragraphs
+          : [{ text }],
         ...(textRole !== undefined ? { textRole } : {}),
-        style: repairTextStyle(input.style),
+        style: repairTextStyle(
+          isPlainObject(designOverrides.textStyle)
+            ? designOverrides.textStyle
+            : input.style,
+        ),
       };
     }
     case "visual": {
-      if (typeof input.visualId !== "string" || input.visualId.length === 0) {
+      const visualId =
+        typeof content.visualId === "string"
+          ? content.visualId
+          : typeof input.visualId === "string"
+            ? input.visualId
+            : "";
+      if (visualId.length === 0) {
         return undefined;
       }
+      const styleThemeId =
+        typeof designOverrides.styleThemeId === "string"
+          ? designOverrides.styleThemeId
+          : typeof content.styleThemeId === "string"
+            ? content.styleThemeId
+            : typeof input.styleThemeId === "string"
+              ? input.styleThemeId
+              : undefined;
       return {
         ...base,
         kind: "visual",
-        visualId: input.visualId,
-        ...(typeof input.styleThemeId === "string" &&
-        input.styleThemeId.length > 0
-          ? { styleThemeId: input.styleThemeId }
-          : {}),
+        visualId,
+        ...(styleThemeId && styleThemeId.length > 0 ? { styleThemeId } : {}),
       };
     }
     default:
@@ -214,17 +246,28 @@ export function repairDeck(
   // normalizer (normalizeGeneratedDeck) can apply the generic resolver
   // fallback — including substituting preferredTheme when the value is
   // unrecognised. Fall back to DEFAULT_THEME only when themeId is absent.
+  const candidateDesign = isPlainObject(candidate.design)
+    ? candidate.design
+    : {};
   const rawThemeId =
-    typeof candidate.themeId === "string" ? candidate.themeId.trim() : "";
+    typeof candidateDesign.themeId === "string"
+      ? candidateDesign.themeId.trim()
+      : typeof candidate.themeId === "string"
+        ? candidate.themeId.trim()
+        : "";
   const themeId: string = rawThemeId.length > 0 ? rawThemeId : DEFAULT_THEME;
 
   const slides = candidate.slides
     .slice(0, REPAIRED_DECK_MAX_SLIDES)
     .map((slide, index) => repairSlide(slide, index));
 
-  return normalizeGeneratedDeck({
-    slides,
-    themeId,
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  } as Deck, inventory, preferredTheme);
+  return normalizeGeneratedDeck(
+    {
+      slides,
+      themeId,
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    } as Deck,
+    inventory,
+    preferredTheme,
+  );
 }

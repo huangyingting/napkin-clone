@@ -1,23 +1,40 @@
 import type { JSX } from "react";
 
 import type { ShapeElement, SlideElement } from "@/lib/presentation/deck";
-import type { ShapeToken } from "@/lib/presentation/deck-theme-tokens";
+import type {
+  DeckThemeTokenSet,
+  ShapeToken,
+} from "@/lib/presentation/deck-theme-tokens";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 
 import { boxStyle, contrastTextColor, renderRuns } from "./primitives";
+import {
+  colorRefValue,
+  elementDesignOverrides,
+  shapeContent,
+  shapeTextDesign,
+} from "./v6-model";
 
-function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
-  const text = element.text?.trim();
-  if (!text || element.shape === "line") return null;
-  const style = element.textStyle ?? {
-    fontSize: SLIDE_TEXT_FONT_SIZE.text,
-    bold: false,
-    italic: false,
-    align: "center" as const,
-  };
-  const color = style.color ?? contrastTextColor(element.color);
+function ShapeText({
+  element,
+  fillColor,
+}: {
+  element: ShapeElement;
+  fillColor: string;
+}): JSX.Element | null {
+  const content = shapeContent(element);
+  const text = content.text?.trim();
+  if (!text || content.shape === "line") return null;
+  const style = shapeTextDesign(element);
+  const fontSize = style.fontSize ?? SLIDE_TEXT_FONT_SIZE.text;
+  const align = style.align ?? "center";
+  const color = style.color ?? contrastTextColor(fillColor);
   const fontCss = resolveElementFontCss(style.fontId);
+  const bold = style.bold ?? false;
+  const italic = style.italic ?? false;
+  const underline = style.underline ?? false;
+  const textRuns = content.textRuns;
   return (
     <div
       style={{
@@ -27,12 +44,12 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
         alignItems: "center",
         justifyContent: "center",
         color,
-        fontSize: `${style.fontSize}cqh`,
-        fontWeight: style.bold ? 700 : 400,
-        fontStyle: style.italic ? "italic" : "normal",
-        ...(style.underline ? { textDecoration: "underline" } : {}),
+        fontSize: `${fontSize}cqh`,
+        fontWeight: bold ? 700 : 400,
+        fontStyle: italic ? "italic" : "normal",
+        ...(underline ? { textDecoration: "underline" } : {}),
         ...(fontCss ? { fontFamily: fontCss } : {}),
-        textAlign: style.align,
+        textAlign: align,
         lineHeight: 1.15,
         whiteSpace: "pre-wrap",
         overflow: "hidden",
@@ -42,9 +59,7 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
       }}
     >
       <div style={{ width: "100%" }}>
-        {element.textRuns && element.textRuns.length > 0
-          ? renderRuns(element.textRuns)
-          : element.text}
+        {textRuns && textRuns.length > 0 ? renderRuns(textRuns) : content.text}
       </div>
     </div>
   );
@@ -53,21 +68,28 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
 export function ShapeElementView({
   element,
   elements: _elements,
+  tokenSet,
   defaults,
 }: {
   element: ShapeElement;
   elements: readonly SlideElement[];
+  tokenSet: DeckThemeTokenSet;
   /** Deck-template shape defaults applied when the element omits a field (#607). */
   defaults?: ShapeToken;
 }): JSX.Element {
+  const content = shapeContent(element);
+  const design = elementDesignOverrides(element);
+  const fillColor =
+    colorRefValue(design.fill, tokenSet) ?? defaults?.fill ?? "#6366f1";
   // Effective stroke: element stroke wins, else a deck-template default stroke
   // (#607) when the token defines one. Built-in themes set no shape stroke token.
   const effStroke =
-    element.stroke ??
+    (design.stroke as { color: string; width: number } | undefined) ??
     (defaults?.stroke
       ? { color: defaults.stroke, width: defaults.strokeWidth ?? 0.4 }
       : undefined);
-  if (element.shape === "line") {
+  const radius = typeof design.radius === "number" ? design.radius : undefined;
+  if (content.shape === "line") {
     return (
       <div
         style={{
@@ -80,13 +102,13 @@ export function ShapeElementView({
           style={{
             height: `${effStroke?.width ?? 0.4}cqmin`,
             width: "100%",
-            backgroundColor: effStroke?.color ?? element.color,
+            backgroundColor: effStroke?.color ?? fillColor,
           }}
         />
       </div>
     );
   }
-  if (element.shape === "triangle") {
+  if (content.shape === "triangle") {
     return (
       <div
         style={{
@@ -99,11 +121,11 @@ export function ShapeElementView({
           style={{
             position: "absolute",
             inset: 0,
-            backgroundColor: element.color,
+            backgroundColor: fillColor,
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
           }}
         />
-        <ShapeText element={element} />
+        <ShapeText element={element} fillColor={fillColor} />
       </div>
     );
   }
@@ -112,12 +134,12 @@ export function ShapeElementView({
       style={{
         ...boxStyle(element),
         overflow: "hidden",
-        backgroundColor: element.color,
+        backgroundColor: fillColor,
         borderRadius:
-          element.shape === "ellipse"
+          content.shape === "ellipse"
             ? "9999px"
-            : element.radius !== undefined
-              ? `${element.radius}%`
+            : radius !== undefined
+              ? `${radius}%`
               : "0.25rem",
         ...(effStroke
           ? {
@@ -126,7 +148,7 @@ export function ShapeElementView({
           : {}),
       }}
     >
-      <ShapeText element={element} />
+      <ShapeText element={element} fillColor={fillColor} />
     </div>
   );
 }

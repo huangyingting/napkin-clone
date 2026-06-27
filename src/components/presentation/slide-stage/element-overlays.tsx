@@ -41,7 +41,6 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
-import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
@@ -53,6 +52,15 @@ import {
   type InlineTextCommandDetail,
   type InlineTextCommandPayload,
 } from "@/components/presentation/slide-stage/inline-text-editor";
+import {
+  connectorContent,
+  connectorDesign,
+  elementDesignOverrides,
+  shapeContent,
+  shapeTextDesign,
+  textContent,
+  textDesign,
+} from "@/components/presentation/slide-canvas/v6-model";
 
 function defaultShapeTextStyle(): TextElementStyle {
   return {
@@ -149,8 +157,9 @@ export function ElementToolbarContent({
     brandSwatches,
     DEFAULT_SWATCH_PRESETS,
   );
-  const textParagraphs =
-    element.kind === "text" ? normalizeTextParagraphs(element) : [];
+  const currentTextContent =
+    element.kind === "text" ? textContent(element) : null;
+  const textParagraphs = currentTextContent?.paragraphs ?? [];
   const allBullets =
     textParagraphs.length > 0 &&
     textParagraphs.every((paragraph) => paragraph.listType === "bullet");
@@ -162,11 +171,16 @@ export function ElementToolbarContent({
     textRole?: "body" | "bullet",
   ) => {
     if (element.kind !== "text") return;
+    const current = textContent(element);
     onUpdateElement(element.id, {
-      text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
-      paragraphs,
-      ...(textRole ? { textRole } : {}),
-    });
+      role: textRole ?? (element as { role?: string }).role,
+      content: {
+        ...current,
+        kind: "text",
+        text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
+        paragraphs,
+      },
+    } as ElementPatch);
   };
   const nextArrow = (arrow: ConnectorArrow): ConnectorArrow => {
     if (arrow === "none") return "arrow";
@@ -186,35 +200,76 @@ export function ElementToolbarContent({
   const handleTextStyleChange = (style: TextElementStyle) => {
     if (element.kind !== "text") return;
     if (!hideObjectActions) {
-      onUpdateElement(element.id, { style });
+      onUpdateElement(element.id, {
+        designOverrides: {
+          ...elementDesignOverrides(element),
+          textStyle: style,
+        },
+      } as ElementPatch);
       return;
     }
-    if (style.bold !== element.style.bold) {
+    const currentStyle = textDesign(element);
+    if (style.bold !== currentStyle.bold) {
       dispatchInlineTextCommand({ command: "bold" });
     }
-    if (style.italic !== element.style.italic) {
+    if (style.italic !== currentStyle.italic) {
       dispatchInlineTextCommand({ command: "italic" });
     }
-    if ((style.underline ?? false) !== (element.style.underline ?? false)) {
+    if ((style.underline ?? false) !== (currentStyle.underline ?? false)) {
       dispatchInlineTextCommand({ command: "underline" });
     }
-    if (style.color !== element.style.color && style.color) {
+    if (style.color !== currentStyle.color && style.color) {
       dispatchInlineTextCommand({ command: "color", value: style.color });
     }
-    if (style.align !== element.style.align) {
+    if (style.align !== currentStyle.align) {
       dispatchInlineTextCommand({ command: "align", value: style.align });
     }
-    if (style.fontSize !== element.style.fontSize) {
+    if (style.fontSize !== currentStyle.fontSize) {
       dispatchInlineTextCommand({ command: "fontSize", value: style.fontSize });
     }
   };
+  const textStyle =
+    element.kind === "text"
+      ? {
+          fontSize: textDesign(element).fontSize ?? SLIDE_TEXT_FONT_SIZE.text,
+          bold: textDesign(element).bold ?? false,
+          italic: textDesign(element).italic ?? false,
+          align: textDesign(element).align ?? ("left" as const),
+          ...textDesign(element),
+        }
+      : undefined;
+  const shape =
+    element.kind === "shape" ? shapeContent(element).shape : undefined;
+  const shapeDesign =
+    element.kind === "shape" ? elementDesignOverrides(element) : undefined;
+  const shapeFill =
+    element.kind === "shape" &&
+    typeof (shapeDesign?.fill as { value?: unknown } | undefined)?.value ===
+      "string"
+      ? (shapeDesign?.fill as { value: string }).value
+      : tc.accentColor;
+  const shapeLabelStyle =
+    element.kind === "shape"
+      ? {
+          ...defaultShapeTextStyle(),
+          ...shapeTextDesign(element),
+        }
+      : undefined;
+  const connector =
+    element.kind === "connector" ? connectorContent(element) : null;
+  const connectorStyle =
+    element.kind === "connector" ? connectorDesign(element) : null;
+  const connectorRouting = connector?.routing ?? "straight";
+  const connectorDash = connectorStyle?.dash ?? false;
+  const connectorArrowStart = connectorStyle?.arrowStart ?? "none";
+  const connectorArrowEnd = connectorStyle?.arrowEnd ?? "arrow";
   return (
     <>
       {element.kind === "text" ? (
         <>
           <TextStyleBar
             variant="compact"
-            style={element.style}
+            style={textStyle!}
             colorPresets={textColorPresets}
             onChange={handleTextStyleChange}
           />
@@ -294,21 +349,33 @@ export function ElementToolbarContent({
       {element.kind === "shape" ? (
         <>
           <ColorPicker
-            color={element.color}
-            onChange={(color) => onUpdateElement(element.id, { color })}
+            color={shapeFill}
+            onChange={(color) =>
+              onUpdateElement(element.id, {
+                designOverrides: {
+                  ...elementDesignOverrides(element),
+                  fill: { value: color },
+                },
+              } as ElementPatch)
+            }
             aria-label="Shape color"
             presets={shapeColorPresets}
             size="lg"
             triggerChrome="toolbar"
             icon={<Palette size={14} aria-hidden="true" />}
           />
-          {element.shape !== "line" ? (
+          {shape !== "line" ? (
             <TextStyleBar
               variant="compact"
-              style={element.textStyle ?? defaultShapeTextStyle()}
+              style={shapeLabelStyle!}
               colorPresets={textColorPresets}
               onChange={(textStyle) =>
-                onUpdateElement(element.id, { textStyle })
+                onUpdateElement(element.id, {
+                  designOverrides: {
+                    ...elementDesignOverrides(element),
+                    textStyle,
+                  },
+                } as ElementPatch)
               }
             />
           ) : null}
@@ -318,28 +385,44 @@ export function ElementToolbarContent({
       {element.kind === "connector" ? (
         <>
           <ElementToolbarButton
-            icon={element.routing === "elbow" ? Minus : Spline}
+            icon={connectorRouting === "elbow" ? Minus : Spline}
             label={
-              element.routing === "elbow" ? "Straight routing" : "Elbow routing"
+              connectorRouting === "elbow"
+                ? "Straight routing"
+                : "Elbow routing"
             }
             onClick={() =>
               onUpdateElement(element.id, {
-                routing: element.routing === "elbow" ? "straight" : "elbow",
-              })
+                content: {
+                  ...connector!,
+                  kind: "connector",
+                  routing: connectorRouting === "elbow" ? "straight" : "elbow",
+                },
+              } as ElementPatch)
             }
           />
           <ElementToolbarButton
-            icon={element.dash ? Link : Link2Off}
-            label={element.dash ? "Solid line" : "Dashed line"}
-            onClick={() => onUpdateElement(element.id, { dash: !element.dash })}
+            icon={connectorDash ? Link : Link2Off}
+            label={connectorDash ? "Solid line" : "Dashed line"}
+            onClick={() =>
+              onUpdateElement(element.id, {
+                designOverrides: {
+                  ...elementDesignOverrides(element),
+                  dash: !connectorDash,
+                },
+              } as ElementPatch)
+            }
           />
           <ElementToolbarButtonWithText
             label="Cycle start arrowhead"
             icon={ArrowLeftFromLine}
             onClick={() =>
               onUpdateElement(element.id, {
-                arrowStart: nextArrow(element.arrowStart ?? "none"),
-              })
+                designOverrides: {
+                  ...elementDesignOverrides(element),
+                  arrowStart: nextArrow(connectorArrowStart),
+                },
+              } as ElementPatch)
             }
           />
           <ElementToolbarButtonWithText
@@ -347,8 +430,11 @@ export function ElementToolbarContent({
             icon={ArrowRightFromLine}
             onClick={() =>
               onUpdateElement(element.id, {
-                arrowEnd: nextArrow(element.arrowEnd ?? "arrow"),
-              })
+                designOverrides: {
+                  ...elementDesignOverrides(element),
+                  arrowEnd: nextArrow(connectorArrowEnd),
+                },
+              } as ElementPatch)
             }
           />
           <ToolbarDivider />

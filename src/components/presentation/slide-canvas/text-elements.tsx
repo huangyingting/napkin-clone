@@ -9,7 +9,6 @@ import {
 } from "react";
 
 import type { TextElement, TextFitMode } from "@/lib/presentation/deck";
-import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
 import { resolveRoleToken } from "@/lib/presentation/deck-theme-tokens";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
@@ -17,6 +16,12 @@ import { useSlideFontsReady } from "@/lib/presentation/slide-font-loading";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
 import { boxStyle, renderRuns } from "./primitives";
+import {
+  presentationRoleToDeckTextRole,
+  textAlignOrDefault,
+  textContent,
+  textDesign,
+} from "./v6-model";
 
 /**
  * Computes a CSS `font-size` string that shrinks the font until the content
@@ -79,28 +84,38 @@ export function TextElementView({
   tokenSet: DeckThemeTokenSet;
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
-  const fontSizeCss = useShrinkFontSizeCss(
-    containerRef,
-    element.style.fontSize,
-    element.fitMode,
-  );
-  // Resolve color + font from the element's semantic role token so a deck-level
-  // template change propagates to inherited text (#609/#615). A local override
-  // (element.style.color / .fontFamily) still wins. For built-in themes every
-  // role resolves to onBg / the theme font, so existing decks are unchanged.
-  const paragraphs = normalizeTextParagraphs(element);
+  const content = textContent(element);
+  const design = textDesign(element);
+  const paragraphs = content.paragraphs;
   const hasListParagraphs = paragraphs.some(
     (paragraph) => paragraph.listType !== undefined,
   );
   const roleToken = resolveRoleToken(
     tokenSet,
-    element.textRole ?? (hasListParagraphs ? "bullet" : "body"),
+    presentationRoleToDeckTextRole(
+      (element as { role?: string }).role,
+      hasListParagraphs ? "bullet" : "body",
+    ),
   );
+  const fontSize = design.fontSize ?? roleToken.fontSize;
+  const fontSizeCss = useShrinkFontSizeCss(
+    containerRef,
+    fontSize,
+    content.fitMode,
+  );
+  // Resolve color + font from the element's semantic role token; local
+  // designOverrides.textStyle values still win.
   void tc;
-  const color = element.style.color ?? roleToken.color;
+  const color = design.color ?? roleToken.color;
   const markerColor = accent ?? tokenSet.bullet?.markerColor ?? color;
   const roleFontFamily =
-    resolveElementFontCss(element.style.fontId) ?? roleToken.fontFamily;
+    resolveElementFontCss(design.fontId) ?? roleToken.fontFamily;
+  const align = textAlignOrDefault(design.align, roleToken.align ?? "left");
+  const verticalAlign = design.verticalAlign;
+  const bold = design.bold ?? roleToken.weight >= 600;
+  const italic = design.italic ?? roleToken.italic ?? false;
+  const underline = design.underline ?? roleToken.underline ?? false;
+  const lineHeight = design.lineHeight ?? roleToken.lineHeight;
 
   if (hasListParagraphs) {
     const numbers: (number | null)[] = [];
@@ -132,19 +147,19 @@ export function TextElementView({
           display: "flex",
           flexDirection: "column",
           justifyContent:
-            element.style.verticalAlign === "top"
+            verticalAlign === "top"
               ? "flex-start"
-              : element.style.verticalAlign === "bottom"
+              : verticalAlign === "bottom"
                 ? "flex-end"
                 : "center",
           color,
           fontSize: fontSizeCss,
-          fontWeight: element.style.bold ? 700 : 400,
-          fontStyle: element.style.italic ? "italic" : "normal",
-          ...(element.style.underline ? { textDecoration: "underline" } : {}),
+          fontWeight: bold ? 700 : 400,
+          fontStyle: italic ? "italic" : "normal",
+          ...(underline ? { textDecoration: "underline" } : {}),
           ...(roleFontFamily ? { fontFamily: roleFontFamily } : {}),
-          textAlign: element.style.align,
-          lineHeight: element.style.lineHeight ?? 1.2,
+          textAlign: align,
+          lineHeight: lineHeight ?? 1.2,
           overflow: "hidden",
         }}
       >
@@ -152,12 +167,12 @@ export function TextElementView({
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: element.bulletGap ? `${element.bulletGap}cqh` : "0.6em",
+            gap: content.bulletGap ? `${content.bulletGap}cqh` : "0.6em",
             margin: 0,
             padding: 0,
             listStyle: "none",
-            ...(element.bulletIndent
-              ? { paddingLeft: `${element.bulletIndent}cqw` }
+            ...(content.bulletIndent
+              ? { paddingLeft: `${content.bulletIndent}cqw` }
               : {}),
           }}
         >
@@ -239,19 +254,19 @@ export function TextElementView({
         display: "flex",
         flexDirection: "column",
         justifyContent:
-          element.style.verticalAlign === "top"
+          verticalAlign === "top"
             ? "flex-start"
-            : element.style.verticalAlign === "bottom"
+            : verticalAlign === "bottom"
               ? "flex-end"
               : "center",
-        textAlign: element.style.align,
+        textAlign: align,
         color,
         fontSize: fontSizeCss,
-        fontWeight: element.style.bold ? 700 : 400,
-        fontStyle: element.style.italic ? "italic" : "normal",
-        ...(element.style.underline ? { textDecoration: "underline" } : {}),
+        fontWeight: bold ? 700 : 400,
+        fontStyle: italic ? "italic" : "normal",
+        ...(underline ? { textDecoration: "underline" } : {}),
         ...(roleFontFamily ? { fontFamily: roleFontFamily } : {}),
-        lineHeight: element.style.lineHeight ?? 1.15,
+        lineHeight: lineHeight ?? 1.15,
         overflow: "hidden",
       }}
     >
@@ -263,8 +278,8 @@ export function TextElementView({
             whiteSpace: "pre-wrap",
             overflowWrap: "break-word",
             wordBreak: "normal",
-            ...(element.style.paragraphSpacing && index < paragraphs.length - 1
-              ? { marginBottom: `${element.style.paragraphSpacing}cqh` }
+            ...(design.paragraphSpacing && index < paragraphs.length - 1
+              ? { marginBottom: `${design.paragraphSpacing}cqh` }
               : {}),
           }}
         >

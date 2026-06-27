@@ -131,6 +131,14 @@ import {
 } from "@/components/presentation/slide-stage/resize-handles";
 import { InlineTextEditor } from "@/components/presentation/slide-stage/inline-text-editor";
 import { ElementContextMenu } from "@/components/presentation/slide-stage/element-overlays";
+import { slideAccentValue } from "@/components/presentation/v6-deck-ui";
+import {
+  colorRefValue,
+  elementDesignOverrides,
+  presentationRoleToDeckTextRole,
+  shapeContent,
+  textDesign,
+} from "@/components/presentation/slide-canvas/v6-model";
 
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "shape" }>,
@@ -138,11 +146,19 @@ function resolveTextColor(
   tokenSet: DeckThemeTokenSet,
 ): string {
   if (element.kind === "text") {
-    const role = element.textRole ?? "body";
-    return element.style.color ?? resolveRoleToken(tokenSet, role).color;
+    const design = textDesign(element);
+    const role = presentationRoleToDeckTextRole(
+      (element as { role?: string }).role,
+      "body",
+    );
+    return design.color ?? resolveRoleToken(tokenSet, role).color;
   }
-  void tc;
-  return element.textStyle?.color ?? contrastTextColor(element.color);
+  const design = elementDesignOverrides(element);
+  const fillColor = colorRefValue(design.fill, tokenSet) ?? tc.accentColor;
+  const textStyle = elementDesignOverrides(element).textStyle as
+    | { color?: string }
+    | undefined;
+  return textStyle?.color ?? contrastTextColor(fillColor);
 }
 
 function contrastTextColor(hex: string): string {
@@ -421,7 +437,7 @@ export function SlideStageEditor({
   }, [focusNonce]);
   const tc = resolveSlideThemeColors(deck, slide);
   const stageTokenSet = resolveSlideTokenSet(deck, slide);
-  const accent = slide.accent ?? tc.accentColor;
+  const accent = slideAccentValue(slide) ?? tc.accentColor;
   const stageAspect = width / height;
   const fittedBoxes = useMemo(() => {
     const map = new Map<string, ElementBox>();
@@ -1347,7 +1363,7 @@ export function SlideStageEditor({
         moved: false,
         startFontSize:
           startElement && startElement.kind === "text"
-            ? startElement.style.fontSize
+            ? (textDesign(startElement).fontSize ?? 4.5)
             : undefined,
         groupBoxes,
         wasPrimarySelected,
@@ -1729,7 +1745,8 @@ export function SlideStageEditor({
                     }
                   />
                 ) : (
-                  (element.kind === "shape" && element.shape === "line"
+                  (element.kind === "shape" &&
+                  shapeContent(element).shape === "line"
                     ? LINE_HANDLES
                     : HANDLES
                   ).map(({ handle, cursor, style }) => {

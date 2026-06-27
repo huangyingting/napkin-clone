@@ -44,6 +44,7 @@ import {
   type PresentationShortcutAction,
 } from "@/components/presentation/runtime/navigation";
 import { MadeWithBadge } from "@/components/made-with-badge";
+import { deckCanvasFormat } from "@/components/presentation/v6-deck-ui";
 
 // ---------------------------------------------------------------------------
 // PublicPresentViewer
@@ -180,9 +181,10 @@ export function PublicPresentViewer({
 
   const currentSlide = slides[currentIndex];
   const tc = resolveSlideThemeColors(deck, currentSlide);
+  const slideFormat = deckCanvasFormat(deck);
   const fittedSlideSize = fitAspectRatio(
     slideAreaBounds,
-    slideAspectRatio(deck.slideFormat),
+    slideAspectRatio(slideFormat),
   );
 
   return (

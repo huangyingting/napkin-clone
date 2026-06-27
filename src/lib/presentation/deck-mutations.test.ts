@@ -173,8 +173,9 @@ test("addSlide inserts a blank slide after the given index", () => {
   const next = addSlide(deck, 0);
 
   assert.equal(next.slides.length, 3);
-  assert.equal(next.slides[1].layout, "blank");
+  assert.equal((next.slides[1] as any).templateId, undefined);
   assert.equal(next.slides[1].title, "");
+  assert.deepEqual(next.slides[1].elements, []);
   assert.deepEqual(
     next.slides.map((s) => s.index),
     [0, 1, 2],
@@ -184,7 +185,8 @@ test("addSlide inserts a blank slide after the given index", () => {
 test("addSlide with -1 prepends", () => {
   const deck = makeDeck(["A"]);
   const next = addSlide(deck, -1);
-  assert.equal(next.slides[0].layout, "blank");
+  assert.equal((next.slides[0] as any).templateId, undefined);
+  assert.deepEqual(next.slides[0].elements, []);
   assert.equal(next.slides[1].title, "A");
 });
 

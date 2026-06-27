@@ -72,6 +72,22 @@ function unlinkedElement(id: string): TextElement {
   };
 }
 
+function textOf(element: SlideElement | undefined): string | undefined {
+  return (element as any)?.content?.text ?? (element as any)?.text;
+}
+
+function runsOf(element: SlideElement | undefined) {
+  return (element as any)?.content?.runs ?? (element as any)?.runs;
+}
+
+function sourceOf(element: SlideElement | undefined) {
+  return (element as any)?.source ?? (element as any)?.sourceRef;
+}
+
+function visualIdOf(element: SlideElement | undefined): string | undefined {
+  return (element as any)?.content?.visualId ?? (element as any)?.visualId;
+}
+
 function slide(id: string, elements: SlideElement[]): Slide {
   return {
     id,
@@ -477,17 +493,17 @@ test("updateTextElementFromBlock: updates text and runs, preserves geometry", ()
 
   const updated = updateTextElementFromBlock(el, fresh, newRef);
 
-  assert.equal(updated.text, "Updated text");
-  assert.deepEqual(updated.runs, [{ text: "Updated text", bold: true }]);
+  assert.equal(textOf(updated), "Updated text");
+  assert.deepEqual(runsOf(updated), [{ text: "Updated text", bold: true }]);
   // Geometry preserved:
   assert.deepEqual(updated.box, el.box);
   assert.equal(updated.zIndex, el.zIndex);
   assert.deepEqual(updated.style, el.style);
   assert.equal(updated.id, el.id);
   // sourceRef updated:
-  assert.equal(updated.sourceRef!.contentHash, freshHash);
-  assert.equal(updated.sourceRef!.linkedAt, "2026-06-01T00:00:00.000Z");
-  assert.equal(updated.sourceRef!.unlinked, undefined);
+  assert.equal(sourceOf(updated)!.contentHash, freshHash);
+  assert.equal(sourceOf(updated)!.linkedAt, "2026-06-01T00:00:00.000Z");
+  assert.equal(sourceOf(updated)!.unlinked, undefined);
 });
 
 test("updateTextElementFromBlock: clears runs when fresh block has no runs", () => {
@@ -507,8 +523,8 @@ test("updateTextElementFromBlock: clears runs when fresh block has no runs", () 
     "text",
   );
   const updated = updateTextElementFromBlock(el, fresh, newRef);
-  assert.equal(updated.text, "Plain text");
-  assert.equal(updated.runs, undefined);
+  assert.equal(textOf(updated), "Plain text");
+  assert.equal(runsOf(updated), undefined);
 });
 
 test("updateTextElementFromBlock: clears unlinked flag", () => {
@@ -527,7 +543,7 @@ test("updateTextElementFromBlock: clears unlinked flag", () => {
     "text",
   );
   const updated = updateTextElementFromBlock(el, fresh, newRef);
-  assert.equal(updated.sourceRef!.unlinked, undefined);
+  assert.equal(sourceOf(updated)!.unlinked, undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -545,10 +561,10 @@ test("updateVisualElementFromBlock: updates visualId and sourceRef, preserves ge
   };
   const updated = updateVisualElementFromBlock(el, newRef);
 
-  assert.equal(updated.visualId, "vis-new");
-  assert.equal(updated.sourceRef!.blockId, "vis-new");
-  assert.equal(updated.sourceRef!.contentHash, "newhash");
-  assert.equal(updated.sourceRef!.unlinked, undefined);
+  assert.equal(visualIdOf(updated), "vis-new");
+  assert.equal(sourceOf(updated)!.blockId, "vis-new");
+  assert.equal(sourceOf(updated)!.contentHash, "newhash");
+  assert.equal(sourceOf(updated)!.unlinked, undefined);
   // Geometry preserved:
   assert.deepEqual(updated.box, el.box);
   assert.equal(updated.zIndex, el.zIndex);

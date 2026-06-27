@@ -48,6 +48,10 @@ import { elementAccessibleName } from "@/lib/presentation/element-accessible-nam
 import { filterLayers } from "@/lib/presentation/layer-filter";
 import type { SlideElement } from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
+import {
+  connectorContent,
+  shapeContent,
+} from "@/components/presentation/slide-canvas/v6-model";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,7 +77,7 @@ function KindIcon({ element }: { element: SlideElement }) {
     case "visual":
       return <Box size={12} className={cls} aria-hidden="true" />;
     case "shape":
-      return element.shape === "line" ? (
+      return shapeContent(element).shape === "line" ? (
         <Minus size={12} className={cls} aria-hidden="true" />
       ) : (
         <Shapes size={12} className={cls} aria-hidden="true" />
@@ -93,8 +97,9 @@ function ConnectorEndpointLabels({
   element: SlideElement & { kind: "connector" };
   allElements: readonly SlideElement[];
 }) {
+  const content = connectorContent(element);
   function resolveTarget(
-    endpoint: typeof element.start | typeof element.end,
+    endpoint: typeof content.start | typeof content.end,
   ): string | null {
     if (!("elementId" in endpoint)) return null;
     const target = allElements.find((el) => el.id === endpoint.elementId);
@@ -102,8 +107,8 @@ function ConnectorEndpointLabels({
     return getDisplayName(target, allElements);
   }
 
-  const startName = resolveTarget(element.start);
-  const endName = resolveTarget(element.end);
+  const startName = resolveTarget(content.start);
+  const endName = resolveTarget(content.end);
 
   if (!startName && !endName) return null;
 

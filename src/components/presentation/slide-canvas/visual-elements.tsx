@@ -6,6 +6,7 @@ import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
 
 import { boxStyle } from "./primitives";
+import { visualContent } from "./v6-model";
 
 export function VisualElementView({
   element,
@@ -17,14 +18,15 @@ export function VisualElementView({
   /** Deck-template default restyle theme applied when the element sets none (#607). */
   defaultStyleThemeId?: string;
 }): JSX.Element | null {
-  const visual = visuals.get(element.visualId);
+  const content = visualContent(element);
+  const visual = visuals.get(content.visualId);
   if (!visual) {
     return null;
   }
   // Apply the optional per-element restyle here, in the one shared renderer, so
   // editor / present / public viewer all draw the visual identically. Falls back
   // to the deck-template default styleThemeId when the element sets none (#607).
-  const styleThemeId = element.styleThemeId ?? defaultStyleThemeId;
+  const styleThemeId = content.styleThemeId ?? defaultStyleThemeId;
   const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
   return (
     <div
@@ -38,7 +40,7 @@ export function VisualElementView({
     >
       <VisualRenderer
         visual={styled}
-        title={element.alt}
+        title={content.alt}
         className="h-full w-full object-contain"
         transparentBackground
       />

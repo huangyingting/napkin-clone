@@ -6,20 +6,20 @@ import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 
 const VALID_DECK = {
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  canvas: { format: "16:9" },
+  design: { themeId: "indigo" },
+  masters: [{ id: "master-default", name: "Default", elements: [] }],
+  defaultMasterId: "master-default",
   slides: [
     {
       id: "s1",
       title: "Slide 1",
-      bullets: [],
       index: 0,
-      visualIds: [],
-      layout: "content",
       notes: "",
       elements: [],
     },
   ],
-  themeId: "indigo",
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
 function makeDb({

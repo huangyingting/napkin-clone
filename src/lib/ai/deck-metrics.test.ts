@@ -33,10 +33,10 @@ function textElement(id: string, text: string): SlideElement {
     box: { ...BOX },
     zIndex: 0,
     kind: "text",
-    text,
-    paragraphs: [{ text }],
-    style: { ...TEXT_STYLE },
-  };
+    role: "body",
+    content: { kind: "text", text, paragraphs: [{ text }] },
+    designOverrides: { textStyle: { ...TEXT_STYLE } },
+  } as unknown as SlideElement;
 }
 
 function bulletsElement(id: string, bullets: string[]): SlideElement {
@@ -45,11 +45,17 @@ function bulletsElement(id: string, bullets: string[]): SlideElement {
     box: { ...BOX },
     zIndex: 1,
     kind: "text",
-    text: bullets.join("\n"),
-    paragraphs: bullets.map((text) => ({ text, listType: "bullet" as const })),
-    textRole: "bullet",
-    style: { ...TEXT_STYLE },
-  };
+    role: "bullet",
+    content: {
+      kind: "text",
+      text: bullets.join("\n"),
+      paragraphs: bullets.map((text) => ({
+        text,
+        listType: "bullet" as const,
+      })),
+    },
+    designOverrides: { textStyle: { ...TEXT_STYLE } },
+  } as unknown as SlideElement;
 }
 
 function visualElement(id: string, visualId: string): SlideElement {
@@ -58,8 +64,9 @@ function visualElement(id: string, visualId: string): SlideElement {
     box: { ...BOX },
     zIndex: 2,
     kind: "visual",
-    visualId,
-  };
+    role: "visual",
+    content: { kind: "visual", visualId },
+  } as unknown as SlideElement;
 }
 
 function slide(index: number, title: string, elements: SlideElement[]): Slide {
@@ -67,21 +74,20 @@ function slide(index: number, title: string, elements: SlideElement[]): Slide {
     id: "test-id",
     index,
     title,
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
-    elementsDerived: false,
-  };
+  } as unknown as Slide;
 }
 
 function deck(slides: Slide[]): Deck {
   return {
-    themeId: "indigo",
-    slides,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  };
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides,
+  } as unknown as Deck;
 }
 
 // An empty deck: no slides.
@@ -258,8 +264,12 @@ test("deckEditDistance: an edited slide (same element count) is changed", () => 
   const el = after.slides[1].elements?.[0];
   assert.ok(el && el.kind === "text");
   if (el && el.kind === "text") {
-    el.text = "A completely different idea";
-    el.paragraphs = [{ text: "A completely different idea" }];
+    (el as any).content = {
+      ...(el as any).content,
+      kind: "text",
+      text: "A completely different idea",
+      paragraphs: [{ text: "A completely different idea" }],
+    };
   }
   const distance = deckEditDistance(before, after);
   assert.equal(distance.slidesChanged, 1);

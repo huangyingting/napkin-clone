@@ -7,20 +7,20 @@ import { PERSISTED_JSON_CONTRACTS } from "./persisted-json";
 
 function validDeck(): unknown {
   return {
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "slide-1",
         index: 0,
         title: "Intro",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
         notes: "",
         elements: [],
       },
     ],
-    themeId: "indigo",
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }
 

@@ -106,6 +106,12 @@ import {
   toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
+import { shapeContent } from "@/components/presentation/slide-canvas/v6-model";
+import {
+  slideBackgroundGradientValue,
+  slideBackgroundImageValue,
+  slideSolidBackgroundValue,
+} from "@/components/presentation/v6-deck-ui";
 
 /**
  * Icons for the toolbar `...` panel menu, keyed by panel (plus a `line`
@@ -1487,7 +1493,9 @@ export function SlideSelectionToolbar({
     selectedElement !== null
       ? toToolbarSelectionKind(
           selectedElement.kind,
-          selectedElement.kind === "shape" ? selectedElement.shape : undefined,
+          selectedElement.kind === "shape"
+            ? shapeContent(selectedElement).shape
+            : undefined,
         )
       : null;
   // Same availability calculation as the right-panel switcher so a toolbar
@@ -1495,7 +1503,8 @@ export function SlideSelectionToolbar({
   const panels = availablePanels({
     kind: selectedCount >= 2 ? null : selectionKind,
     selectedCount,
-    hasSourceRef: selectedElement?.sourceRef !== undefined,
+    hasSourceRef:
+      (selectedElement as { source?: unknown } | null)?.source !== undefined,
   });
   const hasMultiSelection = selectedIds.length >= 2;
   const withToolbarPanelsClosed = (onClick: () => void) => () => {
@@ -1782,18 +1791,20 @@ export function SlideToolbar({
   const [moreOpen, setMoreOpen] = useState(false);
   const selectedLayout =
     layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0];
+  const backgroundImage = slideBackgroundImageValue(slide);
+  const backgroundGradient = slideBackgroundGradientValue(slide);
+  const backgroundColor = slideSolidBackgroundValue(slide);
   const activeSolidId =
-    slide.backgroundImage === undefined &&
-    slide.backgroundGradient === undefined
-      ? SOLID_COLOR_OPTIONS.find((option) => option.color === slide.background)
+    backgroundImage === undefined && backgroundGradient === undefined
+      ? SOLID_COLOR_OPTIONS.find((option) => option.color === backgroundColor)
           ?.id
       : undefined;
   const activeGradientId =
-    slide.backgroundImage === undefined && slide.background === undefined
+    backgroundImage === undefined && backgroundColor === undefined
       ? GRADIENT_COLOR_OPTIONS.find(
           (option) =>
-            option.gradient.from === slide.backgroundGradient?.from &&
-            option.gradient.to === slide.backgroundGradient?.to,
+            option.gradient.from === backgroundGradient?.from &&
+            option.gradient.to === backgroundGradient?.to,
         )?.id
       : undefined;
   const closeToolbarPanels = (

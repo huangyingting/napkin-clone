@@ -64,6 +64,32 @@ function displayTitle(slide: Slide, index: number): string {
   return effective !== "" ? effective : `Slide ${index + 1}`;
 }
 
+function elementContent(element: any): Record<string, any> {
+  return (element?.content ?? {}) as Record<string, any>;
+}
+
+function elementRole(element: any): string | undefined {
+  return element?.role ?? element?.textRole;
+}
+
+function slideBullets(slide: Slide): string[] {
+  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
+  const bullet = (slide.elements ?? []).find(
+    (element) => element.kind === "text" && elementRole(element) === "bullet",
+  );
+  return (elementContent(bullet).paragraphs ?? []).map(
+    (paragraph: any) => paragraph.text ?? "",
+  );
+}
+
+function slideVisualIds(slide: Slide): string[] {
+  if (Array.isArray((slide as any).visualIds)) return (slide as any).visualIds;
+  return (slide.elements ?? [])
+    .filter((element) => element.kind === "visual")
+    .map((element) => elementContent(element).visualId)
+    .filter((visualId): visualId is string => typeof visualId === "string");
+}
+
 /**
  * A content fingerprint capturing whatever carries a slide's meaning, whether it
  * lives in the document-derived `title`/`bullets`/`visualIds`/`notes` fields or in
@@ -74,10 +100,12 @@ function displayTitle(slide: Slide, index: number): string {
 function contentSignature(slide: Slide): string {
   const parts: string[] = [
     `t:${normalizeTitle(slideEffectiveTitle(slide))}`,
-    `l:${slide.layout}`,
-    `b:${slide.bullets.map((bullet) => bullet.trim()).join("\u0001")}`,
-    `v:${[...slide.visualIds].sort().join("\u0001")}`,
-    `n:${slide.notes.trim()}`,
+    `l:${(slide as any).templateId ?? (slide as any).layout ?? "blank"}`,
+    `b:${slideBullets(slide)
+      .map((bullet) => bullet.trim())
+      .join("\u0001")}`,
+    `v:${slideVisualIds(slide).sort().join("\u0001")}`,
+    `n:${(slide.notes ?? "").trim()}`,
   ];
 
   const elements = slide.elements ?? [];
@@ -86,14 +114,19 @@ function contentSignature(slide: Slide): string {
       const text = normalizeTextParagraphs(element)
         .map((paragraph) => paragraph.text.trim())
         .join("\u0001");
-      parts.push(`et:${element.textRole ?? ""}:${text}`);
+      parts.push(`et:${elementRole(element) ?? ""}:${text}`);
     } else if (element.kind === "visual") {
-      parts.push(`ev:${element.visualId}`);
+      parts.push(`ev:${elementContent(element).visualId}`);
     } else if (element.kind === "image") {
-      parts.push(`ei:${element.src.trim()}`);
+      parts.push(`ei:${(elementContent(element).src ?? "").trim()}`);
     } else if (element.kind === "shape") {
+      const content = elementContent(element);
+      const design = ((element as any).designOverrides ?? {}) as Record<
+        string,
+        any
+      >;
       parts.push(
-        `es:${element.shape}:${element.color}:${element.text?.trim() ?? ""}`,
+        `es:${content.shape}:${design.fill?.value ?? ""}:${content.text?.trim() ?? ""}`,
       );
     }
   }

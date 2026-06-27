@@ -60,11 +60,18 @@ import {
   resolveSlideThemeColors,
   type SlideThemeColors,
 } from "@/lib/presentation/style-cascade";
-import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import {
   scaleElementsInBoundingBox,
   selectionBoundingBox,
 } from "@/lib/presentation/selection-transform";
+import {
+  deckCanvasFormat,
+  slideAccentValue,
+  slideBackgroundGradientValue,
+  slideBackgroundImageValue,
+  slideSolidBackgroundValue,
+} from "@/components/presentation/v6-deck-ui";
+import { shapeContent } from "@/components/presentation/slide-canvas/v6-model";
 
 const BUILT_IN_THEME_TOKEN_SETS = allThemeTokenSets();
 const THEME_BACKGROUND_SWATCHES = tokenSetSwatchColors(
@@ -85,13 +92,13 @@ import type { SlideInspectorProps } from "@/components/presentation/slide-inspec
 function elementLabel(element: SlideElement): string {
   switch (element.kind) {
     case "text":
-      return element.textRole === "h1" ? "Title" : "Text";
+      return (element as { role?: string }).role === "title" ? "Title" : "Text";
     case "visual":
       return "Visual";
     case "image":
       return "Image";
     case "shape":
-      return `Shape · ${element.shape}`;
+      return `Shape · ${shapeContent(element).shape}`;
     case "connector":
       return "Connector";
     default:
@@ -307,16 +314,19 @@ function SlidePanelBody({
 
   const builtInLayouts = useMemo(() => defaultLayouts(), []);
   const availableLayouts = useMemo(() => {
-    const source =
-      deck.layouts && deck.layouts.length > 0 ? deck.layouts : builtInLayouts;
-    const format = deck.slideFormat ?? DEFAULT_SLIDE_FORMAT;
+    const source = builtInLayouts;
+    const format = deckCanvasFormat(deck);
     const filtered = source.filter((layout) => layout.format === format);
     return filtered.length > 0 ? filtered : source;
-  }, [builtInLayouts, deck.layouts, deck.slideFormat]);
+  }, [builtInLayouts, deck]);
   const selectedLayout =
     availableLayouts.find((layout) => layout.id === selectedLayoutId) ??
     availableLayouts[0] ??
     null;
+  const backgroundImage = slideBackgroundImageValue(slide);
+  const backgroundGradient = slideBackgroundGradientValue(slide);
+  const backgroundColor = slideSolidBackgroundValue(slide);
+  const accentColor = slideAccentValue(slide);
 
   function handleBackgroundImageChange(value: string | undefined) {
     if (value?.startsWith("data:")) {
@@ -324,7 +334,7 @@ function SlidePanelBody({
         setBgImageError("Please enter an image data URL (data:image/…).");
         return;
       }
-      const addedBytes = value.length - dataUrlByteSize(slide.backgroundImage);
+      const addedBytes = value.length - dataUrlByteSize(backgroundImage);
       if (addedBytes > 0) {
         const budget = canAddImage(deck, addedBytes);
         if (!budget.ok) {
@@ -342,7 +352,7 @@ function SlidePanelBody({
 
   const { handleFile: handleBgImageFile } = useImageUpload({
     deck,
-    currentSrc: slide.backgroundImage,
+    currentSrc: backgroundImage,
     onAccept: (src, assetId) => {
       setBgImageError(null);
       if (assetId && onBackgroundAssetChange) {
@@ -392,14 +402,14 @@ function SlidePanelBody({
       <PanelSection title="Background">
         <ColorOverride
           label="Background"
-          value={slide.background}
+          value={backgroundColor}
           fallback={themeColors.bgColor}
           presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
           onChange={onBackgroundChange}
         />
         <ColorOverride
           label="Accent"
-          value={slide.accent}
+          value={accentColor}
           fallback={themeColors.accentColor}
           presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
           onChange={onAccentChange}
@@ -409,14 +419,14 @@ function SlidePanelBody({
             <PropRow label="Gradient">
               <input
                 type="checkbox"
-                checked={slide.backgroundGradient !== undefined}
+                checked={backgroundGradient !== undefined}
                 onChange={(event) =>
                   onBackgroundGradientChange(
                     event.target.checked
                       ? {
-                          from: slide.backgroundGradient?.from ?? "#6366f1",
-                          to: slide.backgroundGradient?.to ?? "#ec4899",
-                          angle: slide.backgroundGradient?.angle ?? 135,
+                          from: backgroundGradient?.from ?? "#6366f1",
+                          to: backgroundGradient?.to ?? "#ec4899",
+                          angle: backgroundGradient?.angle ?? 135,
                         }
                       : undefined,
                   )
@@ -425,14 +435,14 @@ function SlidePanelBody({
                 aria-label="Enable gradient background"
               />
             </PropRow>
-            {slide.backgroundGradient ? (
+            {backgroundGradient ? (
               <PropRow label="Stops" align="center">
                 <input
                   type="color"
-                  value={slide.backgroundGradient.from}
+                  value={backgroundGradient.from}
                   onChange={(event) =>
                     onBackgroundGradientChange({
-                      ...slide.backgroundGradient!,
+                      ...backgroundGradient,
                       from: event.target.value,
                     })
                   }
@@ -441,10 +451,10 @@ function SlidePanelBody({
                 />
                 <input
                   type="color"
-                  value={slide.backgroundGradient.to}
+                  value={backgroundGradient.to}
                   onChange={(event) =>
                     onBackgroundGradientChange({
-                      ...slide.backgroundGradient!,
+                      ...backgroundGradient,
                       to: event.target.value,
                     })
                   }
@@ -456,10 +466,10 @@ function SlidePanelBody({
                   min={0}
                   max={360}
                   step={5}
-                  value={slide.backgroundGradient.angle ?? 135}
+                  value={backgroundGradient.angle ?? 135}
                   onChange={(event) =>
                     onBackgroundGradientChange({
-                      ...slide.backgroundGradient!,
+                      ...backgroundGradient,
                       angle: Number(event.target.value),
                     })
                   }
@@ -477,7 +487,7 @@ function SlidePanelBody({
             className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
           >
             <Upload size={14} aria-hidden="true" />
-            {slide.backgroundImage ? "Replace image" : "Upload image"}
+            {backgroundImage ? "Replace image" : "Upload image"}
           </button>
           <input
             ref={bgFileInputRef}
@@ -491,7 +501,7 @@ function SlidePanelBody({
           />
           <input
             type="text"
-            value={slide.backgroundImage ?? ""}
+            value={backgroundImage ?? ""}
             onChange={(event) =>
               handleBackgroundImageChange(
                 event.target.value.trim() === ""
@@ -579,13 +589,16 @@ export function SlideInspector({
   const selectionKind = selectedElement
     ? toToolbarSelectionKind(
         selectedElement.kind,
-        selectedElement.kind === "shape" ? selectedElement.shape : undefined,
+        selectedElement.kind === "shape"
+          ? shapeContent(selectedElement).shape
+          : undefined,
       )
     : null;
   const availability = {
     kind: selectedCount >= 2 ? null : selectionKind,
     selectedCount,
-    hasSourceRef: selectedElement?.sourceRef !== undefined,
+    hasSourceRef:
+      (selectedElement as { source?: unknown } | null)?.source !== undefined,
   };
   const panels = availablePanels(availability);
 

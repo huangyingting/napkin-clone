@@ -54,7 +54,22 @@ function constantComplete(response: string) {
 }
 
 function deckJson(slides: unknown[]): string {
-  return JSON.stringify({ themeId: "indigo", slides });
+  return JSON.stringify({
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides: slides.map((slide, index) => ({
+      id: `slide-${index}`,
+      index,
+      title: (slide as any).title ?? "",
+      ...((slide as any).templateId || (slide as any).layout
+        ? { templateId: (slide as any).templateId ?? (slide as any).layout }
+        : {}),
+      elements: (slide as any).elements ?? [],
+    })),
+  });
 }
 
 function themeId(deck: unknown): string | undefined {

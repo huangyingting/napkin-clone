@@ -173,40 +173,81 @@ export const DOC_EMPTY: string = state([]);
  * can be asserted to PRESERVE `v1` and STRIP the orphaned `ghost`.
  */
 export const VALID_DECK_JSON: string = JSON.stringify({
-  themeId: "indigo",
+  schemaVersion: 6,
+  canvas: { format: "16:9" },
+  design: { themeId: "indigo" },
+  masters: [{ id: "master-default", name: "Default", elements: [] }],
+  defaultMasterId: "master-default",
   slides: [
     {
+      id: "slide-welcome",
+      index: 0,
       title: "Welcome",
-      bullets: ["First point", "Second point"],
-      layout: "title",
+      templateId: "title",
       elements: [
         {
+          id: "title-welcome",
           kind: "text",
-          text: "Welcome",
-          textRole: "h1",
+          role: "title",
           box: { x: 8, y: 8, w: 84, h: 20 },
+          zIndex: 0,
+          content: {
+            kind: "text",
+            text: "Welcome",
+            paragraphs: [{ text: "Welcome" }],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
         },
       ],
     },
     {
+      id: "slide-overview",
+      index: 1,
       title: "Overview",
-      layout: "media",
+      templateId: "media",
       elements: [
         {
+          id: "title-overview",
           kind: "text",
-          text: "Overview",
-          textRole: "h1",
+          role: "title",
           box: { x: 6, y: 6, w: 88, h: 16 },
+          zIndex: 0,
+          content: {
+            kind: "text",
+            text: "Overview",
+            paragraphs: [{ text: "Overview" }],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
         },
         {
+          id: "visual-v1",
           kind: "visual",
-          visualId: "v1",
+          role: "visual",
           box: { x: 10, y: 28, w: 80, h: 60 },
+          zIndex: 1,
+          content: { kind: "visual", visualId: "v1" },
         },
         {
+          id: "visual-ghost",
           kind: "visual",
-          visualId: "ghost",
+          role: "visual",
           box: { x: 10, y: 28, w: 40, h: 30 },
+          zIndex: 2,
+          content: { kind: "visual", visualId: "ghost" },
         },
       ],
     },

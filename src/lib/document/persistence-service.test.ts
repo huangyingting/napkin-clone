@@ -135,35 +135,37 @@ describe("mirrorVisualNodesInTx: rollback simulation", () => {
 // ---------------------------------------------------------------------------
 
 const VALID_DECK = {
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  canvas: { format: "16:9" },
+  design: { themeId: "indigo" },
+  masters: [{ id: "master-default", name: "Default", elements: [] }],
+  defaultMasterId: "master-default",
   slides: [
     {
       id: "s1",
       title: "Slide 1",
-      bullets: [],
       index: 0,
-      visualIds: [],
-      layout: "content",
       notes: "",
       elements: [
         {
           id: "e1",
           kind: "visual",
-          visualId: "vis-keep",
+          role: "visual",
+          content: { kind: "visual", visualId: "vis-keep" },
           box: { x: 0, y: 0, w: 400, h: 300 },
           zIndex: 0,
         },
         {
           id: "e2",
           kind: "visual",
-          visualId: "vis-drop",
+          role: "visual",
+          content: { kind: "visual", visualId: "vis-drop" },
           box: { x: 0, y: 0, w: 400, h: 300 },
           zIndex: 1,
         },
       ],
     },
   ],
-  themeId: "indigo",
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
 /** Minimal Lexical state carrying a single visual node with the given visualId. */
@@ -212,7 +214,7 @@ describe("sanitizeRestoredDeck", () => {
     const elements = deck.slides[0].elements ?? [];
     const visIds = elements
       .filter((e) => e.kind === "visual")
-      .map((e) => (e as { visualId: string }).visualId);
+      .map((e) => (e as any).content?.visualId);
     assert.ok(visIds.includes("vis-keep"), "vis-keep should remain");
     assert.ok(!visIds.includes("vis-drop"), "vis-drop should be stripped");
   });

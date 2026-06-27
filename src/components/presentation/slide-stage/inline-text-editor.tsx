@@ -7,7 +7,6 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
-import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
   mergeRuns,
@@ -30,6 +29,13 @@ import {
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
+import {
+  elementDesignOverrides,
+  shapeContent,
+  shapeTextDesign,
+  textContent,
+  textDesign,
+} from "@/components/presentation/slide-canvas/v6-model";
 
 export const INLINE_TEXT_COMMAND_EVENT = "textiq:inline-text-command";
 
@@ -106,9 +112,10 @@ export function InlineTextEditor({
   // on the (changing) element prop — the DOM is the source of truth while the
   // overlay is mounted and its innerHTML is set exactly once below.
   const kind = element.kind;
+  const initialTextContent = kind === "text" ? textContent(element) : null;
   const isListText =
     element.kind === "text" &&
-    normalizeTextParagraphs(element).some(
+    (initialTextContent?.paragraphs ?? []).some(
       (paragraph) => paragraph.listType !== undefined,
     );
   // Snapshot the open-caret point once (mount only) so later renders never move
@@ -163,7 +170,13 @@ export function InlineTextEditor({
     // edit expands the frame instead of clipping. Fixed-box and shrink-to-fit
     // keep the stored height; content is clipped or scaled by the renderer
     // (#333). Shapes never auto-grow (they have no fitMode).
-    const autoH = kind !== "shape" && isAutoHeight(element as TextLikeElement);
+    const autoH =
+      kind !== "shape" &&
+      isAutoHeight({
+        ...(element as TextLikeElement),
+        fitMode: textContent(element as Extract<SlideElement, { kind: "text" }>)
+          .fitMode,
+      });
     const box = autoH
       ? clampBox({
           ...element.box,
@@ -189,35 +202,64 @@ export function InlineTextEditor({
           indent: meta[i]?.indent ?? 0,
           listType: meta[i]?.listType ?? "bullet",
         }));
+        const current = textContent(
+          element as Extract<SlideElement, { kind: "text" }>,
+        );
         onChange({
-          text: lines.map((line) => line.text).join("\n"),
-          runs: undefined,
-          paragraphs,
+          content: {
+            ...current,
+            kind: "text",
+            text: lines.map((line) => line.text).join("\n"),
+            runs: undefined,
+            paragraphs,
+          },
           ...(autoH ? { box } : {}),
-        });
+        } as ElementPatch);
         return;
       }
+      const current = textContent(
+        element as Extract<SlideElement, { kind: "text" }>,
+      );
       onChange({
-        text,
-        runs: shouldStoreRuns(runs) ? runs : undefined,
-        paragraphs: [
-          {
-            text,
-            ...(shouldStoreRuns(runs) ? { runs } : {}),
-          },
-        ],
+        content: {
+          ...current,
+          kind: "text",
+          text,
+          runs: shouldStoreRuns(runs) ? runs : undefined,
+          paragraphs: [
+            {
+              text,
+              ...(shouldStoreRuns(runs) ? { runs } : {}),
+            },
+          ],
+        },
         ...(autoH ? { box } : {}),
-      });
+      } as ElementPatch);
       return;
     }
     if (kind === "shape") {
       const trimmed = text.trim();
+      const current = shapeContent(
+        element as Extract<SlideElement, { kind: "shape" }>,
+      );
       onChange({
-        text: trimmed.length > 0 ? text : undefined,
-        textRuns:
-          trimmed.length > 0 && shouldStoreRuns(runs) ? runs : undefined,
-        textStyle: element.textStyle ?? defaultShapeTextStyle(),
-      });
+        content: {
+          ...current,
+          kind: "shape",
+          text: trimmed.length > 0 ? text : undefined,
+          textRuns:
+            trimmed.length > 0 && shouldStoreRuns(runs) ? runs : undefined,
+        },
+        designOverrides: {
+          ...elementDesignOverrides(element),
+          textStyle: {
+            ...defaultShapeTextStyle(),
+            ...shapeTextDesign(
+              element as Extract<SlideElement, { kind: "shape" }>,
+            ),
+          },
+        },
+      } as ElementPatch);
       return;
     }
   }, [kind, isListText, onChange, stageHeight, element]);
@@ -310,13 +352,19 @@ export function InlineTextEditor({
     const node = ref.current;
     if (!node) return;
     if (kind === "text" && !isListText) {
-      node.innerHTML = runsToHtml(element.runs, element.text);
+      const content = textContent(
+        element as Extract<SlideElement, { kind: "text" }>,
+      );
+      node.innerHTML = runsToHtml(content.runs, content.text);
     } else if (kind === "shape") {
-      node.innerHTML = runsToHtml(element.textRuns, element.text ?? "");
+      const content = shapeContent(
+        element as Extract<SlideElement, { kind: "shape" }>,
+      );
+      node.innerHTML = runsToHtml(content.textRuns, content.text ?? "");
     } else {
       // Seed indent metadata from authoritative items (#335).
       const seedItems =
-        element.kind === "text" ? normalizeTextParagraphs(element) : [];
+        element.kind === "text" ? textContent(element).paragraphs : [];
       itemMetaRef.current = seedItems.map((it) => ({
         indent: it.indent ?? 0,
         listType: it.listType ?? "bullet",
@@ -350,8 +398,19 @@ export function InlineTextEditor({
 
   const style =
     kind === "shape"
-      ? (element.textStyle ?? defaultShapeTextStyle())
-      : element.style;
+      ? {
+          ...defaultShapeTextStyle(),
+          ...shapeTextDesign(
+            element as Extract<SlideElement, { kind: "shape" }>,
+          ),
+        }
+      : {
+          fontSize: SLIDE_TEXT_FONT_SIZE.text,
+          bold: false,
+          italic: false,
+          align: "left" as const,
+          ...textDesign(element as Extract<SlideElement, { kind: "text" }>),
+        };
   const fontSizePx = (style.fontSize / 100) * stageHeight;
 
   // Mirror the static text element styles exactly

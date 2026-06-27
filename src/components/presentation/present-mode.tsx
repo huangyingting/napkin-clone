@@ -53,6 +53,7 @@ import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import { loadSlideFonts } from "@/lib/presentation/slide-font-loading";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import type { Visual } from "@/lib/visual/schema";
+import { deckCanvasFormat } from "@/components/presentation/v6-deck-ui";
 
 export interface PresentModeProps {
   deck: Deck;
@@ -107,7 +108,8 @@ export function PresentMode({
   const currentSlide = slides[currentIndex];
   const nextSlide =
     currentIndex + 1 < total ? slides[currentIndex + 1] : undefined;
-  const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
+  const slideFormat = deckCanvasFormat(deck);
+  const activeSlideAspectRatio = slideAspectRatio(slideFormat);
   const fittedSlideSize = fitAspectRatio(
     slideAreaBounds,
     activeSlideAspectRatio,
@@ -511,7 +513,7 @@ export function PresentMode({
             nextSlide={nextSlide}
             deck={deck}
             visuals={visuals}
-            slideFormat={deck.slideFormat}
+            slideFormat={slideFormat}
           />
         </div>
       )}
@@ -553,7 +555,7 @@ export function PresentMode({
           slides={slides}
           deck={deck}
           visuals={visuals}
-          slideFormat={deck.slideFormat}
+          slideFormat={slideFormat}
           currentIndex={currentIndex}
           onJump={handleJumpToSlide}
           onClose={closeOverview}

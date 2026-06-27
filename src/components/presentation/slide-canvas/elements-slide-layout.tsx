@@ -12,6 +12,7 @@ import { ImageElementView } from "./media-elements";
 import { ShapeElementView } from "./shape-elements";
 import { TextElementView } from "./text-elements";
 import { VisualElementView } from "./visual-elements";
+import { colorRefValue, slideDesignOverrides } from "./v6-model";
 
 function SlideElementView({
   element,
@@ -61,6 +62,7 @@ function SlideElementView({
         <ShapeElementView
           element={element}
           elements={elements}
+          tokenSet={tokenSet}
           defaults={tokenSet.shape}
         />
       );
@@ -92,23 +94,37 @@ export function ElementsSlideLayout({
   hiddenElementIds?: ReadonlySet<string>;
   editable?: boolean;
 }): JSX.Element {
-  const background = slide.background ?? tc.bgColor;
-  const accent = slide.accent ?? tc.accentColor;
+  const slideDesign = slideDesignOverrides(slide);
+  const backgroundDesign =
+    slideDesign.background && typeof slideDesign.background === "object"
+      ? (slideDesign.background as Record<string, unknown>)
+      : undefined;
+  const background =
+    backgroundDesign?.type === "solid"
+      ? (colorRefValue(backgroundDesign.color, tokenSet) ?? tc.bgColor)
+      : tc.bgColor;
+  const accent = colorRefValue(slideDesign.accent, tokenSet) ?? tc.accentColor;
   // Background precedence: image > gradient > solid color.
-  const backgroundStyle: React.CSSProperties = slide.backgroundImage
-    ? {
-        backgroundColor: background,
-        backgroundImage: `url(${slide.backgroundImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : slide.backgroundGradient
+  const backgroundStyle: React.CSSProperties =
+    backgroundDesign?.type === "image" &&
+    typeof backgroundDesign.url === "string"
       ? {
-          backgroundImage: `linear-gradient(${
-            slide.backgroundGradient.angle ?? 135
-          }deg, ${slide.backgroundGradient.from}, ${slide.backgroundGradient.to})`,
+          backgroundColor: background,
+          backgroundImage: `url(${backgroundDesign.url})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }
-      : { backgroundColor: background };
+      : backgroundDesign?.type === "gradient"
+        ? {
+            backgroundImage: `linear-gradient(${
+              typeof backgroundDesign.angle === "number"
+                ? backgroundDesign.angle
+                : 135
+            }deg, ${
+              colorRefValue(backgroundDesign.from, tokenSet) ?? tc.bgColor
+            }, ${colorRefValue(backgroundDesign.to, tokenSet) ?? tc.bgColor})`,
+          }
+        : { backgroundColor: background };
   const ordered = [...(slide.elements ?? [])]
     .filter((element) => !element.hidden && !hiddenElementIds?.has(element.id))
     .sort((a, b) => a.zIndex - b.zIndex);

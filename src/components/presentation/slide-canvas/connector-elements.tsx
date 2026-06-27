@@ -6,6 +6,7 @@ import {
 } from "@/lib/presentation/connector-geometry";
 import type { ConnectorElement, SlideElement } from "@/lib/presentation/deck";
 import type { ConnectorDefaultsToken } from "@/lib/presentation/deck-theme-tokens";
+import { connectorContent, connectorDesign } from "./v6-model";
 
 export function ConnectorElementView({
   element,
@@ -17,17 +18,20 @@ export function ConnectorElementView({
   /** Deck-template connector defaults applied when the element omits a field (#607). */
   defaults?: ConnectorDefaultsToken;
 }): JSX.Element {
+  const content = connectorContent(element);
+  const design = connectorDesign(element);
+  const effectiveElement = { ...element, ...content, ...design };
   const { start, end } = resolveConnectorElementPoints(
-    element,
+    effectiveElement,
     elements,
     (el) => el.box,
   );
-  const strokeColor = element.stroke?.color ?? defaults?.color ?? "#a1a1aa";
-  const strokeWidth = element.stroke?.width ?? defaults?.width ?? 0.4;
-  const arrowEnd = element.arrowEnd ?? defaults?.endArrow ?? "arrow";
-  const arrowStart = element.arrowStart ?? defaults?.startArrow ?? "none";
+  const strokeColor = design.stroke?.color ?? defaults?.color ?? "#a1a1aa";
+  const strokeWidth = design.stroke?.width ?? defaults?.width ?? 0.4;
+  const arrowEnd = design.arrowEnd ?? defaults?.endArrow ?? "arrow";
+  const arrowStart = design.arrowStart ?? defaults?.startArrow ?? "none";
   const dashed =
-    element.dash || (defaults?.dash !== undefined && defaults.dash !== "solid");
+    design.dash || (defaults?.dash !== undefined && defaults.dash !== "solid");
   const dash = dashed ? "4 2" : undefined;
   const endMarkerId = `conn-end-${element.id}`;
   const startMarkerId = `conn-start-${element.id}`;
@@ -84,7 +88,7 @@ export function ConnectorElementView({
           </marker>
         )}
       </defs>
-      {element.routing === "elbow" ? (
+      {content.routing === "elbow" ? (
         <polyline
           points={connectorElbowPoints(start, end)
             .map((p) => `${p.x},${p.y}`)

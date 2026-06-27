@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { MAX_DECK_SLIDES, generateDeck } from "@/lib/ai/generate-deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import {
   EmptyInputError,
   GenerationError,
@@ -31,22 +32,117 @@ function sequence(responses: string[]): Sequence {
 }
 
 function deck(overrides: Record<string, unknown> = {}): string {
+  const themeId =
+    typeof overrides.themeId === "string" ? overrides.themeId : "indigo";
+  const slides = (overrides.slides as unknown[] | undefined) ?? [
+    {
+      id: "slide-welcome",
+      index: 0,
+      title: "Welcome",
+      notes: "Speaker notes here.",
+      templateId: "title",
+      elements: [
+        {
+          id: "title-welcome",
+          kind: "text",
+          role: "title",
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          zIndex: 0,
+          content: {
+            kind: "text",
+            text: "Welcome",
+            paragraphs: [{ text: "Welcome" }],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
+        },
+        {
+          id: "body-welcome",
+          kind: "text",
+          role: "bullet",
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          zIndex: 1,
+          content: {
+            kind: "text",
+            text: "First point\nSecond point",
+            paragraphs: [
+              { text: "First point", listType: "bullet" },
+              { text: "Second point", listType: "bullet" },
+            ],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 4.5,
+              bold: false,
+              italic: false,
+              align: "left",
+            },
+          },
+        },
+      ],
+    },
+    {
+      id: "slide-details",
+      index: 1,
+      title: "Details",
+      templateId: "content",
+      elements: [
+        {
+          id: "title-details",
+          kind: "text",
+          role: "title",
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          zIndex: 0,
+          content: {
+            kind: "text",
+            text: "Details",
+            paragraphs: [{ text: "Details" }],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
+        },
+        {
+          id: "body-details",
+          kind: "text",
+          role: "bullet",
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          zIndex: 1,
+          content: {
+            kind: "text",
+            text: "More",
+            paragraphs: [{ text: "More", listType: "bullet" }],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 4.5,
+              bold: false,
+              italic: false,
+              align: "left",
+            },
+          },
+        },
+      ],
+    },
+  ];
   return JSON.stringify({
-    themeId: "indigo",
-    slides: [
-      {
-        title: "Welcome",
-        bullets: ["First point", "Second point"],
-        notes: "Speaker notes here.",
-        layout: "title",
-      },
-      {
-        title: "Details",
-        bullets: ["More"],
-        layout: "content",
-      },
-    ],
-    ...overrides,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides,
   });
 }
 
@@ -321,7 +417,11 @@ test("normalizes generateDeck output: every slide has authored elements", async 
       slide.elements && slide.elements.length > 0,
       "slide has positioned elements",
     );
-    assert.equal("elementsDerived" in slide, false, "AI slides do not persist removed provenance flags");
+    assert.equal(
+      "elementsDerived" in slide,
+      false,
+      "AI slides do not persist removed provenance flags",
+    );
   }
 
   // The media slide places its document visual prominently.

@@ -22,20 +22,20 @@ const now = new Date("2026-06-25T15:15:00.000Z");
 
 function deck(): unknown {
   return {
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
         index: 0,
         title: "Title",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
         notes: "",
         elements: [],
       },
     ],
-    themeId: "indigo",
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }
 

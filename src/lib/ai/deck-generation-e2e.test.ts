@@ -44,7 +44,7 @@ function visualElementIds(deck: Deck): string[] {
   return deck.slides.flatMap((slide) =>
     (slide.elements ?? [])
       .filter((element) => element.kind === "visual")
-      .map((element) => (element as { visualId: string }).visualId),
+      .map((element) => (element as any).content?.visualId),
   );
 }
 

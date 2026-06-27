@@ -75,10 +75,7 @@ import {
   type Deck,
   type SlideElement,
 } from "@/lib/presentation/deck";
-import {
-  resolveSlideFormat,
-  slideAspectRatio,
-} from "@/lib/presentation/slide-format";
+import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
@@ -141,6 +138,12 @@ import {
   SlideTemplatePicker,
   ThumbnailAction,
 } from "@/components/presentation/slide-editor/shell-components";
+import {
+  deckCanvasFormat,
+  deckHasThemeOverrides,
+  deckPresentationThemeId,
+} from "@/components/presentation/v6-deck-ui";
+import { shapeContent } from "@/components/presentation/slide-canvas/v6-model";
 
 interface SlideEditorProps {
   deck: Deck;
@@ -202,7 +205,7 @@ const FLOATING_PANEL_STAGE_SHIFT_PX = 352;
 function slideElementTypeLabel(element: SlideElement): string {
   switch (element.kind) {
     case "text":
-      return element.textRole === "h1" ? "Title" : "Text";
+      return (element as { role?: string }).role === "title" ? "Title" : "Text";
     case "image":
       return "Image";
     case "shape":
@@ -628,14 +631,16 @@ export function SlideEditor({
         : toToolbarSelectionKind(
             selectedElement.kind,
             selectedElement.kind === "shape"
-              ? selectedElement.shape
+              ? shapeContent(selectedElement).shape
               : undefined,
           );
     if (
       !isPanelAvailable(rightPanelTab, {
         kind,
         selectedCount,
-        hasSourceRef: selectedElement?.sourceRef !== undefined,
+        hasSourceRef:
+          (selectedElement as { source?: unknown } | null)?.source !==
+          undefined,
       })
     ) {
       closeRightPanel();
@@ -650,7 +655,8 @@ export function SlideEditor({
     closeRightPanel,
   ]);
 
-  const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
+  const deckFormat = deckCanvasFormat(deck);
+  const activeSlideAspectRatio = slideAspectRatio(deckFormat);
   const stageLayout = computeStageLayout({
     stageBounds,
     stagePaddingTop: stageInsets.top,
@@ -705,7 +711,10 @@ export function SlideEditor({
       const measurer = createTextResizeMeasurer(stageWidth, stageHeight);
       let changed = false;
       const slides = source.slides.map((slide) => {
-        if (slide.elementsDerived !== true || !slide.elements?.length) {
+        const hasSourceLinkedElements = (slide.elements ?? []).some(
+          (element) => (element as { source?: unknown }).source !== undefined,
+        );
+        if (!hasSourceLinkedElements || !slide.elements?.length) {
           return slide;
         }
 
@@ -1233,12 +1242,11 @@ export function SlideEditor({
 
   const deckTemplateTokenSet = resolveDeckThemeTokens(deck);
   const toolbarLayouts = useMemo(() => {
-    const source =
-      deck.layouts && deck.layouts.length > 0 ? deck.layouts : defaultLayouts();
-    const format = resolveSlideFormat(deck.slideFormat);
+    const source = defaultLayouts();
+    const format = deckFormat;
     const filtered = source.filter((layout) => layout.format === format);
     return filtered.length > 0 ? filtered : source;
-  }, [deck.layouts, deck.slideFormat]);
+  }, [deckFormat]);
   const activeSlideToolbarLayoutId = useMemo(() => {
     const preferredName =
       selectedSlide?.layout === "title" || selectedSlide?.layout === "section"
@@ -1432,7 +1440,7 @@ export function SlideEditor({
                 aria-hidden="true"
               />
               <SlideSizeControl
-                value={resolveSlideFormat(deck.slideFormat)}
+                value={deckFormat}
                 onChange={handleSlideFormatChange}
               />
               <Popover
@@ -1460,8 +1468,8 @@ export function SlideEditor({
               >
                 <DeckTemplatePanel
                   tokenSet={deckTemplateTokenSet}
-                  isCustom={deck.customTokenSet !== undefined}
-                  themeId={deck.themeId}
+                  isCustom={deckHasThemeOverrides(deck)}
+                  themeId={deckPresentationThemeId(deck)}
                   onUpdate={handleUpdateDeckTemplate}
                   onReset={handleResetDeckTemplate}
                   onApplyTheme={handleApplyDeckTheme}

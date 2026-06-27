@@ -9,6 +9,7 @@ import type {
   SlideElement,
 } from "@/lib/presentation/deck";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
+import { connectorContent } from "@/components/presentation/slide-canvas/v6-model";
 import {
   selectionFrameChrome,
   STAGE_CHROME_Z_INDEX,
@@ -97,9 +98,11 @@ export function ConnectorEndpointHandles({
     mode: Extract<Handle, "w" | "e">,
   ) => void;
 }) {
+  const content = connectorContent(element);
+  const effectiveElement = { ...element, ...content };
   const cbox = fittedBoxes.get(element.id) ?? element.box;
   const { start: startPt, end: endPt } = resolveConnectorElementPoints(
-    element,
+    effectiveElement,
     elements,
     (el) => fittedBoxes.get(el.id) ?? el.box,
   );
@@ -118,13 +121,13 @@ export function ConnectorEndpointHandles({
     {
       rel: toRel(startPt.x, startPt.y),
       mode: "w",
-      bound: "elementId" in element.start,
+      bound: "elementId" in content.start,
       label: "Drag start endpoint",
     },
     {
       rel: toRel(endPt.x, endPt.y),
       mode: "e",
-      bound: "elementId" in element.end,
+      bound: "elementId" in content.end,
       label: "Drag end endpoint",
     },
   ];

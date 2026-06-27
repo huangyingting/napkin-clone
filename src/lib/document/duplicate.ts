@@ -58,13 +58,18 @@ function remapElementSourceRef(
   targetDocumentId: string,
   bidMap: Map<string, string>,
 ): SlideElement {
+  const currentSource =
+    (element as { source?: SourceRef; sourceRef?: SourceRef }).source ??
+    (element as { sourceRef?: SourceRef }).sourceRef;
   const sourceRef = remapSourceRef(
-    element.sourceRef,
+    currentSource,
     sourceDocumentId,
     targetDocumentId,
     bidMap,
   );
-  return sourceRef === element.sourceRef ? element : { ...element, sourceRef };
+  return sourceRef === currentSource
+    ? element
+    : ({ ...element, source: sourceRef } as unknown as SlideElement);
 }
 
 export function remapDeckSourceRefs(

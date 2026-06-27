@@ -17,32 +17,34 @@ const sourceRef = {
 function deckWithSourceRefs() {
   return {
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    themeId: "default",
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "slide-1",
         index: 0,
         title: "",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
         notes: "",
         elements: [
           {
             id: "el-linked",
             kind: "visual",
-            visualId: "visual-1",
+            role: "visual",
+            content: { kind: "visual", visualId: "visual-1" },
             box: { x: 0, y: 0, w: 10, h: 10 },
             zIndex: 1,
-            sourceRef,
+            source: sourceRef,
           },
           {
             id: "el-other-doc",
             kind: "visual",
-            visualId: "visual-2",
+            role: "visual",
+            content: { kind: "visual", visualId: "visual-2" },
             box: { x: 10, y: 10, w: 10, h: 10 },
             zIndex: 2,
-            sourceRef: { ...sourceRef, documentId: "other-doc" },
+            source: { ...sourceRef, documentId: "other-doc" },
           },
         ],
       },
@@ -58,12 +60,12 @@ test("remapDeckSourceRefs updates source document id and regenerated block id", 
     new Map([["old-bid", "new-bid"]]),
   ) as ReturnType<typeof deckWithSourceRefs>;
 
-  const linked = remapped.slides[0]!.elements[0]!.sourceRef!;
+  const linked = (remapped.slides[0]!.elements[0]! as any).source!;
   assert.equal(linked.documentId, "copy-doc");
   assert.equal(linked.blockId, "new-bid");
   assert.equal(linked.blockKind, "text");
 
-  const other = remapped.slides[0]!.elements[1]!.sourceRef!;
+  const other = (remapped.slides[0]!.elements[1]! as any).source!;
   assert.equal(other.documentId, "other-doc");
   assert.equal(other.blockId, "old-bid");
 });

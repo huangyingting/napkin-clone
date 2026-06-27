@@ -6,6 +6,7 @@ import type { ImageDefaultsToken } from "@/lib/presentation/deck-theme-tokens";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 
 import { boxStyle } from "./primitives";
+import { imageContent, imageDesign } from "./v6-model";
 
 function hasImageCrop(
   crop: ImageElement["crop"] | undefined,
@@ -33,13 +34,11 @@ function imageCropClipPath(
 }
 
 function imageMaskStyle(
-  element: Pick<ImageElement, "maskShape" | "radius">,
+  mask: Pick<ImageElement, "maskShape" | "radius">,
 ): React.CSSProperties {
   const radius =
-    element.radius !== undefined && element.radius > 0
-      ? element.radius
-      : undefined;
-  switch (element.maskShape) {
+    mask.radius !== undefined && mask.radius > 0 ? mask.radius : undefined;
+  switch (mask.maskShape) {
     case "circle":
       return { clipPath: "circle(50% at 50% 50%)" };
     case "diamond":
@@ -68,14 +67,16 @@ export function ImageElementView({
   /** Deck-template image defaults applied when the element omits a field (#607). */
   defaults?: ImageDefaultsToken;
 }): JSX.Element {
-  const cropClipPath = imageCropClipPath(element.crop);
+  const content = imageContent(element);
+  const design = imageDesign(element);
+  const cropClipPath = imageCropClipPath(content.crop);
   // Effective image styling: element value wins, else the deck-template default
   // (#607), else the renderer's built-in default. Built-in themes set no image
   // token, so existing decks are unaffected.
-  const effFitMode = element.fitMode ?? defaults?.fitMode;
+  const effFitMode = design.fitMode ?? defaults?.fitMode;
   const effMask: Pick<ImageElement, "maskShape" | "radius"> = {
-    maskShape: element.maskShape ?? defaults?.maskShape,
-    radius: element.radius ?? defaults?.radiusPct,
+    maskShape: design.maskShape ?? defaults?.maskShape,
+    radius: design.radius ?? defaults?.radiusPct,
   };
   const outerStyle: React.CSSProperties = {
     ...boxStyle(element),
@@ -94,7 +95,7 @@ export function ImageElementView({
 
   // Never emit `<img src="">` — it shows a broken-image box and can re-request
   // the current page. Branch on the empty-source predicate instead.
-  if (isEmptyImageSrc(element.src)) {
+  if (isEmptyImageSrc(content.src)) {
     return (
       <div style={outerStyle}>
         <div
@@ -144,14 +145,14 @@ export function ImageElementView({
       <div style={innerStyle}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={element.src}
-          alt={element.alt ?? ""}
+          src={content.src}
+          alt={content.alt ?? ""}
           style={{
             display: "block",
             height: "100%",
             width: "100%",
             objectFit: effFitMode ?? "contain",
-            objectPosition: imageObjectPosition(element.crop),
+            objectPosition: imageObjectPosition(content.crop),
           }}
         />
       </div>

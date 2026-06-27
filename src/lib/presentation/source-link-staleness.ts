@@ -35,6 +35,19 @@ import type { SourceRef } from "./deck-source-refs";
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import { hashDocumentBlock } from "./document-block-hash";
 
+function elementContent(
+  element: TextElement | VisualElement,
+): Record<string, any> {
+  return ((element as any).content ?? {}) as Record<string, any>;
+}
+
+function elementSourceRef(element: {
+  source?: SourceRef;
+  sourceRef?: SourceRef;
+}): SourceRef | undefined {
+  return element.source ?? element.sourceRef;
+}
+
 /** Reason a source link is considered stale. */
 export type StaleReason =
   /** The source block still exists but its content hash no longer matches. */
@@ -95,7 +108,7 @@ export function findStaleSourceLinks(
   for (const slide of deck.slides) {
     if (!slide.elements) continue;
     for (const element of slide.elements) {
-      const { sourceRef } = element;
+      const sourceRef = elementSourceRef(element);
       // Skip: no ref, explicitly unlinked, or no contentHash to compare.
       if (
         sourceRef === undefined ||
@@ -191,10 +204,20 @@ export function updateTextElementFromBlock(
     freshBlock.runs && freshBlock.runs.length > 0 ? freshBlock.runs : undefined;
   return {
     ...element,
-    text: freshBlock.text,
-    ...(runs !== undefined ? { runs } : { runs: undefined }),
-    sourceRef: { ...newRef, unlinked: undefined },
-  };
+    content: {
+      ...elementContent(element),
+      kind: "text",
+      text: freshBlock.text,
+      ...(runs !== undefined ? { runs } : { runs: undefined }),
+      paragraphs: [
+        {
+          text: freshBlock.text,
+          ...(runs !== undefined ? { runs } : {}),
+        },
+      ],
+    },
+    source: { ...newRef, unlinked: undefined },
+  } as unknown as TextElement;
 }
 
 /**
@@ -214,9 +237,13 @@ export function updateVisualElementFromBlock(
 ): VisualElement {
   return {
     ...element,
-    visualId: newRef.blockId,
-    sourceRef: { ...newRef, unlinked: undefined },
-  };
+    content: {
+      ...elementContent(element),
+      kind: "visual",
+      visualId: newRef.blockId,
+    },
+    source: { ...newRef, unlinked: undefined },
+  } as unknown as VisualElement;
 }
 
 /**

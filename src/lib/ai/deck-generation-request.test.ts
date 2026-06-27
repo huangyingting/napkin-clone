@@ -12,28 +12,38 @@ import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 // A schema-valid deck reused across the parse/request tests. Mirrors the
 // current deck schema.
 const VALID_DECK = {
-  themeId: "default",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  canvas: { format: "16:9" },
+  design: { themeId: "default" },
+  masters: [{ id: "master-default", name: "Default", elements: [] }],
+  defaultMasterId: "master-default",
   slides: [
     {
       id: "slide-1",
       index: 0,
       title: "Current",
-      bullets: ["a", "b"],
-      visualIds: [],
-      layout: "content",
+      templateId: "content",
       notes: "",
-      themeId: "default",
       elements: [
         {
           id: "text-1",
           kind: "text",
-          text: "Current",
-          paragraphs: [{ text: "Current" }],
-          textRole: "h1",
+          role: "title",
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
-          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          content: {
+            kind: "text",
+            text: "Current",
+            paragraphs: [{ text: "Current" }],
+          },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
         },
       ],
     },
