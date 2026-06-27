@@ -81,6 +81,9 @@ const makeDeck = (titles: string[]): Deck =>
     ...makeMinimalDeck(titles.map((title, index) => slide(index, title))),
     canvas: { format: "16:9" },
     design: { themeId: "default" },
+    slides: makeMinimalDeck(
+      titles.map((title, index) => slide(index, title)),
+    ).slides.map((entry) => ({ ...entry, elementsDerived: true })),
   }) as Deck;
 
 function authoredSlide(overrides: Partial<Slide> = {}): Slide {
@@ -236,9 +239,9 @@ test("duplicateSlide copies content right after the original", () => {
 
   assert.equal(next.slides.length, 3);
   assert.equal(next.slides[1].title, "A");
-  assert.deepEqual(next.slides[1].bullets, deck.slides[0].bullets);
+  assert.deepEqual(next.slides[1].elements, deck.slides[0].elements);
   // deep copy — not the same array reference
-  assert.notEqual(next.slides[1].bullets, deck.slides[0].bullets);
+  assert.notEqual(next.slides[1].elements, deck.slides[0].elements);
   assert.deepEqual(
     next.slides.map((s) => s.index),
     [0, 1, 2],

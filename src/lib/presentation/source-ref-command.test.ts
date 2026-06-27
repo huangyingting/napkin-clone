@@ -47,7 +47,7 @@ function textElement(): TextElement {
     opacity: 0.5,
     locked: false,
     name: "My Text",
-    sourceRef: { ...LINKED_REF },
+    source: { ...LINKED_REF },
   };
 }
 
@@ -60,7 +60,7 @@ function visualElement(): VisualElement {
     zIndex: 3,
     rotation: 0,
     opacity: 1,
-    sourceRef: { ...LINKED_REF, blockId: "vis-old", blockKind: "visual" },
+    source: { ...LINKED_REF, blockId: "vis-old", blockKind: "visual" },
   };
 }
 
@@ -105,7 +105,7 @@ function runsOf(element: TextElement): TextRun[] | undefined {
 }
 
 function sourceOf(element: SlideElement): SourceRef | undefined {
-  return ((element as any).source ?? (element as any).sourceRef) as
+  return ((element as any).source ?? (element as any).source) as
     | SourceRef
     | undefined;
 }
@@ -160,7 +160,7 @@ test("UPDATE_ELEMENT_SOURCE updates text + source and preserves geometry/style/z
 
 test("UPDATE_ELEMENT_SOURCE re-activates an unlinked element", () => {
   const el = textElement();
-  el.sourceRef = { ...LINKED_REF, unlinked: true };
+  el.source = { ...LINKED_REF, unlinked: true };
   const deck = deckWith(el);
   const result = executeCommand(deck, {
     type: "UPDATE_ELEMENT_SOURCE",
@@ -214,7 +214,7 @@ test("UPDATE_ELEMENT_SOURCE on a visual only touches the source", () => {
 
 test("UPDATE_ELEMENT_SOURCE fails when the element has no source link", () => {
   const el = textElement();
-  delete (el as { sourceRef?: SourceRef }).sourceRef;
+  delete (el as { source?: SourceRef }).source;
   const deck = deckWith(el);
   const result = executeCommand(deck, {
     type: "UPDATE_ELEMENT_SOURCE",
@@ -261,7 +261,7 @@ test("UPDATE_ELEMENT_SOURCE marks the link broken without auto-deleting", () => 
 
 test("UPDATE_ELEMENT_SOURCE unlink fails when no source link is present", () => {
   const el = textElement();
-  delete (el as { sourceRef?: SourceRef }).sourceRef;
+  delete (el as { source?: SourceRef }).source;
   const deck = deckWith(el);
   const result = executeCommand(deck, {
     type: "UPDATE_ELEMENT_SOURCE",

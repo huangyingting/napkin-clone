@@ -209,6 +209,11 @@ and end at the same deck change and autosave pipeline.
 
 Element content updates write `element.content`; element formatting writes
 `element.designOverrides`; source-link updates write `element.source`.
+Master mutations are deck-owned commands: `CREATE_MASTER`, `UPDATE_MASTER`,
+`DELETE_MASTER`, `SET_DEFAULT_MASTER`, `SET_SLIDE_MASTER`, and
+`UPDATE_MASTER_ELEMENT`. Template mutations are explicit blueprint commands:
+`ADD_SLIDE_FROM_TEMPLATE`, `APPLY_SLIDE_TEMPLATE`, `CREATE_CUSTOM_TEMPLATE`,
+`UPDATE_CUSTOM_TEMPLATE`, and `DELETE_CUSTOM_TEMPLATE`.
 
 ## Autosave And Conflict Handling
 

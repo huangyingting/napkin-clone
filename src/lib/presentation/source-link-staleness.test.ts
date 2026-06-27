@@ -41,7 +41,7 @@ function linkedElement(
   id: string,
   blockId: string,
   contentHash: string,
-  overrides: Partial<TextElement["sourceRef"]> = {},
+  overrides: Partial<TextElement["source"]> = {},
 ): TextElement {
   return {
     id,
@@ -50,7 +50,7 @@ function linkedElement(
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId,
       contentHash,
@@ -81,7 +81,7 @@ function runsOf(element: SlideElement | undefined) {
 }
 
 function sourceOf(element: SlideElement | undefined) {
-  return (element as any)?.source ?? (element as any)?.sourceRef;
+  return (element as any)?.source ?? (element as any)?.source;
 }
 
 function visualIdOf(element: SlideElement | undefined): string | undefined {
@@ -229,7 +229,7 @@ test("ignores sourceRef without contentHash", () => {
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: "blk-1",
       linkedAt: "2026-01-01T00:00:00.000Z",
@@ -342,7 +342,7 @@ function linkedVisualElement(
   id: string,
   visualId: string,
   contentHash: string,
-  overrides: Partial<VisualElement["sourceRef"]> = {},
+  overrides: Partial<VisualElement["source"]> = {},
 ): VisualElement {
   return {
     id,
@@ -350,7 +350,7 @@ function linkedVisualElement(
     visualId,
     box: { x: 25, y: 18, w: 50, h: 64 },
     zIndex: 0,
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: visualId,
       contentHash,
@@ -413,7 +413,7 @@ test("visual: ignores visual sourceRef with no contentHash", () => {
     visualId: "vis-1",
     box: { x: 25, y: 18, w: 50, h: 64 },
     zIndex: 0,
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: "vis-1",
       linkedAt: "2026-01-01T00:00:00.000Z",
@@ -439,7 +439,7 @@ test("visual: sourceRef with blockKind=text is treated as text", () => {
     visualId: "vis-1",
     box: { x: 25, y: 18, w: 50, h: 64 },
     zIndex: 0,
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: "vis-1",
       contentHash: hashDocumentBlock(textBlock),
@@ -484,7 +484,7 @@ test("updateTextElementFromBlock: updates text and runs, preserves geometry", ()
   };
   const freshHash = hashDocumentBlock(fresh);
   const newRef = buildRefreshSourceRef(
-    el.sourceRef!,
+    el.source!,
     "blk-1",
     freshHash,
     "2026-06-01T00:00:00.000Z",
@@ -516,7 +516,7 @@ test("updateTextElementFromBlock: clears runs when fresh block has no runs", () 
     // no runs
   };
   const newRef = buildRefreshSourceRef(
-    el.sourceRef!,
+    el.source!,
     "blk-1",
     hashDocumentBlock(fresh),
     "2026-06-01T00:00:00.000Z",
@@ -536,7 +536,7 @@ test("updateTextElementFromBlock: clears unlinked flag", () => {
     blockId: "blk-1",
   };
   const newRef = buildRefreshSourceRef(
-    el.sourceRef!,
+    el.source!,
     "blk-1",
     hashDocumentBlock(fresh),
     "2026-06-01T00:00:00.000Z",

@@ -169,6 +169,17 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     case "SET_PRESENTATION_THEME":
     case "UPDATE_THEME_OVERRIDES":
     case "SET_CANVAS_FORMAT":
+    case "CREATE_MASTER":
+    case "UPDATE_MASTER":
+    case "DELETE_MASTER":
+    case "SET_DEFAULT_MASTER":
+    case "SET_SLIDE_MASTER":
+    case "UPDATE_MASTER_ELEMENT":
+    case "ADD_SLIDE_FROM_TEMPLATE":
+    case "APPLY_SLIDE_TEMPLATE":
+    case "CREATE_CUSTOM_TEMPLATE":
+    case "UPDATE_CUSTOM_TEMPLATE":
+    case "DELETE_CUSTOM_TEMPLATE":
       return executeDeckThemeFamilyCommand(deck, cmd);
     case "SET_SLIDE_BACKGROUND":
     case "SET_SLIDE_BACKGROUND_GRADIENT":
@@ -268,6 +279,26 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
       const format = patch.deckFields?.canvas?.format;
       if (!format) return null;
       return setDeckSlideFormat(deck, format);
+    }
+    case "master.create":
+    case "master.update":
+    case "master.delete":
+    case "master.element.update": {
+      const masters = patch.deckFields?.masters;
+      if (!masters) return null;
+      return { ...deck, masters } as Deck;
+    }
+    case "master.set_default": {
+      const defaultMasterId = patch.deckFields?.defaultMasterId;
+      if (!defaultMasterId) return null;
+      return { ...deck, defaultMasterId } as Deck;
+    }
+    case "template.create_custom":
+    case "template.update_custom":
+    case "template.delete_custom": {
+      const customTemplates = patch.deckFields?.customTemplates;
+      if (!customTemplates) return null;
+      return { ...deck, customTemplates } as Deck;
     }
     case "slide.update_title":
     case "slide.update_body":

@@ -43,9 +43,8 @@ function elementContent(
 
 function elementSourceRef(element: {
   source?: SourceRef;
-  sourceRef?: SourceRef;
 }): SourceRef | undefined {
-  return element.source ?? element.sourceRef;
+  return element.source;
 }
 
 /** Reason a source link is considered stale. */

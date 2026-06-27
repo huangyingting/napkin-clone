@@ -51,6 +51,7 @@ import {
 } from "@/lib/presentation/deck-diff";
 import type { Deck } from "@/lib/presentation/deck";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import { deckCanvasFormat } from "@/components/presentation/v6-deck-ui";
 import type { Visual } from "@/lib/visual/schema";
 
 export interface DeckGenerationPreviewProps {
@@ -105,7 +106,7 @@ export function DeckGenerationPreview({
   // The current proposal on screen. Regenerate replaces this ONLY once a new
   // deck arrives, so the prior proposal never flashes to an empty state.
   const [proposal, setProposal] = useState<Deck>(proposedDeck);
-  const proposalAspectRatio = slideAspectRatio(proposal.slideFormat);
+  const proposalAspectRatio = slideAspectRatio(deckCanvasFormat(proposal));
   const [isTruncated, setIsTruncated] = useState(truncated);
   const [regenError, setRegenError] = useState(false);
 

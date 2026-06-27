@@ -309,8 +309,8 @@ function checkCustomTemplateFonts(
   customFontFamilies: ReadonlySet<string>,
   diagnostics: PreflightDiagnostic[],
 ): void {
-  const typography = ((deck as any).design?.themeOverrides?.tokenSet
-    ?.typography ?? deck.customTokenSet?.typography) as any;
+  const typography = (((deck as any).design?.themeOverrides?.tokenSet as any)
+    ?.typography ?? (deck as any).customTokenSet?.typography) as any;
   if (!typography) return;
 
   const candidates: string[] = [typography.fontFamily];
@@ -409,7 +409,7 @@ function checkPptxFidelityFeatures(
   // Background gradient.
   if (
     (slide as any).designOverrides?.background?.type === "gradient" ||
-    slide.backgroundGradient !== undefined
+    (slide as any).backgroundGradient !== undefined
   ) {
     diagnostics.push({
       severity: "warning",

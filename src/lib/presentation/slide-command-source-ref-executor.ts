@@ -22,9 +22,7 @@ export type SourceRefFamilyCommand =
   | RemoveSourceElementCommand;
 
 function elementSource(element: unknown): SourceRef | undefined {
-  return ((element as any).source ?? (element as any).sourceRef) as
-    | SourceRef
-    | undefined;
+  return (element as { source?: SourceRef }).source;
 }
 
 export function executeSourceRefFamilyCommand(
@@ -43,8 +41,7 @@ export function executeSourceRefFamilyCommand(
       if (currentSource === undefined)
         return failure(deck, `Element has no source link: ${cmd.elementId}`);
       const source: SourceRef = cmd.unlink
-        ? ((unlinkSource({ sourceRef: currentSource } as any).sourceRef ??
-            currentSource) as SourceRef)
+        ? (unlinkSource({ source: currentSource }).source ?? currentSource)
         : activeSourceRef(cmd.source ?? currentSource);
       const patch: ElementPatch = {
         source,

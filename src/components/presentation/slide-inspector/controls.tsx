@@ -2500,7 +2500,7 @@ export function SourceSummary({
       </PanelSection>
     );
   }
-  const ref = (element as { source?: SlideElement["sourceRef"] }).source;
+  const ref = (element as { source?: SlideElement["source"] }).source;
   if (!ref) {
     return (
       <PanelSection>

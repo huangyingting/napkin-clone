@@ -865,7 +865,7 @@ test("image element with sourceRef still emits a normal image op", () => {
     slides: [
       freeFormSlide(0, [
         imageEl("im-linked", {
-          sourceRef: {
+          source: {
             documentId: "doc-x",
             blockId: "blk-3",
             linkedAt: "2026-01-01T00:00:00Z",

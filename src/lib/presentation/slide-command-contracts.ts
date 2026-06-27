@@ -1,6 +1,13 @@
 /** Slide command payload/result contracts with no executor imports. */
 
-import type { Deck, DeckTheme, Slide } from "./deck-core";
+import type {
+  Deck,
+  DeckTheme,
+  Slide,
+  SlideMaster,
+  MasterElement,
+  SlideTemplate,
+} from "./deck-core";
 import type { ElementBox, SlideElement, TextRun } from "./deck-elements";
 import type {
   SlideLayout as ReusableSlideLayout,
@@ -12,6 +19,7 @@ import type { DeckTemplatePatch } from "./deck-mutation-template";
 import type { AlignMode, DistributeMode, MatchSizeMode } from "./element-align";
 import type { ArrangeMode } from "./element-arrange";
 import type { SlideFormat } from "./slide-format";
+import type { SlideTemplateKind } from "./slide-templates";
 
 export interface AddSlideCommand {
   type: "ADD_SLIDE";
@@ -389,6 +397,81 @@ export interface SetCanvasFormatCommand {
   commandId?: string;
 }
 
+export interface CreateMasterCommand {
+  type: "CREATE_MASTER";
+  master: SlideMaster;
+  commandId?: string;
+}
+
+export interface UpdateMasterCommand {
+  type: "UPDATE_MASTER";
+  masterId: string;
+  patch: Partial<Omit<SlideMaster, "id">>;
+  commandId?: string;
+}
+
+export interface DeleteMasterCommand {
+  type: "DELETE_MASTER";
+  masterId: string;
+  commandId?: string;
+}
+
+export interface SetDefaultMasterCommand {
+  type: "SET_DEFAULT_MASTER";
+  masterId: string;
+  commandId?: string;
+}
+
+export interface SetSlideMasterCommand {
+  type: "SET_SLIDE_MASTER";
+  slideId: string;
+  masterId: string | undefined;
+  commandId?: string;
+}
+
+export interface UpdateMasterElementCommand {
+  type: "UPDATE_MASTER_ELEMENT";
+  masterId: string;
+  elementId: string;
+  patch: Partial<MasterElement>;
+  commandId?: string;
+}
+
+export interface AddSlideFromTemplateCommand {
+  type: "ADD_SLIDE_FROM_TEMPLATE";
+  templateId: SlideTemplateKind | string;
+  afterSlideId?: string | null;
+  visualId?: string;
+  commandId?: string;
+}
+
+export interface ApplySlideTemplateCommand {
+  type: "APPLY_SLIDE_TEMPLATE";
+  slideId: string;
+  templateId: SlideTemplateKind | string;
+  visualId?: string;
+  commandId?: string;
+}
+
+export interface CreateCustomTemplateCommand {
+  type: "CREATE_CUSTOM_TEMPLATE";
+  template: SlideTemplate;
+  commandId?: string;
+}
+
+export interface UpdateCustomTemplateCommand {
+  type: "UPDATE_CUSTOM_TEMPLATE";
+  templateId: string;
+  patch: Partial<Omit<SlideTemplate, "id">>;
+  commandId?: string;
+}
+
+export interface DeleteCustomTemplateCommand {
+  type: "DELETE_CUSTOM_TEMPLATE";
+  templateId: string;
+  commandId?: string;
+}
+
 /** Sets (or clears) the per-slide background color override. */
 export interface SetSlideBackgroundCommand {
   type: "SET_SLIDE_BACKGROUND";
@@ -529,6 +612,17 @@ export type SlideCommand =
   | SetPresentationThemeCommand
   | UpdateThemeOverridesCommand
   | SetCanvasFormatCommand
+  | CreateMasterCommand
+  | UpdateMasterCommand
+  | DeleteMasterCommand
+  | SetDefaultMasterCommand
+  | SetSlideMasterCommand
+  | UpdateMasterElementCommand
+  | AddSlideFromTemplateCommand
+  | ApplySlideTemplateCommand
+  | CreateCustomTemplateCommand
+  | UpdateCustomTemplateCommand
+  | DeleteCustomTemplateCommand
   | SetSlideBackgroundCommand
   | SetSlideBackgroundGradientCommand
   | SetSlideBackgroundImageCommand
@@ -597,7 +691,18 @@ export type PatchOp =
   // Deck-level
   | "presentation.set_theme"
   | "presentation.update_theme_overrides"
-  | "canvas.set_format";
+  | "canvas.set_format"
+  | "master.create"
+  | "master.update"
+  | "master.delete"
+  | "master.set_default"
+  | "slide.set_master"
+  | "master.element.update"
+  | "slide.add_from_template"
+  | "slide.apply_template"
+  | "template.create_custom"
+  | "template.update_custom"
+  | "template.delete_custom";
 
 /**
  * A serialisable domain patch emitted by {@link executeCommand}.
@@ -630,6 +735,9 @@ export interface DeckPatch {
   deckFields?: {
     design?: { themeId?: DeckTheme; themeOverrides?: unknown };
     canvas?: { format?: SlideFormat };
+    masters?: SlideMaster[];
+    defaultMasterId?: string;
+    customTemplates?: SlideTemplate[];
     /** Signals a reset of the global theme overrides back to the built-in theme. */
     resetThemeOverrides?: boolean;
   };

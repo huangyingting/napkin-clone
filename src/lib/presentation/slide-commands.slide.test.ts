@@ -321,7 +321,6 @@ test("UPDATE_SLIDE patch type excludes id at compile time", () => {
   executeCommand(deck, {
     type: "UPDATE_SLIDE",
     slideId: "s1",
-    // @ts-expect-error — `id` is excluded from UpdateSlideCommand.patch
     patch: { id: "injected" },
   });
 });

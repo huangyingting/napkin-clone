@@ -14,6 +14,7 @@ import {
   type TextElementStyle,
   type TextRun,
   type VisualElement,
+  type SlideFormat,
 } from "@/lib/presentation/deck";
 
 export function buildElementBox(
@@ -96,9 +97,7 @@ export function buildTextElement(
       ? { styleOverride: overrides.styleOverride }
       : {}),
     ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
+    ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
       ? { rotation: overrides.rotation }
@@ -161,9 +160,7 @@ export function buildBulletsElement(
     ...(overrides.bulletIndent !== undefined
       ? { bulletIndent: overrides.bulletIndent }
       : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
+    ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
       ? { rotation: overrides.rotation }
@@ -188,9 +185,7 @@ export function buildVisualElement(
       ? { styleThemeId: overrides.styleThemeId }
       : {}),
     ...(overrides.alt !== undefined ? { alt: overrides.alt } : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
+    ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
       ? { rotation: overrides.rotation }
@@ -219,9 +214,7 @@ export function buildImageElement(
       : {}),
     ...(overrides.crop !== undefined ? { crop: overrides.crop } : {}),
     ...(overrides.assetId !== undefined ? { assetId: overrides.assetId } : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
+    ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
       ? { rotation: overrides.rotation }
@@ -259,9 +252,7 @@ export function buildShapeElement(
       : {}),
     ...(overrides.stroke !== undefined ? { stroke: overrides.stroke } : {}),
     ...(overrides.radius !== undefined ? { radius: overrides.radius } : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
+    ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
       ? { rotation: overrides.rotation }
@@ -294,9 +285,7 @@ export function buildConnectorElement(
     ...(overrides.dash !== undefined ? { dash: overrides.dash } : {}),
     ...(overrides.routing !== undefined ? { routing: overrides.routing } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
+    ...(overrides.source !== undefined ? { source: overrides.source } : {}),
   };
 }
 
@@ -312,9 +301,36 @@ export function buildPlaceholderElement(
   };
 }
 
-export function buildSlide(overrides: Partial<Slide> = {}): Slide {
+type SlideBuilderOverrides = Partial<Slide> & {
+  titleRuns?: TextRun[];
+  bullets?: string[];
+  bulletRuns?: TextRun[][];
+  visualIds?: string[];
+  layout?: string;
+  elementsDerived?: boolean;
+  sourceSectionId?: string;
+  background?: string;
+  backgroundGradient?: { from: string; to: string; angle?: number };
+  backgroundImage?: string;
+  backgroundAssetId?: string;
+  accent?: string;
+  masterRef?: string;
+};
+
+type DeckBuilderOverrides = Partial<
+  Omit<Deck, "schemaVersion" | "masters" | "slides">
+> & {
+  schemaVersion?: number;
+  themeId?: string;
+  slideFormat?: SlideFormat;
+  customTokenSet?: unknown;
+  masters?: unknown[];
+  slides?: Array<Slide | SlideBuilderOverrides>;
+};
+
+export function buildSlide(overrides: SlideBuilderOverrides = {}): Slide {
   const title = overrides.title ?? "Fixture slide";
-  return {
+  return toV6Slide({
     id: overrides.id ?? "slide-fixture",
     index: overrides.index ?? 0,
     title,
@@ -359,10 +375,10 @@ export function buildSlide(overrides: Partial<Slide> = {}): Slide {
     ...(overrides.masterRef !== undefined
       ? { masterRef: overrides.masterRef }
       : {}),
-  };
+  });
 }
 
-export function buildDeck(overrides: Partial<Deck> = {}): Deck {
+export function buildDeck(overrides: DeckBuilderOverrides = {}): Deck {
   const rawOverrides = overrides as any;
   const themeId =
     rawOverrides.design?.themeId ?? overrides.themeId ?? "default";
@@ -393,7 +409,7 @@ export function buildDeck(overrides: Partial<Deck> = {}): Deck {
   } as unknown as Deck;
 }
 
-function toV6Slide(slide: Slide): Slide {
+function toV6Slide(slide: Slide | SlideBuilderOverrides): Slide {
   const raw = slide as any;
   const designOverrides: Record<string, unknown> = {
     ...(raw.designOverrides ?? {}),
@@ -469,8 +485,8 @@ function toV6Element(element: SlideElement): SlideElement {
     ...(raw.groupId !== undefined ? { groupId: raw.groupId } : {}),
     ...(raw.source !== undefined
       ? { source: raw.source }
-      : raw.sourceRef !== undefined
-        ? { source: raw.sourceRef }
+      : raw.source !== undefined
+        ? { source: raw.source }
         : {}),
   };
   if (raw.kind === "text") {
@@ -590,8 +606,8 @@ export function makeSlideWithElementIds(
         italic: false,
         align: "left" as const,
       },
-    })),
-  };
+    })) as SlideElement[],
+  } as unknown as Slide;
 }
 
 /** Minimal slide with explicit id/index/title and no elements. */
@@ -604,16 +620,14 @@ export function makeMinimalSlide(
     id,
     index,
     title,
-    bullets: [],
-    visualIds: [],
-    layout: "content" as const,
     notes: "",
+    elements: [],
   };
 }
 
 /** Minimal deck wrapping an array of slides (themeId "default"). */
 export function makeMinimalDeck(slides: Slide[]): Deck {
-  return { themeId: "default", slides };
+  return buildDeck({ slides });
 }
 
 /**
@@ -621,17 +635,15 @@ export function makeMinimalDeck(slides: Slide[]): Deck {
  * Each slide gets a sequential index and a generic title.
  */
 export function makeDeckFromIds(slideIds: string[]): Deck {
-  return {
-    themeId: "default",
-    slides: slideIds.map((id, index) => ({
-      id,
-      index,
-      title: `Slide ${index + 1}`,
-      bullets: [],
-      visualIds: [],
-      layout: "blank" as const,
-      notes: "",
-      themeId: "default",
-    })),
-  };
+  return buildDeck({
+    slides: slideIds.map((id, index) =>
+      buildSlide({
+        id,
+        index,
+        title: `Slide ${index + 1}`,
+        layout: "blank",
+        notes: "",
+      }),
+    ),
+  });
 }

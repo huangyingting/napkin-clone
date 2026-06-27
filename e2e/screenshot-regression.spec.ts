@@ -243,7 +243,7 @@ test.describe("deck fixture integrity", () => {
   });
 
   test("regression deck fixture backgrounds cover white, light, and dark", () => {
-    const slides = REGRESSION_DECK_FIXTURE.slides as Array<{
+    const slides = REGRESSION_DECK_FIXTURE.slides as unknown as Array<{
       background: string;
     }>;
     const bgs = slides.map((s) => s.background);

@@ -36,7 +36,7 @@ function textOf(element: SlideElement | undefined): string | undefined {
 }
 
 function sourceOf(element: SlideElement | undefined) {
-  return (element as any)?.source ?? (element as any)?.sourceRef;
+  return (element as any)?.source ?? (element as any)?.source;
 }
 
 function textStyleOf(element: SlideElement | undefined) {
@@ -1049,7 +1049,7 @@ function linkedTextElement(
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 1,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId,
       contentHash,
@@ -1113,7 +1113,7 @@ test("element-level merge: preserves geometry and style of updated element (#409
     box: { x: 30, y: 40, w: 25, h: 12 },
     zIndex: 5,
     style: { fontSize: 6, bold: true, italic: false, align: "center" },
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: "blk-2",
       contentHash: hash,
@@ -1188,7 +1188,7 @@ test("element-level merge: unlinked elements are not updated (#409)", () => {
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 1,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: "blk-x",
       contentHash: hash,
@@ -1257,7 +1257,7 @@ test("element-level merge: mixed linked/unlinked/manual elements on one slide (#
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 2,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    sourceRef: {
+    source: {
       documentId: "doc-1",
       blockId: "blk-linked",
       contentHash: hash,

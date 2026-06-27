@@ -7,8 +7,8 @@
  */
 
 import type { BrandStyle } from "@/lib/brand/schema";
-import type { Deck } from "./deck-core";
-import type { DeckThemeTokenSet, MasterSlide } from "./deck-theme-token-types";
+import type { Deck, SlideMaster } from "./deck-core";
+import type { DeckThemeTokenSet } from "./deck-theme-token-types";
 import { DEFAULT_TOKEN_SET } from "./deck-theme-token-data";
 
 /**
@@ -48,13 +48,15 @@ export function brandToTokenSet(brand: BrandStyle): DeckThemeTokenSet {
  */
 export function brandToMasterChrome(
   brand: BrandStyle,
-  baseThemeId: string,
-): MasterSlide {
+  _baseThemeId: string,
+): SlideMaster {
   return {
     id: `master:${brand.id}`,
     name: `${brand.name} Master`,
-    themeId: baseThemeId,
-    showPageNumbers: false,
+    elements: [],
+    ...(brand.background
+      ? { background: { type: "solid", color: { value: brand.background } } }
+      : {}),
     ...(brand.logoAssetUrl
       ? { logoUrl: brand.logoAssetUrl, logoPlacement: "top-right" as const }
       : {}),
@@ -63,10 +65,10 @@ export function brandToMasterChrome(
 
 /**
  * Applies a brand to a deck by:
- * 1. Setting deck.themeId to brand:<brand.id>
- * 2. Storing the computed token set in deck.customTokenSet
+ * 1. Setting design.themeId to brand:<brand.id>
+ * 2. Storing the computed token set in design.themeOverrides.tokenSet
  * 3. Setting/replacing deck.masters[0] with brand chrome
- * 4. NOT touching slide.background, slide.accent, or element.style fields
+ * 4. NOT touching slide backgrounds, accents, or element overrides
  * Returns a new Deck (immutable).
  */
 export function applyBrandToDeck(deck: Deck, brand: BrandStyle): Deck {
@@ -81,8 +83,14 @@ export function applyBrandToDeck(deck: Deck, brand: BrandStyle): Deck {
 
   return {
     ...deck,
-    themeId: tokenSet.id,
-    customTokenSet: tokenSet,
+    design: {
+      ...deck.design,
+      themeId: tokenSet.id,
+      themeOverrides: {
+        ...(deck.design?.themeOverrides ?? {}),
+        tokenSet,
+      },
+    },
     masters: brandMasters,
   };
 }

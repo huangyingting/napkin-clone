@@ -19,10 +19,10 @@ import {
 } from "./style-cascade";
 import { buildDeck, buildSlide } from "@/test/builders/deck";
 
-const makeSlide = (overrides: Partial<Slide> = {}): Slide =>
+const makeSlide = (overrides: Record<string, any> = {}): Slide =>
   buildSlide({ id: "s1", title: "Test Slide", bullets: [], ...overrides });
 
-const makeDeck = (overrides: Partial<Deck> = {}): Deck =>
+const makeDeck = (overrides: Record<string, any> = {}): Deck =>
   buildDeck({ slides: [], ...overrides });
 
 function makeMaster(overrides: Partial<MasterSlide> = {}): MasterSlide {

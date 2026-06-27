@@ -48,7 +48,7 @@ function makeVisualSlide(
         visualId,
         box: { x: 0, y: 0, w: 400, h: 300 },
         zIndex: 0,
-        ...(sourceRef ? { sourceRef } : {}),
+        ...(sourceRef ? { source: sourceRef } : {}),
       },
     ],
   } as unknown as Slide;
@@ -76,7 +76,7 @@ function makeTextSlide(
         text,
         box: { x: 0, y: 0, w: 400, h: 100 },
         zIndex: 0,
-        ...(sourceRef ? { sourceRef } : {}),
+        ...(sourceRef ? { source: sourceRef } : {}),
       },
     ],
   } as unknown as Slide;

@@ -10,6 +10,10 @@
 import { assertNever } from "@/lib/assert-never";
 import type { Slide, SlideElement } from "@/lib/presentation/deck";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
+import {
+  slideBackgroundGradientValue,
+  slideSolidBackgroundValue,
+} from "@/components/presentation/v6-deck-ui";
 
 // ── Slide selection ────────────────────────────────────────────────────────
 
@@ -116,7 +120,9 @@ export function selectBackgroundPreviewStyle(
   selectedSlide: Slide | undefined,
   selectedTheme: SlideThemeColors,
 ): { background: string } | { backgroundColor: string } {
-  const gradient = selectedSlide?.backgroundGradient;
+  const gradient = selectedSlide
+    ? slideBackgroundGradientValue(selectedSlide)
+    : undefined;
   if (gradient) {
     const angle = gradient.angle ?? 135;
     return {
@@ -124,6 +130,8 @@ export function selectBackgroundPreviewStyle(
     };
   }
   return {
-    backgroundColor: selectedSlide?.background ?? selectedTheme.bgColor,
+    backgroundColor: selectedSlide
+      ? (slideSolidBackgroundValue(selectedSlide) ?? selectedTheme.bgColor)
+      : selectedTheme.bgColor,
   };
 }

@@ -249,14 +249,25 @@ test("selectBackgroundPreviewStyle uses theme bg when slide has no background", 
 });
 
 test("selectBackgroundPreviewStyle uses slide background color over theme", () => {
-  const slide = makeSlide({ background: "#ff0000" });
+  const slide = makeSlide({
+    designOverrides: {
+      background: { type: "solid", color: { value: "#ff0000" } },
+    },
+  });
   const style = selectBackgroundPreviewStyle(slide, makeTheme());
   assert.deepEqual(style, { backgroundColor: "#ff0000" });
 });
 
 test("selectBackgroundPreviewStyle uses gradient when backgroundGradient is set", () => {
   const slide = makeSlide({
-    backgroundGradient: { from: "#aaa", to: "#bbb", angle: 90 },
+    designOverrides: {
+      background: {
+        type: "gradient",
+        from: { value: "#aaa" },
+        to: { value: "#bbb" },
+        angle: 90,
+      },
+    },
   });
   const style = selectBackgroundPreviewStyle(slide, makeTheme());
   assert.deepEqual(style, { background: "linear-gradient(90deg, #aaa, #bbb)" });
@@ -264,7 +275,13 @@ test("selectBackgroundPreviewStyle uses gradient when backgroundGradient is set"
 
 test("selectBackgroundPreviewStyle defaults gradient angle to 135 when omitted", () => {
   const slide = makeSlide({
-    backgroundGradient: { from: "#111", to: "#222" },
+    designOverrides: {
+      background: {
+        type: "gradient",
+        from: { value: "#111" },
+        to: { value: "#222" },
+      },
+    },
   });
   const style = selectBackgroundPreviewStyle(slide, makeTheme());
   assert.deepEqual(style, {

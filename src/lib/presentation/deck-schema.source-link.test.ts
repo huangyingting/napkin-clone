@@ -23,7 +23,7 @@ function makeSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
 }
 
 function sourceLinkedTextElement(
-  sourceRef: SourceRef = makeSourceRef(),
+  source: SourceRef = makeSourceRef(),
 ): TextElement {
   return buildTextElement({
     id: "linked-text",
@@ -32,7 +32,7 @@ function sourceLinkedTextElement(
     zIndex: 0,
     box: { x: 1, y: 2, w: 30, h: 12 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    sourceRef,
+    source,
   });
 }
 
@@ -98,7 +98,7 @@ test("safeParseDeck rejects an element with an invalid sourceRef", () => {
     elementDeck([
       {
         ...sourceLinkedTextElement(),
-        sourceRef: {
+        source: {
           documentId: "doc-1",
           blockId: "block-1",
           linkedAt: "yesterday",
@@ -131,7 +131,7 @@ test("unlinkSource marks an element as intentionally unlinked", () => {
   const element = sourceLinkedTextElement();
   const unlinked = unlinkSource(element);
   assert.notEqual(unlinked, element);
-  assert.deepEqual(unlinked.sourceRef, {
+  assert.deepEqual(unlinked.source, {
     ...makeSourceRef(),
     unlinked: true,
   });
@@ -168,7 +168,7 @@ test("relinkSource restores an active source link", () => {
     }),
   );
   assert.equal(isSourceLinked(relinked), true);
-  assert.deepEqual(relinked.sourceRef, {
+  assert.deepEqual(relinked.source, {
     documentId: "doc-1",
     blockId: "block-2",
     contentHash: "hash-2",

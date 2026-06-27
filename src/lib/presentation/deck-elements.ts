@@ -204,7 +204,7 @@ export interface BaseElement {
    */
   groupId?: string;
   /** Optional provenance link back to the source document block. */
-  sourceRef?: SourceRef;
+  source?: SourceRef;
 }
 
 export interface TextElement extends BaseElement {
@@ -404,7 +404,7 @@ export const DEFAULT_VISUAL_BOX: ElementBox = { x: 25, y: 18, w: 50, h: 64 };
  * `addElement`/`onDeckChange` so the insert is undoable. `zIndex` is assigned by
  * `addElement`, so it is intentionally omitted here.
  *
- * Pass `options.sourceRef` to stamp provenance metadata when inserting from
+ * Pass `options.source` to stamp provenance metadata when inserting from
  * a source document (issue #424).
  */
 export function buildVisualElement(
@@ -414,7 +414,7 @@ export function buildVisualElement(
     box?: ElementBox;
     styleThemeId?: string;
     /** Optional source-document provenance for inserted document visuals (#424). */
-    sourceRef?: SourceRef;
+    source?: SourceRef;
   } = {},
 ): Omit<VisualElement, "zIndex"> & { id: string } {
   return {
@@ -427,8 +427,6 @@ export function buildVisualElement(
       visualId,
       ...(options.styleThemeId ? { styleThemeId: options.styleThemeId } : {}),
     },
-    ...(options.sourceRef !== undefined
-      ? { source: options.sourceRef }
-      : {}),
+    ...(options.source !== undefined ? { source: options.source } : {}),
   } as unknown as Omit<VisualElement, "zIndex"> & { id: string };
 }

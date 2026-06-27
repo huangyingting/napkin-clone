@@ -142,7 +142,7 @@ const DEFAULT_TEXT_BOX: ElementBox = { x: 12, y: 28, w: 76, h: 18 };
  * **UI wiring note (issue #377):** `documentId` is not yet threaded through
  * the "From document" panel insert handler in `slide-editor.tsx`.  Once the
  * panel receives `documentId` as a prop, call this helper in
- * `handleInsertDocumentText` and pass the result via `options.sourceRef` (or
+ * `handleInsertDocumentText` and pass the result via `options.source` (or
  * the equivalent field when the API is finalised).
  */
 export function buildSourceRefFromBlock(
@@ -199,7 +199,7 @@ export function insertableTextElement(
         : "h1"
     : "body";
 
-  const sourceRef: BaseElement["sourceRef"] =
+  const source: BaseElement["source"] =
     options.documentId !== undefined && item.blockId !== undefined
       ? buildSourceRefFromBlock(
           options.documentId,
@@ -222,16 +222,16 @@ export function insertableTextElement(
       italic: false,
       align: "left",
     },
-    ...(sourceRef !== undefined ? { sourceRef } : {}),
+    ...(source !== undefined ? { source } : {}),
   };
 }
 
 /**
  * Builds a {@link VisualElement} (sans `zIndex`) from a visual insertable,
- * optionally stamping a full `sourceRef` when `documentId` is provided.
+ * optionally stamping a full `source` when `documentId` is provided.
  *
  * When both `documentId` and the insertable's `contentHash` are available,
- * the element is stamped with a `sourceRef` whose `blockKind` is `"visual"`
+ * the element is stamped with a `source` whose `blockKind` is `"visual"`
  * and `blockId` equals the `visualId`. This lets staleness detection (#424)
  * identify missing or changed document visuals without re-deriving the deck.
  *
@@ -242,13 +242,13 @@ export function insertableVisualElement(
   options: {
     id?: string;
     box?: import("./deck").ElementBox;
-    /** Source document id — required to stamp a full `sourceRef`. */
+    /** Source document id — required to stamp a full `source`. */
     documentId?: string;
-    /** ISO timestamp for `sourceRef.linkedAt`. Defaults to `new Date().toISOString()`. */
+    /** ISO timestamp for `source.linkedAt`. Defaults to `new Date().toISOString()`. */
     linkedAt?: string;
   } = {},
 ): ReturnType<typeof buildVisualElement> {
-  const sourceRef: SourceRef | undefined =
+  const source: SourceRef | undefined =
     options.documentId !== undefined
       ? {
           documentId: options.documentId,
@@ -261,6 +261,6 @@ export function insertableVisualElement(
   return buildVisualElement(item.visualId, {
     id: options.id,
     ...(options.box !== undefined ? { box: options.box } : {}),
-    ...(sourceRef !== undefined ? { sourceRef } : {}),
+    ...(source !== undefined ? { source } : {}),
   });
 }

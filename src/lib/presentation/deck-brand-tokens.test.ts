@@ -36,16 +36,18 @@ function mockBrand(overrides: Partial<BrandStyle> = {}): BrandStyle {
 
 function baseDeck(): Deck {
   return {
-    themeId: "default",
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
         index: 0,
         title: "Slide 1",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
         notes: "",
+        elements: [],
       },
     ],
   };
@@ -109,8 +111,11 @@ test("brandToMasterChrome creates master with brand id prefix", () => {
   const master = brandToMasterChrome(brand, "brand:brand-1");
   assert.equal(master.id, "master:brand-1");
   assert.equal(master.name, "Acme Brand Master");
-  assert.equal(master.themeId, "brand:brand-1");
-  assert.equal(master.showPageNumbers, false);
+  assert.deepEqual(master.elements, []);
+  assert.deepEqual(master.background, {
+    type: "solid",
+    color: { value: "#fafafa" },
+  });
 });
 
 test("brandToMasterChrome includes deck logoUrl when logoAssetUrl is set", () => {
@@ -127,13 +132,15 @@ test("brandToMasterChrome omits logo fields when logoAssetUrl is null", () => {
   assert.equal(master.logoPlacement, undefined);
 });
 
-test("applyBrandToDeck sets themeId and customTokenSet on deck", () => {
+test("applyBrandToDeck sets design theme and theme override token set on deck", () => {
   const deck = baseDeck();
   const brand = mockBrand();
   const newDeck = applyBrandToDeck(deck, brand);
-  assert.equal(newDeck.themeId, "brand:brand-1");
-  assert.ok(newDeck.customTokenSet !== undefined);
-  assert.equal(newDeck.customTokenSet?.id, "brand:brand-1");
+  assert.equal(newDeck.design?.themeId, "brand:brand-1");
+  const tokenSet = (newDeck.design?.themeOverrides?.tokenSet ?? {}) as {
+    id?: string;
+  };
+  assert.equal(tokenSet.id, "brand:brand-1");
 });
 
 test("applyBrandToDeck adds brand master as first master", () => {
@@ -151,8 +158,7 @@ test("applyBrandToDeck preserves existing masters after brand master", () => {
       {
         id: "existing-master",
         name: "Existing",
-        themeId: "default",
-        showPageNumbers: false,
+        elements: [],
       },
     ],
   };
@@ -179,7 +185,8 @@ test("applyBrandToDeck does not mutate original deck", () => {
   const deck = baseDeck();
   const brand = mockBrand();
   applyBrandToDeck(deck, brand);
-  assert.equal(deck.themeId, "default");
-  assert.equal(deck.customTokenSet, undefined);
-  assert.equal(deck.masters, undefined);
+  assert.equal(deck.design?.themeId, "default");
+  assert.equal(deck.design?.themeOverrides, undefined);
+  assert.equal(deck.masters?.length, 1);
+  assert.equal(deck.masters?.[0]?.id, "master-default");
 });

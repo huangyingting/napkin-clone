@@ -80,6 +80,18 @@ export function dataUrlByteSize(src: string | null | undefined): number {
   return src.length;
 }
 
+function slideBackgroundImageUrl(
+  slide: Deck["slides"][number],
+): string | undefined {
+  const background = (slide as any).designOverrides?.background;
+  if (background?.type === "image" && typeof background.url === "string") {
+    return background.url;
+  }
+  return typeof (slide as any).backgroundImage === "string"
+    ? (slide as any).backgroundImage
+    : undefined;
+}
+
 /**
  * Sums the inlined-image bytes across every {@link ImageElement} in the deck
  * AND every per-slide `backgroundImage` that is a `data:` URL — i.e. the total
@@ -90,7 +102,7 @@ export function dataUrlByteSize(src: string | null | undefined): number {
 export function totalInlineImageBytes(deck: Deck): number {
   let total = 0;
   for (const slide of deck.slides) {
-    total += dataUrlByteSize(slide.backgroundImage);
+    total += dataUrlByteSize(slideBackgroundImageUrl(slide));
     for (const element of slide.elements ?? []) {
       if (element.kind === "image") {
         total += dataUrlByteSize(element.src);

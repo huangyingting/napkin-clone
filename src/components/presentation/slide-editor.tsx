@@ -143,6 +143,7 @@ import {
   deckCanvasFormat,
   deckHasThemeOverrides,
   deckPresentationThemeId,
+  slideAccentValue,
 } from "@/components/presentation/v6-deck-ui";
 import {
   elementContent,
@@ -169,7 +170,7 @@ interface SlideEditorProps {
   /**
    * The source document's stable ID. Used for two purposes: passed through to
    * {@link insertableTextElement} so inserted text elements carry a full
-   * `sourceRef` (issue #377); and passed to {@link useImageUpload} so uploaded
+   * `source` link (issue #377); and passed to {@link useImageUpload} so uploaded
    * images are stored as server-side slide assets (Epic #374). Absent when the
    * panel is opened without a live document context.
    */
@@ -442,10 +443,8 @@ export function SlideEditor({
         id: "fallback",
         index: 0,
         title: "",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
         notes: "",
+        elements: [],
       });
   const {
     selectedElementIds,
@@ -912,7 +911,9 @@ export function SlideEditor({
     void flushSave();
   }, [flushSave]);
 
-  const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
+  const accentForSelected = selectedSlide
+    ? (slideAccentValue(selectedSlide) ?? selectedTheme.accentColor)
+    : selectedTheme.accentColor;
 
   const handleClearSelection = useCallback(() => {
     setSelectedSlideFrameId(null);

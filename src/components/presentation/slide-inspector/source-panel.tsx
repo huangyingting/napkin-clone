@@ -28,7 +28,7 @@ export function SourceSummary({
       </p>
     );
   }
-  const ref = (element as { source?: SlideElement["sourceRef"] }).source;
+  const ref = (element as { source?: SlideElement["source"] }).source;
   if (!ref) {
     return (
       <div className="flex flex-col gap-2">

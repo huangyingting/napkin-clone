@@ -56,7 +56,7 @@ export type DocumentDeckDependency =
       elementId: string;
       blockId: string;
       blockKind: "text" | "visual";
-      sourceRef: SourceRef;
+      source: SourceRef;
     };
 
 // ---------------------------------------------------------------------------
@@ -93,9 +93,7 @@ export function enumerateDeckDependencies(
         }
 
         // Source-ref dependency (present on any element kind).
-        const ref =
-          (element as SlideElement & { source?: SourceRef }).source ??
-          (element as SlideElement & { sourceRef?: SourceRef }).sourceRef;
+        const ref = (element as SlideElement & { source?: SourceRef }).source;
         if (
           ref !== undefined &&
           ref.unlinked !== true &&
@@ -108,7 +106,7 @@ export function enumerateDeckDependencies(
             elementId: element.id,
             blockId: ref.blockId,
             blockKind,
-            sourceRef: ref,
+            source: ref,
           });
         }
       }
@@ -157,7 +155,7 @@ export function checkDependencyHealth(
         resolution = resolveVisualRef(dep.visualId, freshBlocks);
         break;
       case "source_ref":
-        resolution = resolveSourceRef(dep.sourceRef, freshBlocks);
+        resolution = resolveSourceRef(dep.source, freshBlocks);
         break;
     }
 
@@ -326,7 +324,7 @@ export function reconcileDocumentDeckDependencies(
       // source_ref: classifiable only against fresh document blocks. Without
       // them we cannot detect staleness, so treat as found (link preserved).
       if (sourceRefs) {
-        const resolution = resolveSourceRef(dependency.sourceRef, sourceRefs);
+        const resolution = resolveSourceRef(dependency.source, sourceRefs);
         status = narrowStatus(resolution.status).status;
         reason = resolution.reason;
       } else {

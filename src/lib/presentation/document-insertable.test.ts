@@ -257,7 +257,7 @@ test("insertableTextElement omits sourceRef when documentId is absent", () => {
   };
   const [item] = textItems(buildInsertables([block]));
   const el = insertableTextElement(item);
-  assert.equal(el.sourceRef, undefined);
+  assert.equal(el.source, undefined);
 });
 
 test("insertableTextElement omits sourceRef when blockId is absent even with documentId", () => {
@@ -266,7 +266,7 @@ test("insertableTextElement omits sourceRef when blockId is absent even with doc
     documentId: "doc-1",
     linkedAt: "2026-01-01T00:00:00.000Z",
   });
-  assert.equal(el.sourceRef, undefined);
+  assert.equal(el.source, undefined);
 });
 
 test("insertableTextElement stamps sourceRef when documentId and blockId are both provided", () => {
@@ -281,13 +281,13 @@ test("insertableTextElement stamps sourceRef when documentId and blockId are bot
     documentId: "doc-xyz",
     linkedAt: "2026-06-01T12:00:00.000Z",
   });
-  assert.ok(el.sourceRef !== undefined, "sourceRef should be set");
-  assert.equal(el.sourceRef!.documentId, "doc-xyz");
-  assert.equal(el.sourceRef!.blockId, "blk-linked");
-  assert.equal(el.sourceRef!.linkedAt, "2026-06-01T12:00:00.000Z");
-  assert.equal(typeof el.sourceRef!.contentHash, "string");
-  assert.ok(el.sourceRef!.contentHash!.length > 0);
-  assert.equal(el.sourceRef!.unlinked, undefined);
+  assert.ok(el.source !== undefined, "sourceRef should be set");
+  assert.equal(el.source!.documentId, "doc-xyz");
+  assert.equal(el.source!.blockId, "blk-linked");
+  assert.equal(el.source!.linkedAt, "2026-06-01T12:00:00.000Z");
+  assert.equal(typeof el.source!.contentHash, "string");
+  assert.ok(el.source!.contentHash!.length > 0);
+  assert.equal(el.source!.unlinked, undefined);
 });
 
 test("insertableTextElement sourceRef contentHash matches block contentHash", () => {
@@ -302,7 +302,7 @@ test("insertableTextElement sourceRef contentHash matches block contentHash", ()
     documentId: "doc-1",
     linkedAt: "2026-01-01T00:00:00.000Z",
   });
-  assert.equal(el.sourceRef!.contentHash, item.contentHash);
+  assert.equal(el.source!.contentHash, item.contentHash);
 });
 
 test("insertableTextElement defaults linkedAt to now when documentId set but linkedAt omitted", () => {
@@ -316,8 +316,8 @@ test("insertableTextElement defaults linkedAt to now when documentId set but lin
   const [item] = textItems(buildInsertables([block]));
   const el = insertableTextElement(item, { documentId: "doc-1" });
   const after = Date.now();
-  assert.ok(el.sourceRef !== undefined);
-  const ts = Date.parse(el.sourceRef!.linkedAt);
+  assert.ok(el.source !== undefined);
+  const ts = Date.parse(el.source!.linkedAt);
   assert.ok(ts >= before && ts <= after, "linkedAt should be near now");
 });
 
@@ -334,8 +334,8 @@ test("insertableTextElement heading stamps sourceRef when both ids present", () 
     documentId: "doc-2",
     linkedAt: "2026-06-01T00:00:00.000Z",
   });
-  assert.equal(el.sourceRef!.documentId, "doc-2");
-  assert.equal(el.sourceRef!.blockId, "blk-h2");
+  assert.equal(el.source!.documentId, "doc-2");
+  assert.equal(el.source!.blockId, "blk-h2");
   assert.equal(el.textRole, "h2");
   assert.equal(el.style.bold, true);
 });

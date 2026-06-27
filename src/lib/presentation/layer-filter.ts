@@ -20,7 +20,7 @@ export interface FilterableLayer {
   locked?: boolean;
   hidden?: boolean;
   groupId?: string;
-  sourceRef?: unknown;
+  source?: unknown;
 }
 
 /** Parsed filter predicate set. */
@@ -74,7 +74,7 @@ function matchesQuery<T extends FilterableLayer>(
   if (q.kinds.length > 0 && !q.kinds.includes(el.kind)) return false;
   if (q.locked !== undefined && Boolean(el.locked) !== q.locked) return false;
   if (q.hidden !== undefined && Boolean(el.hidden) !== q.hidden) return false;
-  if (q.source !== undefined && (el.sourceRef !== undefined) !== q.source) {
+  if (q.source !== undefined && (el.source !== undefined) !== q.source) {
     return false;
   }
   if (q.grouped !== undefined && (el.groupId !== undefined) !== q.grouped) {

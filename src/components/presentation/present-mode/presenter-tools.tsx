@@ -7,7 +7,10 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import type { Deck, Slide } from "@/lib/presentation/deck";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
-import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import {
+  slideAspectRatio,
+  type SlideFormat,
+} from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 
 import { PRESENT_MODE_SHORTCUTS } from "./presenter-shortcuts";
@@ -115,7 +118,7 @@ export function SlideOverviewPanel({
   slides: Slide[];
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
-  slideFormat: Deck["slideFormat"];
+  slideFormat: SlideFormat;
   currentIndex: number;
   onJump: (index: number) => void;
   onClose: () => void;
@@ -230,7 +233,7 @@ export function PresenterPanel({
   nextSlide: Slide | undefined;
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
-  slideFormat: Deck["slideFormat"];
+  slideFormat: SlideFormat;
 }): JSX.Element {
   const previewAspectRatio = slideAspectRatio(slideFormat);
   const slideLabel = currentSlide.title.trim() || `Slide ${currentIndex + 1}`;

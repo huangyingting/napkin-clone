@@ -20,7 +20,7 @@ const els: L[] = [
   { id: "t1", name: "Title", kind: "text" },
   { id: "b1", name: "Bullets", kind: "text", locked: true },
   { id: "i1", name: "Hero image", kind: "image", hidden: true },
-  { id: "v1", name: "Chart", kind: "visual", sourceRef: { documentId: "d" } },
+  { id: "v1", name: "Chart", kind: "visual", source: { documentId: "d" } },
   { id: "s1", name: "Box", kind: "shape", groupId: "g1" },
 ];
 

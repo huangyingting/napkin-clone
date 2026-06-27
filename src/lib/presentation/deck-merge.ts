@@ -131,9 +131,7 @@ function elementVisualId(element: SlideElement): string | undefined {
 }
 
 function elementSourceRef(element: SlideElement): SourceRef | undefined {
-  return ((element as any).source ?? (element as any).sourceRef) as
-    | SourceRef
-    | undefined;
+  return (element as { source?: SourceRef }).source;
 }
 
 function slideLayout(slide: Slide): string {
@@ -303,7 +301,7 @@ function applyElementSourceUpdates(
         "visual",
       );
       sourceUpdatedCount += 1;
-      return { ...el, sourceRef: newRef };
+      return { ...el, source: newRef };
     } else {
       const freshBlock = textById.get(sourceRef.blockId);
       if (freshBlock === undefined) return el; // orphan — never auto-delete

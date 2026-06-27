@@ -54,9 +54,14 @@ export function resolveThemeTokens(themeId?: string | null): DeckThemeTokenSet {
 
 /** Minimal deck-shaped source used by theme-token resolvers. */
 export interface DeckThemeSource {
-  /** Authoritative token-set id for the deck theme cascade. */
-  themeId: string;
-  /** Custom/brand token set; when present it wins over built-in ids. */
+  /** v6 presentation design source. */
+  design?: {
+    themeId?: string;
+    themeOverrides?: { tokenSet?: DeckThemeTokenSet } & Record<string, unknown>;
+  };
+  /** Legacy in-memory token-set id used by older tests/builders. */
+  themeId?: string;
+  /** Legacy in-memory custom token set used by older tests/builders. */
   customTokenSet?: DeckThemeTokenSet;
 }
 
@@ -68,7 +73,13 @@ export interface DeckThemeSource {
  * `themeId`.
  */
 export function resolveDeckThemeId(source: DeckThemeSource): string {
-  return source.customTokenSet?.id ?? source.themeId;
+  return (
+    source.design?.themeOverrides?.tokenSet?.id ??
+    source.customTokenSet?.id ??
+    source.design?.themeId ??
+    source.themeId ??
+    DEFAULT_TOKEN_SET.id
+  );
 }
 
 /** Resolves the deck-level token set, preferring custom/brand tokens. */
@@ -76,7 +87,9 @@ export function resolveDeckThemeTokens(
   source: DeckThemeSource,
 ): DeckThemeTokenSet {
   return (
-    source.customTokenSet ?? resolveThemeTokens(resolveDeckThemeId(source))
+    source.design?.themeOverrides?.tokenSet ??
+    source.customTokenSet ??
+    resolveThemeTokens(resolveDeckThemeId(source))
   );
 }
 

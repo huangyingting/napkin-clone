@@ -22,7 +22,7 @@ export interface SourceRef {
   blockKind: "text" | "visual";
 }
 
-type SourceRefCarrier = { sourceRef?: SourceRef };
+type SourceRefCarrier = { source?: SourceRef };
 
 export interface SourceRefFromDurableBlockIdInput {
   documentId: string;
@@ -71,7 +71,7 @@ export function activeSourceRef(ref: SourceRef): SourceRef {
 
 /** Returns true when an element still has an active source link. */
 export function isSourceLinked(el: SourceRefCarrier): boolean {
-  return el.sourceRef !== undefined && el.sourceRef.unlinked !== true;
+  return el.source !== undefined && el.source.unlinked !== true;
 }
 
 /**
@@ -82,7 +82,7 @@ export function isSourceStale(
   el: SourceRefCarrier,
   currentHash: string,
 ): boolean {
-  const contentHash = el.sourceRef?.contentHash;
+  const contentHash = el.source?.contentHash;
   return (
     isSourceLinked(el) &&
     typeof contentHash === "string" &&
@@ -92,13 +92,13 @@ export function isSourceStale(
 
 /** Marks an element's source link as intentionally broken. */
 export function unlinkSource<T extends SourceRefCarrier>(el: T): T {
-  if (el.sourceRef === undefined || el.sourceRef.unlinked === true) {
+  if (el.source === undefined || el.source.unlinked === true) {
     return el;
   }
   return {
     ...el,
-    sourceRef: {
-      ...cloneSourceRef(el.sourceRef),
+    source: {
+      ...cloneSourceRef(el.source),
       unlinked: true,
     },
   };
@@ -111,6 +111,6 @@ export function relinkSource<T extends SourceRefCarrier>(
 ): T {
   return {
     ...el,
-    sourceRef: activeSourceRef(ref),
+    source: activeSourceRef(ref),
   };
 }

@@ -459,7 +459,7 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
             style: { fontSize: 5, bold: false, italic: false, align: "left" },
             box: { x: 0, y: 0, w: 50, h: 10 },
             zIndex: 1,
-            sourceRef: {
+            source: {
               documentId: DOC_ID,
               blockId: "blk-1",
               contentHash: "old",

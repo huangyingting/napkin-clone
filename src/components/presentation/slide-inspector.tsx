@@ -674,7 +674,10 @@ export function SlideInspector({
 
         {activeTab === "notes" ? (
           <PanelSection title="Speaker notes">
-            <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
+            <SpeakerNotesControl
+              notes={slide.notes ?? ""}
+              onChange={onUpdateNotes}
+            />
           </PanelSection>
         ) : null}
 

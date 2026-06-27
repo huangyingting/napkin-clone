@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide } from "./deck";
-import { executeCommand } from "./slide-commands";
+import { applyPatch, executeCommand } from "./slide-commands";
+import { safeParseDeck } from "./deck-schema";
 import { resolveThemeTokens } from "./deck-theme-tokens";
 import { buildDeck, buildSlide } from "@/test/builders/deck";
 
@@ -86,4 +87,236 @@ test("SET_CANVAS_FORMAT changes slide format and emits patch", () => {
   assert.equal((result.deck as any).canvas.format, "4:3");
   assert.equal(result.patches[0]!.op, "canvas.set_format");
   assert.equal(result.patches[0]!.deckFields?.canvas?.format, "4:3");
+});
+
+// ---------------------------------------------------------------------------
+// Deck masters
+// ---------------------------------------------------------------------------
+
+function master(id: string, name = id) {
+  return { id, name, elements: [] };
+}
+
+function masterTextElement(id: string) {
+  return {
+    id,
+    kind: "text" as const,
+    role: "footer",
+    layer: "foreground" as const,
+    locked: true as const,
+    box: { x: 5, y: 92, w: 90, h: 5 },
+    zIndex: 0,
+    content: { kind: "text", text: "Footer", paragraphs: [{ text: "Footer" }] },
+    designOverrides: { textStyle: { fontSize: 2, align: "center" } },
+  };
+}
+
+test("CREATE_MASTER appends a master and patch replay matches", () => {
+  const deck = buildCommandDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "CREATE_MASTER",
+    master: master("master-alt", "Alt"),
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.patches[0]!.op, "master.create");
+  assert.equal(result.patches[0]!.addedIds?.[0], "master-alt");
+  assert.equal((result.deck as any).masters.at(-1).id, "master-alt");
+  assert.equal(safeParseDeck(result.deck).success, true);
+  assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
+});
+
+test("UPDATE_MASTER updates deck-owned master chrome", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [master("master-default", "Default")],
+  } as Deck;
+  const result = executeCommand(deck, {
+    type: "UPDATE_MASTER",
+    masterId: "master-default",
+    patch: {
+      name: "Updated",
+      background: { type: "solid", color: { value: "#111111" } },
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.patches[0]!.op, "master.update");
+  assert.equal((result.deck as any).masters[0].name, "Updated");
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("SET_DEFAULT_MASTER and SET_SLIDE_MASTER update master assignments", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [master("master-default"), master("master-alt")],
+  } as Deck;
+  const defaultResult = executeCommand(deck, {
+    type: "SET_DEFAULT_MASTER",
+    masterId: "master-alt",
+  });
+  assert.equal(defaultResult.ok, true);
+  assert.equal((defaultResult.deck as any).defaultMasterId, "master-alt");
+  assert.equal(defaultResult.patches[0]!.op, "master.set_default");
+
+  const slideResult = executeCommand(defaultResult.deck, {
+    type: "SET_SLIDE_MASTER",
+    slideId: "s1",
+    masterId: "master-default",
+  });
+  assert.equal(slideResult.ok, true);
+  assert.equal((slideResult.deck.slides[0] as any).masterId, "master-default");
+  assert.equal(slideResult.patches[0]!.op, "slide.set_master");
+});
+
+test("UPDATE_MASTER_ELEMENT patches a locked master element", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [
+      {
+        id: "master-default",
+        name: "Default",
+        elements: [masterTextElement("me1")],
+      },
+    ],
+  } as unknown as Deck;
+  const result = executeCommand(deck, {
+    type: "UPDATE_MASTER_ELEMENT",
+    masterId: "master-default",
+    elementId: "me1",
+    patch: {
+      content: { kind: "text", text: "New", paragraphs: [{ text: "New" }] },
+    } as never,
+  });
+  assert.equal(result.ok, true);
+  const element = (result.deck as any).masters[0].elements[0];
+  assert.equal(element.locked, true);
+  assert.equal(element.content.text, "New");
+  assert.equal(result.patches[0]!.op, "master.element.update");
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("DELETE_MASTER removes non-default master and clears slide assignment", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [master("master-default"), master("master-alt")],
+    slides: [
+      {
+        ...buildCommandSlide("s1", 0, "Slide"),
+        masterId: "master-alt",
+      } as Slide,
+    ],
+  } as Deck;
+  const result = executeCommand(deck, {
+    type: "DELETE_MASTER",
+    masterId: "master-alt",
+  });
+  assert.equal(result.ok, true);
+  assert.equal((result.deck as any).masters.length, 1);
+  assert.equal((result.deck.slides[0] as any).masterId, undefined);
+  assert.equal(result.patches[0]!.op, "master.delete");
+  assert.equal(result.patches[0]!.removedIds?.[0], "master-alt");
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+// ---------------------------------------------------------------------------
+// Slide templates
+// ---------------------------------------------------------------------------
+
+function customTemplate(id = "template-custom") {
+  return {
+    id,
+    name: "Custom",
+    category: "content" as const,
+    elements: [
+      {
+        id: "slot-title",
+        kind: "text",
+        role: "title",
+        box: { x: 8, y: 8, w: 84, h: 14 },
+        contentDefaults: {
+          kind: "text",
+          text: "Custom title",
+          paragraphs: [{ text: "Custom title" }],
+        },
+      },
+    ],
+  };
+}
+
+test("ADD_SLIDE_FROM_TEMPLATE materializes a built-in template slide", () => {
+  const deck = buildCommandDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "title",
+    afterSlideId: "s1",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.deck.slides.length, 2);
+  assert.equal((result.deck.slides[1] as any).templateId, "title");
+  assert.ok((result.deck.slides[1] as any).elements.length > 0);
+  assert.equal(result.patches[0]!.op, "slide.add_from_template");
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("APPLY_SLIDE_TEMPLATE explicitly replaces slide elements", () => {
+  const deck = buildCommandDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "APPLY_SLIDE_TEMPLATE",
+    slideId: "s1",
+    templateId: "visual",
+    visualId: "vis-1",
+  });
+  assert.equal(result.ok, true);
+  assert.equal((result.deck.slides[0] as any).templateId, "visual");
+  assert.ok(
+    (result.deck.slides[0] as any).elements.some(
+      (element: any) => element.kind === "visual",
+    ),
+  );
+  assert.equal(result.patches[0]!.op, "slide.apply_template");
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("custom template CRUD updates deck.customTemplates and replays patches", () => {
+  const deck = buildCommandDeck(["s1"]);
+  const create = executeCommand(deck, {
+    type: "CREATE_CUSTOM_TEMPLATE",
+    template: customTemplate(),
+  });
+  assert.equal(create.ok, true);
+  assert.equal(create.patches[0]!.op, "template.create_custom");
+  assert.deepEqual(applyPatch(deck, create.patches[0]!), create.deck);
+
+  const update = executeCommand(create.deck, {
+    type: "UPDATE_CUSTOM_TEMPLATE",
+    templateId: "template-custom",
+    patch: { name: "Renamed" },
+  });
+  assert.equal(update.ok, true);
+  assert.equal((update.deck as any).customTemplates[0].name, "Renamed");
+  assert.equal(update.patches[0]!.op, "template.update_custom");
+
+  const remove = executeCommand(update.deck, {
+    type: "DELETE_CUSTOM_TEMPLATE",
+    templateId: "template-custom",
+  });
+  assert.equal(remove.ok, true);
+  assert.equal((remove.deck as any).customTemplates.length, 0);
+  assert.equal(remove.patches[0]!.op, "template.delete_custom");
+  assert.equal(remove.patches[0]!.removedIds?.[0], "template-custom");
+});
+
+test("ADD_SLIDE_FROM_TEMPLATE materializes a custom template", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    customTemplates: [customTemplate()],
+  } as Deck;
+  const result = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "template-custom",
+  });
+  assert.equal(result.ok, true);
+  const added = result.deck.slides.at(-1) as any;
+  assert.equal(added.templateId, "template-custom");
+  assert.equal(added.elements[0].content.text, "Custom title");
+  assert.equal(safeParseDeck(result.deck).success, true);
 });

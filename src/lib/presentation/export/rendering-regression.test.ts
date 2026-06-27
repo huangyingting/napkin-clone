@@ -1195,7 +1195,7 @@ test("[AC-11] backgroundImage takes precedence: spec carries it even when backgr
 test("[AC-12] text element with sourceRef still emits a normal text op", () => {
   const ops = buildOps([
     fixtureTextElement("t-ref", "Linked content", {
-      sourceRef: {
+      source: {
         documentId: "doc-1",
         blockId: "block-42",
         contentHash: "abc123",
@@ -1213,7 +1213,7 @@ test("[AC-12] text element with sourceRef still emits a normal text op", () => {
 test("[AC-12] bullets element with sourceRef still emits a normal bullets op", () => {
   const ops = buildOps([
     bulletsEl("b-ref", ["item 1", "item 2"], {
-      sourceRef: {
+      source: {
         documentId: "doc-1",
         blockId: "block-7",
         linkedAt: "2026-01-01T00:00:00Z",
@@ -1230,7 +1230,7 @@ test("[AC-12] bullets element with sourceRef still emits a normal bullets op", (
 test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadata)", () => {
   const ops = buildOps([
     fixtureShapeElement("sh-ref", {
-      sourceRef: {
+      source: {
         documentId: "doc-1",
         blockId: "block-5",
         linkedAt: "2026-01-01T00:00:00Z",
@@ -1249,7 +1249,7 @@ test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadat
 test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element", () => {
   const ops = buildOps([
     fixtureTextElement("t-unlinked", "Detached text", {
-      sourceRef: {
+      source: {
         documentId: "doc-1",
         blockId: "block-9",
         linkedAt: "2026-01-01T00:00:00Z",

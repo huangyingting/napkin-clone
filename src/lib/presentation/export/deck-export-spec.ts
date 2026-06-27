@@ -29,7 +29,10 @@ import type {
 } from "../deck-elements";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { normalizeTextParagraphs } from "../deck-elements";
-import { slideFormatConfig } from "@/lib/presentation/slide-format";
+import {
+  slideFormatConfig,
+  type SlideFormat,
+} from "@/lib/presentation/slide-format";
 import { resolveSlideRenderModel } from "@/lib/presentation/slide-render-model";
 import { slideFontExportFace } from "@/lib/presentation/slide-fonts";
 import {
@@ -56,7 +59,7 @@ export interface DeckGeometry {
   slideHPt: number;
 }
 
-export function deckGeometry(format: Deck["slideFormat"]): DeckGeometry {
+export function deckGeometry(format: SlideFormat | undefined): DeckGeometry {
   const config = slideFormatConfig(format);
   return {
     pptxLayout: config.pptxLayout,
@@ -72,9 +75,10 @@ function record(value: unknown): Record<string, any> {
     : {};
 }
 
-function deckFormat(deck: Deck): Deck["slideFormat"] {
-  return ((deck as any).canvas?.format ??
-    deck.slideFormat) as Deck["slideFormat"];
+function deckFormat(deck: Deck): SlideFormat | undefined {
+  return ((deck as any).canvas?.format ?? (deck as any).slideFormat) as
+    | SlideFormat
+    | undefined;
 }
 
 function elementContent(element: SlideElement): Record<string, any> {

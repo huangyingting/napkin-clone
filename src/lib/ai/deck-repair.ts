@@ -305,7 +305,7 @@ export function repairDeck(
       slides,
       themeId,
       schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    } as Deck,
+    } as unknown as Deck,
     inventory,
     preferredTheme,
   );

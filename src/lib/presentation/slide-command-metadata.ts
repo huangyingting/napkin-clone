@@ -80,6 +80,17 @@ const SLIDE_COMMAND_TYPES = [
   "SET_PRESENTATION_THEME",
   "UPDATE_THEME_OVERRIDES",
   "SET_CANVAS_FORMAT",
+  "CREATE_MASTER",
+  "UPDATE_MASTER",
+  "DELETE_MASTER",
+  "SET_DEFAULT_MASTER",
+  "SET_SLIDE_MASTER",
+  "UPDATE_MASTER_ELEMENT",
+  "ADD_SLIDE_FROM_TEMPLATE",
+  "APPLY_SLIDE_TEMPLATE",
+  "CREATE_CUSTOM_TEMPLATE",
+  "UPDATE_CUSTOM_TEMPLATE",
+  "DELETE_CUSTOM_TEMPLATE",
   "SET_SLIDE_BACKGROUND",
   "SET_SLIDE_BACKGROUND_GRADIENT",
   "SET_SLIDE_BACKGROUND_IMAGE",
@@ -151,7 +162,7 @@ function validateAssetOptions(
 function validateSourceRef(
   value: unknown,
   errors: string[],
-  context = "payload.sourceRef",
+  context = "payload.source",
 ): void {
   if (!isPlainObject(value)) {
     errors.push(`${context} must be an object.`);
@@ -486,6 +497,87 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.format must be a non-empty string.");
       }
       break;
+    case "CREATE_MASTER":
+      if (!isPlainObject(payload.master)) {
+        errors.push("payload.master must be an object.");
+      }
+      break;
+    case "UPDATE_MASTER":
+      if (!isNonEmptyString(payload.masterId)) {
+        errors.push("payload.masterId must be a non-empty string.");
+      }
+      if (!isPlainObject(payload.patch)) {
+        errors.push("payload.patch must be an object.");
+      }
+      break;
+    case "DELETE_MASTER":
+    case "SET_DEFAULT_MASTER":
+      if (!isNonEmptyString(payload.masterId)) {
+        errors.push("payload.masterId must be a non-empty string.");
+      }
+      break;
+    case "SET_SLIDE_MASTER":
+      if (!isNonEmptyString(payload.slideId)) {
+        errors.push("payload.slideId must be a non-empty string.");
+      }
+      if (
+        payload.masterId !== undefined &&
+        !isNonEmptyString(payload.masterId)
+      ) {
+        errors.push(
+          "payload.masterId must be a non-empty string when provided.",
+        );
+      }
+      break;
+    case "UPDATE_MASTER_ELEMENT":
+      if (!isNonEmptyString(payload.masterId)) {
+        errors.push("payload.masterId must be a non-empty string.");
+      }
+      if (!isNonEmptyString(payload.elementId)) {
+        errors.push("payload.elementId must be a non-empty string.");
+      }
+      if (!isPlainObject(payload.patch)) {
+        errors.push("payload.patch must be an object.");
+      }
+      break;
+    case "ADD_SLIDE_FROM_TEMPLATE":
+      if (!isNonEmptyString(payload.templateId)) {
+        errors.push("payload.templateId must be a non-empty string.");
+      }
+      if (
+        payload.afterSlideId !== undefined &&
+        payload.afterSlideId !== null &&
+        !isNonEmptyString(payload.afterSlideId)
+      ) {
+        errors.push("payload.afterSlideId must be a non-empty string or null.");
+      }
+      break;
+    case "APPLY_SLIDE_TEMPLATE":
+      if (!isNonEmptyString(payload.slideId)) {
+        errors.push("payload.slideId must be a non-empty string.");
+      }
+      if (!isNonEmptyString(payload.templateId)) {
+        errors.push("payload.templateId must be a non-empty string.");
+      }
+      break;
+    case "CREATE_CUSTOM_TEMPLATE":
+      if (!isPlainObject(payload.template)) {
+        errors.push("payload.template must be an object.");
+      }
+      break;
+    case "UPDATE_CUSTOM_TEMPLATE":
+      if (!isNonEmptyString(payload.templateId)) {
+        errors.push("payload.templateId must be a non-empty string.");
+      }
+      if (!isPlainObject(payload.patch)) {
+        errors.push("payload.patch must be an object.");
+      }
+      break;
+    case "DELETE_CUSTOM_TEMPLATE":
+      if (!isNonEmptyString(payload.templateId)) {
+        errors.push("payload.templateId must be a non-empty string.");
+      }
+      break;
     case "SET_SLIDE_BACKGROUND":
       if (
         payload.background !== undefined &&
@@ -714,6 +806,39 @@ export const SLIDE_COMMAND_METADATA = {
     "presentation.update_theme_overrides",
   ),
   SET_CANVAS_FORMAT: makeMetadata("SET_CANVAS_FORMAT", "canvas.set_format"),
+  CREATE_MASTER: makeMetadata("CREATE_MASTER", "master.create"),
+  UPDATE_MASTER: makeMetadata("UPDATE_MASTER", "master.update"),
+  DELETE_MASTER: makeMetadata("DELETE_MASTER", "master.delete"),
+  SET_DEFAULT_MASTER: makeMetadata("SET_DEFAULT_MASTER", "master.set_default"),
+  SET_SLIDE_MASTER: makeMetadata("SET_SLIDE_MASTER", "slide.set_master", {
+    slideId: "required",
+  }),
+  UPDATE_MASTER_ELEMENT: makeMetadata(
+    "UPDATE_MASTER_ELEMENT",
+    "master.element.update",
+    { elementId: "required" },
+  ),
+  ADD_SLIDE_FROM_TEMPLATE: makeMetadata(
+    "ADD_SLIDE_FROM_TEMPLATE",
+    "slide.add_from_template",
+  ),
+  APPLY_SLIDE_TEMPLATE: makeMetadata(
+    "APPLY_SLIDE_TEMPLATE",
+    "slide.apply_template",
+    { slideId: "required" },
+  ),
+  CREATE_CUSTOM_TEMPLATE: makeMetadata(
+    "CREATE_CUSTOM_TEMPLATE",
+    "template.create_custom",
+  ),
+  UPDATE_CUSTOM_TEMPLATE: makeMetadata(
+    "UPDATE_CUSTOM_TEMPLATE",
+    "template.update_custom",
+  ),
+  DELETE_CUSTOM_TEMPLATE: makeMetadata(
+    "DELETE_CUSTOM_TEMPLATE",
+    "template.delete_custom",
+  ),
   SET_SLIDE_BACKGROUND: makeMetadata(
     "SET_SLIDE_BACKGROUND",
     "slide.set_background",
