@@ -515,7 +515,7 @@ test("buildSlideElementsFromContent pairs bullets and a visual side by side", as
   assert.ok(elements.some((e) => e.kind === "visual"));
 });
 
-test("buildSlideElementsFromContent emits free-form elements without layout slots", async () => {
+test("buildSlideElementsFromContent emits concrete text and visual elements", async () => {
   const { buildSlideElementsFromContent } = await import("./deck");
   const elements = buildSlideElementsFromContent({
     id: "test-id",
@@ -526,7 +526,6 @@ test("buildSlideElementsFromContent emits free-form elements without layout slot
     templateId: "content",
     notes: "",
   });
-  assert.ok(elements.every((element) => !("layoutSlot" in element)));
   assert.ok(elements.some((element) => element.kind === "text"));
   assert.equal(
     elements.filter((element) => element.kind === "visual").length,

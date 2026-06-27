@@ -13,42 +13,60 @@ import {
   DeckValidationError,
   isPlainObject,
   isSlideFormat,
+  rejectUnknownKeys,
 } from "./shared";
 
-const REMOVED_DECK_FIELDS = [
-  "customTokenSet",
-  "layouts",
-  "slideFormat",
-  "themeId",
+const DECK_KEYS = [
+  "schemaVersion",
+  "canvas",
+  "design",
+  "masters",
+  "defaultMasterId",
+  "customTemplates",
+  "slides",
+  "deckContentHash",
 ] as const;
 
-const REMOVED_SLIDE_FIELDS = [
-  "accent",
+const CANVAS_KEYS = ["format"] as const;
+const PRESENTATION_DESIGN_KEYS = ["themeId", "themeOverrides"] as const;
+
+const SLIDE_KEYS = [
+  "id",
+  "index",
+  "title",
+  "notes",
+  "masterId",
+  "templateId",
+  "designOverrides",
+  "elements",
+  "source",
+] as const;
+
+const MASTER_KEYS = [
+  "id",
+  "name",
   "background",
-  "backgroundAssetId",
-  "backgroundGradient",
-  "backgroundImage",
-  "bulletRuns",
-  "bullets",
-  "elementsDerived",
-  "layout",
-  "masterRef",
-  "sourceSectionId",
-  "titleRuns",
-  "visualIds",
+  "designOverrides",
+  "elements",
 ] as const;
 
-function rejectRemovedFields(
-  input: Record<string, unknown>,
-  fields: readonly string[],
-  context: string,
-): void {
-  for (const field of fields) {
-    if (field in input) {
-      throw new DeckValidationError(`${context}.${field} is not supported in v6`);
-    }
-  }
-}
+const CUSTOM_TEMPLATE_KEYS = [
+  "id",
+  "name",
+  "category",
+  "defaultMasterId",
+  "slideDesignDefaults",
+  "elements",
+] as const;
+
+const TEMPLATE_ELEMENT_KEYS = [
+  "id",
+  "kind",
+  "role",
+  "box",
+  "contentDefaults",
+  "designOverrides",
+] as const;
 
 function validateUnknownObject(
   input: unknown,
@@ -64,6 +82,7 @@ function validateCanvas(input: unknown): Record<string, unknown> {
   if (!isPlainObject(input)) {
     throw new DeckValidationError("Deck.canvas must be an object");
   }
+  rejectUnknownKeys(input, CANVAS_KEYS, "Deck.canvas");
   if (!isSlideFormat(input.format)) {
     throw new DeckValidationError(
       `Deck.canvas.format must be one of: ${SLIDE_FORMATS.join(", ")}`,
@@ -76,8 +95,11 @@ function validatePresentationDesign(input: unknown): Record<string, unknown> {
   if (!isPlainObject(input)) {
     throw new DeckValidationError("Deck.design must be an object");
   }
+  rejectUnknownKeys(input, PRESENTATION_DESIGN_KEYS, "Deck.design");
   if (typeof input.themeId !== "string" || input.themeId.trim().length === 0) {
-    throw new DeckValidationError("Deck.design.themeId must be a non-empty string");
+    throw new DeckValidationError(
+      "Deck.design.themeId must be a non-empty string",
+    );
   }
   return {
     themeId: input.themeId.trim(),
@@ -98,7 +120,10 @@ function validateDesignOverrides(
 ): Record<string, unknown> {
   const out = validateUnknownObject(input, context);
   if (out.background !== undefined) {
-    out.background = validateBackgroundDesign(out.background, `${context}.background`);
+    out.background = validateBackgroundDesign(
+      out.background,
+      `${context}.background`,
+    );
   }
   return out;
 }
@@ -108,7 +133,7 @@ function validateSlide(input: unknown, index: number): Slide {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
-  rejectRemovedFields(input, REMOVED_SLIDE_FIELDS, context);
+  rejectUnknownKeys(input, SLIDE_KEYS, context);
 
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
@@ -158,11 +183,15 @@ function validateSlide(input: unknown, index: number): Slide {
   } as unknown as Slide;
 }
 
-function validateSlideMaster(input: unknown, index: number): Record<string, unknown> {
+function validateSlideMaster(
+  input: unknown,
+  index: number,
+): Record<string, unknown> {
   const context = `Deck.masters[${index}]`;
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
+  rejectUnknownKeys(input, MASTER_KEYS, context);
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
   }
@@ -205,6 +234,7 @@ function validateCustomTemplate(
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
+  rejectUnknownKeys(input, CUSTOM_TEMPLATE_KEYS, context);
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
   }
@@ -245,6 +275,7 @@ function validateCustomTemplate(
       if (!isPlainObject(element)) {
         throw new DeckValidationError(`${elementContext} must be an object`);
       }
+      rejectUnknownKeys(element, TEMPLATE_ELEMENT_KEYS, elementContext);
       if (element.contentDefaults !== undefined) {
         validateUnknownObject(
           element.contentDefaults,
@@ -265,8 +296,7 @@ export function validateDeck(input: unknown): Deck {
   if (!isPlainObject(input)) {
     throw new DeckValidationError("Deck must be an object");
   }
-
-  rejectRemovedFields(input, REMOVED_DECK_FIELDS, "Deck");
+  rejectUnknownKeys(input, DECK_KEYS, "Deck");
 
   if (
     typeof input.schemaVersion !== "number" ||
@@ -287,12 +317,19 @@ export function validateDeck(input: unknown): Deck {
     throw new DeckValidationError("Deck.masters must be an array");
   }
   const masters = input.masters.map(validateSlideMaster);
-  if (typeof input.defaultMasterId !== "string" || input.defaultMasterId.length === 0) {
-    throw new DeckValidationError("Deck.defaultMasterId must be a non-empty string");
+  if (
+    typeof input.defaultMasterId !== "string" ||
+    input.defaultMasterId.length === 0
+  ) {
+    throw new DeckValidationError(
+      "Deck.defaultMasterId must be a non-empty string",
+    );
   }
   const masterIds = new Set(masters.map((master) => master.id));
   if (!masterIds.has(input.defaultMasterId)) {
-    throw new DeckValidationError("Deck.defaultMasterId must reference an existing master");
+    throw new DeckValidationError(
+      "Deck.defaultMasterId must reference an existing master",
+    );
   }
 
   if (!Array.isArray(input.slides)) {

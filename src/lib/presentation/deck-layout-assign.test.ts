@@ -361,7 +361,7 @@ test("normalization with preferredTheme does not mutate the input deck (#281)", 
   assert.deepEqual(JSON.parse(JSON.stringify(input)), snapshot);
 });
 
-test("does not persist removed provenance flags", () => {
+test("normalization keeps slide records in the current element-first shape", () => {
   const input = deck([
     slide({ title: "A", bulletTexts: ["x"] }),
     slide({ index: 1, title: "B", visualRefs: ["vis-1"], templateId: "media" }),
@@ -369,7 +369,7 @@ test("does not persist removed provenance flags", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN);
   for (const currentSlide of result.slides) {
-    assert.equal("elementsDerived" in currentSlide, false);
+    assert.ok(Array.isArray(currentSlide.elements));
   }
 });
 

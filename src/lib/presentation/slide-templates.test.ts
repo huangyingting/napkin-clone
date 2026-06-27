@@ -71,14 +71,9 @@ test("SLIDE_TEMPLATES exposes the five expected kinds in order", () => {
 // Authored (non-blank) templates
 // ---------------------------------------------------------------------------
 
-test("non-blank templates are authored (elementsDerived === false)", () => {
+test("non-blank templates materialize editable elements", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
-    assert.equal(
-      "elementsDerived" in slide,
-      false,
-      `${kind} must not persist removed elementsDerived`,
-    );
     assert.ok(
       (slide.elements?.length ?? 0) > 0,
       `${kind} must ship non-empty elements[]`,
@@ -208,7 +203,6 @@ test("blank template creates an element-first blank slide", () => {
   assert.equal(slideLayout(slide), "blank");
   assert.equal(slide.notes, "");
   assert.deepEqual(slide.elements, []);
-  assert.equal("elementsDerived" in slide, false);
 });
 
 test("every box stays within the 0–100 percent slide bounds", () => {
@@ -219,23 +213,6 @@ test("every box stays within the 0–100 percent slide bounds", () => {
       assert.ok(x >= 0 && y >= 0, `${kind} box origin in bounds`);
       assert.ok(x + w <= 100, `${kind} box right edge in bounds`);
       assert.ok(y + h <= 100, `${kind} box bottom edge in bounds`);
-    }
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Layout slots removed
-// ---------------------------------------------------------------------------
-
-test("non-blank template elements do not carry layout-slot bindings", () => {
-  for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, {});
-    for (const el of slide.elements ?? []) {
-      assert.equal(
-        "layoutSlot" in el,
-        false,
-        `${kind} ${el.kind} is free-form`,
-      );
     }
   }
 });

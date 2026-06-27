@@ -5,20 +5,6 @@ import { safeParseDeck } from "./deck-schema";
 import { currentDeck } from "./deck-schema.test-helpers";
 
 // ---------------------------------------------------------------------------
-// Superseded layouts
-// ---------------------------------------------------------------------------
-
-test("safeParseDeck rejects superseded layouts on persisted v6 decks", () => {
-  const layouts: unknown[] = [];
-  const result = safeParseDeck({
-    ...(currentDeck() as object),
-    layouts,
-  });
-  assert.equal(result.success, false);
-  assert.match(result.error, /Deck\.layouts/);
-});
-
-// ---------------------------------------------------------------------------
 // deckContentHash round-trips (issue #205 — staleness signal in deck JSON)
 // ---------------------------------------------------------------------------
 
@@ -54,57 +40,6 @@ test("safeParseDeck rejects a non-string deckContentHash", () => {
   const result = safeParseDeck({
     ...(currentDeck() as object),
     deckContentHash: 42,
-  });
-  assert.equal(result.success, false);
-});
-
-// ---------------------------------------------------------------------------
-// elementsDerived provenance flag (issue #221, #486)
-// ---------------------------------------------------------------------------
-
-test("safeParseDeck rejects the removed elementsDerived flag", () => {
-  const withTrue = safeParseDeck({
-    ...(currentDeck() as { slides: { [k: string]: unknown }[] }),
-    slides: [
-      {
-        ...(currentDeck() as { slides: object[] }).slides[0],
-        elementsDerived: true,
-      },
-    ],
-  });
-  assert.equal(withTrue.success, false);
-  assert.match(withTrue.error, /elementsDerived/);
-
-  const withFalse = safeParseDeck({
-    ...(currentDeck() as { slides: object[] }),
-    slides: [
-      {
-        ...(currentDeck() as { slides: object[] }).slides[0],
-        elementsDerived: false,
-      },
-    ],
-  });
-  assert.equal(withFalse.success, false);
-  assert.match(withFalse.error, /elementsDerived/);
-});
-
-test("safeParseDeck leaves elementsDerived absent when absent", () => {
-  const result = safeParseDeck(currentDeck());
-  assert.equal(result.success, true);
-  if (result.success) {
-    assert.equal("elementsDerived" in result.data.slides[0], false);
-  }
-});
-
-test("safeParseDeck rejects non-boolean elementsDerived", () => {
-  const result = safeParseDeck({
-    ...(currentDeck() as { slides: object[] }),
-    slides: [
-      {
-        ...(currentDeck() as { slides: object[] }).slides[0],
-        elementsDerived: "yes",
-      },
-    ],
   });
   assert.equal(result.success, false);
 });

@@ -171,9 +171,32 @@ test("safeParseDeck omits hidden when absent on a slide element", () => {
   }
 });
 
-test("safeParseDeck rejects old layer names on slide elements", () => {
+test("safeParseDeck round-trips element names", () => {
   const result = safeParseDeck(elementWithMetadata({ name: "My Layer" }));
-  assert.equal(result.success, false);
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.name, "My Layer");
+  }
+});
+
+test("safeParseDeck round-trips element transform and grouping metadata", () => {
+  const result = safeParseDeck(
+    elementWithMetadata({
+      opacity: 0.5,
+      rotation: 15,
+      shadow: true,
+      groupId: "group-1",
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.opacity, 0.5);
+    assert.equal(el?.rotation, 15);
+    assert.equal(el?.shadow, true);
+    assert.equal(el?.groupId, "group-1");
+  }
 });
 
 test("safeParseDeck omits name when absent on a slide element", () => {
@@ -185,7 +208,7 @@ test("safeParseDeck omits name when absent on a slide element", () => {
   }
 });
 
-test("safeParseDeck rejects empty old layer names on slide elements", () => {
+test("safeParseDeck rejects empty element names", () => {
   const result = safeParseDeck(elementWithMetadata({ name: "" }));
   assert.equal(result.success, false);
 });

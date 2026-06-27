@@ -70,31 +70,19 @@ test("safeParseDeck accepts a minimal v6 deck", () => {
   assert.equal(result.data.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
 });
 
-test("safeParseDeck rejects superseded top-level v5 fields", () => {
-  for (const field of ["themeId", "customTokenSet", "slideFormat", "layouts"]) {
-    const result = safeParseDeck(
-      minimalV6Deck({ [field]: field === "layouts" ? [] : "legacy" }),
-    );
-    assert.equal(result.success, false, field);
-    assert.match(result.error, new RegExp(`Deck\\.${field}`));
-  }
+test("safeParseDeck rejects unknown top-level fields", () => {
+  const result = safeParseDeck(minimalV6Deck({ unexpectedDeckField: true }));
+  assert.equal(result.success, false);
+  assert.match(result.error, /Deck\.unexpectedDeckField/);
 });
 
-test("safeParseDeck rejects superseded slide content fields", () => {
-  for (const field of [
-    "bullets",
-    "bulletRuns",
-    "visualIds",
-    "layout",
-    "elementsDerived",
-  ]) {
-    const deck = minimalV6Deck();
-    const slide = (deck.slides as Record<string, unknown>[])[0];
-    slide[field] = field === "elementsDerived" ? true : [];
-    const result = safeParseDeck(deck);
-    assert.equal(result.success, false, field);
-    assert.match(result.error, new RegExp(`slides\\[0\\]\\.${field}`));
-  }
+test("safeParseDeck rejects unknown slide fields", () => {
+  const deck = minimalV6Deck();
+  const slide = (deck.slides as Record<string, unknown>[])[0];
+  slide.unexpectedSlideField = true;
+  const result = safeParseDeck(deck);
+  assert.equal(result.success, false);
+  assert.match(result.error, /slides\[0\]\.unexpectedSlideField/);
 });
 
 test("safeParseDeck rejects mismatched element kind and content.kind", () => {

@@ -84,7 +84,15 @@ const BASE_ELEMENT_KEYS = [
 const MASTER_ELEMENT_KEYS = [...BASE_ELEMENT_KEYS, "layer"] as const;
 
 const ELEMENT_CONTENT_KEYS: Record<string, readonly string[]> = {
-  text: ["kind", "text", "paragraphs", "runs", "fitMode", "bulletGap", "bulletIndent"],
+  text: [
+    "kind",
+    "text",
+    "paragraphs",
+    "runs",
+    "fitMode",
+    "bulletGap",
+    "bulletIndent",
+  ],
   visual: ["kind", "visualId", "styleThemeId", "alt"],
   image: ["kind", "src", "assetId", "alt", "crop"],
   shape: ["kind", "shape", "text", "textRuns"],
@@ -544,7 +552,6 @@ function validateBaseElementFields(
   context: string,
   allowedKeys: readonly string[] = BASE_ELEMENT_KEYS,
 ): Record<string, unknown> {
-  rejectUnknownKeys(input, allowedKeys, context);
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
   }
@@ -556,6 +563,7 @@ function validateBaseElementFields(
       `${context}.kind must be one of: text, visual, image, shape, connector`,
     );
   }
+  rejectUnknownKeys(input, allowedKeys, context);
   const box = validateBox(input.box, `${context}.box`);
   const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
   if (input.opacity !== undefined) {
@@ -564,11 +572,19 @@ function validateBaseElementFields(
   if (input.rotation !== undefined) {
     validateFiniteNumber(input.rotation, `${context}.rotation`);
   }
-  if (input.name !== undefined && (typeof input.name !== "string" || input.name.length === 0)) {
+  if (
+    input.name !== undefined &&
+    (typeof input.name !== "string" || input.name.length === 0)
+  ) {
     throw new DeckValidationError(`${context}.name must be a non-empty string`);
   }
-  if (input.groupId !== undefined && (typeof input.groupId !== "string" || input.groupId.length === 0)) {
-    throw new DeckValidationError(`${context}.groupId must be a non-empty string`);
+  if (
+    input.groupId !== undefined &&
+    (typeof input.groupId !== "string" || input.groupId.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.groupId must be a non-empty string`,
+    );
   }
   return {
     id: input.id,
@@ -577,7 +593,9 @@ function validateBaseElementFields(
       ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
       : {}),
     ...(input.rotation !== undefined
-      ? { rotation: validateFiniteNumber(input.rotation, `${context}.rotation`) }
+      ? {
+          rotation: validateFiniteNumber(input.rotation, `${context}.rotation`),
+        }
       : {}),
     ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.role !== undefined
@@ -615,10 +633,10 @@ function validateElementContent(
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
-  rejectUnknownKeys(input, ELEMENT_CONTENT_KEYS[kind] ?? ["kind"], context);
   if (input.kind !== kind) {
     throw new DeckValidationError(`${context}.kind must match element kind`);
   }
+  rejectUnknownKeys(input, ELEMENT_CONTENT_KEYS[kind] ?? ["kind"], context);
 
   switch (kind) {
     case "text": {

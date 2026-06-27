@@ -17,7 +17,7 @@ import type {
 import { makeElementId, makeSlideId } from "./deck-ids";
 import type { SlideFormat } from "./slide-format";
 
-/** The set of layouts the "+ Add slide" picker can insert. */
+/** The set of templates the "+ Add slide" picker can insert. */
 export type SlideTemplateKind =
   | "title"
   | "content"
@@ -27,7 +27,7 @@ export type SlideTemplateKind =
 
 /** Context threaded into {@link buildTemplateSlide} from the editor. */
 export interface SlideTemplateContext {
-  /** Target slide format so placeholder layouts match the current deck. */
+  /** Target slide format so materialized template geometry matches the current deck. */
   slideFormat?: SlideFormat;
   /**
    * Optional document visual to seed the "Visual spotlight" template with. When

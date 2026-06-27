@@ -127,16 +127,6 @@ test("defaultMasterId must reference an existing master", () => {
   assert.match(result.error, /defaultMasterId must reference/);
 });
 
-test("customTokenSet is rejected on v6 decks", () => {
-  const result = safeParseDeck(
-    baseDeck({
-      customTokenSet: { id: "brand", name: "Brand" },
-    }),
-  );
-  assert.equal(result.success, false);
-  assert.match(result.error, /Deck\.customTokenSet is not supported in v6/);
-});
-
 test("superseded schema versions are rejected", () => {
   const result = safeParseDeck(
     baseDeck({ schemaVersion: CURRENT_DECK_SCHEMA_VERSION - 1 }),

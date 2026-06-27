@@ -161,7 +161,7 @@ test("matched slide: refreshes content but preserves elements", () => {
   assert.equal(merged.slides.length, 1);
   const s = merged.slides[0];
   assert.deepEqual(bulletsOf(s), []);
-  // Title + manual elements + colors preserved; no removed slide-level bullet mirror is written.
+  // Title + manual elements + colors preserved; no slide-level bullet mirror is written.
   assert.equal(s.elements?.length, 3);
   assert.deepEqual(
     s.elements?.map((e) => e.id),
@@ -449,7 +449,7 @@ test("hand-edited slide: sync preserves elements verbatim", () => {
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
   const s = merged.slides[0];
-  // No removed slide-level bullet mirror is written for hand-authored elements.
+  // No slide-level bullet mirror is written for hand-authored elements.
   assert.deepEqual(bulletsOf(s), []);
   // Title + hand-authored elements preserved untouched.
   assert.deepEqual(
