@@ -214,7 +214,7 @@ describe("canvas-a11y: focusTargetAfterDelete (#532)", () => {
 // ---------------------------------------------------------------------------
 
 describe("canvas-a11y: announcement builders (#533)", () => {
-  test("selection", () => {
+  test("announces selected element label", () => {
     assert.equal(announceSelection("Title text"), "Selected Title text");
   });
 
@@ -226,7 +226,7 @@ describe("canvas-a11y: announcement builders (#533)", () => {
     assert.equal(announceResize("Box", 20.2, 9.8), "Resized Box to 20% by 10%");
   });
 
-  test("delete", () => {
+  test("announces deleted element label", () => {
     assert.equal(announceDelete("Box"), "Deleted Box");
   });
 });

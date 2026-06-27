@@ -116,7 +116,8 @@ release; drift is remediated with the [repair playbook](./persisted-schema-repai
 - `src/**/*.test.ts` via `node --import tsx --test`
 - `scripts/**/*.test.mjs` via `node --test`
 - `scripts/test-subsystem.mjs --check` to ensure every source, script, and E2E
-  test file is assigned to at least one subsystem bucket.
+  test file is assigned to at least one subsystem bucket and that subsystem test
+  file names / test case names stay reviewable.
 
 For focused local work, run the owning subsystem instead of the whole unit gate:
 

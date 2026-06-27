@@ -4,8 +4,13 @@ import test from "node:test";
 import {
   buildTestPlan,
   classifyTestFile,
+  findSubsystemCoverageGaps,
+  findTestFileNameProblems,
   findUnclassifiedTestFiles,
+  findWeakTestTitleProblems,
   listSubsystems,
+  runTestCoverageAudit,
+  scanTestText,
 } from "./test-subsystem.mjs";
 
 const SAMPLE_TEST_FILES = [
@@ -88,4 +93,72 @@ test("test subsystem coverage check flags unmapped test files", () => {
     findUnclassifiedTestFiles(["src/lib/unowned/example.test.ts"]),
     ["src/lib/unowned/example.test.ts"],
   );
+});
+
+test("test subsystem coverage check flags empty subsystem buckets", () => {
+  assert.deepEqual(findSubsystemCoverageGaps(SAMPLE_TEST_FILES), [
+    "ai",
+    "billing",
+    "brand",
+    "commands",
+    "comments",
+    "diagnostics",
+    "documents",
+    "editor",
+    "import",
+    "localization",
+    "product",
+    "security",
+    "system",
+    "ui",
+    "visual",
+    "workspace",
+  ]);
+});
+
+test("test naming audit flags unclear file names", () => {
+  assert.deepEqual(
+    findTestFileNameProblems(["src/lib/auth/password.test.ts"]),
+    [],
+  );
+  assert.deepEqual(
+    findTestFileNameProblems([
+      "src/lib/auth/password.spec.ts",
+      "e2e/auth_redirect.test.ts",
+    ]).map((item) => item.rule),
+    ["test-file-name", "e2e-spec-name", "unit-test-name"],
+  );
+});
+
+test("test naming audit flags weak test case names", () => {
+  assert.deepEqual(
+    scanTestText(
+      "src/lib/example.test.ts",
+      [
+        'test("delete", () => {});',
+        'test("returns null when everything is deleted", () => {});',
+      ].join("\n"),
+    ).map((item) => item.match),
+    ["delete"],
+  );
+});
+
+test("test coverage audit combines coverage and naming checks", () => {
+  const audit = runTestCoverageAudit(["src/lib/unowned/example.test.ts"], {
+    readText: () => 'test("works", () => {});',
+  });
+
+  assert.deepEqual(audit.unclassified, ["src/lib/unowned/example.test.ts"]);
+  assert.equal(audit.weakTitleProblems[0].match, "works");
+});
+
+test("test naming audit reads supplied test file text", () => {
+  const findings = findWeakTestTitleProblems(
+    ["src/lib/auth/password.test.ts"],
+    {
+      readText: () => 'test("selection", () => {});',
+    },
+  );
+
+  assert.equal(findings[0].rule, "weak-test-title");
 });

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, join, relative, sep } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import ts from "typescript";
 
 const TEST_ROOTS = ["src", "scripts", "e2e"];
 const SKIPPED_DIRECTORIES = new Set([
@@ -16,6 +17,25 @@ const SKIPPED_DIRECTORIES = new Set([
   "test-results",
 ]);
 const TEST_FILE_PATTERN = /\.(?:test|spec)\.(?:ts|tsx|js|mjs)$/;
+const TEST_FILE_NAME_PATTERN =
+  /^[a-z0-9]+(?:[-.][a-z0-9]+)*(?:\.test|\.spec)\.(?:ts|tsx|js|mjs)$/;
+const E2E_SPEC_FILE_PATTERN = /^[a-z0-9]+(?:[-.][a-z0-9]+)*\.spec\.ts$/;
+const TEST_TITLE_ROOTS = new Set(["it", "test"]);
+const WEAK_TEST_TITLES = new Set([
+  "basic",
+  "create",
+  "delete",
+  "handles",
+  "loads",
+  "render",
+  "renders",
+  "selection",
+  "smoke",
+  "test",
+  "update",
+  "works",
+]);
+const MIN_TEST_TITLE_LENGTH = 8;
 
 export const SUBSYSTEM_TEST_TARGETS = {
   ai: {
@@ -317,6 +337,175 @@ export function findUnclassifiedTestFiles(testFiles) {
     .sort();
 }
 
+export function findSubsystemCoverageGaps(testFiles) {
+  const coveredSubsystems = new Set(testFiles.flatMap(classifyTestFile));
+  return listSubsystems().filter((name) => !coveredSubsystems.has(name));
+}
+
+export function findTestFileNameProblems(testFiles) {
+  return testFiles
+    .map(toPosix)
+    .flatMap((filePath) => {
+      const fileName = basename(filePath);
+      const findings = [];
+      if (!TEST_FILE_NAME_PATTERN.test(fileName)) {
+        findings.push({
+          filePath,
+          rule: "test-file-name",
+          message:
+            "Use lowercase kebab/dotted names ending in .test.* or .spec.*.",
+        });
+      }
+      if (
+        filePath.startsWith("e2e/") &&
+        !E2E_SPEC_FILE_PATTERN.test(fileName)
+      ) {
+        findings.push({
+          filePath,
+          rule: "e2e-spec-name",
+          message: "E2E files should use lowercase kebab .spec.ts names.",
+        });
+      }
+      if (!filePath.startsWith("e2e/") && fileName.includes(".spec.")) {
+        findings.push({
+          filePath,
+          rule: "unit-test-name",
+          message: "Unit and script tests should use .test.* names.",
+        });
+      }
+      return findings;
+    })
+    .sort((left, right) => left.filePath.localeCompare(right.filePath));
+}
+
+function scriptKindForPath(filePath) {
+  if (filePath.endsWith(".tsx")) return ts.ScriptKind.TSX;
+  if (filePath.endsWith(".jsx")) return ts.ScriptKind.JSX;
+  if (filePath.endsWith(".js") || filePath.endsWith(".mjs")) {
+    return ts.ScriptKind.JS;
+  }
+  return ts.ScriptKind.TS;
+}
+
+function callRootName(expression) {
+  if (ts.isIdentifier(expression)) return expression.text;
+  if (ts.isPropertyAccessExpression(expression)) {
+    return callRootName(expression.expression);
+  }
+  return null;
+}
+
+function literalText(node) {
+  if (!node) return null;
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return node.text;
+  }
+  return null;
+}
+
+function lineAndColumn(sourceFile, node) {
+  const position = sourceFile.getLineAndCharacterOfPosition(
+    node.getStart(sourceFile),
+  );
+  return {
+    lineNumber: position.line + 1,
+    columnNumber: position.character + 1,
+  };
+}
+
+export function scanTestText(filePath, text) {
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKindForPath(filePath),
+  );
+  const findings = [];
+
+  function visit(node) {
+    if (ts.isCallExpression(node)) {
+      const rootName = callRootName(node.expression);
+      const title = literalText(node.arguments[0]);
+      if (rootName && TEST_TITLE_ROOTS.has(rootName) && title !== null) {
+        const normalizedTitle = title.trim().toLowerCase();
+        if (
+          normalizedTitle.length < MIN_TEST_TITLE_LENGTH ||
+          WEAK_TEST_TITLES.has(normalizedTitle)
+        ) {
+          findings.push({
+            filePath: toPosix(filePath),
+            ...lineAndColumn(sourceFile, node.arguments[0]),
+            rule: "weak-test-title",
+            match: title,
+            message: "Use a behavior-specific test title.",
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return findings;
+}
+
+export function findWeakTestTitleProblems(
+  testFiles,
+  {
+    repoRoot = process.cwd(),
+    readText = (filePath) => readFileSync(join(repoRoot, filePath), "utf8"),
+  } = {},
+) {
+  return testFiles
+    .map(toPosix)
+    .flatMap((filePath) => scanTestText(filePath, readText(filePath)))
+    .sort(
+      (left, right) =>
+        left.filePath.localeCompare(right.filePath) ||
+        left.lineNumber - right.lineNumber,
+    );
+}
+
+export function runTestCoverageAudit(testFiles, options = {}) {
+  return {
+    unclassified: findUnclassifiedTestFiles(testFiles),
+    emptySubsystems: findSubsystemCoverageGaps(testFiles),
+    fileNameProblems: findTestFileNameProblems(testFiles),
+    weakTitleProblems: findWeakTestTitleProblems(testFiles, options),
+  };
+}
+
+function auditHasProblems(audit) {
+  return Object.values(audit).some((items) => items.length > 0);
+}
+
+function printAuditProblems(audit) {
+  if (audit.unclassified.length > 0) {
+    console.error("Unclassified test files:");
+    for (const filePath of audit.unclassified) console.error(`- ${filePath}`);
+  }
+  if (audit.emptySubsystems.length > 0) {
+    console.error("Subsystems without test coverage:");
+    for (const subsystem of audit.emptySubsystems)
+      console.error(`- ${subsystem}`);
+  }
+  if (audit.fileNameProblems.length > 0) {
+    console.error("Unclear test file names:");
+    for (const item of audit.fileNameProblems) {
+      console.error(`- ${item.filePath} ${item.rule}: ${item.message}`);
+    }
+  }
+  if (audit.weakTitleProblems.length > 0) {
+    console.error("Weak test case names:");
+    for (const item of audit.weakTitleProblems) {
+      console.error(
+        `- ${item.filePath}:${item.lineNumber}:${item.columnNumber} ${item.rule} ${JSON.stringify(item.match)}: ${item.message}`,
+      );
+    }
+  }
+}
+
 function normalizeSubsystems(subsystems) {
   const unique = [...new Set(subsystems.map((name) => name.trim()))].filter(
     Boolean,
@@ -463,14 +652,13 @@ export function main(argv = process.argv.slice(2), repoRoot = process.cwd()) {
     return 0;
   }
   if (options.check) {
-    const unclassified = findUnclassifiedTestFiles(testFiles);
-    if (unclassified.length > 0) {
-      console.error("Unclassified test files:");
-      for (const filePath of unclassified) console.error(`- ${filePath}`);
+    const audit = runTestCoverageAudit(testFiles, { repoRoot });
+    if (auditHasProblems(audit)) {
+      printAuditProblems(audit);
       return 1;
     }
     console.log(
-      `Test subsystem coverage map is complete (${testFiles.length} files).`,
+      `Test subsystem coverage and naming audit passed (${testFiles.length} files, ${listSubsystems().length} subsystems).`,
     );
     return 0;
   }
