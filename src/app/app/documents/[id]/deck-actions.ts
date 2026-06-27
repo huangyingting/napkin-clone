@@ -73,9 +73,11 @@ export async function saveDeckJson(
   deckJson: unknown,
   clientToken?: string | null,
 ): Promise<SaveDeckResult> {
-  await requireDocumentActionContext(id, "edit");
+  const { user } = await requireDocumentActionContext(id, "edit");
 
-  const result = await persistDeck(id, deckJson, clientToken);
+  const result = await persistDeck(id, deckJson, clientToken, {
+    userId: user.id,
+  });
 
   if (result.ok === true) {
     revalidatePath(`/app/documents/${id}`);
@@ -97,9 +99,9 @@ export async function saveDeckPatch(
   patches: DeckPatch[],
   clientToken: string | null | undefined,
 ): Promise<SaveDeckPatchResult> {
-  await requireDocumentActionContext(id, "edit");
+  const { user } = await requireDocumentActionContext(id, "edit");
 
-  const result = await patchDeck(id, patches, clientToken);
+  const result = await patchDeck(id, patches, clientToken, { userId: user.id });
 
   if (result.ok === true) {
     revalidatePath(`/app/documents/${id}`);
@@ -129,7 +131,7 @@ export async function saveDeckCommand(
   id: string,
   envelope: CommandEnvelope<SlideCommand>,
 ): Promise<SaveDeckResult> {
-  await requireDocumentActionContext(id, "edit");
+  const { user } = await requireDocumentActionContext(id, "edit");
 
   const acceptance = acceptDeckCommandEnvelope(envelope, { documentId: id });
   if (!acceptance.ok) {
@@ -145,7 +147,7 @@ export async function saveDeckCommand(
     };
   }
 
-  const persisted = await persistDeckCommand(id, envelope);
+  const persisted = await persistDeckCommand(id, envelope, { userId: user.id });
 
   if (persisted.ok === true) {
     revalidatePath(`/app/documents/${id}`);

@@ -41,13 +41,14 @@ export async function persistDeck(
   documentId: string,
   deckJson: unknown,
   clientToken?: string | null,
+  options: { userId?: string | null } = {},
 ): Promise<SaveDeckResult> {
   return writeDeckWithCas({
     documentId,
     deckJson,
     clientToken,
     telemetryArea: "persistDeck.input",
-    onSuccess: () => snapshotDocumentVersion(documentId),
+    onSuccess: () => snapshotDocumentVersion(documentId, options),
   });
 }
 
@@ -59,6 +60,7 @@ export async function patchDeck(
   documentId: string,
   patches: DeckPatch[],
   clientToken: string | null | undefined,
+  options: { userId?: string | null } = {},
 ): Promise<SaveDeckPatchResult> {
   const document = await prisma.document.findUnique({
     where: { id: documentId },
@@ -95,7 +97,7 @@ export async function patchDeck(
     deckJson: deck,
     clientToken,
     telemetryArea: "patchDeck.result",
-    onSuccess: () => snapshotDocumentVersion(documentId),
+    onSuccess: () => snapshotDocumentVersion(documentId, options),
   });
 
   if (!writeResult.ok && writeResult.error.startsWith("Invalid deck: ")) {
@@ -114,6 +116,7 @@ export async function patchDeck(
 export async function persistDeckCommand(
   documentId: string,
   envelope: CommandEnvelope<SlideCommand>,
+  options: { userId?: string | null } = {},
 ): Promise<SaveDeckResult> {
   const document = await prisma.document.findUnique({
     where: { id: documentId },
@@ -147,5 +150,6 @@ export async function persistDeckCommand(
     documentId,
     result.deck,
     envelope.target.expectedRevision ?? null,
+    options,
   );
 }

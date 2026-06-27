@@ -52,7 +52,10 @@ describe("shortcut catalog registry (#737, #751)", () => {
       false,
     );
     assert.equal(
-      matchesShortcut("editor.toggle-preview", key("e", { ctrlKey: true })),
+      matchesShortcut(
+        "editor.toggle-preview",
+        key("p", { ctrlKey: true, shiftKey: true }),
+      ),
       true,
     );
   });
@@ -92,9 +95,26 @@ describe("shortcut catalog registry (#737, #751)", () => {
     }
   });
 
+  test("editor shortcuts shown in help have unique matcher metadata", () => {
+    const signatures = new Set<string>();
+    for (const shortcut of shortcutsForScope("Editor")) {
+      const signature = JSON.stringify(shortcut.match);
+      assert.equal(
+        signatures.has(signature),
+        false,
+        `${shortcut.id} conflicts with another editor shortcut`,
+      );
+      signatures.add(signature);
+    }
+  });
+
   test("display helpers support generic and platform-specific labels", () => {
     const togglePreview = shortcutById("editor.toggle-preview");
-    assert.deepEqual(shortcutDisplayTokens(togglePreview), ["Ctrl/⌘", "E"]);
+    assert.deepEqual(shortcutDisplayTokens(togglePreview), [
+      "Ctrl/⌘",
+      "Shift",
+      "P",
+    ]);
 
     const newSlide = shortcutById("canvas.slides.new");
     assert.equal(shortcutDisplayLabel(newSlide, { isMac: true }), "⌘ + N");

@@ -48,16 +48,16 @@ export default async function LoginPage({
               Google sign-in failed. Please try again or use email and password.
             </p>
           ) : null}
+          <LoginForm callbackUrl={callbackUrl} />
           {googleAvailable ? (
             <>
+              <OrDivider />
               <GoogleSignInButton
                 callbackUrl={callbackUrl}
                 errorRedirectPath="/login"
               />
-              <OrDivider />
             </>
           ) : null}
-          <LoginForm callbackUrl={callbackUrl} />
         </div>
       </div>
     </main>

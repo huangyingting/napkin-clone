@@ -15,6 +15,12 @@ import type {
   RestoredDocumentVersion,
 } from "@/lib/document/persistence-types";
 
+type VersionAuthor = { name: string | null; email: string | null } | null;
+
+function displayName(user: VersionAuthor): string | null {
+  return user ? (user.name ?? user.email ?? null) : null;
+}
+
 /**
  * Lists a document's version-history snapshots, newest first. Requires view
  * access (owner, workspace member, or otherwise permitted), authorized via
@@ -34,6 +40,7 @@ export async function listDocumentVersions(
       label: true,
       deckJson: true,
       createdBy: { select: { name: true, email: true } },
+      document: { select: { owner: { select: { name: true, email: true } } } },
     },
   });
 
@@ -41,9 +48,8 @@ export async function listDocumentVersions(
     id: version.id,
     createdAt: version.createdAt.toISOString(),
     label: version.label,
-    authorName: version.createdBy
-      ? (version.createdBy.name ?? version.createdBy.email ?? null)
-      : null,
+    authorName:
+      displayName(version.createdBy) ?? displayName(version.document.owner),
     hasDeck: version.deckJson != null,
   }));
 }

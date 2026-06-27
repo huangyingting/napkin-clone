@@ -51,16 +51,22 @@ test("isNewDocumentShortcut matches a bare n only", () => {
   assert.equal(isNewDocumentShortcut(key("m")), false);
 });
 
-test("isTogglePreviewShortcut requires Ctrl or Cmd + E", () => {
-  assert.equal(isTogglePreviewShortcut(key("e", { ctrlKey: true })), true);
-  assert.equal(isTogglePreviewShortcut(key("E", { metaKey: true })), true);
-  assert.equal(isTogglePreviewShortcut(key("e")), false);
+test("isTogglePreviewShortcut requires Ctrl or Cmd + Shift + P", () => {
   assert.equal(
-    isTogglePreviewShortcut(key("e", { ctrlKey: true, altKey: true })),
-    false,
+    isTogglePreviewShortcut(key("p", { ctrlKey: true, shiftKey: true })),
+    true,
   );
   assert.equal(
-    isTogglePreviewShortcut(key("e", { ctrlKey: true, shiftKey: true })),
+    isTogglePreviewShortcut(key("P", { metaKey: true, shiftKey: true })),
+    true,
+  );
+  assert.equal(isTogglePreviewShortcut(key("p")), false);
+  assert.equal(isTogglePreviewShortcut(key("e", { ctrlKey: true })), false);
+  assert.equal(
+    isTogglePreviewShortcut(
+      key("p", { ctrlKey: true, shiftKey: true, altKey: true }),
+    ),
     false,
   );
+  assert.equal(isTogglePreviewShortcut(key("p", { ctrlKey: true })), false);
 });

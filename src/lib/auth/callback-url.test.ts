@@ -13,6 +13,10 @@ test("accepts same-origin root-relative paths", () => {
   assert.equal(safeCallbackUrl("/app/settings"), "/app/settings");
 });
 
+test("defaults missing callback URLs to the app dashboard", () => {
+  assert.equal(safeCallbackUrl(undefined), "/app");
+});
+
 test("trims surrounding whitespace before validating", () => {
   assert.equal(safeCallbackUrl("  /app/settings  "), "/app/settings");
 });

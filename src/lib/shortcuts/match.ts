@@ -38,7 +38,7 @@ export function isNewDocumentShortcut(event: KeyEventLike): boolean {
   return matchesShortcut("dashboard.new-document", event);
 }
 
-/** `Ctrl+E` / `⌘+E` — toggles the editor's Write/Preview view. */
+/** `Ctrl+Shift+P` / `⌘+Shift+P` — toggles the editor's Write/Preview view. */
 export function isTogglePreviewShortcut(event: KeyEventLike): boolean {
   return matchesShortcut("editor.toggle-preview", event);
 }

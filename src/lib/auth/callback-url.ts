@@ -9,7 +9,7 @@
  * This is the security-critical piece guarding against open-redirect attacks,
  * so it is conservative by design: when in doubt, return the safe default.
  */
-export const DEFAULT_CALLBACK_URL = "/";
+export const DEFAULT_CALLBACK_URL = "/app";
 
 export function safeCallbackUrl(raw: unknown): string {
   if (typeof raw !== "string") {

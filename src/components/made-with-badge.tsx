@@ -25,7 +25,7 @@ export function MadeWithBadge({ show }: MadeWithBadgeProps) {
 
   return (
     <Link
-      href={`${appUrl}/sign-up`}
+      href={`${appUrl}/signup`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Made with TextIQ — create your own document"
