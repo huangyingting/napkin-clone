@@ -28,6 +28,23 @@ test("docs source inventory: extracts env reads from direct and constant-key acc
   ]);
 });
 
+test("docs source inventory: extracts env names from abuse-budget config entries", () => {
+  const reads = scanEnvReadsInText(
+    "src/lib/abuse-budget.ts",
+    `
+      export const ABUSE_BUDGET_NAMESPACES = [{
+        limitEnv: "USER_GENERATION_RATE_LIMIT",
+        windowEnv: "USER_GENERATION_RATE_WINDOW_MS",
+      }];
+    `,
+  );
+
+  assert.deepEqual([...reads.keys()].sort(), [
+    "USER_GENERATION_RATE_LIMIT",
+    "USER_GENERATION_RATE_WINDOW_MS",
+  ]);
+});
+
 test("docs source inventory: parses runtime-config table names", () => {
   const names = parseRuntimeConfigNames(`
 | Name | Context |

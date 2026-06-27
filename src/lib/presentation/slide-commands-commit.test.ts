@@ -106,7 +106,10 @@ test("commitCommand on failure: result.ok false and patches empty", () => {
 
 test("commitCommand affectedSlideIds match result.affectedSlideIds", () => {
   const deck = buildCommandDeck(["s1"]);
-  const cc = commitCommand(deck, { type: "SET_DECK_THEME", themeId: "indigo" });
+  const cc = commitCommand(deck, {
+    type: "SET_PRESENTATION_THEME",
+    themeId: "indigo",
+  });
   assert.deepEqual(cc.affectedSlideIds, cc.result.affectedSlideIds);
 });
 
@@ -259,16 +262,22 @@ test("REORDER_ELEMENT fails when the element is missing (#639)", () => {
   assert.equal(result.ok, false);
 });
 
-test("UPDATE_DECK_TEMPLATE edits the deck template and is collab-patch round-trippable (#614)", () => {
+test("UPDATE_THEME_OVERRIDES edits theme overrides and is collab-patch round-trippable (#614)", () => {
   const deck = buildCommandDeck(["s1"]);
   const result = executeCommand(deck, {
-    type: "UPDATE_DECK_TEMPLATE",
+    type: "UPDATE_THEME_OVERRIDES",
     patch: { colors: { accent: "#00aa00" } },
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.customTokenSet?.colors.accent, "#00aa00");
-  assert.equal(result.patches[0]!.op, "deck.update_template");
+  assert.equal(
+    (result.deck as any).design.themeOverrides.tokenSet.colors.accent,
+    "#00aa00",
+  );
+  assert.equal(result.patches[0]!.op, "presentation.update_theme_overrides");
   // applying the emitted patch to the original deck reproduces the edit (collab)
   const replayed = applyPatch(deck, result.patches[0]!);
-  assert.equal(replayed?.customTokenSet?.colors.accent, "#00aa00");
+  assert.equal(
+    (replayed as any)?.design.themeOverrides.tokenSet.colors.accent,
+    "#00aa00",
+  );
 });

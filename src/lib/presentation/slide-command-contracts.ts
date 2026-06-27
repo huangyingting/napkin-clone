@@ -7,7 +7,6 @@ import type {
   SlideLayoutHint,
 } from "./deck-layouts-model";
 import type { SourceRef } from "./deck-source-refs";
-import type { DeckThemeTokenSet } from "./deck-theme-token-types";
 import type { DistributiveOmit, ElementPatch } from "./deck-mutation-shared";
 import type { DeckTemplatePatch } from "./deck-mutation-template";
 import type { AlignMode, DistributeMode, MatchSizeMode } from "./element-align";
@@ -75,6 +74,27 @@ export interface UpdateElementCommand {
    * Optional grouping key for coalescing gesture-driven updates (drag, resize,
    * text edits) into a single undo step via {@link coalesceCommands}.
    */
+  coalesceKey?: string;
+  commandId?: string;
+}
+
+export interface UpdateElementContentCommand {
+  type: "UPDATE_ELEMENT_CONTENT";
+  slideId: string;
+  elementId: string;
+  content?: Record<string, unknown>;
+  role?: string;
+  /** Optional grouping key for coalescing text/content edit gestures. */
+  coalesceKey?: string;
+  commandId?: string;
+}
+
+export interface UpdateElementDesignOverridesCommand {
+  type: "UPDATE_ELEMENT_DESIGN_OVERRIDES";
+  slideId: string;
+  elementId: string;
+  designOverrides: Record<string, unknown>;
+  /** Optional grouping key for coalescing style edit gestures. */
   coalesceKey?: string;
   commandId?: string;
 }
@@ -346,26 +366,26 @@ export interface ReorderElementCommand {
 // Issue #400 — style, theme, layout, and asset commands
 // ---------------------------------------------------------------------------
 
-/** Changes the deck-level theme. */
-export interface SetDeckThemeCommand {
-  type: "SET_DECK_THEME";
+/** Changes the presentation theme. */
+export interface SetPresentationThemeCommand {
+  type: "SET_PRESENTATION_THEME";
   themeId: DeckTheme;
   commandId?: string;
 }
 
-/** Edits the global deck template (colors, role typography, defaults) (#614). */
-export interface UpdateDeckTemplateCommand {
-  type: "UPDATE_DECK_TEMPLATE";
+/** Edits global presentation theme overrides (colors, role typography, defaults). */
+export interface UpdateThemeOverridesCommand {
+  type: "UPDATE_THEME_OVERRIDES";
   patch: DeckTemplatePatch;
-  /** When true, reset the template back to the built-in theme (#612). */
+  /** When true, reset the overrides back to the selected built-in theme. */
   reset?: boolean;
   commandId?: string;
 }
 
-/** Changes the deck-level slide format (aspect ratio). */
-export interface SetDeckFormatCommand {
-  type: "SET_DECK_FORMAT";
-  slideFormat: SlideFormat;
+/** Changes the deck canvas format (aspect ratio). */
+export interface SetCanvasFormatCommand {
+  type: "SET_CANVAS_FORMAT";
+  format: SlideFormat;
   commandId?: string;
 }
 
@@ -418,64 +438,36 @@ export interface SetSlideAccentCommand {
 }
 
 // ---------------------------------------------------------------------------
-// Epic #494 — source-ref deck commands
+// Epic #494 — element source commands
 //
 // Source-link refresh / unlink / relink / orphan-removal used to happen as
 // ad-hoc UPDATE_ELEMENT / REMOVE_ELEMENT mutations built in the editor UI.
-// These dedicated commands own the source-ref semantics in the pure executor
+// These dedicated commands own the element source semantics in the pure executor
 // so every source action flows through the shared `commitCommand` path, emits
 // validated `DeckPatch` records, and preserves geometry/style/z-order plus all
-// other element fields (only `sourceRef`, and — for text refresh — `text`/`runs`
+// other element fields (only `source`, and — for text refresh — `content`
 // are touched). Stale/orphaned links remain user-visible and are never
 // auto-deleted; removal is an explicit user action.
 // ---------------------------------------------------------------------------
 
 /**
- * Refreshes an element's content/source link from its (now-fresh) source block.
- *
- * The caller resolves the fresh content from the live document (the deck has no
- * document context) and supplies the rebuilt `sourceRef`. For text elements the
- * refreshed `text` (and optional `runs`) are applied alongside the ref; visual
- * elements only update the `sourceRef`. The target element must already carry a
- * `sourceRef`.
+ * Updates an element's source state. When `unlink` is true, the current source
+ * is marked unlinked. Otherwise `source` supplies the active source value. Text
+ * refreshes may include refreshed text/runs. The target element must already
+ * carry `source`.
  */
-export interface RefreshElementFromSourceCommand {
-  type: "REFRESH_ELEMENT_FROM_SOURCE";
+export interface UpdateElementSourceCommand {
+  type: "UPDATE_ELEMENT_SOURCE";
   slideId: string;
   elementId: string;
-  /** Fresh active source ref reflecting the current source block content. */
-  sourceRef: SourceRef;
+  /** Fresh active source value reflecting the current source block content. */
+  source?: SourceRef;
   /** For text elements: refreshed text content from the source block. */
   text?: string;
   /** For text elements: refreshed inline runs (omit to leave runs unchanged). */
   runs?: TextRun[];
-  commandId?: string;
-}
-
-/**
- * Marks an element's source link as intentionally broken (manual content). The
- * element and all of its geometry/style are kept; only `sourceRef.unlinked` is
- * set. The target element must already carry a `sourceRef`.
- */
-export interface UnlinkElementSourceCommand {
-  type: "UNLINK_ELEMENT_SOURCE";
-  slideId: string;
-  elementId: string;
-  commandId?: string;
-}
-
-/**
- * Repoints an element's source link at a different document block. The caller
- * supplies the new active `sourceRef`; the element keeps its geometry/style and
- * (for visuals) its current `visualId`. The target element must already carry a
- * `sourceRef`.
- */
-export interface RelinkElementSourceCommand {
-  type: "RELINK_ELEMENT_SOURCE";
-  slideId: string;
-  elementId: string;
-  /** New active source ref pointing at the relink target block. */
-  sourceRef: SourceRef;
+  /** Mark the current source as intentionally unlinked. */
+  unlink?: boolean;
   commandId?: string;
 }
 
@@ -501,6 +493,8 @@ export type SlideCommand =
   | UpdateSlideCommand
   | AddElementCommand
   | UpdateElementCommand
+  | UpdateElementContentCommand
+  | UpdateElementDesignOverridesCommand
   | RemoveElementCommand
   // #398 — remaining slide operations
   | MoveSlideCommand
@@ -532,18 +526,16 @@ export type SlideCommand =
   | RenameElementCommand
   | ReorderElementCommand
   // #400 — style, theme, layout, asset
-  | SetDeckThemeCommand
-  | UpdateDeckTemplateCommand
-  | SetDeckFormatCommand
+  | SetPresentationThemeCommand
+  | UpdateThemeOverridesCommand
+  | SetCanvasFormatCommand
   | SetSlideBackgroundCommand
   | SetSlideBackgroundGradientCommand
   | SetSlideBackgroundImageCommand
   | SetSlideBackgroundAssetCommand
   | SetSlideAccentCommand
   // #494 — source-ref deck commands
-  | RefreshElementFromSourceCommand
-  | UnlinkElementSourceCommand
-  | RelinkElementSourceCommand
+  | UpdateElementSourceCommand
   | RemoveSourceElementCommand;
 
 // ---------------------------------------------------------------------------
@@ -580,6 +572,8 @@ export type PatchOp =
   // Element lifecycle
   | "element.add"
   | "element.update"
+  | "element.update_content"
+  | "element.update_design_overrides"
   | "element.remove"
   | "element.remove_multi"
   | "element.duplicate"
@@ -601,9 +595,9 @@ export type PatchOp =
   | "element.rename"
   | "element.reorder"
   // Deck-level
-  | "deck.set_theme"
-  | "deck.update_template"
-  | "deck.set_format";
+  | "presentation.set_theme"
+  | "presentation.update_theme_overrides"
+  | "canvas.set_format";
 
 /**
  * A serialisable domain patch emitted by {@link executeCommand}.
@@ -634,11 +628,10 @@ export interface DeckPatch {
    * Only JSON-serialisable fields are included.
    */
   deckFields?: {
-    themeId?: DeckTheme;
-    slideFormat?: SlideFormat;
-    customTokenSet?: DeckThemeTokenSet;
-    /** Signals a reset of the global template back to the built-in theme (#612). */
-    resetTemplate?: boolean;
+    design?: { themeId?: DeckTheme; themeOverrides?: unknown };
+    canvas?: { format?: SlideFormat };
+    /** Signals a reset of the global theme overrides back to the built-in theme. */
+    resetThemeOverrides?: boolean;
   };
   /**
    * Per-slide scalar-field changes keyed by slide id.

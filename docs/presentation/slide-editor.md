@@ -1,7 +1,7 @@
 # Slide Editor Runtime
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-27
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON
@@ -67,7 +67,7 @@ The desktop editor is a current-object workflow:
 
 | Surface        | Responsibility                                                                                            |
 | -------------- | --------------------------------------------------------------------------------------------------------- |
-| Top toolbar    | Deck/app controls: slide creation templates, deck theme, slide size, undo/redo, sync, save.               |
+| Top toolbar    | Deck/app controls: slide creation templates, presentation theme, canvas size, undo/redo, sync, save.      |
 | Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.          |
 | Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                           |
 | Inspector      | One active task panel (Slide/Arrange/Text/Appearance/Effects/Source/Notes/Layers) for the current object. |
@@ -131,8 +131,9 @@ decision logic lives in `src/lib/presentation/canvas-a11y.ts` (unit-tested by
 
 ## Canvas Contract
 
-`SlideCanvas` is read-only. It renders the current `slide.elements[]` with the
-resolved theme/style cascade. The stage wraps it with editing affordances, but
+`SlideCanvas` is read-only. It renders the current
+`ResolvedSlideRenderModel`, including master background chrome, slide elements,
+and master foreground chrome. The stage wraps it with editing affordances, but
 rendering itself is shared with present/public viewers.
 
 The editor can pass `hiddenElementIds` to hide elements during inline editing or
@@ -156,7 +157,7 @@ The available panel set is computed from the selection by `availablePanels`
 never drift. With no element selected the current object is the slide
 (`Slide / Notes / Layers`); a single element exposes its kind-specific panels
 plus `Arrange`, `Effects`, and `Layers`, with `Source` only when the element has
-a `sourceRef`; a multi-selection exposes `Arrange / Effects / Layers`. There is
+a `source`; a multi-selection exposes `Arrange / Effects / Layers`. There is
 no fallback routing: when the selection changes so the active panel no longer
 applies, `SlideEditor` closes the right panel instead of guessing a replacement.
 The object-identity header names the current object but no longer exposes a
@@ -170,7 +171,7 @@ permanent `Name` input — element naming lives in `Layers`.
 - z-order, arrange, align, distribute, match-size;
 - group/ungroup;
 - hide/lock/rename layer-list operations;
-- slide background, gradient, image, background asset, and accent updates;
+- slide `designOverrides.background` and accent updates;
 - image upload through the slide asset action when `documentId` is available.
 
 The inspector must not infer missing context. If a workflow requires full source
@@ -203,12 +204,11 @@ UI event
   -> autosave
 ```
 
-Some source-link operations call deck helpers directly because they are still
-specialized element/source-ref workflows. They still end at the same deck change
-and autosave pipeline.
+Source-link operations route through `UPDATE_ELEMENT_SOURCE` / source commands
+and end at the same deck change and autosave pipeline.
 
-All element mutations clear `elementsDerived` for the affected slide so later
-document sync preserves authored geometry and style.
+Element content updates write `element.content`; element formatting writes
+`element.designOverrides`; source-link updates write `element.source`.
 
 ## Autosave And Conflict Handling
 
@@ -242,10 +242,10 @@ are viewing, but optimistic revision tokens are the conflict authority.
 
 Sync from document uses `mergeDeckFromDocument`:
 
-- slides with `elementsDerived === true` are rebuilt from fresh document
-  content;
+- document-derived slide content can be re-materialized from fresh document
+  content when source provenance still points at the same document section;
 - hand-authored slides preserve their `elements[]`;
-- active `sourceRef` elements can refresh content or content hashes in place;
+- active `source` elements can refresh content or content hashes in place;
 - orphaned source blocks are surfaced to the user instead of being silently
   removed.
 
@@ -258,7 +258,7 @@ refs must carry explicit `blockKind`.
 2. `SlideStageEditor`, `SlideInspector`, and `LayerList` are controlled views.
 3. `SlideCanvas` is shared and read-only.
 4. Element geometry stays in percentage units.
-5. User-authored element edits clear derived provenance.
+5. Element content, design, and source-link edits write v6 element fields.
 6. Autosave writes through the same patch/whole-deck retry pipeline.
 7. Conflicts are resolved by revision token, not by presence.
 

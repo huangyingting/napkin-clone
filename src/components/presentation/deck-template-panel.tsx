@@ -7,13 +7,13 @@
  * the `theme-panel-palette` design exploration):
  *
  *  - **Preset view** — pick a built-in theme (one click applies it cleanly via
- *    `SET_DECK_THEME`) or apply / delete a saved **preset** from your library.
+ *    `SET_PRESENTATION_THEME`) or apply / delete a saved **preset** from your library.
  *  - **Customize view** — two tabs:
  *      • **Palette** — semantic color tokens as a swatch grid, plus the deck
  *        **background** (Solid / Gradient with presets, From/To stops, angle).
  *      • **Typography** — per-role font / size / color for every
  *        {@link DeckTextRole}, each with a live sample.
- *    Edits dispatch `UPDATE_DECK_TEMPLATE` patches (undoable, autosaved).
+ *    Edits dispatch `UPDATE_THEME_OVERRIDES` patches (undoable, autosaved).
  *    **Save preset** snapshots the current token set into your library;
  *    **Reset to theme** clears the deck's custom token set.
  */
@@ -106,7 +106,7 @@ function gradientCss(g: { from: string; to: string; angle?: number }): string {
 /**
  * Builds a comprehensive {@link DeckTemplatePatch} that reproduces `ts`'s
  * colors, typography, background, and non-text defaults — used to *apply* a
- * saved preset on top of the deck's current theme via `UPDATE_DECK_TEMPLATE`.
+ * saved preset on top of the deck's current theme via `UPDATE_THEME_OVERRIDES`.
  */
 function tokenSetToTemplatePatch(ts: DeckThemeTokenSet): DeckTemplatePatch {
   const roles: Partial<Record<DeckTextRole, Partial<TextRoleToken>>> = {};

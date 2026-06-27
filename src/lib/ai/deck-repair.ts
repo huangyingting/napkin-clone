@@ -24,6 +24,13 @@ export const REPAIRED_DECK_MAX_SLIDES = GENERATED_DECK_MAX_SLIDES;
 const DEFAULT_THEME = "indigo";
 const DEFAULT_LAYOUT: SlideLayoutHint = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
+const PRESENTATION_TEXT_ROLES = [
+  "title",
+  "sectionTitle",
+  "body",
+  "bullet",
+] as const;
+type PresentationTextRole = (typeof PRESENTATION_TEXT_ROLES)[number];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -52,6 +59,22 @@ function fallbackElementId(
     id = `el-${suffix}`;
   }
   return id;
+}
+
+function isPresentationTextRole(value: unknown): value is PresentationTextRole {
+  return (
+    typeof value === "string" &&
+    (PRESENTATION_TEXT_ROLES as readonly string[]).includes(value)
+  );
+}
+
+function textRoleToPresentationRole(role: DeckTextRole): PresentationTextRole {
+  if (role === "h1") return "title";
+  if (role === "h2" || role === "h3" || role === "subtitle") {
+    return "sectionTitle";
+  }
+  if (role === "bullet") return "bullet";
+  return "body";
 }
 
 /** Coerces an arbitrary box-ish value into a finite, in-range {@link ElementBox}. */
@@ -120,15 +143,11 @@ export function repairElement(
 
   switch (input.kind) {
     case "text": {
-      const textRole: DeckTextRole | undefined = isDeckTextRole(input.textRole)
-        ? input.textRole
-        : input.role === "title"
-          ? "h1"
-          : input.role === "sectionTitle"
-            ? "h2"
-            : input.role === "bullet"
-              ? "bullet"
-              : undefined;
+      const role: PresentationTextRole = isPresentationTextRole(input.role)
+        ? input.role
+        : isDeckTextRole(input.textRole)
+          ? textRoleToPresentationRole(input.textRole)
+          : "body";
       const text =
         typeof content.text === "string"
           ? content.text
@@ -138,17 +157,28 @@ export function repairElement(
       return {
         ...base,
         kind: "text",
-        text,
-        paragraphs: Array.isArray(content.paragraphs)
-          ? content.paragraphs
-          : [{ text }],
-        ...(textRole !== undefined ? { textRole } : {}),
-        style: repairTextStyle(
-          isPlainObject(designOverrides.textStyle)
-            ? designOverrides.textStyle
-            : input.style,
-        ),
-      };
+        role,
+        content: {
+          kind: "text",
+          text,
+          paragraphs: Array.isArray(content.paragraphs)
+            ? content.paragraphs
+            : [{ text }],
+          ...(Array.isArray(content.runs)
+            ? { runs: content.runs }
+            : Array.isArray(input.runs)
+              ? { runs: input.runs }
+              : {}),
+        },
+        designOverrides: {
+          ...designOverrides,
+          textStyle: repairTextStyle(
+            isPlainObject(designOverrides.textStyle)
+              ? designOverrides.textStyle
+              : input.style,
+          ),
+        },
+      } as unknown as SlideElement;
     }
     case "visual": {
       const visualId =
@@ -171,9 +201,18 @@ export function repairElement(
       return {
         ...base,
         kind: "visual",
-        visualId,
-        ...(styleThemeId && styleThemeId.length > 0 ? { styleThemeId } : {}),
-      };
+        role: "visual",
+        content: {
+          kind: "visual",
+          visualId,
+          ...(styleThemeId && styleThemeId.length > 0 ? { styleThemeId } : {}),
+          ...(typeof content.alt === "string" && content.alt.length > 0
+            ? { alt: content.alt }
+            : typeof input.alt === "string" && input.alt.length > 0
+              ? { alt: input.alt }
+              : {}),
+        },
+      } as unknown as SlideElement;
     }
     default:
       return undefined;

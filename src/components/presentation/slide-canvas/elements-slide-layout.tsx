@@ -1,8 +1,9 @@
 import type { JSX } from "react";
 import type * as React from "react";
 
-import type { Slide, SlideElement } from "@/lib/presentation/deck";
+import type { SlideElement } from "@/lib/presentation/deck";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
+import type { ResolvedSlideRenderModel } from "@/lib/presentation/slide-render-model";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
 import { assertNever } from "@/lib/assert-never";
@@ -12,7 +13,6 @@ import { ImageElementView } from "./media-elements";
 import { ShapeElementView } from "./shape-elements";
 import { TextElementView } from "./text-elements";
 import { VisualElementView } from "./visual-elements";
-import { colorRefValue, slideDesignOverrides } from "./v6-model";
 
 function SlideElementView({
   element,
@@ -80,54 +80,64 @@ function SlideElementView({
 }
 
 export function ElementsSlideLayout({
-  slide,
-  tc,
-  tokenSet,
+  renderModel,
   visuals,
   hiddenElementIds,
   editable,
 }: {
-  slide: Slide;
-  tc: SlideThemeColors;
-  tokenSet: DeckThemeTokenSet;
+  renderModel: ResolvedSlideRenderModel;
   visuals: ReadonlyMap<string, Visual>;
   hiddenElementIds?: ReadonlySet<string>;
   editable?: boolean;
 }): JSX.Element {
-  const slideDesign = slideDesignOverrides(slide);
-  const backgroundDesign =
-    slideDesign.background && typeof slideDesign.background === "object"
-      ? (slideDesign.background as Record<string, unknown>)
-      : undefined;
-  const background =
-    backgroundDesign?.type === "solid"
-      ? (colorRefValue(backgroundDesign.color, tokenSet) ?? tc.bgColor)
-      : tc.bgColor;
-  const accent = colorRefValue(slideDesign.accent, tokenSet) ?? tc.accentColor;
-  // Background precedence: image > gradient > solid color.
+  const {
+    background,
+    masterBackgroundElements,
+    masterForegroundElements,
+    themeColors: tc,
+    tokenSet,
+    slideElements,
+  } = renderModel;
+  const accent = renderModel.accent;
   const backgroundStyle: React.CSSProperties =
-    backgroundDesign?.type === "image" &&
-    typeof backgroundDesign.url === "string"
+    background.type === "image"
       ? {
-          backgroundColor: background,
-          backgroundImage: `url(${backgroundDesign.url})`,
+          backgroundColor: tc.bgColor,
+          backgroundImage: `url(${background.url})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }
-      : backgroundDesign?.type === "gradient"
+      : background.type === "gradient"
         ? {
-            backgroundImage: `linear-gradient(${
-              typeof backgroundDesign.angle === "number"
-                ? backgroundDesign.angle
-                : 135
-            }deg, ${
-              colorRefValue(backgroundDesign.from, tokenSet) ?? tc.bgColor
-            }, ${colorRefValue(backgroundDesign.to, tokenSet) ?? tc.bgColor})`,
+            backgroundImage: `linear-gradient(${background.angle ?? 135}deg, ${background.from}, ${background.to})`,
           }
-        : { backgroundColor: background };
-  const ordered = [...(slide.elements ?? [])]
+        : { backgroundColor: background.color };
+  const ordered = slideElements
     .filter((element) => !element.hidden && !hiddenElementIds?.has(element.id))
     .sort((a, b) => a.zIndex - b.zIndex);
+  const backgroundElements = masterBackgroundElements.filter(
+    (element) => !element.hidden,
+  );
+  const foregroundElements = masterForegroundElements.filter(
+    (element) => !element.hidden,
+  );
+  const allRenderedElements = [
+    ...backgroundElements,
+    ...ordered,
+    ...foregroundElements,
+  ];
+  const renderElement = (element: SlideElement, layer: string) => (
+    <SlideElementView
+      key={`${layer}:${element.id}`}
+      element={element}
+      elements={allRenderedElements}
+      tc={tc}
+      accent={accent}
+      tokenSet={tokenSet}
+      visuals={visuals}
+      editable={editable}
+    />
+  );
   return (
     <div
       style={{
@@ -139,18 +149,9 @@ export function ElementsSlideLayout({
         containerType: "size",
       }}
     >
-      {ordered.map((element) => (
-        <SlideElementView
-          key={element.id}
-          element={element}
-          elements={ordered}
-          tc={tc}
-          accent={accent}
-          tokenSet={tokenSet}
-          visuals={visuals}
-          editable={editable}
-        />
-      ))}
+      {backgroundElements.map((element) => renderElement(element, "master-bg"))}
+      {ordered.map((element) => renderElement(element, "slide"))}
+      {foregroundElements.map((element) => renderElement(element, "master-fg"))}
     </div>
   );
 }

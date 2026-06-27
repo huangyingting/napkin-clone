@@ -77,7 +77,11 @@ function slide(index: number, title: string): Slide {
 }
 
 const makeDeck = (titles: string[]): Deck =>
-  makeMinimalDeck(titles.map((title, index) => slide(index, title)));
+  ({
+    ...makeMinimalDeck(titles.map((title, index) => slide(index, title))),
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+  }) as Deck;
 
 function authoredSlide(overrides: Partial<Slide> = {}): Slide {
   return {
@@ -320,9 +324,9 @@ test("setDeckTheme changes the deck-level themeId", () => {
   const deck = makeDeck(["A", "B"]);
   const next = setDeckTheme(deck, "ocean");
 
-  assert.equal(next.themeId, "ocean");
+  assert.equal((next as any).design.themeId, "ocean");
   // original untouched
-  assert.equal(deck.themeId, "default");
+  assert.equal((deck as any).design.themeId, "default");
 });
 
 // ---------------------------------------------------------------------------
@@ -333,12 +337,12 @@ test("setDeckSlideFormat changes the deck-wide slide format", () => {
   const deck = makeDeck(["A"]);
   const next = setDeckSlideFormat(deck, "4:3");
 
-  assert.equal(next.slideFormat, "4:3");
-  assert.equal(deck.slideFormat, undefined);
+  assert.equal((next as any).canvas.format, "4:3");
+  assert.equal((deck as any).canvas.format, "16:9");
 });
 
 test("setDeckSlideFormat returns the same deck for a no-op", () => {
-  const deck: Deck = { ...makeDeck(["A"]), slideFormat: "16:9" };
+  const deck: Deck = makeDeck(["A"]);
   assert.equal(setDeckSlideFormat(deck, "16:9"), deck);
 });
 
@@ -497,7 +501,7 @@ test("removeElements deletes only the named ids", () => {
   );
 });
 
-test("removeElements clears elementsDerived and is immutable", () => {
+test("removeElements removes elementsDerived from the edited slide and is immutable", () => {
   const base = deckWithThreeElements();
   const stamped: Deck = {
     ...base,
@@ -507,7 +511,7 @@ test("removeElements clears elementsDerived and is immutable", () => {
   };
   const beforeIds = stamped.slides[0].elements?.map((e) => e.id);
   const next = removeElements(stamped, 0, ["e2"]);
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
   // Original deck untouched.
   assert.notEqual(next, stamped);
   assert.notEqual(next.slides[0], stamped.slides[0]);
@@ -542,7 +546,7 @@ test("nudgeElements clamps each box within the slide", () => {
   assert.deepEqual(e1, { x: 0, y: 0, w: 10, h: 10 });
 });
 
-test("nudgeElements clears elementsDerived and is immutable", () => {
+test("nudgeElements removes elementsDerived from the edited slide and is immutable", () => {
   const base = deckWithThreeElements();
   const stamped: Deck = {
     ...base,
@@ -551,7 +555,7 @@ test("nudgeElements clears elementsDerived and is immutable", () => {
     ),
   };
   const next = nudgeElements(stamped, 0, ["e1"], 2, 2);
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
   assert.notEqual(next, stamped);
   // Original box untouched.
   assert.deepEqual(
@@ -648,10 +652,10 @@ test("duplicateSlide deep-copies elements", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Provenance flag (issue #221): elementsDerived clearing
+// Provenance flag: v6 removes elementsDerived from edited slides.
 // ---------------------------------------------------------------------------
 
-test("addElement clears elementsDerived (hand-edit) on the slide", () => {
+test("addElement removes elementsDerived from the edited slide", () => {
   const derived = deckWithBullets();
   assert.equal(derived.slides[0].elementsDerived, true);
   const next = addElement(derived, 0, {
@@ -660,34 +664,34 @@ test("addElement clears elementsDerived (hand-edit) on the slide", () => {
     color: "#112233",
     box: { x: 10, y: 10, w: 20, h: 20 },
   });
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
   // Other slide unaffected.
   assert.equal(next.slides[1].elementsDerived, true);
 });
 
-test("updateElement clears elementsDerived on the slide", () => {
+test("updateElement removes elementsDerived from the edited slide", () => {
   const derived = deckWithBullets();
   const elementId = derived.slides[0].elements![0].id;
   const next = updateElement(derived, 0, elementId, {
     box: { x: 5, y: 5, w: 30, h: 30 },
   });
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
 });
 
-test("removeElement / bringElementToFront / sendElementToBack clear elementsDerived", () => {
+test("removeElement / bringElementToFront / sendElementToBack remove elementsDerived", () => {
   const derived = deckWithBullets();
   const elementId = derived.slides[0].elements![0].id;
 
   assert.equal(
-    removeElement(derived, 0, elementId).slides[0].elementsDerived,
+    "elementsDerived" in removeElement(derived, 0, elementId).slides[0],
     false,
   );
   assert.equal(
-    bringElementToFront(derived, 0, elementId).slides[0].elementsDerived,
+    "elementsDerived" in bringElementToFront(derived, 0, elementId).slides[0],
     false,
   );
   assert.equal(
-    sendElementToBack(derived, 0, elementId).slides[0].elementsDerived,
+    "elementsDerived" in sendElementToBack(derived, 0, elementId).slides[0],
     false,
   );
 });
@@ -737,12 +741,12 @@ test("duplicateElement clones with a new id, offset, and returns the copy id", (
   assert.equal(next.slides[0].elements![0].box.x, original.box.x);
 });
 
-test("duplicateElement clears elementsDerived on the slide", () => {
+test("duplicateElement removes elementsDerived from the edited slide", () => {
   const derived = deckWithBullets();
   assert.equal(derived.slides[0].elementsDerived, true);
   const id = derived.slides[0].elements![0].id;
   const { deck: next } = duplicateElement(derived, 0, id);
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
 });
 
 test("duplicateElement is a no-op for a bad index or missing element", () => {
@@ -823,14 +827,14 @@ test("alignElements aligns only the named ids and leaves others untouched", () =
   assert.equal(byId(deck, "b").box.x, 30);
 });
 
-test("alignElements clears elementsDerived and returns a new deck", () => {
+test("alignElements removes elementsDerived and returns a new deck", () => {
   const deck = makeDeck(["A"]);
   assert.equal(deck.slides[0].elementsDerived, true);
   const ids = deck.slides[0].elements!.slice(0, 2).map((e) => e.id);
   const next = alignElements(deck, 0, ids, "top");
 
   assert.notEqual(next, deck);
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
 });
 
 test("alignElements is a no-op when no named ids are present", () => {
@@ -887,12 +891,12 @@ test("setElementHidden is immutable", () => {
   assert.equal(deck.slides[0].elements, before);
 });
 
-test("setElementHidden clears elementsDerived", () => {
+test("setElementHidden removes elementsDerived", () => {
   const deck = makeDeck(["A"]);
   assert.equal(deck.slides[0].elementsDerived, true);
   const elementId = deck.slides[0].elements![0].id;
   const next = setElementHidden(deck, 0, elementId, true);
-  assert.equal(next.slides[0].elementsDerived, false);
+  assert.equal("elementsDerived" in next.slides[0], false);
 });
 
 // ---------------------------------------------------------------------------
@@ -1070,20 +1074,21 @@ test("reorderElement is a no-op when ids are equal or missing (#639)", () => {
 });
 
 test("updateDeckTemplate materializes a custom token set from the theme then patches colors (#614)", () => {
-  const deck: Deck = { themeId: "default", slides: [] };
+  const deck: Deck = makeDeck([]);
   const next = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
-  assert.ok(next.customTokenSet, "custom token set is created");
-  assert.equal(next.customTokenSet!.colors.accent, "#ff0000");
+  const tokenSet = (next as any).design.themeOverrides.tokenSet;
+  assert.ok(tokenSet, "theme override token set is created");
+  assert.equal(tokenSet.colors.accent, "#ff0000");
   // other colors inherit from the default theme
-  assert.equal(next.customTokenSet!.colors.onBg, "#0f172a");
+  assert.equal(tokenSet.colors.onBg, "#0f172a");
 });
 
 test("updateDeckTemplate merges a partial role token over the resolved role (#614)", () => {
-  const deck: Deck = { themeId: "default", slides: [] };
+  const deck: Deck = makeDeck([]);
   const next = updateDeckTemplate(deck, {
     typography: { roles: { h1: { color: "#abcdef" } } },
   });
-  const h1 = next.customTokenSet!.typography.roles!.h1!;
+  const h1 = (next as any).design.themeOverrides.tokenSet.typography.roles.h1;
   assert.equal(h1.color, "#abcdef");
   // fontSize/weight come from the resolved default h1 role
   assert.equal(h1.fontSize, 36);
@@ -1091,9 +1096,10 @@ test("updateDeckTemplate merges a partial role token over the resolved role (#61
 });
 
 test("updateDeckTemplate merges over an existing custom token set (#614)", () => {
-  const deck: Deck = { themeId: "default", slides: [] };
+  const deck: Deck = makeDeck([]);
   const once = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
   const twice = updateDeckTemplate(once, { colors: { onBg: "#222222" } });
-  assert.equal(twice.customTokenSet!.colors.accent, "#ff0000");
-  assert.equal(twice.customTokenSet!.colors.onBg, "#222222");
+  const tokenSet = (twice as any).design.themeOverrides.tokenSet;
+  assert.equal(tokenSet.colors.accent, "#ff0000");
+  assert.equal(tokenSet.colors.onBg, "#222222");
 });

@@ -131,7 +131,7 @@ test("selectCanDeleteSlide is true when deck has two or more slides", () => {
 
 test("selectElementTypeLabel returns Title for h1 text elements", () => {
   assert.equal(
-    selectElementTypeLabel(makeElement({ kind: "text", textRole: "h1" })),
+    selectElementTypeLabel(makeElement({ kind: "text", role: "title" } as any)),
     "Title",
   );
 });

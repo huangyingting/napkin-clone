@@ -9,15 +9,18 @@ import type { SlideFormat } from "./slide-format";
  * the built-in token set is visible immediately.
  */
 export function setDeckTheme(deck: Deck, themeId: DeckTheme): Deck {
-  const next: Deck = {
-    ...deck,
-    themeId,
-  };
-  delete next.customTokenSet;
-  return next;
+  const design = { ...((deck as any).design ?? {}), themeId };
+  delete (design as { themeOverrides?: unknown }).themeOverrides;
+  return { ...deck, design } as Deck;
 }
 
 /** Changes the deck-wide slide format. */
 export function setDeckSlideFormat(deck: Deck, slideFormat: SlideFormat): Deck {
-  return deck.slideFormat === slideFormat ? deck : { ...deck, slideFormat };
+  const current = (deck as any).canvas?.format;
+  return current === slideFormat
+    ? deck
+    : ({
+        ...deck,
+        canvas: { ...((deck as any).canvas ?? {}), format: slideFormat },
+      } as Deck);
 }

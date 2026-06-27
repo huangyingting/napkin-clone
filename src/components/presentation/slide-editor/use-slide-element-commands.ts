@@ -18,6 +18,7 @@ import {
   commitCommand,
   executeCommand,
   type DeckPatch,
+  type SlideCommand,
 } from "@/lib/presentation/slide-commands";
 import { appendPendingPatches } from "./use-slide-editor-commit";
 
@@ -25,6 +26,61 @@ type DoCommitAndChange = (
   deck: Deck,
   cmd: Parameters<typeof commitCommand>[1],
 ) => void;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function buildUpdateElementCommand(
+  slideId: string,
+  elementId: string,
+  patch: ElementPatch,
+  coalesceKey?: string,
+): SlideCommand {
+  const patchRecord = patch as Record<string, unknown>;
+  const keys = Object.keys(patchRecord);
+  const contentOnly =
+    keys.length > 0 &&
+    keys.every((key) => key === "content" || key === "role") &&
+    (patchRecord.content === undefined || isRecord(patchRecord.content)) &&
+    (patchRecord.role === undefined || typeof patchRecord.role === "string");
+  if (contentOnly) {
+    return {
+      type: "UPDATE_ELEMENT_CONTENT",
+      slideId,
+      elementId,
+      ...(patchRecord.content !== undefined
+        ? { content: patchRecord.content as Record<string, unknown> }
+        : {}),
+      ...(typeof patchRecord.role === "string"
+        ? { role: patchRecord.role }
+        : {}),
+      ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+    };
+  }
+
+  if (
+    keys.length === 1 &&
+    keys[0] === "designOverrides" &&
+    isRecord(patchRecord.designOverrides)
+  ) {
+    return {
+      type: "UPDATE_ELEMENT_DESIGN_OVERRIDES",
+      slideId,
+      elementId,
+      designOverrides: patchRecord.designOverrides,
+      ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+    };
+  }
+
+  return {
+    type: "UPDATE_ELEMENT",
+    slideId,
+    elementId,
+    patch,
+    ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+  };
+}
 
 interface UseSlideElementCommandsOptions {
   deck: Deck;
@@ -58,13 +114,10 @@ export function useSlideElementCommands({
     (id: string, patch: ElementPatch, coalesceKey?: string) => {
       const slideId = deck.slides[safeSelected]?.id;
       if (!slideId) return;
-      const result = executeCommand(deck, {
-        type: "UPDATE_ELEMENT",
-        slideId,
-        elementId: id,
-        patch,
-        ...(coalesceKey !== undefined ? { coalesceKey } : {}),
-      });
+      const result = executeCommand(
+        deck,
+        buildUpdateElementCommand(slideId, id, patch, coalesceKey),
+      );
       if (!result.ok) return;
       appendPendingPatches(pendingPatchesRef, result.patches);
       onDeckChange(

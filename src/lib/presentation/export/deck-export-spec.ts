@@ -30,7 +30,7 @@ import type {
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { normalizeTextParagraphs } from "../deck-elements";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
-import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
+import { resolveSlideRenderModel } from "@/lib/presentation/slide-render-model";
 import { slideFontExportFace } from "@/lib/presentation/slide-fonts";
 import {
   adaptShapeLabelForExport,
@@ -121,7 +121,7 @@ function textStyleOverride(
 
 function colorRefValue(
   input: unknown,
-  tokenSet: ReturnType<typeof resolveSlideStyle>["tokenSet"],
+  tokenSet: ReturnType<typeof resolveSlideRenderModel>["tokenSet"],
 ): string | undefined {
   if (typeof input === "string") return input;
   if (!input || typeof input !== "object") return undefined;
@@ -421,15 +421,15 @@ function buildSlideSpec(
   visuals: ReadonlyMap<string, Visual>,
   geometry: DeckGeometry,
 ): DeckSlideSpec {
-  const resolved = resolveSlideStyle(deck, slide);
+  const renderModel = resolveSlideRenderModel(deck, slide);
   const background = toHex(
-    resolved.background.type === "solid"
-      ? resolved.background.color
-      : resolved.background.type === "gradient"
-        ? resolved.background.from
+    renderModel.background.type === "solid"
+      ? renderModel.background.color
+      : renderModel.background.type === "gradient"
+        ? renderModel.background.from
         : "#ffffff",
   );
-  const accent = toHex(resolved.accent);
+  const accent = toHex(renderModel.accent);
 
   const elements = [...(slide.elements ?? [])]
     .filter((element) => !element.hidden)
@@ -580,7 +580,7 @@ function buildSlideSpec(
         const text = content.text ?? element.text;
         const textRuns = content.textRuns ?? element.textRuns;
         const color =
-          colorRefValue(design.fill, resolved.tokenSet) ?? element.color;
+          colorRefValue(design.fill, renderModel.tokenSet) ?? element.color;
         const stroke = design.stroke ?? element.stroke;
         const radius = design.radius ?? element.radius;
         ops.push({
@@ -632,7 +632,11 @@ function buildSlideSpec(
           maskShape: design.maskShape ?? element.maskShape,
           radius: design.radius ?? element.radius,
         };
-        const op = buildDeckImageOp(imageElement, box, resolved.tokenSet.image);
+        const op = buildDeckImageOp(
+          imageElement,
+          box,
+          renderModel.tokenSet.image,
+        );
         if (op) ops.push(op);
         break;
       }
@@ -650,7 +654,7 @@ function buildSlideSpec(
             },
             visual,
             box,
-            resolved.tokenSet.visual,
+            renderModel.tokenSet.visual,
           ),
         );
         break;
@@ -673,7 +677,7 @@ function buildSlideSpec(
           elements,
           (candidate) => candidate.box,
         );
-        const connectorDefaults = resolved.tokenSet.connector;
+        const connectorDefaults = renderModel.tokenSet.connector;
         const strokeColor =
           connectorElement.stroke?.color ??
           connectorDefaults?.color ??

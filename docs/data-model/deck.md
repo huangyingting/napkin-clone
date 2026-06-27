@@ -1,7 +1,7 @@
 # Current Deck Model
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-27
 
 This document defines the current `Document.deckJson` contract. The deck schema
 is development-authoritative: payloads that do not match the current shape are
@@ -25,24 +25,32 @@ The current deck version is exported from
 `src/lib/presentation/deck-schema.ts` enforce the persisted shape:
 
 - `Deck.schemaVersion` must be the current version.
-- `Deck.themeId` is required and is the sole deck-level theme selector.
+- `Deck.canvas.format` is required and is the deck-level slide format.
+- `Deck.design.themeId` is required and is the presentation theme selector.
+- `Deck.masters[]` and `Deck.defaultMasterId` are required; the default master
+  id must reference an existing master.
 - `Deck.slides[]` must be present and validated in order.
-- Every slide must carry `id`, `index`, `title`, `bullets`, `visualIds`,
-  `layout`, `notes`, and `elements`.
+- Every slide must carry `id`, `index`, `title`, and `elements`. `notes`,
+  `masterId`, `templateId`, `designOverrides`, and `source` are optional.
 - `Slide.elements` must be an array. It is the authoritative render/export
   surface.
-- Text elements must carry `paragraphs[]`, the canonical paragraph model for
+- Every element stores kind-specific payload under `content`, and
+  `content.kind` must match the element `kind`.
+- Text elements carry `content.paragraphs[]`, the canonical paragraph model for
   plain text, bullets, and numbered lists.
-- `BaseElement.layoutSlot`, `PlaceholderElement`, `BulletsElement`, and legacy
-  `TextElement.role` are no longer supported.
+- Removed v5 fields are rejected, including top-level `themeId`,
+  `customTokenSet`, `slideFormat`, `layouts`, and slide-level `bullets`,
+  `bulletRuns`, `visualIds`, `layout`, `elementsDerived`, `masterRef`, and
+  `sourceSectionId`.
+- `BaseElement.layoutSlot`, `PlaceholderElement`, `BulletsElement`, and
+  flat kind payload fields are no longer supported in persisted decks.
 - `SourceRef.blockKind` is required and must be either `"text"` or `"visual"`.
 - Serialized deck JSON strings are persisted-schema drift, not supported
   persisted input.
 
 There is no deck migration shim. A schema bump means fixtures, generators, and
 persisted development data must be updated to the new shape. Current decks use
-schema v3, which removed the superseded per-deck and per-slide theme snapshot
-fields in favor of required `Deck.themeId`.
+schema v6.
 
 ## Slide Content Model
 
@@ -59,46 +67,33 @@ Supported element kinds are defined in `src/lib/presentation/deck.ts`:
 - `shape`
 - `connector`
 
-Each element has stable identity, geometry, z-order, and kind-specific payload.
-Element mutations clear `elementsDerived` so later document sync preserves the
-authored layout.
+Each element has stable identity, geometry, z-order, optional presentation
+`role`, optional element-level `source`, kind-specific `content`, and local
+`designOverrides`.
 
-`TextElement.paragraphs[]` is the canonical text payload. Plain paragraphs omit
-`listType`; bulleted and numbered paragraphs set `listType` and optional
-`indent`. The legacy `text` field remains a compact fallback string mirrored
-from paragraph text, and `runs` / paragraph `runs` carry inline rich text.
+`TextElement.content.paragraphs[]` is the canonical text payload. Plain
+paragraphs omit `listType`; bulleted and numbered paragraphs set `listType` and
+optional `indent`. `content.text` is the compact text string, and `content.runs`
+/ paragraph `runs` carry inline rich text.
 
-Reusable layout placeholders remain only in `Deck.layouts[]` as template
-blueprints. Applying a layout to a populated slide is a no-op for authored
-element geometry; template creation materializes real typed elements instead of
-stored placeholder elements or slot bindings.
+Templates are blueprints. Applying or creating from a template materializes real
+typed elements with `content`; `Slide.templateId` is provenance only.
 
 ### Document-derived metadata
 
-Slides still carry `title`, `titleRuns`, `bullets`, `bulletRuns`, and
-`visualIds`. These fields are document-derived metadata used for generation,
-sync matching, hashing, and summaries. They are not a fallback render model.
-
-`buildSlideElementsFromContent(slide)` is the only intentional builder from
-document-derived slide fields to current elements. It is used when deriving a
-new deck or normalizing generated output, not when rendering stored decks.
+Slides keep only metadata such as `title`, optional `notes`, optional
+`templateId`, optional `masterId`, and optional slide `source`. Render content
+lives in `elements[]`.
 
 ### Provenance
 
-`elementsDerived` controls sync behavior:
-
-| Value   | Meaning                                                                          | Sync From Document                                     |
-| ------- | -------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `true`  | Elements were built from document-derived content and have not been hand-edited. | Rebuild elements from fresh document content.          |
-| `false` | The slide has been authored by the user or generated as a hand-authored deck.    | Preserve elements and apply only source-ref refreshes. |
-| absent  | Treat as hand-authored.                                                          | Preserve elements.                                     |
-
-`sourceSectionId` is a stable heading-derived key used to match document-derived
-slides even when the on-slide title has been edited.
+Element-level `source` links preserve the document block or visual an element
+came from. `Slide.source.sectionId` is the heading-derived key used to match
+document-derived slides even when the on-slide title has been edited.
 
 ## Source References
 
-Slide elements may carry `sourceRef` when they are linked to document text or a
+Slide elements may carry `source` when they are linked to document text or a
 document visual.
 
 ```ts
@@ -115,7 +110,7 @@ type SourceRef = {
 The block kind is explicit. Refresh, staleness detection, and dependency health
 checks never infer a missing kind.
 
-`SourceRef.blockId` is durable: for text refs it is the document block
+`source.blockId` is durable: for text refs it is the document block
 `bid`/`blockId`; for visual refs it is the durable `visualId`. It is never a live
 Lexical `NodeKey`.
 
@@ -130,9 +125,8 @@ Source-link helpers live in:
 
 ### Derive From Document
 
-`buildDeckFromBlocks` converts collected document blocks into slides and calls
-`buildSlideElementsFromContent` for positioned elements. Derived slides carry
-`elementsDerived: true` so document sync can refresh them later.
+`buildDeckFromBlocks` converts collected document blocks into v6 slides with
+positioned elements, presentation roles, `content`, and element-level `source`.
 
 ### Generate With AI
 
@@ -140,14 +134,14 @@ AI output may be sparse while it is still model output. Before it can be saved o
 shown as a deck, `normalizeGeneratedDeck` assigns the current theme/layout and
 current elements. Final output must pass `safeParseDeck`.
 
-Generated decks are treated as hand-authored (`elementsDerived: false`) so sync
-does not overwrite their layouts.
+Generated decks materialize authored v6 elements and pass `safeParseDeck`
+before they are returned.
 
 ### Templates And Manual Authoring
 
-Template slides and direct editor commands create current `elements[]` and mark
-slides hand-authored. All element add/update/remove/reorder commands preserve
-immutability and clear derived provenance for the affected slide.
+Template slides and direct editor commands create current `elements[]`.
+Element content edits target `element.content`; formatting edits target
+`element.designOverrides`; source actions target `element.source`.
 
 ## Editor Open And Sync
 
@@ -166,9 +160,9 @@ block lists are not used as a substitute for visual/source-ref workflows.
 
 Sync from document uses `mergeDeckFromDocument`:
 
-- derived slides (`elementsDerived === true`) are rebuilt from fresh content;
+- document-derived slide elements can be re-materialized from fresh content;
 - hand-authored slides preserve elements;
-- active `sourceRef` elements can refresh content or content hashes in place;
+- active `source` elements can refresh content or content hashes in place;
 - missing source blocks are surfaced as orphaned/stale links and are not silently
   deleted.
 
@@ -192,10 +186,11 @@ compatibility path.
 
 ## Render And Export
 
-Rendering and export paths read `slide.elements` directly:
+Rendering and export paths resolve a shared render model from v6 deck state:
 
+- `src/lib/presentation/slide-render-model.ts`
 - `src/components/presentation/slide-canvas.tsx`
-- `src/lib/visual/deck-export.ts`
+- `src/lib/presentation/export/deck-export-spec.ts`
 - `src/lib/visual/export-preflight.ts`
 
 They do not synthesize elements from flat slide fields at render time.
@@ -204,10 +199,10 @@ They do not synthesize elements from flat slide fields at render time.
 
 1. Persisted decks must pass `safeParseDeck`.
 2. Persisted slides must carry `elements[]`.
-3. Text elements use `paragraphs[]` as authoritative text/list content.
+3. Text elements use `content.paragraphs[]` as authoritative text/list content.
 4. Source refs must carry explicit `blockKind`.
-5. Render/export paths consume elements directly.
-6. Document sync only rebuilds derived slides.
+5. Render/export paths consume the resolved render model.
+6. Document sync uses slide/element `source`, not slide-level derived flags.
 7. Hand-authored slides preserve their element geometry and style across sync.
 8. Deck persistence is guarded by revision-token CAS.
 

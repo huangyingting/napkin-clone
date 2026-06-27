@@ -16,11 +16,11 @@ test("slide autosave stale failed patch snapshot is restored before newer patche
   const pendingPatchesRef = {
     current: [patch("slide.update")],
   };
-  prependPendingPatches(pendingPatchesRef, [patch("deck.set_theme")]);
+  prependPendingPatches(pendingPatchesRef, [patch("presentation.set_theme")]);
 
   assert.deepEqual(
     pendingPatchesRef.current.map((item) => item.op),
-    ["deck.set_theme", "slide.update"],
+    ["presentation.set_theme", "slide.update"],
   );
 });
 

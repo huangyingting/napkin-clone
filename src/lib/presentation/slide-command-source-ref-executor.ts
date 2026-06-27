@@ -1,17 +1,14 @@
 import type { Deck } from "./deck-core";
 import {
   activeSourceRef,
-  relinkSource,
   unlinkSource,
   type SourceRef,
 } from "./deck-source-refs";
 import { removeElement, updateElement } from "./deck-mutation-elements";
 import type { ElementPatch } from "./deck-mutation-shared";
 import type {
-  RefreshElementFromSourceCommand,
-  RelinkElementSourceCommand,
   RemoveSourceElementCommand,
-  UnlinkElementSourceCommand,
+  UpdateElementSourceCommand,
 } from "./slide-command-contracts";
 import {
   failure,
@@ -21,82 +18,53 @@ import {
 } from "./slide-command-executor-helpers";
 
 export type SourceRefFamilyCommand =
-  | RefreshElementFromSourceCommand
-  | UnlinkElementSourceCommand
-  | RelinkElementSourceCommand
+  | UpdateElementSourceCommand
   | RemoveSourceElementCommand;
+
+function elementSource(element: unknown): SourceRef | undefined {
+  return ((element as any).source ?? (element as any).sourceRef) as
+    | SourceRef
+    | undefined;
+}
 
 export function executeSourceRefFamilyCommand(
   deck: Deck,
   cmd: SourceRefFamilyCommand,
 ) {
   switch (cmd.type) {
-    case "REFRESH_ELEMENT_FROM_SOURCE": {
+    case "UPDATE_ELEMENT_SOURCE": {
       const index = findSlideIndex(deck, cmd.slideId);
       if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
       const element = deck.slides[index]!.elements?.find(
         (e) => e.id === cmd.elementId,
       );
       if (!element) return failure(deck, `Element not found: ${cmd.elementId}`);
-      if (element.sourceRef === undefined)
+      const currentSource = elementSource(element);
+      if (currentSource === undefined)
         return failure(deck, `Element has no source link: ${cmd.elementId}`);
-      const sourceRef: SourceRef = activeSourceRef(cmd.sourceRef);
-      const patch: ElementPatch =
-        element.kind === "text"
+      const source: SourceRef = cmd.unlink
+        ? ((unlinkSource({ sourceRef: currentSource } as any).sourceRef ??
+            currentSource) as SourceRef)
+        : activeSourceRef(cmd.source ?? currentSource);
+      const patch: ElementPatch = {
+        source,
+        ...(element.kind === "text" && cmd.text !== undefined
           ? {
-              text: cmd.text ?? element.text,
-              ...(cmd.runs !== undefined ? { runs: cmd.runs } : {}),
-              sourceRef,
+              content: {
+                ...((element as any).content ?? {}),
+                kind: "text",
+                text: cmd.text,
+                ...(cmd.runs !== undefined ? { runs: cmd.runs } : {}),
+                paragraphs: [
+                  {
+                    text: cmd.text,
+                    ...(cmd.runs !== undefined ? { runs: cmd.runs } : {}),
+                  },
+                ],
+              },
             }
-          : { sourceRef };
-      return success(
-        updateElement(deck, index, cmd.elementId, patch),
-        [cmd.slideId],
-        [cmd.elementId],
-        undefined,
-        [
-          makePatch("element.update", [cmd.slideId], [cmd.elementId], {
-            elementFields: { [cmd.elementId]: patch },
-          }),
-        ],
-      );
-    }
-    case "UNLINK_ELEMENT_SOURCE": {
-      const index = findSlideIndex(deck, cmd.slideId);
-      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
-      const element = deck.slides[index]!.elements?.find(
-        (e) => e.id === cmd.elementId,
-      );
-      if (!element) return failure(deck, `Element not found: ${cmd.elementId}`);
-      if (element.sourceRef === undefined)
-        return failure(deck, `Element has no source link: ${cmd.elementId}`);
-      const patch: ElementPatch = {
-        sourceRef: unlinkSource(element).sourceRef,
-      };
-      return success(
-        updateElement(deck, index, cmd.elementId, patch),
-        [cmd.slideId],
-        [cmd.elementId],
-        undefined,
-        [
-          makePatch("element.update", [cmd.slideId], [cmd.elementId], {
-            elementFields: { [cmd.elementId]: patch },
-          }),
-        ],
-      );
-    }
-    case "RELINK_ELEMENT_SOURCE": {
-      const index = findSlideIndex(deck, cmd.slideId);
-      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
-      const element = deck.slides[index]!.elements?.find(
-        (e) => e.id === cmd.elementId,
-      );
-      if (!element) return failure(deck, `Element not found: ${cmd.elementId}`);
-      if (element.sourceRef === undefined)
-        return failure(deck, `Element has no source link: ${cmd.elementId}`);
-      const patch: ElementPatch = {
-        sourceRef: relinkSource(element, cmd.sourceRef).sourceRef,
-      };
+          : {}),
+      } as unknown as ElementPatch;
       return success(
         updateElement(deck, index, cmd.elementId, patch),
         [cmd.slideId],

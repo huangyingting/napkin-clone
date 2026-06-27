@@ -234,9 +234,10 @@ const SOURCE_REF = {
 
 test("acceptDeckCommandEnvelope accepts a well-formed deck command for the target document", () => {
   const envelope = deckEnvelope({
-    type: "UNLINK_ELEMENT_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-1",
+    unlink: true,
   });
   const acceptance = acceptDeckCommandEnvelope(envelope, {
     documentId: "doc-1",
@@ -248,17 +249,17 @@ test("acceptDeckCommandEnvelope accepts a well-formed deck command for the targe
 
 test("acceptDeckCommandEnvelope accepts source-ref commands carrying a valid sourceRef", () => {
   const refresh = deckEnvelope({
-    type: "REFRESH_ELEMENT_FROM_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-1",
-    sourceRef: SOURCE_REF,
+    source: SOURCE_REF,
     text: "fresh",
   });
   const relink = deckEnvelope({
-    type: "RELINK_ELEMENT_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-1",
-    sourceRef: { ...SOURCE_REF, blockId: "blk-2" },
+    source: { ...SOURCE_REF, blockId: "blk-2" },
   });
   assert.equal(
     acceptDeckCommandEnvelope(refresh, { documentId: "doc-1" }).ok,
@@ -270,13 +271,13 @@ test("acceptDeckCommandEnvelope accepts source-ref commands carrying a valid sou
   );
 });
 
-test("acceptDeckCommandEnvelope rejects a source-ref command with a malformed sourceRef", () => {
+test("acceptDeckCommandEnvelope rejects a source command with malformed source", () => {
   const envelope = deckEnvelope({
-    type: "RELINK_ELEMENT_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-1",
     // Missing required blockId / linkedAt and invalid blockKind.
-    sourceRef: { documentId: "doc-1", blockKind: "bogus" },
+    source: { documentId: "doc-1", blockKind: "bogus" },
   } as unknown as SlideCommand);
   const acceptance = acceptDeckCommandEnvelope(envelope, {
     documentId: "doc-1",
@@ -284,10 +285,10 @@ test("acceptDeckCommandEnvelope rejects a source-ref command with a malformed so
   assert.equal(acceptance.ok, false);
   assert.equal(acceptance.code, "malformed");
   assert.ok(
-    acceptance.errors.some((e) => e.includes("payload.sourceRef.blockId")),
+    acceptance.errors.some((e) => e.includes("payload.source.blockId")),
   );
   assert.ok(
-    acceptance.errors.some((e) => e.includes("payload.sourceRef.blockKind")),
+    acceptance.errors.some((e) => e.includes("payload.source.blockKind")),
   );
 });
 
@@ -299,7 +300,7 @@ test("acceptDeckCommandEnvelope rejects a malformed envelope", () => {
     timestamp: BASE_TIMESTAMP,
     actor: ACTOR,
     target: { surface: "deck", documentId: "doc-1" },
-    payload: { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1" },
+    payload: { type: "UPDATE_ELEMENT_SOURCE", slideId: "s1", unlink: true },
   } as unknown as CommandEnvelope<SlideCommand>;
   const acceptance = acceptDeckCommandEnvelope(bad, { documentId: "doc-1" });
   assert.equal(acceptance.ok, false);
@@ -310,7 +311,12 @@ test("acceptDeckCommandEnvelope rejects a malformed envelope", () => {
 
 test("acceptDeckCommandEnvelope rejects an unsupported (future) schema version", () => {
   const envelope = deckEnvelope(
-    { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1", elementId: "el-1" },
+    {
+      type: "UPDATE_ELEMENT_SOURCE",
+      slideId: "s1",
+      elementId: "el-1",
+      unlink: true,
+    },
     { schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION + 1 },
   );
   const acceptance = acceptDeckCommandEnvelope(envelope, {
@@ -322,7 +328,12 @@ test("acceptDeckCommandEnvelope rejects an unsupported (future) schema version",
 
 test("acceptDeckCommandEnvelope rejects an envelope addressed to the wrong surface", () => {
   const envelope = deckEnvelope(
-    { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1", elementId: "el-1" },
+    {
+      type: "UPDATE_ELEMENT_SOURCE",
+      slideId: "s1",
+      elementId: "el-1",
+      unlink: true,
+    },
     { target: { surface: "document", documentId: "doc-1" } },
   );
   const acceptance = acceptDeckCommandEnvelope(envelope, {
@@ -334,7 +345,12 @@ test("acceptDeckCommandEnvelope rejects an envelope addressed to the wrong surfa
 
 test("acceptDeckCommandEnvelope rejects an envelope addressed to a different document", () => {
   const envelope = deckEnvelope(
-    { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1", elementId: "el-1" },
+    {
+      type: "UPDATE_ELEMENT_SOURCE",
+      slideId: "s1",
+      elementId: "el-1",
+      unlink: true,
+    },
     { target: { surface: "deck", documentId: "doc-OTHER" } },
   );
   const acceptance = acceptDeckCommandEnvelope(envelope, {

@@ -60,7 +60,10 @@ function mergeRoleTokens(
  */
 export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
   const themeId = resolveDeckThemeId(deck);
-  const base: DeckThemeTokenSet = deck.customTokenSet ?? {
+  const existingTokenSet = (deck as any).design?.themeOverrides?.tokenSet as
+    | DeckThemeTokenSet
+    | undefined;
+  const base: DeckThemeTokenSet = existingTokenSet ?? {
     ...resolveDeckThemeTokens(deck),
     id: `custom:${themeId}`,
     name: `Custom (${themeId})`,
@@ -100,7 +103,16 @@ export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
     ...(patch.image ? { image: { ...base.image, ...patch.image } } : {}),
     ...(patch.visual ? { visual: { ...base.visual, ...patch.visual } } : {}),
   };
-  return { ...deck, customTokenSet: next };
+  return {
+    ...deck,
+    design: {
+      ...((deck as any).design ?? {}),
+      themeOverrides: {
+        ...((deck as any).design?.themeOverrides ?? {}),
+        tokenSet: next,
+      },
+    },
+  } as Deck;
 }
 
 /**
@@ -108,8 +120,14 @@ export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
  * built-in theme (#612 "reset to theme"). Returns a new deck (immutable).
  */
 export function resetDeckTemplate(deck: Deck): Deck {
-  if (deck.customTokenSet === undefined) return deck;
-  const copy = { ...deck };
-  delete (copy as { customTokenSet?: unknown }).customTokenSet;
-  return copy;
+  const design = { ...((deck as any).design ?? {}) };
+  const themeOverrides = { ...(design.themeOverrides ?? {}) };
+  if (!("tokenSet" in themeOverrides)) return deck;
+  delete (themeOverrides as { tokenSet?: unknown }).tokenSet;
+  if (Object.keys(themeOverrides).length === 0) {
+    delete (design as { themeOverrides?: unknown }).themeOverrides;
+  } else {
+    design.themeOverrides = themeOverrides;
+  }
+  return { ...deck, design } as Deck;
 }

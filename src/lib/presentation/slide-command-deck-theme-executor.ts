@@ -8,23 +8,23 @@ import {
   updateDeckTemplate,
 } from "./deck-mutation-template";
 import type {
-  SetDeckFormatCommand,
-  SetDeckThemeCommand,
-  UpdateDeckTemplateCommand,
+  SetCanvasFormatCommand,
+  SetPresentationThemeCommand,
+  UpdateThemeOverridesCommand,
 } from "./slide-command-contracts";
 import { makePatch, success } from "./slide-command-executor-helpers";
 
 export type DeckThemeFamilyCommand =
-  | SetDeckThemeCommand
-  | UpdateDeckTemplateCommand
-  | SetDeckFormatCommand;
+  | SetPresentationThemeCommand
+  | UpdateThemeOverridesCommand
+  | SetCanvasFormatCommand;
 
 export function executeDeckThemeFamilyCommand(
   deck: Deck,
   cmd: DeckThemeFamilyCommand,
 ) {
   switch (cmd.type) {
-    case "SET_DECK_THEME":
+    case "SET_PRESENTATION_THEME":
       return success(
         setDeckTheme(deck, cmd.themeId),
         deck.slides.map((s) => s.id),
@@ -32,14 +32,14 @@ export function executeDeckThemeFamilyCommand(
         undefined,
         [
           makePatch(
-            "deck.set_theme",
+            "presentation.set_theme",
             deck.slides.map((s) => s.id),
             [],
-            { deckFields: { themeId: cmd.themeId } },
+            { deckFields: { design: { themeId: cmd.themeId } } },
           ),
         ],
       );
-    case "UPDATE_DECK_TEMPLATE": {
+    case "UPDATE_THEME_OVERRIDES": {
       if (cmd.reset) {
         return success(
           resetDeckTemplate(deck),
@@ -48,10 +48,10 @@ export function executeDeckThemeFamilyCommand(
           undefined,
           [
             makePatch(
-              "deck.update_template",
+              "presentation.update_theme_overrides",
               deck.slides.map((s) => s.id),
               [],
-              { deckFields: { resetTemplate: true } },
+              { deckFields: { resetThemeOverrides: true } },
             ),
           ],
         );
@@ -64,25 +64,25 @@ export function executeDeckThemeFamilyCommand(
         undefined,
         [
           makePatch(
-            "deck.update_template",
+            "presentation.update_theme_overrides",
             deck.slides.map((s) => s.id),
             [],
-            { deckFields: { customTokenSet: next.customTokenSet } },
+            {
+              deckFields: {
+                design: {
+                  themeOverrides: (next as any).design?.themeOverrides,
+                },
+              },
+            },
           ),
         ],
       );
     }
-    case "SET_DECK_FORMAT":
-      return success(
-        setDeckSlideFormat(deck, cmd.slideFormat),
-        [],
-        [],
-        undefined,
-        [
-          makePatch("deck.set_format", [], [], {
-            deckFields: { slideFormat: cmd.slideFormat },
-          }),
-        ],
-      );
+    case "SET_CANVAS_FORMAT":
+      return success(setDeckSlideFormat(deck, cmd.format), [], [], undefined, [
+        makePatch("canvas.set_format", [], [], {
+          deckFields: { canvas: { format: cmd.format } },
+        }),
+      ]);
   }
 }

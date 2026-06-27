@@ -86,8 +86,6 @@ export type {
   MoveSlideCommand,
   NudgeElementsCommand,
   PatchOp,
-  RefreshElementFromSourceCommand,
-  RelinkElementSourceCommand,
   RemoveElementCommand,
   RemoveElementsCommand,
   RemoveSlideCommand,
@@ -97,8 +95,8 @@ export type {
   ReorderSlideCommand,
   ResetSlideLayoutCommand,
   SendElementToBackCommand,
-  SetDeckFormatCommand,
-  SetDeckThemeCommand,
+  SetCanvasFormatCommand,
+  SetPresentationThemeCommand,
   SetElementBoxesCommand,
   SetElementHiddenCommand,
   SetElementLockedCommand,
@@ -110,9 +108,11 @@ export type {
   SetSlideBackgroundImageCommand,
   SlideCommand,
   UngroupElementsCommand,
-  UnlinkElementSourceCommand,
-  UpdateDeckTemplateCommand,
+  UpdateElementSourceCommand,
+  UpdateThemeOverridesCommand,
+  UpdateElementContentCommand,
   UpdateElementCommand,
+  UpdateElementDesignOverridesCommand,
   UpdateSlideBodyCommand,
   UpdateSlideCommand,
   UpdateSlideLayoutHintCommand,
@@ -143,6 +143,8 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
       return executeLayoutFamilyCommand(deck, cmd);
     case "ADD_ELEMENT":
     case "UPDATE_ELEMENT":
+    case "UPDATE_ELEMENT_CONTENT":
+    case "UPDATE_ELEMENT_DESIGN_OVERRIDES":
     case "REMOVE_ELEMENT":
     case "REMOVE_ELEMENTS":
     case "DUPLICATE_ELEMENT":
@@ -164,9 +166,9 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     case "RENAME_ELEMENT":
     case "REORDER_ELEMENT":
       return executeElementFamilyCommand(deck, cmd);
-    case "SET_DECK_THEME":
-    case "UPDATE_DECK_TEMPLATE":
-    case "SET_DECK_FORMAT":
+    case "SET_PRESENTATION_THEME":
+    case "UPDATE_THEME_OVERRIDES":
+    case "SET_CANVAS_FORMAT":
       return executeDeckThemeFamilyCommand(deck, cmd);
     case "SET_SLIDE_BACKGROUND":
     case "SET_SLIDE_BACKGROUND_GRADIENT":
@@ -174,9 +176,7 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     case "SET_SLIDE_BACKGROUND_ASSET":
     case "SET_SLIDE_ACCENT":
       return executeBackgroundFamilyCommand(deck, cmd);
-    case "REFRESH_ELEMENT_FROM_SOURCE":
-    case "UNLINK_ELEMENT_SOURCE":
-    case "RELINK_ELEMENT_SOURCE":
+    case "UPDATE_ELEMENT_SOURCE":
     case "REMOVE_SOURCE_ELEMENT":
       return executeSourceRefFamilyCommand(deck, cmd);
   }
@@ -191,7 +191,7 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
  * and target (slide + optional element) into a single merged command.
  *
  * Rules:
- * - Only `UPDATE_SLIDE` and `UPDATE_ELEMENT` commands carry a `coalesceKey`.
+ * - Only gesture/edit commands carrying a `coalesceKey` are considered.
  * - Two adjacent commands may coalesce when their `type`, `slideId`, element
  *   id (if applicable), and `coalesceKey` all match.
  * - When coalescing, the *later* patch is merged on top of the earlier one —
@@ -248,23 +248,26 @@ function mergeCommands(a: SlideCommand, b: SlideCommand): SlideCommand {
  */
 export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
   switch (patch.op) {
-    case "deck.set_theme": {
-      const theme = patch.deckFields?.themeId;
+    case "presentation.set_theme": {
+      const theme = patch.deckFields?.design?.themeId;
       if (!theme) return null;
       return setDeckTheme(deck, theme);
     }
-    case "deck.update_template": {
-      if (patch.deckFields?.resetTemplate) {
+    case "presentation.update_theme_overrides": {
+      if (patch.deckFields?.resetThemeOverrides) {
         return resetDeckTemplate(deck);
       }
-      const customTokenSet = patch.deckFields?.customTokenSet;
-      if (!customTokenSet) return null;
-      return { ...deck, customTokenSet };
+      const themeOverrides = patch.deckFields?.design?.themeOverrides;
+      if (!themeOverrides) return null;
+      return {
+        ...deck,
+        design: { ...((deck as any).design ?? {}), themeOverrides },
+      } as Deck;
     }
-    case "deck.set_format": {
-      const slideFormat = patch.deckFields?.slideFormat;
-      if (!slideFormat) return null;
-      return setDeckSlideFormat(deck, slideFormat);
+    case "canvas.set_format": {
+      const format = patch.deckFields?.canvas?.format;
+      if (!format) return null;
+      return setDeckSlideFormat(deck, format);
     }
     case "slide.update_title":
     case "slide.update_body":
@@ -286,6 +289,8 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
       return next;
     }
     case "element.update":
+    case "element.update_content":
+    case "element.update_design_overrides":
     case "element.set_patches": {
       if (!patch.elementFields || patch.slideIds.length === 0) return null;
       const slideId = patch.slideIds[0]!;

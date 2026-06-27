@@ -25,7 +25,7 @@ import { makeMinimalDeck, makeMinimalSlide } from "@/test/builders/deck";
 
 const makeDeck = () => makeMinimalDeck([makeMinimalSlide("s1", 0, "Slide 1")]);
 
-function makePatch(op: DeckPatch["op"] = "deck.set_theme"): DeckPatch {
+function makePatch(op: DeckPatch["op"] = "presentation.set_theme"): DeckPatch {
   return {
     schemaVersion: 1,
     op,

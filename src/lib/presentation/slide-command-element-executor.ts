@@ -49,7 +49,9 @@ import type {
   SetElementPatchesCommand,
   UngroupElementsCommand,
   GroupElementsCommand,
+  UpdateElementContentCommand,
   UpdateElementCommand,
+  UpdateElementDesignOverridesCommand,
 } from "./slide-command-contracts";
 import {
   failure,
@@ -61,6 +63,8 @@ import {
 export type ElementFamilyCommand =
   | AddElementCommand
   | UpdateElementCommand
+  | UpdateElementContentCommand
+  | UpdateElementDesignOverridesCommand
   | RemoveElementCommand
   | RemoveElementsCommand
   | DuplicateElementCommand
@@ -114,6 +118,54 @@ export function executeElementFamilyCommand(
           makePatch("element.update", [cmd.slideId], [cmd.elementId], {
             elementFields: { [cmd.elementId]: cmd.patch },
           }),
+        ],
+      );
+    }
+    case "UPDATE_ELEMENT_CONTENT": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      const slide = deck.slides[index]!;
+      if (!slide.elements?.some((e) => e.id === cmd.elementId))
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      const patch = {
+        ...(cmd.content !== undefined ? { content: cmd.content } : {}),
+        ...(cmd.role !== undefined ? { role: cmd.role } : {}),
+      } as never;
+      return success(
+        updateElement(deck, index, cmd.elementId, patch),
+        [cmd.slideId],
+        [cmd.elementId],
+        cmd.coalesceKey,
+        [
+          makePatch("element.update_content", [cmd.slideId], [cmd.elementId], {
+            elementFields: { [cmd.elementId]: patch },
+          }),
+        ],
+      );
+    }
+    case "UPDATE_ELEMENT_DESIGN_OVERRIDES": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      const slide = deck.slides[index]!;
+      if (!slide.elements?.some((e) => e.id === cmd.elementId))
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      const patch = {
+        designOverrides: cmd.designOverrides,
+      } as never;
+      return success(
+        updateElement(deck, index, cmd.elementId, patch),
+        [cmd.slideId],
+        [cmd.elementId],
+        cmd.coalesceKey,
+        [
+          makePatch(
+            "element.update_design_overrides",
+            [cmd.slideId],
+            [cmd.elementId],
+            {
+              elementFields: { [cmd.elementId]: patch },
+            },
+          ),
         ],
       );
     }

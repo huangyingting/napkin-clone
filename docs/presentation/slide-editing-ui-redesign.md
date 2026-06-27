@@ -53,23 +53,23 @@ Consequences:
 
 ## 3. Surface map
 
-| Surface             | Owns                                   | Notes                                                  |
-| ------------------- | -------------------------------------- | ------------------------------------------------------ |
-| **Top toolbar**     | Deck-level + app-level controls        | Repurposed from today's mixed toolbar                  |
-| **Canvas + popover**| The current object's frequent actions  | Popover floats near the current object                 |
-| **Right panel**     | The current object's precise properties| Floating overlay; user-toggled                         |
-| **Bottom dock**     | Status (zoom, notes, save)             | Unchanged                                              |
-| **Slide rail**      | Slide navigation/reorder               | Unchanged; remains a horizontal strip near the bottom  |
+| Surface              | Owns                                    | Notes                                                 |
+| -------------------- | --------------------------------------- | ----------------------------------------------------- |
+| **Top toolbar**      | Deck-level + app-level controls         | Repurposed from today's mixed toolbar                 |
+| **Canvas + popover** | The current object's frequent actions   | Popover floats near the current object                |
+| **Right panel**      | The current object's precise properties | Floating overlay; user-toggled                        |
+| **Bottom dock**      | Status (zoom, notes, save)              | Unchanged                                             |
+| **Slide rail**       | Slide navigation/reorder                | Unchanged; remains a horizontal strip near the bottom |
 
 ### 3.1 Division of labor: popover vs panel
 
 Controls are split by **frequency × precision**, not by feature category:
 
-| | **Popover toolbar** | **Right panel** |
-| --- | --- | --- |
-| Role | High-frequency, click-to-apply, visual "verbs" | Complete, precise, lower-frequency "property table" |
-| Input | Toggle, color swatch, `+`/`−` stepper | Numeric field, slider, dropdown, text area |
-| Appears | Anchored to the current object | Manually toggled; remembers last state |
+|         | **Popover toolbar**                            | **Right panel**                                     |
+| ------- | ---------------------------------------------- | --------------------------------------------------- |
+| Role    | High-frequency, click-to-apply, visual "verbs" | Complete, precise, lower-frequency "property table" |
+| Input   | Toggle, color swatch, `+`/`−` stepper          | Numeric field, slider, dropdown, text area          |
+| Appears | Anchored to the current object                 | Manually toggled; remembers last state              |
 
 The same **property** may appear in both surfaces at different precision (e.g.
 font-size `+`/`−` in the popover, an exact numeric field in the panel). The same
@@ -139,24 +139,24 @@ popover anchor = union bbox of selected elements ?? slide top edge
 
 ### 5.3 Contextual verbs per kind
 
-| Kind          | Verbs                                                          |
-| ------------- | ------------------------------------------------------------- |
+| Kind          | Verbs                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **Text**      | Bold, italic, underline, align, color, font-size `+`/`−`; list toggle (bullet/number), indent/outdent for list paragraphs |
-| **Shape**     | Fill color, (stroke color)                                    |
-| **Connector** | Straight/elbow routing, dashed/solid, arrowheads              |
-| **Image**     | Replace image, crop (opens the panel crop section)            |
-| **Visual**    | Replace/restyle (opens the panel visual section)              |
+| **Shape**     | Fill color, (stroke color)                                                                                                |
+| **Connector** | Straight/elbow routing, dashed/solid, arrowheads                                                                          |
+| **Image**     | Replace image, crop (opens the panel crop section)                                                                        |
+| **Visual**    | Replace/restyle (opens the panel visual section)                                                                          |
 
 ### 5.4 Text: selected vs editing states
 
 Text has two states that share one popover but differ in scope:
 
-| | **Selected (not editing)** | **Editing (caret active)** |
-| --- | --- | --- |
-| Format verb scope | Whole element (all paragraphs/runs) | Current character range |
-| Object actions (delete / z-order / group) | Shown | **Hidden** (avoid deleting the whole element mid-edit) |
-| List controls | — | Indent/outdent, bullet/number toggle, level |
-| Anchor | Above bbox | Still anchored to bbox (does not chase the caret) |
+|                                           | **Selected (not editing)**          | **Editing (caret active)**                             |
+| ----------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| Format verb scope                         | Whole element (all paragraphs/runs) | Current character range                                |
+| Object actions (delete / z-order / group) | Shown                               | **Hidden** (avoid deleting the whole element mid-edit) |
+| List controls                             | —                                   | Indent/outdent, bullet/number toggle, level            |
+| Anchor                                    | Above bbox                          | Still anchored to bbox (does not chase the caret)      |
 
 Entering edit: double-click or Enter. Exiting: Esc. The `⤢ Panel` bridge is
 present in both states.
@@ -193,7 +193,7 @@ This single rule covers both groups and text editing.
   canvas never reflows when it opens. It may cover a thin strip of the canvas;
   this is accepted.
 - **Does not auto-open** on selection. Selecting an element only updates the
-  panel's *content*, never its *visibility*.
+  panel's _content_, never its _visibility_.
 - **Open/close is user-controlled** via (a) the popover `⤢ Panel` button and
   (b) a persistent toggle. Open/closed state and the active mode are remembered
   across slides and sessions.
@@ -223,17 +223,17 @@ explicit "Advanced" tier).
 - Header: an **object identity row** (icon + editable name, e.g. "Text · Title").
 - Sections by object:
 
-| Object        | Sections                                                                  |
-| ------------- | ------------------------------------------------------------------------- |
+| Object        | Sections                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **Text**      | Typography (font / size / line height / paragraph spacing / align / vertical align / fit) · Fill & color · Position & size · Effects |
-| **Image**     | Image (crop / fit / mask / corner radius) · Position & size · Effects      |
-| **Shape**     | Shape (fill / stroke / corner radius) · Text label · Position & size · Effects |
-| **Visual**    | Visual (restyle / alt) · Position & size · Effects                         |
-| **Connector** | Line (routing / dash / arrows / stroke) · Endpoints                        |
-| **Slide**     | Background · Layout · Accent · Transition · Size · Notes                    |
+| **Image**     | Image (crop / fit / mask / corner radius) · Position & size · Effects                                                                |
+| **Shape**     | Shape (fill / stroke / corner radius) · Text label · Position & size · Effects                                                       |
+| **Visual**    | Visual (restyle / alt) · Position & size · Effects                                                                                   |
+| **Connector** | Line (routing / dash / arrows / stroke) · Endpoints                                                                                  |
+| **Slide**     | Background · Layout · Accent · Transition · Size · Notes                                                                             |
 
 - **Source link** is a low-frequency, element-scoped, **collapsed-by-default**
-  section that appears only when the element has a `sourceRef`. It is not a
+  section that appears only when the element has a `source`. It is not a
   separate surface.
 
 ---

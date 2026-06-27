@@ -47,6 +47,8 @@ const SLIDE_COMMAND_TYPES = [
   "UPDATE_SLIDE",
   "ADD_ELEMENT",
   "UPDATE_ELEMENT",
+  "UPDATE_ELEMENT_CONTENT",
+  "UPDATE_ELEMENT_DESIGN_OVERRIDES",
   "REMOVE_ELEMENT",
   "MOVE_SLIDE",
   "INSERT_TEMPLATE_SLIDE",
@@ -75,17 +77,15 @@ const SLIDE_COMMAND_TYPES = [
   "MOVE_ELEMENT_ZORDER",
   "RENAME_ELEMENT",
   "REORDER_ELEMENT",
-  "SET_DECK_THEME",
-  "UPDATE_DECK_TEMPLATE",
-  "SET_DECK_FORMAT",
+  "SET_PRESENTATION_THEME",
+  "UPDATE_THEME_OVERRIDES",
+  "SET_CANVAS_FORMAT",
   "SET_SLIDE_BACKGROUND",
   "SET_SLIDE_BACKGROUND_GRADIENT",
   "SET_SLIDE_BACKGROUND_IMAGE",
   "SET_SLIDE_BACKGROUND_ASSET",
   "SET_SLIDE_ACCENT",
-  "REFRESH_ELEMENT_FROM_SOURCE",
-  "UNLINK_ELEMENT_SOURCE",
-  "RELINK_ELEMENT_SOURCE",
+  "UPDATE_ELEMENT_SOURCE",
   "REMOVE_SOURCE_ELEMENT",
 ] as const;
 
@@ -148,9 +148,13 @@ function validateAssetOptions(
   }
 }
 
-function validateSourceRef(value: unknown, errors: string[]): void {
+function validateSourceRef(
+  value: unknown,
+  errors: string[],
+  context = "payload.sourceRef",
+): void {
   if (!isPlainObject(value)) {
-    errors.push("payload.sourceRef must be an object.");
+    errors.push(`${context} must be an object.`);
     return;
   }
   pushUnknownKeyErrors(
@@ -163,28 +167,28 @@ function validateSourceRef(value: unknown, errors: string[]): void {
       "unlinked",
       "blockKind",
     ],
-    "payload.sourceRef",
+    context,
     errors,
   );
   if (!isNonEmptyString(value.documentId)) {
-    errors.push("payload.sourceRef.documentId must be a non-empty string.");
+    errors.push(`${context}.documentId must be a non-empty string.`);
   }
   if (!isNonEmptyString(value.blockId)) {
-    errors.push("payload.sourceRef.blockId must be a non-empty string.");
+    errors.push(`${context}.blockId must be a non-empty string.`);
   }
   if (!isNonEmptyString(value.linkedAt)) {
-    errors.push("payload.sourceRef.linkedAt must be a non-empty string.");
+    errors.push(`${context}.linkedAt must be a non-empty string.`);
   }
   if (value.contentHash !== undefined && !isNonEmptyString(value.contentHash)) {
     errors.push(
-      "payload.sourceRef.contentHash must be a non-empty string when provided.",
+      `${context}.contentHash must be a non-empty string when provided.`,
     );
   }
   if (value.unlinked !== undefined && typeof value.unlinked !== "boolean") {
-    errors.push("payload.sourceRef.unlinked must be a boolean when provided.");
+    errors.push(`${context}.unlinked must be a boolean when provided.`);
   }
   if (!isOneOf(value.blockKind, ["text", "visual"] as const)) {
-    errors.push('payload.sourceRef.blockKind must be "text" or "visual".');
+    errors.push(`${context}.blockKind must be "text" or "visual".`);
   }
 }
 
@@ -273,6 +277,34 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.patch must be an object.");
       }
       break;
+    case "UPDATE_ELEMENT_CONTENT":
+      if (!isNonEmptyString(payload.slideId)) {
+        errors.push("payload.slideId must be a non-empty string.");
+      }
+      if (!isNonEmptyString(payload.elementId)) {
+        errors.push("payload.elementId must be a non-empty string.");
+      }
+      if (payload.content === undefined && payload.role === undefined) {
+        errors.push("payload.content or payload.role must be provided.");
+      }
+      if (payload.content !== undefined && !isPlainObject(payload.content)) {
+        errors.push("payload.content must be an object when provided.");
+      }
+      if (payload.role !== undefined && !isNonEmptyString(payload.role)) {
+        errors.push("payload.role must be a non-empty string when provided.");
+      }
+      break;
+    case "UPDATE_ELEMENT_DESIGN_OVERRIDES":
+      if (!isNonEmptyString(payload.slideId)) {
+        errors.push("payload.slideId must be a non-empty string.");
+      }
+      if (!isNonEmptyString(payload.elementId)) {
+        errors.push("payload.elementId must be a non-empty string.");
+      }
+      if (!isPlainObject(payload.designOverrides)) {
+        errors.push("payload.designOverrides must be an object.");
+      }
+      break;
     case "REMOVE_ELEMENT":
     case "DUPLICATE_ELEMENT":
     case "BRING_ELEMENT_TO_FRONT":
@@ -282,7 +314,6 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
     case "MOVE_ELEMENT_ZORDER":
     case "RENAME_ELEMENT":
     case "REORDER_ELEMENT":
-    case "UNLINK_ELEMENT_SOURCE":
     case "REMOVE_SOURCE_ELEMENT":
       if (!isNonEmptyString(payload.slideId)) {
         errors.push("payload.slideId must be a non-empty string.");
@@ -291,15 +322,19 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.elementId must be a non-empty string.");
       }
       break;
-    case "REFRESH_ELEMENT_FROM_SOURCE":
-    case "RELINK_ELEMENT_SOURCE":
+    case "UPDATE_ELEMENT_SOURCE":
       if (!isNonEmptyString(payload.slideId)) {
         errors.push("payload.slideId must be a non-empty string.");
       }
       if (!isNonEmptyString(payload.elementId)) {
         errors.push("payload.elementId must be a non-empty string.");
       }
-      validateSourceRef(payload.sourceRef, errors);
+      if (payload.unlink !== undefined && typeof payload.unlink !== "boolean") {
+        errors.push("payload.unlink must be a boolean when provided.");
+      }
+      if (payload.unlink !== true) {
+        validateSourceRef(payload.source, errors, "payload.source");
+      }
       break;
     case "MOVE_SLIDE":
       if (!isInteger(payload.slideIndex)) {
@@ -433,12 +468,12 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.targetElementId must be a non-empty string.");
       }
       break;
-    case "SET_DECK_THEME":
+    case "SET_PRESENTATION_THEME":
       if (!isNonEmptyString(payload.themeId)) {
         errors.push("payload.themeId must be a non-empty string.");
       }
       break;
-    case "UPDATE_DECK_TEMPLATE":
+    case "UPDATE_THEME_OVERRIDES":
       if (!isPlainObject(payload.patch)) {
         errors.push("payload.patch must be an object.");
       }
@@ -446,9 +481,9 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.reset must be a boolean when provided.");
       }
       break;
-    case "SET_DECK_FORMAT":
-      if (!isNonEmptyString(payload.slideFormat)) {
-        errors.push("payload.slideFormat must be a non-empty string.");
+    case "SET_CANVAS_FORMAT":
+      if (!isNonEmptyString(payload.format)) {
+        errors.push("payload.format must be a non-empty string.");
       }
       break;
     case "SET_SLIDE_BACKGROUND":
@@ -545,6 +580,18 @@ export const SLIDE_COMMAND_METADATA = {
   UPDATE_ELEMENT: makeMetadata(
     "UPDATE_ELEMENT",
     "element.update",
+    { slideId: "required", elementId: "required" },
+    { kind: "by-element" },
+  ),
+  UPDATE_ELEMENT_CONTENT: makeMetadata(
+    "UPDATE_ELEMENT_CONTENT",
+    "element.update_content",
+    { slideId: "required", elementId: "required" },
+    { kind: "by-element" },
+  ),
+  UPDATE_ELEMENT_DESIGN_OVERRIDES: makeMetadata(
+    "UPDATE_ELEMENT_DESIGN_OVERRIDES",
+    "element.update_design_overrides",
     { slideId: "required", elementId: "required" },
     { kind: "by-element" },
   ),
@@ -658,12 +705,15 @@ export const SLIDE_COMMAND_METADATA = {
     slideId: "required",
     elementId: "required",
   }),
-  SET_DECK_THEME: makeMetadata("SET_DECK_THEME", "deck.set_theme"),
-  UPDATE_DECK_TEMPLATE: makeMetadata(
-    "UPDATE_DECK_TEMPLATE",
-    "deck.update_template",
+  SET_PRESENTATION_THEME: makeMetadata(
+    "SET_PRESENTATION_THEME",
+    "presentation.set_theme",
   ),
-  SET_DECK_FORMAT: makeMetadata("SET_DECK_FORMAT", "deck.set_format"),
+  UPDATE_THEME_OVERRIDES: makeMetadata(
+    "UPDATE_THEME_OVERRIDES",
+    "presentation.update_theme_overrides",
+  ),
+  SET_CANVAS_FORMAT: makeMetadata("SET_CANVAS_FORMAT", "canvas.set_format"),
   SET_SLIDE_BACKGROUND: makeMetadata(
     "SET_SLIDE_BACKGROUND",
     "slide.set_background",
@@ -687,18 +737,8 @@ export const SLIDE_COMMAND_METADATA = {
   SET_SLIDE_ACCENT: makeMetadata("SET_SLIDE_ACCENT", "slide.set_accent", {
     slideId: "required",
   }),
-  REFRESH_ELEMENT_FROM_SOURCE: makeMetadata(
-    "REFRESH_ELEMENT_FROM_SOURCE",
-    "element.update",
-    { slideId: "required", elementId: "required" },
-  ),
-  UNLINK_ELEMENT_SOURCE: makeMetadata(
-    "UNLINK_ELEMENT_SOURCE",
-    "element.update",
-    { slideId: "required", elementId: "required" },
-  ),
-  RELINK_ELEMENT_SOURCE: makeMetadata(
-    "RELINK_ELEMENT_SOURCE",
+  UPDATE_ELEMENT_SOURCE: makeMetadata(
+    "UPDATE_ELEMENT_SOURCE",
     "element.update",
     { slideId: "required", elementId: "required" },
   ),
@@ -776,6 +816,25 @@ export function mergeCoalescedSlideCommands(
   }
   if (a.type === "UPDATE_ELEMENT" && b.type === "UPDATE_ELEMENT") {
     return { ...a, patch: { ...a.patch, ...b.patch } };
+  }
+  if (
+    a.type === "UPDATE_ELEMENT_CONTENT" &&
+    b.type === "UPDATE_ELEMENT_CONTENT"
+  ) {
+    return {
+      ...a,
+      ...(b.content !== undefined ? { content: b.content } : {}),
+      ...(b.role !== undefined ? { role: b.role } : {}),
+    };
+  }
+  if (
+    a.type === "UPDATE_ELEMENT_DESIGN_OVERRIDES" &&
+    b.type === "UPDATE_ELEMENT_DESIGN_OVERRIDES"
+  ) {
+    return {
+      ...a,
+      designOverrides: { ...a.designOverrides, ...b.designOverrides },
+    };
   }
   if (a.type === "UPDATE_SLIDE_TITLE" && b.type === "UPDATE_SLIDE_TITLE") {
     return { ...a, title: b.title };

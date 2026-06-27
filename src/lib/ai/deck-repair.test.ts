@@ -55,6 +55,30 @@ test("repairElement drops unsupported and unusable visual elements", () => {
     usedIds,
   );
   assert.equal(visual?.kind, "visual");
+  assert.equal((visual as any).content.visualId, "vis-1");
+  assert.equal((visual as any).visualId, undefined);
+});
+
+test("repairElement emits text elements in v6 content/designOverrides shape", () => {
+  const text = repairElement(
+    {
+      kind: "text",
+      role: "title",
+      text: "Launch plan",
+      style: { fontSize: 7, bold: true, italic: false, align: "center" },
+    },
+    0,
+  );
+  assert.equal(text?.kind, "text");
+  assert.equal((text as any).role, "title");
+  assert.deepEqual((text as any).content, {
+    kind: "text",
+    text: "Launch plan",
+    paragraphs: [{ text: "Launch plan" }],
+  });
+  assert.equal((text as any).designOverrides.textStyle.align, "center");
+  assert.equal((text as any).text, undefined);
+  assert.equal((text as any).style, undefined);
 });
 
 test("repairSlide normalizes ids, layout, bullets, and duplicate element ids", () => {

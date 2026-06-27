@@ -1,12 +1,12 @@
 /**
  * Prompt construction for AI deck generation (issue #262).
  *
- * The model is asked to return a single JSON {@link Deck} object — `{ slides:
- * [...], themeId }` — whose slides carry concise, presentation-ready content and
- * (optionally) free-form positioned `elements[]`. The allowed `layout` and
- * `themeId` value lists are derived from the exported `SLIDE_LAYOUTS` /
- * `DECK_THEMES` const arrays in `@/lib/presentation/deck` so this prompt stays
- * in sync with the validator (`safeParseDeck`).
+ * The model is asked to return a single schema-v6 JSON {@link Deck} object
+ * whose slides carry concise, presentation-ready content and free-form
+ * positioned `elements[]`. The allowed `templateId` and `design.themeId` value
+ * lists are derived from the exported `SLIDE_LAYOUTS` / `DECK_THEMES` const
+ * arrays in `@/lib/presentation/deck` so this prompt stays in sync with the
+ * validator (`safeParseDeck`).
  *
  * This module is intentionally free of any network, DOM, or React dependencies
  * so it can be unit tested deterministically under `node --test`.
@@ -64,17 +64,19 @@ function deckSchemaDescription(): string {
   return [
     "Return ONE JSON object describing a presentation Deck with this exact shape:",
     "{",
-    `  "themeId": one of ${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")} (choose the one that fits the content best — see Theme rules below),`,
+    '  "schemaVersion": 6,',
+    '  "canvas": { "format": "16:9" },',
+    `  "design": { "themeId": one of ${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")} },`,
+    '  "masters": [{ "id": "master-default", "name": "Default", "elements": [] }],',
+    '  "defaultMasterId": "master-default",',
     '  "slides": [',
     "    {",
-    '      "title": short slide heading string (optional),',
-    '      "bullets": array of short strings matching bullet element item text (optional projection),',
+    '      "title": short slide heading string,',
     '      "notes": speaker notes string for live narration / overflow detail (optional),',
-    `      "layout": one of ${SLIDE_LAYOUTS.map((l) => `"${l}"`).join(" | ")} (optional; defaults to "blank"),`,
-    '      "elements": [   // optional free-form positioned content',
-    '        { "kind": "text", "text": string, "role": "title" | "body", "box": { "x": %, "y": %, "w": %, "h": % } },',
-    '        { "kind": "bullets", "items": [{ "text": string }, ...], "box": { "x": %, "y": %, "w": %, "h": % } },',
-    '        { "kind": "visual", "visualId": one of the inventory ids, "box": { "x": %, "y": %, "w": %, "h": % } }',
+    `      "templateId": one of ${SLIDE_LAYOUTS.map((l) => `"${l}"`).join(" | ")} (optional; omit for "blank"),`,
+    '      "elements": [',
+    '        { "kind": "text", "role": "title" | "body" | "bullet", "box": { "x": %, "y": %, "w": %, "h": % }, "content": { "kind": "text", "text": string, "paragraphs": [{ "text": string, "listType": "bullet" optional }] }, "designOverrides": { "textStyle": { "fontSize": number, "bold": boolean, "italic": boolean, "align": "left" | "center" | "right" } } optional },',
+    '        { "kind": "visual", "role": "visual", "box": { "x": %, "y": %, "w": %, "h": % }, "content": { "kind": "visual", "visualId": one of the inventory ids } }',
     "      ]",
     "    }",
     "  ]",
@@ -98,13 +100,17 @@ const SYSTEM_PROMPT = [
   "- Favor a strong visual hierarchy: a short title plus a few punchy bullets, not paragraphs.",
   "",
   "Visual rules:",
-  "- You may reference a visual on a slide ONLY via an `elements` entry of kind `visual` whose `visualId` is one of the provided inventory ids.",
+  "- You may reference a visual on a slide ONLY via an `elements` entry of kind `visual` whose `content.visualId` is one of the provided inventory ids.",
   "- HARD RULE: every `visualId` MUST exactly match an id from the visual inventory. NEVER invent, guess, or modify a visual id. If no inventory visual fits a slide, omit visuals from that slide.",
   "- If the inventory is empty, do not include any `visual` elements at all.",
   "",
   "Theme rules:",
   `- ALWAYS choose a VIBRANT theme (${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")}) that fits the content's mood/subject, for strong visual impact.`,
-  "- Pick the single theme whose palette best matches the content and apply it to the whole deck via the top-level `themeId` field.",
+  "- Pick the single theme whose palette best matches the content and apply it to the whole deck via `design.themeId`.",
+  "",
+  "V6 shape rules:",
+  "- Do NOT output top-level `themeId`, `layout`, `bullets`, `visualIds`, `sourceRef`, `styleOverride`, or flat element payload fields such as `text` or `visualId`.",
+  "- Put text and visual payloads under `element.content`; put local styling under `element.designOverrides`.",
   "",
   "Output rules:",
   "- Output the JSON object ONLY — no surrounding prose, no markdown, no code fences.",
@@ -127,7 +133,7 @@ function renderInventory(
 
 /**
  * Builds the chat messages for a deck-generation request. The output JSON must
- * be a single {@link Deck} object: `{ "slides": [ ... ], "themeId": ... }`.
+ * be a single schema-v6 {@link Deck} object.
  */
 export function buildDeckGenerationMessages(
   options: BuildDeckMessagesOptions,

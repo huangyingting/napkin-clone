@@ -40,6 +40,7 @@ import type { ElementBox } from "@/lib/presentation/deck";
 import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
+import { deckCanvasFormat } from "@/components/presentation/v6-deck-ui";
 
 type DoCommitAndChange = (
   deck: Deck,
@@ -49,23 +50,23 @@ type DoCommitAndChange = (
 function textRoleLabel(role: DeckTextRole): string {
   switch (role) {
     case "h1":
-      return "Heading 1";
+      return "Title";
     case "h2":
-      return "Heading 2";
+      return "Section title";
     case "h3":
-      return "Heading 3";
+      return "Body heading";
     case "subtitle":
       return "Subtitle";
     case "body":
-      return "Body text";
+      return "Body";
     case "bullet":
-      return "Bullet list";
+      return "Bullet";
     case "caption":
       return "Caption";
     case "footer":
       return "Footer";
     case "shapeLabel":
-      return "Shape label";
+      return "Label";
   }
 }
 
@@ -117,24 +118,36 @@ function buildDefaultTextElement(
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
   const label = textRoleLabel(role);
   const isBullet = role === "bullet";
+  const text = isBullet ? "First point\nSecond point" : label;
+  const paragraphs = isBullet
+    ? [
+        { text: "First point", listType: "bullet" as const },
+        { text: "Second point", listType: "bullet" as const },
+      ]
+    : [{ text: label }];
   return {
     id,
     kind: "text",
-    text: isBullet ? "First point\nSecond point" : label,
-    paragraphs: isBullet
-      ? [
-          { text: "First point", listType: "bullet" },
-          { text: "Second point", listType: "bullet" },
-        ]
-      : [{ text: label }],
-    textRole: role,
+    role:
+      role === "h1"
+        ? "title"
+        : role === "h2"
+          ? "sectionTitle"
+          : role === "shapeLabel"
+            ? "label"
+            : role,
     box: defaultTextBox(role),
-    style: {
-      fontSize: textRoleFontSize(role),
-      bold: role === "h1" || role === "h2" || role === "h3",
-      italic: role === "caption",
-      align: role === "h1" || role === "subtitle" ? "center" : "left",
+    content: { kind: "text", text, paragraphs },
+    designOverrides: {
+      textStyle: {
+        fontSize: textRoleFontSize(role),
+        bold: role === "h1" || role === "h2" || role === "h3",
+        italic: role === "caption",
+        align: role === "h1" || role === "subtitle" ? "center" : "left",
+      },
     },
+  } as unknown as DistributiveOmit<SlideElement, "id" | "zIndex"> & {
+    id: string;
   };
 }
 
@@ -150,20 +163,29 @@ function buildDefaultElement(
       return {
         id,
         kind: "image",
-        src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
-        alt: "Image placeholder",
+        role: "image",
         box: { x: 25, y: 22, w: 50, h: 56 },
+        content: {
+          kind: "image",
+          src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
+          alt: "Image placeholder",
+        },
+      } as unknown as DistributiveOmit<SlideElement, "id" | "zIndex"> & {
+        id: string;
       };
     case "shape":
       return {
         id,
         kind: "shape",
-        shape: shapeKind,
-        color: accent,
+        role: "label",
         box:
           shapeKind === "line"
             ? { x: 20, y: 50, w: 60, h: 2 }
             : { x: 30, y: 34, w: 40, h: 32 },
+        content: { kind: "shape", shape: shapeKind },
+        designOverrides: { fill: { value: accent } },
+      } as unknown as DistributiveOmit<SlideElement, "id" | "zIndex"> & {
+        id: string;
       };
     default:
       return buildDefaultTextElement(kind, id);
@@ -231,7 +253,6 @@ export function useSlideInsertCommands({
     },
     [fittedStageSize.height, fittedStageSize.width, zoom],
   );
-
   const handleAddTemplate = useCallback(
     (kind: SlideTemplateKind) => {
       if (kind === "visual" && visuals.size > 0) {
@@ -240,7 +261,7 @@ export function useSlideInsertCommands({
         return;
       }
       const slide = buildTemplateSlide(kind, {
-        slideFormat: deck.slideFormat,
+        slideFormat: deckCanvasFormat(deck),
       });
       const next = insertSlide(deck, safeSelected, slide);
       clearPendingPatches(pendingPatchesRef);
@@ -268,7 +289,7 @@ export function useSlideInsertCommands({
   const handleSpotlightPick = useCallback(
     (visualId: string) => {
       const slide = buildTemplateSlide("visual", {
-        slideFormat: deck.slideFormat,
+        slideFormat: deckCanvasFormat(deck),
         visualId,
       });
       const next = insertSlide(deck, safeSelected, slide);
@@ -299,10 +320,16 @@ export function useSlideInsertCommands({
       insertImagePendingIdRef.current = null;
       const slideId = deck.slides[safeSelected]?.id;
       if (!slideId) return;
+      const baseElement = buildDefaultElement("image", accentForSelected, id);
       const element = {
-        ...buildDefaultElement("image", accentForSelected, id),
-        src,
-        ...(assetId ? { assetId } : {}),
+        ...baseElement,
+        content: {
+          ...((baseElement as { content?: Record<string, unknown> }).content ??
+            {}),
+          kind: "image",
+          src,
+          ...(assetId ? { assetId } : {}),
+        },
       };
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(id);

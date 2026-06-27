@@ -75,6 +75,7 @@ import {
   type Deck,
   type SlideElement,
 } from "@/lib/presentation/deck";
+import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
@@ -143,7 +144,13 @@ import {
   deckHasThemeOverrides,
   deckPresentationThemeId,
 } from "@/components/presentation/v6-deck-ui";
-import { shapeContent } from "@/components/presentation/slide-canvas/v6-model";
+import {
+  elementContent,
+  elementDesignOverrides,
+  imageContent,
+  shapeContent,
+  visualContent,
+} from "@/components/presentation/slide-canvas/v6-model";
 
 interface SlideEditorProps {
   deck: Deck;
@@ -1109,13 +1116,22 @@ export function SlideEditor({
       if (!target) return;
       replaceImagePendingRef.current = null;
       setReplaceImagePending(null);
+      const image = (deck.slides[safeSelected]?.elements ?? []).find(
+        (element) => element.id === target.id && element.kind === "image",
+      );
+      const currentContent =
+        image?.kind === "image" ? elementContent(image) : {};
       handleUpdateElement(target.id, {
-        src,
-        assetId: assetId ?? undefined,
-      });
+        content: {
+          ...currentContent,
+          kind: "image",
+          src,
+          ...(assetId ? { assetId } : {}),
+        },
+      } as ElementPatch);
       setReplaceImageError(null);
     },
-    [handleUpdateElement],
+    [deck.slides, handleUpdateElement, safeSelected],
   );
 
   const { handleFile: handleReplaceImageFile } = useImageUpload({
@@ -1137,7 +1153,10 @@ export function SlideEditor({
         (element) => element.id === elementId && element.kind === "image",
       );
       if (!image || image.kind !== "image") return;
-      const target = { id: image.id, currentSrc: image.src };
+      const target = {
+        id: image.id,
+        currentSrc: imageContent(image).src ?? "",
+      };
       replaceImagePendingRef.current = target;
       setReplaceImagePending(target);
       setReplaceImageError(null);
@@ -1156,10 +1175,17 @@ export function SlideEditor({
         (element) => element.id === elementId && element.kind === "visual",
       );
       if (!visual || visual.kind !== "visual") return;
-      const currentIndex = Math.max(0, visualIds.indexOf(visual.visualId));
+      const content = visualContent(visual);
+      const currentIndex = Math.max(0, visualIds.indexOf(content.visualId));
       const nextVisualId = visualIds[(currentIndex + 1) % visualIds.length];
-      if (!nextVisualId || nextVisualId === visual.visualId) return;
-      handleUpdateElement(visual.id, { visualId: nextVisualId });
+      if (!nextVisualId || nextVisualId === content.visualId) return;
+      handleUpdateElement(visual.id, {
+        content: {
+          ...elementContent(visual),
+          kind: "visual",
+          visualId: nextVisualId,
+        },
+      } as ElementPatch);
     },
     [deck.slides, handleUpdateElement, safeSelected, visuals],
   );
@@ -1170,11 +1196,17 @@ export function SlideEditor({
         (element) => element.id === elementId && element.kind === "visual",
       );
       if (!visual || visual.kind !== "visual") return;
-      const currentIndex = visual.styleThemeId
-        ? STYLE_THEMES.findIndex((theme) => theme.id === visual.styleThemeId)
+      const current = visualContent(visual);
+      const currentIndex = current.styleThemeId
+        ? STYLE_THEMES.findIndex((theme) => theme.id === current.styleThemeId)
         : -1;
       const nextTheme = STYLE_THEMES[(currentIndex + 1) % STYLE_THEMES.length];
-      handleUpdateElement(visual.id, { styleThemeId: nextTheme?.id });
+      handleUpdateElement(visual.id, {
+        designOverrides: {
+          ...elementDesignOverrides(visual),
+          ...(nextTheme?.id ? { styleThemeId: nextTheme.id } : {}),
+        },
+      } as ElementPatch);
     },
     [deck.slides, handleUpdateElement, safeSelected],
   );

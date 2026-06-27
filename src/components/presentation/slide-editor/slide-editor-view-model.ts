@@ -57,7 +57,7 @@ export function selectSelectedElement(
 export function selectElementTypeLabel(element: SlideElement): string {
   switch (element.kind) {
     case "text":
-      return element.textRole === "h1" ? "Title" : "Text";
+      return (element as { role?: string }).role === "title" ? "Title" : "Text";
     case "image":
       return "Image";
     case "shape":

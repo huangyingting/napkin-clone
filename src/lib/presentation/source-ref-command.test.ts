@@ -4,8 +4,10 @@ import { test } from "node:test";
 import type {
   Deck,
   Slide,
+  SlideElement,
   SourceRef,
   TextElement,
+  TextRun,
   VisualElement,
 } from "./deck";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
@@ -92,18 +94,34 @@ const FRESH_REF: SourceRef = {
   blockKind: "text",
 };
 
+function textOf(element: TextElement): string {
+  return ((element as any).content?.text ?? element.text) as string;
+}
+
+function runsOf(element: TextElement): TextRun[] | undefined {
+  return ((element as any).content?.runs ?? element.runs) as
+    | TextRun[]
+    | undefined;
+}
+
+function sourceOf(element: SlideElement): SourceRef | undefined {
+  return ((element as any).source ?? (element as any).sourceRef) as
+    | SourceRef
+    | undefined;
+}
+
 // ---------------------------------------------------------------------------
-// REFRESH_ELEMENT_FROM_SOURCE
+// UPDATE_ELEMENT_SOURCE — refresh / reactivate
 // ---------------------------------------------------------------------------
 
-test("REFRESH_ELEMENT_FROM_SOURCE updates text + sourceRef and preserves geometry/style/z-order", () => {
+test("UPDATE_ELEMENT_SOURCE updates text + source and preserves geometry/style/z-order", () => {
   const original = textElement();
   const deck = deckWith(original);
   const cmd: SlideCommand = {
-    type: "REFRESH_ELEMENT_FROM_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-text",
-    sourceRef: FRESH_REF,
+    source: FRESH_REF,
     text: "new text",
     runs: [{ text: "new text" }],
   };
@@ -112,9 +130,9 @@ test("REFRESH_ELEMENT_FROM_SOURCE updates text + sourceRef and preserves geometr
   assert.equal(result.ok, true);
 
   const updated = getElement(result.deck, "el-text") as TextElement;
-  assert.equal(updated.text, "new text");
-  assert.deepEqual(updated.runs, [{ text: "new text" }]);
-  assert.deepEqual(updated.sourceRef, FRESH_REF);
+  assert.equal(textOf(updated), "new text");
+  assert.deepEqual(runsOf(updated), [{ text: "new text" }]);
+  assert.deepEqual(sourceOf(updated), FRESH_REF);
   // Geometry / style / z-order / other metadata preserved verbatim.
   assert.deepEqual(updated.box, original.box);
   assert.deepEqual(updated.style, original.style);
@@ -123,7 +141,7 @@ test("REFRESH_ELEMENT_FROM_SOURCE updates text + sourceRef and preserves geometr
   assert.equal(updated.opacity, original.opacity);
   assert.equal(updated.name, original.name);
   // Input deck never mutated.
-  assert.equal((getElement(deck, "el-text") as TextElement).text, "old text");
+  assert.equal(textOf(getElement(deck, "el-text") as TextElement), "old text");
 
   // Patch is valid and re-appliable.
   assert.equal(result.patches.length, 1);
@@ -135,25 +153,25 @@ test("REFRESH_ELEMENT_FROM_SOURCE updates text + sourceRef and preserves geometr
   const replayed = applyPatch(deck, patch);
   assert.ok(replayed);
   assert.equal(
-    (getElement(replayed!, "el-text") as TextElement).text,
+    textOf(getElement(replayed!, "el-text") as TextElement),
     "new text",
   );
 });
 
-test("REFRESH_ELEMENT_FROM_SOURCE re-activates an unlinked element", () => {
+test("UPDATE_ELEMENT_SOURCE re-activates an unlinked element", () => {
   const el = textElement();
   el.sourceRef = { ...LINKED_REF, unlinked: true };
   const deck = deckWith(el);
   const result = executeCommand(deck, {
-    type: "REFRESH_ELEMENT_FROM_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-text",
-    sourceRef: FRESH_REF,
+    source: FRESH_REF,
     text: "fresh",
   });
   assert.equal(result.ok, true);
   const updated = getElement(result.deck, "el-text") as TextElement;
-  assert.equal(updated.sourceRef?.unlinked, undefined);
+  assert.equal(sourceOf(updated)?.unlinked, undefined);
 });
 
 test("source-ref durable block id adapters preserve shape and strip unlinked", () => {
@@ -170,7 +188,7 @@ test("source-ref durable block id adapters preserve shape and strip unlinked", (
   assert.deepEqual(activeSourceRef({ ...ref, unlinked: true }), ref);
 });
 
-test("REFRESH_ELEMENT_FROM_SOURCE on a visual only touches the sourceRef", () => {
+test("UPDATE_ELEMENT_SOURCE on a visual only touches the source", () => {
   const original = visualElement();
   const deck = deckWith(original);
   const newRef: SourceRef = {
@@ -181,28 +199,28 @@ test("REFRESH_ELEMENT_FROM_SOURCE on a visual only touches the sourceRef", () =>
     blockKind: "visual",
   };
   const result = executeCommand(deck, {
-    type: "REFRESH_ELEMENT_FROM_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-visual",
-    sourceRef: newRef,
+    source: newRef,
   });
   assert.equal(result.ok, true);
   const updated = getElement(result.deck, "el-visual") as VisualElement;
   assert.equal(updated.visualId, original.visualId);
-  assert.deepEqual(updated.sourceRef, newRef);
+  assert.deepEqual(sourceOf(updated), newRef);
   assert.deepEqual(updated.box, original.box);
   assert.equal(updated.zIndex, original.zIndex);
 });
 
-test("REFRESH_ELEMENT_FROM_SOURCE fails when the element has no source link", () => {
+test("UPDATE_ELEMENT_SOURCE fails when the element has no source link", () => {
   const el = textElement();
   delete (el as { sourceRef?: SourceRef }).sourceRef;
   const deck = deckWith(el);
   const result = executeCommand(deck, {
-    type: "REFRESH_ELEMENT_FROM_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-text",
-    sourceRef: FRESH_REF,
+    source: FRESH_REF,
     text: "x",
   });
   assert.equal(result.ok, false);
@@ -210,50 +228,55 @@ test("REFRESH_ELEMENT_FROM_SOURCE fails when the element has no source link", ()
 });
 
 // ---------------------------------------------------------------------------
-// UNLINK_ELEMENT_SOURCE
+// UPDATE_ELEMENT_SOURCE — unlink
 // ---------------------------------------------------------------------------
 
-test("UNLINK_ELEMENT_SOURCE marks the link broken without auto-deleting", () => {
+test("UPDATE_ELEMENT_SOURCE marks the link broken without auto-deleting", () => {
   const original = textElement();
   const deck = deckWith(original);
   const result = executeCommand(deck, {
-    type: "UNLINK_ELEMENT_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-text",
+    unlink: true,
   });
   assert.equal(result.ok, true);
   const updated = getElement(result.deck, "el-text") as TextElement;
-  assert.equal(updated.sourceRef?.unlinked, true);
+  assert.equal(sourceOf(updated)?.unlinked, true);
   // Element still present and unchanged otherwise.
-  assert.equal(updated.text, original.text);
+  assert.equal(textOf(updated), textOf(original));
   assert.deepEqual(updated.box, original.box);
   assert.equal(updated.zIndex, original.zIndex);
   // Other sourceRef fields preserved.
-  assert.equal(updated.sourceRef?.blockId, "blk-1");
-  assert.equal(updated.sourceRef?.contentHash, "hash-old");
+  assert.equal(sourceOf(updated)?.blockId, "blk-1");
+  assert.equal(sourceOf(updated)?.contentHash, "hash-old");
 
   const patch = result.patches[0]!;
   assert.equal(patch.op, "element.update");
-  assert.equal(patch.elementFields?.["el-text"]?.sourceRef?.unlinked, true);
+  assert.equal(
+    (patch.elementFields?.["el-text"] as any)?.source?.unlinked,
+    true,
+  );
 });
 
-test("UNLINK_ELEMENT_SOURCE fails when no source link is present", () => {
+test("UPDATE_ELEMENT_SOURCE unlink fails when no source link is present", () => {
   const el = textElement();
   delete (el as { sourceRef?: SourceRef }).sourceRef;
   const deck = deckWith(el);
   const result = executeCommand(deck, {
-    type: "UNLINK_ELEMENT_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-text",
+    unlink: true,
   });
   assert.equal(result.ok, false);
 });
 
 // ---------------------------------------------------------------------------
-// RELINK_ELEMENT_SOURCE
+// UPDATE_ELEMENT_SOURCE — relink
 // ---------------------------------------------------------------------------
 
-test("RELINK_ELEMENT_SOURCE repoints the source link and preserves the element", () => {
+test("UPDATE_ELEMENT_SOURCE repoints the source link and preserves the element", () => {
   const original = textElement();
   const deck = deckWith(original);
   const newRef: SourceRef = {
@@ -264,17 +287,17 @@ test("RELINK_ELEMENT_SOURCE repoints the source link and preserves the element",
     blockKind: "text",
   };
   const result = executeCommand(deck, {
-    type: "RELINK_ELEMENT_SOURCE",
+    type: "UPDATE_ELEMENT_SOURCE",
     slideId: "s1",
     elementId: "el-text",
-    sourceRef: newRef,
+    source: newRef,
   });
   assert.equal(result.ok, true);
   const updated = getElement(result.deck, "el-text") as TextElement;
-  assert.equal(updated.sourceRef?.blockId, "blk-2");
-  assert.equal(updated.sourceRef?.unlinked, undefined);
+  assert.equal(sourceOf(updated)?.blockId, "blk-2");
+  assert.equal(sourceOf(updated)?.unlinked, undefined);
   // Content + geometry untouched on relink.
-  assert.equal(updated.text, original.text);
+  assert.equal(textOf(updated), textOf(original));
   assert.deepEqual(updated.box, original.box);
   assert.equal(updated.zIndex, original.zIndex);
 });

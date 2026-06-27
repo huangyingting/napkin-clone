@@ -602,15 +602,15 @@ function layoutDisplayName(layout: ReusableSlideLayout | undefined): string {
 }
 
 const TEXT_ROLE_LABELS: Record<DeckTextRole, string> = {
-  h1: "Heading 1",
-  h2: "Heading 2",
-  h3: "Heading 3",
+  h1: "Title",
+  h2: "Section title",
+  h3: "Body heading",
   subtitle: "Subtitle",
-  body: "Body text",
-  bullet: "Bullet list",
+  body: "Body",
+  bullet: "Bullet",
   caption: "Caption",
   footer: "Footer",
-  shapeLabel: "Shape label",
+  shapeLabel: "Label",
 };
 
 const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =

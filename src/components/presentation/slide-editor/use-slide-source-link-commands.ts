@@ -13,6 +13,10 @@ import {
 } from "@/lib/presentation/source-link-staleness";
 import { commitCommand } from "@/lib/presentation/slide-commands";
 
+function elementSource(element: unknown): SourceRef | undefined {
+  return (element as { source?: SourceRef }).source;
+}
+
 type DoCommitAndChange = (
   deck: Deck,
   cmd: Parameters<typeof commitCommand>[1],
@@ -50,7 +54,8 @@ export function useSlideSourceLinkCommands({
       const element = (slide.elements ?? []).find(
         (el) => el.id === link.elementId,
       );
-      if (!element?.sourceRef) return;
+      const currentSource = element ? elementSource(element) : undefined;
+      if (!element || !currentSource) return;
 
       const linkedAt = new Date().toISOString();
       if (link.blockKind === "text") {
@@ -61,7 +66,7 @@ export function useSlideSourceLinkCommands({
         );
         if (!fresh) return;
         const newRef = buildRefreshSourceRef(
-          element.sourceRef,
+          currentSource,
           link.blockId,
           hashDocumentBlock(fresh),
           linkedAt,
@@ -69,12 +74,14 @@ export function useSlideSourceLinkCommands({
         );
         const updated = updateTextElementFromBlock(element, fresh, newRef);
         doCommitAndChange(deck, {
-          type: "REFRESH_ELEMENT_FROM_SOURCE",
+          type: "UPDATE_ELEMENT_SOURCE",
           slideId: link.slideId,
           elementId: link.elementId,
-          sourceRef: newRef,
-          text: updated.text,
-          ...(updated.runs !== undefined ? { runs: updated.runs } : {}),
+          source: newRef,
+          text: (updated as any).content?.text,
+          ...((updated as any).content?.runs !== undefined
+            ? { runs: (updated as any).content.runs }
+            : {}),
         });
       } else {
         const fresh = documentBlocks.find(
@@ -82,17 +89,17 @@ export function useSlideSourceLinkCommands({
         );
         if (!fresh) return;
         const newRef = buildRefreshSourceRef(
-          element.sourceRef,
+          currentSource,
           link.blockId,
           hashDocumentBlock(fresh),
           linkedAt,
           "visual",
         );
         doCommitAndChange(deck, {
-          type: "REFRESH_ELEMENT_FROM_SOURCE",
+          type: "UPDATE_ELEMENT_SOURCE",
           slideId: link.slideId,
           elementId: link.elementId,
-          sourceRef: newRef,
+          source: newRef,
         });
       }
     },
@@ -107,11 +114,12 @@ export function useSlideSourceLinkCommands({
       const element = (slide.elements ?? []).find(
         (el) => el.id === link.elementId,
       );
-      if (!element?.sourceRef) return;
+      if (!element || !elementSource(element)) return;
       doCommitAndChange(deck, {
-        type: "UNLINK_ELEMENT_SOURCE",
+        type: "UPDATE_ELEMENT_SOURCE",
         slideId: link.slideId,
         elementId: link.elementId,
+        unlink: true,
       });
     },
     [deck, doCommitAndChange],
@@ -125,19 +133,20 @@ export function useSlideSourceLinkCommands({
       const element = (slide.elements ?? []).find(
         (el) => el.id === link.elementId,
       );
-      if (!element?.sourceRef) return;
+      const currentSource = element ? elementSource(element) : undefined;
+      if (!element || !currentSource) return;
       const newRef: SourceRef = {
-        documentId: element.sourceRef.documentId,
+        documentId: currentSource.documentId,
         blockId: newBlockId,
         contentHash: newContentHash,
         linkedAt: new Date().toISOString(),
         blockKind: link.blockKind,
       };
       doCommitAndChange(deck, {
-        type: "RELINK_ELEMENT_SOURCE",
+        type: "UPDATE_ELEMENT_SOURCE",
         slideId: link.slideId,
         elementId: link.elementId,
-        sourceRef: newRef,
+        source: newRef,
       });
     },
     [deck, doCommitAndChange],
@@ -155,11 +164,12 @@ export function useSlideSourceLinkCommands({
     (elementId: string) => {
       for (const slide of deck.slides) {
         const el = (slide.elements ?? []).find((e) => e.id === elementId);
-        if (el?.sourceRef) {
+        if (elementSource(el)) {
           doCommitAndChange(deck, {
-            type: "UNLINK_ELEMENT_SOURCE",
+            type: "UPDATE_ELEMENT_SOURCE",
             slideId: slide.id,
             elementId,
+            unlink: true,
           });
           return;
         }
@@ -172,8 +182,8 @@ export function useSlideSourceLinkCommands({
     (elementId: string) => {
       for (const slide of deck.slides) {
         const el = (slide.elements ?? []).find((e) => e.id === elementId);
-        if (el?.sourceRef) {
-          const ref = el.sourceRef;
+        const ref = elementSource(el);
+        if (ref) {
           const newRef: SourceRef = {
             documentId: ref.documentId,
             blockId: ref.blockId,
@@ -184,10 +194,10 @@ export function useSlideSourceLinkCommands({
             blockKind: ref.blockKind,
           };
           doCommitAndChange(deck, {
-            type: "RELINK_ELEMENT_SOURCE",
+            type: "UPDATE_ELEMENT_SOURCE",
             slideId: slide.id,
             elementId,
-            sourceRef: newRef,
+            source: newRef,
           });
           return;
         }

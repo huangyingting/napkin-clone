@@ -10,6 +10,7 @@
 
 import type { Deck } from "../deck-core";
 import type { TextRun } from "../deck-elements";
+import type { SlideFormat } from "../slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { toHex } from "@/lib/visual/pptx-shapes";
 import type { PptxSpec } from "@/lib/visual/pptx-shapes";
@@ -58,7 +59,9 @@ interface SlideImageGeometry {
 
 const SLIDE_IMAGE_PX_PER_IN = 120;
 
-function slideImageGeometry(format: Deck["slideFormat"]): SlideImageGeometry {
+function slideImageGeometry(
+  format: SlideFormat | undefined,
+): SlideImageGeometry {
   const geometry = deckGeometry(format);
   return {
     width: Math.round(geometry.slideW * SLIDE_IMAGE_PX_PER_IN),
@@ -592,7 +595,7 @@ export async function exportDeckAsSlideImages(
     ]);
     const format = options.format ?? "svg";
     const specs = buildDeckSpecs(deck, visuals);
-    const geometry = slideImageGeometry(deck.slideFormat);
+    const geometry = slideImageGeometry((deck as any).canvas?.format);
     const zip = new JSZip();
 
     for (const slideSpec of specs) {

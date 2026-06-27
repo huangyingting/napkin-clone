@@ -528,22 +528,22 @@ test("Patches carry schemaVersion matching CURRENT_DECK_SCHEMA_VERSION", () => {
   const version = CURRENT_DECK_SCHEMA_VERSION;
   const deck = buildCommandDeck(["s1"]);
   const result = executeCommand(deck, {
-    type: "SET_DECK_THEME",
+    type: "SET_PRESENTATION_THEME",
     themeId: "forest",
   });
   assert.equal(result.patches[0]!.schemaVersion, version);
 });
 
-test("applyPatch round-trip: SET_DECK_THEME", () => {
+test("applyPatch round-trip: SET_PRESENTATION_THEME", () => {
   const deck = buildCommandDeck(["s1"]);
   const result = executeCommand(deck, {
-    type: "SET_DECK_THEME",
+    type: "SET_PRESENTATION_THEME",
     themeId: "grape",
   });
   const patch = result.patches[0]!;
   const reproduced = applyPatch(deck, patch);
   assert.ok(reproduced !== null, "applyPatch should return a deck");
-  assert.equal(reproduced!.themeId, "grape");
+  assert.equal((reproduced as any).design.themeId, "grape");
 });
 
 test("applyPatch round-trip: UPDATE_SLIDE_TITLE", () => {

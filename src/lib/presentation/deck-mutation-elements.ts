@@ -95,8 +95,8 @@ function offsetBox(box: ElementBox, delta: number): ElementBox {
  * select it; a no-op (bad index, missing element, or a slide with no
  * `elements[]`) returns the same deck and a `null` id.
  *
- * Like every element mutation this clears `elementsDerived` so the slide is
- * treated as hand-edited.
+ * Like every element mutation this removes any superseded `elementsDerived`
+ * flag so v6 output stays schema-valid.
  */
 export function duplicateElement(
   deck: Deck,
@@ -168,7 +168,8 @@ export interface DuplicateElementsResult {
  * {@link DUPLICATE_ELEMENT_OFFSET_PCT} offset, and a z-index above all existing
  * elements (copies keep their relative stacking order). Routing the whole group
  * through one mutation keeps it a single undo/redo `commit`. Pure and immutable;
- * clears `elementsDerived`. A no-op returns the same deck and an empty id list.
+ * removes any superseded `elementsDerived` flag. A no-op returns the same deck
+ * and an empty id list.
  */
 export function duplicateElements(
   deck: Deck,
@@ -294,9 +295,10 @@ export function removeElement(
  * single mutation — the multi-select counterpart of {@link removeElement}
  * (issue #245). Routing a multi-delete through one mutation keeps it a single
  * undo/redo `commit` (the caller never chains per-element removes). Pure and
- * immutable; like every element mutation it clears `elementsDerived`. A no-op
- * (empty `elementIds`, bad index, no `elements[]`, or no id present) returns the
- * same slide reference so a `commit` of the result is skipped.
+ * immutable; like every element mutation it removes any superseded
+ * `elementsDerived` flag. A no-op (empty `elementIds`, bad index, no
+ * `elements[]`, or no id present) returns the same slide reference so a
+ * `commit` of the result is skipped.
  *
  * Before removing the elements, any connector endpoint that references a
  * deleted id is **detached** to a free point (issue #324 — delete policy:
@@ -329,9 +331,9 @@ export function removeElements(
  * `dx`/`dy` delta (percent of slide), clamping each box so it stays within the
  * slide (issue #245). Powers the keyboard arrow-nudge across a multi-selection;
  * sizes are never changed and elements not in `elementIds` are left untouched.
- * Pure and immutable; clears `elementsDerived`. A no-op (empty `elementIds`,
- * zero delta, bad index, no `elements[]`, or no id present) returns the same
- * slide reference.
+ * Pure and immutable; removes any superseded `elementsDerived` flag. A no-op
+ * (empty `elementIds`, zero delta, bad index, no `elements[]`, or no id
+ * present) returns the same slide reference.
  */
 export function nudgeElements(
   deck: Deck,

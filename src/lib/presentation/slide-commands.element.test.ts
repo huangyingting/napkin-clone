@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide, SlideElement } from "./deck";
-import { executeCommand } from "./slide-commands";
+import { applyPatch, executeCommand } from "./slide-commands";
+import { safeParseDeck } from "./deck-schema";
 import { buildDeck, buildShapeElement, buildSlide } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,18 @@ function buildCommandShapeElement(id: string, zIndex = 0): SlideElement {
     box: { x: 10, y: 10, w: 20, h: 20 },
     zIndex,
   });
+}
+
+function buildCommandV6ShapeElement(id: string, zIndex = 0): SlideElement {
+  return {
+    id,
+    kind: "shape",
+    role: "label",
+    box: { x: 10, y: 10, w: 20, h: 20 },
+    zIndex,
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#aabbcc" } },
+  } as unknown as SlideElement;
 }
 
 function deckWithElements(slideId: string, elements: SlideElement[]): Deck {
@@ -211,6 +224,53 @@ test("UPDATE_ELEMENT does not mutate the original deck", () => {
   });
 
   assert.deepEqual(deck.slides[0]!.elements![0]!.box, originalBox);
+});
+
+test("UPDATE_ELEMENT_CONTENT patches v6 content and replays from patch", () => {
+  const deck = deckWithElements("s1", [buildCommandV6ShapeElement("e1", 0)]);
+  const result = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_CONTENT",
+    slideId: "s1",
+    elementId: "e1",
+    role: "label",
+    content: { kind: "shape", shape: "ellipse", text: "Updated" },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.affectedSlideIds, ["s1"]);
+  assert.deepEqual(result.affectedElementIds, ["e1"]);
+  assert.equal(result.patches[0]!.op, "element.update_content");
+  const el = result.deck.slides[0]!.elements?.find((e) => e.id === "e1");
+  assert.equal((el as any).role, "label");
+  assert.deepEqual((el as any).content, {
+    kind: "shape",
+    shape: "ellipse",
+    text: "Updated",
+  });
+  const parsed = safeParseDeck(result.deck);
+  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
+  assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
+});
+
+test("UPDATE_ELEMENT_DESIGN_OVERRIDES patches v6 design overrides and replays from patch", () => {
+  const deck = deckWithElements("s1", [buildCommandV6ShapeElement("e1", 0)]);
+  const result = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_DESIGN_OVERRIDES",
+    slideId: "s1",
+    elementId: "e1",
+    designOverrides: { fill: { value: "#ffeeaa" }, radius: 8 },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.patches[0]!.op, "element.update_design_overrides");
+  const el = result.deck.slides[0]!.elements?.find((e) => e.id === "e1");
+  assert.deepEqual((el as any).designOverrides, {
+    fill: { value: "#ffeeaa" },
+    radius: 8,
+  });
+  const parsed = safeParseDeck(result.deck);
+  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
+  assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
 });
 
 // ---------------------------------------------------------------------------

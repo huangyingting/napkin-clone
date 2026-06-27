@@ -15,6 +15,11 @@ import {
 } from "@/lib/telemetry/product";
 import { appendPendingPatches } from "./use-slide-editor-commit";
 import { type SlideFormat } from "@/lib/presentation/slide-format";
+import {
+  slideBackgroundGradientValue,
+  slideBackgroundImageValue,
+  slideSolidBackgroundValue,
+} from "@/components/presentation/v6-deck-ui";
 
 export type BackgroundGradient = { from: string; to: string; angle?: number };
 
@@ -207,21 +212,24 @@ export function useSlideBackgroundCommands({
       const patches: DeckPatch[] = [];
       for (const slide of deck.slides) {
         const commands: Parameters<typeof commitCommand>[1][] = [];
-        if (slide.backgroundImage !== undefined || slide.backgroundAssetId) {
+        const backgroundImage = slideBackgroundImageValue(slide);
+        const backgroundGradient = slideBackgroundGradientValue(slide);
+        const backgroundColor = slideSolidBackgroundValue(slide);
+        if (backgroundImage !== undefined) {
           commands.push({
             type: "SET_SLIDE_BACKGROUND_ASSET",
             slideId: slide.id,
             opts: undefined,
           });
         }
-        if (slide.backgroundGradient !== undefined) {
+        if (backgroundGradient !== undefined) {
           commands.push({
             type: "SET_SLIDE_BACKGROUND_GRADIENT",
             slideId: slide.id,
             gradient: undefined,
           });
         }
-        if (slide.background !== color) {
+        if (backgroundColor !== color) {
           commands.push({
             type: "SET_SLIDE_BACKGROUND",
             slideId: slide.id,
@@ -259,21 +267,24 @@ export function useSlideBackgroundCommands({
       const patches: DeckPatch[] = [];
       for (const slide of deck.slides) {
         const commands: Parameters<typeof commitCommand>[1][] = [];
-        if (slide.backgroundImage !== undefined || slide.backgroundAssetId) {
+        const backgroundImage = slideBackgroundImageValue(slide);
+        const backgroundGradient = slideBackgroundGradientValue(slide);
+        const backgroundColor = slideSolidBackgroundValue(slide);
+        if (backgroundImage !== undefined) {
           commands.push({
             type: "SET_SLIDE_BACKGROUND_ASSET",
             slideId: slide.id,
             opts: undefined,
           });
         }
-        if (slide.background !== undefined) {
+        if (backgroundColor !== undefined) {
           commands.push({
             type: "SET_SLIDE_BACKGROUND",
             slideId: slide.id,
             background: undefined,
           });
         }
-        if (!sameGradient(slide.backgroundGradient, gradient)) {
+        if (!sameGradient(backgroundGradient, gradient)) {
           commands.push({
             type: "SET_SLIDE_BACKGROUND_GRADIENT",
             slideId: slide.id,
@@ -373,7 +384,10 @@ export function useSlideBackgroundCommands({
   const handleSlideFormatChange = useCallback(
     (slideFormat: SlideFormat) => {
       const startedAt = performance.now();
-      doCommitAndChange(deck, { type: "SET_DECK_FORMAT", slideFormat });
+      doCommitAndChange(deck, {
+        type: "SET_CANVAS_FORMAT",
+        format: slideFormat,
+      });
       emitProductTelemetry("product.editor.command.succeeded", {
         commandName: "set_deck_format",
         durationBucket: bucketDurationMs(performance.now() - startedAt),
@@ -386,14 +400,14 @@ export function useSlideBackgroundCommands({
 
   const handleUpdateDeckTemplate = useCallback(
     (patch: DeckTemplatePatch) => {
-      doCommitAndChange(deck, { type: "UPDATE_DECK_TEMPLATE", patch });
+      doCommitAndChange(deck, { type: "UPDATE_THEME_OVERRIDES", patch });
     },
     [deck, doCommitAndChange],
   );
 
   const handleResetDeckTemplate = useCallback(() => {
     doCommitAndChange(deck, {
-      type: "UPDATE_DECK_TEMPLATE",
+      type: "UPDATE_THEME_OVERRIDES",
       patch: {},
       reset: true,
     });
@@ -401,7 +415,7 @@ export function useSlideBackgroundCommands({
 
   const handleApplyDeckTheme = useCallback(
     (themeId: DeckTheme) => {
-      doCommitAndChange(deck, { type: "SET_DECK_THEME", themeId });
+      doCommitAndChange(deck, { type: "SET_PRESENTATION_THEME", themeId });
     },
     [deck, doCommitAndChange],
   );
@@ -410,20 +424,18 @@ export function useSlideBackgroundCommands({
   const activeSolidBackground = SOLID_BACKGROUND_OPTIONS.find((option) =>
     deck.slides.every(
       (slide) =>
-        slide.background === option.color &&
-        slide.backgroundGradient === undefined &&
-        slide.backgroundImage === undefined &&
-        slide.backgroundAssetId === undefined,
+        slideSolidBackgroundValue(slide) === option.color &&
+        slideBackgroundGradientValue(slide) === undefined &&
+        slideBackgroundImageValue(slide) === undefined,
     ),
   )?.id;
 
   const activeGradientBackground = GRADIENT_BACKGROUND_OPTIONS.find((option) =>
     deck.slides.every(
       (slide) =>
-        sameGradient(slide.backgroundGradient, option.gradient) &&
-        slide.background === undefined &&
-        slide.backgroundImage === undefined &&
-        slide.backgroundAssetId === undefined,
+        sameGradient(slideBackgroundGradientValue(slide), option.gradient) &&
+        slideSolidBackgroundValue(slide) === undefined &&
+        slideBackgroundImageValue(slide) === undefined,
     ),
   )?.id;
 

@@ -11,10 +11,7 @@
 import { memo, type JSX } from "react";
 
 import type { Deck, Slide } from "@/lib/presentation/deck";
-import {
-  resolveSlideThemeColors,
-  resolveSlideTokenSet,
-} from "@/lib/presentation/style-cascade";
+import { resolveSlideRenderModel } from "@/lib/presentation/slide-render-model";
 import type { Visual } from "@/lib/visual/schema";
 
 import { ElementsSlideLayout } from "./slide-canvas/elements-slide-layout";
@@ -66,18 +63,11 @@ export const SlideCanvas = memo(function SlideCanvas({
   hiddenElementIds,
   editable = false,
 }: SlideCanvasProps): JSX.Element {
-  // Resolve colours from the deck token cascade on every surface (#609).
-  const tc = resolveSlideThemeColors(deck, slide);
-  // Token set drives optional non-text template defaults (#607): bullet marker,
-  // image fit/radius/mask/shadow, connector stroke/arrows, shape stroke, visual
-  // restyle. Built-in themes set none of these, so absent → existing defaults.
-  const tokenSet = resolveSlideTokenSet(deck, slide);
+  const renderModel = resolveSlideRenderModel(deck, slide);
 
   return (
     <ElementsSlideLayout
-      slide={slide}
-      tc={tc}
-      tokenSet={tokenSet}
+      renderModel={renderModel}
       visuals={visuals}
       hiddenElementIds={hiddenElementIds}
       editable={editable}

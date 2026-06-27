@@ -55,14 +55,11 @@ export function nextZIndex(elements: readonly SlideElement[]): number {
   );
 }
 
-/**
- * Marks a slide's `elements[]` as hand-edited (issue #221): clears the
- * `elementsDerived` provenance flag so "Sync from document" preserves the
- * elements verbatim instead of re-materializing them from document content.
- * Applied by every element-editing mutation (add/update/remove/reorder).
- */
+/** Removes superseded slide provenance fields when an element edit touches a slide. */
 export function markElementsEdited(slide: Slide): Slide {
-  return (slide as any).elementsDerived === false
-    ? slide
-    : { ...slide, elementsDerived: false };
+  if (!("elementsDerived" in (slide as any))) {
+    return slide;
+  }
+  const { elementsDerived: _elementsDerived, ...next } = slide as any;
+  return next as Slide;
 }

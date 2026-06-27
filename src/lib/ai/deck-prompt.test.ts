@@ -86,6 +86,26 @@ test("system message lists every layout and theme value", () => {
   }
 });
 
+test("system message describes the schema-v6 deck shape", () => {
+  const [system] = buildDeckGenerationMessages({
+    outline: "An outline",
+    visualInventory: [],
+  });
+  const content = system.content;
+  assert.match(content, /"schemaVersion": 6/);
+  assert.match(content, /"canvas": \{ "format": "16:9" \}/);
+  assert.match(content, /"design": \{ "themeId"/);
+  assert.match(content, /"masters"/);
+  assert.match(content, /"defaultMasterId"/);
+  assert.match(content, /"templateId"/);
+  assert.match(content, /"content": \{ "kind": "text"/);
+  assert.match(content, /"designOverrides"/);
+  assert.doesNotMatch(content, /^\s+"themeId":/m);
+  assert.doesNotMatch(content, /^\s+"layout":/m);
+  assert.doesNotMatch(content, /^\s+"bullets":/m);
+  assert.doesNotMatch(content, /^\s+"visualIds":/m);
+});
+
 test("user message renders the outline and the inventory list", () => {
   const [, user] = buildDeckGenerationMessages({
     outline: "My deck outline body",

@@ -1,171 +1,228 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type {
-  ConnectorElement,
-  Deck,
-  ImageElement,
-  SlideElement,
-  VisualElement,
-} from "./deck";
+import type { Deck, SlideElement } from "./deck";
+import { safeParseDeck } from "./deck-schema";
 import { executeCommand } from "./slide-commands";
 
 /**
  * Command-coverage + field-preservation guarantees for the rich media / visual
  * / connector editing workflows (#645).
  *
- * Image, visual, and connector edits ride on the generic `UPDATE_ELEMENT`
- * command (crop/fit/mask/alt/replace for images; replace/restyle for visuals;
- * routing/arrowheads/stroke for connectors). These tests assert the command is
- * a non-destructive merge: the patched field changes while every unrelated
- * field on the element is preserved.
+ * Image, visual, and connector edits route through v6 content/design commands
+ * (crop/alt/replace/routing for content; fit/mask/restyle/arrows/stroke for
+ * design overrides). These tests assert the command updates the intended v6
+ * field while preserving unrelated element fields.
  */
 
 function deckWith(element: SlideElement): Deck {
   return {
-    themeId: "default",
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
     slides: [
       {
         id: "s1",
         index: 0,
         title: "",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
         notes: "",
         elements: [element],
-        elementsDerived: false,
       },
     ],
-  };
+  } as unknown as Deck;
 }
 
-function patched(deck: Deck, patch: Partial<SlideElement>): SlideElement {
-  const result = executeCommand(deck, {
-    type: "UPDATE_ELEMENT",
-    slideId: "s1",
-    elementId: "e1",
-    patch: patch as never,
-  });
-  assert.equal(result.ok, true);
-  const el = result.deck.slides[0]!.elements?.find((e) => e.id === "e1");
+function elementFromResult(deck: Deck): SlideElement {
+  const el = deck.slides[0]!.elements?.find((e) => e.id === "e1");
   assert.ok(el, "element survives the patch");
   return el!;
 }
 
-const imageEl: ImageElement = {
+function patchedContent(
+  deck: Deck,
+  content: Record<string, unknown>,
+): SlideElement {
+  const result = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_CONTENT",
+    slideId: "s1",
+    elementId: "e1",
+    content,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.patches[0]!.op, "element.update_content");
+  const parsed = safeParseDeck(result.deck);
+  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
+  return elementFromResult(result.deck);
+}
+
+function patchedDesign(
+  deck: Deck,
+  designOverrides: Record<string, unknown>,
+): SlideElement {
+  const result = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_DESIGN_OVERRIDES",
+    slideId: "s1",
+    elementId: "e1",
+    designOverrides,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.patches[0]!.op, "element.update_design_overrides");
+  const parsed = safeParseDeck(result.deck);
+  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
+  return elementFromResult(result.deck);
+}
+
+const imageEl = {
   id: "e1",
   kind: "image",
-  src: "data:image/png;base64,AAAA",
-  alt: "A diagram",
-  fitMode: "cover",
-  maskShape: "circle",
-  crop: { top: 5, right: 5, bottom: 5, left: 5 },
+  role: "image",
+  content: {
+    kind: "image",
+    src: "data:image/png;base64,AAAA",
+    alt: "A diagram",
+    crop: { top: 0.05, right: 0.05, bottom: 0.05, left: 0.05 },
+  },
+  designOverrides: { fitMode: "cover", maskShape: "circle" },
   box: { x: 10, y: 10, w: 30, h: 30 },
   zIndex: 2,
-};
+} as unknown as SlideElement;
 
 test("image: cropping preserves src, alt, fit, and mask", () => {
-  const el = patched(deckWith(imageEl), {
-    crop: { top: 20, right: 0, bottom: 20, left: 0 },
-  }) as ImageElement;
-  assert.deepEqual(el.crop, { top: 20, right: 0, bottom: 20, left: 0 });
-  assert.equal(el.src, imageEl.src);
-  assert.equal(el.alt, "A diagram");
-  assert.equal(el.fitMode, "cover");
-  assert.equal(el.maskShape, "circle");
+  const current = (imageEl as any).content;
+  const el = patchedContent(deckWith(imageEl), {
+    ...current,
+    crop: { top: 0.2, right: 0, bottom: 0.2, left: 0 },
+  });
+  assert.deepEqual((el as any).content.crop, {
+    top: 0.2,
+    right: 0,
+    bottom: 0.2,
+    left: 0,
+  });
+  assert.equal((el as any).content.src, current.src);
+  assert.equal((el as any).content.alt, "A diagram");
+  assert.deepEqual((el as any).designOverrides, {
+    fitMode: "cover",
+    maskShape: "circle",
+  });
 });
 
 test("image: changing fit preserves crop, alt, and src", () => {
-  const el = patched(deckWith(imageEl), { fitMode: "contain" }) as ImageElement;
-  assert.equal(el.fitMode, "contain");
-  assert.deepEqual(el.crop, imageEl.crop);
-  assert.equal(el.alt, "A diagram");
-  assert.equal(el.src, imageEl.src);
+  const el = patchedDesign(deckWith(imageEl), {
+    ...(imageEl as any).designOverrides,
+    fitMode: "contain",
+  });
+  assert.equal((el as any).designOverrides.fitMode, "contain");
+  assert.deepEqual((el as any).content, (imageEl as any).content);
 });
 
 test("image: replacing src + alt preserves crop, fit, and mask", () => {
-  const el = patched(deckWith(imageEl), {
+  const el = patchedContent(deckWith(imageEl), {
+    ...(imageEl as any).content,
     src: "data:image/png;base64,BBBB",
     alt: "Replaced",
-  }) as ImageElement;
-  assert.equal(el.src, "data:image/png;base64,BBBB");
-  assert.equal(el.alt, "Replaced");
-  assert.deepEqual(el.crop, imageEl.crop);
-  assert.equal(el.fitMode, "cover");
-  assert.equal(el.maskShape, "circle");
+  });
+  assert.equal((el as any).content.src, "data:image/png;base64,BBBB");
+  assert.equal((el as any).content.alt, "Replaced");
+  assert.deepEqual((el as any).content.crop, (imageEl as any).content.crop);
+  assert.deepEqual(
+    (el as any).designOverrides,
+    (imageEl as any).designOverrides,
+  );
 });
 
-const visualEl: VisualElement = {
+const visualEl = {
   id: "e1",
   kind: "visual",
-  visualId: "v-original",
-  styleThemeId: "ocean",
-  alt: "Flow",
+  role: "visual",
+  content: { kind: "visual", visualId: "v-original", alt: "Flow" },
+  designOverrides: { styleThemeId: "ocean" },
   box: { x: 0, y: 0, w: 50, h: 50 },
   zIndex: 1,
-};
+} as unknown as SlideElement;
 
 test("visual: replacing visualId preserves restyle, alt, and box", () => {
-  const el = patched(deckWith(visualEl), {
+  const el = patchedContent(deckWith(visualEl), {
+    ...(visualEl as any).content,
     visualId: "v-replacement",
-  }) as VisualElement;
-  assert.equal(el.visualId, "v-replacement");
-  assert.equal(el.styleThemeId, "ocean");
-  assert.equal(el.alt, "Flow");
+  });
+  assert.equal((el as any).content.visualId, "v-replacement");
+  assert.equal((el as any).designOverrides.styleThemeId, "ocean");
+  assert.equal((el as any).content.alt, "Flow");
   assert.deepEqual(el.box, visualEl.box);
 });
 
 test("visual: restyling preserves visualId and box", () => {
-  const el = patched(deckWith(visualEl), {
+  const el = patchedDesign(deckWith(visualEl), {
+    ...(visualEl as any).designOverrides,
     styleThemeId: "sunset",
-  }) as VisualElement;
-  assert.equal(el.styleThemeId, "sunset");
-  assert.equal(el.visualId, "v-original");
+  });
+  assert.equal((el as any).designOverrides.styleThemeId, "sunset");
+  assert.equal((el as any).content.visualId, "v-original");
   assert.deepEqual(el.box, visualEl.box);
 });
 
-const connectorEl: ConnectorElement = {
+const connectorEl = {
   id: "e1",
   kind: "connector",
-  start: { x: 10, y: 10 },
-  end: { x: 80, y: 60 },
-  stroke: { color: "#123456", width: 0.8 },
-  arrowStart: "none",
-  arrowEnd: "filled",
-  dash: true,
-  routing: "straight",
+  role: "label",
+  content: {
+    kind: "connector",
+    start: { x: 10, y: 10 },
+    end: { x: 80, y: 60 },
+    routing: "straight",
+  },
+  designOverrides: {
+    stroke: { color: "#123456", width: 0.8 },
+    arrowStart: "none",
+    arrowEnd: "filled",
+    dash: true,
+  },
   box: { x: 10, y: 10, w: 70, h: 50 },
   zIndex: 3,
-};
+} as unknown as SlideElement;
 
 test("connector: switching to elbow routing preserves stroke, arrows, dash, endpoints", () => {
-  const el = patched(deckWith(connectorEl), {
+  const el = patchedContent(deckWith(connectorEl), {
+    ...(connectorEl as any).content,
     routing: "elbow",
-  }) as ConnectorElement;
-  assert.equal(el.routing, "elbow");
-  assert.deepEqual(el.stroke, { color: "#123456", width: 0.8 });
-  assert.equal(el.arrowStart, "none");
-  assert.equal(el.arrowEnd, "filled");
-  assert.equal(el.dash, true);
-  assert.deepEqual(el.start, { x: 10, y: 10 });
-  assert.deepEqual(el.end, { x: 80, y: 60 });
+  });
+  assert.equal((el as any).content.routing, "elbow");
+  assert.deepEqual((el as any).designOverrides.stroke, {
+    color: "#123456",
+    width: 0.8,
+  });
+  assert.equal((el as any).designOverrides.arrowStart, "none");
+  assert.equal((el as any).designOverrides.arrowEnd, "filled");
+  assert.equal((el as any).designOverrides.dash, true);
+  assert.deepEqual((el as any).content.start, { x: 10, y: 10 });
+  assert.deepEqual((el as any).content.end, { x: 80, y: 60 });
 });
 
 test("connector: changing arrowhead preserves routing and stroke", () => {
-  const el = patched(deckWith(connectorEl), {
+  const el = patchedDesign(deckWith(connectorEl), {
+    ...(connectorEl as any).designOverrides,
     arrowEnd: "arrow",
-  }) as ConnectorElement;
-  assert.equal(el.arrowEnd, "arrow");
-  assert.equal(el.routing, "straight");
-  assert.deepEqual(el.stroke, { color: "#123456", width: 0.8 });
+  });
+  assert.equal((el as any).designOverrides.arrowEnd, "arrow");
+  assert.equal((el as any).content.routing, "straight");
+  assert.deepEqual((el as any).designOverrides.stroke, {
+    color: "#123456",
+    width: 0.8,
+  });
 });
 
 test("connector: changing stroke preserves routing and arrowheads", () => {
-  const el = patched(deckWith(connectorEl), {
+  const el = patchedDesign(deckWith(connectorEl), {
+    ...(connectorEl as any).designOverrides,
     stroke: { color: "#abcdef", width: 1.5 },
-  }) as ConnectorElement;
-  assert.deepEqual(el.stroke, { color: "#abcdef", width: 1.5 });
-  assert.equal(el.routing, "straight");
-  assert.equal(el.arrowEnd, "filled");
+  });
+  assert.deepEqual((el as any).designOverrides.stroke, {
+    color: "#abcdef",
+    width: 1.5,
+  });
+  assert.equal((el as any).content.routing, "straight");
+  assert.equal((el as any).designOverrides.arrowEnd, "filled");
 });

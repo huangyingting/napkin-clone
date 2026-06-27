@@ -603,7 +603,7 @@ export async function exportDeckAsPPTX(
   try {
     const { default: PptxGenJS } = await import("pptxgenjs");
     const specs = buildDeckSpecs(deck, visuals);
-    const geometry = deckGeometry(deck.slideFormat);
+    const geometry = deckGeometry((deck as any).canvas?.format);
 
     const pptx = new PptxGenJS();
     pptx.layout = geometry.pptxLayout;

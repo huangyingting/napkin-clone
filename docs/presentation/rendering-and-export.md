@@ -1,7 +1,7 @@
 # Presentation Rendering And Export
 
 **Status:** Current  
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-27
 
 This document describes how authored decks render in the editor, present mode,
 public viewers, and export pipeline. For the deck JSON shape, see
@@ -13,6 +13,7 @@ see [../editor/theme-layout.md](../editor/theme-layout.md).
 | Area                     | Source                                                                                                                 |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Shared slide canvas      | [`src/components/presentation/slide-canvas.tsx`](../../src/components/presentation/slide-canvas.tsx)                   |
+| Resolved render model    | [`src/lib/presentation/slide-render-model.ts`](../../src/lib/presentation/slide-render-model.ts)                       |
 | In-app present mode      | [`src/components/presentation/present-mode.tsx`](../../src/components/presentation/present-mode.tsx)                   |
 | Public present viewer    | [`src/components/presentation/public-present-viewer.tsx`](../../src/components/presentation/public-present-viewer.tsx) |
 | Slide format geometry    | [`src/lib/presentation/slide-format.ts`](../../src/lib/presentation/slide-format.ts)                                   |
@@ -24,30 +25,37 @@ see [../editor/theme-layout.md](../editor/theme-layout.md).
 
 ## Rendering Contract
 
-`SlideCanvas` renders one slide from `slide.elements[]`. It is shared by:
+`SlideCanvas` renders one slide from `resolveSlideRenderModel(deck, slide)`. It
+is shared by:
 
 - the editor stage;
 - the thumbnail rail;
 - in-app present mode;
 - public present/share viewers.
 
-The canvas resolves its flat renderer colors with
-`resolveSlideThemeColors(deck, slide)` and non-text defaults with
-`resolveSlideTokenSet(deck, slide)`. When deck context is available, master
-slides and custom token sets participate in the cascade; isolated previews fall
-back through the same built-in token sets.
+The render model resolves background, accent, token defaults, master background
+elements, slide elements, and master foreground elements before React rendering.
+Normal rendering order is:
+
+```text
+theme/master/slide background
+  -> master background elements
+  -> slide elements
+  -> master foreground elements
+```
+
+Master elements are locked shared chrome and are not selectable in normal slide
+editing mode.
 
 Supported element rendering:
 
-| Element       | Runtime behavior                                                                                  |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| `text`        | Rich text runs, fit mode, alignment, rotation, opacity, and style overrides.                      |
-| `bullets`     | `items[]` is authoritative; nested indentation and run details are rendered when present.         |
-| `visual`      | Looks up the referenced `Visual` in the provided visual map and renders through `VisualRenderer`. |
-| `image`       | Renders data URL, remote URL, or asset-resolved URL; empty image treatment depends on `editable`. |
-| `shape`       | Renders rect/ellipse/line/triangle with stroke, radius, label, shadow, opacity, and rotation.     |
-| `connector`   | Resolves free/bound endpoints and renders straight/elbow connector geometry.                      |
-| `placeholder` | Renders placeholder content/labels according to the resolved style.                               |
+| Element     | Runtime behavior                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| `text`      | `content.paragraphs`, rich text runs, fit mode, alignment, rotation, opacity, and design overrides. |
+| `visual`    | Looks up the referenced `Visual` in the provided visual map and renders through `VisualRenderer`.   |
+| `image`     | Renders data URL, remote URL, or asset-resolved URL; empty image treatment depends on `editable`.   |
+| `shape`     | Renders rect/ellipse/line/triangle with stroke, radius, label, shadow, opacity, and rotation.       |
+| `connector` | Resolves free/bound endpoints and renders straight/elbow connector geometry.                        |
 
 Renderers do not synthesize elements from flat slide fields. A stored slide must
 already carry current `elements[]`.
@@ -86,9 +94,10 @@ Deck + Visual map
   -> PptxGenJS file Blob
 ```
 
-`buildDeckSpecs` is DOM-free and unit tested. It walks `deck.slides`, converts
-percentage element boxes into physical slide units, and emits operations such as
-text, bullets, shape, image, connector, native visual, and visual image retry.
+`buildDeckSpecs` is DOM-free and unit tested. It consumes the same resolved
+slide render model inputs as `SlideCanvas`, converts percentage element boxes
+into physical slide units, and emits operations such as text, bullets, shape,
+image, connector, native visual, and visual image retry.
 
 `exportDeckAsPPTX` applies those descriptors with PptxGenJS. Visual elements use
 `visualToNativeSpecs` when native PPTX output is available. Otherwise the applier
@@ -141,7 +150,7 @@ For the full design and scope, see
 
 ## Slide Format And Geometry
 
-Decks can specify a slide format. Rendering uses aspect ratio, while PPTX export
+Decks specify `canvas.format`. Rendering uses aspect ratio, while PPTX export
 uses physical dimensions from `slideFormatConfig`.
 
 Element boxes are stored as percentages of slide width/height. Export converts
@@ -162,7 +171,7 @@ Preflight warnings describe expected fidelity changes before the export starts.
 ## Invariants
 
 1. `SlideCanvas` is the shared runtime renderer.
-2. Render/export code reads `Slide.elements[]` directly.
+2. Render/export code consumes `resolveSlideRenderModel` inputs.
 3. Export specs are pure and testable without DOM/PptxGenJS.
 4. Browser/PPTX appliers consume specs and own file-generation side effects.
 5. Preflight runs before export and reports stable diagnostic codes.

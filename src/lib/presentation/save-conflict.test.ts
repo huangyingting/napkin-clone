@@ -275,19 +275,19 @@ describe("applyPatch — patch-save round-trip (#403, #407)", () => {
     assert.equal(result, null, "unknown slide id should return null");
   });
 
-  test("deck.set_theme: applies theme change", () => {
+  test("presentation.set_theme: applies theme change", () => {
     const deck = makeDeck([makeSlide("slide-1", 0, "First")]);
-    const patch = makePatch("deck.set_theme", [], [], {
-      deckFields: { themeId: "ocean" },
+    const patch = makePatch("presentation.set_theme", [], [], {
+      deckFields: { design: { themeId: "ocean" } },
     });
     const result = applyPatch(deck, patch);
     assert.ok(result !== null);
-    assert.equal(result!.themeId, "ocean");
+    assert.equal((result as any).design.themeId, "ocean");
   });
 
-  test("deck.set_theme with missing deckFields returns null", () => {
+  test("presentation.set_theme with missing deckFields returns null", () => {
     const deck = makeDeck([makeSlide("slide-1", 0, "First")]);
-    const patch = makePatch("deck.set_theme", [], []);
+    const patch = makePatch("presentation.set_theme", [], []);
     const result = applyPatch(deck, patch);
     assert.equal(result, null);
   });
@@ -398,7 +398,12 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
     // to persistDeck as the CAS clientToken. A stale token conflicts.
     const serverToken = generateRevisionToken();
     const envelope = deckCommandEnvelope(
-      { type: "UNLINK_ELEMENT_SOURCE", slideId: "slide-1", elementId: "el-1" },
+      {
+        type: "UPDATE_ELEMENT_SOURCE",
+        slideId: "slide-1",
+        elementId: "el-1",
+        unlink: true,
+      },
       {
         target: {
           surface: "deck",
@@ -422,7 +427,12 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
   test("matching expected revision → CAS proceeds", () => {
     const serverToken = generateRevisionToken();
     const envelope = deckCommandEnvelope(
-      { type: "UNLINK_ELEMENT_SOURCE", slideId: "slide-1", elementId: "el-1" },
+      {
+        type: "UPDATE_ELEMENT_SOURCE",
+        slideId: "slide-1",
+        elementId: "el-1",
+        unlink: true,
+      },
       {
         target: {
           surface: "deck",
@@ -463,10 +473,10 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
     ]);
 
     const envelope = deckCommandEnvelope({
-      type: "REFRESH_ELEMENT_FROM_SOURCE",
+      type: "UPDATE_ELEMENT_SOURCE",
       slideId: "slide-1",
       elementId: "el-text",
-      sourceRef: {
+      source: {
         documentId: DOC_ID,
         blockId: "blk-1",
         contentHash: "new",
@@ -489,6 +499,9 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
     const replayed = applyPatch(deck, result.patches[0]!);
     assert.ok(replayed);
     const el = replayed!.slides[0]!.elements!.find((e) => e.id === "el-text");
-    assert.equal(el?.kind === "text" ? el.text : undefined, "fresh");
+    assert.equal(
+      el?.kind === "text" ? (el as any).content?.text : undefined,
+      "fresh",
+    );
   });
 });

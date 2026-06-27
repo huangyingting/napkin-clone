@@ -89,7 +89,7 @@ This design makes the panel router the source of truth:
 | `Text`       | Text style only: role, font, color, size, line height, paragraph spacing, list style, text fit, and vertical alignment. | Text elements and non-line shapes with labels.          |
 | `Appearance` | Shape, image, visual, connector, and line presentation controls.                                                        | Shapes, line shapes, images, visuals, and connectors.   |
 | `Effects`    | Visual effects only: opacity and shadow.                                                                                | Single element or multi-selection.                      |
-| `Source`     | Existing document source-link status and actions.                                                                       | Single element with an existing `sourceRef`.            |
+| `Source`     | Existing document source-link status and actions.                                                                       | Single element with an existing `source`.               |
 | `Notes`      | Speaker notes.                                                                                                          | No element selection; current object is the slide.      |
 | `Layers`     | Layer list, selection, visibility, lock, rename, reordering, and z-order management.                                    | Any slide context where layer management is meaningful. |
 
@@ -215,7 +215,7 @@ implementation can expose a clear mixed-state UI. It must still exclude lock.
 
 ### Source
 
-`Source` appears only for a single element that already has a `sourceRef`.
+`Source` appears only for a single element that already has a `source`.
 
 It owns:
 
@@ -334,7 +334,7 @@ Available panels:
 Appearance / Arrange / Effects / Layers
 ```
 
-If the image has a `sourceRef`, add `Source`.
+If the image has a `source`, add `Source`.
 
 ### Single Visual
 
@@ -344,7 +344,7 @@ Available panels:
 Appearance / Arrange / Effects / Layers
 ```
 
-If the visual has a `sourceRef`, add `Source`.
+If the visual has a `source`, add `Source`.
 
 ### Single Connector
 
@@ -354,7 +354,7 @@ Available panels:
 Appearance / Arrange / Effects / Layers
 ```
 
-If the connector has a `sourceRef`, add `Source`.
+If the connector has a `source`, add `Source`.
 
 ### Multi-Selection
 
@@ -465,7 +465,7 @@ tested independently of React rendering. The same helper should power:
 Suggested helper responsibilities:
 
 - map a selected element kind and shape subtype to available panels;
-- include `Source` only when a single selected element has `sourceRef`;
+- include `Source` only when a single selected element has `source`;
 - include `Layers` according to the current slide context;
 - exclude `Text`, `Appearance`, and `Source` for multi-selection;
 - provide stable display labels and icons for menu rendering;
@@ -502,7 +502,7 @@ paths.
 11. Do not expose element `Name` in the permanent header; manage names in
     `Layers`.
 12. Keep slide layout and background in one `Slide` panel for now.
-13. Show `Source` only for elements with an existing `sourceRef`.
+13. Show `Source` only for elements with an existing `source`.
 14. Menus should dynamically show available panels, not disabled unavailable
     panels.
 15. Rename `media` to `appearance` directly, with no compatibility route.

@@ -29,8 +29,8 @@
  *     deterministic `buildDeckFromBlocks` derive.
  *   • Cancel — dismiss without opening anything.
  *
- * The proposed deck arrives with `elementsDerived=false` per #264; this surface
- * never mutates it, so "Sync from document" later behaves correctly.
+ * The proposed deck arrives as authored v6 elements; this surface never mutates
+ * it, so later source-aware sync can preserve user-authored layout.
  */
 
 import { RefreshCw, Sparkles } from "lucide-react";

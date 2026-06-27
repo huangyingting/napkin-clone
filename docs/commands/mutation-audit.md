@@ -109,13 +109,14 @@ The command routing rule is:
     "busDisposition": "future envelope surface; not part of visual/deck executor scope"
   },
   {
-    "surface": "slide.element.sourceRef",
-    "category": "direct-mutation",
+    "surface": "slide.element.source",
+    "category": "slide-command",
     "currentEntryPoints": [
-      "src/components/presentation/slide-editor.tsx::{handleUpdateFromSource,handleUnlinkSource,handleRelinkSource,handleRemoveOrphaned}"
+      "src/components/presentation/slide-editor/use-slide-source-link-commands.ts",
+      "src/lib/presentation/slide-command-source-ref-executor.ts::executeSourceRefFamilyCommand"
     ],
     "persistence": "saveDeckJson/saveDeckPatch through deckJson",
-    "busDisposition": "future deck/source-ref commands; today still direct mutations over deck helpers"
+    "busDisposition": "wrapped as UPDATE_ELEMENT_SOURCE / REMOVE_SOURCE_ELEMENT commands"
   },
   {
     "surface": "document.versionRestore",
@@ -255,10 +256,8 @@ dedicated deck commands** (Epic #494). The editor handlers
 `src/components/presentation/slide-editor.tsx::{handleUpdateFromSource,handleUnlinkSource,handleRelinkSource,handleRemoveOrphaned}`
 build typed `SlideCommand` payloads and commit them via `commitCommand`:
 
-- `REFRESH_ELEMENT_FROM_SOURCE` — re-applies fresh text/runs (text) or sourceRef
-  (visual) and re-activates the link;
-- `UNLINK_ELEMENT_SOURCE` — sets `sourceRef.unlinked`;
-- `RELINK_ELEMENT_SOURCE` — repoints `sourceRef` at a new block;
+- `UPDATE_ELEMENT_SOURCE` — re-applies fresh text/runs (text), re-activates,
+  unlinks, or repoints the element-level `source`;
 - `REMOVE_SOURCE_ELEMENT` — explicit, user-initiated orphan removal.
 
 The pure executor owns the source-ref semantics, emits `element.update` /
