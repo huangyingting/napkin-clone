@@ -3,7 +3,8 @@
  * parity without coupling style-cascade to React, DOM, or PPTX libraries.
  */
 
-import type { Deck, ElementAlign, ShapeElement, TextElement } from "./deck";
+import type { Deck } from "./deck-core";
+import type { ElementAlign, ShapeElement, TextElement } from "./deck-elements";
 import {
   resolveShapeLabelStyle,
   resolveTextElementStyle,

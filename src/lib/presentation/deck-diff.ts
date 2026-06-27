@@ -18,7 +18,8 @@
  * React, no DOM: unit-tested under `node --test`.
  */
 
-import { normalizeTextParagraphs, type Deck, type Slide } from "./deck";
+import type { Deck, Slide } from "./deck-core";
+import { normalizeTextParagraphs } from "./deck-elements";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
 

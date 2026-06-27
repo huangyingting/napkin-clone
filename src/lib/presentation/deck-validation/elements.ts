@@ -297,71 +297,9 @@ function validateBox(input: unknown, context: string): ElementBox {
   };
 }
 
-function validateTextStyle(input: unknown, context: string): TextElementStyle {
-  if (!isPlainObject(input)) {
-    throw new DeckValidationError(`${context} must be an object`);
-  }
-  if (
-    typeof input.align !== "string" ||
-    !ELEMENT_ALIGNS.includes(input.align as ElementAlign)
-  ) {
-    throw new DeckValidationError(
-      `${context}.align must be one of: ${ELEMENT_ALIGNS.join(", ")}`,
-    );
-  }
-  if (input.color !== undefined && !isHexColor(input.color)) {
-    throw new DeckValidationError(`${context}.color must be a hex color`);
-  }
-  if (
-    input.verticalAlign !== undefined &&
-    !VERTICAL_ALIGNS.includes(input.verticalAlign as VerticalAlign)
-  ) {
-    throw new DeckValidationError(
-      `${context}.verticalAlign must be one of: ${VERTICAL_ALIGNS.join(", ")}`,
-    );
-  }
-  if (
-    input.lineHeight !== undefined &&
-    (typeof input.lineHeight !== "number" || !Number.isFinite(input.lineHeight))
-  ) {
-    throw new DeckValidationError(
-      `${context}.lineHeight must be a finite number`,
-    );
-  }
-  if (
-    input.paragraphSpacing !== undefined &&
-    (typeof input.paragraphSpacing !== "number" ||
-      !Number.isFinite(input.paragraphSpacing))
-  ) {
-    throw new DeckValidationError(
-      `${context}.paragraphSpacing must be a finite number`,
-    );
-  }
-  return {
-    fontSize: validateFiniteNumber(input.fontSize, `${context}.fontSize`),
-    bold: Boolean(input.bold),
-    italic: Boolean(input.italic),
-    align: input.align as ElementAlign,
-    ...(input.underline !== undefined
-      ? { underline: Boolean(input.underline) }
-      : {}),
-    ...(input.verticalAlign !== undefined
-      ? { verticalAlign: input.verticalAlign as VerticalAlign }
-      : {}),
-    ...(input.lineHeight !== undefined
-      ? { lineHeight: input.lineHeight as number }
-      : {}),
-    ...(input.paragraphSpacing !== undefined
-      ? { paragraphSpacing: input.paragraphSpacing as number }
-      : {}),
-    ...(input.color !== undefined ? { color: input.color as string } : {}),
-    ...(isSlideFontId(input.fontId) ? { fontId: input.fontId } : {}),
-  };
-}
-
 /**
- * Validates a partial text-style override (#605). Unlike {@link validateTextStyle},
- * every field is optional — a present field is validated, an absent field means
+ * Validates a partial text-style override (#605). Every field is optional — a
+ * present field is validated, an absent field means
  * "inherit from the resolved template/role style". Used for element and shape
  * text style design overrides.
  */

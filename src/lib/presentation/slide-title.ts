@@ -9,7 +9,8 @@
  * No React, no DOM — fully testable under `node --test`.
  */
 
-import { type Slide, type TextElement } from "./deck";
+import type { Slide } from "./deck-core";
+import type { TextElement } from "./deck-elements";
 
 /**
  * The slide's effective title (without any positional fallback). The title is

@@ -1,4 +1,4 @@
-import { normalizeTextParagraphs, type SlideElement } from "./deck";
+import { normalizeTextParagraphs, type SlideElement } from "./deck-elements";
 import { assertNever } from "@/lib/assert-never";
 
 function elementContent(element: SlideElement): Record<string, any> {

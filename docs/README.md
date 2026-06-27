@@ -7,6 +7,9 @@ This folder documents the current design of the TextIQ editor, visual mirror,
 and slide deck system. The project is still in development, so these docs treat
 the current schema as authoritative.
 
+Planning notes live in [plan/](plan/README.md). They capture approved direction
+that is not yet a runtime contract.
+
 Database migration commands in README/package scripts are normal Prisma schema
 workflow and are not runtime payload readers.
 
@@ -19,6 +22,12 @@ workflow and are not runtime payload readers.
 | [system/README.md](system/README.md)                 | Cross-subsystem contracts, invariants, naming, and ADR index.                   |
 | [operations/README.md](operations/README.md)         | Deployment, release gates, and operational runbooks.                            |
 | [editor/lexical-editor.md](editor/lexical-editor.md) | Lexical editor surfaces, tool registry, visual lifecycle, and deck autosave UX. |
+
+## Planning Notes
+
+| Document                                                             | Purpose                                                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [plan/slide-editor-top-toolbar.md](plan/slide-editor-top-toolbar.md) | Proposed slide editor top toolbar information architecture and first implementation scope. |
 
 ## Subsystems
 

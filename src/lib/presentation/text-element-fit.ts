@@ -1,9 +1,10 @@
 import {
   normalizeTextParagraphs,
   type ElementBox,
+  type TextElementStyle,
   type TextElement,
   type TextRun,
-} from "./deck";
+} from "./deck-elements";
 import { runsToHtml } from "./rich-text-html";
 import { resolveElementFontCss } from "./slide-fonts";
 
@@ -13,7 +14,7 @@ export type TextLikeElement = Omit<TextElement, "zIndex"> & { zIndex?: number };
 
 function elementTextStyle(
   element: TextLikeElement,
-): Partial<import("./deck").TextElementStyle> | undefined {
+): Partial<TextElementStyle> | undefined {
   return (
     element.designOverrides?.textStyle ?? {
       fontSize: 4,

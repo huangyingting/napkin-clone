@@ -837,6 +837,7 @@ export function useSlideEditorKeyboardController({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     announce,
+    clearSelection,
     copyElementsToClipboard,
     doCommitAndChange,
     handleRequestClose,
@@ -845,8 +846,13 @@ export function useSlideEditorKeyboardController({
     inspectorSheetOpen,
     keyboardHelpOpen,
     onDeckChange,
+    pendingPatchesRef,
     pasteClipboardElements,
     requestElementFocus,
+    setInspectorSheetOpen,
+    setSelectedElementId,
+    setSelectedElementIds,
+    setSelectedIndex,
   ]);
 
   return {

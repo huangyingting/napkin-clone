@@ -1,4 +1,4 @@
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-core";
 
 type RawObject = Record<string, unknown>;
 

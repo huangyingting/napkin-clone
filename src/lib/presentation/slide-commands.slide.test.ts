@@ -306,7 +306,6 @@ test("UPDATE_SLIDE preserves slide id even when unsafe input forces id into patc
   const result = executeCommand(deck, {
     type: "UPDATE_SLIDE",
     slideId: "s1",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     patch: { notes: "ok", id: "injected" } as any,
   });
 

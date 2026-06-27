@@ -17,6 +17,7 @@ const eslintConfig = defineConfig([
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   // Disable ESLint rules that conflict with Prettier formatting.

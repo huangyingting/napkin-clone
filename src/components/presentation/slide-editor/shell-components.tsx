@@ -563,7 +563,7 @@ function SlideTemplatePreview({
           return (
             <span
               key={element.id}
-              className={`absolute rounded-[2px] ${
+              className={`absolute rounded-ds-sm ${
                 isTitle
                   ? "bg-ds-text-muted/60"
                   : isFooter
@@ -582,7 +582,7 @@ function SlideTemplatePreview({
           );
         })
       ) : (
-        <span className="absolute inset-2 rounded-[2px] border border-dashed border-ds-border-subtle" />
+        <span className="absolute inset-2 rounded-ds-sm border border-dashed border-ds-border-subtle" />
       )}
       {selected ? (
         <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow-sm">
@@ -931,7 +931,7 @@ export function ColorThemePanel({
               className="h-5 w-5 shrink-0 rounded-ds-sm border border-ds-text-primary p-0.5"
             >
               <span
-                className="block h-full w-full rounded-[2px]"
+                className="block h-full w-full rounded-ds-sm"
                 style={{
                   background:
                     "linear-gradient(90deg, #111827 0 33%, #737373 33% 66%, #f8fafc 66% 100%)",
@@ -1025,7 +1025,7 @@ export function SlideTemplatePicker({
 /** Bar used inside {@link TemplatePreview} to mock a line of slide content. */
 function PreviewBar({ className = "" }: { className?: string }) {
   return (
-    <span className={`block rounded-[1px] bg-ds-text-muted/40 ${className}`} />
+    <span className={`block rounded-ds-sm bg-ds-text-muted/40 ${className}`} />
   );
 }
 
@@ -1055,7 +1055,7 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
       ) : null}
       {kind === "visual" ? (
         <span className="flex h-full flex-col gap-1 p-1.5">
-          <span className="block flex-1 rounded-[2px] bg-ds-text-muted/30" />
+          <span className="block flex-1 rounded-ds-sm bg-ds-text-muted/30" />
           <PreviewBar className="h-1 w-1/2 self-center bg-ds-text-muted/25" />
         </span>
       ) : null}
@@ -1076,7 +1076,7 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
       ) : null}
       {kind === "blank" ? (
         <span className="flex h-full items-center justify-center">
-          <span className="block h-3/4 w-5/6 rounded-[2px] border border-dashed border-ds-border-strong" />
+          <span className="block h-3/4 w-5/6 rounded-ds-sm border border-dashed border-ds-border-strong" />
         </span>
       ) : null}
     </span>

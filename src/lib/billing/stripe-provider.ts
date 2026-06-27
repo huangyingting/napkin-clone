@@ -74,7 +74,6 @@ async function loadStripe() {
       "stripe" as string
     );
     const StripeClass = (mod as { default?: unknown }).default ?? mod;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return new (StripeClass as any)(getStripeKey(), {
       apiVersion: "2024-06-20",
     });

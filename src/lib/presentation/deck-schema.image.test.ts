@@ -113,17 +113,9 @@ test("safeParseDeck round-trips image crop, fitMode, and maskShape", () => {
   }
 });
 
-test("safeParseDeck ignores obsolete image fit alias", () => {
+test("safeParseDeck rejects obsolete image fit alias", () => {
   const result = safeParseDeck(imageElementDeck({ fit: "cover" }));
-  assert.equal(result.success, true);
-  if (result.success) {
-    const element = result.data.slides[0].elements?.[0];
-    assert.equal(element?.kind, "image");
-    if (element?.kind === "image") {
-      assert.equal((element as any).designOverrides?.fitMode, undefined);
-      assert.equal("fit" in element, false);
-    }
-  }
+  assert.equal(result.success, false);
 });
 
 test("safeParseDeck rejects an invalid image crop", () => {
