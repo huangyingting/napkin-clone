@@ -9,10 +9,10 @@ export const CURRENT_DECK_SCHEMA_VERSION = 6;
 
 /**
  * Canonical presentation theme names — identical to the visual style theme
- * catalog ({@link STYLE_THEME_IDS}).  Persisted decks with an unrecognised
- * `themeId` (e.g. the legacy `"default"` value) still parse because the
- * validator only requires a non-empty string; renderers fall back to the
- * visual default token set via the generic resolver fallback.
+ * catalog ({@link STYLE_THEME_IDS}). Persisted decks with an unrecognised
+ * `themeId` still parse because the validator only requires a non-empty
+ * string; renderers fall back to the visual default token set via the generic
+ * resolver fallback.
  *
  * Exported as a `const` array so it is the single source of truth for both the
  * {@link DeckTheme} type and any code (validators, AI prompts) that needs to

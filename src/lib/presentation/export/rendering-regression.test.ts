@@ -85,7 +85,7 @@ function slide(
 
 function deck(elements: SlideElement[], overrides: Partial<Deck> = {}): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [slide(elements)],
     ...overrides,
   });
@@ -1150,7 +1150,7 @@ test("[AC-10] grouped shapes each export individually (group membership not merg
 
 function deckWith(slideOverrides: Partial<Slide>): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [slide([], slideOverrides)],
   });
 }
@@ -1211,7 +1211,7 @@ test("[AC-11] backgroundImage is forwarded to the slide spec", () => {
 
 test("[AC-11] slide without background overrides falls back to theme defaults", () => {
   const [spec] = buildDeckSpecs(
-    buildDeck({ themeId: "ocean", slides: [slide([])] }),
+    buildDeck({ design: { themeId: "ocean" }, slides: [slide([])] }),
     new Map(),
   );
 

@@ -234,15 +234,13 @@ describe("large fixture budget guards (#461)", () => {
       id: `slide-${index}`,
       index,
       title: `Slide ${index}`,
-      bullets: [],
       notes: "",
-      themeId: "default",
     };
   }
 
   function makeDeck(slideCount: number): unknown {
     return {
-      themeId: "default",
+      design: { themeId: "default" },
       slides: Array.from({ length: slideCount }, (_, i) => makeSlide(i)),
     };
   }

@@ -22,7 +22,7 @@ function buildCommandSlide(id: string, index: number, title = ""): Slide {
 
 function buildCommandDeck(slideIds: string[]): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: slideIds.map((id, i) => buildCommandSlide(id, i, `Slide ${i}`)),
   });
 }

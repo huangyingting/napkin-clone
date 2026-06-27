@@ -28,7 +28,7 @@ const deck = {
       elements: [],
     },
   ],
-  themeId: "indigo",
+  design: { themeId: "indigo" },
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 

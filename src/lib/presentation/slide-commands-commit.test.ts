@@ -33,7 +33,7 @@ function buildCommandShapeElement(id: string, zIndex = 0): SlideElement {
 
 function buildCommandDeck(slideIds: string[]): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: slideIds.map((id, i) => buildCommandSlide(id, i, `Slide ${i}`)),
   });
 }
@@ -43,7 +43,7 @@ function buildCommandDeckWithElements(
   elements: SlideElement[],
 ): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [
       buildSlide({
         id: slideId,

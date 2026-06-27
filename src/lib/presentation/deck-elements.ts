@@ -99,7 +99,7 @@ export interface TextElementStyle {
   /**
    * Optional slide font id (see `slide-fonts.ts`). Selects a self-hosted,
    * cross-platform font for this element; falls back to the theme/role font
-   * when unset. Replaces the legacy free-form `fontFamily` CSS stack.
+   * when unset.
    */
   fontId?: string;
 }

@@ -287,7 +287,7 @@ function firstFamily(cssStack: string): string {
 
 /**
  * Resolve the registry font that a stored CSS stack (or bare id/family) refers
- * to. Matches by the leading family name so legacy/literal stacks still map.
+ * to. Matches by the leading family name so literal stacks still map.
  */
 export function matchSlideFont(cssStackOrId: string): SlideFont | undefined {
   if (FONT_BY_ID.has(cssStackOrId)) return FONT_BY_ID.get(cssStackOrId);

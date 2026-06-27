@@ -54,7 +54,3 @@ export function nextZIndex(elements: readonly SlideElement[]): number {
     elements.reduce((max, element) => Math.max(max, element.zIndex), -1) + 1
   );
 }
-
-export function withEditedElements(slide: Slide): Slide {
-  return slide;
-}

@@ -22,7 +22,7 @@ function buildCommandSlide(id: string, index: number, title = ""): Slide {
 
 function buildCommandDeck(slideIds: string[]): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: slideIds.map((id, i) => buildCommandSlide(id, i, `Slide ${i}`)),
   });
 }
@@ -60,7 +60,7 @@ test("SET_SLIDE_BACKGROUND sets background color and emits patch", () => {
 
 test("SET_SLIDE_BACKGROUND clears background with undefined", () => {
   const deck: Deck = {
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [
       {
         ...buildCommandDeck(["s1"]).slides[0]!,
@@ -165,7 +165,7 @@ test("SET_SLIDE_BACKGROUND_ASSET sets background asset and emits patch", () => {
 
 test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {
   const deck: Deck = {
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [
       {
         ...buildCommandDeck(["s1"]).slides[0]!,
@@ -214,7 +214,7 @@ test("SET_SLIDE_ACCENT sets accent color and emits patch", () => {
 
 test("SET_SLIDE_ACCENT clears accent with undefined", () => {
   const deck: Deck = {
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [
       {
         ...buildCommandDeck(["s1"]).slides[0]!,

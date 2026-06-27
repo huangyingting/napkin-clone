@@ -9,7 +9,6 @@ import {
   type DistributiveOmit,
   type ElementPatch,
   mapSlide,
-  withEditedElements,
   nextZIndex,
 } from "./deck-mutation-shared";
 
@@ -29,7 +28,7 @@ export function addElement(
       id: element.id ?? makeElementId(),
       zIndex: element.zIndex ?? nextZIndex(existing),
     } as SlideElement;
-    return withEditedElements({ ...slide, elements: [...existing, next] });
+    return { ...slide, elements: [...existing, next] };
   });
 }
 
@@ -44,7 +43,7 @@ export function updateElement(
     if (!slide.elements) {
       return slide;
     }
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId
@@ -56,7 +55,7 @@ export function updateElement(
             } as SlideElement)
           : element,
       ),
-    });
+    };
   });
 }
 
@@ -136,10 +135,10 @@ export function duplicateElement(
     slide.elements,
   );
 
-  const nextSlide = withEditedElements({
+  const nextSlide = {
     ...slide,
     elements: [...slide.elements, patchedCopy],
-  });
+  };
   const slides = deck.slides.map((current, i) =>
     i === index ? nextSlide : current,
   );
@@ -250,10 +249,10 @@ export function duplicateElements(
     return without as SlideElement;
   });
 
-  const nextSlide = withEditedElements({
+  const nextSlide = {
     ...slide,
     elements: [...slide.elements, ...patchedCopies],
-  });
+  };
   const slides = deck.slides.map((current, i) =>
     i === index ? nextSlide : current,
   );
@@ -280,10 +279,10 @@ export function removeElement(
       return slide;
     }
     const patched = updateConnectorBindingsOnDelete(slide.elements, deletedIds);
-    return withEditedElements({
+    return {
       ...slide,
       elements: patched.filter((element) => element.id !== elementId),
-    });
+    };
   });
 }
 
@@ -318,7 +317,7 @@ export function removeElements(
     if (next.length === slide.elements.length) {
       return slide;
     }
-    return withEditedElements({ ...slide, elements: next });
+    return { ...slide, elements: next };
   });
 }
 
@@ -361,7 +360,7 @@ export function nudgeElements(
         },
       };
     });
-    return changed ? withEditedElements({ ...slide, elements }) : slide;
+    return changed ? { ...slide, elements } : slide;
   });
 }
 
@@ -376,12 +375,12 @@ export function bringElementToFront(
       return slide;
     }
     const top = nextZIndex(slide.elements);
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId ? { ...element, zIndex: top } : element,
       ),
-    });
+    };
   });
 }
 
@@ -400,12 +399,12 @@ export function sendElementToBack(
         (min, element) => Math.min(min, element.zIndex),
         Number.POSITIVE_INFINITY,
       ) - 1;
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId ? { ...element, zIndex: bottom } : element,
       ),
-    });
+    };
   });
 }
 
@@ -422,14 +421,14 @@ export function setElementBoxes(
     if (!slide.elements) {
       return slide;
     }
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) =>
         boxesById[element.id]
           ? { ...element, box: boxesById[element.id] }
           : element,
       ),
-    });
+    };
   });
 }
 
@@ -450,7 +449,7 @@ export function setElementPatches(
     if (!slide.elements) {
       return slide;
     }
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) => {
         const patch = patchesById[element.id];
@@ -463,7 +462,7 @@ export function setElementPatches(
             } as SlideElement)
           : element;
       }),
-    });
+    };
   });
 }
 
@@ -485,12 +484,12 @@ export function groupElements(
     if (!slide.elements.some((el) => idSet.has(el.id))) {
       return slide;
     }
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) =>
         idSet.has(element.id) ? { ...element, groupId } : element,
       ),
-    });
+    };
   });
   return { deck: next, groupId };
 }
@@ -508,7 +507,7 @@ export function ungroupElements(
     if (!slide.elements.some((el) => el.groupId === groupId)) {
       return slide;
     }
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) => {
         if (element.groupId !== groupId) {
@@ -518,6 +517,6 @@ export function ungroupElements(
         delete (copy as { groupId?: string }).groupId;
         return copy;
       }),
-    });
+    };
   });
 }

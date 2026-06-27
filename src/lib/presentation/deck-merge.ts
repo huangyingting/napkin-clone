@@ -162,7 +162,7 @@ function slideTitleRuns(slide: Slide): TextRun[] | undefined {
   return elementContent(title as SlideElement).runs;
 }
 
-function slideBulletRuns(slide: Slide): TextRun[][] | undefined {
+function slideBodyRuns(slide: Slide): TextRun[][] | undefined {
   const bullet = (slide.elements ?? []).find(
     (element) => element.kind === "text" && elementRole(element) === "bullet",
   );
@@ -189,7 +189,7 @@ function sameContent(existing: Slide, fresh: Slide): boolean {
       (id, i) => id === slideVisualIds(fresh)[i],
     ) &&
     sameRunList(slideTitleRuns(existing), slideTitleRuns(fresh)) &&
-    sameBulletRuns(slideBulletRuns(existing), slideBulletRuns(fresh))
+    sameBodyRuns(slideBodyRuns(existing), slideBodyRuns(fresh))
   );
 }
 
@@ -221,8 +221,8 @@ function sameRunList(
   );
 }
 
-/** Length-then-elementwise equality of two parallel per-bullet run lists. */
-function sameBulletRuns(
+/** Length-then-elementwise equality of two parallel body run lists. */
+function sameBodyRuns(
   a: TextRun[][] | undefined,
   b: TextRun[][] | undefined,
 ): boolean {
@@ -426,7 +426,7 @@ function mergeSlide(
     ...refreshed,
     visualRefs: slideVisualIds(fresh),
     bodyTexts: slideBullets(fresh),
-    bodyRuns: slideBulletRuns(fresh),
+    bodyRuns: slideBodyRuns(fresh),
     titleRuns: slideTitleRuns(fresh),
     templateId: slideLayout(fresh) as any,
     elements: undefined,

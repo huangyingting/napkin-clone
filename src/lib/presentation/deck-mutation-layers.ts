@@ -1,6 +1,6 @@
 import type { Deck } from "./deck-core";
 import type { SlideElement } from "./deck-elements";
-import { mapSlide, withEditedElements } from "./deck-mutation-shared";
+import { mapSlide } from "./deck-mutation-shared";
 
 // ---------------------------------------------------------------------------
 // Layer-list mutations (issue #331)
@@ -19,7 +19,7 @@ export function setElementHidden(
 ): Deck {
   return mapSlide(deck, index, (slide) => {
     if (!slide.elements) return slide;
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) => {
         if (element.id !== elementId) return element;
@@ -28,7 +28,7 @@ export function setElementHidden(
         delete (copy as { hidden?: boolean }).hidden;
         return copy;
       }),
-    });
+    };
   });
 }
 
@@ -44,7 +44,7 @@ export function setElementLocked(
 ): Deck {
   return mapSlide(deck, index, (slide) => {
     if (!slide.elements) return slide;
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) => {
         if (element.id !== elementId) return element;
@@ -53,7 +53,7 @@ export function setElementLocked(
         delete (copy as { locked?: boolean }).locked;
         return copy;
       }),
-    });
+    };
   });
 }
 
@@ -92,10 +92,10 @@ export function moveElementZOrder(
       [swapB.id, swapB],
     ]);
 
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((el) => idMap.get(el.id) ?? el),
-    });
+    };
   });
 }
 
@@ -112,7 +112,7 @@ export function renameElement(
 ): Deck {
   return mapSlide(deck, index, (slide) => {
     if (!slide.elements) return slide;
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) => {
         if (element.id !== elementId) return element;
@@ -123,7 +123,7 @@ export function renameElement(
         }
         return { ...element, name: name.trim() };
       }),
-    });
+    };
   });
 }
 
@@ -150,9 +150,9 @@ export function reorderElement(
     const reindexed = new Map<string, SlideElement>(
       sorted.map((el, i) => [el.id, { ...el, zIndex: i }]),
     );
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((el) => reindexed.get(el.id) ?? el),
-    });
+    };
   });
 }

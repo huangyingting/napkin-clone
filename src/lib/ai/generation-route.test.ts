@@ -248,7 +248,6 @@ async function responseJson(response: Response): Promise<unknown> {
   return response.json();
 }
 
-// @compat — ensures route error shape is compatible with existing generation-route consumers
 test("readJsonObject returns route-compatible invalid payload errors", async () => {
   const invalidJson = await readJsonObject(
     createRequest(new Error("bad json")),

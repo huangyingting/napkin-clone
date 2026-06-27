@@ -5,7 +5,6 @@ export {
   freshBlankSlide,
   mapSlide,
   nextZIndex,
-  withEditedElements,
 } from "./deck-mutation-shared";
 export type { DistributiveOmit, ElementPatch } from "./deck-mutation-shared";
 

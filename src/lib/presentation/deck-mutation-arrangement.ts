@@ -9,7 +9,7 @@ import {
   matchSizeBoxes,
 } from "./element-align";
 import { type ArrangeMode, arrangeElements } from "./element-arrange";
-import { mapSlide, withEditedElements } from "./deck-mutation-shared";
+import { mapSlide } from "./deck-mutation-shared";
 
 /**
  * Aligns the elements named by `elementIds` on the slide at `index` to a shared
@@ -42,13 +42,13 @@ export function alignElements(
     );
     const boxById = new Map<string, ElementBox>();
     targets.forEach((element, i) => boxById.set(element.id, aligned[i]));
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((element) => {
         const box = boxById.get(element.id);
         return box ? { ...element, box } : element;
       }),
-    });
+    };
   });
 }
 
@@ -81,13 +81,13 @@ export function distributeElements(
     const boxById = new Map<string, ElementBox>();
     targets.forEach((el, i) => boxById.set(el.id, distributed[i]!));
 
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((el) => {
         const box = boxById.get(el.id);
         return box ? { ...el, box } : el;
       }),
-    });
+    };
   });
 }
 
@@ -120,13 +120,13 @@ export function matchSizeElements(
     const boxById = new Map<string, ElementBox>();
     targets.forEach((el, i) => boxById.set(el.id, sized[i]!));
 
-    return withEditedElements({
+    return {
       ...slide,
       elements: slide.elements.map((el) => {
         const box = boxById.get(el.id);
         return box ? { ...el, box } : el;
       }),
-    });
+    };
   });
 }
 
@@ -148,6 +148,6 @@ export function arrangeSelectedElements(
     if (!slide.elements) return slide;
     const selectedIds = new Set(elementIds);
     const next = arrangeElements(slide.elements, selectedIds, mode);
-    return withEditedElements({ ...slide, elements: next });
+    return { ...slide, elements: next };
   });
 }

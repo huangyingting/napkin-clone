@@ -218,7 +218,7 @@ function applyTextHierarchy(element: TextElement): TextElement {
   } as TextElement;
 }
 
-function toV6Element(
+function normalizeElement(
   element: SlideElement,
   zIndex: number,
   id: string,
@@ -295,7 +295,13 @@ function cleanElement(
   }
   usedIds.add(id);
 
-  return toV6Element(element, zIndex, id, clampBox(element.box), inventory);
+  return normalizeElement(
+    element,
+    zIndex,
+    id,
+    clampBox(element.box),
+    inventory,
+  );
 }
 
 /**

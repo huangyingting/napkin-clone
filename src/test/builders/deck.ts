@@ -389,7 +389,6 @@ type DeckBuilderOverrides = Partial<
   Omit<Deck, "schemaVersion" | "masters" | "slides">
 > & {
   schemaVersion?: number;
-  themeId?: string;
   masters?: unknown[];
   slides?: Array<Slide | SlideBuilderOverrides>;
 };
@@ -417,8 +416,7 @@ export function buildSlide(overrides: SlideBuilderOverrides = {}): Slide {
 
 export function buildDeck(overrides: DeckBuilderOverrides = {}): Deck {
   const rawOverrides = overrides as any;
-  const themeId =
-    rawOverrides.design?.themeId ?? overrides.themeId ?? "default";
+  const themeId = rawOverrides.design?.themeId ?? "default";
   const themeOverrides = rawOverrides.design?.themeOverrides ?? {};
   const {
     schemaVersion,
@@ -428,7 +426,6 @@ export function buildDeck(overrides: DeckBuilderOverrides = {}): Deck {
     defaultMasterId,
     slides: overrideSlides,
     deckContentHash,
-    themeId: _themeId,
     ...deckOverrides
   } = rawOverrides;
   const slides = overrideSlides ?? [buildSlide()];

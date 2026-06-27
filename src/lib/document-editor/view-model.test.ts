@@ -15,7 +15,7 @@ test("document editor view model serializes document state and share settings", 
       title: "Roadmap",
       contentJson: { root: { children: [] } },
       deckJson: {
-        themeId: "default",
+        design: { themeId: "default" },
         schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
         slides: [],
       },

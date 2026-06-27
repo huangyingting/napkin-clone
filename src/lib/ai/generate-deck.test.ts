@@ -32,8 +32,9 @@ function sequence(responses: string[]): Sequence {
 }
 
 function deck(overrides: Record<string, unknown> = {}): string {
+  const design = overrides.design as { themeId?: unknown } | undefined;
   const themeId =
-    typeof overrides.themeId === "string" ? overrides.themeId : "indigo";
+    typeof design?.themeId === "string" ? design.themeId : "indigo";
   const slides = (overrides.slides as unknown[] | undefined) ?? [
     {
       id: "slide-welcome",
@@ -191,7 +192,8 @@ test("tolerates prose-wrapped JSON deck", async () => {
 });
 
 test("takes the first deck when the model returns an array", async () => {
-  const array = "[" + deck() + "," + deck({ themeId: "ocean" }) + "]";
+  const array =
+    "[" + deck() + "," + deck({ design: { themeId: "ocean" } }) + "]";
   const { complete } = sequence([array]);
   const result = await generateDeck(
     { outline: "outline", visualInventory: INVENTORY },
@@ -339,7 +341,7 @@ test("regenerates duplicate element ids within a slide", async () => {
 });
 
 test("upgrades an invalid/default theme to a vibrant theme (#281)", async () => {
-  const { complete } = sequence([deck({ themeId: "neon" })]);
+  const { complete } = sequence([deck({ design: { themeId: "neon" } })]);
   const result = await generateDeck(
     { outline: "outline", visualInventory: INVENTORY },
     { complete },
@@ -348,7 +350,7 @@ test("upgrades an invalid/default theme to a vibrant theme (#281)", async () => 
 });
 
 test("honors preferredTheme when the model returns 'default' (#281)", async () => {
-  const { complete } = sequence([deck({ themeId: "default" })]);
+  const { complete } = sequence([deck({ design: { themeId: "default" } })]);
   const result = await generateDeck(
     {
       outline: "outline",
@@ -361,7 +363,7 @@ test("honors preferredTheme when the model returns 'default' (#281)", async () =
 });
 
 test("preserves an explicit vibrant theme over preferredTheme (#281)", async () => {
-  const { complete } = sequence([deck({ themeId: "forest" })]);
+  const { complete } = sequence([deck({ design: { themeId: "forest" } })]);
   const result = await generateDeck(
     {
       outline: "outline",

@@ -108,7 +108,7 @@ function slide(id: string, elements: SlideElement[]): Slide {
 function deck(...slides: Slide[]): Deck {
   return {
     slides: slides.map((s, i) => ({ ...s, index: i })),
-    themeId: "indigo",
+    design: { themeId: "indigo" },
   };
 }
 

@@ -81,13 +81,12 @@ describe("central limits boundary", () => {
 
   test("export preflight attaches safe BUDGET_EXCEEDED metadata to advisory slide warnings", () => {
     const deck = {
-      themeId: "default",
+      design: { themeId: "default" },
       slides: Array.from({ length: DEFAULT_MAX_SLIDES + 1 }, (_, index) => ({
         id: `slide-${index}`,
         index,
         title: `Slide ${index}`,
         notes: "",
-        themeId: "default",
         elements: [],
       })),
     } as Deck;

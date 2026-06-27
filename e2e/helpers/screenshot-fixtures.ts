@@ -20,7 +20,7 @@ export const SCREENSHOT_OPTIONS = {
 } as const;
 
 export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
-  themeId: "default",
+  design: { themeId: "default" },
   slides: [
     buildSlide({
       id: "slide-text-bullets",
