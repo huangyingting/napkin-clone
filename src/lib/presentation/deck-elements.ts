@@ -133,7 +133,58 @@ export type ConnectorPoint = ConnectorPointFree | ConnectorEndpoint;
 /** Routing algorithm for a {@link ConnectorElement}. */
 export type ConnectorRouting = "straight" | "elbow";
 
-/** Arrowhead style for a connector endpoint. */
+export interface TextElementContent {
+  kind: "text";
+  text: string;
+  paragraphs?: Paragraph[];
+  runs?: TextRun[];
+  fitMode?: TextFitMode;
+  bulletGap?: number;
+  bulletIndent?: number;
+}
+
+export interface VisualElementContent {
+  kind: "visual";
+  visualId: string;
+  styleThemeId?: string;
+  alt?: string;
+}
+
+export interface ImageElementContent {
+  kind: "image";
+  src?: ResolvedAssetUrl;
+  assetId?: AssetReference;
+  alt?: string;
+  crop?: ImageCrop;
+}
+
+export interface ShapeElementContent {
+  kind: "shape";
+  shape: ShapeKind;
+  text?: string;
+  textRuns?: TextRun[];
+}
+
+export interface ConnectorElementContent {
+  kind: "connector";
+  start: ConnectorPoint;
+  end: ConnectorPoint;
+  routing?: ConnectorRouting;
+}
+
+export interface ElementDesignOverrides {
+  textStyle?: Partial<TextElementStyle>;
+  fill?: { token: string } | { value: string };
+  stroke?: { color: string; width: number };
+  radius?: number;
+  fitMode?: ImageFitMode;
+  maskShape?: ImageMaskShape;
+  opacity?: number;
+  dash?: boolean;
+  arrowStart?: ConnectorArrow;
+  arrowEnd?: ConnectorArrow;
+}
+
 /**
  * A first-class connector element — a directed line between two points that may
  * optionally be anchored to other slide elements.
@@ -143,27 +194,7 @@ export type ConnectorRouting = "straight" | "elbow";
  */
 export interface ConnectorElement extends BaseElement {
   kind: "connector";
-  /** Start endpoint: a free slide-percentage point or an element-anchor binding. */
-  start: ConnectorPoint;
-  /** End endpoint: a free slide-percentage point or an element-anchor binding. */
-  end: ConnectorPoint;
-  /** Optional stroke color and width (`width` in `cqmin` units). */
-  stroke?: { color: string; width: number };
-  /**
-   * Arrowhead drawn at the *start* end of the connector.
-   * Absent or `"none"` means no arrowhead at the start.
-   */
-  arrowStart?: ConnectorArrow;
-  /**
-   * Arrowhead drawn at the *end* of the connector.
-   * Absent means `"arrow"` (the most common case for directed connectors).
-   * Set to `"none"` for an undirected line.
-   */
-  arrowEnd?: ConnectorArrow;
-  /** When true the connector renders as a dashed stroke. */
-  dash?: boolean;
-  /** Routing algorithm. Absent / `"straight"` means a direct point-to-point line. */
-  routing?: ConnectorRouting;
+  content: ConnectorElementContent;
 }
 
 export interface BaseElement {
@@ -205,47 +236,15 @@ export interface BaseElement {
   groupId?: string;
   /** Optional provenance link back to the source document block. */
   source?: SourceRef;
+  /** Semantic presentation role used by the design cascade. */
+  role?: PresentationRole;
+  /** Local design overrides applied over deck/master/template defaults. */
+  designOverrides?: ElementDesignOverrides;
 }
 
 export interface TextElement extends BaseElement {
   kind: "text";
-  text: string;
-  /**
-   * Canonical paragraph model for both plain text and lists. Plain paragraphs
-   * omit `listType`; bulleted/numbered list paragraphs set it per paragraph.
-   */
-  paragraphs?: Paragraph[];
-  /**
-   * Optional rich-text runs for `text`. When present and non-empty, renderers
-   * and exporters use these formatted spans (bold/italic/code/color/link) and
-   * fall back to the plain `text` string when absent. The concatenation of
-   * run `text` values equals `text`, so the plain field always stays a valid
-   * fallback for compact text operations.
-   */
-  runs?: TextRun[];
-  style: TextElementStyle;
-  /**
-   * Optional semantic presentation theme role (#605). When present, the style
-   * cascade resolves typography from the presentation theme for this role and treats
-   * {@link styleOverride} as local overrides on top. Absent → the element is
-   * styled entirely by its concrete `style`.
-   */
-  textRole?: PresentationRole;
-  /**
-   * Optional local style overrides applied over the resolved template/role
-   * style (#605). Only the present fields win; absent fields inherit. Resetting
-   * a property to the theme value means deleting it from this object.
-   */
-  styleOverride?: Partial<TextElementStyle>;
-  /**
-   * How the element handles content that exceeds the box height.
-   * Absent / `"auto-height"` preserves the pre-#333 behaviour.
-   */
-  fitMode?: TextFitMode;
-  /** Optional vertical gap between list paragraphs, in slide-height percent. */
-  bulletGap?: number;
-  /** Optional left indent applied to list paragraphs, in slide-width percent. */
-  bulletIndent?: number;
+  content: TextElementContent;
 }
 
 /**
@@ -268,17 +267,14 @@ export interface Paragraph {
 export type BulletItem = Paragraph;
 
 /**
- * Returns the canonical paragraph list for a text element. Older in-memory
- * constructors may still omit `paragraphs`; render-time code treats the legacy
- * `text`/`runs` fields as a single plain paragraph until those callers are
- * migrated.
+ * Returns the canonical paragraph list for a text element.
  */
 export function normalizeTextParagraphs(
-  el: Pick<TextElement, "text" | "runs" | "paragraphs">,
+  el: Pick<TextElement, "content">,
 ): Paragraph[] {
-  const content = (el as any).content;
-  if (content?.paragraphs !== undefined) return content.paragraphs;
-  if (typeof content?.text === "string") {
+  const { content } = el;
+  if (content.paragraphs !== undefined) return content.paragraphs;
+  if (typeof content.text === "string") {
     return [
       {
         text: content.text,
@@ -288,27 +284,12 @@ export function normalizeTextParagraphs(
       },
     ];
   }
-  if (el.paragraphs !== undefined) return el.paragraphs;
-  return [
-    {
-      text: el.text,
-      ...(el.runs !== undefined && el.runs.length > 0 ? { runs: el.runs } : {}),
-    },
-  ];
+  return [];
 }
 
 export interface VisualElement extends BaseElement {
   kind: "visual";
-  visualId: string;
-  /** Optional restyle applied over the referenced document visual at render time. */
-  styleThemeId?: string;
-  /**
-   * Optional accessible name (alt text) for the referenced visual. Normalization
-   * of AI-generated decks (issue #271) derives this from the visual's title or
-   * inventory summary so a generated, `role="img"` visual is never unlabeled.
-   * When absent the shared renderer falls back to the visual's own title.
-   */
-  alt?: string;
+  content: VisualElementContent;
 }
 
 /** How an image is sized within its element box. */
@@ -330,55 +311,12 @@ export interface ImageCrop {
 
 export interface ImageElement extends BaseElement {
   kind: "image";
-  /** Resolved display URL or data URL. Persist uploaded asset identity in `assetId`. */
-  src: ResolvedAssetUrl;
-  alt?: string;
-  /** Optional corner radius as a percent of the box (0–50). */
-  radius?: number;
-  /** How the image fills its box. Defaults to "contain". */
-  fitMode?: ImageFitMode;
-  /** Optional shape mask applied over the image. Defaults to "none". */
-  maskShape?: ImageMaskShape;
-  /** Optional clipping inset. Defaults to no crop. */
-  crop?: ImageCrop;
-  /**
-   * ID of the server-stored {@link Asset} row when this image was uploaded via
-   * the slide asset upload action (Epic #374). Data-URL images use `src`
-   * directly and leave this unset.
-   */
-  assetId?: AssetReference;
+  content: ImageElementContent;
 }
 
 export interface ShapeElement extends BaseElement {
   kind: "shape";
-  shape: ShapeKind;
-  /** Hex fill (rect/ellipse/triangle) or stroke (line) color. */
-  color: string;
-  /** Optional centered label rendered inside non-line shapes. */
-  text?: string;
-  /** Optional rich-text runs for the shape label. */
-  textRuns?: TextRun[];
-  /** Optional style for the shape label; falls back to a centered body style. */
-  textStyle?: TextElementStyle;
-  /**
-   * Optional semantic presentation theme role for the shape label (#605). Defaults
-   * conceptually to `"label"` when inheriting from the template. Absent →
-   * styled by concrete `textStyle`.
-   */
-  textRole?: PresentationRole;
-  /**
-   * Optional local style overrides for the shape label, applied over the
-   * resolved template/role style (#605).
-   */
-  textStyleOverride?: Partial<TextElementStyle>;
-  /**
-   * Optional stroke: a border for rect/ellipse, ignored for triangle, and the
-   * line thickness/color for "line". Width is in `cqmin` units so it scales
-   * with the slide like the rest of the geometry.
-   */
-  stroke?: { color: string; width: number };
-  /** Optional corner radius for a rect, as a percent of the box (0–50). */
-  radius?: number;
+  content: ShapeElementContent;
 }
 
 /** Discriminated union of every free-form slide element. */

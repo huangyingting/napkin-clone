@@ -574,24 +574,8 @@ function buildSlideSpec(
         break;
       }
       case "image": {
-        const content = elementContent(element);
-        const design = elementDesign(element);
-        const imageElement = {
-          ...element,
-          src: content.src,
-          alt: content.alt,
-          crop: content.crop,
-          assetId: content.assetId,
-          fitMode: design.fitMode,
-          maskShape: design.maskShape,
-          radius: design.radius,
-        };
-        const op = buildDeckImageOp(
-          imageElement,
-          box,
-          renderModel.tokenSet.image,
-        );
-        if (op) ops.push(op);
+        const op = buildDeckImageOp(element, box, renderModel.tokenSet.image);
+        if (op?.src) ops.push(op as DeckOp);
         break;
       }
       case "visual": {
@@ -600,16 +584,7 @@ function buildSlideSpec(
         const visual = visuals.get(visualId);
         if (!visual) break;
         ops.push(
-          buildDeckVisualOp(
-            {
-              ...element,
-              visualId,
-              styleThemeId: content.styleThemeId,
-            },
-            visual,
-            box,
-            renderModel.tokenSet.visual,
-          ),
+          buildDeckVisualOp(element, visual, box, renderModel.tokenSet.visual),
         );
         break;
       }

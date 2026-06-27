@@ -56,8 +56,8 @@ function makeShape(id: string, box = BOX_A): ShapeElement {
   return {
     id,
     kind: "shape",
-    shape: "rect",
-    color: "#aabbcc",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#aabbcc" } },
     zIndex: 0,
     box,
   };
@@ -65,8 +65,8 @@ function makeShape(id: string, box = BOX_A): ShapeElement {
 
 function makeConnector(
   id: string,
-  start: ConnectorElement["start"],
-  end: ConnectorElement["end"],
+  start: ConnectorElement["content"]["start"],
+  end: ConnectorElement["content"]["end"],
 ): ConnectorElement {
   return {
     id,
@@ -79,13 +79,15 @@ function makeConnector(
 }
 
 function connectorStart(element: ConnectorElement): any {
-  return ((element as any).content as { start: ConnectorElement["start"] })[
-    "start"
-  ];
+  return (
+    (element as any).content as { start: ConnectorElement["content"]["start"] }
+  )["start"];
 }
 
 function connectorEnd(element: ConnectorElement): any {
-  return ((element as any).content as { end: ConnectorElement["end"] })["end"];
+  return (
+    (element as any).content as { end: ConnectorElement["content"]["end"] }
+  )["end"];
 }
 
 const BOUND_START: ConnectorEndpoint = {

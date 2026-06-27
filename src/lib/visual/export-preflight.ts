@@ -169,9 +169,9 @@ export const DEFAULT_MAX_SLIDES = EXPORT_PREFLIGHT_MAX_SLIDES;
 
 /** Returns true when the image element will require a raster fallback in PPTX. */
 function imageNeedsRasterFallback(el: ImageElement): boolean {
-  const fitMode = imageField<ImageElement["fitMode"]>(el, "fitMode");
-  const maskShape = imageField<ImageElement["maskShape"]>(el, "maskShape");
-  const crop = imageField<ImageElement["crop"]>(el, "crop");
+  const fitMode = el.designOverrides?.fitMode;
+  const maskShape = el.designOverrides?.maskShape;
+  const crop = el.content.crop;
   if (fitMode === "none") return true;
   if (maskShape && maskShape !== "none") return true;
   if (crop) return true;
@@ -353,7 +353,7 @@ function slideTextStrings(slide: Deck["slides"][number]): string[] {
         if (paragraph.text) out.push(paragraph.text);
       }
     } else if (el.kind === "shape") {
-      if (el.text) out.push(el.text);
+      if (el.content.text) out.push(el.content.text);
     }
   }
   return out;

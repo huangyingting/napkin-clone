@@ -81,9 +81,7 @@ export function enumerateDeckDependencies(
     if (slide.elements) {
       for (const element of slide.elements) {
         if (element.kind === "visual") {
-          const visualId =
-            ((element as any).content?.visualId as string | undefined) ??
-            element.visualId;
+          const visualId = element.content.visualId;
           deps.push({
             kind: "visual",
             slideId: slide.id,
@@ -363,9 +361,7 @@ export function collectDeckVisualIds(deck: Deck): Set<string> {
     if (slide.elements) {
       for (const element of slide.elements) {
         if (element.kind === "visual") {
-          const visualId =
-            ((element as any).content?.visualId as string | undefined) ??
-            element.visualId;
+          const visualId = element.content.visualId;
           if (visualId) ids.add(visualId);
         }
       }

@@ -24,7 +24,7 @@ import { type Slide, type TextElement } from "./deck";
 const TITLE_ROLE_PRIORITY = ["title", "sectionTitle"] as const;
 
 function textOf(element: TextElement): string {
-  return ((element as any).content?.text ?? element.text ?? "") as string;
+  return element.content.text;
 }
 
 function roleOf(element: TextElement): string | undefined {

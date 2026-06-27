@@ -51,25 +51,36 @@ function slide(index: number, title: string): Slide {
       {
         id: `title-${index}`,
         kind: "text",
-        textRole: "title",
-        text: title,
-        paragraphs: [{ text: title }],
+        role: "title",
+        content: { kind: "text", text: title, paragraphs: [{ text: title }] },
         zIndex: 0,
         box: { x: 6, y: 6, w: 88, h: 16 },
-        style: { fontSize: 6, align: "left", bold: true, italic: false },
+        designOverrides: {
+          textStyle: { fontSize: 6, align: "left", bold: true, italic: false },
+        },
       },
       {
         id: `bullets-${index}`,
         kind: "text",
-        text: bullets.join("\n"),
-        paragraphs: bullets.map((text) => ({
-          text,
-          listType: "bullet" as const,
-        })),
-        textRole: "bullet",
+        role: "bullet",
+        content: {
+          kind: "text",
+          text: bullets.join("\n"),
+          paragraphs: bullets.map((text) => ({
+            text,
+            listType: "bullet" as const,
+          })),
+        },
         zIndex: 1,
         box: { x: 6, y: 26, w: 88, h: 66 },
-        style: { fontSize: 4.5, align: "left", bold: false, italic: false },
+        designOverrides: {
+          textStyle: {
+            fontSize: 4.5,
+            align: "left",
+            bold: false,
+            italic: false,
+          },
+        },
       },
     ],
     elementsDerived: true,
@@ -361,8 +372,8 @@ test("addElement appends with a generated id and top z", () => {
   const deck = deckWithBullets();
   const next = addElement(deck, 0, {
     kind: "shape",
-    shape: "rect",
-    color: "#112233",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#112233" } },
     box: { x: 10, y: 10, w: 20, h: 20 },
   });
 
@@ -379,9 +390,11 @@ test("addElement honors an explicit id", () => {
   const next = addElement(deck, 0, {
     id: "custom-id",
     kind: "text",
-    text: "Hi",
+    content: { kind: "text", text: "Hi" },
     box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   });
   const elements = next.slides[0].elements ?? [];
   assert.ok(elements.some((el) => el.id === "custom-id"));
@@ -391,9 +404,11 @@ test("updateElement patches a single element by id", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "t1",
     kind: "text",
-    text: "Old",
+    content: { kind: "text", text: "Old" },
     box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   });
   const next = updateElement(base, 0, "t1", {
     box: { x: 5, y: 5, w: 30, h: 30 },
@@ -408,51 +423,66 @@ test("updateElement clears stale runs when an inline plain-text edit commits (#2
   const base = addElement(deckWithBullets(), 0, {
     id: "t1",
     kind: "text",
-    text: "Old",
-    runs: [{ text: "Old", bold: true }],
+    content: {
+      kind: "text",
+      text: "Old",
+      runs: [{ text: "Old", bold: true }],
+    },
     box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   });
-  const next = updateElement(base, 0, "t1", { text: "New", runs: undefined });
+  const next = updateElement(base, 0, "t1", {
+    content: { kind: "text", text: "New" },
+  });
   const el = next.slides[0].elements?.find((e) => e.id === "t1");
-  assert.equal(el?.kind === "text" && el.text, "New");
+  assert.equal(el?.kind === "text" && el.content.text, "New");
   // Stale formatted runs must be dropped so the renderer/exporter show "New".
-  assert.equal(el?.kind === "text" && el.runs, undefined);
+  assert.equal(el?.kind === "text" && el.content.runs, undefined);
 });
 
 test("updateElement clears stale paragraph runs when an inline list edit commits (#243)", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "b1",
     kind: "text",
-    text: "Old",
-    paragraphs: [
-      {
-        text: "Old",
-        runs: [{ text: "Old", italic: true }],
-        listType: "bullet",
-      },
-    ],
-    textRole: "bullet",
+    content: {
+      kind: "text",
+      text: "Old",
+      paragraphs: [
+        {
+          text: "Old",
+          runs: [{ text: "Old", italic: true }],
+          listType: "bullet",
+        },
+      ],
+    },
+    role: "bullet",
     box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   });
   const next = updateElement(base, 0, "b1", {
-    text: "New\nExtra",
-    paragraphs: [
-      { text: "New", listType: "bullet" },
-      { text: "Extra", listType: "bullet" },
-    ],
+    content: {
+      kind: "text",
+      text: "New\nExtra",
+      paragraphs: [
+        { text: "New", listType: "bullet" },
+        { text: "Extra", listType: "bullet" },
+      ],
+    },
   });
   const el = next.slides[0].elements?.find((e) => e.id === "b1");
   assert.deepEqual(
     el?.kind === "text"
-      ? el.paragraphs?.map((paragraph) => paragraph.text)
+      ? el.content.paragraphs?.map((paragraph) => paragraph.text)
       : [],
     ["New", "Extra"],
   );
   assert.deepEqual(
     el?.kind === "text"
-      ? el.paragraphs?.map((paragraph) => paragraph.runs)
+      ? el.content.paragraphs?.map((paragraph) => paragraph.runs)
       : [],
     [undefined, undefined],
   );
@@ -462,8 +492,8 @@ test("removeElement deletes an element by id", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "gone",
     kind: "shape",
-    shape: "ellipse",
-    color: "#ffffff",
+    content: { kind: "shape", shape: "ellipse" },
+    designOverrides: { fill: { value: "#ffffff" } },
     box: { x: 0, y: 0, w: 10, h: 10 },
   });
   const next = removeElement(base, 0, "gone");
@@ -484,8 +514,8 @@ function deckWithThreeElements(): Deck {
   ].map(({ id, x }, i) => ({
     id,
     kind: "shape" as const,
-    shape: "rect" as const,
-    color: "#112233",
+    content: { kind: "shape" as const, shape: "rect" as const },
+    designOverrides: { fill: { value: "#112233" } },
     zIndex: i,
     box: { x, y: 10, w: 10, h: 10 },
   }));
@@ -663,8 +693,8 @@ test("addElement removes elementsDerived from the edited slide", () => {
   assert.equal(derived.slides[0].elementsDerived, true);
   const next = addElement(derived, 0, {
     kind: "shape",
-    shape: "rect",
-    color: "#112233",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#112233" } },
     box: { x: 10, y: 10, w: 20, h: 20 },
   });
   assert.equal("elementsDerived" in next.slides[0], false);
@@ -792,22 +822,22 @@ function deckWithBoxes(): Deck {
   deck = addElement(deck, 0, {
     id: "a",
     kind: "shape",
-    shape: "rect",
-    color: "#111111",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#111111" } },
     box: { x: 10, y: 5, w: 20, h: 10 },
   });
   deck = addElement(deck, 0, {
     id: "b",
     kind: "shape",
-    shape: "rect",
-    color: "#222222",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#222222" } },
     box: { x: 30, y: 20, w: 40, h: 20 },
   });
   deck = addElement(deck, 0, {
     id: "c",
     kind: "shape",
-    shape: "rect",
-    color: "#333333",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#333333" } },
     box: { x: 50, y: 50, w: 15, h: 10 },
   });
   return deck;
@@ -855,15 +885,19 @@ function deckWithTwo(): Deck {
   deck = addElement(deck, 0, {
     id: "e1",
     kind: "text",
-    text: "Hello",
-    style: { fontSize: 16, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: "Hello" },
+    designOverrides: {
+      textStyle: { fontSize: 16, bold: false, italic: false, align: "left" },
+    },
     box: { x: 10, y: 10, w: 30, h: 10 },
   });
   deck = addElement(deck, 0, {
     id: "e2",
     kind: "text",
-    text: "World",
-    style: { fontSize: 16, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: "World" },
+    designOverrides: {
+      textStyle: { fontSize: 16, bold: false, italic: false, align: "left" },
+    },
     box: { x: 20, y: 20, w: 30, h: 10 },
   });
   return deck;
@@ -945,24 +979,24 @@ function deckWithThreeByZ(): Deck {
         {
           id: "low",
           kind: "shape",
-          shape: "rect",
-          color: "#111",
+          content: { kind: "shape", shape: "rect" },
+          designOverrides: { fill: { value: "#111" } },
           box: { x: 0, y: 0, w: 10, h: 10 },
           zIndex: 0,
         },
         {
           id: "mid",
           kind: "shape",
-          shape: "rect",
-          color: "#222",
+          content: { kind: "shape", shape: "rect" },
+          designOverrides: { fill: { value: "#222" } },
           box: { x: 0, y: 0, w: 10, h: 10 },
           zIndex: 1,
         },
         {
           id: "high",
           kind: "shape",
-          shape: "rect",
-          color: "#333",
+          content: { kind: "shape", shape: "rect" },
+          designOverrides: { fill: { value: "#333" } },
           box: { x: 0, y: 0, w: 10, h: 10 },
           zIndex: 2,
         },

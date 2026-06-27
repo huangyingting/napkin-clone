@@ -34,7 +34,7 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
       elements: [
         buildTextElement({
           id: "title-el",
-          textRole: "title",
+          role: "title",
           text: "Regression Title",
           box: { x: 5, y: 5, w: 90, h: 15 },
           zIndex: 0,
@@ -66,8 +66,8 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
       elements: [
         buildShapeElement({
           id: "rect-el",
-          shape: "rect",
-          color: "#6366f1",
+          content: { kind: "shape", shape: "rect" },
+          designOverrides: { fill: { value: "#6366f1" } },
           text: "Rectangle",
           box: { x: 10, y: 20, w: 30, h: 20 },
           zIndex: 0,
@@ -75,16 +75,16 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
         }),
         buildShapeElement({
           id: "ellipse-el",
-          shape: "ellipse",
-          color: "#10b981",
+          content: { kind: "shape", shape: "ellipse" },
+          designOverrides: { fill: { value: "#10b981" } },
           text: "Ellipse",
           box: { x: 60, y: 20, w: 25, h: 20 },
           zIndex: 1,
         }),
         buildShapeElement({
           id: "triangle-el",
-          shape: "triangle",
-          color: "#f59e0b",
+          content: { kind: "shape", shape: "triangle" },
+          designOverrides: { fill: { value: "#f59e0b" } },
           box: { x: 35, y: 55, w: 25, h: 20 },
           zIndex: 2,
         }),

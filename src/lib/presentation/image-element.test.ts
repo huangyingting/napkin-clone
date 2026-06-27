@@ -86,7 +86,7 @@ function imageElement(src: string, id = "img"): ImageElement {
   return {
     id,
     kind: "image",
-    src,
+    content: { kind: "image", src },
     box: { x: 0, y: 0, w: 10, h: 10 },
     zIndex: 0,
   };
@@ -141,10 +141,12 @@ test("totalInlineImageBytes: sums only inlined image data URLs", () => {
     {
       id: "t",
       kind: "text",
-      text: "hi",
+      content: { kind: "text", text: "hi" },
       box: { x: 0, y: 0, w: 10, h: 10 },
       zIndex: 0,
-      style: { fontSize: 16, align: "left", bold: false, italic: false },
+      designOverrides: {
+        textStyle: { fontSize: 16, align: "left", bold: false, italic: false },
+      },
     },
   ]);
   assert.equal(totalInlineImageBytes(deck), 3000);

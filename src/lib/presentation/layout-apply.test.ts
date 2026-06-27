@@ -33,11 +33,16 @@ function textElement(): SlideElement {
   return {
     id: "text-1",
     kind: "text",
-    text: "Keep me",
-    paragraphs: [{ text: "Keep me" }],
+    content: {
+      kind: "text",
+      text: "Keep me",
+      paragraphs: [{ text: "Keep me" }],
+    },
     zIndex: 0,
     box: { x: 1, y: 1, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   };
 }
 

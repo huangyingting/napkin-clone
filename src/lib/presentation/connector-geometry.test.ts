@@ -16,16 +16,19 @@ import {
 function shape(
   id: string,
   box: ElementBox,
-  overrides: Partial<ShapeElement> = {},
+  overrides: Partial<ShapeElement> & {
+    shape?: ShapeElement["content"]["shape"];
+  } = {},
 ): ShapeElement {
+  const { shape: shapeKind, ...elementOverrides } = overrides;
   return {
     id,
     kind: "shape",
-    shape: "rect",
-    color: "#000000",
+    content: { kind: "shape", shape: shapeKind ?? "rect" },
+    designOverrides: { fill: { value: "#000000" } },
     zIndex: 0,
     box,
-    ...overrides,
+    ...elementOverrides,
   };
 }
 
@@ -350,8 +353,11 @@ test("connectorAnchorCandidates excludes connectors, the active line, and other 
   const connector: SlideElement = {
     id: "connector",
     kind: "connector",
-    start: { x: 10, y: 10 },
-    end: { x: 20, y: 20 },
+    content: {
+      kind: "connector",
+      start: { x: 10, y: 10 },
+      end: { x: 20, y: 20 },
+    },
     zIndex: 0,
     box: { x: 10, y: 10, w: 10, h: 10 },
   };

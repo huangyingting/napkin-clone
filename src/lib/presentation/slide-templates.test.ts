@@ -165,10 +165,10 @@ test("two-column template = title + two editable text columns + footer", () => {
     TextElement,
     TextElement,
   ];
-  assert.deepEqual([content(left).text, content(right).text], [
-    "Left column",
-    "Right column",
-  ]);
+  assert.deepEqual(
+    [content(left).text, content(right).text],
+    ["Left column", "Right column"],
+  );
   // Columns sit side by side: the right column starts past the left's edge.
   assert.ok(right.box.x >= left.box.x + left.box.w);
 });

@@ -33,9 +33,9 @@ function textElement(
   return {
     kind: "text",
     id,
-    text,
+    content: { kind: "text", text },
     ...(kind === "title" ? { role: "title" as const } : {}),
-    style: STYLE,
+    designOverrides: { textStyle: STYLE },
     zIndex,
     box: { x: 0, y: 0, w: 50, h: 10 },
   } as unknown as SlideElement;

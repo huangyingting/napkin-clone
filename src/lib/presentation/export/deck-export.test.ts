@@ -84,11 +84,11 @@ function flowchart(): Visual {
 function fixtureTextElement(
   id: string,
   text: string,
-  overrides: Partial<TextElement> = {},
+  overrides: Parameters<typeof buildTextElement>[0] = {},
 ): TextElement {
   return buildTextElement({
     id,
-    textRole: "title",
+    role: "title",
     text,
     zIndex: 0,
     box: { x: 6, y: 6, w: 88, h: 16 },
@@ -124,7 +124,7 @@ function visualEl(id: string, visualId: string): VisualElement {
 
 function fixtureShapeElement(
   id: string,
-  overrides: Partial<ShapeElement> = {},
+  overrides: Parameters<typeof buildShapeElement>[0] = {},
 ): ShapeElement {
   return buildShapeElement({
     id,
@@ -138,7 +138,7 @@ function fixtureShapeElement(
 
 function imageEl(
   id: string,
-  overrides: Partial<ImageElement> = {},
+  overrides: Parameters<typeof buildImageElement>[0] = {},
 ): ImageElement {
   return buildImageElement({
     id,
@@ -152,7 +152,7 @@ function imageEl(
 
 function connectorEl(
   id: string,
-  overrides: Partial<ConnectorElement> = {},
+  overrides: Parameters<typeof buildConnectorElement>[0] = {},
 ): ConnectorElement {
   return buildConnectorElement({
     id,
@@ -500,7 +500,7 @@ test("a visual with styleThemeId is restyled before mapping to native specs", ()
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const restyled: VisualElement = {
     ...visualEl("ve", "v1"),
-    styleThemeId: "ocean",
+    content: { ...visualEl("ve", "v1").content, styleThemeId: "ocean" },
   };
   const deck: Deck = {
     themeId: "indigo",
@@ -608,8 +608,8 @@ test("connector op with bound endpoints resolves to element anchor positions", (
   const target: ShapeElement = {
     id: "target",
     kind: "shape",
-    shape: "rect",
-    color: "#aaaaaa",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#aaaaaa" } },
     zIndex: 0,
     box: { x: 50, y: 40, w: 10, h: 10 },
   };
@@ -618,8 +618,11 @@ test("connector op with bound endpoints resolves to element anchor positions", (
     kind: "connector",
     zIndex: 1,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "target", anchor: "left" },
-    end: { elementId: "target", anchor: "right" },
+    content: {
+      kind: "connector",
+      start: { elementId: "target", anchor: "left" },
+      end: { elementId: "target", anchor: "right" },
+    },
   };
   const deck: Deck = {
     themeId: "default",
@@ -895,7 +898,7 @@ test("exported text inherits the presentation theme role font when no element ov
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("title", "Heading", {
-          textRole: "title",
+          role: "title",
         }),
         bulletsEl("b", ["point"]),
       ]),
@@ -914,7 +917,7 @@ test("an explicit element fontId still wins over the role font (#606)", () => {
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("title", "Heading", {
-          textRole: "title",
+          role: "title",
           style: {
             fontSize: 6,
             bold: true,

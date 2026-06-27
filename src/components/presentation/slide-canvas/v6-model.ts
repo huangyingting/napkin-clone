@@ -1,5 +1,6 @@
 import type {
   ConnectorElement,
+  ConnectorArrow,
   ConnectorPoint,
   ConnectorRouting,
   ElementAlign,
@@ -207,8 +208,8 @@ export function connectorContent(element: ConnectorElement): {
 export function connectorDesign(element: ConnectorElement): {
   stroke?: { color: string; width: number };
   dash?: boolean;
-  arrowStart?: ConnectorElement["arrowStart"];
-  arrowEnd?: ConnectorElement["arrowEnd"];
+  arrowStart?: ConnectorArrow;
+  arrowEnd?: ConnectorArrow;
 } {
   const design = elementDesignOverrides(element);
   const stroke = record(design.stroke);
@@ -218,10 +219,10 @@ export function connectorDesign(element: ConnectorElement): {
       : {}),
     ...(typeof design.dash === "boolean" ? { dash: design.dash } : {}),
     ...(typeof design.arrowStart === "string"
-      ? { arrowStart: design.arrowStart as ConnectorElement["arrowStart"] }
+      ? { arrowStart: design.arrowStart as ConnectorArrow }
       : {}),
     ...(typeof design.arrowEnd === "string"
-      ? { arrowEnd: design.arrowEnd as ConnectorElement["arrowEnd"] }
+      ? { arrowEnd: design.arrowEnd as ConnectorArrow }
       : {}),
   };
 }

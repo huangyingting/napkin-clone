@@ -468,15 +468,15 @@ export function fitElementBoxToContent(
     case "text":
       return fitTextElementBox(element);
     case "visual": {
-      const visual = visuals.get(element.visualId);
+      const visual = visuals.get(element.content.visualId);
       return visual
         ? fitBoxToAspect(element.box, visual.width / visual.height, stageAspect)
         : element.box;
     }
     case "shape":
-      if (element.shape !== "line") return element.box;
+      if (element.content.shape !== "line") return element.box;
       const resolveConnectorBox = (candidate: SlideElement) =>
-        candidate.kind === "shape" && candidate.shape === "line"
+        candidate.kind === "shape" && candidate.content.shape === "line"
           ? candidate.box
           : fitElementBoxToContent(candidate, visuals, stageAspect, elements);
       const endpoints = resolveLineEndpoints(

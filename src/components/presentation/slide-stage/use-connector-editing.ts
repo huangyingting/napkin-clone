@@ -54,12 +54,12 @@ export function useConnectorEditing({
     (elementId: string, onClose: () => void) => {
       const el = elements.find((e) => e.id === elementId);
       if (el?.kind !== "connector") return;
-      if (!("elementId" in el.start)) return;
+      if (!("elementId" in el.content.start)) return;
       const free = detachConnectorEndpoint(
-        el.start as ConnectorEndpoint,
+        el.content.start as ConnectorEndpoint,
         elements,
       );
-      onUpdateElement(el.id, { start: free });
+      onUpdateElement(el.id, { content: { ...el.content, start: free } });
       onClose();
     },
     [elements, onUpdateElement],
@@ -69,12 +69,12 @@ export function useConnectorEditing({
     (elementId: string, onClose: () => void) => {
       const el = elements.find((e) => e.id === elementId);
       if (el?.kind !== "connector") return;
-      if (!("elementId" in el.end)) return;
+      if (!("elementId" in el.content.end)) return;
       const free = detachConnectorEndpoint(
-        el.end as ConnectorEndpoint,
+        el.content.end as ConnectorEndpoint,
         elements,
       );
-      onUpdateElement(el.id, { end: free });
+      onUpdateElement(el.id, { content: { ...el.content, end: free } });
       onClose();
     },
     [elements, onUpdateElement],

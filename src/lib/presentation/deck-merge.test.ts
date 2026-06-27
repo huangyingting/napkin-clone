@@ -70,7 +70,7 @@ function withTitleElement(
   elements: SlideElement[],
 ): SlideElement[] {
   if (!title.trim()) return elements;
-  if (elements.some((el) => el.kind === "text" && el.textRole === "title")) {
+  if (elements.some((el) => el.kind === "text" && el.role === "title")) {
     return elements;
   }
   const id = `title-${title.toLowerCase().replace(/\s+/g, "-") || "slide"}`;
@@ -198,7 +198,7 @@ test("index match used when titles differ/empty", () => {
 function titleElement(id: string, text: string): SlideElement {
   return buildTextElement({
     id,
-    textRole: "title",
+    role: "title",
     text,
     zIndex: 1,
     box: { x: 6, y: 6, w: 88, h: 16 },
@@ -358,22 +358,42 @@ test("derived slide: sync re-materializes elements so document edits render", ()
         {
           id: "title",
           kind: "text",
-          textRole: "title",
-          text: "Intro",
-          paragraphs: [{ text: "Intro" }],
+          role: "title",
+          content: {
+            kind: "text",
+            text: "Intro",
+            paragraphs: [{ text: "Intro" }],
+          },
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
-          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
         },
         {
           id: "body",
           kind: "text",
-          text: "old bullet",
-          paragraphs: [{ text: "old bullet", listType: "bullet" }],
-          textRole: "bullet",
+          role: "bullet",
+          content: {
+            kind: "text",
+            text: "old bullet",
+            paragraphs: [{ text: "old bullet", listType: "bullet" }],
+          },
           zIndex: 1,
           box: { x: 6, y: 26, w: 88, h: 66 },
-          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+          designOverrides: {
+            textStyle: {
+              fontSize: 4.5,
+              bold: false,
+              italic: false,
+              align: "left",
+            },
+          },
         },
       ],
       elementsDerived: true,
@@ -457,22 +477,15 @@ test("slide with elements but no provenance flag is treated as hand-edited", () 
 /** The title element's runs, or undefined. */
 function titleElementRuns(s: Slide): TextRun[] | undefined {
   const el = (s.elements ?? []).find(
-    (e) =>
-      e.kind === "text" &&
-      (((e as any).role ?? (e as any).textRole) === "title" ||
-        (e as any).textRole === "h1"),
+    (e) => e.kind === "text" && (e as any).role === "title",
   );
-  return el && el.kind === "text"
-    ? ((el as any).content?.runs ?? el.runs)
-    : undefined;
+  return el && el.kind === "text" ? el.content.runs : undefined;
 }
 
 /** The bullets element's per-line runs, or undefined. */
 function bulletElementRuns(s: Slide): TextRun[][] | undefined {
   const el = (s.elements ?? []).find(
-    (e) =>
-      e.kind === "text" &&
-      ((e as any).role ?? (e as any).textRole) === "bullet",
+    (e) => e.kind === "text" && (e as any).role === "bullet",
   );
   return el && el.kind === "text"
     ? normalizeTextParagraphs(el).map((paragraph) => paragraph.runs ?? [])
@@ -480,7 +493,7 @@ function bulletElementRuns(s: Slide): TextRun[][] | undefined {
 }
 
 function visualElementId(element: unknown): string | undefined {
-  return (element as any)?.content?.visualId ?? (element as any)?.visualId;
+  return (element as any)?.content?.visualId;
 }
 
 function slideSectionId(slide: Slide): string | undefined {
@@ -499,29 +512,49 @@ test("derived slide: document run text change reaches re-materialized elements",
         {
           id: "title",
           kind: "text",
-          textRole: "title",
-          text: "Intro",
-          runs: [{ text: "Intro" }],
-          paragraphs: [{ text: "Intro", runs: [{ text: "Intro" }] }],
+          role: "title",
+          content: {
+            kind: "text",
+            text: "Intro",
+            runs: [{ text: "Intro" }],
+            paragraphs: [{ text: "Intro", runs: [{ text: "Intro" }] }],
+          },
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
-          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
         },
         {
           id: "body",
           kind: "text",
-          text: "old bullet",
-          paragraphs: [
-            {
-              text: "old bullet",
-              runs: [{ text: "old bullet", bold: true }],
-              listType: "bullet",
-            },
-          ],
-          textRole: "bullet",
+          role: "bullet",
+          content: {
+            kind: "text",
+            text: "old bullet",
+            paragraphs: [
+              {
+                text: "old bullet",
+                runs: [{ text: "old bullet", bold: true }],
+                listType: "bullet",
+              },
+            ],
+          },
           zIndex: 1,
           box: { x: 6, y: 26, w: 88, h: 66 },
-          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+          designOverrides: {
+            textStyle: {
+              fontSize: 4.5,
+              bold: false,
+              italic: false,
+              align: "left",
+            },
+          },
         },
       ],
       elementsDerived: true,
@@ -563,12 +596,22 @@ test("derived slide: stale title runs dropped when fresh has none", () => {
         {
           id: "title",
           kind: "text",
-          textRole: "title",
-          text: "Intro",
-          runs: [{ text: "Intro", bold: true }],
+          role: "title",
+          content: {
+            kind: "text",
+            text: "Intro",
+            runs: [{ text: "Intro", bold: true }],
+          },
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
-          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+            },
+          },
         },
       ],
       elementsDerived: true,
@@ -599,14 +642,24 @@ test("formatting-only document edit (same text, new runs) is detected as changed
         {
           id: "body",
           kind: "text",
-          text: "point",
-          paragraphs: [
-            { text: "point", runs: [{ text: "point" }], listType: "bullet" },
-          ],
-          textRole: "bullet",
+          role: "bullet",
+          content: {
+            kind: "text",
+            text: "point",
+            paragraphs: [
+              { text: "point", runs: [{ text: "point" }], listType: "bullet" },
+            ],
+          },
           zIndex: 0,
           box: { x: 6, y: 26, w: 88, h: 66 },
-          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+          designOverrides: {
+            textStyle: {
+              fontSize: 4.5,
+              bold: false,
+              italic: false,
+              align: "left",
+            },
+          },
         },
       ],
       elementsDerived: true,
@@ -1108,10 +1161,12 @@ test("element-level merge: preserves geometry and style of updated element (#409
   const el: TextElement = {
     id: "el-positioned",
     kind: "text",
-    text: "Old content",
+    content: { kind: "text", text: "Old content" },
     box: { x: 30, y: 40, w: 25, h: 12 },
     zIndex: 5,
-    style: { fontSize: 6, bold: true, italic: false, align: "center" },
+    designOverrides: {
+      textStyle: { fontSize: 6, bold: true, italic: false, align: "center" },
+    },
     source: {
       documentId: "doc-1",
       blockId: "blk-2",
@@ -1183,10 +1238,12 @@ test("element-level merge: unlinked elements are not updated (#409)", () => {
   const unlinkedEl: TextElement = {
     id: "el-unlinked",
     kind: "text",
-    text: "Manual override",
+    content: { kind: "text", text: "Manual override" },
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 1,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
     source: {
       documentId: "doc-1",
       blockId: "blk-x",
@@ -1253,10 +1310,12 @@ test("element-level merge: mixed linked/unlinked/manual elements on one slide (#
   const unlinkedEl: TextElement = {
     id: "el-unlinked",
     kind: "text",
-    text: "Manual override",
+    content: { kind: "text", text: "Manual override" },
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 2,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
     source: {
       documentId: "doc-1",
       blockId: "blk-linked",

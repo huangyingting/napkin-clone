@@ -34,18 +34,25 @@ function textEl(overrides: {
     kind: "text",
     id: "t",
     box: { x: 10, y: 10, w: 40, h: 20 },
-    text: "Hello world",
-    paragraphs: [{ text: "Hello world" }],
-    style: {
-      fontSize: overrides.fontSize ?? 5,
-      bold: false,
-      italic: false,
-      align: overrides.align ?? "left",
-      ...(overrides.verticalAlign !== undefined
-        ? { verticalAlign: overrides.verticalAlign }
+    content: {
+      kind: "text",
+      text: "Hello world",
+      paragraphs: [{ text: "Hello world" }],
+      ...(overrides.fitMode !== undefined
+        ? { fitMode: overrides.fitMode }
         : {}),
     },
-    ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
+    designOverrides: {
+      textStyle: {
+        fontSize: overrides.fontSize ?? 5,
+        bold: false,
+        italic: false,
+        align: overrides.align ?? "left",
+        ...(overrides.verticalAlign !== undefined
+          ? { verticalAlign: overrides.verticalAlign }
+          : {}),
+      },
+    },
   };
 }
 
@@ -54,13 +61,18 @@ function bulletsEl(fontSize = 5): TextLikeElement {
     kind: "text",
     id: "b",
     box: { x: 10, y: 10, w: 40, h: 20 },
-    text: "one\ntwo",
-    paragraphs: [
-      { text: "one", listType: "bullet" },
-      { text: "two", listType: "bullet" },
-    ],
-    textRole: "bullet",
-    style: { fontSize, bold: false, italic: false, align: "left" },
+    role: "bullet",
+    content: {
+      kind: "text",
+      text: "one\ntwo",
+      paragraphs: [
+        { text: "one", listType: "bullet" },
+        { text: "two", listType: "bullet" },
+      ],
+    },
+    designOverrides: {
+      textStyle: { fontSize, bold: false, italic: false, align: "left" },
+    },
   };
 }
 

@@ -82,7 +82,8 @@ function isConnectorAnchorTarget(
 ): boolean {
   if (element.id === lineId) return false;
   if (element.kind === "connector") return false;
-  if (element.kind === "shape" && element.shape === "line") return false;
+  if (element.kind === "shape" && element.content.shape === "line")
+    return false;
   return true;
 }
 

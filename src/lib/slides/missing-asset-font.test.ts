@@ -19,6 +19,7 @@ import type {
   Slide,
   SlideElement,
   TextElement,
+  TextElementStyle,
 } from "@/lib/presentation/deck";
 import {
   ClientAssetResolver,
@@ -56,30 +57,57 @@ const makeSlide = (
 
 const makeDeck = (slides: Slide[]): Deck => makeMinimalDeck(slides);
 
-function imageEl(overrides: Partial<ImageElement> = {}): ImageElement {
+type ImageFixtureOverrides = Partial<ImageElement> & {
+  src?: string;
+  assetId?: string;
+};
+
+function imageEl(overrides: ImageFixtureOverrides = {}): ImageElement {
+  const { src, assetId, ...elementOverrides } = overrides;
   return {
     id: "img-1",
     kind: "image",
-    src: "data:image/png;base64,abc",
+    role: "image",
     box: { x: 10, y: 10, w: 30, h: 20 },
     zIndex: 1,
-    ...overrides,
-  };
+    content: {
+      kind: "image",
+      src: src ?? overrides.content?.src ?? "data:image/png;base64,abc",
+      ...(assetId !== undefined ? { assetId } : {}),
+    },
+    ...elementOverrides,
+  } as ImageElement;
 }
 
-function textEl(overrides: Partial<TextElement> = {}): TextElement {
-  const text = overrides.text ?? "Slide title";
+type TextFixtureOverrides = Partial<TextElement> & {
+  text?: string;
+  paragraphs?: TextElement["content"]["paragraphs"];
+  style?: Partial<TextElementStyle>;
+};
+
+function textEl(overrides: TextFixtureOverrides = {}): TextElement {
+  const text = overrides.text ?? overrides.content?.text ?? "Slide title";
   return {
     id: "txt-1",
     kind: "text",
-    textRole: "title",
-    text,
-    paragraphs: overrides.paragraphs ?? [{ text }],
+    role: "title",
     box: { x: 5, y: 5, w: 90, h: 15 },
     zIndex: 0,
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    content: {
+      kind: "text",
+      text,
+      paragraphs: overrides.paragraphs ?? [{ text }],
+    },
+    designOverrides: {
+      textStyle: overrides.style ?? {
+        fontSize: 5,
+        bold: false,
+        italic: false,
+        align: "left",
+      },
+    },
     ...overrides,
-  };
+  } as TextElement;
 }
 
 function bulletsEl(
@@ -90,17 +118,22 @@ function bulletsEl(
   return {
     id: "bul-1",
     kind: "text",
-    text: "Point one\nPoint two",
-    paragraphs: [
-      { text: "Point one", listType: "bullet" },
-      { text: "Point two", listType: "bullet" },
-    ],
-    textRole: "bullet",
+    role: "bullet",
     box: { x: 5, y: 25, w: 90, h: 60 },
     zIndex: 0,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    content: {
+      kind: "text",
+      text: "Point one\nPoint two",
+      paragraphs: [
+        { text: "Point one", listType: "bullet" },
+        { text: "Point two", listType: "bullet" },
+      ],
+    },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
     ...overrides,
-  };
+  } as TextElement;
 }
 
 // ---------------------------------------------------------------------------

@@ -32,14 +32,16 @@ function slide(id: string, elementIds: string[] = []): Slide {
     elements: elementIds.map((eid) => ({
       id: eid,
       kind: "text" as const,
-      text: "",
+      content: { kind: "text" as const, text: "" },
       zIndex: 0,
       box: { x: 0, y: 0, w: 100, h: 10 },
-      style: {
-        fontSize: 4.5,
-        bold: false,
-        italic: false,
-        align: "left" as const,
+      designOverrides: {
+        textStyle: {
+          fontSize: 4.5,
+          bold: false,
+          italic: false,
+          align: "left" as const,
+        },
       },
     })),
   };

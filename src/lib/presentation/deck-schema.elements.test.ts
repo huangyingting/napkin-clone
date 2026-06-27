@@ -52,56 +52,67 @@ test("safeParseDeck round-trips every element kind", () => {
     {
       id: "t",
       kind: "text",
-      textRole: "h1",
-      text: "Hello",
-      paragraphs: [{ text: "Hello" }],
+      role: "title",
       zIndex: 0,
       box: { x: 1, y: 2, w: 3, h: 4 },
-      style: { fontSize: 6, bold: true, italic: false, align: "center" },
+      content: { kind: "text", text: "Hello", paragraphs: [{ text: "Hello" }] },
+      designOverrides: {
+        textStyle: { fontSize: 6, bold: true, italic: false, align: "center" },
+      },
     },
     {
       id: "b",
       kind: "text",
-      text: "one\ntwo",
-      paragraphs: [
-        { text: "one", listType: "bullet" },
-        { text: "two", listType: "bullet" },
-      ],
-      textRole: "bullet",
+      role: "bullet",
       zIndex: 1,
       box: { x: 1, y: 2, w: 3, h: 4 },
-      style: { fontSize: 4, bold: false, italic: true, align: "left" },
+      content: {
+        kind: "text",
+        text: "one\ntwo",
+        paragraphs: [
+          { text: "one", listType: "bullet" },
+          { text: "two", listType: "bullet" },
+        ],
+      },
+      designOverrides: {
+        textStyle: { fontSize: 4, bold: false, italic: true, align: "left" },
+      },
     },
     {
       id: "v",
       kind: "visual",
-      visualId: "vis-1",
+      role: "visual",
       zIndex: 2,
       box: { x: 1, y: 2, w: 3, h: 4 },
+      content: { kind: "visual", visualId: "vis-1" },
     },
     {
       id: "i",
       kind: "image",
-      src: "https://example.com/a.png",
-      alt: "alt",
+      role: "image",
       zIndex: 3,
       box: { x: 1, y: 2, w: 3, h: 4 },
+      content: { kind: "image", src: "https://example.com/a.png", alt: "alt" },
     },
     {
       id: "s",
       kind: "shape",
-      shape: "ellipse",
-      color: "#00ff00",
+      role: "label",
       zIndex: 4,
       box: { x: 1, y: 2, w: 3, h: 4 },
+      content: { kind: "shape", shape: "ellipse" },
+      designOverrides: { fill: { value: "#00ff00" } },
     },
     {
       id: "c",
       kind: "connector",
-      start: { x: 1, y: 2 },
-      end: { x: 4, y: 5 },
       zIndex: 5,
       box: { x: 0, y: 0, w: 10, h: 10 },
+      content: {
+        kind: "connector",
+        start: { x: 1, y: 2 },
+        end: { x: 4, y: 5 },
+      },
     },
   ]);
 
@@ -114,7 +125,9 @@ test("safeParseDeck round-trips every element kind", () => {
       type: "solid",
       color: { value: "#101010" },
     });
-    assert.deepEqual((slide as any).designOverrides.accent, { value: "#abcdef" });
+    assert.deepEqual((slide as any).designOverrides.accent, {
+      value: "#abcdef",
+    });
   }
 });
 
@@ -124,17 +137,22 @@ test("safeParseDeck round-trips run-level underline and fontSize", () => {
       {
         id: "underlined-text",
         kind: "text",
-        text: "Hello",
-        paragraphs: [
-          {
-            text: "Hello",
-            runs: [{ text: "Hello", underline: true, fontSize: 4 }],
-          },
-        ],
-        runs: [{ text: "Hello", underline: true, fontSize: 4 }],
         zIndex: 0,
         box: { x: 1, y: 2, w: 30, h: 12 },
-        style: { fontSize: 4, bold: false, italic: false, align: "left" },
+        content: {
+          kind: "text",
+          text: "Hello",
+          paragraphs: [
+            {
+              text: "Hello",
+              runs: [{ text: "Hello", underline: true, fontSize: 4 }],
+            },
+          ],
+          runs: [{ text: "Hello", underline: true, fontSize: 4 }],
+        },
+        designOverrides: {
+          textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+        },
       },
     ]),
   );
@@ -151,7 +169,10 @@ test("safeParseDeck round-trips run-level underline and fontSize", () => {
         (element as any).content.paragraphs?.[0]?.runs?.[0]?.underline,
         true,
       );
-      assert.equal((element as any).content.paragraphs?.[0]?.runs?.[0]?.fontSize, 4);
+      assert.equal(
+        (element as any).content.paragraphs?.[0]?.runs?.[0]?.fontSize,
+        4,
+      );
     }
   }
 });
@@ -196,10 +217,9 @@ test("safeParseDeck accepts a text element without local design overrides", () =
       {
         id: "t",
         kind: "text",
-        textRole: "body",
-        text: "x",
         zIndex: 0,
         box: { x: 0, y: 0, w: 1, h: 1 },
+        content: { kind: "text", text: "x" },
       },
     ]),
   );
@@ -212,10 +232,11 @@ test("validated elements preserve a stable shape", () => {
       {
         id: "s",
         kind: "shape",
-        shape: "rect",
-        color: "#123456",
+        role: "label",
         zIndex: 0,
         box: { x: 5, y: 5, w: 10, h: 10 },
+        content: { kind: "shape", shape: "rect" },
+        designOverrides: { fill: { value: "#123456" } },
       },
     ]),
   );

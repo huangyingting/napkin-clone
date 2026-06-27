@@ -46,10 +46,13 @@ function linkedElement(
   return {
     id,
     kind: "text",
-    text: "slide text",
+    role: "body",
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: "slide text" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
     source: {
       documentId: "doc-1",
       blockId,
@@ -65,19 +68,22 @@ function unlinkedElement(id: string): TextElement {
   return {
     id,
     kind: "text",
-    text: "slide text",
+    role: "body",
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: "slide text" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
   };
 }
 
 function textOf(element: SlideElement | undefined): string | undefined {
-  return (element as any)?.content?.text ?? (element as any)?.text;
+  return (element as any)?.content?.text;
 }
 
 function runsOf(element: SlideElement | undefined) {
-  return (element as any)?.content?.runs ?? (element as any)?.runs;
+  return (element as any)?.content?.runs;
 }
 
 function sourceOf(element: SlideElement | undefined) {
@@ -85,7 +91,7 @@ function sourceOf(element: SlideElement | undefined) {
 }
 
 function visualIdOf(element: SlideElement | undefined): string | undefined {
-  return (element as any)?.content?.visualId ?? (element as any)?.visualId;
+  return (element as any)?.content?.visualId;
 }
 
 function slide(id: string, elements: SlideElement[]): Slide {
@@ -225,10 +231,13 @@ test("ignores sourceRef without contentHash", () => {
   const el: TextElement = {
     id: "el-no-hash",
     kind: "text",
-    text: "text",
+    role: "body",
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: "text" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
     source: {
       documentId: "doc-1",
       blockId: "blk-1",
@@ -347,7 +356,8 @@ function linkedVisualElement(
   return {
     id,
     kind: "visual",
-    visualId,
+    role: "visual",
+    content: { kind: "visual", visualId },
     box: { x: 25, y: 18, w: 50, h: 64 },
     zIndex: 0,
     source: {
@@ -410,7 +420,8 @@ test("visual: ignores visual sourceRef with no contentHash", () => {
   const el: VisualElement = {
     id: "el-no-hash",
     kind: "visual",
-    visualId: "vis-1",
+    role: "visual",
+    content: { kind: "visual", visualId: "vis-1" },
     box: { x: 25, y: 18, w: 50, h: 64 },
     zIndex: 0,
     source: {
@@ -436,7 +447,8 @@ test("visual: sourceRef with blockKind=text is treated as text", () => {
   const el: VisualElement = {
     id: "el-text-kind",
     kind: "visual",
-    visualId: "vis-1",
+    role: "visual",
+    content: { kind: "visual", visualId: "vis-1" },
     box: { x: 25, y: 18, w: 50, h: 64 },
     zIndex: 0,
     source: {
@@ -498,7 +510,7 @@ test("updateTextElementFromBlock: updates text and runs, preserves geometry", ()
   // Geometry preserved:
   assert.deepEqual(updated.box, el.box);
   assert.equal(updated.zIndex, el.zIndex);
-  assert.deepEqual(updated.style, el.style);
+  assert.deepEqual(updated.designOverrides, el.designOverrides);
   assert.equal(updated.id, el.id);
   // sourceRef updated:
   assert.equal(sourceOf(updated)!.contentHash, freshHash);

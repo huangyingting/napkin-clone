@@ -103,7 +103,7 @@ export function totalInlineImageBytes(deck: Deck): number {
     total += dataUrlByteSize(slideBackgroundImageUrl(slide));
     for (const element of slide.elements ?? []) {
       if (element.kind === "image") {
-        total += dataUrlByteSize(element.src);
+        total += dataUrlByteSize(element.content.src);
       }
     }
   }

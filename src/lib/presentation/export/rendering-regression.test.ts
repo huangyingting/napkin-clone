@@ -114,7 +114,7 @@ function buildOps(elements: SlideElement[]): DeckOp[] {
 function fixtureTextElement(
   id: string,
   text: string,
-  overrides: Partial<TextElement> = {},
+  overrides: Parameters<typeof buildTextElement>[0] = {},
 ): TextElement {
   return buildTextElement({
     id,
@@ -144,7 +144,7 @@ function bulletsEl(
 
 function fixtureShapeElement(
   id: string,
-  overrides: Partial<ShapeElement> = {},
+  overrides: Parameters<typeof buildShapeElement>[0] = {},
 ): ShapeElement {
   return buildShapeElement({
     id,
@@ -158,7 +158,7 @@ function fixtureShapeElement(
 
 function connectorEl(
   id: string,
-  overrides: Partial<ConnectorElement> = {},
+  overrides: Parameters<typeof buildConnectorElement>[0] = {},
 ): ConnectorElement {
   return buildConnectorElement({
     id,
@@ -199,7 +199,9 @@ test("[AC-1] text op with no runs omits the runs field", () => {
 
 test("[AC-1] text op carries fitMode when set to shrink-to-fit", () => {
   const ops = buildOps([
-    fixtureTextElement("t3", "Shrinking", { fitMode: "shrink-to-fit" }),
+    fixtureTextElement("t3", "Shrinking", {
+      content: { kind: "text", text: "Shrinking", fitMode: "shrink-to-fit" },
+    }),
   ]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
@@ -212,7 +214,9 @@ test("[AC-1] text op carries fitMode when set to shrink-to-fit", () => {
 
 test("[AC-1] text op carries fitMode when set to fixed-box", () => {
   const ops = buildOps([
-    fixtureTextElement("t4", "Fixed box", { fitMode: "fixed-box" }),
+    fixtureTextElement("t4", "Fixed box", {
+      content: { kind: "text", text: "Fixed box", fitMode: "fixed-box" },
+    }),
   ]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
@@ -558,8 +562,8 @@ test("[AC-5] bound endpoints resolve to the correct anchor inch positions", () =
   const targetA: ShapeElement = {
     id: "targetA",
     kind: "shape",
-    shape: "rect",
-    color: "#aaaaaa",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#aaaaaa" } },
     zIndex: 0,
     box: { x: 20, y: 30, w: 10, h: 10 },
   };
@@ -568,8 +572,11 @@ test("[AC-5] bound endpoints resolve to the correct anchor inch positions", () =
     kind: "connector",
     zIndex: 1,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "targetA", anchor: "right" },
-    end: { elementId: "targetA", anchor: "bottom" },
+    content: {
+      kind: "connector",
+      start: { elementId: "targetA", anchor: "right" },
+      end: { elementId: "targetA", anchor: "bottom" },
+    },
   };
 
   const [spec] = buildDeckSpecs(deck([targetA, connector]), new Map());
@@ -599,16 +606,16 @@ test("[AC-5] connector bound to two different shapes resolves each independently
   const shapeA: ShapeElement = {
     id: "A",
     kind: "shape",
-    shape: "rect",
-    color: "#ff0000",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#ff0000" } },
     zIndex: 0,
     box: { x: 10, y: 10, w: 20, h: 20 },
   };
   const shapeB: ShapeElement = {
     id: "B",
     kind: "shape",
-    shape: "ellipse",
-    color: "#00ff00",
+    content: { kind: "shape", shape: "ellipse" },
+    designOverrides: { fill: { value: "#00ff00" } },
     zIndex: 1,
     box: { x: 70, y: 10, w: 20, h: 20 },
   };
@@ -617,8 +624,11 @@ test("[AC-5] connector bound to two different shapes resolves each independently
     kind: "connector",
     zIndex: 2,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "A", anchor: "right" },
-    end: { elementId: "B", anchor: "left" },
+    content: {
+      kind: "connector",
+      start: { elementId: "A", anchor: "right" },
+      end: { elementId: "B", anchor: "left" },
+    },
   };
 
   // A.right = (30, 20), B.left = (70, 20)
@@ -638,8 +648,11 @@ test("[AC-5] connector with missing bound element falls back gracefully", () => 
     kind: "connector",
     zIndex: 0,
     box: { x: 0, y: 0, w: 100, h: 100 },
-    start: { elementId: "ghost", anchor: "center" },
-    end: { x: 50, y: 50 },
+    content: {
+      kind: "connector",
+      start: { elementId: "ghost", anchor: "center" },
+      end: { x: 50, y: 50 },
+    },
   };
 
   // Must not throw; produces a valid op
@@ -687,8 +700,8 @@ test("[AC-6] resolveConnectorElementPoints resolves bound start endpoint", () =>
   const shapeA: ShapeElement = {
     id: "A",
     kind: "shape",
-    shape: "rect",
-    color: "#aabbcc",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#aabbcc" } },
     zIndex: 0,
     box: { x: 10, y: 10, w: 20, h: 20 }, // center = (20, 20)
   };
@@ -720,8 +733,8 @@ test("[AC-6] connector follows shape A when A is moved to new position", () => {
   const shapeAMoved: ShapeElement = {
     id: "A",
     kind: "shape",
-    shape: "rect",
-    color: "#aabbcc",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#aabbcc" } },
     zIndex: 0,
     box: { x: 50, y: 50, w: 20, h: 20 }, // center after move = (60, 60)
   };
@@ -758,8 +771,8 @@ test("[AC-6] connector end follows shape B when B is moved", () => {
   const shapeB: ShapeElement = {
     id: "B",
     kind: "shape",
-    shape: "ellipse",
-    color: "#ccbbaa",
+    content: { kind: "shape", shape: "ellipse" },
+    designOverrides: { fill: { value: "#ccbbaa" } },
     zIndex: 0,
     box: { x: 60, y: 40, w: 10, h: 10 }, // top = (65, 40)
   };
@@ -804,16 +817,16 @@ test("[AC-6] connector between two shapes tracks both when both move", () => {
   const makeA = (box: ShapeElement["box"]): ShapeElement => ({
     id: "A",
     kind: "shape",
-    shape: "rect",
-    color: "#000",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#000" } },
     zIndex: 0,
     box,
   });
   const makeB = (box: ShapeElement["box"]): ShapeElement => ({
     id: "B",
     kind: "shape",
-    shape: "rect",
-    color: "#fff",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#fff" } },
     zIndex: 1,
     box,
   });
@@ -862,7 +875,7 @@ test("[AC-6] connector between two shapes tracks both when both move", () => {
 
 function imageEl(
   id: string,
-  overrides: Partial<ImageElement> = {},
+  overrides: Parameters<typeof buildImageElement>[0] = {},
 ): ImageElement {
   return buildImageElement({
     id,
@@ -1321,7 +1334,7 @@ function titleOpColor(deckObj: Deck): string {
 }
 
 test("[#618] inherited title color tracks a presentation theme change", () => {
-  const el = () => fixtureTextElement("t", "Heading", { textRole: "title" });
+  const el = () => fixtureTextElement("t", "Heading", { role: "title" });
   const a = titleOpColor(
     deck([el()], {
       customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
@@ -1338,7 +1351,7 @@ test("[#618] inherited title color tracks a presentation theme change", () => {
 });
 
 test("[#618] inherited role font tracks a presentation theme heading-font change", () => {
-  const el = () => fixtureTextElement("t", "Heading", { textRole: "title" });
+  const el = () => fixtureTextElement("t", "Heading", { role: "title" });
   const fontOf = (d: Deck) =>
     (
       buildDeckSpecs(d, new Map())[0].ops.find(
@@ -1368,7 +1381,7 @@ test("[#618] inherited role font tracks a presentation theme heading-font change
 test("[#618] a local color override is NOT clobbered by a global template change", () => {
   const el = () =>
     fixtureTextElement("t", "Heading", {
-      textRole: "title",
+      role: "title",
       style: {
         fontSize: 6,
         bold: true,
@@ -1402,7 +1415,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
   };
   const d = deck(
     [
-      fixtureTextElement("t", "Title", { textRole: "title" }),
+      fixtureTextElement("t", "Title", { role: "title" }),
       bulletsEl("b", ["a", "b"]),
       fixtureShapeElement("s", { text: "Label" }),
       connectorEl("c"),
@@ -1420,7 +1433,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
           notes: "",
           backgroundGradient: { from: "#123456", to: "#654321" },
           elements: [
-            fixtureTextElement("t", "Title", { textRole: "title" }),
+            fixtureTextElement("t", "Title", { role: "title" }),
             bulletsEl("b", ["a", "b"]),
           ],
         },

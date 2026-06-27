@@ -25,24 +25,26 @@ export function buildDeckImageOp(
   box: OperationBox,
   imageDefaults: PresentationTheme["image"] | undefined,
 ) {
-  if (isEmptyImageSrc(element.src)) return null;
+  const { content } = element;
+  const design = element.designOverrides ?? {};
+  if (isEmptyImageSrc(content.src)) return null;
 
   return {
     kind: "image" as const,
     ...box,
-    src: element.src,
-    ...(element.alt ? { alt: element.alt } : {}),
-    ...((element.fitMode ?? imageDefaults?.fitMode) !== undefined
-      ? { fitMode: element.fitMode ?? imageDefaults?.fitMode }
+    src: content.src,
+    ...(content.alt ? { alt: content.alt } : {}),
+    ...((design.fitMode ?? imageDefaults?.fitMode) !== undefined
+      ? { fitMode: design.fitMode ?? imageDefaults?.fitMode }
       : {}),
-    ...((element.maskShape ?? imageDefaults?.maskShape) !== undefined
-      ? { maskShape: element.maskShape ?? imageDefaults?.maskShape }
+    ...((design.maskShape ?? imageDefaults?.maskShape) !== undefined
+      ? { maskShape: design.maskShape ?? imageDefaults?.maskShape }
       : {}),
-    ...(element.crop !== undefined ? { crop: element.crop } : {}),
-    ...((element.radius ?? imageDefaults?.radiusPct)
+    ...(content.crop !== undefined ? { crop: content.crop } : {}),
+    ...((design.radius ?? imageDefaults?.radiusPct)
       ? {
           radius:
-            ((element.radius ?? imageDefaults?.radiusPct ?? 0) / 100) *
+            ((design.radius ?? imageDefaults?.radiusPct ?? 0) / 100) *
             Math.min(box.w, box.h),
         }
       : {}),
@@ -66,7 +68,10 @@ export function buildDeckVisualOp(
   box: OperationBox,
   visualDefaults: PresentationTheme["visual"] | undefined,
 ) {
-  const bridge = resolveVisualThemeBridge(element.styleThemeId, visualDefaults);
+  const bridge = resolveVisualThemeBridge(
+    element.content.styleThemeId,
+    visualDefaults,
+  );
   const styled = bridge.styleThemeId
     ? applyTheme(visual, bridge.styleThemeId)
     : visual;
@@ -77,7 +82,7 @@ export function buildDeckVisualOp(
     return {
       kind: "visual-fallback" as const,
       ...box,
-      visualId: element.visualId,
+      visualId: element.content.visualId,
     };
   }
 

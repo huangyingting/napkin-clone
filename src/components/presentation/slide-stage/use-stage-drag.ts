@@ -440,7 +440,7 @@ export function useStageDrag({
               drag.id,
               {
                 box,
-                ...(moving?.kind === "shape" && moving.shape === "line"
+                ...(moving?.kind === "shape" && moving.content.shape === "line"
                   ? { connector: undefined }
                   : {}),
               },
@@ -472,7 +472,7 @@ export function useStageDrag({
             drag.id,
             {
               box,
-              ...(moving?.kind === "shape" && moving.shape === "line"
+              ...(moving?.kind === "shape" && moving.content.shape === "line"
                 ? { connector: undefined }
                 : {}),
             },
@@ -501,7 +501,13 @@ export function useStageDrag({
           rdy = (ly / rect.height) * 100;
         }
         if (resized && resized.kind === "text") {
-          const isFixed = resized.fitMode === "fixed-box";
+          const textStyle = resized.designOverrides?.textStyle ?? {
+            fontSize: 4,
+            bold: false,
+            italic: false,
+            align: "left" as const,
+          };
+          const isFixed = resized.content.fitMode === "fixed-box";
           const isAutoH = isAutoHeight(resized);
           if (isFixed || (isAutoH && BOTTOM_HANDLES.has(drag.mode))) {
             // Fixed-box: free box resize (content clips at stored boundary).
@@ -512,7 +518,17 @@ export function useStageDrag({
             );
             onUpdateElement(
               drag.id,
-              { box: newBox, ...(isAutoH ? { fitMode: "fixed-box" } : {}) },
+              {
+                box: newBox,
+                ...(isAutoH
+                  ? {
+                      content: {
+                        ...resized.content,
+                        fitMode: "fixed-box" as const,
+                      },
+                    }
+                  : {}),
+              },
               drag.coalesceKey,
             );
           } else {
@@ -522,16 +538,22 @@ export function useStageDrag({
             const { box, fontSize } = resizeTextBox(
               resized,
               drag.startBox,
-              drag.startFontSize ?? resized.style.fontSize,
+              drag.startFontSize ?? textStyle.fontSize ?? 4,
               drag.mode,
               rdx,
               rdy,
               createTextResizeMeasurer(rect.width, rect.height),
             );
-            if (fontSize !== resized.style.fontSize) {
+            if (fontSize !== (textStyle.fontSize ?? 4)) {
               onUpdateElement(
                 drag.id,
-                { box, style: { ...resized.style, fontSize } },
+                {
+                  box,
+                  designOverrides: {
+                    ...resized.designOverrides,
+                    textStyle: { ...textStyle, fontSize },
+                  },
+                },
                 drag.coalesceKey,
               );
             } else {
@@ -600,14 +622,24 @@ export function useStageDrag({
             {
               box: newBoundingBox,
               ...(drag.mode === "w"
-                ? { start: snapped.binding ?? snapped.point }
-                : { end: snapped.binding ?? snapped.point }),
+                ? {
+                    content: {
+                      ...resized.content,
+                      start: snapped.binding ?? snapped.point,
+                    },
+                  }
+                : {
+                    content: {
+                      ...resized.content,
+                      end: snapped.binding ?? snapped.point,
+                    },
+                  }),
             },
             drag.coalesceKey,
           );
         } else if (
           resized?.kind === "shape" &&
-          resized.shape === "line" &&
+          resized.content.shape === "line" &&
           (drag.mode === "w" || drag.mode === "e")
         ) {
           const currentPoint = {
@@ -624,7 +656,7 @@ export function useStageDrag({
             resized,
             elementsRef.current,
             (candidate) =>
-              candidate.kind === "shape" && candidate.shape === "line"
+              candidate.kind === "shape" && candidate.content.shape === "line"
                 ? candidate.box
                 : fitElementBoxToContent(
                     candidate,
@@ -838,7 +870,7 @@ export function useStageDrag({
         moved: false,
         startFontSize:
           startElement && startElement.kind === "text"
-            ? startElement.style.fontSize
+            ? (startElement.designOverrides?.textStyle?.fontSize ?? 4)
             : undefined,
         groupBoxes,
         wasPrimarySelected,

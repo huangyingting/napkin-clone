@@ -89,8 +89,8 @@ test("ADD_ELEMENT adds an element to a slide and returns its id", () => {
     slideId: "s1",
     element: {
       kind: "shape",
-      shape: "rect",
-      color: "#112233",
+      content: { kind: "shape", shape: "rect" },
+      designOverrides: { fill: { value: "#112233" } },
       box: { x: 10, y: 10, w: 20, h: 20 },
     },
   });
@@ -110,8 +110,8 @@ test("ADD_ELEMENT returns error when slide not found", () => {
     slideId: "ghost",
     element: {
       kind: "shape",
-      shape: "rect",
-      color: "#000",
+      content: { kind: "shape", shape: "rect" },
+      designOverrides: { fill: { value: "#000" } },
       box: { x: 0, y: 0, w: 10, h: 10 },
     },
   });
@@ -128,8 +128,8 @@ test("ADD_ELEMENT does not mutate the original deck", () => {
     slideId: "s1",
     element: {
       kind: "shape",
-      shape: "ellipse",
-      color: "#fff",
+      content: { kind: "shape", shape: "ellipse" },
+      designOverrides: { fill: { value: "#fff" } },
       box: { x: 0, y: 0, w: 5, h: 5 },
     },
   });

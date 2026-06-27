@@ -49,8 +49,10 @@ function textEl(id: string, b: ElementBox): TextElement {
     kind: "text",
     box: b,
     zIndex: 1,
-    text: id,
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: id },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   };
 }
 
@@ -239,16 +241,19 @@ describe("canvas-a11y: connector helpers (#534)", () => {
     kind: "connector",
     box: box(0, 0, 10, 10),
     zIndex: 1,
-    start: { elementId: "a", anchor: "right" },
-    end: { elementId: "b", anchor: "left" },
+    content: {
+      kind: "connector",
+      start: { elementId: "a", anchor: "right" },
+      end: { elementId: "b", anchor: "left" },
+    },
   };
   const line: ShapeElement = {
     id: "line",
     kind: "shape",
-    shape: "line",
+    content: { kind: "shape", shape: "line" },
     box: box(0, 0, 10, 10),
     zIndex: 1,
-    color: "#000000",
+    designOverrides: { fill: { value: "#000000" } },
   };
 
   test("isConnectableElement excludes connectors and line shapes", () => {
@@ -320,9 +325,9 @@ describe("canvas-a11y: connector helpers (#534)", () => {
     const b = textEl("b", box(40, 0, 10, 10));
     const built = buildConnectorBetween(a, b);
     assert.equal(built.kind, "connector");
-    assert.deepEqual(built.start, { elementId: "a", anchor: "right" });
-    assert.deepEqual(built.end, { elementId: "b", anchor: "left" });
-    assert.equal(built.arrowEnd, "arrow");
+    assert.deepEqual(built.content.start, { elementId: "a", anchor: "right" });
+    assert.deepEqual(built.content.end, { elementId: "b", anchor: "left" });
+    assert.equal(built.designOverrides?.arrowEnd, "arrow");
     // right anchor of a = (10, 5); left anchor of b = (40, 5)
     assert.deepEqual(built.box, box(10, 5, 30, 1));
     assert.ok(!("id" in built));
@@ -334,10 +339,10 @@ describe("canvas-a11y: connector helpers (#534)", () => {
     const next = cycleEndpointAnchor(connector, "end", 1);
     assert.notEqual(next, connector);
     // end "left" (index 3) + 1 → "right"
-    assert.deepEqual(next.end, { elementId: "b", anchor: "right" });
+    assert.deepEqual(next.content.end, { elementId: "b", anchor: "right" });
     // start "right" (index 4) - 1 → "left"
     const prev = cycleEndpointAnchor(connector, "start", -1);
-    assert.deepEqual(prev.start, {
+    assert.deepEqual(prev.content.start, {
       elementId: "a",
       anchor: "left",
     });
@@ -346,7 +351,7 @@ describe("canvas-a11y: connector helpers (#534)", () => {
   test("cycleEndpointAnchor is a no-op for a free endpoint", () => {
     const freeEnd: ConnectorElement = {
       ...connector,
-      end: { x: 50, y: 50 },
+      content: { ...connector.content, end: { x: 50, y: 50 } },
     };
     assert.equal(cycleEndpointAnchor(freeEnd, "end", 1), freeEnd);
   });

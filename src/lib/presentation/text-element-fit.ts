@@ -11,6 +11,19 @@ export type TextBoxFitAnchor = "top-left" | "center" | "preserve-text-position";
 
 export type TextLikeElement = Omit<TextElement, "zIndex"> & { zIndex?: number };
 
+function elementTextStyle(
+  element: TextLikeElement,
+): Partial<import("./deck").TextElementStyle> | undefined {
+  return (
+    element.designOverrides?.textStyle ?? {
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+    }
+  );
+}
+
 export interface TextResizeMeasurer {
   measureHeightPct: (
     element: TextLikeElement,
@@ -51,12 +64,13 @@ function applyMeasuredTextStyle(
   mode: "height" | "minWidth" | "maxWidth",
 ) {
   const style = node.style;
+  const textStyle = elementTextStyle(element);
   style.boxSizing = "border-box";
   style.color = "black";
   style.fontSize = `${fontSizePx}px`;
-  style.fontWeight = element.style.bold ? "700" : "400";
-  style.fontStyle = element.style.italic ? "italic" : "normal";
-  style.textAlign = element.style.align;
+  style.fontWeight = textStyle?.bold ? "700" : "400";
+  style.fontStyle = textStyle?.italic ? "italic" : "normal";
+  style.textAlign = textStyle?.align ?? "left";
   style.lineHeight = String(lineHeight);
   style.margin = "0";
   style.padding = "0";
@@ -65,8 +79,8 @@ function applyMeasuredTextStyle(
   style.overflow = "visible";
   style.overflowWrap = mode === "height" ? "break-word" : "normal";
   style.wordBreak = "normal";
-  style.textDecoration = element.style.underline ? "underline" : "";
-  const fontCss = resolveElementFontCss(element.style.fontId);
+  style.textDecoration = textStyle?.underline ? "underline" : "";
+  const fontCss = resolveElementFontCss(textStyle?.fontId);
   if (fontCss) style.fontFamily = fontCss;
 }
 
@@ -190,7 +204,7 @@ function hasListParagraphs(element: TextLikeElement): boolean {
 
 export function textFitPaddingPct(
   element: TextLikeElement,
-  fontSizePct: number = element.style.fontSize,
+  fontSizePct: number = elementTextStyle(element)?.fontSize ?? 4,
 ): number {
   // Bullets carry marker rows, flex gaps, and larger descender-heavy line boxes;
   // a little font-relative slack keeps newly inserted lists from clipping the
@@ -204,11 +218,11 @@ export function textFitPaddingPct(
  * Absent `fitMode` is treated as `"auto-height"`.
  */
 export function isAutoHeight(element: TextLikeElement): boolean {
-  return !element.fitMode || element.fitMode === "auto-height";
+  return !element.content.fitMode || element.content.fitMode === "auto-height";
 }
 
 /**
- * Binary-searches for the largest font size (≤ `element.style.fontSize`) that
+ * Binary-searches for the largest font size (≤ local textStyle.fontSize) that
  * makes the content fit within `boxHeightPct` (including padding slack).
  *
  * Returns the original font size unchanged when the content already fits.
@@ -221,7 +235,7 @@ export function shrinkFontSizeToFit(
   measurer: TextResizeMeasurer,
   minFontSizePct: number = 1,
 ): number {
-  const maxFontSizePct = element.style.fontSize;
+  const maxFontSizePct = elementTextStyle(element)?.fontSize ?? 4;
   const padding = textFitPaddingPct(element, maxFontSizePct);
   const targetHeightPct = Math.max(0, boxHeightPct - padding);
 
@@ -254,19 +268,18 @@ export function fitNewTextElementBox(
   measurer: TextResizeMeasurer,
   anchor: TextBoxFitAnchor = "top-left",
 ): ElementBox {
+  const style = elementTextStyle(element);
+  const fontSize = style?.fontSize ?? 4;
   const maxWidth = Math.max(4, Math.min(box.w, 100));
   const minWidth = Math.min(
     maxWidth,
-    measurer.measureMinWidthPct(element, element.style.fontSize),
+    measurer.measureMinWidthPct(element, fontSize),
   );
-  const maxContentWidth = measurer.measureMaxWidthPct(
-    element,
-    element.style.fontSize,
-  );
+  const maxContentWidth = measurer.measureMaxWidthPct(element, fontSize);
   const width = Math.max(minWidth, Math.min(maxWidth, maxContentWidth));
   const height = Math.min(
     100,
-    measurer.measureHeightPct(element, width, element.style.fontSize) +
+    measurer.measureHeightPct(element, width, fontSize) +
       textFitPaddingPct(element),
   );
   let x = box.x;
@@ -275,14 +288,14 @@ export function fitNewTextElementBox(
     x = box.x + box.w / 2 - width / 2;
     y = box.y + box.h / 2 - height / 2;
   } else if (anchor === "preserve-text-position") {
-    if (element.style.align === "center") {
+    if (style?.align === "center") {
       x = box.x + box.w / 2 - width / 2;
-    } else if (element.style.align === "right") {
+    } else if (style?.align === "right") {
       x = box.x + box.w - width;
     }
-    if (element.style.verticalAlign === "top") {
+    if (style?.verticalAlign === "top") {
       y = box.y;
-    } else if (element.style.verticalAlign === "bottom") {
+    } else if (style?.verticalAlign === "bottom") {
       y = box.y + box.h - height;
     } else {
       y = box.y + box.h / 2 - height / 2;

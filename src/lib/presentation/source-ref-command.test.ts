@@ -38,9 +38,15 @@ function textElement(): TextElement {
   return {
     id: "el-text",
     kind: "text",
-    text: "old text",
-    runs: [{ text: "old text" }],
-    style: { fontSize: 5, bold: true, italic: false, align: "left" },
+    role: "body",
+    content: {
+      kind: "text",
+      text: "old text",
+      runs: [{ text: "old text" }],
+    },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: true, italic: false, align: "left" },
+    },
     box: { x: 12, y: 34, w: 56, h: 7 },
     zIndex: 9,
     rotation: 15,
@@ -55,7 +61,8 @@ function visualElement(): VisualElement {
   return {
     id: "el-visual",
     kind: "visual",
-    visualId: "vis-old",
+    role: "visual",
+    content: { kind: "visual", visualId: "vis-old" },
     box: { x: 5, y: 6, w: 40, h: 30 },
     zIndex: 3,
     rotation: 0,
@@ -95,13 +102,11 @@ const FRESH_REF: SourceRef = {
 };
 
 function textOf(element: TextElement): string {
-  return ((element as any).content?.text ?? element.text) as string;
+  return element.content.text;
 }
 
 function runsOf(element: TextElement): TextRun[] | undefined {
-  return ((element as any).content?.runs ?? element.runs) as
-    | TextRun[]
-    | undefined;
+  return element.content.runs;
 }
 
 function sourceOf(element: SlideElement): SourceRef | undefined {
@@ -135,7 +140,7 @@ test("UPDATE_ELEMENT_SOURCE updates text + source and preserves geometry/style/z
   assert.deepEqual(sourceOf(updated), FRESH_REF);
   // Geometry / style / z-order / other metadata preserved verbatim.
   assert.deepEqual(updated.box, original.box);
-  assert.deepEqual(updated.style, original.style);
+  assert.deepEqual(updated.designOverrides, original.designOverrides);
   assert.equal(updated.zIndex, original.zIndex);
   assert.equal(updated.rotation, original.rotation);
   assert.equal(updated.opacity, original.opacity);
@@ -206,7 +211,7 @@ test("UPDATE_ELEMENT_SOURCE on a visual only touches the source", () => {
   });
   assert.equal(result.ok, true);
   const updated = getElement(result.deck, "el-visual") as VisualElement;
-  assert.equal(updated.visualId, original.visualId);
+  assert.equal(updated.content.visualId, original.content.visualId);
   assert.deepEqual(sourceOf(updated), newRef);
   assert.deepEqual(updated.box, original.box);
   assert.equal(updated.zIndex, original.zIndex);

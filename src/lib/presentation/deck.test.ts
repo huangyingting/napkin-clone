@@ -818,16 +818,14 @@ test("makeElementId holds no module-level state (order-independent)", async () =
 test("normalizeTextParagraphs returns paragraphs[] as-is when present", async () => {
   const { normalizeTextParagraphs } = await import("./deck");
   const el = {
-    id: "b",
-    kind: "text" as const,
-    text: "fallback",
-    paragraphs: [
-      { text: "First", indent: 0, listType: "bullet" as const },
-      { text: "Second", indent: 1, listType: "number" as const },
-    ],
-    zIndex: 0,
-    box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
+    content: {
+      kind: "text" as const,
+      text: "fallback",
+      paragraphs: [
+        { text: "First", indent: 0, listType: "bullet" as const },
+        { text: "Second", indent: 1, listType: "number" as const },
+      ],
+    },
   };
   const result = normalizeTextParagraphs(el);
   assert.equal(result.length, 2);
@@ -841,13 +839,7 @@ test("normalizeTextParagraphs returns paragraphs[] as-is when present", async ()
 test("normalizeTextParagraphs returns empty current paragraphs", async () => {
   const { normalizeTextParagraphs } = await import("./deck");
   const el = {
-    id: "b",
-    kind: "text" as const,
-    text: "",
-    paragraphs: [],
-    zIndex: 0,
-    box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
+    content: { kind: "text" as const, text: "", paragraphs: [] },
   };
   const result = normalizeTextParagraphs(el);
   assert.equal(result.length, 0);

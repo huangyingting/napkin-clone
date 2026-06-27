@@ -51,10 +51,13 @@ test("SET_SLIDE_BACKGROUND sets background color and emits patch", () => {
   });
   assert.deepEqual(result.affectedSlideIds, ["s1"]);
   assert.equal(result.patches[0]!.op, "slide.set_background");
-  assert.deepEqual((result.patches[0]!.slideFields?.["s1"] as any).designOverrides.background, {
-    type: "solid",
-    color: { value: "#ff0000" },
-  });
+  assert.deepEqual(
+    (result.patches[0]!.slideFields?.["s1"] as any).designOverrides.background,
+    {
+      type: "solid",
+      color: { value: "#ff0000" },
+    },
+  );
 });
 
 test("SET_SLIDE_BACKGROUND clears background with undefined", () => {
@@ -152,11 +155,14 @@ test("SET_SLIDE_BACKGROUND_ASSET sets background asset and emits patch", () => {
     assetId: opts.assetId,
   });
   assert.equal(result.patches[0]!.op, "slide.set_background_asset");
-  assert.deepEqual((result.patches[0]!.slideFields?.["s1"] as any).designOverrides.background, {
-    type: "image",
-    url: opts.url,
-    assetId: opts.assetId,
-  });
+  assert.deepEqual(
+    (result.patches[0]!.slideFields?.["s1"] as any).designOverrides.background,
+    {
+      type: "image",
+      url: opts.url,
+      assetId: opts.assetId,
+    },
+  );
 });
 
 test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {
@@ -200,9 +206,12 @@ test("SET_SLIDE_ACCENT sets accent color and emits patch", () => {
     value: "#00ff00",
   });
   assert.equal(result.patches[0]!.op, "slide.set_accent");
-  assert.deepEqual((result.patches[0]!.slideFields?.["s1"] as any).designOverrides.accent, {
-    value: "#00ff00",
-  });
+  assert.deepEqual(
+    (result.patches[0]!.slideFields?.["s1"] as any).designOverrides.accent,
+    {
+      value: "#00ff00",
+    },
+  );
 });
 
 test("SET_SLIDE_ACCENT clears accent with undefined", () => {

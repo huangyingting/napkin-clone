@@ -56,42 +56,46 @@ function makeElement(
       return {
         ...base,
         kind: "text",
-        text: "Text",
-        paragraphs: [{ text: "Text" }],
-        style: { fontSize: 4, bold: false, italic: false, align: "left" },
+        content: { kind: "text", text: "Text", paragraphs: [{ text: "Text" }] },
+        designOverrides: {
+          textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+        },
         ...rest,
-      } as SlideElement;
+      } as unknown as SlideElement;
     case "image":
       return {
         ...base,
         kind: "image",
-        src: "",
+        content: { kind: "image", src: "" },
         ...rest,
-      } as SlideElement;
+      } as unknown as SlideElement;
     case "shape":
       return {
         ...base,
         kind: "shape",
-        shape: "rect",
-        color: "#000000",
+        content: { kind: "shape", shape: "rect" },
+        designOverrides: { fill: { value: "#000000" } },
         ...rest,
-      } as SlideElement;
+      } as unknown as SlideElement;
     case "visual":
       return {
         ...base,
         kind: "visual",
-        visualId: "v1",
+        content: { kind: "visual", visualId: "v1" },
         ...rest,
-      } as SlideElement;
+      } as unknown as SlideElement;
     case "connector":
       return {
         ...base,
         kind: "connector",
-        start: { x: 0, y: 0 },
-        end: { x: 100, y: 0 },
-        routing: "straight",
+        content: {
+          kind: "connector",
+          start: { x: 0, y: 0 },
+          end: { x: 100, y: 0 },
+          routing: "straight",
+        },
         ...rest,
-      } as SlideElement;
+      } as unknown as SlideElement;
     default:
       throw new Error(`makeElement: unhandled kind ${kind}`);
   }
@@ -138,7 +142,7 @@ test("selectElementTypeLabel returns Title for h1 text elements", () => {
 
 test("selectElementTypeLabel returns Text for non-h1 text elements", () => {
   assert.equal(
-    selectElementTypeLabel(makeElement({ kind: "text", textRole: "body" })),
+    selectElementTypeLabel(makeElement({ kind: "text", role: "body" })),
     "Text",
   );
 });
@@ -186,7 +190,7 @@ test("selectSelectionSummary returns multi-selection count for multiple elements
 });
 
 test("selectSelectionSummary returns element type label for single selection", () => {
-  const el = makeElement({ id: "el-42", kind: "text", textRole: "body" });
+  const el = makeElement({ id: "el-42", kind: "text", role: "body" });
   const slide = makeSlide({ elements: [el] });
   const summary = selectSelectionSummary({
     effectiveSelectedElementId: "el-42",
@@ -219,7 +223,7 @@ test("selectSelectionSummary returns no-selection when selectedSlide is undefine
 
 test("selectSelectedElement returns null when effectiveSelectedElementId is null", () => {
   const slide = makeSlide({
-    elements: [makeElement({ id: "el-1", kind: "text", textRole: "body" })],
+    elements: [makeElement({ id: "el-1", kind: "text", role: "body" })],
   });
   assert.equal(selectSelectedElement(slide, null), null);
 });
@@ -230,7 +234,7 @@ test("selectSelectedElement returns null when selectedSlide is undefined", () =>
 
 test("selectSelectedElement returns null when element id not found", () => {
   const slide = makeSlide({
-    elements: [makeElement({ id: "el-1", kind: "text", textRole: "body" })],
+    elements: [makeElement({ id: "el-1", kind: "text", role: "body" })],
   });
   assert.equal(selectSelectedElement(slide, "not-there"), null);
 });

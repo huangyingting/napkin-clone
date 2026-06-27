@@ -56,7 +56,7 @@ export function buildMediaHitGeometry({
   for (const element of elements) {
     if (element.hidden) continue;
     if (element.kind === "visual") {
-      const visual = visuals.get(element.visualId);
+      const visual = visuals.get(element.content.visualId);
       if (!visual) continue;
       const box = fittedBoxes.get(element.id) ?? element.box;
       const regions = visualRegions(visual, box);

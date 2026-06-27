@@ -18,7 +18,9 @@ import { test, describe } from "node:test";
 import type {
   ConnectorElement,
   Deck,
+  ImageFitMode,
   ImageElement,
+  ImageMaskShape,
   Slide,
   SlideElement,
   TextElement,
@@ -56,45 +58,78 @@ const makeSlide = (
 const makeDeck = (slides: Slide[], overrides: Partial<Deck> = {}): Deck =>
   buildDeck({ slides, ...overrides });
 
-function imageEl(overrides: Partial<ImageElement> = {}): ImageElement {
+type ImageFixtureOverrides = Partial<ImageElement> & {
+  src?: string;
+  assetId?: string;
+  fitMode?: ImageFitMode;
+  maskShape?: ImageMaskShape;
+  crop?: ImageElement["content"]["crop"];
+};
+
+function imageEl(overrides: ImageFixtureOverrides = {}): ImageElement {
+  const { src, assetId, fitMode, maskShape, crop, ...elementOverrides } =
+    overrides;
   return {
     id: "img-1",
     kind: "image",
-    src: "data:image/png;base64,abc",
+    role: "image",
     box: { x: 10, y: 10, w: 30, h: 20 },
     zIndex: 1,
-    ...overrides,
-  };
+    content: {
+      kind: "image",
+      src: src ?? overrides.content?.src ?? "data:image/png;base64,abc",
+      ...(assetId !== undefined ? { assetId } : {}),
+      ...(crop !== undefined ? { crop } : {}),
+    },
+    designOverrides: {
+      ...(fitMode !== undefined ? { fitMode } : {}),
+      ...(maskShape !== undefined ? { maskShape } : {}),
+      ...(elementOverrides.designOverrides ?? {}),
+    },
+    ...elementOverrides,
+  } as ImageElement;
 }
 
-function textEl(overrides: Partial<TextElement> = {}): TextElement {
+type TextFixtureOverrides = Partial<TextElement> & { text?: string };
+
+function textEl(overrides: TextFixtureOverrides = {}): TextElement {
+  const text = overrides.text ?? overrides.content?.text ?? "Hello";
   return {
     id: "txt-1",
     kind: "text",
-    textRole: "title",
-    text: "Hello",
+    role: "title",
     box: { x: 5, y: 5, w: 90, h: 15 },
     zIndex: 0,
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text, paragraphs: [{ text }] },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
     ...overrides,
-  };
+  } as TextElement;
 }
 
+type ConnectorFixtureOverrides = Partial<ConnectorElement> & {
+  routing?: ConnectorElement["content"]["routing"];
+};
+
 function connectorEl(
-  overrides: Partial<ConnectorElement> = {},
+  overrides: ConnectorFixtureOverrides = {},
 ): ConnectorElement {
+  const { routing, ...elementOverrides } = overrides;
   return {
     id: "con-1",
     kind: "connector",
-    routing: "straight",
-    arrowStart: "none",
-    arrowEnd: "arrow",
     box: { x: 10, y: 10, w: 30, h: 30 },
     zIndex: 2,
-    start: { x: 10, y: 10 },
-    end: { x: 40, y: 40 },
-    ...overrides,
-  };
+    content: {
+      kind: "connector",
+      routing: routing ?? "straight",
+      start: { x: 10, y: 10 },
+      end: { x: 40, y: 40 },
+    },
+    designOverrides: { arrowStart: "none", arrowEnd: "arrow" },
+    ...elementOverrides,
+  } as ConnectorElement;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +205,7 @@ describe("missing-asset diagnostics", () => {
   test("image with no src at all and no assetId is FATAL missing-asset", () => {
     const el = imageEl({ assetId: undefined });
     // Explicitly remove the src field to simulate a truly missing source.
-    const elNoSrc = { ...el, src: "" };
+    const elNoSrc = { ...el, content: { kind: "image" as const } };
     const deck = makeDeck([makeSlide([elNoSrc])]);
     const result = runExportPreflight(deck, { target: "pptx" });
     assert.ok(result.hasFatal);

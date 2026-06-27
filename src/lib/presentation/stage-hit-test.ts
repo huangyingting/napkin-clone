@@ -128,9 +128,20 @@ function textLines(element: SlideElement): string[] {
     const lines = normalizeTextParagraphs(element)
       .flatMap((paragraph) => paragraph.text.split(/\r?\n/))
       .filter((line) => line.trim());
-    return lines.length > 0 ? lines : [element.text];
+    return lines.length > 0 ? lines : [element.content.text];
   }
   return [];
+}
+
+function textStyle(element: Extract<SlideElement, { kind: "text" }>) {
+  return (
+    element.designOverrides?.textStyle ?? {
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left" as const,
+    }
+  );
 }
 
 function textVisibleBox(
@@ -144,9 +155,9 @@ function textVisibleBox(
     (paragraph) => paragraph.listType !== undefined,
   );
 
-  const lineHeight =
-    element.style.lineHeight ?? (hasListParagraphs ? 1.2 : 1.15);
-  const fontSize = element.style.fontSize;
+  const style = textStyle(element);
+  const lineHeight = style.lineHeight ?? (hasListParagraphs ? 1.2 : 1.15);
+  const fontSize = style.fontSize ?? 4;
   const maxChars = Math.max(...lines.map((line) => line.length));
   const estimatedTextWidth =
     (maxChars * fontSize * 0.56) / Math.max(0.1, stageAspect) +
@@ -156,16 +167,16 @@ function textVisibleBox(
   const h = Math.min(box.h, Math.max(MIN_TEXT_HIT_H_PCT, estimatedTextHeight));
 
   let x = box.x;
-  if (element.style.align === "center") {
+  if (style.align === "center") {
     x = box.x + (box.w - w) / 2;
-  } else if (element.style.align === "right") {
+  } else if (style.align === "right") {
     x = box.x + box.w - w;
   }
 
   let y = box.y + (box.h - h) / 2;
-  if (element.style.verticalAlign === "top") {
+  if (style.verticalAlign === "top") {
     y = box.y;
-  } else if (element.style.verticalAlign === "bottom") {
+  } else if (style.verticalAlign === "bottom") {
     y = box.y + box.h - h;
   }
 
@@ -305,7 +316,8 @@ function hitTestElement(
       return null;
     }
     case "shape": {
-      if (element.shape === "line") {
+      const shape = element.content.shape;
+      if (shape === "line") {
         const endpoints = resolveLineEndpoints(
           element,
           elements,
@@ -328,12 +340,12 @@ function hitTestElement(
         };
       }
       if (!pointInElementBox(point, element, box, stageAspect)) return null;
-      if (element.shape === "ellipse") {
+      if (shape === "ellipse") {
         const dx = (localPoint.x - (box.x + box.w / 2)) / (box.w / 2);
         const dy = (localPoint.y - (box.y + box.h / 2)) / (box.h / 2);
         if (dx * dx + dy * dy > 1) return null;
       }
-      if (element.shape === "triangle") {
+      if (shape === "triangle") {
         if (!pointInTriangle(localPoint, box)) return null;
       }
       const edgeHit =

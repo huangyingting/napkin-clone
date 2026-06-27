@@ -12,17 +12,21 @@ const elements = [
   {
     id: "a",
     kind: "text",
-    text: "A",
+    content: { kind: "text", text: "A" },
     box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
     zIndex: 0,
   },
   {
     id: "b",
     kind: "text",
-    text: "B",
+    content: { kind: "text", text: "B" },
     box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
     zIndex: 1,
   },
 ] satisfies SlideElement[];

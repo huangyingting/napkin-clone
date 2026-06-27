@@ -69,7 +69,10 @@ test("#393: safeParseDeck round-trips backgroundAssetId on a slide", () => {
   const result = safeParseDeck(input);
   assert.ok(result.success);
   assert.equal(slideBackground(result.data.slides[0]).assetId, "asset-id-1");
-  assert.equal(slideBackground(result.data.slides[0]).url, "/slide-assets/doc1/abc123.png");
+  assert.equal(
+    slideBackground(result.data.slides[0]).url,
+    "/slide-assets/doc1/abc123.png",
+  );
 });
 
 test("#393: safeParseDeck accepts slide without backgroundAssetId", () => {

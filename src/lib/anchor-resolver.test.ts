@@ -37,10 +37,12 @@ function textElement(id: string): SlideElement {
   return {
     id,
     kind: "text",
-    text: "",
+    content: { kind: "text", text: "" },
     box: { x: 0, y: 0, w: 40, h: 10 },
     zIndex: 0,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
   };
 }
 

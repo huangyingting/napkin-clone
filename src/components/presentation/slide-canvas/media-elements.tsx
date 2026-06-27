@@ -9,15 +9,17 @@ import { boxStyle } from "./primitives";
 import { imageContent, imageDesign } from "./v6-model";
 
 function hasImageCrop(
-  crop: ImageElement["crop"] | undefined,
-): crop is NonNullable<ImageElement["crop"]> {
+  crop: ImageElement["content"]["crop"] | undefined,
+): crop is NonNullable<ImageElement["content"]["crop"]> {
   return Boolean(
     crop &&
     (crop.top > 0 || crop.right > 0 || crop.bottom > 0 || crop.left > 0),
   );
 }
 
-function imageObjectPosition(crop: ImageElement["crop"] | undefined): string {
+function imageObjectPosition(
+  crop: ImageElement["content"]["crop"] | undefined,
+): string {
   if (!crop) return "50% 50%";
   const remainingX = Math.max(0, 1 - crop.left - crop.right);
   const remainingY = Math.max(0, 1 - crop.top - crop.bottom);
@@ -27,15 +29,16 @@ function imageObjectPosition(crop: ImageElement["crop"] | undefined): string {
 }
 
 function imageCropClipPath(
-  crop: ImageElement["crop"] | undefined,
+  crop: ImageElement["content"]["crop"] | undefined,
 ): string | undefined {
   if (!hasImageCrop(crop)) return undefined;
   return `inset(${crop.top * 100}% ${crop.right * 100}% ${crop.bottom * 100}% ${crop.left * 100}%)`;
 }
 
-function imageMaskStyle(
-  mask: Pick<ImageElement, "maskShape" | "radius">,
-): React.CSSProperties {
+function imageMaskStyle(mask: {
+  maskShape?: "none" | "circle" | "rounded" | "diamond";
+  radius?: number;
+}): React.CSSProperties {
   const radius =
     mask.radius !== undefined && mask.radius > 0 ? mask.radius : undefined;
   switch (mask.maskShape) {
@@ -74,7 +77,7 @@ export function ImageElementView({
   // (#607), else the renderer's built-in default. Built-in themes set no image
   // token, so existing decks are unaffected.
   const effFitMode = design.fitMode ?? defaults?.fitMode;
-  const effMask: Pick<ImageElement, "maskShape" | "radius"> = {
+  const effMask = {
     maskShape: design.maskShape ?? defaults?.maskShape,
     radius: design.radius ?? defaults?.radiusPct,
   };

@@ -16,8 +16,8 @@ function rect(
   return {
     id,
     kind: "shape",
-    shape: "rect",
-    color: "#333333",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#333333" } },
     zIndex,
     box: elementBox,
   };
@@ -32,10 +32,12 @@ function text(
   return {
     id,
     kind: "text",
-    text: value,
+    content: { kind: "text", text: value, paragraphs: [{ text: value }] },
     zIndex,
     box: elementBox,
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   };
 }
 
@@ -47,7 +49,7 @@ function visual(
   return {
     id,
     kind: "visual",
-    visualId: `visual-${id}`,
+    content: { kind: "visual", visualId: `visual-${id}` },
     zIndex,
     box: elementBox,
   };
@@ -250,8 +252,8 @@ test("hitTestSlideElements uses distance threshold for line shapes", () => {
   const line: SlideElement = {
     id: "line",
     kind: "shape",
-    shape: "line",
-    color: "#111111",
+    content: { kind: "shape", shape: "line" },
+    designOverrides: { fill: { value: "#111111" } },
     zIndex: 1,
     box: box(10, 50, 80, 4),
   };

@@ -569,11 +569,20 @@ export function useSlideEditorKeyboardController({
               elementId: selectedConnector.id,
               patch:
                 whichEnd === "start"
-                  ? { start: updated.start, box: nextBox }
-                  : { end: updated.end, box: nextBox },
+                  ? {
+                      content: {
+                        ...updated.content,
+                        start: updated.content.start,
+                      },
+                      box: nextBox,
+                    }
+                  : {
+                      content: { ...updated.content, end: updated.content.end },
+                      box: nextBox,
+                    },
             });
             requestElementFocus(selectedConnector.id);
-            const endpoint = updated[whichEnd];
+            const endpoint = updated.content[whichEnd];
             const anchorLabel =
               "anchor" in endpoint ? endpoint.anchor : "anchor";
             announce(

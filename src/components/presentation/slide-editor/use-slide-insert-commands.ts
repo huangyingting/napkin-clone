@@ -340,13 +340,13 @@ export function useSlideInsertCommands({
       const element = {
         ...baseElement,
         content: {
-          ...((baseElement as { content?: Record<string, unknown> }).content ??
+          ...(((baseElement as unknown as { content?: Record<string, unknown> }).content) ??
             {}),
           kind: "image",
           src,
           ...(assetId ? { assetId } : {}),
         },
-      };
+      } as typeof baseElement;
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(id);
       setInsertImageError(null);

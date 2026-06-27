@@ -13,10 +13,12 @@ function textElement(): SlideElement {
   return {
     id: "text-1",
     kind: "text",
-    text: "Hello",
+    content: { kind: "text", text: "Hello" },
     zIndex: 1,
     box: { x: 10, y: 10, w: 40, h: 10 },
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
   };
 }
 
@@ -24,7 +26,7 @@ function visualElement(): SlideElement {
   return {
     id: "visual-1",
     kind: "visual",
-    visualId: "vis-1",
+    content: { kind: "visual", visualId: "vis-1" },
     zIndex: 1,
     box: { x: 10, y: 10, w: 40, h: 40 },
   };
@@ -34,8 +36,8 @@ function lineShapeElement(): SlideElement {
   return {
     id: "line-1",
     kind: "shape",
-    shape: "line",
-    color: "#111111",
+    content: { kind: "shape", shape: "line" },
+    designOverrides: { fill: { value: "#111111" } },
     zIndex: 1,
     box: { x: 10, y: 10, w: 30, h: 4 },
   };

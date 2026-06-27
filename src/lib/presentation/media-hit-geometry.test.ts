@@ -17,7 +17,7 @@ function visualElement(
   return {
     id,
     kind: "visual",
-    visualId,
+    content: { kind: "visual", visualId },
     zIndex: 1,
     box: elementBox,
   };
@@ -82,7 +82,7 @@ test("buildMediaHitGeometry leaves images on box fallback until alpha geometry i
   const image: SlideElement = {
     id: "image-1",
     kind: "image",
-    src: "/image.png",
+    content: { kind: "image", src: "/image.png" },
     zIndex: 1,
     box: box(0, 0, 50, 50),
   };

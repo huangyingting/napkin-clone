@@ -455,8 +455,15 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
           {
             id: "el-text",
             kind: "text",
-            text: "old",
-            style: { fontSize: 5, bold: false, italic: false, align: "left" },
+            content: { kind: "text", text: "old" },
+            designOverrides: {
+              textStyle: {
+                fontSize: 5,
+                bold: false,
+                italic: false,
+                align: "left",
+              },
+            },
             box: { x: 0, y: 0, w: 50, h: 10 },
             zIndex: 1,
             source: {

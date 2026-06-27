@@ -15,11 +15,11 @@ function el(
   return {
     id,
     kind: "shape",
-    shape: "rect",
+    content: { kind: "shape", shape: "rect" },
     zIndex,
     box: { x: 0, y: 0, w: 10, h: 10 },
     ...extra,
-  } as SlideElement;
+  } as unknown as SlideElement;
 }
 
 /** Returns the stacking order (bottom-to-top) as an array of ids. */

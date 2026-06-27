@@ -16,8 +16,11 @@ test("safeParseDeck accepts a connector element with two free points", () => {
         kind: "connector",
         zIndex: 5,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        start: { x: 10, y: 20 },
-        end: { x: 80, y: 70 },
+        content: {
+          kind: "connector",
+          start: { x: 10, y: 20 },
+          end: { x: 80, y: 70 },
+        },
       },
     ]),
   );
@@ -42,8 +45,11 @@ test("safeParseDeck accepts a connector element with bound endpoints", () => {
         kind: "connector",
         zIndex: 0,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        start: { elementId: "el-a", anchor: "right" },
-        end: { elementId: "el-b", anchor: "left" },
+        content: {
+          kind: "connector",
+          start: { elementId: "el-a", anchor: "right" },
+          end: { elementId: "el-b", anchor: "left" },
+        },
       },
     ]),
   );
@@ -52,8 +58,14 @@ test("safeParseDeck accepts a connector element with bound endpoints", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "connector");
     if (el?.kind === "connector") {
-      assert.deepEqual((el as any).content.start, { elementId: "el-a", anchor: "right" });
-      assert.deepEqual((el as any).content.end, { elementId: "el-b", anchor: "left" });
+      assert.deepEqual((el as any).content.start, {
+        elementId: "el-a",
+        anchor: "right",
+      });
+      assert.deepEqual((el as any).content.end, {
+        elementId: "el-b",
+        anchor: "left",
+      });
     }
   }
 });
@@ -66,14 +78,19 @@ test("safeParseDeck round-trips connector optional fields", () => {
         kind: "connector",
         zIndex: 1,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        start: { x: 5, y: 5 },
-        end: { x: 95, y: 95 },
-        stroke: { color: "#ff0000", width: 1.5 },
-        arrowStart: "none",
-        arrowEnd: "filled",
-        dash: true,
-        routing: "elbow",
-        opacity: 0.7,
+        content: {
+          kind: "connector",
+          start: { x: 5, y: 5 },
+          end: { x: 95, y: 95 },
+          routing: "elbow",
+        },
+        designOverrides: {
+          stroke: { color: "#ff0000", width: 1.5 },
+          arrowStart: "none",
+          arrowEnd: "filled",
+          dash: true,
+          opacity: 0.7,
+        },
       },
     ]),
   );
@@ -103,7 +120,10 @@ test("safeParseDeck rejects a connector with a missing start", () => {
         kind: "connector",
         zIndex: 0,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        end: { x: 50, y: 50 },
+        content: {
+          kind: "connector",
+          end: { x: 50, y: 50 },
+        },
       },
     ]),
   );
@@ -118,8 +138,11 @@ test("safeParseDeck rejects a connector with an invalid anchor", () => {
         kind: "connector",
         zIndex: 0,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        start: { elementId: "el-a", anchor: "north" },
-        end: { x: 50, y: 50 },
+        content: {
+          kind: "connector",
+          start: { elementId: "el-a", anchor: "north" },
+          end: { x: 50, y: 50 },
+        },
       },
     ]),
   );
@@ -134,9 +157,12 @@ test("safeParseDeck rejects a connector with a non-hex stroke color", () => {
         kind: "connector",
         zIndex: 0,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        start: { x: 0, y: 0 },
-        end: { x: 50, y: 50 },
-        stroke: { color: "red", width: 1 },
+        content: {
+          kind: "connector",
+          start: { x: 0, y: 0 },
+          end: { x: 50, y: 50 },
+        },
+        designOverrides: { stroke: { color: "red", width: 1 } },
       },
     ]),
   );
@@ -152,9 +178,12 @@ test("safeParseDeck ignores unrecognised connector routing values", () => {
         kind: "connector",
         zIndex: 0,
         box: { x: 0, y: 0, w: 100, h: 100 },
-        start: { x: 0, y: 0 },
-        end: { x: 50, y: 50 },
-        routing: "bezier",
+        content: {
+          kind: "connector",
+          start: { x: 0, y: 0 },
+          end: { x: 50, y: 50 },
+          routing: "bezier",
+        },
       },
     ]),
   );

@@ -41,7 +41,12 @@ function textElement(text: string, role: "title" | "bullet", zIndex: number) {
           : [{ text }],
     },
     designOverrides: {
-      textStyle: { fontSize: 5, bold: role === "title", italic: false, align: "left" },
+      textStyle: {
+        fontSize: 5,
+        bold: role === "title",
+        italic: false,
+        align: "left",
+      },
     },
   };
 }
@@ -63,7 +68,9 @@ function slide(partial: Record<string, any>): Slide {
   const visualIds = (partial.visualIds ?? []) as string[];
   const elements = [
     ...(title ? [textElement(title, "title", 0)] : []),
-    ...(bullets.length > 0 ? [textElement(bullets.join("\n"), "bullet", 1)] : []),
+    ...(bullets.length > 0
+      ? [textElement(bullets.join("\n"), "bullet", 1)]
+      : []),
     ...visualIds.map((visualId, index) => visualElement(visualId, index + 2)),
     ...(((partial as any).elements ?? []) as unknown[]),
   ];
@@ -128,7 +135,11 @@ test("content hash ignores free-form elements and per-slide colors", () => {
         role: "title",
         zIndex: 99,
         box: { x: 0, y: 0, w: 10, h: 10 },
-        content: { kind: "text", text: "Intro", paragraphs: [{ text: "Intro" }] },
+        content: {
+          kind: "text",
+          text: "Intro",
+          paragraphs: [{ text: "Intro" }],
+        },
         designOverrides: {
           textStyle: { fontSize: 9, bold: true, italic: false, align: "left" },
         },

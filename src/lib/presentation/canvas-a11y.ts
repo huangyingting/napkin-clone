@@ -234,7 +234,7 @@ export function announceDelete(name: string): string {
  */
 export function isConnectableElement(el: SlideElement): boolean {
   if (el.kind === "connector") return false;
-  if (el.kind === "shape" && el.shape === "line") return false;
+  if (el.kind === "shape" && el.content.shape === "line") return false;
   return true;
 }
 
@@ -316,14 +316,17 @@ export function buildConnectorBetween(
   return {
     kind: "connector",
     box: connectorBoundingBox(startPt, endPt),
-    start: { elementId: a.id, anchor: startAnchor },
-    end: { elementId: b.id, anchor: endAnchor },
-    arrowEnd: "arrow",
-  };
+    content: {
+      kind: "connector",
+      start: { elementId: a.id, anchor: startAnchor },
+      end: { elementId: b.id, anchor: endAnchor },
+    },
+    designOverrides: { arrowEnd: "arrow" },
+  } as Omit<ConnectorElement, "id" | "zIndex">;
 }
 
 function isBoundEndpoint(
-  endpoint: ConnectorElement["start"],
+  endpoint: ConnectorElement["content"]["start"],
 ): endpoint is ConnectorEndpoint {
   return "elementId" in endpoint;
 }
@@ -339,7 +342,7 @@ export function cycleEndpointAnchor(
   whichEnd: "start" | "end",
   dir: number,
 ): ConnectorElement {
-  const endpoint = connector[whichEnd];
+  const endpoint = connector.content[whichEnd];
   if (!isBoundEndpoint(endpoint)) return connector;
   const anchors = CONNECTOR_ANCHORS;
   const step = dir < 0 ? -1 : 1;
@@ -350,7 +353,10 @@ export function cycleEndpointAnchor(
   if (nextAnchor === endpoint.anchor) return connector;
   return {
     ...connector,
-    [whichEnd]: { elementId: endpoint.elementId, anchor: nextAnchor },
+    content: {
+      ...connector.content,
+      [whichEnd]: { elementId: endpoint.elementId, anchor: nextAnchor },
+    },
   };
 }
 

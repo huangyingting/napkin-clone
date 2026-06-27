@@ -7,19 +7,27 @@ import {
   validateImageFitMode,
   validateImageMaskShape,
 } from "./deck-schema";
-import { buildImageElement } from "@/test/builders/deck";
 import { elementDeck } from "./deck-schema.test-helpers";
 
 function imageElementDeck(overrides: Record<string, unknown> = {}): unknown {
+  const { fitMode, maskShape, radius, ...contentOverrides } = overrides;
   return elementDeck([
     {
-      ...buildImageElement({
-        id: "img-1",
+      id: "img-1",
+      kind: "image",
+      role: "image",
+      zIndex: 0,
+      box: { x: 8, y: 10, w: 32, h: 24 },
+      content: {
+        kind: "image",
         src: "https://example.com/a.png",
-        zIndex: 0,
-        box: { x: 8, y: 10, w: 32, h: 24 },
-      }),
-      ...overrides,
+        ...contentOverrides,
+      },
+      ...(fitMode !== undefined ||
+      maskShape !== undefined ||
+      radius !== undefined
+        ? { designOverrides: { fitMode, maskShape, radius } }
+        : {}),
     },
   ]);
 }

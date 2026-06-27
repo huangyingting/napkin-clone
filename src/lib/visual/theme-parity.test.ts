@@ -33,16 +33,17 @@ import { buildDeck } from "@/test/builders/deck";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 
 function titleEl(overrides: Partial<TextElement> = {}): TextElement {
-  const text = overrides.text ?? "Heading";
+  const text = overrides.content?.text ?? "Heading";
   return {
     id: "title",
     kind: "text",
-    textRole: "title",
-    text,
-    paragraphs: overrides.paragraphs ?? [{ text }],
+    role: "title",
     zIndex: 0,
     box: { x: 6, y: 6, w: 88, h: 16 },
-    style: { fontSize: 6, bold: true, italic: false, align: "left" },
+    content: { kind: "text", text, paragraphs: [{ text }] },
+    designOverrides: {
+      textStyle: { fontSize: 6, bold: true, italic: false, align: "left" },
+    },
     ...overrides,
   };
 }
@@ -51,12 +52,17 @@ function bodyBulletsEl(overrides: Partial<TextElement> = {}): TextElement {
   return {
     id: "b",
     kind: "text",
-    text: "point",
-    paragraphs: [{ text: "point", listType: "bullet" }],
-    textRole: "bullet",
+    role: "bullet",
     zIndex: 1,
     box: { x: 6, y: 26, w: 88, h: 60 },
-    style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+    content: {
+      kind: "text",
+      text: "point",
+      paragraphs: [{ text: "point", listType: "bullet" }],
+    },
+    designOverrides: {
+      textStyle: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+    },
     ...overrides,
   };
 }
@@ -199,12 +205,14 @@ test("a local color override wins in export regardless of the theme", () => {
     slides: [
       slide([
         titleEl({
-          style: {
-            fontSize: 6,
-            bold: true,
-            italic: false,
-            align: "left",
-            color: "#00ff00",
+          designOverrides: {
+            textStyle: {
+              fontSize: 6,
+              bold: true,
+              italic: false,
+              align: "left",
+              color: "#00ff00",
+            },
           },
         }),
       ]),

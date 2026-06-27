@@ -15,7 +15,7 @@ export function isInlineEditableStageElement(
 ): element is InlineEditableStageElement {
   return (
     element.kind === "text" ||
-    (element.kind === "shape" && element.shape !== "line")
+    (element.kind === "shape" && element.content.shape !== "line")
   );
 }
 

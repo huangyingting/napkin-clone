@@ -174,8 +174,12 @@ export function InlineTextEditor({
       kind !== "shape" &&
       isAutoHeight({
         ...(element as TextLikeElement),
-        fitMode: textContent(element as Extract<SlideElement, { kind: "text" }>)
-          .fitMode,
+        content: {
+          ...(element as Extract<SlideElement, { kind: "text" }>).content,
+          fitMode: textContent(
+            element as Extract<SlideElement, { kind: "text" }>,
+          ).fitMode,
+        },
       });
     const box = autoH
       ? clampBox({

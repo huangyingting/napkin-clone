@@ -72,7 +72,9 @@ test("safeParseDeck accepts a minimal v6 deck", () => {
 
 test("safeParseDeck rejects superseded top-level v5 fields", () => {
   for (const field of ["themeId", "customTokenSet", "slideFormat", "layouts"]) {
-    const result = safeParseDeck(minimalV6Deck({ [field]: field === "layouts" ? [] : "legacy" }));
+    const result = safeParseDeck(
+      minimalV6Deck({ [field]: field === "layouts" ? [] : "legacy" }),
+    );
     assert.equal(result.success, false, field);
     assert.match(result.error, new RegExp(`Deck\\.${field}`));
   }
@@ -103,7 +105,9 @@ test("safeParseDeck rejects mismatched element kind and content.kind", () => {
         index: 0,
         title: "Hello",
         elements: [
-          textElement({ content: { kind: "image", src: "https://example.test/a.png" } }),
+          textElement({
+            content: { kind: "image", src: "https://example.test/a.png" },
+          }),
         ],
       },
     ],
@@ -116,7 +120,13 @@ test("safeParseDeck rejects mismatched element kind and content.kind", () => {
 test("safeParseDeck requires master element layer and locked=true", () => {
   const missingLayer = safeParseDeck(
     minimalV6Deck({
-      masters: [{ id: "master-default", name: "Default", elements: [masterElement({ layer: undefined })] }],
+      masters: [
+        {
+          id: "master-default",
+          name: "Default",
+          elements: [masterElement({ layer: undefined })],
+        },
+      ],
     }),
   );
   assert.equal(missingLayer.success, false);
@@ -124,7 +134,13 @@ test("safeParseDeck requires master element layer and locked=true", () => {
 
   const unlocked = safeParseDeck(
     minimalV6Deck({
-      masters: [{ id: "master-default", name: "Default", elements: [masterElement({ locked: false })] }],
+      masters: [
+        {
+          id: "master-default",
+          name: "Default",
+          elements: [masterElement({ locked: false })],
+        },
+      ],
     }),
   );
   assert.equal(unlocked.success, false);

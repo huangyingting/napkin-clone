@@ -12,7 +12,7 @@ function visualElement(id: string, visualId: string): SlideElement {
   return {
     id,
     kind: "visual",
-    visualId,
+    content: { kind: "visual", visualId },
     zIndex: 0,
     box: { x: 0, y: 0, w: 50, h: 50 },
   };
@@ -22,10 +22,12 @@ function textElement(id: string, text: string): SlideElement {
   return {
     id,
     kind: "text",
-    text,
+    content: { kind: "text", text },
     zIndex: 1,
     box: { x: 0, y: 0, w: 50, h: 20 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
   };
 }
 

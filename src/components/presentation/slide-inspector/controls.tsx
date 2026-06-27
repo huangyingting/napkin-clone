@@ -292,7 +292,8 @@ export function ImageElementEditor({
       setError(null);
       onUpdateElement(element.id, {
         content: {
-          ...(element as { content?: Record<string, unknown> }).content,
+          ...(element as unknown as { content?: Record<string, unknown> })
+            .content,
           kind: "image",
           src,
           ...(assetId ? { assetId } : {}),
@@ -341,7 +342,9 @@ export function ImageElementEditor({
             onChange={(event) =>
               onUpdateElement(element.id, {
                 content: {
-                  ...(element as { content?: Record<string, unknown> }).content,
+                  ...(
+                    element as unknown as { content?: Record<string, unknown> }
+                  ).content,
                   kind: "image",
                   src: event.target.value,
                 },
@@ -359,7 +362,9 @@ export function ImageElementEditor({
             onChange={(event) =>
               onUpdateElement(element.id, {
                 content: {
-                  ...(element as { content?: Record<string, unknown> }).content,
+                  ...(
+                    element as unknown as { content?: Record<string, unknown> }
+                  ).content,
                   kind: "image",
                   alt: event.target.value,
                 },
@@ -397,7 +402,8 @@ export function ImageElementEditor({
           onChange={(crop) =>
             onUpdateElement(element.id, {
               content: {
-                ...(element as { content?: Record<string, unknown> }).content,
+                ...(element as unknown as { content?: Record<string, unknown> })
+                  .content,
                 kind: "image",
                 crop,
               },

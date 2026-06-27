@@ -902,7 +902,7 @@ export function mergeCoalescedSlideCommands(
     return { ...a, patch: { ...a.patch, ...b.patch } };
   }
   if (a.type === "UPDATE_ELEMENT" && b.type === "UPDATE_ELEMENT") {
-    return { ...a, patch: { ...a.patch, ...b.patch } };
+    return { ...a, patch: { ...a.patch, ...b.patch } as typeof a.patch };
   }
   if (
     a.type === "UPDATE_ELEMENT_CONTENT" &&

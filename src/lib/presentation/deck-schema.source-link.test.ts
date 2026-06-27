@@ -10,7 +10,7 @@ import {
   type TextElement,
 } from "./deck";
 import { safeParseDeck, validateSourceRef } from "./deck-schema";
-import { buildSourceRef, buildTextElement } from "@/test/builders/deck";
+import { buildSourceRef } from "@/test/builders/deck";
 import { elementDeck } from "./deck-schema.test-helpers";
 
 function makeSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
@@ -25,15 +25,18 @@ function makeSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
 function sourceLinkedTextElement(
   source: SourceRef = makeSourceRef(),
 ): TextElement {
-  return buildTextElement({
+  return {
     id: "linked-text",
-    textRole: "body",
-    text: "Linked content",
+    kind: "text",
+    role: "body",
     zIndex: 0,
     box: { x: 1, y: 2, w: 30, h: 12 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: "Linked content" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
     source,
-  });
+  } as unknown as TextElement;
 }
 
 test("validateSourceRef accepts source link metadata", () => {
@@ -142,11 +145,16 @@ test("unlinkSource returns same object identity when element has no sourceRef", 
   const element: TextElement = {
     id: "no-source",
     kind: "text",
-    text: "No source",
-    paragraphs: [{ text: "No source" }],
+    content: {
+      kind: "text",
+      text: "No source",
+      paragraphs: [{ text: "No source" }],
+    },
     zIndex: 0,
     box: { x: 0, y: 0, w: 10, h: 5 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    designOverrides: {
+      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+    },
   };
   assert.strictEqual(unlinkSource(element), element);
 });

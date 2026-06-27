@@ -423,13 +423,13 @@ export function BulletGapControl({
         min={0}
         max={20}
         step={0.5}
-        value={element.bulletGap ?? 0}
+        value={element.content.bulletGap ?? 0}
         onChange={(e) => {
           const v = parseFloat(e.target.value);
           if (!Number.isFinite(v) || v <= 0) {
-            onChange({ bulletGap: undefined });
+            onChange({ content: { ...element.content, bulletGap: undefined } });
           } else {
-            onChange({ bulletGap: v });
+            onChange({ content: { ...element.content, bulletGap: v } });
           }
         }}
         className={`w-16 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-right text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
@@ -453,13 +453,15 @@ export function BulletIndentControl({
         min={0}
         max={30}
         step={1}
-        value={element.bulletIndent ?? 0}
+        value={element.content.bulletIndent ?? 0}
         onChange={(e) => {
           const v = parseFloat(e.target.value);
           if (!Number.isFinite(v) || v <= 0) {
-            onChange({ bulletIndent: undefined });
+            onChange({
+              content: { ...element.content, bulletIndent: undefined },
+            });
           } else {
-            onChange({ bulletIndent: v });
+            onChange({ content: { ...element.content, bulletIndent: v } });
           }
         }}
         className={`w-16 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-right text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
@@ -492,7 +494,7 @@ export function ListTypeControl({
       ...it,
       listType: targetType,
     }));
-    onChange({ paragraphs: newItems });
+    onChange({ content: { ...element.content, paragraphs: newItems } });
   }
 
   return (

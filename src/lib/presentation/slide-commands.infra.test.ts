@@ -336,8 +336,8 @@ test("ADD_ELEMENT: affectedElementIds contains exactly the new element id", () =
     slideId: "s1",
     element: {
       kind: "shape",
-      shape: "ellipse",
-      color: "#000",
+      content: { kind: "shape", shape: "ellipse" },
+      designOverrides: { fill: { value: "#000" } },
       box: { x: 0, y: 0, w: 10, h: 10 },
     },
   });
@@ -398,8 +398,8 @@ test("ADD_ELEMENT delegates to existing addElement mutation: element gets genera
     slideId: "s1",
     element: {
       kind: "shape",
-      shape: "rect",
-      color: "#fff",
+      content: { kind: "shape", shape: "rect" },
+      designOverrides: { fill: { value: "#fff" } },
       box: { x: 0, y: 0, w: 10, h: 10 },
     },
   });

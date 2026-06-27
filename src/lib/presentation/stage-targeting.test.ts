@@ -17,8 +17,8 @@ function rect(id: string, groupId?: string): SlideElement {
   return {
     id,
     kind: "shape",
-    shape: "rect",
-    color: "#333333",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#333333" } },
     zIndex: 1,
     box: box(10, 10, 20, 20),
     ...(groupId ? { groupId } : {}),

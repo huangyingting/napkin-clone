@@ -29,8 +29,10 @@ function textEl(
     kind: "text",
     box: box(x, y, w, h),
     zIndex: 1,
-    text: id,
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+    content: { kind: "text", text: id },
+    designOverrides: {
+      textStyle: { fontSize: 5, bold: false, italic: false, align: "left" },
+    },
     ...(rotation !== undefined ? { rotation } : {}),
   } as SlideElement;
 }

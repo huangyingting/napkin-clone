@@ -13,13 +13,18 @@ function textElementWithFitMode(fitMode: unknown) {
     {
       id: "t",
       kind: "text",
-      textRole: "body",
-      text: "hi",
-      paragraphs: [{ text: "hi" }],
+      role: "body",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
-      style: { fontSize: 4, bold: false, italic: false, align: "left" },
-      fitMode,
+      content: {
+        kind: "text",
+        text: "hi",
+        paragraphs: [{ text: "hi" }],
+        ...(fitMode !== undefined ? { fitMode } : {}),
+      },
+      designOverrides: {
+        textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+      },
     },
   ]);
 }
@@ -29,16 +34,21 @@ function bulletsElementWithFitMode(fitMode: unknown) {
     {
       id: "b",
       kind: "text",
-      text: "one\ntwo",
-      paragraphs: [
-        { text: "one", listType: "bullet" },
-        { text: "two", listType: "bullet" },
-      ],
-      textRole: "bullet",
+      role: "bullet",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
-      style: { fontSize: 4, bold: false, italic: false, align: "left" },
-      fitMode,
+      content: {
+        kind: "text",
+        text: "one\ntwo",
+        paragraphs: [
+          { text: "one", listType: "bullet" },
+          { text: "two", listType: "bullet" },
+        ],
+        ...(fitMode !== undefined ? { fitMode } : {}),
+      },
+      designOverrides: {
+        textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+      },
     },
   ]);
 }
@@ -122,12 +132,13 @@ function elementWithMetadata(extra: Record<string, unknown>) {
     {
       id: "m",
       kind: "text",
-      textRole: "body",
-      text: "meta",
-      paragraphs: [{ text: "meta" }],
+      role: "body",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
-      style: { fontSize: 4, bold: false, italic: false, align: "left" },
+      content: { kind: "text", text: "meta", paragraphs: [{ text: "meta" }] },
+      designOverrides: {
+        textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+      },
       ...extra,
     },
   ]);
@@ -160,13 +171,9 @@ test("safeParseDeck omits hidden when absent on a slide element", () => {
   }
 });
 
-test("safeParseDeck does not persist old layer names on slide elements", () => {
+test("safeParseDeck rejects old layer names on slide elements", () => {
   const result = safeParseDeck(elementWithMetadata({ name: "My Layer" }));
-  assert.equal(result.success, true);
-  if (result.success) {
-    const el = result.data.slides[0].elements?.[0];
-    assert.equal((el as any)?.name, undefined);
-  }
+  assert.equal(result.success, false);
 });
 
 test("safeParseDeck omits name when absent on a slide element", () => {
@@ -178,13 +185,9 @@ test("safeParseDeck omits name when absent on a slide element", () => {
   }
 });
 
-test("safeParseDeck omits name when empty string on a slide element", () => {
+test("safeParseDeck rejects empty old layer names on slide elements", () => {
   const result = safeParseDeck(elementWithMetadata({ name: "" }));
-  assert.equal(result.success, true);
-  if (result.success) {
-    const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.name, undefined);
-  }
+  assert.equal(result.success, false);
 });
 
 // ---------------------------------------------------------------------------
@@ -196,12 +199,11 @@ function textElementWithStyle(style: unknown) {
     {
       id: "t",
       kind: "text",
-      textRole: "body",
-      text: "hi",
-      paragraphs: [{ text: "hi" }],
+      role: "body",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
-      style,
+      content: { kind: "text", text: "hi", paragraphs: [{ text: "hi" }] },
+      designOverrides: { textStyle: style },
     },
   ]);
 }
@@ -241,7 +243,10 @@ test("safeParseDeck round-trips verticalAlign=bottom on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal((el as any).designOverrides.textStyle.verticalAlign, "bottom");
+      assert.equal(
+        (el as any).designOverrides.textStyle.verticalAlign,
+        "bottom",
+      );
     }
   }
 });
@@ -260,7 +265,10 @@ test("safeParseDeck omits verticalAlign when absent on a text element", () => {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal((el as any).designOverrides.textStyle.verticalAlign, undefined);
+      assert.equal(
+        (el as any).designOverrides.textStyle.verticalAlign,
+        undefined,
+      );
     }
   }
 });
@@ -353,16 +361,21 @@ function bulletsElementWith(extra: unknown) {
     {
       id: "b",
       kind: "text",
-      text: "one\ntwo",
-      paragraphs: [
-        { text: "one", listType: "bullet" },
-        { text: "two", listType: "bullet" },
-      ],
-      textRole: "bullet",
+      role: "bullet",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
-      style: { fontSize: 4, bold: false, italic: false, align: "left" },
-      ...(extra as object),
+      content: {
+        kind: "text",
+        text: "one\ntwo",
+        paragraphs: [
+          { text: "one", listType: "bullet" },
+          { text: "two", listType: "bullet" },
+        ],
+        ...(extra as object),
+      },
+      designOverrides: {
+        textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
+      },
     },
   ]);
 }
@@ -419,17 +432,22 @@ test("safeParseDeck round-trips verticalAlign=middle on a bullets element style"
       {
         id: "b",
         kind: "text",
-        text: "x",
-        paragraphs: [{ text: "x", listType: "bullet" }],
-        textRole: "bullet",
+        role: "bullet",
         zIndex: 0,
         box: { x: 0, y: 0, w: 10, h: 10 },
-        style: {
-          fontSize: 4,
-          bold: false,
-          italic: false,
-          align: "left",
-          verticalAlign: "middle",
+        content: {
+          kind: "text",
+          text: "x",
+          paragraphs: [{ text: "x", listType: "bullet" }],
+        },
+        designOverrides: {
+          textStyle: {
+            fontSize: 4,
+            bold: false,
+            italic: false,
+            align: "left",
+            verticalAlign: "middle",
+          },
         },
       },
     ]),
@@ -439,7 +457,10 @@ test("safeParseDeck round-trips verticalAlign=middle on a bullets element style"
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.kind, "text");
     if (el?.kind === "text") {
-      assert.equal((el as any).designOverrides.textStyle.verticalAlign, "middle");
+      assert.equal(
+        (el as any).designOverrides.textStyle.verticalAlign,
+        "middle",
+      );
     }
   }
 });

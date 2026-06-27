@@ -49,18 +49,24 @@ function applyCommonTextStyle(
   element: TextHitElement,
   stageHeightPx: number,
 ) {
+  const textStyle = element.designOverrides?.textStyle ?? {
+    fontSize: 4,
+    bold: false,
+    italic: false,
+    align: "left" as const,
+  };
   const style = node.style;
   style.boxSizing = "border-box";
   style.color = "black";
-  style.fontSize = `${Math.max(1, (element.style.fontSize / 100) * stageHeightPx)}px`;
-  style.fontWeight = element.style.bold ? "700" : "400";
-  style.fontStyle = element.style.italic ? "italic" : "normal";
-  style.textAlign = element.style.align;
+  style.fontSize = `${Math.max(1, ((textStyle.fontSize ?? 4) / 100) * stageHeightPx)}px`;
+  style.fontWeight = textStyle.bold ? "700" : "400";
+  style.fontStyle = textStyle.italic ? "italic" : "normal";
+  style.textAlign = textStyle.align ?? "left";
   const hasListParagraphs = normalizeTextParagraphs(element).some(
     (paragraph) => paragraph.listType !== undefined,
   );
   style.lineHeight = String(
-    element.style.lineHeight ?? (hasListParagraphs ? 1.2 : 1.15),
+    textStyle.lineHeight ?? (hasListParagraphs ? 1.2 : 1.15),
   );
   style.margin = "0";
   style.padding = "0";
@@ -68,8 +74,8 @@ function applyCommonTextStyle(
   style.overflowWrap = "break-word";
   style.wordBreak = "normal";
   style.whiteSpace = hasListParagraphs ? "normal" : "pre-wrap";
-  style.textDecoration = element.style.underline ? "underline" : "";
-  const fontCss = resolveElementFontCss(element.style.fontId);
+  style.textDecoration = textStyle.underline ? "underline" : "";
+  const fontCss = resolveElementFontCss(textStyle.fontId);
   if (fontCss) style.fontFamily = fontCss;
 }
 
@@ -95,10 +101,11 @@ function createOuterNode(
   applyCommonTextStyle(outer, element, stageHeightPx);
   outer.style.display = "flex";
   outer.style.flexDirection = "column";
+  const textStyle = element.designOverrides?.textStyle;
   outer.style.justifyContent =
-    element.style.verticalAlign === "top"
+    textStyle?.verticalAlign === "top"
       ? "flex-start"
-      : element.style.verticalAlign === "bottom"
+      : textStyle?.verticalAlign === "bottom"
         ? "flex-end"
         : "center";
   outer.style.width = `${Math.max(1, (box.w / 100) * stageWidthPx)}px`;
@@ -116,8 +123,10 @@ function createTextNodes(element: TextHitElement) {
     inner.style.whiteSpace = "pre-wrap";
     inner.style.overflowWrap = "break-word";
     inner.style.wordBreak = "normal";
-    if (element.style.paragraphSpacing && index < paragraphs.length - 1) {
-      inner.style.marginBottom = `${element.style.paragraphSpacing}cqh`;
+    const paragraphSpacing =
+      element.designOverrides?.textStyle?.paragraphSpacing;
+    if (paragraphSpacing && index < paragraphs.length - 1) {
+      inner.style.marginBottom = `${paragraphSpacing}cqh`;
     }
     fillInline(inner, paragraph.runs, paragraph.text || "\u00a0");
     return inner;
@@ -235,13 +244,12 @@ function measureElement(
     (paragraph) => paragraph.listType !== undefined,
   );
   if (hasListParagraphs) {
-    outer.style.gap = element.bulletGap
-      ? `${(element.bulletGap / 100) * stageHeightPx}px`
+    outer.style.gap = element.content.bulletGap
+      ? `${(element.content.bulletGap / 100) * stageHeightPx}px`
       : "0.6em";
     outer.style.listStyle = "none";
-    outer.style.margin = "0";
-    if (element.bulletIndent) {
-      outer.style.paddingLeft = `${(element.bulletIndent / 100) * stageWidthPx}px`;
+    if (element.content.bulletIndent) {
+      outer.style.paddingLeft = `${(element.content.bulletIndent / 100) * stageWidthPx}px`;
     }
     outer.append(...createListNodes(element));
   } else {

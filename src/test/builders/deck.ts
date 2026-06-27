@@ -15,6 +15,9 @@ import {
   type TextRun,
   type VisualElement,
   type SlideFormat,
+  type ImageFitMode,
+  type ImageMaskShape,
+  type ShapeKind,
 } from "@/lib/presentation/deck";
 
 export function buildElementBox(
@@ -70,33 +73,56 @@ export function buildSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
   };
 }
 
+type TextElementOverrides = Partial<TextElement> & {
+  text?: string;
+  paragraphs?: Paragraph[];
+  runs?: TextRun[];
+  style?: Partial<TextElementStyle>;
+};
+
 export function buildTextElement(
-  overrides: Partial<TextElement> = {},
+  overrides: TextElementOverrides = {},
 ): TextElement {
-  const text = overrides.text ?? "Fixture text";
-  return {
-    id: overrides.id ?? "text-fixture",
-    kind: "text",
-    text,
-    paragraphs: overrides.paragraphs ?? [
+  const text = overrides.content?.text ?? overrides.text ?? "Fixture text";
+  const paragraphs = overrides.content?.paragraphs ??
+    overrides.paragraphs ?? [
       {
         text,
         ...(overrides.runs !== undefined && overrides.runs.length > 0
           ? { runs: overrides.runs }
           : {}),
       },
-    ],
+    ];
+  return {
+    id: overrides.id ?? "text-fixture",
+    kind: "text",
+    role: overrides.role ?? "body",
     zIndex: overrides.zIndex ?? 0,
     box: buildElementBox(overrides.box),
-    style: buildTextStyle(overrides.style),
-    ...(overrides.runs !== undefined ? { runs: overrides.runs } : {}),
-    ...(overrides.textRole !== undefined
-      ? { textRole: overrides.textRole }
-      : {}),
-    ...(overrides.styleOverride !== undefined
-      ? { styleOverride: overrides.styleOverride }
-      : {}),
-    ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
+    content: {
+      kind: "text",
+      text,
+      paragraphs,
+      ...(overrides.content?.runs !== undefined
+        ? { runs: overrides.content.runs }
+        : overrides.runs !== undefined
+          ? { runs: overrides.runs }
+          : {}),
+      ...(overrides.content?.fitMode !== undefined
+        ? { fitMode: overrides.content.fitMode }
+        : {}),
+      ...(overrides.content?.bulletGap !== undefined
+        ? { bulletGap: overrides.content.bulletGap }
+        : {}),
+      ...(overrides.content?.bulletIndent !== undefined
+        ? { bulletIndent: overrides.content.bulletIndent }
+        : {}),
+    },
+    designOverrides: {
+      ...(overrides.designOverrides ?? {}),
+      textStyle:
+        overrides.designOverrides?.textStyle ?? buildTextStyle(overrides.style),
+    },
     ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
@@ -107,16 +133,10 @@ export function buildTextElement(
     ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
     ...(overrides.name !== undefined ? { name: overrides.name } : {}),
     ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
-    ...(overrides.bulletGap !== undefined
-      ? { bulletGap: overrides.bulletGap }
-      : {}),
-    ...(overrides.bulletIndent !== undefined
-      ? { bulletIndent: overrides.bulletIndent }
-      : {}),
-  };
+  } as unknown as TextElement;
 }
 
-type TextListOverrides = Partial<TextElement> & {
+type TextListOverrides = TextElementOverrides & {
   bullets?: string[];
   bulletRuns?: TextRun[][];
   items?: Paragraph[];
@@ -144,22 +164,28 @@ export function buildBulletsElement(
   return {
     id: overrides.id ?? "bullets-fixture",
     kind: "text",
-    text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
-    paragraphs,
+    role: overrides.role ?? "bullet",
     zIndex: overrides.zIndex ?? 1,
     box: buildElementBox(overrides.box ?? { y: 28, h: 48 }),
-    style: buildTextStyle(overrides.style),
-    textRole: overrides.textRole ?? "bullet",
-    ...(overrides.styleOverride !== undefined
-      ? { styleOverride: overrides.styleOverride }
-      : {}),
-    ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
-    ...(overrides.bulletGap !== undefined
-      ? { bulletGap: overrides.bulletGap }
-      : {}),
-    ...(overrides.bulletIndent !== undefined
-      ? { bulletIndent: overrides.bulletIndent }
-      : {}),
+    content: {
+      kind: "text",
+      text: paragraphs.map((paragraph: Paragraph) => paragraph.text).join("\n"),
+      paragraphs,
+      ...(overrides.content?.fitMode !== undefined
+        ? { fitMode: overrides.content.fitMode }
+        : {}),
+      ...(overrides.content?.bulletGap !== undefined
+        ? { bulletGap: overrides.content.bulletGap }
+        : {}),
+      ...(overrides.content?.bulletIndent !== undefined
+        ? { bulletIndent: overrides.content.bulletIndent }
+        : {}),
+    },
+    designOverrides: {
+      ...(overrides.designOverrides ?? {}),
+      textStyle:
+        overrides.designOverrides?.textStyle ?? buildTextStyle(overrides.style),
+    },
     ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
@@ -169,22 +195,33 @@ export function buildBulletsElement(
     ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
     ...(overrides.name !== undefined ? { name: overrides.name } : {}),
     ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
-  };
+  } as unknown as TextElement;
 }
 
+type VisualElementOverrides = Partial<VisualElement> & {
+  visualId?: string;
+  styleThemeId?: string;
+  alt?: string;
+};
+
 export function buildVisualElement(
-  overrides: Partial<VisualElement> = {},
+  overrides: VisualElementOverrides = {},
 ): VisualElement {
-  return {
-    id: overrides.id ?? "visual-element-fixture",
-    kind: "visual",
+  const content = overrides.content ?? {
+    kind: "visual" as const,
     visualId: overrides.visualId ?? "visual-fixture",
-    zIndex: overrides.zIndex ?? 2,
-    box: buildElementBox(overrides.box ?? { x: 20, y: 22, w: 60, h: 56 }),
     ...(overrides.styleThemeId !== undefined
       ? { styleThemeId: overrides.styleThemeId }
       : {}),
     ...(overrides.alt !== undefined ? { alt: overrides.alt } : {}),
+  };
+  return {
+    id: overrides.id ?? "visual-element-fixture",
+    kind: "visual",
+    role: overrides.role ?? "visual",
+    zIndex: overrides.zIndex ?? 2,
+    box: buildElementBox(overrides.box ?? { x: 20, y: 22, w: 60, h: 56 }),
+    content,
     ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
@@ -194,26 +231,46 @@ export function buildVisualElement(
     ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
     ...(overrides.name !== undefined ? { name: overrides.name } : {}),
     ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
-  };
+  } as unknown as VisualElement;
 }
 
+type ImageElementOverrides = Partial<ImageElement> & {
+  src?: string;
+  alt?: string;
+  radius?: number;
+  fitMode?: ImageFitMode;
+  maskShape?: ImageMaskShape;
+  crop?: ImageElement["content"]["crop"];
+  assetId?: string;
+};
+
 export function buildImageElement(
-  overrides: Partial<ImageElement> = {},
+  overrides: ImageElementOverrides = {},
 ): ImageElement {
   return {
     id: overrides.id ?? "image-fixture",
     kind: "image",
-    src: overrides.src ?? "https://example.test/fixture.png",
+    role: overrides.role ?? "image",
     zIndex: overrides.zIndex ?? 2,
     box: buildElementBox(overrides.box ?? { x: 60, y: 30, w: 30, h: 30 }),
-    ...(overrides.alt !== undefined ? { alt: overrides.alt } : {}),
-    ...(overrides.radius !== undefined ? { radius: overrides.radius } : {}),
-    ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
-    ...(overrides.maskShape !== undefined
-      ? { maskShape: overrides.maskShape }
-      : {}),
-    ...(overrides.crop !== undefined ? { crop: overrides.crop } : {}),
-    ...(overrides.assetId !== undefined ? { assetId: overrides.assetId } : {}),
+    content: overrides.content ?? {
+      kind: "image",
+      src: overrides.src ?? "https://example.test/fixture.png",
+      ...(overrides.assetId !== undefined
+        ? { assetId: overrides.assetId }
+        : {}),
+      ...(overrides.alt !== undefined ? { alt: overrides.alt } : {}),
+      ...(overrides.crop !== undefined ? { crop: overrides.crop } : {}),
+    },
+    designOverrides: overrides.designOverrides ?? {
+      ...(overrides.fitMode !== undefined
+        ? { fitMode: overrides.fitMode }
+        : {}),
+      ...(overrides.maskShape !== undefined
+        ? { maskShape: overrides.maskShape }
+        : {}),
+      ...(overrides.radius !== undefined ? { radius: overrides.radius } : {}),
+    },
     ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
@@ -224,34 +281,48 @@ export function buildImageElement(
     ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
     ...(overrides.name !== undefined ? { name: overrides.name } : {}),
     ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
-  };
+  } as unknown as ImageElement;
 }
 
+type ShapeElementOverrides = Partial<ShapeElement> & {
+  shape?: ShapeKind;
+  color?: string;
+  text?: string;
+  textRuns?: TextRun[];
+  textStyle?: Partial<TextElementStyle>;
+  textStyleOverride?: Partial<TextElementStyle>;
+  stroke?: { color: string; width: number };
+  radius?: number;
+};
+
 export function buildShapeElement(
-  overrides: Partial<ShapeElement> = {},
+  overrides: ShapeElementOverrides = {},
 ): ShapeElement {
   return {
     id: overrides.id ?? "shape-fixture",
     kind: "shape",
-    shape: overrides.shape ?? "rect",
-    color: overrides.color ?? "#123456",
+    role: overrides.role ?? "label",
     zIndex: overrides.zIndex ?? 3,
     box: buildElementBox(overrides.box ?? { x: 20, y: 20, w: 20, h: 20 }),
-    ...(overrides.text !== undefined ? { text: overrides.text } : {}),
-    ...(overrides.textRuns !== undefined
-      ? { textRuns: overrides.textRuns }
-      : {}),
-    ...(overrides.textStyle !== undefined
-      ? { textStyle: buildTextStyle(overrides.textStyle) }
-      : {}),
-    ...(overrides.textRole !== undefined
-      ? { textRole: overrides.textRole }
-      : {}),
-    ...(overrides.textStyleOverride !== undefined
-      ? { textStyleOverride: overrides.textStyleOverride }
-      : {}),
-    ...(overrides.stroke !== undefined ? { stroke: overrides.stroke } : {}),
-    ...(overrides.radius !== undefined ? { radius: overrides.radius } : {}),
+    content: overrides.content ?? {
+      kind: "shape",
+      shape: overrides.shape ?? "rect",
+      ...(overrides.text !== undefined ? { text: overrides.text } : {}),
+      ...(overrides.textRuns !== undefined
+        ? { textRuns: overrides.textRuns }
+        : {}),
+    },
+    designOverrides: overrides.designOverrides ?? {
+      fill: { value: overrides.color ?? "#123456" },
+      ...(overrides.textStyle !== undefined
+        ? { textStyle: buildTextStyle(overrides.textStyle) }
+        : {}),
+      ...(overrides.textStyleOverride !== undefined
+        ? { textStyle: overrides.textStyleOverride }
+        : {}),
+      ...(overrides.stroke !== undefined ? { stroke: overrides.stroke } : {}),
+      ...(overrides.radius !== undefined ? { radius: overrides.radius } : {}),
+    },
     ...(overrides.source !== undefined ? { source: overrides.source } : {}),
     ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
     ...(overrides.rotation !== undefined
@@ -262,11 +333,21 @@ export function buildShapeElement(
     ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
     ...(overrides.name !== undefined ? { name: overrides.name } : {}),
     ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
-  };
+  } as unknown as ShapeElement;
 }
 
+type ConnectorElementOverrides = Partial<ConnectorElement> & {
+  start?: ConnectorElement["content"]["start"];
+  end?: ConnectorElement["content"]["end"];
+  routing?: ConnectorElement["content"]["routing"];
+  stroke?: NonNullable<ConnectorElement["designOverrides"]>["stroke"];
+  arrowStart?: NonNullable<ConnectorElement["designOverrides"]>["arrowStart"];
+  arrowEnd?: NonNullable<ConnectorElement["designOverrides"]>["arrowEnd"];
+  dash?: NonNullable<ConnectorElement["designOverrides"]>["dash"];
+};
+
 export function buildConnectorElement(
-  overrides: Partial<ConnectorElement> = {},
+  overrides: ConnectorElementOverrides = {},
 ): ConnectorElement {
   return {
     id: overrides.id ?? "connector-fixture",
@@ -348,7 +429,7 @@ export function buildSlide(overrides: SlideBuilderOverrides = {}): Slide {
     elements: overrides.elements ?? [
       buildTextElement({
         id: "slide-title",
-        textRole: "title",
+        role: "title",
         text: title,
         style: { fontSize: 6, bold: true, italic: false, align: "left" },
       }),
@@ -642,14 +723,16 @@ export function makeSlideWithElementIds(
       id: eid,
       kind: "text" as const,
       role: "body" as const,
-      text: "",
       zIndex: 0,
       box: { x: 0, y: 0, w: 100, h: 10 },
-      style: {
-        fontSize: 4.5,
-        bold: false,
-        italic: false,
-        align: "left" as const,
+      content: { kind: "text" as const, text: "" },
+      designOverrides: {
+        textStyle: {
+          fontSize: 4.5,
+          bold: false,
+          italic: false,
+          align: "left" as const,
+        },
       },
     })) as SlideElement[],
   } as unknown as Slide;
