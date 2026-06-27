@@ -210,31 +210,36 @@ export function useSlideEditorOpen({
   // deck saved from it is never falsely flagged as stale on reopen. A fresh
   // derivation inherits the document's dominant visual theme (or `indigo` when
   // none).
-  const buildOpenContext = useCallback((json: string): OpenContext => {
-    const blocks = collectDocumentBlocks(json);
-    const derived = buildDeckFromBlocks(blocks, inferDeckTheme(blocks));
-    const currentContentHash = computeDeckContentHash(derived);
-    const baseDeck = stampDeckContentHash(derived, currentContentHash);
+  const buildOpenContext = useCallback(
+    (json: string): OpenContext => {
+      const blocks = collectDocumentBlocks(json);
+      const derived = buildDeckFromBlocks(blocks, inferDeckTheme(blocks), {
+        documentId,
+      });
+      const currentContentHash = computeDeckContentHash(derived);
+      const baseDeck = stampDeckContentHash(derived, currentContentHash);
 
-    // Map every embedded visual so the slide previews can render real content
-    // without ever reaching back into Lexical/Yjs state.
-    const visualMap = new Map<string, Visual>();
-    for (const block of blocks) {
-      if (block.kind === "visual") {
-        visualMap.set(block.visualId, block.visual);
+      // Map every embedded visual so the slide previews can render real content
+      // without ever reaching back into Lexical/Yjs state.
+      const visualMap = new Map<string, Visual>();
+      for (const block of blocks) {
+        if (block.kind === "visual") {
+          visualMap.set(block.visualId, block.visual);
+        }
       }
-    }
-    return {
-      baseDeck,
-      currentContentHash,
-      visualMap,
-      knownVisualIds: new Set(visualMap.keys()),
-      documentBlocks: blocks,
-      documentTextBlocks: blocks.filter(
-        (block): block is DocumentTextBlock => block.kind === "text",
-      ),
-    };
-  }, []);
+      return {
+        baseDeck,
+        currentContentHash,
+        visualMap,
+        knownVisualIds: new Set(visualMap.keys()),
+        documentBlocks: blocks,
+        documentTextBlocks: blocks.filter(
+          (block): block is DocumentTextBlock => block.kind === "text",
+        ),
+      };
+    },
+    [documentId],
+  );
 
   // Live document→deck re-sync while the slide editor panel is open (issue
   // #295). Registers a Lexical update listener only while `open` is true;

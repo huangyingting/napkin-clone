@@ -7,7 +7,6 @@ import type {
   ConnectorRouting,
   TextFitMode,
 } from "../deck-elements";
-import { SLIDE_LAYOUTS, type SlideLayoutHint } from "../deck-layouts-model";
 import { SLIDE_FORMATS, type SlideFormat } from "../slide-format";
 
 export class DeckValidationError extends Error {
@@ -25,13 +24,6 @@ export function isPlainObject(
 
 export function isDeckTheme(value: unknown): value is DeckTheme {
   return typeof value === "string" && DECK_THEMES.includes(value as DeckTheme);
-}
-
-export function isSlideLayoutHint(value: unknown): value is SlideLayoutHint {
-  return (
-    typeof value === "string" &&
-    SLIDE_LAYOUTS.includes(value as SlideLayoutHint)
-  );
 }
 
 export function isSlideFormat(value: unknown): value is SlideFormat {

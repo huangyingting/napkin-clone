@@ -4,7 +4,7 @@ import { test } from "node:test";
 import {
   DEFAULT_TYPOGRAPHY,
   getThemeTypography,
-  placeholderStyle,
+  roleStyle,
   resolveBodyFont,
   resolveHeadingFont,
   THEME_TYPOGRAPHY,
@@ -39,8 +39,8 @@ test("resolveBodyFont always returns the base font family", () => {
   );
 });
 
-test("placeholderStyle maps title placeholders to the heading font and H1 scale", () => {
-  assert.deepEqual(placeholderStyle("title", THEME_TYPOGRAPHY.indigo), {
+test("roleStyle maps title roles to the heading font and H1 scale", () => {
+  assert.deepEqual(roleStyle("title", THEME_TYPOGRAPHY.indigo), {
     fontFamily: resolveHeadingFont(THEME_TYPOGRAPHY.indigo),
     fontSize: THEME_TYPOGRAPHY.indigo.scale.h1,
     bold: true,
@@ -48,26 +48,26 @@ test("placeholderStyle maps title placeholders to the heading font and H1 scale"
   });
 });
 
-test("placeholderStyle maps subtitle and footer placeholders to centered body-font tokens", () => {
-  assert.deepEqual(placeholderStyle("subtitle", THEME_TYPOGRAPHY.rose), {
+test("roleStyle maps subtitle and footer roles to centered body-font tokens", () => {
+  assert.deepEqual(roleStyle("subtitle", THEME_TYPOGRAPHY.rose), {
     fontFamily: resolveBodyFont(THEME_TYPOGRAPHY.rose),
     fontSize: THEME_TYPOGRAPHY.rose.scale.h2,
     align: "center",
   });
-  assert.deepEqual(placeholderStyle("footer", THEME_TYPOGRAPHY.rose), {
+  assert.deepEqual(roleStyle("footer", THEME_TYPOGRAPHY.rose), {
     fontFamily: resolveBodyFont(THEME_TYPOGRAPHY.rose),
     fontSize: THEME_TYPOGRAPHY.rose.scale.footer,
     align: "center",
   });
 });
 
-test("placeholderStyle maps body and visual placeholders to list and H3 tokens", () => {
-  assert.deepEqual(placeholderStyle("body", THEME_TYPOGRAPHY.slate), {
+test("roleStyle maps body and visual roles to list and H3 tokens", () => {
+  assert.deepEqual(roleStyle("body", THEME_TYPOGRAPHY.slate), {
     fontFamily: resolveBodyFont(THEME_TYPOGRAPHY.slate),
     fontSize: THEME_TYPOGRAPHY.slate.scale.list,
     align: "left",
   });
-  assert.deepEqual(placeholderStyle("visual", THEME_TYPOGRAPHY.slate), {
+  assert.deepEqual(roleStyle("visual", THEME_TYPOGRAPHY.slate), {
     fontFamily: resolveHeadingFont(THEME_TYPOGRAPHY.slate),
     fontSize: THEME_TYPOGRAPHY.slate.scale.h3,
     bold: true,

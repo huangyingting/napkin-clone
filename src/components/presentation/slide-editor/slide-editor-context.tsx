@@ -16,12 +16,7 @@ import {
   type CSSProperties,
 } from "react";
 
-import type {
-  Deck,
-  ElementBox,
-  Slide,
-  SlideLayout as ReusableSlideLayout,
-} from "@/lib/presentation/deck";
+import type { Deck, ElementBox, Slide } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type {
   AlignMode,
@@ -35,6 +30,7 @@ import type { Size } from "@/lib/presentation/stage-fit";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import type { Visual } from "@/lib/visual/schema";
+import type { SlideTemplateKind } from "@/lib/presentation/slide-templates";
 import type { SelectionMode } from "@/components/presentation/slide-stage-editor";
 
 export interface SlideEditorContextValue {
@@ -120,8 +116,9 @@ export interface SlideEditorContextValue {
   canDelete: boolean;
   handleDuplicateSlide: () => void;
   handleRemoveSlide: () => void;
-  handleApplyReusableLayout: (layout: ReusableSlideLayout) => void;
-  handleResetReusableLayout: (layout: ReusableSlideLayout) => void;
+  handleApplySlideTemplate: (templateId: SlideTemplateKind) => void;
+  handleReapplySlideTemplate: (templateId: SlideTemplateKind) => void;
+  handleSetSlideMaster: (masterId: string | undefined) => void;
   /** Update notes for the currently-selected slide. */
   handleNotesChangeForSelected: (value: string, coalesceKey?: string) => void;
 
@@ -282,8 +279,9 @@ export const SlideInspectorFromContext = memo(
       canDelete,
       handleDuplicateSlide,
       handleRemoveSlide,
-      handleApplyReusableLayout,
-      handleResetReusableLayout,
+      handleApplySlideTemplate,
+      handleReapplySlideTemplate,
+      handleSetSlideMaster,
       handleNotesChangeForSelected,
       handleUpdateElement,
       handleRemoveElement,
@@ -328,8 +326,9 @@ export const SlideInspectorFromContext = memo(
         canDelete={canDelete}
         onDuplicateSlide={handleDuplicateSlide}
         onRemoveSlide={handleRemoveSlide}
-        onApplyLayout={handleApplyReusableLayout}
-        onResetLayout={handleResetReusableLayout}
+        onApplyTemplate={handleApplySlideTemplate}
+        onReapplyTemplate={handleReapplySlideTemplate}
+        onSetSlideMaster={handleSetSlideMaster}
         onUpdateNotes={handleNotesChangeForSelected}
         onUpdateElement={handleUpdateElement}
         onRemoveElement={handleRemoveElement}

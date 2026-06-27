@@ -126,7 +126,10 @@ Source-link helpers live in:
 ### Derive From Document
 
 `buildDeckFromBlocks` converts collected document blocks into v6 slides with
-positioned elements, presentation roles, `content`, and element-level `source`.
+positioned elements, presentation roles, and `content`. Editor and present-mode
+derivations pass the document id so derived title, body, and visual elements
+also carry element-level `source`; pure public fallbacks do not invent source
+refs when no document id is available.
 
 ### Generate With AI
 

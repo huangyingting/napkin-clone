@@ -4,16 +4,16 @@
  * The model is asked to return a single schema-v6 JSON {@link Deck} object
  * whose slides carry concise, presentation-ready content and free-form
  * positioned `elements[]`. The allowed `templateId` and `design.themeId` value
- * lists are derived from the exported `SLIDE_LAYOUTS` / `DECK_THEMES` const
- * arrays in `@/lib/presentation/deck` so this prompt stays in sync with the
- * validator (`safeParseDeck`).
+ * lists are derived from the built-in slide template catalogue and
+ * `DECK_THEMES` so this prompt stays in sync with `safeParseDeck`.
  *
  * This module is intentionally free of any network, DOM, or React dependencies
  * so it can be unit tested deterministically under `node --test`.
  */
 
 import type { ChatMessage } from "@/lib/ai/prompt";
-import { DECK_THEMES, SLIDE_LAYOUTS } from "@/lib/presentation/deck";
+import { DECK_THEMES } from "@/lib/presentation/deck";
+import { SLIDE_TEMPLATES } from "@/lib/presentation/slide-templates";
 
 /**
  * The named visual-content themes the model should choose from (all entries
@@ -21,6 +21,7 @@ import { DECK_THEMES, SLIDE_LAYOUTS } from "@/lib/presentation/deck";
  * section of the prompt and the schema description share the same list.
  */
 const VIBRANT_THEMES: readonly string[] = DECK_THEMES;
+const TEMPLATE_IDS = SLIDE_TEMPLATES.map((template) => template.kind);
 
 /** A single visual the model may reference (and ONLY these) by `id`. */
 export interface DeckVisualInventoryItem {
@@ -73,7 +74,7 @@ function deckSchemaDescription(): string {
     "    {",
     '      "title": short slide heading string,',
     '      "notes": speaker notes string for live narration / overflow detail (optional),',
-    `      "templateId": one of ${SLIDE_LAYOUTS.map((l) => `"${l}"`).join(" | ")} (optional; omit for "blank"),`,
+    `      "templateId": one of ${TEMPLATE_IDS.map((id) => `"${id}"`).join(" | ")} (optional; omit for "blank"),`,
     '      "elements": [',
     '        { "kind": "text", "role": "title" | "body" | "bullet", "box": { "x": %, "y": %, "w": %, "h": % }, "content": { "kind": "text", "text": string, "paragraphs": [{ "text": string, "listType": "bullet" optional }] }, "designOverrides": { "textStyle": { "fontSize": number, "bold": boolean, "italic": boolean, "align": "left" | "center" | "right" } } optional },',
     '        { "kind": "visual", "role": "visual", "box": { "x": %, "y": %, "w": %, "h": % }, "content": { "kind": "visual", "visualId": one of the inventory ids } }',

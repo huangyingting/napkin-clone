@@ -1,6 +1,6 @@
 /** Pure document-to-deck derivation helpers. */
 
-import type { DocumentBlock } from "@/lib/content";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import { fnv1aHash32 } from "@/lib/presentation/fnv-hash";
 import { DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import {
@@ -16,33 +16,58 @@ import type {
   TextElementStyle,
   TextRun,
 } from "./deck-elements";
-import type { SlideLayoutHint } from "./deck-layouts-model";
+import type { SourceRef } from "./deck-source-refs";
+import { hashDocumentBlock } from "./document-block-hash";
 
 /** Maximum visible bullets per content slide before text overflows to notes. */
 export const MAX_BULLETS = 5;
 
 type PresentationRole = "title" | "sectionTitle" | "bullet" | "visual";
+type DerivationTemplateId =
+  | "title"
+  | "section"
+  | "content"
+  | "media"
+  | "two-column"
+  | "blank";
 
 type DerivedSlideContent = {
   id?: string;
   index?: number;
   title: string;
   titleRuns?: TextRun[];
+  titleSource?: SourceRef;
   bodyTexts: string[];
   bodyRuns?: TextRun[][];
+  bodySources?: Array<SourceRef | undefined>;
   visualRefs: string[];
+  visualSources?: Array<SourceRef | undefined>;
   notes?: string;
   elements?: unknown;
   noteLines?: string[];
-  templateId: SlideLayoutHint;
+  templateId: DerivationTemplateId;
 };
 
 interface SlideBuilder extends Omit<
   DerivedSlideContent,
-  "bodyRuns" | "noteLines"
+  "bodyRuns" | "bodySources" | "noteLines" | "visualSources"
 > {
   bodyRuns: TextRun[][];
+  bodySources: Array<SourceRef | undefined>;
   noteLines: string[];
+  visualSources: Array<SourceRef | undefined>;
+}
+
+export interface BuildDeckFromBlocksOptions {
+  /** Document id stamped into element-level source refs. */
+  documentId?: string;
+  /** Stable timestamp override for tests/importers; defaults to current time. */
+  linkedAt?: string;
+}
+
+interface NormalizedBuildOptions {
+  themeId: DeckTheme;
+  source?: { documentId: string; linkedAt: string };
 }
 
 /**
@@ -55,23 +80,74 @@ function computeSectionId(title: string): string | undefined {
   return key ? fnv1aHash32(key) : undefined;
 }
 
+function normalizeBuildOptions(
+  themeOrOptions: DeckTheme | BuildDeckFromBlocksOptions = "indigo",
+  maybeOptions: BuildDeckFromBlocksOptions = {},
+): NormalizedBuildOptions {
+  const themeId =
+    typeof themeOrOptions === "string" ? themeOrOptions : "indigo";
+  const options =
+    typeof themeOrOptions === "string" ? maybeOptions : themeOrOptions;
+  const documentId = options.documentId?.trim();
+  if (!documentId) return { themeId };
+  return {
+    themeId,
+    source: {
+      documentId,
+      linkedAt: options.linkedAt ?? new Date().toISOString(),
+    },
+  };
+}
+
+function sourceForTextBlock(
+  block: DocumentTextBlock,
+  options: NormalizedBuildOptions,
+): SourceRef | undefined {
+  if (!options.source || !block.blockId) return undefined;
+  return {
+    documentId: options.source.documentId,
+    blockId: block.blockId,
+    contentHash: hashDocumentBlock(block),
+    linkedAt: options.source.linkedAt,
+    blockKind: "text",
+  };
+}
+
+function sourceForVisualBlock(
+  block: Extract<DocumentBlock, { kind: "visual" }>,
+  options: NormalizedBuildOptions,
+): SourceRef | undefined {
+  if (!options.source) return undefined;
+  return {
+    documentId: options.source.documentId,
+    blockId: block.visualId,
+    contentHash: hashDocumentBlock(block),
+    linkedAt: options.source.linkedAt,
+    blockKind: "visual",
+  };
+}
+
 function freshSlide(
   title: string,
-  templateId: SlideLayoutHint = "content",
+  templateId: DerivationTemplateId = "content",
   titleRuns?: TextRun[],
+  titleSource?: SourceRef,
 ): SlideBuilder {
   return {
     title,
     ...(titleRuns ? { titleRuns } : {}),
+    ...(titleSource ? { titleSource } : {}),
     bodyTexts: [],
     bodyRuns: [],
+    bodySources: [],
     visualRefs: [],
+    visualSources: [],
     noteLines: [],
     templateId,
   };
 }
 
-function resolveTemplateId(builder: SlideBuilder): SlideLayoutHint {
+function resolveTemplateId(builder: SlideBuilder): DerivationTemplateId {
   if (builder.templateId === "title" || builder.templateId === "section") {
     return builder.templateId;
   }
@@ -101,6 +177,7 @@ function buildTextElement(input: {
   text: string;
   paragraphs: Array<Record<string, unknown>>;
   runs?: TextRun[];
+  source?: SourceRef;
   zIndex: number;
   box: { x: number; y: number; w: number; h: number };
   style: TextElementStyle;
@@ -117,12 +194,14 @@ function buildTextElement(input: {
       paragraphs: input.paragraphs,
       ...(input.runs && input.runs.length > 0 ? { runs: input.runs } : {}),
     },
+    ...(input.source ? { source: input.source } : {}),
     designOverrides: { textStyle: input.style },
   } as unknown as SlideElement;
 }
 
 function buildVisualContentElement(input: {
   visualId: string;
+  source?: SourceRef;
   zIndex: number;
   box: { x: number; y: number; w: number; h: number };
 }): SlideElement {
@@ -133,6 +212,7 @@ function buildVisualContentElement(input: {
     box: input.box,
     zIndex: input.zIndex,
     content: { kind: "visual", visualId: input.visualId },
+    ...(input.source ? { source: input.source } : {}),
   } as unknown as SlideElement;
 }
 
@@ -163,6 +243,7 @@ export function buildSlideElementsFromContent(
           },
         ],
         ...(titleRuns ? { runs: titleRuns } : {}),
+        ...(slide.titleSource ? { source: slide.titleSource } : {}),
         zIndex: zIndex++,
         box: isBigTitle
           ? { x: 8, y: 36, w: 84, h: 28 }
@@ -182,6 +263,9 @@ export function buildSlideElementsFromContent(
     ...(bodyRuns?.[index]?.length ? { runs: bodyRuns[index] } : {}),
     listType: "bullet" as const,
   }));
+  const bodySource = slide.bodySources?.find(
+    (source): source is SourceRef => source !== undefined,
+  );
 
   if (hasVisual && hasBodyTexts) {
     elements.push(
@@ -189,12 +273,14 @@ export function buildSlideElementsFromContent(
         role: "bullet",
         text: bodyTexts.join("\n"),
         paragraphs: bodyParagraphs,
+        ...(bodySource ? { source: bodySource } : {}),
         zIndex: zIndex++,
         box: { x: 6, y: 26, w: 46, h: 66 },
         style: textStyle(4.5, "left", false),
       }),
       buildVisualContentElement({
         visualId: visualRefs[0],
+        ...(slide.visualSources?.[0] ? { source: slide.visualSources[0] } : {}),
         zIndex: zIndex++,
         box: { x: 54, y: 26, w: 40, h: 66 },
       }),
@@ -203,6 +289,7 @@ export function buildSlideElementsFromContent(
     elements.push(
       buildVisualContentElement({
         visualId: visualRefs[0],
+        ...(slide.visualSources?.[0] ? { source: slide.visualSources[0] } : {}),
         zIndex: zIndex++,
         box: { x: 8, y: 24, w: 84, h: 68 },
       }),
@@ -213,6 +300,7 @@ export function buildSlideElementsFromContent(
         role: "bullet",
         text: bodyTexts.join("\n"),
         paragraphs: bodyParagraphs,
+        ...(bodySource ? { source: bodySource } : {}),
         zIndex: zIndex++,
         box: { x: 6, y: 26, w: 88, h: 66 },
         style: textStyle(4.5, "left", false),
@@ -224,6 +312,9 @@ export function buildSlideElementsFromContent(
     elements.push(
       buildVisualContentElement({
         visualId: visualRefs[index],
+        ...(slide.visualSources?.[index]
+          ? { source: slide.visualSources[index] }
+          : {}),
         zIndex: zIndex++,
         box: { x: 12 + index * 4, y: 30 + index * 4, w: 38, h: 38 },
       }),
@@ -239,9 +330,16 @@ function finaliseSlide(builder: SlideBuilder, index: number): Slide {
   const content: DerivedSlideContent = {
     title: builder.title,
     ...(builder.titleRuns?.length ? { titleRuns: builder.titleRuns } : {}),
+    ...(builder.titleSource ? { titleSource: builder.titleSource } : {}),
     bodyTexts: builder.bodyTexts,
     ...(hasBodyRuns ? { bodyRuns: builder.bodyRuns } : {}),
+    ...(builder.bodySources.some((source) => source !== undefined)
+      ? { bodySources: builder.bodySources }
+      : {}),
     visualRefs: builder.visualRefs,
+    ...(builder.visualSources.some((source) => source !== undefined)
+      ? { visualSources: builder.visualSources }
+      : {}),
     noteLines: builder.noteLines,
     templateId,
   };
@@ -264,8 +362,10 @@ function finaliseSlide(builder: SlideBuilder, index: number): Slide {
  */
 export function buildDeckFromBlocks(
   blocks: DocumentBlock[],
-  themeId: DeckTheme = "indigo",
+  themeOrOptions: DeckTheme | BuildDeckFromBlocksOptions = "indigo",
+  maybeOptions: BuildDeckFromBlocksOptions = {},
 ): Deck {
+  const options = normalizeBuildOptions(themeOrOptions, maybeOptions);
   const slides: Slide[] = [];
   let current: SlideBuilder = freshSlide("", "blank");
   let sectionTitle = "";
@@ -297,13 +397,19 @@ export function buildDeckFromBlocks(
             trimmed,
             hasContent ? "section" : "title",
             block.runs,
+            sourceForTextBlock(block, options),
           );
           hasContent = true;
           continue;
         }
 
         flush();
-        current = freshSlide(trimmed, "content", block.runs);
+        current = freshSlide(
+          trimmed,
+          "content",
+          block.runs,
+          sourceForTextBlock(block, options),
+        );
         if (!hasContent) hasContent = true;
         continue;
       }
@@ -325,6 +431,7 @@ export function buildDeckFromBlocks(
       if (current.bodyTexts.length < MAX_BULLETS) {
         current.bodyTexts.push(trimmed);
         current.bodyRuns.push(block.runs ?? []);
+        current.bodySources.push(sourceForTextBlock(block, options));
       } else {
         current.noteLines.push(trimmed);
       }
@@ -336,10 +443,12 @@ export function buildDeckFromBlocks(
 
     if (current.visualRefs.length === 0) {
       current.visualRefs.push(block.visualId);
+      current.visualSources.push(sourceForVisualBlock(block, options));
     } else {
       flush();
       current = freshSlide(sectionTitle, "media");
       current.visualRefs.push(block.visualId);
+      current.visualSources.push(sourceForVisualBlock(block, options));
     }
   }
 
@@ -358,7 +467,7 @@ export function buildDeckFromBlocks(
   return {
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     canvas: { format: DEFAULT_DECK_SLIDE_FORMAT },
-    design: { themeId },
+    design: { themeId: options.themeId },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
     defaultMasterId: "master-default",
     slides,

@@ -1,11 +1,7 @@
 import type { CSSProperties } from "react";
 
 import type { SlideAssetActionPort } from "@/lib/action-ports";
-import type {
-  Deck,
-  Slide,
-  SlideLayout as ReusableSlideLayout,
-} from "@/lib/presentation/deck";
+import type { Deck, Slide } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type {
   AlignMode,
@@ -16,6 +12,7 @@ import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { PresentationRole } from "@/lib/presentation/presentation-theme";
+import type { SlideTemplateKind } from "@/lib/presentation/slide-templates";
 import type { Visual } from "@/lib/visual/schema";
 
 export type AddElementKind = PresentationRole | "image" | "shape";
@@ -30,8 +27,9 @@ export interface SlideInspectorProps {
   canDelete: boolean;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
-  onApplyLayout: (layout: ReusableSlideLayout) => void;
-  onResetLayout: (layout: ReusableSlideLayout) => void;
+  onApplyTemplate: (templateId: SlideTemplateKind) => void;
+  onReapplyTemplate: (templateId: SlideTemplateKind) => void;
+  onSetSlideMaster: (masterId: string | undefined) => void;
   onUpdateNotes: (value: string, coalesceKey?: string) => void;
   onUpdateElement: (
     id: string,

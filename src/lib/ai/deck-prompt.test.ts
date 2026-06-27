@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildDeckGenerationMessages } from "@/lib/ai/deck-prompt";
-import { DECK_THEMES, SLIDE_LAYOUTS } from "@/lib/presentation/deck";
+import { DECK_THEMES } from "@/lib/presentation/deck";
+import { SLIDE_TEMPLATES } from "@/lib/presentation/slide-templates";
 
 const INVENTORY = [
   {
@@ -70,16 +71,13 @@ test("system message biases toward a vibrant theme (#281)", () => {
   }
 });
 
-test("system message lists every layout and theme value", () => {
+test("system message lists every template and theme value", () => {
   const [system] = buildDeckGenerationMessages({
     outline: "An outline",
     visualInventory: [],
   });
-  for (const layout of SLIDE_LAYOUTS) {
-    assert.ok(
-      system.content.includes(`"${layout}"`),
-      `layout ${layout} missing`,
-    );
+  for (const { kind } of SLIDE_TEMPLATES) {
+    assert.ok(system.content.includes(`"${kind}"`), `template ${kind} missing`);
   }
   for (const theme of DECK_THEMES) {
     assert.ok(system.content.includes(`"${theme}"`), `theme ${theme} missing`);

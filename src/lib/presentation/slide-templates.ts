@@ -1,59 +1,21 @@
 /**
- * Slide templates — pure, DOM-free constructors that turn a chosen layout
- * ("kind") into a ready-to-edit {@link Slide}.
+ * Slide templates — pure, DOM-free blueprints materialized into editable slides.
  *
- * The "+ Add slide" picker offers a small menu of starting points (Title,
- * Content, Visual spotlight, Two-column, Blank). Non-blank templates emit a
- * slide whose `elements[]` are pre-built from real text/image/visual elements,
- * so the slide is immediately editable with no materialization step.
- *
- * Template slides are **hand-authored**, not derived from document blocks, so
- * "Sync from document" preserves their `elements[]` verbatim.
- *
- * Pure and deterministic except for the generated element ids — fully testable
- * under `node --test`.
+ * Built-in templates live in code as {@link SlideTemplate} records. Applying a
+ * template copies its `elements[]` into real slide elements with fresh ids and
+ * concrete `content`; the template itself is not consulted during render/export.
  */
 
-import type { Slide } from "./deck-core";
+import type { Slide, SlideTemplate, SlideTemplateElement } from "./deck-core";
 import type {
   ElementAlign,
   ElementBox,
-  ImageElement,
   SlideElement,
-  TextElement,
   TextElementStyle,
   VisualElement,
 } from "./deck-elements";
 import { makeElementId, makeSlideId } from "./deck-ids";
-import {
-  defaultLayouts,
-  PLACEHOLDER_TYPE_LABELS,
-  type LayoutPlaceholder,
-  type PlaceholderType,
-  type SlideLayout as ReusableSlideLayout,
-  type SlideLayoutHint,
-} from "./deck-layouts-model";
-import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
-
-/**
- * Maps a {@link PlaceholderType} onto its semantic {@link PresentationRole} (#610)
- * so materialized template text inherits presentation theme typography. The concrete
- * `style` set alongside remains the authoritative local style during the
- * render-wiring transition (#598); this is additive metadata.
- */
-function placeholderTextRole(type: PlaceholderType): string {
-  switch (type) {
-    case "title":
-      return "title";
-    case "subtitle":
-      return "subtitle";
-    case "footer":
-      return "footer";
-    case "visual":
-    case "body":
-      return "body";
-  }
-}
+import type { SlideFormat } from "./slide-format";
 
 /** The set of layouts the "+ Add slide" picker can insert. */
 export type SlideTemplateKind =
@@ -114,12 +76,27 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Shared spotlight geometry — kept local because only the visual template still
-// uses bespoke boxes; the other templates route through `defaultLayouts()`.
-// ---------------------------------------------------------------------------
+const TEMPLATE_CATEGORY_BY_KIND: Record<
+  SlideTemplateKind,
+  SlideTemplate["category"]
+> = {
+  title: "title",
+  content: "content",
+  visual: "media",
+  "two-column": "comparison",
+  blank: "blank",
+};
 
 const BOX = {
+  titleTitle: { x: 8, y: 28, w: 84, h: 16 },
+  titleSubtitle: { x: 12, y: 48, w: 76, h: 10 },
+  titleFooter: { x: 6, y: 90, w: 88, h: 5 },
+  contentTitle: { x: 6, y: 6, w: 88, h: 14 },
+  contentBody: { x: 6, y: 24, w: 44, h: 58 },
+  contentMedia: { x: 54, y: 24, w: 40, h: 58 },
+  contentFooter: { x: 6, y: 86, w: 88, h: 6 },
+  twoColumnLeft: { x: 6, y: 24, w: 42, h: 58 },
+  twoColumnRight: { x: 52, y: 24, w: 42, h: 58 },
   /** Full-bleed visual/image stage for the spotlight template. */
   spotlight: { x: 4, y: 6, w: 92, h: 74 },
   /** Caption strip beneath the spotlight visual. */
@@ -129,25 +106,6 @@ const BOX = {
 export const TEMPLATE_IMAGE_PLACEHOLDER_SRC =
   "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20rx%3D%2228%22%20fill%3D%22%23f4f4f5%22%2F%3E%3Crect%20x%3D%2224%22%20y%3D%2224%22%20width%3D%22752%22%20height%3D%22402%22%20rx%3D%2224%22%20fill%3D%22none%22%20stroke%3D%22%23a1a1aa%22%20stroke-width%3D%226%22%20stroke-dasharray%3D%2218%2016%22%2F%3E%3Cpath%20d%3D%22M300%20265l78-78%2062%2062%2036-36%2074%2074%22%20fill%3D%22none%22%20stroke%3D%22%2371717a%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22330%22%20cy%3D%22160%22%20r%3D%2226%22%20fill%3D%22%2371717a%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22345%22%20text-anchor%3D%22middle%22%20font-family%3D%22Inter%2CArial%2Csans-serif%22%20font-size%3D%2244%22%20fill%3D%22%2371717a%22%3EAdd%20image%3C%2Ftext%3E%3C%2Fsvg%3E";
 
-function placeholderImageElement(
-  label: string,
-  box: ElementBox,
-  zIndex: number,
-): ImageElement {
-  return {
-    id: makeElementId(),
-    kind: "image",
-    role: "image",
-    zIndex,
-    box: { ...box },
-    content: {
-      kind: "image",
-      src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
-      alt: `${label} placeholder`,
-    },
-  } as unknown as ImageElement;
-}
-
 function textStyle(
   fontSize: number,
   align: ElementAlign,
@@ -156,8 +114,10 @@ function textStyle(
   return { fontSize, align, bold, italic: false };
 }
 
-function templateTextStyle(type: PlaceholderType): TextElementStyle {
-  switch (type) {
+type TemplateTextRole = "title" | "subtitle" | "body" | "caption" | "footer";
+
+function templateTextStyle(role: TemplateTextRole): TextElementStyle {
+  switch (role) {
     case "title":
       return textStyle(6.5, "center", true);
     case "subtitle":
@@ -166,118 +126,172 @@ function templateTextStyle(type: PlaceholderType): TextElementStyle {
       return textStyle(4.25, "left", false);
     case "footer":
       return textStyle(2.4, "center", false);
-    case "visual":
+    case "caption":
       return textStyle(4.5, "center", true);
   }
 }
 
-function placeholderLabel(placeholder: LayoutPlaceholder): string {
-  return (
-    placeholder.label?.trim() ||
-    PLACEHOLDER_TYPE_LABELS[placeholder.placeholderType]
-  );
-}
-
-function materializePlaceholderElement(
-  placeholder: LayoutPlaceholder,
-  zIndex: number,
-): SlideElement {
-  const label = placeholderLabel(placeholder);
-  if (placeholder.placeholderType === "visual") {
-    return placeholderImageElement(label, placeholder.box, zIndex);
-  }
-
-  return {
-    id: makeElementId(),
-    kind: "text",
-    role: placeholderTextRole(placeholder.placeholderType),
-    zIndex,
-    box: { ...placeholder.box },
-    content: { kind: "text", text: label, paragraphs: [{ text: label }] },
-    designOverrides: {
-      textStyle: templateTextStyle(placeholder.placeholderType),
-    },
-  } as unknown as SlideElement;
-}
-
-function bodyTextElement(
+function textTemplateElement(
+  id: string,
+  role: TemplateTextRole,
   text: string,
   box: ElementBox,
-  zIndex: number,
-  align: ElementAlign = "center",
-  role?: string,
-): TextElement {
+): SlideTemplateElement {
   return {
-    id: makeElementId(),
+    id,
     kind: "text",
-    ...(role ? { role } : {}),
-    zIndex,
+    role,
     box: { ...box },
-    content: { kind: "text", text, paragraphs: [{ text }] },
-    designOverrides: { textStyle: textStyle(4.5, align, false) },
-  } as unknown as TextElement;
+    contentDefaults: { kind: "text", text, paragraphs: [{ text }] },
+    designOverrides: {
+      textStyle: templateTextStyle(role),
+    },
+  };
 }
 
-function spotlightElement(
+function imageTemplateElement(
+  id: string,
+  label: string,
+  box: ElementBox,
+): SlideTemplateElement {
+  return {
+    id,
+    kind: "image",
+    role: "image",
+    box: { ...box },
+    contentDefaults: {
+      kind: "image",
+      src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
+      alt: `${label} placeholder`,
+    },
+  };
+}
+
+function builtInTemplate(
+  kind: SlideTemplateKind,
+  name: string,
+  elements: SlideTemplateElement[],
+): SlideTemplate {
+  return {
+    id: kind,
+    name,
+    category: TEMPLATE_CATEGORY_BY_KIND[kind],
+    elements,
+  };
+}
+
+export const BUILT_IN_SLIDE_TEMPLATES: readonly SlideTemplate[] = [
+  builtInTemplate("title", "Title", [
+    textTemplateElement("title-title", "title", "Title", BOX.titleTitle),
+    textTemplateElement(
+      "title-subtitle",
+      "subtitle",
+      "Subtitle",
+      BOX.titleSubtitle,
+    ),
+    textTemplateElement("title-footer", "footer", "Footer", BOX.titleFooter),
+  ]),
+  builtInTemplate("content", "Content", [
+    textTemplateElement("content-title", "title", "Title", BOX.contentTitle),
+    textTemplateElement("content-body", "body", "Body", BOX.contentBody),
+    imageTemplateElement("content-image", "Visual", BOX.contentMedia),
+    textTemplateElement(
+      "content-footer",
+      "footer",
+      "Footer",
+      BOX.contentFooter,
+    ),
+  ]),
+  builtInTemplate("visual", "Visual spotlight", [
+    imageTemplateElement("visual-media", "Visual", BOX.spotlight),
+    textTemplateElement("visual-caption", "caption", "Caption", BOX.caption),
+  ]),
+  builtInTemplate("two-column", "Two-column", [
+    textTemplateElement("two-column-title", "title", "Title", BOX.contentTitle),
+    textTemplateElement(
+      "two-column-left",
+      "body",
+      "Left column",
+      BOX.twoColumnLeft,
+    ),
+    textTemplateElement(
+      "two-column-right",
+      "body",
+      "Right column",
+      BOX.twoColumnRight,
+    ),
+    textTemplateElement(
+      "two-column-footer",
+      "footer",
+      "Footer",
+      BOX.contentFooter,
+    ),
+  ]),
+  builtInTemplate("blank", "Blank", []),
+] as const;
+
+export function getBuiltInSlideTemplate(
+  kind: SlideTemplateKind,
+): SlideTemplate {
+  const template = BUILT_IN_SLIDE_TEMPLATES.find((entry) => entry.id === kind);
+  if (!template) throw new Error(`Missing built-in slide template "${kind}"`);
+  return template;
+}
+
+function cloneContentDefaults(
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...input,
+    ...(Array.isArray(input.paragraphs)
+      ? {
+          paragraphs: input.paragraphs.map((paragraph) => ({
+            ...(paragraph as object),
+          })),
+        }
+      : {}),
+  };
+}
+
+function materializeTemplateElement(
+  element: SlideTemplateElement,
   zIndex: number,
-  visualId: string | undefined,
-): VisualElement | ImageElement {
-  if (visualId) {
+  ctx: SlideTemplateContext,
+): SlideElement {
+  if (element.id === "visual-media" && ctx.visualId) {
     return {
       id: makeElementId(),
       kind: "visual",
       role: "visual",
       zIndex,
-      box: { ...BOX.spotlight },
-      content: { kind: "visual", visualId },
+      box: { ...((element.box as ElementBox | undefined) ?? BOX.spotlight) },
+      content: { kind: "visual", visualId: ctx.visualId },
+      ...(element.designOverrides
+        ? { designOverrides: element.designOverrides }
+        : {}),
     } as unknown as VisualElement;
   }
-  return placeholderImageElement("Visual", BOX.spotlight, zIndex);
-}
 
-/** Builds an authored (non-derived) slide from a template's elements. */
-function authoredSlide(
-  layout: SlideLayoutHint,
-  elements: SlideElement[],
-): Slide {
   return {
-    id: makeSlideId(),
-    index: 0,
-    title: "",
-    notes: "",
-    ...(layout !== "blank" ? { templateId: layout } : {}),
-    elements,
-  } as unknown as Slide;
-}
-
-function findDefaultLayout(
-  name: "title-slide" | "title-content" | "two-column",
-  format: SlideFormat | undefined,
-): ReusableSlideLayout {
-  const slideFormat = format ?? DEFAULT_SLIDE_FORMAT;
-  const layouts = defaultLayouts();
-  const match =
-    layouts.find(
-      (layout) => layout.name === name && layout.format === slideFormat,
-    ) ?? layouts.find((layout) => layout.name === name);
-  if (!match) {
-    throw new Error(`Missing built-in slide layout "${name}"`);
-  }
-  return match;
-}
-
-function layoutTemplateSlide(
-  name: "title-slide" | "title-content" | "two-column",
-  slideFormat: SlideFormat | undefined,
-): Slide {
-  const hint: SlideLayoutHint = name === "title-slide" ? "title" : "content";
-  const layout = findDefaultLayout(name, slideFormat);
-  return authoredSlide(
-    hint,
-    layout.placeholders.map((placeholder, index) =>
-      materializePlaceholderElement(placeholder, index),
+    id: makeElementId(),
+    kind: element.kind,
+    ...(element.role ? { role: element.role } : {}),
+    zIndex,
+    box: {
+      ...((element.box as ElementBox | undefined) ?? {
+        x: 10,
+        y: 10,
+        w: 80,
+        h: 20,
+      }),
+    },
+    content: cloneContentDefaults(
+      element.contentDefaults ?? { kind: element.kind },
     ),
-  );
+    ...(element.designOverrides
+      ? { designOverrides: element.designOverrides }
+      : {}),
+  } as unknown as SlideElement;
 }
 
 function blankSlide(): Slide {
@@ -300,27 +314,20 @@ export function buildTemplateSlide(
   kind: SlideTemplateKind,
   ctx: SlideTemplateContext,
 ): Slide {
-  const { slideFormat } = ctx;
-
-  switch (kind) {
-    case "title":
-      return layoutTemplateSlide("title-slide", slideFormat);
-
-    case "content":
-      return layoutTemplateSlide("title-content", slideFormat);
-
-    case "visual": {
-      const visual = spotlightElement(0, ctx.visualId);
-      return authoredSlide("media", [
-        visual,
-        bodyTextElement("Caption", BOX.caption, 1, "center", "caption"),
-      ]);
-    }
-
-    case "two-column":
-      return layoutTemplateSlide("two-column", slideFormat);
-
-    case "blank":
-      return blankSlide();
-  }
+  if (kind === "blank") return blankSlide();
+  const template = getBuiltInSlideTemplate(kind);
+  return {
+    id: makeSlideId(),
+    index: 0,
+    title: "",
+    notes: "",
+    templateId: kind === "visual" ? "media" : kind,
+    ...(template.defaultMasterId ? { masterId: template.defaultMasterId } : {}),
+    ...(template.slideDesignDefaults
+      ? { designOverrides: template.slideDesignDefaults }
+      : {}),
+    elements: template.elements.map((element, index) =>
+      materializeTemplateElement(element, index, ctx),
+    ),
+  } as unknown as Slide;
 }

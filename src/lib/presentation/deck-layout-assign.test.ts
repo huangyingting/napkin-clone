@@ -11,14 +11,13 @@ import {
   type Deck,
   type Slide,
   type SlideElement,
-  type SlideLayoutHint,
 } from "@/lib/presentation/deck";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 
 const KNOWN = new Set(["vis-1", "vis-2"]);
 
 type SlideFixture = Partial<Slide> & {
-  templateId?: SlideLayoutHint;
+  templateId?: string;
   bulletTexts?: string[];
   visualRefs?: string[];
 };

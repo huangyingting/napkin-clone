@@ -70,11 +70,7 @@ import {
   DEFAULT_SCREEN_SIZE,
   type Size,
 } from "@/lib/presentation/stage-fit";
-import {
-  defaultLayouts,
-  type Deck,
-  type SlideElement,
-} from "@/lib/presentation/deck";
+import type { Deck, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
@@ -87,6 +83,10 @@ import {
 } from "@/lib/presentation/slide-commands";
 import { PresentationThemePanel } from "@/components/presentation/presentation-theme-panel";
 import { resolveDeckThemeTokens } from "@/lib/presentation/presentation-theme";
+import {
+  SLIDE_TEMPLATES,
+  type SlideTemplateKind,
+} from "@/lib/presentation/slide-templates";
 import {
   canvasShortcutHelp,
   focusTargetAfterDelete,
@@ -351,12 +351,12 @@ function CloseConfirmDialog({
   );
 }
 
-function ResetLayoutConfirmDialog({
-  layoutName,
+function ReapplyTemplateConfirmDialog({
+  templateName,
   onCancel,
   onConfirm,
 }: {
-  layoutName: string;
+  templateName: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -364,18 +364,18 @@ function ResetLayoutConfirmDialog({
     <Dialog
       open
       onClose={onCancel}
-      aria-labelledby="slide-editor-reset-layout-confirm-title"
+      aria-labelledby="slide-editor-reapply-template-confirm-title"
       className="max-w-sm"
     >
       <h2
-        id="slide-editor-reset-layout-confirm-title"
+        id="slide-editor-reapply-template-confirm-title"
         className="text-base font-semibold text-ds-text-primary"
       >
-        Reset to &ldquo;{layoutName}&rdquo; layout?
+        Reapply &ldquo;{templateName}&rdquo; template?
       </h2>
       <p className="mt-2 text-sm text-ds-text-secondary">
-        Slide positions will be reset. This will preserve slide content and
-        element order.
+        This will replace the slide elements with freshly materialized template
+        elements.
       </p>
       <div className="mt-6 flex justify-end gap-3">
         <button
@@ -390,7 +390,7 @@ function ResetLayoutConfirmDialog({
           onClick={onConfirm}
           className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
         >
-          Reset layout
+          Reapply template
         </button>
       </div>
     </Dialog>
@@ -809,15 +809,16 @@ export function SlideEditor({
   }, []);
 
   const {
-    pendingResetLayout,
-    setPendingResetLayout,
+    pendingTemplateReapply,
+    setPendingTemplateReapply,
     handleMove,
     handleDuplicate,
     handleRemove,
     handleNotesChange,
-    handleApplyReusableLayout,
-    handleResetReusableLayout,
-    handleConfirmResetLayout,
+    handleApplySlideTemplate,
+    handleReapplySlideTemplate,
+    handleSetSlideMaster,
+    handleConfirmTemplateReapply,
   } = useSlideManagementCommands({
     deck,
     safeSelected,
@@ -1274,28 +1275,16 @@ export function SlideEditor({
   });
 
   const presentationThemeTokenSet = resolveDeckThemeTokens(deck);
-  const toolbarLayouts = useMemo(() => {
-    const source = defaultLayouts();
-    const format = deckFormat;
-    const filtered = source.filter((layout) => layout.format === format);
-    return filtered.length > 0 ? filtered : source;
-  }, [deckFormat]);
-  const activeSlideToolbarLayoutId = useMemo(() => {
-    const selectedTemplateId = selectedSlide?.templateId ?? "blank";
-    const preferredName =
-      selectedTemplateId === "title" || selectedTemplateId === "section"
-        ? "title-slide"
-        : selectedTemplateId === "content"
-          ? "title-content"
-          : selectedTemplateId === "blank"
-            ? "blank"
-            : "title-content";
-    return (
-      toolbarLayouts.find((layout) => layout.name === preferredName)?.id ??
-      toolbarLayouts[0]?.id ??
-      ""
-    );
-  }, [selectedSlide?.templateId, toolbarLayouts]);
+  const activeSlideTemplateId = useMemo<SlideTemplateKind>(() => {
+    const selectedTemplateId = selectedSlide?.templateId;
+    if (selectedTemplateId === "title") return "title";
+    if (selectedTemplateId === "content") return "content";
+    if (selectedTemplateId === "two-column") return "two-column";
+    if (selectedTemplateId === "media" || selectedTemplateId === "visual") {
+      return "visual";
+    }
+    return "blank";
+  }, [selectedSlide?.templateId]);
   const showSlideToolbar = selectedSlide
     ? slideSelectionActive &&
       isSlideToolbarVisible({
@@ -1357,10 +1346,11 @@ export function SlideEditor({
     canDelete: deck.slides.length > 1,
     handleDuplicateSlide: () => handleDuplicate(safeSelected),
     handleRemoveSlide: () => handleRemove(safeSelected),
-    handleApplyReusableLayout,
-    handleResetReusableLayout,
+    handleApplySlideTemplate,
+    handleReapplySlideTemplate,
     handleNotesChangeForSelected: (value, coalesceKey) =>
       handleNotesChange(safeSelected, value, coalesceKey),
+    handleSetSlideMaster,
     handleBackgroundChange,
     handleBackgroundGradientChange,
     handleBackgroundImageChange,
@@ -1753,10 +1743,10 @@ export function SlideEditor({
                       {showSlideToolbar ? (
                         <SlideToolbar
                           slide={selectedSlide}
-                          layouts={toolbarLayouts}
-                          selectedLayoutId={activeSlideToolbarLayoutId}
+                          templates={SLIDE_TEMPLATES}
+                          selectedTemplateId={activeSlideTemplateId}
                           canDelete={deck.slides.length > 1}
-                          onSelectLayout={handleApplyReusableLayout}
+                          onSelectTemplate={handleApplySlideTemplate}
                           onBackgroundChange={handleBackgroundChange}
                           onBackgroundGradientChange={
                             handleBackgroundGradientChange
@@ -2009,11 +1999,15 @@ export function SlideEditor({
             }}
           />
         )}
-        {pendingResetLayout && (
-          <ResetLayoutConfirmDialog
-            layoutName={pendingResetLayout.name}
-            onCancel={() => setPendingResetLayout(null)}
-            onConfirm={handleConfirmResetLayout}
+        {pendingTemplateReapply && (
+          <ReapplyTemplateConfirmDialog
+            templateName={
+              SLIDE_TEMPLATES.find(
+                (template) => template.kind === pendingTemplateReapply,
+              )?.label ?? pendingTemplateReapply
+            }
+            onCancel={() => setPendingTemplateReapply(null)}
+            onConfirm={handleConfirmTemplateReapply}
           />
         )}
       </div>

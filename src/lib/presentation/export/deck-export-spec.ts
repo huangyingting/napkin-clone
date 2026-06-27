@@ -405,9 +405,9 @@ function buildSlideSpec(
   );
   const accent = toHex(renderModel.accent);
 
-  const elements = [...(slide.elements ?? [])]
+  const elements = renderModel.renderedElements
     .filter((element) => !element.hidden)
-    .sort((a, b) => a.zIndex - b.zIndex);
+    .map((element) => element);
 
   const ops: DeckOp[] = [];
 

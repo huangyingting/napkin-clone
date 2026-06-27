@@ -66,12 +66,7 @@ import {
   PRESENTATION_ROLES,
   type PresentationRole,
 } from "@/lib/presentation/presentation-theme";
-import type {
-  ShapeKind,
-  Slide,
-  SlideElement,
-  SlideLayout as ReusableSlideLayout,
-} from "@/lib/presentation/deck";
+import type { ShapeKind, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { SlideFormat } from "@/lib/presentation/slide-format";
@@ -90,7 +85,9 @@ import {
   zoomToPercent,
 } from "@/lib/presentation/stage-fit";
 import {
+  getBuiltInSlideTemplate,
   SLIDE_TEMPLATES,
+  type SlideTemplateOption,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
@@ -539,42 +536,47 @@ function swatchColor(value: string, fallback: string): string {
   return isCompleteHexColor(value) ? value : fallback;
 }
 
-function SlideLayoutPreview({
-  layout,
+function SlideTemplatePreview({
+  templateKind,
   selected,
   className = "h-16 w-28 shrink-0",
 }: {
-  layout: ReusableSlideLayout | undefined;
+  templateKind: SlideTemplateKind;
   selected?: boolean;
   className?: string;
 }) {
+  const template = getBuiltInSlideTemplate(templateKind);
   return (
     <span
       aria-hidden="true"
       className={`relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base ${className}`}
     >
-      {layout?.placeholders.length ? (
-        layout.placeholders.map((placeholder) => {
-          const isTitle = placeholder.placeholderType === "title";
-          const isFooter = placeholder.placeholderType === "footer";
-          const isVisual = placeholder.placeholderType === "visual";
+      {template.elements.length ? (
+        template.elements.map((element) => {
+          const box = element.box as
+            | { x: number; y: number; w: number; h: number }
+            | undefined;
+          if (!box) return null;
+          const isTitle = element.role === "title";
+          const isFooter = element.role === "footer";
+          const isMedia = element.kind === "image" || element.kind === "visual";
           return (
             <span
-              key={placeholder.id}
+              key={element.id}
               className={`absolute rounded-[2px] ${
                 isTitle
                   ? "bg-ds-text-muted/60"
                   : isFooter
                     ? "bg-ds-border-subtle"
-                    : isVisual
+                    : isMedia
                       ? "bg-ds-accent-surface ring-1 ring-ds-accent-border"
                       : "bg-ds-surface-raised ring-1 ring-ds-border-subtle"
               }`}
               style={{
-                left: `${placeholder.box.x}%`,
-                top: `${placeholder.box.y}%`,
-                width: `${placeholder.box.w}%`,
-                height: `${placeholder.box.h}%`,
+                left: `${box.x}%`,
+                top: `${box.y}%`,
+                width: `${box.w}%`,
+                height: `${box.h}%`,
               }}
             />
           );
@@ -591,13 +593,11 @@ function SlideLayoutPreview({
   );
 }
 
-function layoutDisplayName(layout: ReusableSlideLayout | undefined): string {
-  if (layout?.title) return layout.title;
-  const name = layout?.name;
-  if (!name) return "Layout";
-  return name
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+function templateDisplayName(kind: SlideTemplateKind | undefined): string {
+  return (
+    SLIDE_TEMPLATES.find((template) => template.kind === kind)?.label ??
+    "Template"
+  );
 }
 
 const TEXT_ROLE_LABELS: Record<PresentationRole, string> = {
@@ -1030,7 +1030,7 @@ function PreviewBar({ className = "" }: { className?: string }) {
 }
 
 /**
- * A tiny 16:9 mock of each slide-template layout, shown in the gallery so the
+ * A tiny 16:9 mock of each slide template, shown in the gallery so the
  * user recognises the structure at a glance instead of reading labels alone.
  */
 function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
@@ -1766,10 +1766,10 @@ export function SlideSelectionToolbar({
 
 export function SlideToolbar({
   slide,
-  layouts,
-  selectedLayoutId,
+  templates,
+  selectedTemplateId,
   canDelete,
-  onSelectLayout,
+  onSelectTemplate,
   onBackgroundChange,
   onBackgroundGradientChange,
   onAddElement,
@@ -1781,10 +1781,10 @@ export function SlideToolbar({
   onOpenPanel,
 }: {
   slide: Slide;
-  layouts: readonly ReusableSlideLayout[];
-  selectedLayoutId: string;
+  templates: readonly SlideTemplateOption[];
+  selectedTemplateId: SlideTemplateKind;
   canDelete: boolean;
-  onSelectLayout: (layout: ReusableSlideLayout) => void;
+  onSelectTemplate: (templateId: SlideTemplateKind) => void;
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (gradient: ColorGradient | undefined) => void;
   onAddElement: (kind: AddElementKind, shapeKind?: ShapeKind) => void;
@@ -1798,11 +1798,12 @@ export function SlideToolbar({
   const [addOpen, setAddOpen] = useState(false);
   const [addVisualOpen, setAddVisualOpen] = useState(false);
   const [addTab, setAddTab] = useState<"text" | "media" | "shape">("text");
-  const [layoutOpen, setLayoutOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const selectedLayout =
-    layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0];
+  const selectedTemplate =
+    templates.find((template) => template.kind === selectedTemplateId) ??
+    templates[0];
   const backgroundImage = slideBackgroundImageValue(slide);
   const backgroundGradient = slideBackgroundGradientValue(slide);
   const backgroundColor = slideSolidBackgroundValue(slide);
@@ -1820,13 +1821,13 @@ export function SlideToolbar({
         )?.id
       : undefined;
   const closeToolbarPanels = (
-    keep?: "add" | "layout" | "background" | "more",
+    keep?: "add" | "template" | "background" | "more",
   ) => {
     if (keep !== "add") {
       setAddOpen(false);
       setAddVisualOpen(false);
     }
-    if (keep !== "layout") setLayoutOpen(false);
+    if (keep !== "template") setTemplateOpen(false);
     if (keep !== "background") setBackgroundOpen(false);
     if (keep !== "more") setMoreOpen(false);
   };
@@ -1933,15 +1934,15 @@ export function SlideToolbar({
       <Palette size={14} aria-hidden="true" />
     </ToolbarButton>
   );
-  const layoutTriggerButton = (
+  const templateTriggerButton = (
     <ToolbarButton
-      aria-label="Slide layout"
+      aria-label="Slide template"
       aria-haspopup="dialog"
-      aria-expanded={layoutOpen}
+      aria-expanded={templateOpen}
       onClick={() => {
-        const nextOpen = !layoutOpen;
+        const nextOpen = !templateOpen;
         closeToolbarPanels();
-        setLayoutOpen(nextOpen);
+        setTemplateOpen(nextOpen);
       }}
     >
       <Columns3 size={14} aria-hidden="true" />
@@ -2028,9 +2029,9 @@ export function SlideToolbar({
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
       <Popover
-        open={layoutOpen}
-        onClose={() => setLayoutOpen(false)}
-        aria-label="Slide layout"
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        aria-label="Slide template"
         placement="bottom"
         align="center"
         anchor="toolbar"
@@ -2038,29 +2039,29 @@ export function SlideToolbar({
         layer="tooltip"
         className="w-[336px] p-2.5 text-xs"
         trigger={
-          layoutOpen ? (
-            layoutTriggerButton
+          templateOpen ? (
+            templateTriggerButton
           ) : (
             <Tooltip
-              label={`Layout: ${layoutDisplayName(selectedLayout)}`}
+              label={`Template: ${templateDisplayName(selectedTemplate?.kind)}`}
               side="bottom"
             >
-              {layoutTriggerButton}
+              {templateTriggerButton}
             </Tooltip>
           )
         }
       >
         <div className="grid max-h-[min(24rem,calc(100vh-9rem))] grid-cols-2 gap-1.5 overflow-y-auto">
-          {layouts.map((layout) => {
-            const selected = layout.id === selectedLayout?.id;
+          {templates.map((template) => {
+            const selected = template.kind === selectedTemplate?.kind;
             return (
               <button
-                key={layout.id}
+                key={template.kind}
                 type="button"
                 aria-pressed={selected}
                 onClick={() => {
-                  onSelectLayout(layout);
-                  setLayoutOpen(false);
+                  onSelectTemplate(template.kind);
+                  setTemplateOpen(false);
                 }}
                 className={`relative rounded-ds-md border bg-ds-surface p-1.5 text-left transition-colors ${
                   selected
@@ -2068,13 +2069,13 @@ export function SlideToolbar({
                     : "border-ds-border-subtle text-ds-text-secondary hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary"
                 } ${FOCUS_RING}`}
               >
-                <SlideLayoutPreview
-                  layout={layout}
+                <SlideTemplatePreview
+                  templateKind={template.kind}
                   selected={selected}
                   className="h-20 w-full"
                 />
                 <span className="mt-1.5 block text-xs font-semibold leading-tight text-ds-text-primary">
-                  {layoutDisplayName(layout)}
+                  {template.label}
                 </span>
               </button>
             );

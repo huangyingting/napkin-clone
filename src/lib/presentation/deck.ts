@@ -62,20 +62,6 @@ export {
 } from "./deck-source-refs";
 export type { SourceRef } from "./deck-source-refs";
 
-export {
-  SLIDE_LAYOUTS,
-  PLACEHOLDER_TYPES,
-  PLACEHOLDER_TYPE_LABELS,
-  layoutHintForReusableLayout,
-  defaultLayouts,
-} from "./deck-layouts-model";
-export type {
-  SlideLayoutHint,
-  SlideLayout,
-  LayoutPlaceholder,
-  PlaceholderType,
-} from "./deck-layouts-model";
-
 export { makeElementId, makeSlideId } from "./deck-ids";
 
 export { inspectSlideDesignOrigins } from "./slide-design-origins";

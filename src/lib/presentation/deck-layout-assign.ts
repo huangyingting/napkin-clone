@@ -20,9 +20,16 @@ import type {
   TextElementStyle,
 } from "./deck-elements";
 import { makeElementId } from "./deck-ids";
-import type { SlideLayoutHint } from "./deck-layouts-model";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-core";
 import { DEFAULT_SLIDE_FORMAT } from "./slide-format";
+
+type GeneratedTemplateId =
+  | "title"
+  | "section"
+  | "content"
+  | "media"
+  | "two-column"
+  | "blank";
 
 /**
  * Brand-aligned theme used when the deck carries no valid theme. Mirrors the
@@ -134,8 +141,8 @@ function elementVisualId(element: SlideElement): string | undefined {
   return elementContent(element).visualId;
 }
 
-function slideLayout(slide: Slide): SlideLayoutHint {
-  return ((slide as any).templateId ?? "blank") as SlideLayoutHint;
+function slideLayout(slide: Slide): GeneratedTemplateId {
+  return ((slide as any).templateId ?? "blank") as GeneratedTemplateId;
 }
 
 function slideVisualIds(slide: Slide): string[] {
@@ -168,7 +175,7 @@ function isTitleText(element: SlideElement): element is TextElement {
  * template implies, so they can be cleaned in place rather than re-scaffolded.
  */
 function elementsMatchTemplate(
-  templateId: SlideLayoutHint,
+  templateId: GeneratedTemplateId,
   elements: readonly SlideElement[],
 ): boolean {
   if (elements.length === 0) return false;

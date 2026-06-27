@@ -1,12 +1,10 @@
 import { GENERATED_DECK_MAX_SLIDES } from "@/lib/limits";
 import {
   CURRENT_DECK_SCHEMA_VERSION,
-  SLIDE_LAYOUTS,
   type Deck,
   type ElementAlign,
   type ElementBox,
   type SlideElement,
-  type SlideLayoutHint,
   type TextElementStyle,
 } from "@/lib/presentation/deck";
 import {
@@ -18,7 +16,16 @@ import type { DeckTheme } from "@/lib/presentation/deck";
 export const REPAIRED_DECK_MAX_SLIDES = GENERATED_DECK_MAX_SLIDES;
 
 const DEFAULT_THEME = "indigo";
-const DEFAULT_LAYOUT: SlideLayoutHint = "blank";
+const SLIDE_TEMPLATE_IDS = [
+  "title",
+  "section",
+  "content",
+  "media",
+  "two-column",
+  "blank",
+] as const;
+type SlideTemplateId = (typeof SLIDE_TEMPLATE_IDS)[number];
+const DEFAULT_TEMPLATE: SlideTemplateId = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
 const PRESENTATION_TEXT_ROLES = [
   "title",
@@ -184,7 +191,7 @@ export interface RepairedSlide {
   id: string;
   index: number;
   title: string;
-  templateId?: SlideLayoutHint;
+  templateId?: SlideTemplateId;
   notes: string;
   elements?: SlideElement[];
 }
@@ -192,9 +199,11 @@ export interface RepairedSlide {
 export function repairSlide(input: unknown, index: number): RepairedSlide {
   const slide = isPlainObject(input) ? input : {};
 
-  const templateId = SLIDE_LAYOUTS.includes(slide.templateId as SlideLayoutHint)
-    ? (slide.templateId as SlideLayoutHint)
-    : DEFAULT_LAYOUT;
+  const templateId = SLIDE_TEMPLATE_IDS.includes(
+    slide.templateId as SlideTemplateId,
+  )
+    ? (slide.templateId as SlideTemplateId)
+    : DEFAULT_TEMPLATE;
 
   const normalized: RepairedSlide = {
     id:

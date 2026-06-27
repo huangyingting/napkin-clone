@@ -16,7 +16,7 @@
  */
 
 import { Check, ChevronDown, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import {
@@ -30,7 +30,6 @@ import {
 import { LayerList } from "@/components/presentation/layer-list";
 import { Popover, Tooltip } from "@/components/ui";
 import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
-import { defaultLayouts } from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
 import {
   availablePanels,
@@ -42,6 +41,10 @@ import {
 } from "@/lib/presentation/slide-panel-ui";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
+import {
+  SLIDE_TEMPLATES,
+  type SlideTemplateKind,
+} from "@/lib/presentation/slide-templates";
 import {
   ColorOverride,
   EffectsPanel,
@@ -65,7 +68,6 @@ import {
   selectionBoundingBox,
 } from "@/lib/presentation/selection-transform";
 import {
-  deckCanvasFormat,
   slideAccentValue,
   slideBackgroundGradientValue,
   slideBackgroundImageValue,
@@ -273,10 +275,19 @@ function SelectionEffectsControl({
 }
 
 /**
- * Slide-level design surface: reusable layout, per-slide background, accent,
- * gradient, and background image. Layout and background stay in one panel for
+ * Slide-level design surface: template provenance, master chrome, per-slide
+ * background, accent, gradient, and background image. Template and background stay in one panel for
  * now (decision #12).
  */
+function slideTemplateKind(slide: Slide): SlideTemplateKind {
+  const templateId = slide.templateId;
+  if (templateId === "title") return "title";
+  if (templateId === "content") return "content";
+  if (templateId === "two-column") return "two-column";
+  if (templateId === "media" || templateId === "visual") return "visual";
+  return "blank";
+}
+
 function SlidePanelBody({
   slide,
   deck,
@@ -285,8 +296,9 @@ function SlidePanelBody({
   showAdvanced,
   documentId,
   slideAssetPort,
-  onApplyLayout,
-  onResetLayout,
+  onApplyTemplate,
+  onReapplyTemplate,
+  onSetSlideMaster,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -300,29 +312,29 @@ function SlidePanelBody({
   showAdvanced: boolean;
   documentId?: string;
   slideAssetPort?: SlideInspectorProps["slideAssetPort"];
-  onApplyLayout: SlideInspectorProps["onApplyLayout"];
-  onResetLayout: SlideInspectorProps["onResetLayout"];
+  onApplyTemplate: SlideInspectorProps["onApplyTemplate"];
+  onReapplyTemplate: SlideInspectorProps["onReapplyTemplate"];
+  onSetSlideMaster: SlideInspectorProps["onSetSlideMaster"];
   onBackgroundChange: SlideInspectorProps["onBackgroundChange"];
   onBackgroundGradientChange: SlideInspectorProps["onBackgroundGradientChange"];
   onBackgroundImageChange: SlideInspectorProps["onBackgroundImageChange"];
   onBackgroundAssetChange?: SlideInspectorProps["onBackgroundAssetChange"];
   onAccentChange: SlideInspectorProps["onAccentChange"];
 }) {
-  const [selectedLayoutId, setSelectedLayoutId] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] =
+    useState<SlideTemplateKind>(() => slideTemplateKind(slide));
   const [bgImageError, setBgImageError] = useState<string | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
-
-  const builtInLayouts = useMemo(() => defaultLayouts(), []);
-  const availableLayouts = useMemo(() => {
-    const source = builtInLayouts;
-    const format = deckCanvasFormat(deck);
-    const filtered = source.filter((layout) => layout.format === format);
-    return filtered.length > 0 ? filtered : source;
-  }, [builtInLayouts, deck]);
-  const selectedLayout =
-    availableLayouts.find((layout) => layout.id === selectedLayoutId) ??
-    availableLayouts[0] ??
-    null;
+  useEffect(() => {
+    setSelectedTemplateId(slideTemplateKind(slide));
+  }, [slide]);
+  const selectedTemplate =
+    SLIDE_TEMPLATES.find((template) => template.kind === selectedTemplateId) ??
+    SLIDE_TEMPLATES[0];
+  const deckMasters = deck.masters ?? [];
+  const defaultMaster = deckMasters.find(
+    (master) => master.id === deck.defaultMasterId,
+  );
   const backgroundImage = slideBackgroundImageValue(slide);
   const backgroundGradient = slideBackgroundGradientValue(slide);
   const backgroundColor = slideSolidBackgroundValue(slide);
@@ -368,35 +380,60 @@ function SlidePanelBody({
 
   return (
     <>
-      {selectedLayout ? (
-        <PanelSection title="Layout">
-          <PropRow label="Preset">
+      {selectedTemplate ? (
+        <PanelSection title="Template">
+          <PropRow label="Blueprint">
             <SelectField
-              value={selectedLayout.id}
-              onChange={setSelectedLayoutId}
-              ariaLabel="Reusable layout"
-              options={availableLayouts.map((layout) => ({
-                value: layout.id,
-                label: layout.name,
+              value={selectedTemplate.kind}
+              onChange={(value) =>
+                setSelectedTemplateId(value as SlideTemplateKind)
+              }
+              ariaLabel="Slide template"
+              options={SLIDE_TEMPLATES.map((template) => ({
+                value: template.kind,
+                label: template.label,
               }))}
             />
           </PropRow>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => onApplyLayout(selectedLayout)}
+              onClick={() => onApplyTemplate(selectedTemplate.kind)}
               className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
             >
               Apply
             </button>
             <button
               type="button"
-              onClick={() => onResetLayout(selectedLayout)}
+              onClick={() => onReapplyTemplate(selectedTemplate.kind)}
               className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
             >
-              Reset
+              Reapply
             </button>
           </div>
+        </PanelSection>
+      ) : null}
+      {deckMasters.length > 0 ? (
+        <PanelSection title="Master">
+          <PropRow label="Chrome">
+            <SelectField
+              value={slide.masterId ?? "__default"}
+              onChange={(value) =>
+                onSetSlideMaster(value === "__default" ? undefined : value)
+              }
+              ariaLabel="Slide master"
+              options={[
+                {
+                  value: "__default",
+                  label: `Deck default${defaultMaster ? ` (${defaultMaster.name})` : ""}`,
+                },
+                ...deckMasters.map((master) => ({
+                  value: master.id,
+                  label: master.name,
+                })),
+              ]}
+            />
+          </PropRow>
         </PanelSection>
       ) : null}
       <PanelSection title="Background">
@@ -535,8 +572,9 @@ export function SlideInspector({
   selectedElementId,
   selectedElementIds,
   onSelectElement,
-  onApplyLayout,
-  onResetLayout,
+  onApplyTemplate,
+  onReapplyTemplate,
+  onSetSlideMaster,
   onUpdateNotes,
   onUpdateElement,
   onAlign,
@@ -568,6 +606,15 @@ export function SlideInspector({
   onSelectTab,
 }: SlideInspectorProps) {
   const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
+  const activeMaster = useMemo(() => {
+    const masters = deck.masters ?? [];
+    return (
+      masters.find((master) => master.id === slide.masterId) ??
+      masters.find((master) => master.id === deck.defaultMasterId) ??
+      masters[0]
+    );
+  }, [deck.defaultMasterId, deck.masters, slide.masterId]);
+  const masterElements = activeMaster?.elements ?? [];
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedElements = useMemo(() => {
@@ -662,8 +709,9 @@ export function SlideInspector({
             showAdvanced={showAdvanced}
             documentId={documentId}
             slideAssetPort={slideAssetPort}
-            onApplyLayout={onApplyLayout}
-            onResetLayout={onResetLayout}
+            onApplyTemplate={onApplyTemplate}
+            onReapplyTemplate={onReapplyTemplate}
+            onSetSlideMaster={onSetSlideMaster}
             onBackgroundChange={onBackgroundChange}
             onBackgroundGradientChange={onBackgroundGradientChange}
             onBackgroundImageChange={onBackgroundImageChange}
@@ -683,6 +731,28 @@ export function SlideInspector({
 
         {activeTab === "layers" ? (
           <div className="p-2">
+            {masterElements.length > 0 ? (
+              <div className="mb-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                  Master chrome
+                </div>
+                <div className="space-y-1">
+                  {masterElements.map((element) => (
+                    <div
+                      key={element.id}
+                      className="flex items-center justify-between gap-2 rounded-ds-sm px-1.5 py-1 text-xs text-ds-text-secondary"
+                    >
+                      <span className="min-w-0 truncate">
+                        {elementLabel(element)}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-ds-text-muted">
+                        Locked
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <LayerList
               elements={elements}
               selectedElementId={selectedElementId}

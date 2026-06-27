@@ -70,6 +70,11 @@ function elementContent(element: unknown): any {
   return (element as any).content ?? {};
 }
 
+function elementSource(element: unknown): any {
+  if (element == null) return undefined;
+  return (element as any).source;
+}
+
 function slideTextElements(slide: unknown): any[] {
   return (((slide as any).elements ?? []) as unknown[]).filter(
     (element: any) => element.kind === "text",
@@ -339,6 +344,66 @@ test("complex document: h1 + two h2 sections + visuals", () => {
   const results = deck.slides.find((s) => s.title === "Results")!;
   assert.deepEqual(slideBullets(results), ["We found X"]);
   assert.deepEqual(slideVisualIds(results), ["fig-2"]);
+});
+
+test("buildDeckFromBlocks stamps element-level source when documentId is provided", () => {
+  const deck = buildDeckFromBlocks(
+    [
+      {
+        kind: "text",
+        blockType: "heading",
+        level: 2,
+        text: "Sourced",
+        blockId: "heading-1",
+      },
+      {
+        kind: "text",
+        blockType: "paragraph",
+        text: "First point",
+        blockId: "body-1",
+      },
+      visual("fig-1"),
+    ],
+    { documentId: "doc-1", linkedAt: "2026-06-27T00:00:00.000Z" },
+  );
+  const slide = deck.slides[0];
+  const title = slideTextElements(slide).find(
+    (element) => element.role === "title",
+  );
+  const bullet = slideTextElements(slide).find(
+    (element) => element.role === "bullet",
+  );
+  const visualElement = (slide.elements ?? []).find(
+    (element) => element.kind === "visual",
+  );
+
+  assert.deepEqual(elementSource(title), {
+    documentId: "doc-1",
+    blockId: "heading-1",
+    contentHash: "907ced4e",
+    linkedAt: "2026-06-27T00:00:00.000Z",
+    blockKind: "text",
+  });
+  assert.equal(elementSource(bullet)?.blockId, "body-1");
+  assert.equal(elementSource(bullet)?.blockKind, "text");
+  assert.equal(elementSource(visualElement)?.blockId, "fig-1");
+  assert.equal(elementSource(visualElement)?.blockKind, "visual");
+});
+
+test("buildDeckFromBlocks omits element source without documentId", () => {
+  const deck = buildDeckFromBlocks([
+    {
+      kind: "text",
+      blockType: "heading",
+      level: 2,
+      text: "Unsourced",
+      blockId: "heading-1",
+    },
+    visual("fig-1"),
+  ]);
+  for (const element of deck.slides[0].elements ?? []) {
+    assert.equal(elementSource(element), undefined);
+  }
 });
 
 // ---------------------------------------------------------------------------

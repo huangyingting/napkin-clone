@@ -21,6 +21,7 @@ export interface ResolvedSlideRenderModel {
   masterBackgroundElements: SlideElement[];
   slideElements: SlideElement[];
   masterForegroundElements: SlideElement[];
+  renderedElements: SlideElement[];
 }
 
 function masterElements(
@@ -41,6 +42,8 @@ export function resolveSlideRenderModel(
   const slideElements = [...(slide.elements ?? [])].sort(
     (a, b) => a.zIndex - b.zIndex,
   );
+  const masterBackgroundElements = masterElements(style.master, "background");
+  const masterForegroundElements = masterElements(style.master, "foreground");
   return {
     slide,
     themeColors: resolveSlideThemeColors(deck, slide),
@@ -48,8 +51,13 @@ export function resolveSlideRenderModel(
     background: style.background,
     accent: style.accent,
     ...(style.master !== undefined ? { master: style.master } : {}),
-    masterBackgroundElements: masterElements(style.master, "background"),
+    masterBackgroundElements,
     slideElements,
-    masterForegroundElements: masterElements(style.master, "foreground"),
+    masterForegroundElements,
+    renderedElements: [
+      ...masterBackgroundElements,
+      ...slideElements,
+      ...masterForegroundElements,
+    ],
   };
 }

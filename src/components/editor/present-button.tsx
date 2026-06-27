@@ -66,7 +66,7 @@ export function PresentButton({
       }
     }
 
-    const baseDeck = buildDeckFromBlocks(blocks);
+    const baseDeck = buildDeckFromBlocks(blocks, { documentId });
     let fetchedRaw: unknown = null;
     setIsLoading(true);
     try {

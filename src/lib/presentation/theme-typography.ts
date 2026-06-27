@@ -1,5 +1,3 @@
-import type { PlaceholderType } from "./deck-layout-primitives";
-
 /**
  * Content-level typography tokens, stored in points so they can drive editor
  * hints and export defaults without being tied to a particular slide renderer.
@@ -93,23 +91,30 @@ export function resolveBodyFont(typography: ThemeTypography): string {
 }
 
 /**
- * Display hint for a placeholder's theme typography. This is an editor hint
+ * Display hint for a semantic role's theme typography. This is an editor hint
  * (font stack + point size), not persisted element data — element font
  * overrides use a slide `fontId`, while the theme/role font is a CSS stack.
  */
-export type PlaceholderStyleHint = {
+export type RoleStyleHint = {
   fontFamily?: string;
   fontSize?: number;
   bold?: boolean;
   align?: "left" | "center" | "right";
 };
 
-/** Build a partial text style hint for a specific placeholder type. */
-export function placeholderStyle(
-  placeholderType: PlaceholderType,
+export type TypographyHintRole =
+  | "title"
+  | "subtitle"
+  | "body"
+  | "visual"
+  | "footer";
+
+/** Build a partial text style hint for a semantic template role. */
+export function roleStyle(
+  role: TypographyHintRole,
   typography: ThemeTypography,
-): PlaceholderStyleHint {
-  switch (placeholderType) {
+): RoleStyleHint {
+  switch (role) {
     case "title":
       return {
         fontFamily: resolveHeadingFont(typography),

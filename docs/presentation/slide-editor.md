@@ -57,9 +57,9 @@ current object = selected element(s) ?? current slide
 
 Deck-level controls never participate in selection. They stay in the top
 toolbar. When the element selection is empty, the slide itself is the current
-object and the canvas popover plus inspector target slide background, layout,
-notes, and slide actions. When one element, a group, or a multiset is selected,
-those surfaces target that selection.
+object and the canvas popover plus inspector target slide background, notes,
+template provenance, master assignment, and slide actions. When one element, a
+group, or a multiset is selected, those surfaces target that selection.
 
 ## Surface Layout
 
@@ -166,7 +166,8 @@ permanent `Name` input — element naming lives in `Layers`.
 `SlideInspector` receives callbacks for every action:
 
 - slide duplicate/remove;
-- layout apply/reset;
+- template apply/reapply;
+- slide master assignment;
 - element patch/remove/duplicate;
 - z-order, arrange, align, distribute, match-size;
 - group/ungroup;

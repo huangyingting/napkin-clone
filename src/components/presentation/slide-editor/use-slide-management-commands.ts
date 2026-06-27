@@ -2,10 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import type {
-  Deck,
-  SlideLayout as ReusableSlideLayout,
-} from "@/lib/presentation/deck";
+import type { Deck } from "@/lib/presentation/deck";
 import {
   commitCommand,
   executeCommand,
@@ -19,20 +16,6 @@ type DoCommitAndChange = (
   deck: Deck,
   cmd: Parameters<typeof commitCommand>[1],
 ) => void;
-
-function templateKindForLayout(layout: ReusableSlideLayout): SlideTemplateKind {
-  switch (layout.name) {
-    case "blank":
-      return "blank";
-    case "title-slide":
-      return "title";
-    case "two-column":
-      return "two-column";
-    case "title-content":
-    default:
-      return "content";
-  }
-}
 
 interface UseSlideManagementCommandsOptions {
   deck: Deck;
@@ -55,8 +38,8 @@ export function useSlideManagementCommands({
   clearSelection,
   setSelectedIndex,
 }: UseSlideManagementCommandsOptions) {
-  const [pendingResetLayout, setPendingResetLayout] =
-    useState<ReusableSlideLayout | null>(null);
+  const [pendingTemplateReapply, setPendingTemplateReapply] =
+    useState<SlideTemplateKind | null>(null);
 
   const handleMove = useCallback(
     (index: number, direction: number) => {
@@ -146,42 +129,55 @@ export function useSlideManagementCommands({
     [deck, onDeckChange, pendingPatchesRef],
   );
 
-  const handleApplyReusableLayout = useCallback(
-    (layout: ReusableSlideLayout) => {
+  const handleApplySlideTemplate = useCallback(
+    (templateId: SlideTemplateKind) => {
       const slideId = deck.slides[safeSelected]?.id;
       if (!slideId) return;
       doCommitAndChange(deck, {
         type: "APPLY_SLIDE_TEMPLATE",
         slideId,
-        templateId: templateKindForLayout(layout),
+        templateId,
       });
       clearSelection();
     },
     [deck, doCommitAndChange, safeSelected, clearSelection],
   );
 
-  const handleResetReusableLayout = useCallback(
-    (layout: ReusableSlideLayout) => {
-      setPendingResetLayout(layout);
+  const handleReapplySlideTemplate = useCallback(
+    (templateId: SlideTemplateKind) => {
+      setPendingTemplateReapply(templateId);
     },
     [],
   );
 
-  const handleConfirmResetLayout = useCallback(() => {
-    if (!pendingResetLayout) return;
+  const handleSetSlideMaster = useCallback(
+    (masterId: string | undefined) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_SLIDE_MASTER",
+        slideId,
+        masterId,
+      });
+    },
+    [deck, doCommitAndChange, safeSelected],
+  );
+
+  const handleConfirmTemplateReapply = useCallback(() => {
+    if (!pendingTemplateReapply) return;
     if (!deck.slides[safeSelected]) {
-      setPendingResetLayout(null);
+      setPendingTemplateReapply(null);
       return;
     }
     doCommitAndChange(deck, {
       type: "APPLY_SLIDE_TEMPLATE",
       slideId: deck.slides[safeSelected]!.id,
-      templateId: templateKindForLayout(pendingResetLayout),
+      templateId: pendingTemplateReapply,
     });
     clearSelection();
-    setPendingResetLayout(null);
+    setPendingTemplateReapply(null);
   }, [
-    pendingResetLayout,
+    pendingTemplateReapply,
     deck,
     doCommitAndChange,
     safeSelected,
@@ -189,14 +185,15 @@ export function useSlideManagementCommands({
   ]);
 
   return {
-    pendingResetLayout,
-    setPendingResetLayout,
+    pendingTemplateReapply,
+    setPendingTemplateReapply,
     handleMove,
     handleDuplicate,
     handleRemove,
     handleNotesChange,
-    handleApplyReusableLayout,
-    handleResetReusableLayout,
-    handleConfirmResetLayout,
+    handleApplySlideTemplate,
+    handleReapplySlideTemplate,
+    handleSetSlideMaster,
+    handleConfirmTemplateReapply,
   };
 }

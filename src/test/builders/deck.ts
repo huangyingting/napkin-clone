@@ -4,7 +4,6 @@ import {
   type Deck,
   type ElementBox,
   type ImageElement,
-  type LayoutPlaceholder,
   type Paragraph,
   type ShapeElement,
   type Slide,
@@ -18,6 +17,14 @@ import {
   type ImageMaskShape,
   type ShapeKind,
 } from "@/lib/presentation/deck";
+
+type LayoutPlaceholder = {
+  id: string;
+  placeholderType: "title" | "subtitle" | "body" | "visual" | "footer";
+  zIndex: number;
+  box: ElementBox;
+  label?: string;
+};
 
 export function buildElementBox(
   overrides: Partial<ElementBox> = {},
