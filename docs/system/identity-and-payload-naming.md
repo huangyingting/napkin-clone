@@ -50,7 +50,7 @@ treats that value as a durable document block/visual id. It is not a live Lexica
 
 `ResolvedAssetUrl` means a derived display URL (for example `ImageElement.src`,
 `Slide.backgroundImage`, `BrandStyle.logoAssetUrl`, `BrandStyle.fontAssetUrl`, or
-deck-renderable `MasterSlide.logoUrl`). URLs come from upload responses,
+a logo `MasterElement.content.src`). URLs come from upload responses,
 serialization, or storage adapters and should be re-resolvable from asset ids on
 server/export paths.
 

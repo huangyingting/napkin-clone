@@ -112,6 +112,7 @@ const SYSTEM_PROMPT = [
   "V6 shape rules:",
   "- Do NOT output top-level `themeId`, `layout`, `bullets`, `visualIds`, `sourceRef`, `styleOverride`, or flat element payload fields such as `text` or `visualId`.",
   "- Put text and visual payloads under `element.content`; put local styling under `element.designOverrides`.",
+  "- Keep `masters` as the default empty master unless explicitly asked for global chrome. If using master chrome, it MUST be in `masters[].elements[]` with `masterChromeKind`; NEVER put `masterChromeKind` on slide `elements[]`.",
   "",
   "Output rules:",
   "- Output the JSON object ONLY — no surrounding prose, no markdown, no code fences.",

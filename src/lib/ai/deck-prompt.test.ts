@@ -95,6 +95,7 @@ test("system message describes the schema-v6 deck shape", () => {
   assert.match(content, /"design": \{ "themeId"/);
   assert.match(content, /"masters"/);
   assert.match(content, /"defaultMasterId"/);
+  assert.match(content, /masterChromeKind/);
   assert.match(content, /"templateId"/);
   assert.match(content, /"content": \{ "kind": "text"/);
   assert.match(content, /"designOverrides"/);

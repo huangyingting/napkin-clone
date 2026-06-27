@@ -1,7 +1,7 @@
 # Current Deck Model
 
 **Status:** Current  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-28
 
 This document defines the current `Document.deckJson` contract. The deck schema
 is development-authoritative: payloads that do not match the current shape are
@@ -54,17 +54,17 @@ schema v6.
 
 ## v6 Vocabulary
 
-| Term                 | Current meaning                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                          |
-| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                             |
-| `SlideMaster`        | Deck-owned live shared chrome: background treatment and locked background/foreground master elements.                     |
-| `SlideTemplate`      | Creation or explicit-reapply blueprint. Templates materialize elements and are not normal render dependencies.            |
-| `Slide`              | Authored page instance with metadata, optional master/template provenance, optional slide design overrides, and elements. |
-| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.                  |
-| `MasterElement`      | Locked shared chrome element from a master, rendered before or after slide elements according to its layer.               |
-| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.                   |
-| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                                |
+| Term                 | Current meaning                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                   |
+| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                      |
+| `SlideMaster`        | Deck-owned global shared chrome: background treatment and locked background/foreground master elements.            |
+| `SlideTemplate`      | Creation or explicit-reapply blueprint. Templates materialize elements and are not normal render dependencies.     |
+| `Slide`              | Authored page instance with metadata, optional template provenance, optional slide design overrides, and elements. |
+| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.           |
+| `MasterElement`      | Locked shared chrome element from a master, identified by `masterChromeKind` and rendered by its layer band.       |
+| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.            |
+| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                         |
 
 The current schema uses presentation-native vocabulary. Superseded names such
 as top-level `themeId`, `customTokenSet`, `slideFormat`, `layouts`, slide
@@ -124,9 +124,12 @@ optional `indent`. `content.text` is the compact text string, and `content.runs`
 Templates are blueprints. Applying or creating from a template materializes real
 typed elements with `content`; `Slide.templateId` is provenance only.
 
-Masters are live deck data, not creation-time blueprints. A slide uses
-`Slide.masterId` when present, otherwise `Deck.defaultMasterId`. Master elements
-are locked chrome and render in separate layer bands around slide content:
+Masters are live deck data, not creation-time blueprints. The current product
+uses the deck-wide global master resolved from `Deck.defaultMasterId` (falling
+back to the first master). `Slide.masterId` remains in the persisted type for
+now but is not used by current render, editor, or template flows. Master
+elements are locked chrome and render in separate layer bands around slide
+content:
 
 ```text
 theme/master/slide background
@@ -138,11 +141,28 @@ theme/master/slide background
 Master and slide element z-indexes are sorted inside their own layer bands, not
 merged into one cross-layer z-index space.
 
+Every `MasterElement` must carry a `masterChromeKind` identity marker. This is
+the master chrome identity; `role` is only the theme/style role. Valid master
+chrome combinations are:
+
+| `masterChromeKind` | `kind`  | `role`       | `layer`      |
+| ------------------ | ------- | ------------ | ------------ |
+| `logo`             | `image` | `logo`       | `foreground` |
+| `footer`           | `text`  | `footer`     | `foreground` |
+| `pageNumber`       | `text`  | `pageNumber` | `foreground` |
+| `watermark`        | `text`  | `background` | `background` |
+
+Normal `Slide.elements[]` must not contain `masterChromeKind`; slide editing
+cannot select or mutate master chrome. Master chrome is configured through the
+deck-level Masters popover and rendered/exported through the shared render
+model.
+
 ### Document-derived metadata
 
 Slides keep only metadata such as `title`, optional `notes`, optional
-`templateId`, optional `masterId`, and optional slide `source`. Render content
-lives in `elements[]`.
+`templateId`, and optional slide `source`. Render content lives in `elements[]`.
+`masterId` is currently retained as a field but ignored by current product
+flows.
 
 ### Provenance
 

@@ -40,13 +40,16 @@ tokens so every role has complete typography at render/export time.
 ## Masters
 
 `Deck.masters[]` stores deck-owned `SlideMaster` records. `Deck.defaultMasterId`
-is required and must reference an existing master; `Slide.masterId` may override
-the default for one slide.
+is required and must reference an existing master. Current product behavior uses
+that deck-wide global master for every slide; `Slide.masterId` is retained in the
+persisted type but is ignored by current render/editor/template flows.
 
 Masters are live shared chrome. They may provide background treatment and locked
 background/foreground `MasterElement` records such as logos, watermarks,
-footers, brand marks, and page numbers. Master elements render around slide
-elements but are not selectable in normal slide editing.
+footers, brand marks, and page numbers. Each master element must carry
+`masterChromeKind`; that field is the chrome identity, while `role` remains only
+the theme/style role. Master elements render around slide elements but are not
+selectable in normal slide editing.
 
 Render order is stable across editor, present mode, public viewers, thumbnails,
 and export:

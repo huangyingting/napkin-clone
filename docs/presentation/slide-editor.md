@@ -196,16 +196,19 @@ permanent `Name` input — element naming lives in `Layers`.
 - template apply/reapply;
 - create/delete deck-local custom templates;
 - update a deck-local custom template from the current slide;
-- slide master assignment;
-- create/delete masters and set the deck default master;
-- master background, footer, page number, logo, watermark, and apply-to-all
-  controls;
 - element patch/remove/duplicate;
 - z-order, arrange, align, distribute, match-size;
 - group/ungroup;
 - hide/lock/rename layer-list operations;
 - slide `designOverrides.background` and accent updates;
 - image upload through the slide asset action when `documentId` is available.
+
+Deck-level master chrome is not edited in the right inspector. The top toolbar
+`Masters` popover owns global logo, footer, page number, and watermark
+configuration. Those controls update locked `Deck.masters[].elements[]` records
+identified by `masterChromeKind`. The slide stage renders those elements but
+normal slide editing hit-testing, selection, clipboard, z-order, and layer-list
+mutations operate only on `Slide.elements[]`.
 
 The inspector must not infer missing context. If a workflow requires full source
 document blocks or document id, those values are passed by `SlideEditor`.
