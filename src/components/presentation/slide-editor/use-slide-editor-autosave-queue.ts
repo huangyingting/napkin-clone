@@ -50,7 +50,7 @@ export function useSlideEditorAutosaveQueue({
       return inFlightSaveRef.current;
     }
     setIsSaving(true);
-    inFlightSaveRef.current = (async () => {
+    const savePromise = (async () => {
       try {
         do {
           saveAgainRef.current = false;
@@ -101,12 +101,24 @@ export function useSlideEditorAutosaveQueue({
           }
         } while (saveAgainRef.current);
       } finally {
-        inFlightSaveRef.current = null;
         saveAgainRef.current = false;
         setIsSaving(false);
       }
     })();
-    return inFlightSaveRef.current;
+    // Track the in-flight save, then clear the handle only after it settles —
+    // and only if it has not been replaced. This must happen *outside* the
+    // async IIFE's `finally`: when the body returns synchronously (a no-op
+    // flush with nothing new to persist), that `finally` runs before the
+    // assignment below, so clearing the ref there would be immediately
+    // clobbered by this assignment, leaving a stale resolved promise that
+    // permanently blocks every later save.
+    inFlightSaveRef.current = savePromise;
+    void savePromise.finally(() => {
+      if (inFlightSaveRef.current === savePromise) {
+        inFlightSaveRef.current = null;
+      }
+    });
+    return savePromise;
   }, [onSave, pendingPatchesRef]);
 
   useEffect(() => {
