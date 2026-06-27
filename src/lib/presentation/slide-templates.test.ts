@@ -141,7 +141,7 @@ test("content template = editable title/body text plus image/footer", () => {
   assert.equal(content(footer).text, "Footer");
 });
 
-test("layout templates no longer emit non-editable placeholders", () => {
+test("template blueprints no longer emit non-editable placeholders", () => {
   for (const kind of ["title", "content", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
     assert.equal(

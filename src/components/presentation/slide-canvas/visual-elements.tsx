@@ -2,31 +2,30 @@ import type { JSX } from "react";
 
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { VisualElement } from "@/lib/presentation/deck";
+import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
 
 import { boxStyle } from "./primitives";
 import { visualContent } from "./v6-model";
 
+type ResolvedVisualDesign = Extract<ResolvedElementDesign, { kind: "visual" }>;
+
 export function VisualElementView({
   element,
   visuals,
-  defaultStyleThemeId,
+  resolvedDesign,
 }: {
   element: VisualElement;
   visuals: ReadonlyMap<string, Visual>;
-  /** Deck-template default restyle theme applied when the element sets none (#607). */
-  defaultStyleThemeId?: string;
+  resolvedDesign?: ResolvedVisualDesign;
 }): JSX.Element | null {
   const content = visualContent(element);
   const visual = visuals.get(content.visualId);
   if (!visual) {
     return null;
   }
-  // Apply the optional per-element restyle here, in the one shared renderer, so
-  // editor / present / public viewer all draw the visual identically. Falls back
-  // to the presentation theme default styleThemeId when the element sets none (#607).
-  const styleThemeId = content.styleThemeId ?? defaultStyleThemeId;
+  const styleThemeId = resolvedDesign?.styleThemeId;
   const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
   return (
     <div

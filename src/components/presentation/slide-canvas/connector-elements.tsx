@@ -5,18 +5,22 @@ import {
   resolveConnectorElementPoints,
 } from "@/lib/presentation/connector-geometry";
 import type { ConnectorElement, SlideElement } from "@/lib/presentation/deck";
-import type { ConnectorDefaultsToken } from "@/lib/presentation/presentation-theme";
+import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
 import { connectorContent, connectorDesign } from "./v6-model";
+
+type ResolvedConnectorDesign = Extract<
+  ResolvedElementDesign,
+  { kind: "connector" }
+>;
 
 export function ConnectorElementView({
   element,
   elements,
-  defaults,
+  resolvedDesign,
 }: {
   element: ConnectorElement;
   elements: readonly SlideElement[];
-  /** Deck-template connector defaults applied when the element omits a field (#607). */
-  defaults?: ConnectorDefaultsToken;
+  resolvedDesign?: ResolvedConnectorDesign;
 }): JSX.Element {
   const content = connectorContent(element);
   const design = connectorDesign(element);
@@ -26,12 +30,11 @@ export function ConnectorElementView({
     elements,
     (el) => el.box,
   );
-  const strokeColor = design.stroke?.color ?? defaults?.color ?? "#a1a1aa";
-  const strokeWidth = design.stroke?.width ?? defaults?.width ?? 0.4;
-  const arrowEnd = design.arrowEnd ?? defaults?.endArrow ?? "arrow";
-  const arrowStart = design.arrowStart ?? defaults?.startArrow ?? "none";
-  const dashed =
-    design.dash || (defaults?.dash !== undefined && defaults.dash !== "solid");
+  const strokeColor = resolvedDesign?.stroke.color ?? "#a1a1aa";
+  const strokeWidth = resolvedDesign?.stroke.width ?? 0.4;
+  const arrowEnd = resolvedDesign?.arrowEnd ?? "arrow";
+  const arrowStart = resolvedDesign?.arrowStart ?? "none";
+  const dashed = resolvedDesign?.dash ?? false;
   const dash = dashed ? "4 2" : undefined;
   const endMarkerId = `conn-end-${element.id}`;
   const startMarkerId = `conn-start-${element.id}`;

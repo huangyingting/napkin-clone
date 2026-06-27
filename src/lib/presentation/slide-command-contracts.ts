@@ -413,6 +413,7 @@ export interface ApplySlideTemplateCommand {
   slideId: string;
   templateId: SlideTemplateKind | string;
   visualId?: string;
+  mode?: "replace" | "preserve";
   commandId?: string;
 }
 

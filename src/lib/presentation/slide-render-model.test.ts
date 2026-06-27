@@ -61,6 +61,13 @@ test("resolveSlideRenderModel includes master layers around slide elements", () 
   const model = resolveSlideRenderModel(d, d.slides[0]!);
 
   assert.equal(model.master?.id, "master-default");
+  assert.deepEqual(model.canvas, {
+    format: "16:9",
+    width: 16,
+    height: 9,
+    pptxWidthIn: 13.333,
+    pptxHeightIn: 7.5,
+  });
   assert.equal(model.background.type, "solid");
   if (model.background.type === "solid") {
     assert.equal(model.background.color, "#ffffff");
@@ -77,4 +84,12 @@ test("resolveSlideRenderModel includes master layers around slide elements", () 
     model.masterForegroundElements.map((element) => element.id),
     ["master-fg"],
   );
+  assert.deepEqual(
+    model.renderedElements.map((element) => element.id),
+    ["master-bg", "slide-el", "master-fg"],
+  );
+  assert.equal(model.elementDesigns["slide-el"]?.kind, "shape");
+  if (model.elementDesigns["slide-el"]?.kind === "shape") {
+    assert.equal(model.elementDesigns["slide-el"].fill, "#123456");
+  }
 });

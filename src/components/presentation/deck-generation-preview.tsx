@@ -30,7 +30,7 @@
  *   • Cancel — dismiss without opening anything.
  *
  * The proposed deck arrives as authored v6 elements; this surface never mutates
- * it, so later source-aware sync can preserve user-authored layout.
+ * it, so later source-aware sync can preserve user-authored geometry.
  */
 
 import { RefreshCw, Sparkles } from "lucide-react";

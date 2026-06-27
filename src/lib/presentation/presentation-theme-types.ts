@@ -8,7 +8,7 @@
  * Cascade layers (outermost → innermost):
  *  1. deck token set — named PresentationTheme values and custom brand tokens.
  *  2. master slide — structural chrome shared by assigned slides.
- *  3. reusable layout — placeholder/slot defaults applied by layout templates.
+ *  3. template materialization — blueprint defaults copied onto slide elements.
  *  4. slide override — Slide.background/accent and other per-slide fields.
  *  5. element override — concrete element styles and local override objects.
  *

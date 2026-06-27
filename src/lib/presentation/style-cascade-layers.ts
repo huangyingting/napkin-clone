@@ -5,8 +5,7 @@
  * because renderers/exporters depend on this order staying stable:
  *  1. deck token set — built-in or custom PresentationTheme.
  *  2. master slide — shared chrome/background for assigned slides.
- *  3. reusable layout — placeholder geometry/style defaults (reserved here;
- *     layout application materializes those defaults onto slide elements).
+ *  3. template materialization — blueprint defaults copied onto slide elements.
  *  4. slide override — Slide.background/accent/image/gradient fields.
  *  5. element override — handled by style-cascade-text for text-bearing nodes.
  *

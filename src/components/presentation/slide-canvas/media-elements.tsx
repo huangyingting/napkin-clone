@@ -2,11 +2,13 @@ import type { JSX } from "react";
 import type * as React from "react";
 
 import type { ImageElement } from "@/lib/presentation/deck";
-import type { ImageDefaultsToken } from "@/lib/presentation/presentation-theme";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
+import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
 
 import { boxStyle } from "./primitives";
-import { imageContent, imageDesign } from "./v6-model";
+import { imageContent } from "./v6-model";
+
+type ResolvedImageDesign = Extract<ResolvedElementDesign, { kind: "image" }>;
 
 function hasImageCrop(
   crop: ImageElement["content"]["crop"] | undefined,
@@ -58,7 +60,7 @@ function imageMaskStyle(mask: {
 export function ImageElementView({
   element,
   editable = false,
-  defaults,
+  resolvedDesign,
 }: {
   element: ImageElement;
   /**
@@ -67,19 +69,13 @@ export function ImageElementView({
    * surfaces render a neutral box so they never show a broken image (#226).
    */
   editable?: boolean;
-  /** Deck-template image defaults applied when the element omits a field (#607). */
-  defaults?: ImageDefaultsToken;
+  resolvedDesign?: ResolvedImageDesign;
 }): JSX.Element {
   const content = imageContent(element);
-  const design = imageDesign(element);
   const cropClipPath = imageCropClipPath(content.crop);
-  // Effective image styling: element value wins, else the presentation theme default
-  // (#607), else the renderer's built-in default. Built-in themes set no image
-  // token, so existing decks are unaffected.
-  const effFitMode = design.fitMode ?? defaults?.fitMode;
   const effMask = {
-    maskShape: design.maskShape ?? defaults?.maskShape,
-    radius: design.radius ?? defaults?.radiusPct,
+    maskShape: resolvedDesign?.maskShape,
+    radius: resolvedDesign?.radius,
   };
   const outerStyle: React.CSSProperties = {
     ...boxStyle(element),
@@ -154,7 +150,7 @@ export function ImageElementView({
             display: "block",
             height: "100%",
             width: "100%",
-            objectFit: effFitMode ?? "contain",
+            objectFit: resolvedDesign?.fitMode ?? "contain",
             objectPosition: imageObjectPosition(content.crop),
           }}
         />

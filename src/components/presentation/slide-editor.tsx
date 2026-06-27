@@ -354,11 +354,13 @@ function CloseConfirmDialog({
 function ReapplyTemplateConfirmDialog({
   templateName,
   onCancel,
-  onConfirm,
+  onReplace,
+  onPreserve,
 }: {
   templateName: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onReplace: () => void;
+  onPreserve: () => void;
 }) {
   return (
     <Dialog
@@ -387,10 +389,17 @@ function ReapplyTemplateConfirmDialog({
         </button>
         <button
           type="button"
-          onClick={onConfirm}
+          onClick={onPreserve}
+          className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+        >
+          Preserve content
+        </button>
+        <button
+          type="button"
+          onClick={onReplace}
           className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
         >
-          Reapply template
+          Replace elements
         </button>
       </div>
     </Dialog>
@@ -817,7 +826,16 @@ export function SlideEditor({
     handleNotesChange,
     handleApplySlideTemplate,
     handleReapplySlideTemplate,
+    handleCreateCustomTemplate,
+    handleUpdateCustomTemplateFromSlide,
+    handleDeleteCustomTemplate,
     handleSetSlideMaster,
+    handleCreateMaster,
+    handleSetDefaultMaster,
+    handleDeleteMaster,
+    handleUpdateMasterBackground,
+    handleAddMasterChromeText,
+    handleApplyMasterToAllSlides,
     handleConfirmTemplateReapply,
   } = useSlideManagementCommands({
     deck,
@@ -1348,9 +1366,18 @@ export function SlideEditor({
     handleRemoveSlide: () => handleRemove(safeSelected),
     handleApplySlideTemplate,
     handleReapplySlideTemplate,
+    handleCreateCustomTemplate,
+    handleUpdateCustomTemplateFromSlide,
+    handleDeleteCustomTemplate,
     handleNotesChangeForSelected: (value, coalesceKey) =>
       handleNotesChange(safeSelected, value, coalesceKey),
     handleSetSlideMaster,
+    handleCreateMaster,
+    handleSetDefaultMaster,
+    handleDeleteMaster,
+    handleUpdateMasterBackground,
+    handleAddMasterChromeText,
+    handleApplyMasterToAllSlides,
     handleBackgroundChange,
     handleBackgroundGradientChange,
     handleBackgroundImageChange,
@@ -2007,7 +2034,8 @@ export function SlideEditor({
               )?.label ?? pendingTemplateReapply
             }
             onCancel={() => setPendingTemplateReapply(null)}
-            onConfirm={handleConfirmTemplateReapply}
+            onPreserve={() => handleConfirmTemplateReapply("preserve")}
+            onReplace={() => handleConfirmTemplateReapply("replace")}
           />
         )}
       </div>

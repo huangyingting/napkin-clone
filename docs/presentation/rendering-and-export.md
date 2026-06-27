@@ -33,8 +33,10 @@ is shared by:
 - in-app present mode;
 - public present/share viewers.
 
-The render model resolves background, accent, token defaults, master background
-elements, slide elements, and master foreground elements before React rendering.
+The render model resolves canvas format/dimensions, background, accent, token
+defaults, master background elements, slide elements, master foreground
+elements, flat rendered element order, and concrete per-element design metadata
+before React rendering.
 Normal rendering order is:
 
 ```text
@@ -95,7 +97,7 @@ Deck + Visual map
 ```
 
 `buildDeckSpecs` is DOM-free and unit tested. It consumes the same resolved
-slide render model inputs as `SlideCanvas`, converts percentage element boxes
+slide render model order as `SlideCanvas`, converts percentage element boxes
 into physical slide units, and emits operations such as text, bullets, shape,
 image, connector, native visual, and visual image retry.
 

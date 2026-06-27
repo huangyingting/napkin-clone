@@ -1,9 +1,82 @@
 /**
- * Pure helpers for the in-app Present mode and the public presentation viewer.
+ * Pure slide helpers for presentation UI, source sync, and render surfaces.
  *
  * Intentionally free of DOM/React so they can be unit-tested under
  * `node --test`.
  */
+
+import type { Slide } from "./deck-core";
+import type { SlideElement, TextElement } from "./deck-elements";
+import { isSourceLinked } from "./deck-source-refs";
+
+function textContent(element: TextElement): string {
+  return element.content.text.trim();
+}
+
+function elementRole(element: SlideElement): string | undefined {
+  return (element as { role?: string }).role;
+}
+
+function textElements(slide: Slide): TextElement[] {
+  return (slide.elements ?? []).filter(
+    (element): element is TextElement => element.kind === "text",
+  );
+}
+
+const TITLE_ROLE_PRIORITY = ["title", "sectionTitle"] as const;
+
+/** Returns all visual ids referenced by visual elements on a slide. */
+export function getSlideVisualIds(slide: Slide): string[] {
+  return (slide.elements ?? [])
+    .filter((element) => element.kind === "visual")
+    .map((element) => element.content.visualId)
+    .filter((visualId): visualId is string => visualId.length > 0);
+}
+
+/** Returns the effective title text derived from slide elements, without fallback. */
+export function getSlideTitleFromElements(slide: Slide): string {
+  const texts = textElements(slide);
+  for (const role of TITLE_ROLE_PRIORITY) {
+    const match = texts.find(
+      (element) => elementRole(element) === role && textContent(element),
+    );
+    if (match) return textContent(match);
+  }
+  return "";
+}
+
+/** Returns every active source-linked element on the slide. */
+export function findSourceLinkedElements(slide: Slide): SlideElement[] {
+  return (slide.elements ?? []).filter((element) => isSourceLinked(element));
+}
+
+export interface SlideContentSummary {
+  title: string;
+  text: string;
+  visualIds: string[];
+  sourceLinkedElementCount: number;
+}
+
+/** Summarizes slide content from element payloads only. */
+export function summarizeSlideContent(slide: Slide): SlideContentSummary {
+  const text = textElements(slide)
+    .flatMap((element) => {
+      const paragraphs = element.content.paragraphs;
+      if (paragraphs && paragraphs.length > 0) {
+        return paragraphs.map((paragraph) => paragraph.text.trim());
+      }
+      return [element.content.text.trim()];
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    title: getSlideTitleFromElements(slide),
+    text,
+    visualIds: getSlideVisualIds(slide),
+    sourceLinkedElementCount: findSourceLinkedElements(slide).length,
+  };
+}
 
 /**
  * Clamps a slide index so it is always within [0, total − 1].

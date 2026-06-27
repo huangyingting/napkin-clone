@@ -167,7 +167,12 @@ permanent `Name` input — element naming lives in `Layers`.
 
 - slide duplicate/remove;
 - template apply/reapply;
+- create/delete deck-local custom templates;
+- update a deck-local custom template from the current slide;
 - slide master assignment;
+- create/delete masters and set the deck default master;
+- master background, footer, page number, logo, watermark, and apply-to-all
+  controls;
 - element patch/remove/duplicate;
 - z-order, arrange, align, distribute, match-size;
 - group/ungroup;
@@ -214,7 +219,9 @@ Master mutations are deck-owned commands: `CREATE_MASTER`, `UPDATE_MASTER`,
 `DELETE_MASTER`, `SET_DEFAULT_MASTER`, `SET_SLIDE_MASTER`, and
 `UPDATE_MASTER_ELEMENT`. Template mutations are explicit blueprint commands:
 `ADD_SLIDE_FROM_TEMPLATE`, `APPLY_SLIDE_TEMPLATE`, `CREATE_CUSTOM_TEMPLATE`,
-`UPDATE_CUSTOM_TEMPLATE`, and `DELETE_CUSTOM_TEMPLATE`.
+`UPDATE_CUSTOM_TEMPLATE`, and `DELETE_CUSTOM_TEMPLATE`. Template reapply can
+replace materialized elements or preserve matching element content while
+refreshing the template structure.
 
 ## Autosave And Conflict Handling
 

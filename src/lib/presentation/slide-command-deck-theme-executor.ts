@@ -96,6 +96,32 @@ function materializeTemplate(
   } as Deck["slides"][number];
 }
 
+function elementMatchKey(element: { kind?: string; role?: string }): string {
+  return `${element.kind ?? ""}:${element.role ?? ""}`;
+}
+
+function preserveExistingContent(
+  nextElements: readonly any[],
+  existingElements: readonly any[],
+): any[] {
+  const used = new Set<number>();
+  return nextElements.map((element) => {
+    const matchIndex = existingElements.findIndex((candidate, index) => {
+      return (
+        !used.has(index) &&
+        elementMatchKey(candidate) === elementMatchKey(element) &&
+        candidate.content?.kind === element.content?.kind
+      );
+    });
+    if (matchIndex === -1) return element;
+    used.add(matchIndex);
+    return {
+      ...element,
+      content: existingElements[matchIndex].content,
+    };
+  });
+}
+
 export function executeDeckThemeFamilyCommand(
   deck: Deck,
   cmd: DeckThemeFamilyCommand,
@@ -315,7 +341,13 @@ export function executeDeckThemeFamilyCommand(
         ...(slide.designOverrides !== undefined
           ? { designOverrides: slide.designOverrides }
           : {}),
-        elements: slide.elements ?? [],
+        elements:
+          cmd.mode === "preserve"
+            ? preserveExistingContent(
+                slide.elements ?? [],
+                existing.elements ?? [],
+              )
+            : (slide.elements ?? []),
       };
       const next = updateSlide(deck, index, nextSlide as never);
       return success(next, [cmd.slideId], [], undefined, [

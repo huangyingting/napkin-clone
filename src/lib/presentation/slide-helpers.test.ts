@@ -3,13 +3,86 @@ import { test } from "node:test";
 
 import {
   clampSlideIndex,
+  findSourceLinkedElements,
   formatProgress,
+  getSlideTitleFromElements,
+  getSlideVisualIds,
   hashFromSlideIndex,
   presentationProgress,
   resolveSwipeNavigation,
+  summarizeSlideContent,
   SWIPE_THRESHOLD_PX,
   slideIndexFromHash,
 } from "./slide-helpers";
+import type { Slide } from "./deck";
+
+function slideFixture(): Slide {
+  return {
+    id: "slide-1",
+    index: 0,
+    title: "Metadata title",
+    elements: [
+      {
+        id: "body",
+        kind: "text",
+        role: "body",
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        zIndex: 1,
+        content: {
+          kind: "text",
+          text: "Body fallback",
+          paragraphs: [{ text: "First" }, { text: "Second" }],
+        },
+      },
+      {
+        id: "title",
+        kind: "text",
+        role: "title",
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        zIndex: 0,
+        content: { kind: "text", text: "Element title" },
+        source: {
+          documentId: "doc-1",
+          blockId: "block-1",
+          linkedAt: "2026-06-27T00:00:00.000Z",
+          blockKind: "text",
+        },
+      },
+      {
+        id: "visual",
+        kind: "visual",
+        role: "visual",
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        zIndex: 2,
+        content: { kind: "visual", visualId: "vis-1" },
+      },
+    ],
+  } as unknown as Slide;
+}
+
+test("getSlideVisualIds reads visual ids from slide elements", () => {
+  assert.deepEqual(getSlideVisualIds(slideFixture()), ["vis-1"]);
+});
+
+test("getSlideTitleFromElements reads title role text and ignores metadata", () => {
+  assert.equal(getSlideTitleFromElements(slideFixture()), "Element title");
+});
+
+test("findSourceLinkedElements returns active source-linked elements", () => {
+  assert.deepEqual(
+    findSourceLinkedElements(slideFixture()).map((element) => element.id),
+    ["title"],
+  );
+});
+
+test("summarizeSlideContent summarizes element content only", () => {
+  assert.deepEqual(summarizeSlideContent(slideFixture()), {
+    title: "Element title",
+    text: "First\nSecond\nElement title",
+    visualIds: ["vis-1"],
+    sourceLinkedElementCount: 1,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // clampSlideIndex

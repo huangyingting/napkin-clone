@@ -9,19 +9,14 @@ import {
 } from "react";
 
 import type { TextElement, TextFitMode } from "@/lib/presentation/deck";
-import type { PresentationTheme } from "@/lib/presentation/presentation-theme";
-import { resolveRoleToken } from "@/lib/presentation/presentation-theme";
-import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
+import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
 import { useSlideFontsReady } from "@/lib/presentation/slide-font-loading";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
 import { boxStyle, renderRuns } from "./primitives";
-import {
-  presentationRoleToPresentationRole,
-  textAlignOrDefault,
-  textContent,
-  textDesign,
-} from "./v6-model";
+import { textContent, textDesign } from "./v6-model";
+
+type ResolvedTextDesign = Extract<ResolvedElementDesign, { kind: "text" }>;
 
 /**
  * Computes a CSS `font-size` string that shrinks the font until the content
@@ -76,12 +71,12 @@ export function TextElementView({
   element,
   tc,
   accent,
-  tokenSet,
+  resolvedDesign,
 }: {
   element: TextElement;
   tc: SlideThemeColors;
   accent?: string;
-  tokenSet: PresentationTheme;
+  resolvedDesign?: ResolvedTextDesign;
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const content = textContent(element);
@@ -90,14 +85,8 @@ export function TextElementView({
   const hasListParagraphs = paragraphs.some(
     (paragraph) => paragraph.listType !== undefined,
   );
-  const roleToken = resolveRoleToken(
-    tokenSet,
-    presentationRoleToPresentationRole(
-      (element as { role?: string }).role,
-      hasListParagraphs ? "bullet" : "body",
-    ),
-  );
-  const fontSize = design.fontSize ?? roleToken.fontSize;
+  const textStyle = resolvedDesign?.textStyle;
+  const fontSize = textStyle?.fontSize ?? design.fontSize ?? 4.5;
   const fontSizeCss = useShrinkFontSizeCss(
     containerRef,
     fontSize,
@@ -106,16 +95,17 @@ export function TextElementView({
   // Resolve color + font from the element's semantic role token; local
   // designOverrides.textStyle values still win.
   void tc;
-  const color = design.color ?? roleToken.color;
-  const markerColor = accent ?? tokenSet.bullet?.markerColor ?? color;
-  const roleFontFamily =
-    resolveElementFontCss(design.fontId) ?? roleToken.fontFamily;
-  const align = textAlignOrDefault(design.align, roleToken.align ?? "left");
+  const color = textStyle?.color ?? design.color ?? tc.bodyColor;
+  const markerColor = accent ?? color;
+  const roleFontFamily = textStyle?.fontFamily;
+  const align = textStyle?.align ?? design.align ?? "left";
   const verticalAlign = design.verticalAlign;
-  const bold = design.bold ?? roleToken.weight >= 600;
-  const italic = design.italic ?? roleToken.italic ?? false;
-  const underline = design.underline ?? roleToken.underline ?? false;
-  const lineHeight = design.lineHeight ?? roleToken.lineHeight;
+  const bold = textStyle ? textStyle.weight >= 600 : (design.bold ?? false);
+  const italic = textStyle?.italic ?? design.italic ?? false;
+  const underline = textStyle?.underline ?? design.underline ?? false;
+  const lineHeight = textStyle?.lineHeight ?? design.lineHeight;
+  const paragraphSpacing =
+    textStyle?.paragraphSpacing ?? design.paragraphSpacing;
 
   if (hasListParagraphs) {
     const numbers: (number | null)[] = [];
@@ -278,8 +268,8 @@ export function TextElementView({
             whiteSpace: "pre-wrap",
             overflowWrap: "break-word",
             wordBreak: "normal",
-            ...(design.paragraphSpacing && index < paragraphs.length - 1
-              ? { marginBottom: `${design.paragraphSpacing}cqh` }
+            ...(paragraphSpacing && index < paragraphs.length - 1
+              ? { marginBottom: `${paragraphSpacing}cqh` }
               : {}),
           }}
         >

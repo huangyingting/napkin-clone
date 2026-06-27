@@ -16,6 +16,8 @@ import type { SlideTemplateKind } from "@/lib/presentation/slide-templates";
 import type { Visual } from "@/lib/visual/schema";
 
 export type AddElementKind = PresentationRole | "image" | "shape";
+type TemplateId = SlideTemplateKind | string;
+type MasterChromeKind = "footer" | "pageNumber" | "logo" | "watermark";
 
 export interface SlideInspectorProps {
   slide: Slide;
@@ -27,9 +29,21 @@ export interface SlideInspectorProps {
   canDelete: boolean;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
-  onApplyTemplate: (templateId: SlideTemplateKind) => void;
-  onReapplyTemplate: (templateId: SlideTemplateKind) => void;
+  onApplyTemplate: (templateId: TemplateId) => void;
+  onReapplyTemplate: (templateId: TemplateId) => void;
+  onCreateCustomTemplate: () => void;
+  onUpdateCustomTemplateFromSlide: (templateId: string) => void;
+  onDeleteCustomTemplate: (templateId: string) => void;
   onSetSlideMaster: (masterId: string | undefined) => void;
+  onCreateMaster: () => void;
+  onSetDefaultMaster: (masterId: string) => void;
+  onDeleteMaster: (masterId: string) => void;
+  onUpdateMasterBackground: (
+    masterId: string,
+    color: string | undefined,
+  ) => void;
+  onAddMasterChromeText: (masterId: string, role: MasterChromeKind) => void;
+  onApplyMasterToAllSlides: (masterId: string) => void;
   onUpdateNotes: (value: string, coalesceKey?: string) => void;
   onUpdateElement: (
     id: string,

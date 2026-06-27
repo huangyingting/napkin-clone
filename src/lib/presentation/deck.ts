@@ -72,6 +72,12 @@ export type {
 } from "./slide-design-origins";
 
 export {
+  getSlideVisualIds,
+  getSlideTitleFromElements,
+  summarizeSlideContent,
+  findSourceLinkedElements,
+} from "./slide-helpers";
+export {
   MAX_BULLETS,
   buildSlideElementsFromContent,
   buildDeckFromBlocks,

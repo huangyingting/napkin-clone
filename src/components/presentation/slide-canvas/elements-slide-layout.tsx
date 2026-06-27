@@ -2,8 +2,10 @@ import type { JSX } from "react";
 import type * as React from "react";
 
 import type { SlideElement } from "@/lib/presentation/deck";
-import type { PresentationTheme } from "@/lib/presentation/presentation-theme";
-import type { ResolvedSlideRenderModel } from "@/lib/presentation/slide-render-model";
+import type {
+  ResolvedElementDesign,
+  ResolvedSlideRenderModel,
+} from "@/lib/presentation/slide-render-model";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
 import { assertNever } from "@/lib/assert-never";
@@ -19,7 +21,7 @@ function SlideElementView({
   elements,
   tc,
   accent,
-  tokenSet,
+  design,
   visuals,
   editable,
 }: {
@@ -27,7 +29,7 @@ function SlideElementView({
   elements: readonly SlideElement[];
   tc: SlideThemeColors;
   accent: string;
-  tokenSet: PresentationTheme;
+  design: ResolvedElementDesign | undefined;
   visuals: ReadonlyMap<string, Visual>;
   editable?: boolean;
 }): JSX.Element | null {
@@ -37,8 +39,8 @@ function SlideElementView({
         <TextElementView
           element={element}
           tc={tc}
-          accent={tokenSet.bullet?.markerColor ?? accent}
-          tokenSet={tokenSet}
+          accent={accent}
+          resolvedDesign={design?.kind === "text" ? design : undefined}
         />
       );
     case "visual":
@@ -46,7 +48,7 @@ function SlideElementView({
         <VisualElementView
           element={element}
           visuals={visuals}
-          defaultStyleThemeId={tokenSet.visual?.styleThemeId}
+          resolvedDesign={design?.kind === "visual" ? design : undefined}
         />
       );
     case "image":
@@ -54,7 +56,7 @@ function SlideElementView({
         <ImageElementView
           element={element}
           editable={editable}
-          defaults={tokenSet.image}
+          resolvedDesign={design?.kind === "image" ? design : undefined}
         />
       );
     case "shape":
@@ -62,8 +64,7 @@ function SlideElementView({
         <ShapeElementView
           element={element}
           elements={elements}
-          tokenSet={tokenSet}
-          defaults={tokenSet.shape}
+          resolvedDesign={design?.kind === "shape" ? design : undefined}
         />
       );
     case "connector":
@@ -71,7 +72,7 @@ function SlideElementView({
         <ConnectorElementView
           element={element}
           elements={elements}
-          defaults={tokenSet.connector}
+          resolvedDesign={design?.kind === "connector" ? design : undefined}
         />
       );
     default:
@@ -95,8 +96,8 @@ export function ElementsSlideLayout({
     masterBackgroundElements,
     masterForegroundElements,
     themeColors: tc,
-    tokenSet,
     slideElements,
+    elementDesigns,
   } = renderModel;
   const accent = renderModel.accent;
   const backgroundStyle: React.CSSProperties =
@@ -133,7 +134,7 @@ export function ElementsSlideLayout({
       elements={allRenderedElements}
       tc={tc}
       accent={accent}
-      tokenSet={tokenSet}
+      design={elementDesigns[element.id]}
       visuals={visuals}
       editable={editable}
     />

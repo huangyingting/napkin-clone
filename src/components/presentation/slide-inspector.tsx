@@ -29,7 +29,13 @@ import {
 } from "@/components/presentation/slide-inspector/primitives";
 import { LayerList } from "@/components/presentation/layer-list";
 import { Popover, Tooltip } from "@/components/ui";
-import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
+import {
+  inspectSlideDesignOrigins,
+  type Deck,
+  type Slide,
+  type SlideDesignOriginLayer,
+  type SlideElement,
+} from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
 import {
   availablePanels,
@@ -105,6 +111,21 @@ function elementLabel(element: SlideElement): string {
       return "Connector";
     default:
       return assertNever(element);
+  }
+}
+
+function designOriginLabel(layer: SlideDesignOriginLayer): string {
+  switch (layer) {
+    case "theme":
+      return "Inherited from theme";
+    case "master":
+      return "Inherited from master";
+    case "deck":
+      return "Inherited from deck default";
+    case "slide":
+      return "Slide override";
+    default:
+      return assertNever(layer);
   }
 }
 
@@ -288,6 +309,12 @@ function slideTemplateKind(slide: Slide): SlideTemplateKind {
   return "blank";
 }
 
+type TemplateOption = {
+  id: string;
+  label: string;
+  custom: boolean;
+};
+
 function SlidePanelBody({
   slide,
   deck,
@@ -298,7 +325,16 @@ function SlidePanelBody({
   slideAssetPort,
   onApplyTemplate,
   onReapplyTemplate,
+  onCreateCustomTemplate,
+  onUpdateCustomTemplateFromSlide,
+  onDeleteCustomTemplate,
   onSetSlideMaster,
+  onCreateMaster,
+  onSetDefaultMaster,
+  onDeleteMaster,
+  onUpdateMasterBackground,
+  onAddMasterChromeText,
+  onApplyMasterToAllSlides,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -314,31 +350,63 @@ function SlidePanelBody({
   slideAssetPort?: SlideInspectorProps["slideAssetPort"];
   onApplyTemplate: SlideInspectorProps["onApplyTemplate"];
   onReapplyTemplate: SlideInspectorProps["onReapplyTemplate"];
+  onCreateCustomTemplate: SlideInspectorProps["onCreateCustomTemplate"];
+  onUpdateCustomTemplateFromSlide: SlideInspectorProps["onUpdateCustomTemplateFromSlide"];
+  onDeleteCustomTemplate: SlideInspectorProps["onDeleteCustomTemplate"];
   onSetSlideMaster: SlideInspectorProps["onSetSlideMaster"];
+  onCreateMaster: SlideInspectorProps["onCreateMaster"];
+  onSetDefaultMaster: SlideInspectorProps["onSetDefaultMaster"];
+  onDeleteMaster: SlideInspectorProps["onDeleteMaster"];
+  onUpdateMasterBackground: SlideInspectorProps["onUpdateMasterBackground"];
+  onAddMasterChromeText: SlideInspectorProps["onAddMasterChromeText"];
+  onApplyMasterToAllSlides: SlideInspectorProps["onApplyMasterToAllSlides"];
   onBackgroundChange: SlideInspectorProps["onBackgroundChange"];
   onBackgroundGradientChange: SlideInspectorProps["onBackgroundGradientChange"];
   onBackgroundImageChange: SlideInspectorProps["onBackgroundImageChange"];
   onBackgroundAssetChange?: SlideInspectorProps["onBackgroundAssetChange"];
   onAccentChange: SlideInspectorProps["onAccentChange"];
 }) {
-  const [selectedTemplateId, setSelectedTemplateId] =
-    useState<SlideTemplateKind>(() => slideTemplateKind(slide));
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() =>
+    slideTemplateKind(slide),
+  );
   const [bgImageError, setBgImageError] = useState<string | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setSelectedTemplateId(slideTemplateKind(slide));
   }, [slide]);
+  const templateOptions: TemplateOption[] = [
+    ...SLIDE_TEMPLATES.map((template) => ({
+      id: template.kind,
+      label: template.label,
+      custom: false,
+    })),
+    ...((deck.customTemplates ?? []).map((template) => ({
+      id: template.id,
+      label: template.name,
+      custom: true,
+    })) satisfies TemplateOption[]),
+  ];
   const selectedTemplate =
-    SLIDE_TEMPLATES.find((template) => template.kind === selectedTemplateId) ??
-    SLIDE_TEMPLATES[0];
+    templateOptions.find((template) => template.id === selectedTemplateId) ??
+    templateOptions[0];
   const deckMasters = deck.masters ?? [];
   const defaultMaster = deckMasters.find(
     (master) => master.id === deck.defaultMasterId,
   );
+  const activeMaster =
+    deckMasters.find((master) => master.id === slide.masterId) ??
+    defaultMaster ??
+    deckMasters[0];
+  const activeMasterBackground =
+    activeMaster?.background?.type === "solid" &&
+    "value" in activeMaster.background.color
+      ? activeMaster.background.color.value
+      : undefined;
   const backgroundImage = slideBackgroundImageValue(slide);
   const backgroundGradient = slideBackgroundGradientValue(slide);
   const backgroundColor = slideSolidBackgroundValue(slide);
   const accentColor = slideAccentValue(slide);
+  const designOrigins = inspectSlideDesignOrigins(deck, slide);
 
   function handleBackgroundImageChange(value: string | undefined) {
     if (value?.startsWith("data:")) {
@@ -384,13 +452,11 @@ function SlidePanelBody({
         <PanelSection title="Template">
           <PropRow label="Blueprint">
             <SelectField
-              value={selectedTemplate.kind}
-              onChange={(value) =>
-                setSelectedTemplateId(value as SlideTemplateKind)
-              }
+              value={selectedTemplate.id}
+              onChange={setSelectedTemplateId}
               ariaLabel="Slide template"
-              options={SLIDE_TEMPLATES.map((template) => ({
-                value: template.kind,
+              options={templateOptions.map((template) => ({
+                value: template.id,
                 label: template.label,
               }))}
             />
@@ -398,23 +464,63 @@ function SlidePanelBody({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => onApplyTemplate(selectedTemplate.kind)}
+              onClick={() => onApplyTemplate(selectedTemplate.id)}
               className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
             >
               Apply
             </button>
             <button
               type="button"
-              onClick={() => onReapplyTemplate(selectedTemplate.kind)}
+              onClick={() => onReapplyTemplate(selectedTemplate.id)}
               className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
             >
               Reapply
+            </button>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onCreateCustomTemplate}
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+            >
+              Save custom
+            </button>
+            <button
+              type="button"
+              disabled={!selectedTemplate.custom}
+              onClick={() =>
+                onUpdateCustomTemplateFromSlide(selectedTemplate.id)
+              }
+              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Update custom
+            </button>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={!selectedTemplate.custom}
+              onClick={() => onDeleteCustomTemplate(selectedTemplate.id)}
+              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Delete custom
             </button>
           </div>
         </PanelSection>
       ) : null}
       {deckMasters.length > 0 ? (
         <PanelSection title="Master">
+          <PropRow label="Default">
+            <SelectField
+              value={deck.defaultMasterId ?? deckMasters[0]?.id ?? ""}
+              onChange={onSetDefaultMaster}
+              ariaLabel="Deck default master"
+              options={deckMasters.map((master) => ({
+                value: master.id,
+                label: master.name,
+              }))}
+            />
+          </PropRow>
           <PropRow label="Chrome">
             <SelectField
               value={slide.masterId ?? "__default"}
@@ -434,6 +540,94 @@ function SlidePanelBody({
               ]}
             />
           </PropRow>
+          {designOrigins.masterId ? (
+            <p className="text-[11px] leading-relaxed text-ds-text-muted">
+              {designOriginLabel(designOrigins.masterId.layer)}
+            </p>
+          ) : null}
+          {activeMaster ? (
+            <ColorOverride
+              label="Master background"
+              value={activeMasterBackground}
+              fallback={themeColors.bgColor}
+              presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
+              onChange={(color) =>
+                onUpdateMasterBackground(activeMaster.id, color)
+              }
+            />
+          ) : null}
+          {activeMaster ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onAddMasterChromeText(activeMaster.id, "footer")}
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                Add footer
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onAddMasterChromeText(activeMaster.id, "pageNumber")
+                }
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                Add page #
+              </button>
+            </div>
+          ) : null}
+          {activeMaster ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onAddMasterChromeText(activeMaster.id, "logo")}
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                Add logo
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onAddMasterChromeText(activeMaster.id, "watermark")
+                }
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                Add watermark
+              </button>
+            </div>
+          ) : null}
+          {activeMaster ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onApplyMasterToAllSlides(activeMaster.id)}
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                Apply to all
+              </button>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onCreateMaster}
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+            >
+              Create master
+            </button>
+            <button
+              type="button"
+              disabled={
+                !slide.masterId || slide.masterId === deck.defaultMasterId
+              }
+              onClick={() => {
+                if (slide.masterId) onDeleteMaster(slide.masterId);
+              }}
+              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Delete master
+            </button>
+          </div>
         </PanelSection>
       ) : null}
       <PanelSection title="Background">
@@ -444,6 +638,9 @@ function SlidePanelBody({
           presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
           onChange={onBackgroundChange}
         />
+        <p className="text-[11px] leading-relaxed text-ds-text-muted">
+          {designOriginLabel(designOrigins.background.layer)}
+        </p>
         <ColorOverride
           label="Accent"
           value={accentColor}
@@ -451,6 +648,9 @@ function SlidePanelBody({
           presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
           onChange={onAccentChange}
         />
+        <p className="text-[11px] leading-relaxed text-ds-text-muted">
+          {designOriginLabel(designOrigins.accent.layer)}
+        </p>
         {showAdvanced ? (
           <>
             <PropRow label="Gradient">
@@ -574,7 +774,16 @@ export function SlideInspector({
   onSelectElement,
   onApplyTemplate,
   onReapplyTemplate,
+  onCreateCustomTemplate,
+  onUpdateCustomTemplateFromSlide,
+  onDeleteCustomTemplate,
   onSetSlideMaster,
+  onCreateMaster,
+  onSetDefaultMaster,
+  onDeleteMaster,
+  onUpdateMasterBackground,
+  onAddMasterChromeText,
+  onApplyMasterToAllSlides,
   onUpdateNotes,
   onUpdateElement,
   onAlign,
@@ -711,7 +920,16 @@ export function SlideInspector({
             slideAssetPort={slideAssetPort}
             onApplyTemplate={onApplyTemplate}
             onReapplyTemplate={onReapplyTemplate}
+            onCreateCustomTemplate={onCreateCustomTemplate}
+            onUpdateCustomTemplateFromSlide={onUpdateCustomTemplateFromSlide}
+            onDeleteCustomTemplate={onDeleteCustomTemplate}
             onSetSlideMaster={onSetSlideMaster}
+            onCreateMaster={onCreateMaster}
+            onSetDefaultMaster={onSetDefaultMaster}
+            onDeleteMaster={onDeleteMaster}
+            onUpdateMasterBackground={onUpdateMasterBackground}
+            onAddMasterChromeText={onAddMasterChromeText}
+            onApplyMasterToAllSlides={onApplyMasterToAllSlides}
             onBackgroundChange={onBackgroundChange}
             onBackgroundGradientChange={onBackgroundGradientChange}
             onBackgroundImageChange={onBackgroundImageChange}

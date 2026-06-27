@@ -1,39 +1,36 @@
 import type { JSX } from "react";
 
 import type { ShapeElement, SlideElement } from "@/lib/presentation/deck";
-import type {
-  PresentationTheme,
-  ShapeToken,
-} from "@/lib/presentation/presentation-theme";
-import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
+import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 
 import { boxStyle, contrastTextColor, renderRuns } from "./primitives";
-import {
-  colorRefValue,
-  elementDesignOverrides,
-  shapeContent,
-  shapeTextDesign,
-} from "./v6-model";
+import { shapeContent, shapeTextDesign } from "./v6-model";
+
+type ResolvedShapeDesign = Extract<ResolvedElementDesign, { kind: "shape" }>;
 
 function ShapeText({
   element,
   fillColor,
+  resolvedDesign,
 }: {
   element: ShapeElement;
   fillColor: string;
+  resolvedDesign?: ResolvedShapeDesign;
 }): JSX.Element | null {
   const content = shapeContent(element);
   const text = content.text?.trim();
   if (!text || content.shape === "line") return null;
   const style = shapeTextDesign(element);
-  const fontSize = style.fontSize ?? SLIDE_TEXT_FONT_SIZE.text;
-  const align = style.align ?? "center";
-  const color = style.color ?? contrastTextColor(fillColor);
-  const fontCss = resolveElementFontCss(style.fontId);
-  const bold = style.bold ?? false;
-  const italic = style.italic ?? false;
-  const underline = style.underline ?? false;
+  const textStyle = resolvedDesign?.textStyle;
+  const fontSize =
+    textStyle?.fontSize ?? style.fontSize ?? SLIDE_TEXT_FONT_SIZE.text;
+  const align = textStyle?.align ?? style.align ?? "center";
+  const color = textStyle?.color ?? style.color ?? contrastTextColor(fillColor);
+  const fontCss = textStyle?.fontFamily;
+  const bold = textStyle ? textStyle.weight >= 600 : (style.bold ?? false);
+  const italic = textStyle?.italic ?? style.italic ?? false;
+  const underline = textStyle?.underline ?? style.underline ?? false;
   const textRuns = content.textRuns;
   return (
     <div
@@ -68,27 +65,16 @@ function ShapeText({
 export function ShapeElementView({
   element,
   elements: _elements,
-  tokenSet,
-  defaults,
+  resolvedDesign,
 }: {
   element: ShapeElement;
   elements: readonly SlideElement[];
-  tokenSet: PresentationTheme;
-  /** Deck-template shape defaults applied when the element omits a field (#607). */
-  defaults?: ShapeToken;
+  resolvedDesign?: ResolvedShapeDesign;
 }): JSX.Element {
   const content = shapeContent(element);
-  const design = elementDesignOverrides(element);
-  const fillColor =
-    colorRefValue(design.fill, tokenSet) ?? defaults?.fill ?? "#6366f1";
-  // Effective stroke: element stroke wins, else a presentation theme default stroke
-  // (#607) when the token defines one. Built-in themes set no shape stroke token.
-  const effStroke =
-    (design.stroke as { color: string; width: number } | undefined) ??
-    (defaults?.stroke
-      ? { color: defaults.stroke, width: defaults.strokeWidth ?? 0.4 }
-      : undefined);
-  const radius = typeof design.radius === "number" ? design.radius : undefined;
+  const fillColor = resolvedDesign?.fill ?? "#6366f1";
+  const effStroke = resolvedDesign?.stroke;
+  const radius = resolvedDesign?.radius;
   if (content.shape === "line") {
     return (
       <div
@@ -125,7 +111,11 @@ export function ShapeElementView({
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
           }}
         />
-        <ShapeText element={element} fillColor={fillColor} />
+        <ShapeText
+          element={element}
+          fillColor={fillColor}
+          resolvedDesign={resolvedDesign}
+        />
       </div>
     );
   }
@@ -148,7 +138,11 @@ export function ShapeElementView({
           : {}),
       }}
     >
-      <ShapeText element={element} fillColor={fillColor} />
+      <ShapeText
+        element={element}
+        fillColor={fillColor}
+        resolvedDesign={resolvedDesign}
+      />
     </div>
   );
 }

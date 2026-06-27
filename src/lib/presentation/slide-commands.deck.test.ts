@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide } from "./deck";
+import type { Deck, Slide, SlideElement } from "./deck";
 import { applyPatch, executeCommand } from "./slide-commands";
 import { safeParseDeck } from "./deck-schema";
 import { resolveThemeTokens } from "./presentation-theme";
@@ -270,6 +270,44 @@ test("APPLY_SLIDE_TEMPLATE explicitly replaces slide elements", () => {
     ),
   );
   assert.equal(result.patches[0]!.op, "slide.apply_template");
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("APPLY_SLIDE_TEMPLATE can preserve matching element content", () => {
+  const titleElement = {
+    id: "existing-title",
+    kind: "text",
+    role: "title",
+    box: { x: 6, y: 6, w: 88, h: 14 },
+    zIndex: 0,
+    content: {
+      kind: "text",
+      text: "Keep me",
+      paragraphs: [{ text: "Keep me" }],
+    },
+  } as unknown as SlideElement;
+  const deck = buildDeck({
+    design: { themeId: "default" },
+    slides: [
+      buildSlide({
+        id: "s1",
+        index: 0,
+        title: "Slide",
+        elements: [titleElement],
+      }),
+    ],
+  });
+  const result = executeCommand(deck, {
+    type: "APPLY_SLIDE_TEMPLATE",
+    slideId: "s1",
+    templateId: "title",
+    mode: "preserve",
+  });
+  assert.equal(result.ok, true);
+  const title = (result.deck.slides[0].elements ?? []).find(
+    (element: any) => element.kind === "text" && element.role === "title",
+  );
+  assert.equal((title as any)?.content.text, "Keep me");
   assert.equal(safeParseDeck(result.deck).success, true);
 });
 
