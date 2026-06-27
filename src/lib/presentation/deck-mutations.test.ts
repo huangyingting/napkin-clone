@@ -12,7 +12,7 @@ import {
   insertSlide,
   moveElementZOrder,
   reorderElement,
-  updateDeckTemplate,
+  updatePresentationThemeOverrides,
   removeElement,
   removeElements,
   nudgeElements,
@@ -1076,9 +1076,11 @@ test("reorderElement is a no-op when ids are equal or missing (#639)", () => {
   );
 });
 
-test("updateDeckTemplate materializes a custom token set from the theme then patches colors (#614)", () => {
+test("updatePresentationThemeOverrides materializes a custom token set from the theme then patches colors (#614)", () => {
   const deck: Deck = makeDeck([]);
-  const next = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
+  const next = updatePresentationThemeOverrides(deck, {
+    colors: { accent: "#ff0000" },
+  });
   const tokenSet = (next as any).design.themeOverrides.tokenSet;
   assert.ok(tokenSet, "theme override token set is created");
   assert.equal(tokenSet.colors.accent, "#ff0000");
@@ -1086,9 +1088,9 @@ test("updateDeckTemplate materializes a custom token set from the theme then pat
   assert.equal(tokenSet.colors.onBg, "#0f172a");
 });
 
-test("updateDeckTemplate merges a partial role token over the resolved role (#614)", () => {
+test("updatePresentationThemeOverrides merges a partial role token over the resolved role (#614)", () => {
   const deck: Deck = makeDeck([]);
-  const next = updateDeckTemplate(deck, {
+  const next = updatePresentationThemeOverrides(deck, {
     typography: { roles: { h1: { color: "#abcdef" } } },
   });
   const h1 = (next as any).design.themeOverrides.tokenSet.typography.roles.h1;
@@ -1098,10 +1100,14 @@ test("updateDeckTemplate merges a partial role token over the resolved role (#61
   assert.equal(h1.weight, 700);
 });
 
-test("updateDeckTemplate merges over an existing custom token set (#614)", () => {
+test("updatePresentationThemeOverrides merges over an existing custom token set (#614)", () => {
   const deck: Deck = makeDeck([]);
-  const once = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
-  const twice = updateDeckTemplate(once, { colors: { onBg: "#222222" } });
+  const once = updatePresentationThemeOverrides(deck, {
+    colors: { accent: "#ff0000" },
+  });
+  const twice = updatePresentationThemeOverrides(once, {
+    colors: { onBg: "#222222" },
+  });
   const tokenSet = (twice as any).design.themeOverrides.tokenSet;
   assert.equal(tokenSet.colors.accent, "#ff0000");
   assert.equal(tokenSet.colors.onBg, "#222222");

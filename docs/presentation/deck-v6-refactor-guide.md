@@ -20,7 +20,7 @@ shape in the same implementation stream.
    `SlideElement`, `MasterElement`, `PresentationRole`, `designOverrides`, and
    `ResolvedSlideRenderModel`. Do not continue old names such as
    `DeckThemeTokenSet`, `customTokenSet`, `textRole`, `layout placeholder`, or
-   `deck template` in new v6 code.
+   `presentation theme` in new v6 code.
 2. **One content source.** `Slide.elements[]` is authoritative. Slide-level
    fields such as `bullets`, `bulletRuns`, `visualIds`, `layout`, and
    `elementsDerived` are removed from the persisted schema.
@@ -465,7 +465,7 @@ placeholder element.
 
 ## UI Migration Checklist
 
-- Replace every UI label that says deck template when it means theme override.
+- Replace every UI label that says presentation theme when it means theme override.
 - Replace `H1/H2/H3` labels with `Title`, `Subtitle`, `Section title`, `Body`,
   `Bullet`, `Quote`, `Caption`, `Footer`, `Label`.
 - Move slide size controls to `canvas.format`.

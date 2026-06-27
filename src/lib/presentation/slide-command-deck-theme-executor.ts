@@ -5,9 +5,9 @@ import {
   setDeckTheme,
 } from "./deck-mutation-deck-settings";
 import {
-  resetDeckTemplate,
-  updateDeckTemplate,
-} from "./deck-mutation-template";
+  resetPresentationThemeOverrides,
+  updatePresentationThemeOverrides,
+} from "./presentation-theme-overrides";
 import type {
   AddSlideFromTemplateCommand,
   ApplySlideTemplateCommand,
@@ -119,7 +119,7 @@ export function executeDeckThemeFamilyCommand(
     case "UPDATE_THEME_OVERRIDES": {
       if (cmd.reset) {
         return success(
-          resetDeckTemplate(deck),
+          resetPresentationThemeOverrides(deck),
           deck.slides.map((s) => s.id),
           [],
           undefined,
@@ -133,7 +133,7 @@ export function executeDeckThemeFamilyCommand(
           ],
         );
       }
-      const next = updateDeckTemplate(deck, cmd.patch);
+      const next = updatePresentationThemeOverrides(deck, cmd.patch);
       return success(
         next,
         deck.slides.map((s) => s.id),

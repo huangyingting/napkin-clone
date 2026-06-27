@@ -18,7 +18,7 @@ Implemented:
   `public/fonts/slides/`, `src/app/slide-fonts.css`).
 - Element-level `fontId` (`TextElementStyle.fontId`) with schema version bump
   and validation; the cascade resolves `fontId` to a CSS stack.
-- Inspector and deck-template font pickers backed by the registry.
+- Inspector and presentation theme font pickers backed by the registry.
 - Self-hosted CJK fallback (`Noto Sans SC`) appended to every resolved role
   token via `ensureCjkFallback`, so theme-default Chinese text is deterministic.
 - Editable PPTX font mapping (Latin + CJK-aware) and a non-blocking

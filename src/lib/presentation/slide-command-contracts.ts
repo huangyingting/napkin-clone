@@ -15,7 +15,7 @@ import type {
 } from "./deck-layouts-model";
 import type { SourceRef } from "./deck-source-refs";
 import type { DistributiveOmit, ElementPatch } from "./deck-mutation-shared";
-import type { DeckTemplatePatch } from "./deck-mutation-template";
+import type { PresentationThemeOverridesPatch } from "./presentation-theme-overrides";
 import type { AlignMode, DistributeMode, MatchSizeMode } from "./element-align";
 import type { ArrangeMode } from "./element-arrange";
 import type { SlideFormat } from "./slide-format";
@@ -384,7 +384,7 @@ export interface SetPresentationThemeCommand {
 /** Edits global presentation theme overrides (colors, role typography, defaults). */
 export interface UpdateThemeOverridesCommand {
   type: "UPDATE_THEME_OVERRIDES";
-  patch: DeckTemplatePatch;
+  patch: PresentationThemeOverridesPatch;
   /** When true, reset the overrides back to the selected built-in theme. */
   reset?: boolean;
   commandId?: string;

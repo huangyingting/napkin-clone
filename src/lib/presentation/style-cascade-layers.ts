@@ -3,7 +3,7 @@
  *
  * Pure and DOM-free. The five cascade layers are deliberately documented here
  * because renderers/exporters depend on this order staying stable:
- *  1. deck token set — built-in or custom DeckThemeTokenSet.
+ *  1. deck token set — built-in or custom PresentationTheme.
  *  2. master slide — shared chrome/background for assigned slides.
  *  3. reusable layout — placeholder geometry/style defaults (reserved here;
  *     layout application materializes those defaults onto slide elements).
@@ -18,13 +18,13 @@
 import type { Deck, Slide } from "./deck-core";
 import type {
   BackgroundTreatment,
-  DeckThemeTokenSet,
+  PresentationTheme,
   MasterSlide,
-} from "./deck-theme-token-types";
+} from "./presentation-theme-types";
 import {
   backgroundTreatmentToCss,
   resolveDeckThemeTokens,
-} from "./deck-theme-token-resolvers";
+} from "./presentation-theme-resolvers";
 
 export const STYLE_CASCADE_LAYERS = [
   "deck",
@@ -48,11 +48,11 @@ export interface ResolvedSlideStyle {
   showPageNumbers: boolean;
   logoUrl?: string;
   logoPlacement?: string;
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
 }
 
 /** Resolves the token set for a deck, checking customTokenSet first. */
-export function resolveDeckTokenSet(deck: Deck): DeckThemeTokenSet {
+export function resolveDeckTokenSet(deck: Deck): PresentationTheme {
   const raw = deck as any;
   return resolveDeckThemeTokens({
     themeId: raw.design?.themeId ?? raw.themeId,
@@ -62,21 +62,21 @@ export function resolveDeckTokenSet(deck: Deck): DeckThemeTokenSet {
 
 function colorRefValue(
   input: unknown,
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): string | undefined {
   if (typeof input === "string") return input;
   if (!input || typeof input !== "object") return undefined;
   const ref = input as { token?: string; value?: string };
   if (typeof ref.value === "string") return ref.value;
   if (typeof ref.token === "string") {
-    return tokenSet.colors[ref.token as keyof DeckThemeTokenSet["colors"]];
+    return tokenSet.colors[ref.token as keyof PresentationTheme["colors"]];
   }
   return undefined;
 }
 
 function backgroundFromDesign(
   input: unknown,
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): BackgroundTreatment | undefined {
   if (!input || typeof input !== "object") return undefined;
   const background = input as Record<string, unknown>;
@@ -195,14 +195,14 @@ export function renderFooterText(template: string, slideIndex: number): string {
 }
 
 /**
- * Resolves the {@link DeckThemeTokenSet} that governs a slide (#607). A full
+ * Resolves the {@link PresentationTheme} that governs a slide (#607). A full
  * deck is required because deck-level `themeId` / `customTokenSet` are the sole
  * theme source.
  */
 export function resolveSlideTokenSet(
   deck: Deck,
   slide: Slide,
-): DeckThemeTokenSet {
+): PresentationTheme {
   return resolveSlideStyle(deck, slide).tokenSet;
 }
 

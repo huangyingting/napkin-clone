@@ -9,15 +9,15 @@ import {
 } from "react";
 
 import type { TextElement, TextFitMode } from "@/lib/presentation/deck";
-import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
-import { resolveRoleToken } from "@/lib/presentation/deck-theme-tokens";
+import type { PresentationTheme } from "@/lib/presentation/presentation-theme";
+import { resolveRoleToken } from "@/lib/presentation/presentation-theme";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 import { useSlideFontsReady } from "@/lib/presentation/slide-font-loading";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
 import { boxStyle, renderRuns } from "./primitives";
 import {
-  presentationRoleToDeckTextRole,
+  presentationRoleToPresentationRole,
   textAlignOrDefault,
   textContent,
   textDesign,
@@ -81,7 +81,7 @@ export function TextElementView({
   element: TextElement;
   tc: SlideThemeColors;
   accent?: string;
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const content = textContent(element);
@@ -92,7 +92,7 @@ export function TextElementView({
   );
   const roleToken = resolveRoleToken(
     tokenSet,
-    presentationRoleToDeckTextRole(
+    presentationRoleToPresentationRole(
       (element as { role?: string }).role,
       hasListParagraphs ? "bullet" : "body",
     ),

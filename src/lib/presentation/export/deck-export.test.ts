@@ -884,7 +884,7 @@ test("image element with sourceRef still emits a normal image op", () => {
   );
 });
 
-test("exported text inherits the deck-template role font when no element override (#606)", () => {
+test("exported text inherits the presentation theme role font when no element override (#606)", () => {
   // indigo themeId: heading font "Space Grotesk", body font "Inter".
   const deck: Deck = {
     themeId: "indigo",

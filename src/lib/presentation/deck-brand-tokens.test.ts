@@ -12,7 +12,7 @@ import {
   brandToMasterChrome,
   brandToTokenSet,
 } from "./brand-deck-theme-adapter";
-import { DEFAULT_TOKEN_SET } from "./deck-theme-tokens";
+import { DEFAULT_TOKEN_SET } from "./presentation-theme";
 
 function mockBrand(overrides: Partial<BrandStyle> = {}): BrandStyle {
   return {

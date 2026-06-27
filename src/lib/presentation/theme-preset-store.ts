@@ -4,7 +4,7 @@
  * Client-local store for saved deck **theme presets** (the "Save preset"
  * library in the deck theme panel).
  *
- * A preset is a named snapshot of a {@link DeckThemeTokenSet} the user can
+ * A preset is a named snapshot of a {@link PresentationTheme} the user can
  * reapply to any deck. This is intentionally a *client-local* store backed by
  * `localStorage` (per-browser, no server round-trip) — a pragmatic home for a
  * personal preset library. Swapping the four functions below for a server-
@@ -14,7 +14,7 @@
  * malformed/oversized storage (try/catch, returns `[]` on failure).
  */
 
-import type { DeckThemeTokenSet } from "./deck-theme-token-types";
+import type { PresentationTheme } from "./presentation-theme-types";
 
 const STORAGE_KEY = "textiq:deck-theme-presets:v1";
 
@@ -24,7 +24,7 @@ export interface CustomThemePreset {
   /** User-facing name shown on the preset card. */
   name: string;
   /** The captured token set. */
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
   /** Epoch millis the preset was saved (for newest-first ordering). */
   createdAt: number;
 }
@@ -58,7 +58,7 @@ export function listThemePresets(): CustomThemePreset[] {
 /** Saves `tokenSet` under `name`, returning the created preset. */
 export function saveThemePreset(
   name: string,
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): CustomThemePreset {
   const id = `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const preset: CustomThemePreset = {

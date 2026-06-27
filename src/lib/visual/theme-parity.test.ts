@@ -22,8 +22,8 @@ import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
   resolveRoleToken,
   resolveThemeTokens,
-  type DeckThemeTokenSet,
-} from "@/lib/presentation/deck-theme-tokens";
+  type PresentationTheme,
+} from "@/lib/presentation/presentation-theme";
 import {
   buildDeckSpecs,
   type DeckBulletsOp,
@@ -73,7 +73,7 @@ function slide(elements: TextElement[]): Slide {
   };
 }
 
-const BRAND: DeckThemeTokenSet = {
+const BRAND: PresentationTheme = {
   id: "brand:x",
   name: "X",
   colors: {

@@ -1,5 +1,5 @@
 /**
- * Unit tests for deck-theme-tokens.ts helpers.
+ * Unit tests for presentation-theme.ts helpers.
  * Run with: node --import tsx --test "src/**\/*.test.ts"
  */
 import assert from "node:assert/strict";
@@ -9,11 +9,11 @@ import {
   allThemeTokenSets,
   backgroundTreatmentToCss,
   BUILT_IN_TOKEN_SETS,
-  DECK_TEXT_ROLES,
+  PRESENTATION_ROLES,
   DEFAULT_TOKEN_SET,
   deriveRoleToken,
   isBuiltInTheme,
-  isDeckTextRole,
+  isPresentationRole,
   resolveBulletDefaults,
   resolveConnectorDefaults,
   resolveImageDefaults,
@@ -21,7 +21,7 @@ import {
   resolveSlideBackground,
   resolveThemeTokens,
   resolveVisualDefaults,
-} from "./deck-theme-tokens";
+} from "./presentation-theme";
 
 describe("resolveThemeTokens", () => {
   it("returns the default token set for undefined", () => {
@@ -263,7 +263,7 @@ describe("isBuiltInTheme", () => {
 
 describe("semantic text roles (#603)", () => {
   it("exposes the canonical role list", () => {
-    assert.deepStrictEqual(DECK_TEXT_ROLES, [
+    assert.deepStrictEqual(PRESENTATION_ROLES, [
       "h1",
       "h2",
       "h3",
@@ -276,17 +276,17 @@ describe("semantic text roles (#603)", () => {
     ]);
   });
 
-  it("isDeckTextRole recognizes valid and rejects invalid roles", () => {
-    assert.strictEqual(isDeckTextRole("h1"), true);
-    assert.strictEqual(isDeckTextRole("shapeLabel"), true);
-    assert.strictEqual(isDeckTextRole("title"), false);
-    assert.strictEqual(isDeckTextRole(undefined), false);
-    assert.strictEqual(isDeckTextRole(42), false);
+  it("isPresentationRole recognizes valid and rejects invalid roles", () => {
+    assert.strictEqual(isPresentationRole("h1"), true);
+    assert.strictEqual(isPresentationRole("shapeLabel"), true);
+    assert.strictEqual(isPresentationRole("title"), false);
+    assert.strictEqual(isPresentationRole(undefined), false);
+    assert.strictEqual(isPresentationRole(42), false);
   });
 
   it("every built-in theme yields usable role typography for every role", () => {
     for (const ts of BUILT_IN_TOKEN_SETS) {
-      for (const role of DECK_TEXT_ROLES) {
+      for (const role of PRESENTATION_ROLES) {
         const token = resolveRoleToken(ts, role);
         assert.ok(
           typeof token.fontFamily === "string" && token.fontFamily.length > 0,

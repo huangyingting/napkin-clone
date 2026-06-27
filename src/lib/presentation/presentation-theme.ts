@@ -2,12 +2,12 @@
  * Stable deck theme token facade.
  *
  * R39 splits token schema/data from resolver logic while preserving existing
- * public imports from `deck-theme-tokens`.
+ * public imports from `presentation-theme`.
  */
 
-export { DECK_TEXT_ROLES } from "./deck-theme-token-types";
+export { PRESENTATION_ROLES } from "./presentation-theme-types";
 export type {
-  DeckTextRole,
+  PresentationRole,
   TextRoleToken,
   TextRoleTokenMap,
   ColorToken,
@@ -22,11 +22,11 @@ export type {
   VisualDefaultsToken,
   ImageDefaultsToken,
   BackgroundTreatment,
-  DeckThemeTokenSet,
+  PresentationTheme,
   LogoPlacement,
   MasterSlide,
   OverrideLayer,
-} from "./deck-theme-token-types";
+} from "./presentation-theme-types";
 
 export {
   ROLE_TO_SCALE_KEY,
@@ -36,10 +36,10 @@ export {
   BUILT_IN_TOKEN_SETS,
   TOKEN_SET_BY_ID,
   DEFAULT_TOKEN_SET,
-} from "./deck-theme-token-data";
+} from "./presentation-theme-data";
 
 export {
-  isDeckTextRole,
+  isPresentationRole,
   resolveThemeTokens,
   resolveDeckThemeId,
   resolveDeckThemeTokens,
@@ -53,11 +53,11 @@ export {
   resolveConnectorDefaults,
   resolveImageDefaults,
   resolveVisualDefaults,
-} from "./deck-theme-token-resolvers";
+} from "./presentation-theme-resolvers";
 export type {
-  DeckThemeSource,
+  PresentationThemeSource,
   ResolvedBulletDefaults,
   ResolvedConnectorDefaults,
   ResolvedImageDefaults,
   ResolvedVisualDefaults,
-} from "./deck-theme-token-resolvers";
+} from "./presentation-theme-resolvers";

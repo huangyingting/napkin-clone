@@ -2,11 +2,11 @@
  * Deck theme token schema — pure types and layer documentation.
  *
  * This module contains only token shapes, semantic role names, and cascade layer
- * labels. Runtime lookup and fallback logic live in deck-theme-token-resolvers;
- * built-in token data lives in deck-theme-token-data.
+ * labels. Runtime lookup and fallback logic live in presentation-theme-resolvers;
+ * built-in token data lives in presentation-theme-data.
  *
  * Cascade layers (outermost → innermost):
- *  1. deck token set — named DeckThemeTokenSet values and custom brand tokens.
+ *  1. deck token set — named PresentationTheme values and custom brand tokens.
  *  2. master slide — structural chrome shared by assigned slides.
  *  3. reusable layout — placeholder/slot defaults applied by layout templates.
  *  4. slide override — Slide.background/accent and other per-slide fields.
@@ -26,9 +26,9 @@ import type {
   ImageMaskShape,
 } from "@/lib/presentation/deck-element-primitives";
 import {
-  DECK_TEXT_ROLES,
-  type DeckTextRole,
-} from "@/lib/presentation/deck-theme-token-primitives";
+  PRESENTATION_ROLES,
+  type PresentationRole,
+} from "@/lib/presentation/presentation-role-primitives";
 import type { FontScale } from "@/lib/presentation/theme-typography";
 
 // ---------------------------------------------------------------------------
@@ -36,15 +36,15 @@ import type { FontScale } from "@/lib/presentation/theme-typography";
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical, ordered list of semantic text roles a global deck template can
+ * Canonical, ordered list of semantic text roles a global presentation theme can
  * style. Stored as a runtime const so validators and UI can iterate it, and
- * re-exported as the {@link DeckTextRole} string-literal union for typing.
+ * re-exported as the {@link PresentationRole} string-literal union for typing.
  *
  * Roles are intentionally semantic (what the text *is*) rather than visual
  * (how it currently looks) so a single template edit can restyle every element
  * carrying a role without rewriting concrete element styles.
  */
-export { DECK_TEXT_ROLES, type DeckTextRole };
+export { PRESENTATION_ROLES, type PresentationRole };
 
 /**
  * Typography token for a single semantic role.  All fields except `fontSize`,
@@ -72,7 +72,7 @@ export type TextRoleToken = {
 };
 
 /** A complete-or-partial map of role → token. */
-export type TextRoleTokenMap = Partial<Record<DeckTextRole, TextRoleToken>>;
+export type TextRoleTokenMap = Partial<Record<PresentationRole, TextRoleToken>>;
 
 // ---------------------------------------------------------------------------
 // Color tokens
@@ -249,7 +249,7 @@ export type BackgroundTreatment =
  * A complete design-token bundle for one named theme.  Built-in sets are
  * exported below; custom sets can be created at runtime by brand-kit tooling.
  */
-export type DeckThemeTokenSet = {
+export type PresentationTheme = {
   /** Stable id.  Matches the `DeckTheme` / `themeId` value used on `Deck`. */
   id: string;
   /** Display name shown in the theme picker UI. */
@@ -296,11 +296,11 @@ export type MasterSlide = {
   id: string;
   /** Display name (e.g., "Title", "Content", "Section"). */
   name: string;
-  /** Id of the `DeckThemeTokenSet` this master inherits from. */
+  /** Id of the `PresentationTheme` this master inherits from. */
   themeId: string;
   /**
    * Optional background override applied to every slide that uses this master.
-   * When absent the master inherits `DeckThemeTokenSet.defaultBackground`.
+   * When absent the master inherits `PresentationTheme.defaultBackground`.
    */
   background?: BackgroundTreatment;
   /** Show slide page numbers on all slides using this master. Default false. */

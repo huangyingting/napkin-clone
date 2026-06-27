@@ -2,25 +2,25 @@
  * Built-in deck theme token data and role default tables.
  *
  * This module intentionally contains no resolver functions. Consumers that need
- * lookup/fallback behavior should import from deck-theme-token-resolvers (or the
- * stable deck-theme-tokens facade).
+ * lookup/fallback behavior should import from presentation-theme-resolvers (or the
+ * stable presentation-theme facade).
  */
 
 import type { ElementAlign } from "@/lib/presentation/deck-element-primitives";
 import type { FontScale } from "@/lib/presentation/theme-typography";
 import type {
-  DeckTextRole,
-  DeckThemeTokenSet,
+  PresentationRole,
+  PresentationTheme,
   ShapeToken,
   SpacingToken,
-} from "./deck-theme-token-types";
+} from "./presentation-theme-types";
 
 /**
- * Maps a {@link DeckTextRole} onto the {@link FontScale} key whose size best
+ * Maps a {@link PresentationRole} onto the {@link FontScale} key whose size best
  * approximates it. Used to derive role defaults from the base `scale` so
  * themes get complete role typography without hand-authoring tokens.
  */
-export const ROLE_TO_SCALE_KEY: Record<DeckTextRole, keyof FontScale> = {
+export const ROLE_TO_SCALE_KEY: Record<PresentationRole, keyof FontScale> = {
   h1: "h1",
   h2: "h2",
   h3: "h3",
@@ -33,7 +33,7 @@ export const ROLE_TO_SCALE_KEY: Record<DeckTextRole, keyof FontScale> = {
 };
 
 /** Headings render bold by default; body-like roles use a regular weight. */
-export const ROLE_DEFAULT_WEIGHT: Record<DeckTextRole, number> = {
+export const ROLE_DEFAULT_WEIGHT: Record<PresentationRole, number> = {
   h1: 700,
   h2: 700,
   h3: 600,
@@ -46,7 +46,7 @@ export const ROLE_DEFAULT_WEIGHT: Record<DeckTextRole, number> = {
 };
 
 /** Roles that prefer the heading font stack when one is defined. */
-export const HEADING_ROLES: ReadonlySet<DeckTextRole> = new Set([
+export const HEADING_ROLES: ReadonlySet<PresentationRole> = new Set([
   "h1",
   "h2",
   "h3",
@@ -55,7 +55,7 @@ export const HEADING_ROLES: ReadonlySet<DeckTextRole> = new Set([
 ]);
 
 /** Default alignment per role (titles/labels centered, copy left-aligned). */
-export const ROLE_DEFAULT_ALIGN: Record<DeckTextRole, ElementAlign> = {
+export const ROLE_DEFAULT_ALIGN: Record<PresentationRole, ElementAlign> = {
   h1: "center",
   h2: "left",
   h3: "left",
@@ -71,13 +71,13 @@ const DEFAULT_SPACING: SpacingToken = { slidePaddingPt: 36, gridUnitPt: 6 };
 const DEFAULT_SHAPE: ShapeToken = { cornerRadiusPt: 4, shadowCss: "none" };
 
 /**
- * Built-in `DeckThemeTokenSet` definitions.  Keyed by `DeckTheme` / `themeId`
+ * Built-in `PresentationTheme` definitions.  Keyed by `DeckTheme` / `themeId`
  * so they can be looked up with `resolveThemeTokens`.
  *
  * Color values are drawn from the same palette used in `src/lib/visual/themes.ts`
  * to keep visual-content and slide-background colors harmonious.
  */
-export const BUILT_IN_TOKEN_SETS: readonly DeckThemeTokenSet[] = [
+export const BUILT_IN_TOKEN_SETS: readonly PresentationTheme[] = [
   {
     id: "default",
     name: "Default",
@@ -206,11 +206,11 @@ export const BUILT_IN_TOKEN_SETS: readonly DeckThemeTokenSet[] = [
   },
 ];
 
-/** Lookup map: token-set id → `DeckThemeTokenSet`. */
-export const TOKEN_SET_BY_ID: ReadonlyMap<string, DeckThemeTokenSet> = new Map(
+/** Lookup map: token-set id → `PresentationTheme`. */
+export const TOKEN_SET_BY_ID: ReadonlyMap<string, PresentationTheme> = new Map(
   BUILT_IN_TOKEN_SETS.map((ts) => [ts.id, ts]),
 );
 
 /** The fallback token set used when `themeId` is absent or unrecognised. */
-export const DEFAULT_TOKEN_SET: DeckThemeTokenSet =
+export const DEFAULT_TOKEN_SET: PresentationTheme =
   TOKEN_SET_BY_ID.get("default")!;

@@ -12,7 +12,7 @@
  *      • **Palette** — semantic color tokens as a swatch grid, plus the deck
  *        **background** (Solid / Gradient with presets, From/To stops, angle).
  *      • **Typography** — per-role font / size / color for every
- *        {@link DeckTextRole}, each with a live sample.
+ *        {@link PresentationRole}, each with a live sample.
  *    Edits dispatch `UPDATE_THEME_OVERRIDES` patches (undoable, autosaved).
  *    **Save preset** snapshots the current token set into your library;
  *    **Reset to theme** clears the deck's custom token set.
@@ -25,14 +25,14 @@ import {
   allThemeTokenSets,
   isBuiltInTheme,
   resolveRoleToken,
-  DECK_TEXT_ROLES,
+  PRESENTATION_ROLES,
   type BackgroundTreatment,
   type ColorToken,
-  type DeckTextRole,
-  type DeckThemeTokenSet,
+  type PresentationRole,
+  type PresentationTheme,
   type TextRoleToken,
-} from "@/lib/presentation/deck-theme-tokens";
-import type { DeckTemplatePatch } from "@/lib/presentation/deck-mutations";
+} from "@/lib/presentation/presentation-theme";
+import type { PresentationThemeOverridesPatch } from "@/lib/presentation/deck-mutations";
 import {
   deleteThemePreset,
   listThemePresets,
@@ -70,7 +70,7 @@ const PREVIEW_KEYS: ReadonlyArray<keyof ColorToken> = [
   "onBg",
 ];
 
-const ROLE_LABELS: Record<DeckTextRole, string> = {
+const ROLE_LABELS: Record<PresentationRole, string> = {
   h1: "Heading 1",
   h2: "Heading 2",
   h3: "Heading 3",
@@ -104,13 +104,15 @@ function gradientCss(g: { from: string; to: string; angle?: number }): string {
 }
 
 /**
- * Builds a comprehensive {@link DeckTemplatePatch} that reproduces `ts`'s
+ * Builds a comprehensive {@link PresentationThemeOverridesPatch} that reproduces `ts`'s
  * colors, typography, background, and non-text defaults — used to *apply* a
  * saved preset on top of the deck's current theme via `UPDATE_THEME_OVERRIDES`.
  */
-function tokenSetToTemplatePatch(ts: DeckThemeTokenSet): DeckTemplatePatch {
-  const roles: Partial<Record<DeckTextRole, Partial<TextRoleToken>>> = {};
-  for (const role of DECK_TEXT_ROLES) {
+function tokenSetToTemplatePatch(
+  ts: PresentationTheme,
+): PresentationThemeOverridesPatch {
+  const roles: Partial<Record<PresentationRole, Partial<TextRoleToken>>> = {};
+  for (const role of PRESENTATION_ROLES) {
     roles[role] = { ...resolveRoleToken(ts, role) };
   }
   return {
@@ -325,9 +327,9 @@ function BackgroundSection({
   presets,
   onUpdate,
 }: {
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
   presets: readonly string[];
-  onUpdate: (patch: DeckTemplatePatch) => void;
+  onUpdate: (patch: PresentationThemeOverridesPatch) => void;
 }) {
   const bg: BackgroundTreatment = tokenSet.defaultBackground;
   const mode: "solid" | "gradient" =
@@ -459,7 +461,7 @@ function PresetCard({
 // Panel
 // ---------------------------------------------------------------------------
 
-export function DeckTemplatePanel({
+export function PresentationThemePanel({
   tokenSet,
   isCustom,
   themeId,
@@ -468,12 +470,12 @@ export function DeckTemplatePanel({
   onApplyTheme,
 }: {
   /** The deck's resolved token set (custom set when present, else built-in). */
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
   /** Whether the deck currently has a custom token set (enables Reset). */
   isCustom: boolean;
   /** The deck's active theme token id (for preset highlighting). */
   themeId: string;
-  onUpdate: (patch: DeckTemplatePatch) => void;
+  onUpdate: (patch: PresentationThemeOverridesPatch) => void;
   onReset: () => void;
   /** Applies a built-in theme preset cleanly (clears any custom token set). */
   onApplyTheme: (themeId: DeckTheme) => void;
@@ -646,7 +648,7 @@ export function DeckTemplatePanel({
         </div>
       ) : (
         <div className="flex max-h-[40vh] flex-col gap-2.5 overflow-y-auto pr-0.5">
-          {DECK_TEXT_ROLES.map((role) => {
+          {PRESENTATION_ROLES.map((role) => {
             const token = resolveRoleToken(tokenSet, role);
             return (
               <div key={role} className="flex flex-col gap-1.5">

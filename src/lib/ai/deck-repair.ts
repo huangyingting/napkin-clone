@@ -10,9 +10,9 @@ import {
   type TextElementStyle,
 } from "@/lib/presentation/deck";
 import {
-  type DeckTextRole,
-  isDeckTextRole,
-} from "@/lib/presentation/deck-theme-tokens";
+  type PresentationRole,
+  isPresentationRole,
+} from "@/lib/presentation/presentation-theme";
 import {
   normalizeGeneratedDeck,
   type VisualInventory,
@@ -68,7 +68,7 @@ function isPresentationTextRole(value: unknown): value is PresentationTextRole {
   );
 }
 
-function textRoleToPresentationRole(role: DeckTextRole): PresentationTextRole {
+function textRoleToPresentationRole(role: PresentationRole): PresentationTextRole {
   if (role === "h1") return "title";
   if (role === "h2" || role === "h3" || role === "subtitle") {
     return "sectionTitle";
@@ -145,7 +145,7 @@ export function repairElement(
     case "text": {
       const role: PresentationTextRole = isPresentationTextRole(input.role)
         ? input.role
-        : isDeckTextRole(input.textRole)
+        : isPresentationRole(input.textRole)
           ? textRoleToPresentationRole(input.textRole)
           : "body";
       const text =

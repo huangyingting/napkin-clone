@@ -169,7 +169,7 @@ export function useSlideEditorShell({
   // Deck background / color theme popover.
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   // Deck typography / token theme popover.
-  const [deckTemplateOpen, setDeckTemplateOpen] = useState(false);
+  const [themeOverridesOpen, setThemeOverridesOpen] = useState(false);
 
   // ── Merge / sync dialog ──────────────────────────────────────────────────
   // Pending sync from the live document: a computed merge awaiting user
@@ -249,8 +249,8 @@ export function useSlideEditorShell({
     setFromDocOpen,
     themeMenuOpen,
     setThemeMenuOpen,
-    deckTemplateOpen,
-    setDeckTemplateOpen,
+    themeOverridesOpen,
+    setThemeOverridesOpen,
     // Merge / sync dialog
     mergePreview,
     canSyncFromDocument,

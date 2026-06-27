@@ -25,10 +25,10 @@ export {
 } from "./deck-mutation-deck-settings";
 
 export {
-  updateDeckTemplate,
-  resetDeckTemplate,
-} from "./deck-mutation-template";
-export type { DeckTemplatePatch } from "./deck-mutation-template";
+  updatePresentationThemeOverrides,
+  resetPresentationThemeOverrides,
+} from "./presentation-theme-overrides";
+export type { PresentationThemeOverridesPatch } from "./presentation-theme-overrides";
 
 export {
   applySlideLayoutPreservingContent,

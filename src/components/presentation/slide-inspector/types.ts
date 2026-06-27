@@ -15,10 +15,10 @@ import type {
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
-import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
+import type { PresentationRole } from "@/lib/presentation/presentation-theme";
 import type { Visual } from "@/lib/visual/schema";
 
-export type AddElementKind = DeckTextRole | "image" | "shape";
+export type AddElementKind = PresentationRole | "image" | "shape";
 
 export interface SlideInspectorProps {
   slide: Slide;

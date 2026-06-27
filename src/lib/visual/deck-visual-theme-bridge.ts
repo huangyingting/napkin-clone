@@ -6,7 +6,7 @@
  * models owned by `src/lib/visual`.
  */
 
-import type { VisualDefaultsToken } from "@/lib/presentation/deck-theme-tokens";
+import type { VisualDefaultsToken } from "@/lib/presentation/presentation-theme";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 
 export type VisualThemeStyleOrigin = "element" | "deck" | "visual";

@@ -1,6 +1,6 @@
 import type { ImageElement, VisualElement } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
-import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
+import type { PresentationTheme } from "@/lib/presentation/presentation-theme";
 import type { Visual } from "@/lib/visual/schema";
 import { resolveVisualThemeBridge } from "@/lib/visual/deck-visual-theme-bridge";
 import { applyTheme } from "@/lib/visual/transforms";
@@ -23,7 +23,7 @@ interface OperationBox {
 export function buildDeckImageOp(
   element: ImageElement,
   box: OperationBox,
-  imageDefaults: DeckThemeTokenSet["image"] | undefined,
+  imageDefaults: PresentationTheme["image"] | undefined,
 ) {
   if (isEmptyImageSrc(element.src)) return null;
 
@@ -64,7 +64,7 @@ export function buildDeckVisualOp(
   element: VisualElement,
   visual: Visual,
   box: OperationBox,
-  visualDefaults: DeckThemeTokenSet["visual"] | undefined,
+  visualDefaults: PresentationTheme["visual"] | undefined,
 ) {
   const bridge = resolveVisualThemeBridge(element.styleThemeId, visualDefaults);
   const styled = bridge.styleThemeId

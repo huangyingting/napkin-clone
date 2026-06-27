@@ -3,7 +3,7 @@
  *
  * This module is the single place that knows about the fonts TextIQ bundles for
  * slide typography. It is consumed by:
- *  - the slide inspector and deck-template font pickers (UI options);
+ *  - the slide inspector and presentation theme font pickers (UI options);
  *  - the renderer/style cascade (CSS font stacks);
  *  - the `@font-face` CSS used to load the self-hosted assets;
  *  - editable PPTX export (font-id → Office-compatible font face mapping).

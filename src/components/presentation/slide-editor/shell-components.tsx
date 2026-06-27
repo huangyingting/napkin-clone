@@ -64,9 +64,9 @@ import { ElementToolbarContent } from "@/components/presentation/slide-stage/ele
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
 import {
-  DECK_TEXT_ROLES,
-  type DeckTextRole,
-} from "@/lib/presentation/deck-theme-tokens";
+  PRESENTATION_ROLES,
+  type PresentationRole,
+} from "@/lib/presentation/presentation-theme";
 import type {
   ShapeKind,
   Slide,
@@ -601,7 +601,7 @@ function layoutDisplayName(layout: ReusableSlideLayout | undefined): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-const TEXT_ROLE_LABELS: Record<DeckTextRole, string> = {
+const TEXT_ROLE_LABELS: Record<PresentationRole, string> = {
   h1: "Title",
   h2: "Section title",
   h3: "Body heading",
@@ -621,7 +621,7 @@ const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
     { kind: "triangle", label: "Triangle" },
   ];
 
-function textRoleIcon(role: DeckTextRole): ReactNode {
+function textRoleIcon(role: PresentationRole): ReactNode {
   switch (role) {
     case "h1":
       return <Heading1 size={16} aria-hidden="true" />;
@@ -1859,7 +1859,7 @@ export function SlideToolbar({
       </button>
     </Tooltip>
   );
-  const textItems = DECK_TEXT_ROLES.map((role) => ({
+  const textItems = PRESENTATION_ROLES.map((role) => ({
     key: role,
     label: TEXT_ROLE_LABELS[role],
     icon: textRoleIcon(role),

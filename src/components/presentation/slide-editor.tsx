@@ -85,8 +85,8 @@ import {
   commitCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
-import { DeckTemplatePanel } from "@/components/presentation/deck-template-panel";
-import { resolveDeckThemeTokens } from "@/lib/presentation/deck-theme-tokens";
+import { PresentationThemePanel } from "@/components/presentation/presentation-theme-panel";
+import { resolveDeckThemeTokens } from "@/lib/presentation/presentation-theme";
 import {
   canvasShortcutHelp,
   focusTargetAfterDelete,
@@ -480,8 +480,8 @@ export function SlideEditor({
     spotlightPickerOpen,
     setSpotlightPickerOpen,
     setVisualPickerOpen,
-    deckTemplateOpen,
-    setDeckTemplateOpen,
+    themeOverridesOpen,
+    setThemeOverridesOpen,
     mergePreview,
     canSyncFromDocument,
     showStaleBanner,
@@ -1261,8 +1261,8 @@ export function SlideEditor({
     handleBackgroundImageChange,
     handleBackgroundAssetChange,
     handleSlideFormatChange,
-    handleUpdateDeckTemplate,
-    handleResetDeckTemplate,
+    handleUpdateThemeOverrides,
+    handleResetThemeOverrides,
     handleApplyDeckTheme,
   } = useSlideBackgroundCommands({
     deck,
@@ -1273,7 +1273,7 @@ export function SlideEditor({
     setThemeMenuOpen: () => undefined,
   });
 
-  const deckTemplateTokenSet = resolveDeckThemeTokens(deck);
+  const presentationThemeTokenSet = resolveDeckThemeTokens(deck);
   const toolbarLayouts = useMemo(() => {
     const source = defaultLayouts();
     const format = deckFormat;
@@ -1477,8 +1477,8 @@ export function SlideEditor({
                 onChange={handleSlideFormatChange}
               />
               <Popover
-                open={deckTemplateOpen}
-                onClose={() => setDeckTemplateOpen(false)}
+                open={themeOverridesOpen}
+                onClose={() => setThemeOverridesOpen(false)}
                 aria-label="Edit deck theme"
                 portal
                 layer="tooltip"
@@ -1489,8 +1489,8 @@ export function SlideEditor({
                       type="button"
                       aria-label="Edit deck theme"
                       aria-haspopup="dialog"
-                      aria-expanded={deckTemplateOpen}
-                      onClick={() => setDeckTemplateOpen((open) => !open)}
+                      aria-expanded={themeOverridesOpen}
+                      onClick={() => setThemeOverridesOpen((open) => !open)}
                       className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                     >
                       <Type aria-hidden className="h-3.5 w-3.5" />
@@ -1499,12 +1499,12 @@ export function SlideEditor({
                   </Tooltip>
                 }
               >
-                <DeckTemplatePanel
-                  tokenSet={deckTemplateTokenSet}
+                <PresentationThemePanel
+                  tokenSet={presentationThemeTokenSet}
                   isCustom={deckHasThemeOverrides(deck)}
                   themeId={deckPresentationThemeId(deck)}
-                  onUpdate={handleUpdateDeckTemplate}
-                  onReset={handleResetDeckTemplate}
+                  onUpdate={handleUpdateThemeOverrides}
+                  onReset={handleResetThemeOverrides}
                   onApplyTheme={handleApplyDeckTheme}
                 />
               </Popover>

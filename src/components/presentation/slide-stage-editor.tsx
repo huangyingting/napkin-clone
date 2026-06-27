@@ -43,8 +43,8 @@ import {
 } from "@/lib/presentation/style-cascade";
 import {
   resolveRoleToken,
-  type DeckThemeTokenSet,
-} from "@/lib/presentation/deck-theme-tokens";
+  type PresentationTheme,
+} from "@/lib/presentation/presentation-theme";
 import { orderedElementIds } from "@/lib/presentation/canvas-a11y";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
@@ -135,7 +135,7 @@ import { slideAccentValue } from "@/components/presentation/v6-deck-ui";
 import {
   colorRefValue,
   elementDesignOverrides,
-  presentationRoleToDeckTextRole,
+  presentationRoleToPresentationRole,
   shapeContent,
   textDesign,
 } from "@/components/presentation/slide-canvas/v6-model";
@@ -143,11 +143,11 @@ import {
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "shape" }>,
   tc: SlideThemeColors,
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): string {
   if (element.kind === "text") {
     const design = textDesign(element);
-    const role = presentationRoleToDeckTextRole(
+    const role = presentationRoleToPresentationRole(
       (element as { role?: string }).role,
       "body",
     );

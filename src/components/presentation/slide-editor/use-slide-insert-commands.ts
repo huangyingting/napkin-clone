@@ -37,7 +37,7 @@ import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { Visual } from "@/lib/visual/schema";
 import type { DocumentTextBlock } from "@/lib/content";
 import type { ElementBox } from "@/lib/presentation/deck";
-import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
+import type { PresentationRole } from "@/lib/presentation/presentation-theme";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import { deckCanvasFormat } from "@/components/presentation/v6-deck-ui";
@@ -47,7 +47,7 @@ type DoCommitAndChange = (
   cmd: Parameters<typeof commitCommand>[1],
 ) => void;
 
-function textRoleLabel(role: DeckTextRole): string {
+function textRoleLabel(role: PresentationRole): string {
   switch (role) {
     case "h1":
       return "Title";
@@ -70,7 +70,7 @@ function textRoleLabel(role: DeckTextRole): string {
   }
 }
 
-function textRoleFontSize(role: DeckTextRole): number {
+function textRoleFontSize(role: PresentationRole): number {
   switch (role) {
     case "h1":
       return SLIDE_TEXT_FONT_SIZE.h1;
@@ -89,7 +89,7 @@ function textRoleFontSize(role: DeckTextRole): number {
   }
 }
 
-function defaultTextBox(role: DeckTextRole): ElementBox {
+function defaultTextBox(role: PresentationRole): ElementBox {
   switch (role) {
     case "h1":
       return { x: 10, y: 18, w: 80, h: 14 };
@@ -113,7 +113,7 @@ function defaultTextBox(role: DeckTextRole): ElementBox {
 }
 
 function buildDefaultTextElement(
-  role: DeckTextRole,
+  role: PresentationRole,
   id: string,
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
   const label = textRoleLabel(role);

@@ -37,8 +37,8 @@ import {
 import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
 
 /**
- * Maps a {@link PlaceholderType} onto its semantic {@link DeckTextRole} (#610)
- * so materialized template text inherits deck-template typography. The concrete
+ * Maps a {@link PlaceholderType} onto its semantic {@link PresentationRole} (#610)
+ * so materialized template text inherits presentation theme typography. The concrete
  * `style` set alongside remains the authoritative local style during the
  * render-wiring transition (#598); this is additive metadata.
  */

@@ -5,7 +5,7 @@ import {
   resolveConnectorElementPoints,
 } from "@/lib/presentation/connector-geometry";
 import type { ConnectorElement, SlideElement } from "@/lib/presentation/deck";
-import type { ConnectorDefaultsToken } from "@/lib/presentation/deck-theme-tokens";
+import type { ConnectorDefaultsToken } from "@/lib/presentation/presentation-theme";
 import { connectorContent, connectorDesign } from "./v6-model";
 
 export function ConnectorElementView({

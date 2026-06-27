@@ -1,21 +1,21 @@
 /**
  * Dedicated adapter boundary for BrandStyle → deck theme tokens/master chrome.
  *
- * Brand records describe user chrome/assets; DeckThemeTokenSet describes slide
+ * Brand records describe user chrome/assets; PresentationTheme describes slide
  * rendering tokens. Keep the conversion here so brand persistence and visual
  * theme/display-style catalogs do not depend on deck token internals.
  */
 
 import type { BrandStyle } from "@/lib/brand/schema";
 import type { Deck, SlideMaster } from "./deck-core";
-import type { DeckThemeTokenSet } from "./deck-theme-token-types";
-import { DEFAULT_TOKEN_SET } from "./deck-theme-token-data";
+import type { PresentationTheme } from "./presentation-theme-types";
+import { DEFAULT_TOKEN_SET } from "./presentation-theme-data";
 
 /**
- * Generates a custom DeckThemeTokenSet from a BrandStyle.
+ * Generates a custom PresentationTheme from a BrandStyle.
  * Falls back to DEFAULT_TOKEN_SET for any brand fields that are null/absent.
  */
-export function brandToTokenSet(brand: BrandStyle): DeckThemeTokenSet {
+export function brandToTokenSet(brand: BrandStyle): PresentationTheme {
   const def = DEFAULT_TOKEN_SET;
   const accent = brand.nodeFill ?? brand.palette?.[0] ?? def.colors.accent;
   const bgColor = brand.background ?? def.colors.slideBg;

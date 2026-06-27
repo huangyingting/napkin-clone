@@ -20,49 +20,49 @@ import {
   ROLE_DEFAULT_WEIGHT,
   ROLE_TO_SCALE_KEY,
   TOKEN_SET_BY_ID,
-} from "./deck-theme-token-data";
+} from "./presentation-theme-data";
 import {
-  DECK_TEXT_ROLES,
+  PRESENTATION_ROLES,
   type BackgroundTreatment,
   type BulletNumberStyle,
   type ConnectorDashStyle,
-  type DeckTextRole,
-  type DeckThemeTokenSet,
+  type PresentationRole,
+  type PresentationTheme,
   type TextRoleToken,
-} from "./deck-theme-token-types";
+} from "./presentation-theme-types";
 import { ensureCjkFallback } from "./slide-fonts";
 
-/** Type guard: is `value` a known {@link DeckTextRole}? */
-export function isDeckTextRole(value: unknown): value is DeckTextRole {
+/** Type guard: is `value` a known {@link PresentationRole}? */
+export function isPresentationRole(value: unknown): value is PresentationRole {
   return (
     typeof value === "string" &&
-    (DECK_TEXT_ROLES as readonly string[]).includes(value)
+    (PRESENTATION_ROLES as readonly string[]).includes(value)
   );
 }
 
 /**
- * Returns the `DeckThemeTokenSet` for a given `themeId` / `DeckTheme` value.
+ * Returns the `PresentationTheme` for a given `themeId` / `DeckTheme` value.
  * Falls back to {@link DEFAULT_TOKEN_SET} for unknown or absent ids.
  *
  * This is the primary entry point for renderers and exporters to access the
  * token cascade without directly importing the constant array.
  */
-export function resolveThemeTokens(themeId?: string | null): DeckThemeTokenSet {
+export function resolveThemeTokens(themeId?: string | null): PresentationTheme {
   if (!themeId) return DEFAULT_TOKEN_SET;
   return TOKEN_SET_BY_ID.get(themeId) ?? DEFAULT_TOKEN_SET;
 }
 
 /** Minimal deck-shaped source used by theme-token resolvers. */
-export interface DeckThemeSource {
+export interface PresentationThemeSource {
   /** v6 presentation design source. */
   design?: {
     themeId?: string;
-    themeOverrides?: { tokenSet?: DeckThemeTokenSet } & Record<string, unknown>;
+    themeOverrides?: { tokenSet?: PresentationTheme } & Record<string, unknown>;
   };
   /** Legacy in-memory token-set id used by older tests/builders. */
   themeId?: string;
   /** Legacy in-memory custom token set used by older tests/builders. */
-  customTokenSet?: DeckThemeTokenSet;
+  customTokenSet?: PresentationTheme;
 }
 
 /**
@@ -72,7 +72,7 @@ export interface DeckThemeSource {
  * fallback to a superseded `theme` field: current deck payloads must carry
  * `themeId`.
  */
-export function resolveDeckThemeId(source: DeckThemeSource): string {
+export function resolveDeckThemeId(source: PresentationThemeSource): string {
   return (
     source.design?.themeOverrides?.tokenSet?.id ??
     source.customTokenSet?.id ??
@@ -84,8 +84,8 @@ export function resolveDeckThemeId(source: DeckThemeSource): string {
 
 /** Resolves the deck-level token set, preferring custom/brand tokens. */
 export function resolveDeckThemeTokens(
-  source: DeckThemeSource,
-): DeckThemeTokenSet {
+  source: PresentationThemeSource,
+): PresentationTheme {
   return (
     source.design?.themeOverrides?.tokenSet ??
     source.customTokenSet ??
@@ -102,7 +102,7 @@ export function resolveDeckThemeTokens(
  * callers do not need to construct a `BackgroundTreatment` union themselves.
  */
 export function resolveSlideBackground(
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
   options: {
     masterBackground?: BackgroundTreatment;
     slideBackground?: string;
@@ -155,7 +155,7 @@ export function backgroundTreatmentToCss(bg: BackgroundTreatment): string {
  * Looks up the built-in token set for each registered `DeckTheme` and returns
  * the result.
  */
-export function allThemeTokenSets(): DeckThemeTokenSet[] {
+export function allThemeTokenSets(): PresentationTheme[] {
   return [...BUILT_IN_TOKEN_SETS];
 }
 
@@ -178,8 +178,8 @@ export function isBuiltInTheme(id: string): id is DeckTheme {
  * `typography.roles` map.
  */
 export function deriveRoleToken(
-  tokenSet: DeckThemeTokenSet,
-  role: DeckTextRole,
+  tokenSet: PresentationTheme,
+  role: PresentationRole,
 ): TextRoleToken {
   const { typography, colors } = tokenSet;
   const sizeKey = ROLE_TO_SCALE_KEY[role];
@@ -207,12 +207,12 @@ export function deriveRoleToken(
  * the fully derived token.
  *
  * Unknown roles are not representable at the type level; callers passing an
- * arbitrary string should guard with {@link isDeckTextRole} and fall back to
+ * arbitrary string should guard with {@link isPresentationRole} and fall back to
  * `"body"`.
  */
 export function resolveRoleToken(
-  tokenSet: DeckThemeTokenSet,
-  role: DeckTextRole,
+  tokenSet: PresentationTheme,
+  role: PresentationRole,
 ): TextRoleToken {
   const derived = deriveRoleToken(tokenSet, role);
   const authored = tokenSet.typography.roles?.[role];
@@ -244,7 +244,7 @@ export interface ResolvedBulletDefaults {
  * absent because these are defaults a consumer opts into.
  */
 export function resolveBulletDefaults(
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): ResolvedBulletDefaults {
   const b = tokenSet.bullet ?? {};
   return {
@@ -266,7 +266,7 @@ export interface ResolvedConnectorDefaults {
 
 /** Resolves connector defaults with deterministic fallbacks. */
 export function resolveConnectorDefaults(
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): ResolvedConnectorDefaults {
   const c = tokenSet.connector ?? {};
   return {
@@ -288,7 +288,7 @@ export interface ResolvedImageDefaults {
 
 /** Resolves image defaults with deterministic fallbacks. */
 export function resolveImageDefaults(
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): ResolvedImageDefaults {
   const i = tokenSet.image ?? {};
   return {
@@ -307,7 +307,7 @@ export interface ResolvedVisualDefaults {
 
 /** Resolves visual defaults with deterministic fallbacks. */
 export function resolveVisualDefaults(
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): ResolvedVisualDefaults {
   const v = tokenSet.visual ?? {};
   return {

@@ -68,8 +68,8 @@ import type {
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
   resolveRoleToken,
-  type DeckTextRole,
-} from "@/lib/presentation/deck-theme-tokens";
+  type PresentationRole,
+} from "@/lib/presentation/presentation-theme";
 import { resolveSlideTokenSet } from "@/lib/presentation/style-cascade";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import {
@@ -112,7 +112,7 @@ import {
   elementDesignOverrides,
   imageContent,
   imageDesign,
-  presentationRoleToDeckTextRole,
+  presentationRoleToPresentationRole,
   shapeContent,
   shapeTextDesign,
   textContent,
@@ -982,7 +982,7 @@ function isHexColor(value: string): boolean {
 export const TEXT_ROLE_OPTIONS: Readonly<
   Record<
     "text" | "bullets" | "shape",
-    ReadonlyArray<{ value: DeckTextRole; label: string }>
+    ReadonlyArray<{ value: PresentationRole; label: string }>
   >
 > = {
   text: [
@@ -1008,14 +1008,14 @@ export const TEXT_ROLE_OPTIONS: Readonly<
 };
 
 /** The role an element inherits when it carries no explicit `textRole`. */
-function defaultTextRole(element: SlideElement): DeckTextRole {
-  return presentationRoleToDeckTextRole(
+function defaultTextRole(element: SlideElement): PresentationRole {
+  return presentationRoleToPresentationRole(
     (element as { role?: string }).role,
     element.kind === "text" ? "body" : "shapeLabel",
   );
 }
 
-function deckTextRoleToPresentationRole(role: DeckTextRole): string {
+function deckTextRoleToPresentationRole(role: PresentationRole): string {
   switch (role) {
     case "h1":
       return "title";
@@ -1037,7 +1037,7 @@ export function RoleSelectControl({
   onChange,
 }: {
   element: TextBearingElement;
-  onChange: (role: DeckTextRole) => void;
+  onChange: (role: PresentationRole) => void;
 }) {
   const kindKey = element.kind === "shape" ? "shape" : "text";
   const options = TEXT_ROLE_OPTIONS[kindKey];
@@ -1048,7 +1048,7 @@ export function RoleSelectControl({
         <SelectField
           value={current}
           ariaLabel="Text role"
-          onChange={(value) => onChange(value as DeckTextRole)}
+          onChange={(value) => onChange(value as PresentationRole)}
           options={options.map((option) => ({
             value: option.value,
             label: option.label,

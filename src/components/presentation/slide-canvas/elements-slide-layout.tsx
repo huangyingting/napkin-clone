@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import type * as React from "react";
 
 import type { SlideElement } from "@/lib/presentation/deck";
-import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
+import type { PresentationTheme } from "@/lib/presentation/presentation-theme";
 import type { ResolvedSlideRenderModel } from "@/lib/presentation/slide-render-model";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
@@ -27,7 +27,7 @@ function SlideElementView({
   elements: readonly SlideElement[];
   tc: SlideThemeColors;
   accent: string;
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
   visuals: ReadonlyMap<string, Visual>;
   editable?: boolean;
 }): JSX.Element | null {

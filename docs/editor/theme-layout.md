@@ -216,7 +216,7 @@ merged over derived defaults).
 
 ## Resolved Text Styles (#602)
 
-`style-cascade.ts` exposes pure resolvers that turn the deck template role token
+`style-cascade.ts` exposes pure resolvers that turn the presentation theme role token
 plus local element overrides into a final `ResolvedTextStyle`:
 
 - `resolveTextElementStyle(deck, textElement)` — text `role: "title"` maps to

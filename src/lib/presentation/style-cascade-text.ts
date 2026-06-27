@@ -13,8 +13,8 @@
 
 import type { Deck } from "./deck-core";
 import type { TextElementStyle } from "./deck-elements";
-import type { DeckTextRole, DeckThemeTokenSet } from "./deck-theme-token-types";
-import { resolveRoleToken } from "./deck-theme-token-resolvers";
+import type { PresentationRole, PresentationTheme } from "./presentation-theme-types";
+import { resolveRoleToken } from "./presentation-theme-resolvers";
 import { slideFontCssStack } from "./slide-fonts";
 import { resolveDeckTokenSet } from "./style-cascade-layers";
 
@@ -34,7 +34,7 @@ export type TextStyleField =
   | "paragraphSpacing";
 
 /**
- * Final, render/export-ready text style resolved from the deck template role
+ * Final, render/export-ready text style resolved from the presentation theme role
  * token plus local element overrides.  `fontSize` is in points (the role-token
  * unit), so this is the authoritative typography for export specs; the editor
  * canvas continues to use the element's existing percent-based `style` until
@@ -56,7 +56,7 @@ export interface ResolvedTextStyle {
    * The role this style resolved from, after applying per-kind defaults for
    * elements that opt into template inheritance without naming a role.
    */
-  role: DeckTextRole;
+  role: PresentationRole;
   /** Per-field origin: which cascade layer supplied each value. */
   origin: Record<TextStyleField, StyleOrigin>;
 }
@@ -67,9 +67,9 @@ const ELEMENT_DEFAULT_ROLE = {
   shapeLabel: "shapeLabel",
 } as const;
 
-function presentationRoleToDeckTextRole(
+function presentationRoleToPresentationRole(
   role: unknown,
-): DeckTextRole | undefined {
+): PresentationRole | undefined {
   switch (role) {
     case "title":
       return "h1";
@@ -86,7 +86,7 @@ function presentationRoleToDeckTextRole(
     case "h2":
     case "h3":
     case "shapeLabel":
-      return role as DeckTextRole;
+      return role as PresentationRole;
     default:
       return undefined;
   }
@@ -100,7 +100,7 @@ function elementTextStyleOverride(
 }
 
 /**
- * Core resolver: merges a deck-template role token with an optional local
+ * Core resolver: merges a presentation theme role token with an optional local
  * `Partial<TextElementStyle>` override, tracking per-field origin.
  *
  * Override semantics (#605): a present override field wins (`origin: element`);
@@ -109,8 +109,8 @@ function elementTextStyleOverride(
  * present `bold` maps to weight 700 (true) / 400 (false).
  */
 export function resolveRoleTextStyle(
-  tokenSet: DeckThemeTokenSet,
-  role: DeckTextRole,
+  tokenSet: PresentationTheme,
+  role: PresentationRole,
   override?: Partial<TextElementStyle>,
 ): ResolvedTextStyle {
   const token = resolveRoleToken(tokenSet, role);
@@ -218,7 +218,7 @@ export function resolveRoleTextStyle(
 
 /** Element shape accepted by the text-bearing resolvers (kind-agnostic). */
 interface TextBearingElementLike {
-  textRole?: DeckTextRole;
+  textRole?: PresentationRole;
   role?: string;
   styleOverride?: Partial<TextElementStyle>;
 }
@@ -233,7 +233,7 @@ export function resolveTextElementStyle(
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
   const role =
-    presentationRoleToDeckTextRole(element.role) ?? element.textRole ?? "body";
+    presentationRoleToPresentationRole(element.role) ?? element.textRole ?? "body";
   return resolveRoleTextStyle(
     tokenSet,
     role,
@@ -250,13 +250,13 @@ export function resolveShapeLabelStyle(
   deck: Deck,
   element: {
     role?: string;
-    textRole?: DeckTextRole;
+    textRole?: PresentationRole;
     textStyleOverride?: Partial<TextElementStyle>;
   },
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
-  const role: DeckTextRole =
-    presentationRoleToDeckTextRole(element.role) ??
+  const role: PresentationRole =
+    presentationRoleToPresentationRole(element.role) ??
     element.textRole ??
     ELEMENT_DEFAULT_ROLE.shapeLabel;
   return resolveRoleTextStyle(

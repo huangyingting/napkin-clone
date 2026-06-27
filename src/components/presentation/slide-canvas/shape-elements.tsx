@@ -2,9 +2,9 @@ import type { JSX } from "react";
 
 import type { ShapeElement, SlideElement } from "@/lib/presentation/deck";
 import type {
-  DeckThemeTokenSet,
+  PresentationTheme,
   ShapeToken,
-} from "@/lib/presentation/deck-theme-tokens";
+} from "@/lib/presentation/presentation-theme";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 
@@ -73,7 +73,7 @@ export function ShapeElementView({
 }: {
   element: ShapeElement;
   elements: readonly SlideElement[];
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
   /** Deck-template shape defaults applied when the element omits a field (#607). */
   defaults?: ShapeToken;
 }): JSX.Element {
@@ -81,7 +81,7 @@ export function ShapeElementView({
   const design = elementDesignOverrides(element);
   const fillColor =
     colorRefValue(design.fill, tokenSet) ?? defaults?.fill ?? "#6366f1";
-  // Effective stroke: element stroke wins, else a deck-template default stroke
+  // Effective stroke: element stroke wins, else a presentation theme default stroke
   // (#607) when the token defines one. Built-in themes set no shape stroke token.
   const effStroke =
     (design.stroke as { color: string; width: number } | undefined) ??

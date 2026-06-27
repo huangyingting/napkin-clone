@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { CURRENT_DECK_SCHEMA_VERSION, type Deck, type Slide } from "./deck";
-import type { MasterSlide } from "./deck-theme-tokens";
+import type { MasterSlide } from "./presentation-theme";
 import {
   renderFooterText,
   resolveMaster,

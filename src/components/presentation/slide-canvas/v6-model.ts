@@ -19,9 +19,9 @@ import type {
   VisualElement,
 } from "@/lib/presentation/deck";
 import type {
-  DeckTextRole,
-  DeckThemeTokenSet,
-} from "@/lib/presentation/deck-theme-tokens";
+  PresentationRole,
+  PresentationTheme,
+} from "@/lib/presentation/presentation-theme";
 
 type V6Record = Record<string, unknown>;
 
@@ -43,21 +43,21 @@ export function slideDesignOverrides(slide: Slide): V6Record {
 
 export function colorRefValue(
   input: unknown,
-  tokenSet: DeckThemeTokenSet,
+  tokenSet: PresentationTheme,
 ): string | undefined {
   if (typeof input === "string") return input;
   const ref = record(input);
   if (typeof ref.value === "string") return ref.value;
   if (typeof ref.token === "string") {
-    return tokenSet.colors[ref.token as keyof DeckThemeTokenSet["colors"]];
+    return tokenSet.colors[ref.token as keyof PresentationTheme["colors"]];
   }
   return undefined;
 }
 
-export function presentationRoleToDeckTextRole(
+export function presentationRoleToPresentationRole(
   role: unknown,
-  fallback: DeckTextRole,
-): DeckTextRole {
+  fallback: PresentationRole,
+): PresentationRole {
   switch (role) {
     case "title":
       return "h1";

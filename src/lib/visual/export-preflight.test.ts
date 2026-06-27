@@ -309,7 +309,7 @@ describe("remote-image-failure diagnostics", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: missing-font for custom deck templates (brand typography)
+// Tests: missing-font for custom presentation themes (brand typography)
 // ---------------------------------------------------------------------------
 // Element font overrides now use a self-hosted slide `fontId`, so only
 // template/brand typography can introduce a non-embeddable custom font. The
@@ -572,10 +572,10 @@ describe("multi-slide preflight", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: custom deck-template fonts (#617)
+// Tests: custom presentation theme fonts (#617)
 // ---------------------------------------------------------------------------
 
-describe("custom deck-template font diagnostics", () => {
+describe("custom presentation theme font diagnostics", () => {
   function brandTokenSet(
     overrides: Record<string, unknown> = {},
   ): Record<string, unknown> {

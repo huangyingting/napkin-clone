@@ -45,7 +45,7 @@ import {
 } from "./deck-mutation-deck-settings";
 import { setElementPatches } from "./deck-mutation-elements";
 import { updateSlide } from "./deck-mutation-slides";
-import { resetDeckTemplate } from "./deck-mutation-template";
+import { resetPresentationThemeOverrides } from "./presentation-theme-overrides";
 import { executeBackgroundFamilyCommand } from "./slide-command-background-executor";
 import { executeDeckThemeFamilyCommand } from "./slide-command-deck-theme-executor";
 import { executeElementFamilyCommand } from "./slide-command-element-executor";
@@ -266,7 +266,7 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
     }
     case "presentation.update_theme_overrides": {
       if (patch.deckFields?.resetThemeOverrides) {
-        return resetDeckTemplate(deck);
+        return resetPresentationThemeOverrides(deck);
       }
       const themeOverrides = patch.deckFields?.design?.themeOverrides;
       if (!themeOverrides) return null;

@@ -1,10 +1,10 @@
-# Global Deck Template — Authoring Workflow
+# Presentation Theme — Authoring Workflow
 
 **Status:** Current
 **Last updated:** 2026-06-24
 
 This document is the authoring-facing companion to
-[theme-layout.md](theme-layout.md). It explains the **global deck template
+[theme-layout.md](theme-layout.md). It explains the **global presentation theme
 contract** — the set of token groups a deck-level template defines — and how to
 author or extend one, both for built-in themes and brand-derived custom token
 sets.
@@ -15,8 +15,8 @@ APIs see [theme-layout.md](theme-layout.md); for the persisted shape see
 
 ## The template contract
 
-A deck template is the outermost layer of the cascade and is represented by a
-`DeckThemeTokenSet` (`src/lib/presentation/deck-theme-tokens.ts`). It defines:
+A presentation theme is the outermost layer of the cascade and is represented by a
+`PresentationTheme` (`src/lib/presentation/deck-theme-tokens.ts`). It defines:
 
 | Group                    | Fields                                                                                                              | Resolver                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
@@ -38,17 +38,17 @@ that omits them renders exactly as before they existed.
 
 ## Semantic text roles
 
-`DECK_TEXT_ROLES` = `h1`, `h2`, `h3`, `subtitle`, `body`, `bullet`, `caption`,
+`PRESENTATION_ROLES` = `h1`, `h2`, `h3`, `subtitle`, `body`, `bullet`, `caption`,
 `footer`, `shapeLabel`. A template may author full per-role typography under
 `typography.roles`; any role it omits is derived from `typography.scale` +
 color tokens via `deriveRoleToken`, so **every theme exposes complete role
 typography**. A text-bearing element opts into the template by carrying a
-`textRole`; without one it falls back to the text-element mapping (`role: "title"` →
+`role`; without one it falls back to the text-element mapping (`role: "title"` →
 `h1`, `role: "body"` → `body`).
 
 ## Reset-to-inherited
 
-Local overrides live on `styleOverride` (text/bullets) and `textStyleOverride`
+Local overrides live on `designOverrides` (text/bullets) and `designOverrides`
 (shape labels) as a `Partial<TextElementStyle>`. The resolver merges a present
 field over the role token (`origin: element`) and inherits an absent field
 (`origin: deck`). **Resetting a property to the theme value means deleting that
@@ -62,14 +62,14 @@ Given a deck whose template sets `h1` to Space Grotesk 42 / `#111827` / 700 and
 a master with a navy background:
 
 ```
-deck template   roles.h1 = { fontFamily: "Space Grotesk", fontSize: 42, color: "#111827", weight: 700 }
+presentation theme   roles.h1 = { fontFamily: "Space Grotesk", fontSize: 42, color: "#111827", weight: 700 }
   → master      background = { type: "solid", color: "#0b1020" }
     → layout    (title slot geometry)
       → slide   accent = "#22d3ee"        (slide-level override)
-        → element  styleOverride = { color: "#ffffff" }   (local override)
+        → element  designOverrides = { color: "#ffffff" }   (local override)
 ```
 
-Resolving a title element (`textRole: "h1"`) yields:
+Resolving a title element (`role: "h1"`) yields:
 
 | Field      | Value         | Origin    |
 | ---------- | ------------- | --------- |
@@ -79,15 +79,15 @@ Resolving a title element (`textRole: "h1"`) yields:
 | color      | `#ffffff`     | `element` |
 | background | `#0b1020`     | `master`  |
 
-Deleting the element's `styleOverride.color` resets `color` back to `#111827`
+Deleting the element's `designOverrides.color` resets `color` back to `#111827`
 with `origin: deck`.
 
 ## Authoring a custom (brand-derived) template
 
 `brandToTokenSet` (`src/lib/presentation/deck-brand-tokens.ts`) builds a
-`DeckThemeTokenSet` from a saved brand, and `applyBrandToDeck` stores it on
+`PresentationTheme` from a saved brand, and `applyBrandToDeck` stores it on
 `Deck.customTokenSet` and installs brand master chrome **without touching any
-element `style` / `styleOverride`**, so existing local overrides are preserved.
+element `style` / `designOverrides`**, so existing local overrides are preserved.
 
 When authoring or generating a custom token set:
 

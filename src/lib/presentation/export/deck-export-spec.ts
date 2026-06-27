@@ -14,7 +14,7 @@
  */
 
 import type { Deck, Slide } from "../deck-core";
-import type { DeckTextRole } from "../deck-theme-token-primitives";
+import type { PresentationRole } from "../presentation-role-primitives";
 import type {
   ElementAlign,
   ElementBox,
@@ -89,9 +89,9 @@ function elementDesign(element: SlideElement): Record<string, any> {
   return record((element as any).designOverrides);
 }
 
-function presentationRoleToDeckTextRole(
+function presentationRoleToPresentationRole(
   role: unknown,
-): DeckTextRole | undefined {
+): PresentationRole | undefined {
   switch (role) {
     case "title":
       return "h1";
@@ -108,7 +108,7 @@ function presentationRoleToDeckTextRole(
     case "h2":
     case "h3":
     case "shapeLabel":
-      return role as DeckTextRole;
+      return role as PresentationRole;
     default:
       return undefined;
   }
@@ -464,7 +464,7 @@ function buildSlideSpec(
           {
             ...element,
             textRole:
-              presentationRoleToDeckTextRole(
+              presentationRoleToPresentationRole(
                 (element as any).role ?? (element as any).textRole,
               ) ?? (element as any).textRole,
             ...(styleOverride ? { styleOverride } : {}),
@@ -569,7 +569,7 @@ function buildSlideSpec(
           {
             ...element,
             textRole:
-              presentationRoleToDeckTextRole(
+              presentationRoleToPresentationRole(
                 (element as any).role ?? (element as any).textRole,
               ) ?? (element as any).textRole,
             textStyleOverride:

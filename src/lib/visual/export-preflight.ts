@@ -297,7 +297,7 @@ function checkImageElement(
 }
 
 /**
- * Deck-level check (#617): warns when an applied custom deck template (e.g. a
+ * Deck-level check (#617): warns when an applied custom presentation theme (e.g. a
  * brand-derived `customTokenSet`) declares typography fonts that PPTX cannot
  * embed. The element-level font override now stores a self-hosted slide
  * `fontId`, so only template/brand typography can introduce a non-embeddable
@@ -336,7 +336,7 @@ function checkCustomTemplateFonts(
       diagnostics.push({
         severity: "warning",
         code: "missing-font",
-        message: `Deck template uses custom font "${primary}" which is not embedded in PPTX — Office will substitute a system font.`,
+        message: `Presentation theme uses custom font "${primary}" which is not embedded in PPTX — Office will substitute a system font.`,
         detail: primary,
       });
     }

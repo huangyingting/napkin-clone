@@ -2,9 +2,9 @@ import type { Deck, Slide } from "./deck-core";
 import type { SlideElement } from "./deck-elements";
 import type {
   BackgroundTreatment,
-  DeckThemeTokenSet,
+  PresentationTheme,
   MasterSlide,
-} from "./deck-theme-token-types";
+} from "./presentation-theme-types";
 import {
   resolveSlideStyle,
   resolveSlideThemeColors,
@@ -14,7 +14,7 @@ import {
 export interface ResolvedSlideRenderModel {
   slide: Slide;
   themeColors: SlideThemeColors;
-  tokenSet: DeckThemeTokenSet;
+  tokenSet: PresentationTheme;
   background: BackgroundTreatment;
   accent: string;
   master?: MasterSlide;

@@ -110,15 +110,15 @@ returns fatal errors plus fidelity warnings.
 
 Current diagnostic categories:
 
-| Code                       | Severity | Meaning                                                           |
-| -------------------------- | -------- | ----------------------------------------------------------------- |
-| `missing-asset`            | fatal    | An image element has no resolvable source.                        |
-| `missing-font`             | warning  | A deck-template/brand typography font is not embeddable in PPTX.  |
-| `font-cjk-mapping`         | warning  | Editable PPTX maps the self-hosted CJK font to an Office face.    |
-| `unsupported-pptx-feature` | warning  | A used feature has partial or unsupported PPTX fidelity.          |
-| `raster-fallback`          | warning  | An image feature will rasterize rather than remain vector/native. |
-| `remote-image-failure`     | warning  | A remote image may fail during export.                            |
-| `oversized-deck`           | warning  | Slide count exceeds the configured recommendation.                |
+| Code                       | Severity | Meaning                                                               |
+| -------------------------- | -------- | --------------------------------------------------------------------- |
+| `missing-asset`            | fatal    | An image element has no resolvable source.                            |
+| `missing-font`             | warning  | A presentation theme/brand typography font is not embeddable in PPTX. |
+| `font-cjk-mapping`         | warning  | Editable PPTX maps the self-hosted CJK font to an Office face.        |
+| `unsupported-pptx-feature` | warning  | A used feature has partial or unsupported PPTX fidelity.              |
+| `raster-fallback`          | warning  | An image feature will rasterize rather than remain vector/native.     |
+| `remote-image-failure`     | warning  | A remote image may fail during export.                                |
+| `oversized-deck`           | warning  | Slide count exceeds the configured recommendation.                    |
 
 Callers decide whether to block export based on `hasFatal` / `canExport` and
 surface warnings separately.

@@ -55,7 +55,7 @@ import {
   mergeSwatches,
   tokenSetSwatchColors,
 } from "@/lib/presentation/text-style";
-import { allThemeTokenSets } from "@/lib/presentation/deck-theme-tokens";
+import { allThemeTokenSets } from "@/lib/presentation/presentation-theme";
 import {
   resolveSlideThemeColors,
   type SlideThemeColors,

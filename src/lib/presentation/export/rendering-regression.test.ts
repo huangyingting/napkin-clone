@@ -1264,7 +1264,7 @@ test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element",
 });
 
 // ---------------------------------------------------------------------------
-// #618 — Inherited deck-template style regression + override preservation
+// #618 — Inherited presentation theme style regression + override preservation
 // ---------------------------------------------------------------------------
 
 function tokenSetWith(
@@ -1305,7 +1305,7 @@ function titleOpColor(deckObj: Deck): string {
   return (ofKind(spec.ops, "text")[0] as DeckTextOp).color.toLowerCase();
 }
 
-test("[#618] inherited title color tracks a deck-template change", () => {
+test("[#618] inherited title color tracks a presentation theme change", () => {
   const el = () => fixtureTextElement("t", "Heading", { textRole: "h1" });
   const a = titleOpColor(
     deck([el()], {
@@ -1322,7 +1322,7 @@ test("[#618] inherited title color tracks a deck-template change", () => {
   assert.notEqual(a, b, "inherited role color must change with the template");
 });
 
-test("[#618] inherited role font tracks a deck-template heading-font change", () => {
+test("[#618] inherited role font tracks a presentation theme heading-font change", () => {
   const el = () => fixtureTextElement("t", "Heading", { textRole: "h1" });
   const fontOf = (d: Deck) =>
     (

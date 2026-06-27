@@ -41,7 +41,7 @@ It does not add runtime compatibility for superseded deck payload shapes.
 | `Resolved*Design`    | Runtime-only concrete design values after resolving theme, master, slide, and element inputs.                          |
 
 Do not use the old `DeckThemeTokenSet`, `customTokenSet`, `textRole`,
-`layout placeholder`, or `deck template` naming for new v6 code. The user-facing
+`layout placeholder`, or `presentation theme` naming for new v6 code. The user-facing
 and code-facing model should use presentation-native names.
 
 ## Deck Shape

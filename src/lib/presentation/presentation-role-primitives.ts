@@ -1,6 +1,6 @@
 /** Leaf theme-token primitive roles shared by elements and token schema. */
 
-export const DECK_TEXT_ROLES = [
+export const PRESENTATION_ROLES = [
   "h1",
   "h2",
   "h3",
@@ -12,4 +12,4 @@ export const DECK_TEXT_ROLES = [
   "shapeLabel",
 ] as const;
 
-export type DeckTextRole = (typeof DECK_TEXT_ROLES)[number];
+export type PresentationRole = (typeof PRESENTATION_ROLES)[number];

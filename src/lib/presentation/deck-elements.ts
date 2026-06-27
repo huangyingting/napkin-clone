@@ -1,6 +1,6 @@
 /** Slide element families and element helper constructors. */
 
-import type { DeckTextRole } from "@/lib/presentation/deck-theme-token-primitives";
+import type { PresentationRole } from "@/lib/presentation/presentation-role-primitives";
 import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
 import {
   IMAGE_FIT_MODES,
@@ -225,12 +225,12 @@ export interface TextElement extends BaseElement {
   runs?: TextRun[];
   style: TextElementStyle;
   /**
-   * Optional semantic deck-template role (#605). When present, the style
-   * cascade resolves typography from the deck template for this role and treats
+   * Optional semantic presentation theme role (#605). When present, the style
+   * cascade resolves typography from the presentation theme for this role and treats
    * {@link styleOverride} as local overrides on top. Absent → the element is
    * styled entirely by its concrete `style`.
    */
-  textRole?: DeckTextRole;
+  textRole?: PresentationRole;
   /**
    * Optional local style overrides applied over the resolved template/role
    * style (#605). Only the present fields win; absent fields inherit. Resetting
@@ -361,11 +361,11 @@ export interface ShapeElement extends BaseElement {
   /** Optional style for the shape label; falls back to a centered body style. */
   textStyle?: TextElementStyle;
   /**
-   * Optional semantic deck-template role for the shape label (#605). Defaults
+   * Optional semantic presentation theme role for the shape label (#605). Defaults
    * conceptually to `"shapeLabel"` when inheriting from the template. Absent →
    * styled by concrete `textStyle`.
    */
-  textRole?: DeckTextRole;
+  textRole?: PresentationRole;
   /**
    * Optional local style overrides for the shape label, applied over the
    * resolved template/role style (#605).

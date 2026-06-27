@@ -4,7 +4,7 @@ import { test } from "node:test";
 import type { Deck, Slide } from "./deck";
 import { applyPatch, executeCommand } from "./slide-commands";
 import { safeParseDeck } from "./deck-schema";
-import { resolveThemeTokens } from "./deck-theme-tokens";
+import { resolveThemeTokens } from "./presentation-theme";
 import { buildDeck, buildSlide } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------

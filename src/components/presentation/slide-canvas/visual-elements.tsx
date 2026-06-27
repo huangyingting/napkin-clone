@@ -25,7 +25,7 @@ export function VisualElementView({
   }
   // Apply the optional per-element restyle here, in the one shared renderer, so
   // editor / present / public viewer all draw the visual identically. Falls back
-  // to the deck-template default styleThemeId when the element sets none (#607).
+  // to the presentation theme default styleThemeId when the element sets none (#607).
   const styleThemeId = content.styleThemeId ?? defaultStyleThemeId;
   const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
   return (

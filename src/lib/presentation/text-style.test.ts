@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { allThemeTokenSets } from "./deck-theme-tokens";
+import { allThemeTokenSets } from "./presentation-theme";
 import {
   ALIGN_OPTIONS,
   clampFontSize,

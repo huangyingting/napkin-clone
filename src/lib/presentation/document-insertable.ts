@@ -31,7 +31,7 @@ import {
 import { makeElementId } from "./deck-ids";
 import type { SourceRef } from "./deck-source-refs";
 import { hashDocumentBlock } from "./document-block-hash";
-import type { DeckTextRole } from "./deck-theme-token-types";
+import type { PresentationRole } from "./presentation-theme-types";
 import { headingFontSize, SLIDE_TEXT_FONT_SIZE } from "./text-defaults";
 
 /** A single click-to-insert entry derived from the source document. */
@@ -187,11 +187,11 @@ export function insertableTextElement(
   const fontSize = heading
     ? headingFontSize(item.level)
     : SLIDE_TEXT_FONT_SIZE.text;
-  // Semantic deck-template role (#610): map document heading levels onto
+  // Semantic presentation theme role (#610): map document heading levels onto
   // h1/h2/h3 deterministically; non-heading text is body. The concrete `style`
   // below remains the authoritative local style during the render-wiring
   // transition (#598), so this is additive and does not change visual output.
-  const textRole: DeckTextRole = heading
+  const textRole: PresentationRole = heading
     ? item.level === 2
       ? "h2"
       : item.level === 3

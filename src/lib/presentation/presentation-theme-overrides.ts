@@ -4,31 +4,31 @@ import type {
   BulletDefaultsToken,
   ColorToken,
   ConnectorDefaultsToken,
-  DeckTextRole,
-  DeckThemeTokenSet,
+  PresentationRole,
+  PresentationTheme,
   ImageDefaultsToken,
   TextRoleToken,
   TextRoleTokenMap,
   VisualDefaultsToken,
-} from "./deck-theme-token-types";
+} from "./presentation-theme-types";
 import {
   resolveDeckThemeId,
   resolveDeckThemeTokens,
   resolveRoleToken,
-} from "./deck-theme-token-resolvers";
+} from "./presentation-theme-resolvers";
 
 /**
- * Structured patch for editing the global deck template (#614). Every field is
+ * Structured patch for editing the global presentation theme (#614). Every field is
  * optional and shallow-merges over the current (or theme-materialised) token
  * set. Role-token patches merge over the *resolved* role token so a partial
  * edit still yields complete typography.
  */
-export interface DeckTemplatePatch {
+export interface PresentationThemeOverridesPatch {
   colors?: Partial<ColorToken>;
   typography?: {
     fontFamily?: string;
     headingFontFamily?: string;
-    roles?: Partial<Record<DeckTextRole, Partial<TextRoleToken>>>;
+    roles?: Partial<Record<PresentationRole, Partial<TextRoleToken>>>;
   };
   defaultBackground?: BackgroundTreatment;
   bullet?: Partial<BulletDefaultsToken>;
@@ -38,12 +38,12 @@ export interface DeckTemplatePatch {
 }
 
 function mergeRoleTokens(
-  base: DeckThemeTokenSet,
+  base: PresentationTheme,
   existing: TextRoleTokenMap | undefined,
-  patchRoles: Partial<Record<DeckTextRole, Partial<TextRoleToken>>>,
+  patchRoles: Partial<Record<PresentationRole, Partial<TextRoleToken>>>,
 ): TextRoleTokenMap {
   const out: TextRoleTokenMap = { ...(existing ?? {}) };
-  for (const key of Object.keys(patchRoles) as DeckTextRole[]) {
+  for (const key of Object.keys(patchRoles) as PresentationRole[]) {
     const partial = patchRoles[key];
     if (!partial) continue;
     const baseToken = out[key] ?? resolveRoleToken(base, key);
@@ -53,22 +53,25 @@ function mergeRoleTokens(
 }
 
 /**
- * Applies a {@link DeckTemplatePatch} to the deck's global template (#614).
+ * Applies a {@link PresentationThemeOverridesPatch} to the deck's global template (#614).
  * When the deck has no `customTokenSet` yet, one is materialised from the
  * current theme's built-in token set first, so editing a template always
  * produces a complete, persistable set. Returns a new deck (immutable).
  */
-export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
+export function updatePresentationThemeOverrides(
+  deck: Deck,
+  patch: PresentationThemeOverridesPatch,
+): Deck {
   const themeId = resolveDeckThemeId(deck);
   const existingTokenSet = (deck as any).design?.themeOverrides?.tokenSet as
-    | DeckThemeTokenSet
+    | PresentationTheme
     | undefined;
-  const base: DeckThemeTokenSet = existingTokenSet ?? {
+  const base: PresentationTheme = existingTokenSet ?? {
     ...resolveDeckThemeTokens(deck),
     id: `custom:${themeId}`,
     name: `Custom (${themeId})`,
   };
-  const next: DeckThemeTokenSet = {
+  const next: PresentationTheme = {
     ...base,
     ...(patch.colors ? { colors: { ...base.colors, ...patch.colors } } : {}),
     ...(patch.typography
@@ -119,7 +122,7 @@ export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
  * Removes the deck's `customTokenSet`, resetting the global template back to the
  * built-in theme (#612 "reset to theme"). Returns a new deck (immutable).
  */
-export function resetDeckTemplate(deck: Deck): Deck {
+export function resetPresentationThemeOverrides(deck: Deck): Deck {
   const design = { ...((deck as any).design ?? {}) };
   const themeOverrides = { ...(design.themeOverrides ?? {}) };
   if (!("tokenSet" in themeOverrides)) return deck;

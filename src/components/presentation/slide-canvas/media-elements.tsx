@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import type * as React from "react";
 
 import type { ImageElement } from "@/lib/presentation/deck";
-import type { ImageDefaultsToken } from "@/lib/presentation/deck-theme-tokens";
+import type { ImageDefaultsToken } from "@/lib/presentation/presentation-theme";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 
 import { boxStyle } from "./primitives";
@@ -70,7 +70,7 @@ export function ImageElementView({
   const content = imageContent(element);
   const design = imageDesign(element);
   const cropClipPath = imageCropClipPath(content.crop);
-  // Effective image styling: element value wins, else the deck-template default
+  // Effective image styling: element value wins, else the presentation theme default
   // (#607), else the renderer's built-in default. Built-in themes set no image
   // token, so existing decks are unaffected.
   const effFitMode = design.fitMode ?? defaults?.fitMode;

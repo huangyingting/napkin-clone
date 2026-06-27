@@ -5,8 +5,8 @@ import type {
   ColorToken,
   ConnectorDashStyle,
   ConnectorDefaultsToken,
-  DeckTextRole,
-  DeckThemeTokenSet,
+  PresentationRole,
+  PresentationTheme,
   FontScale,
   ImageDefaultsToken,
   MasterSlide,
@@ -15,9 +15,9 @@ import type {
   TextRoleToken,
   TypographyToken,
   VisualDefaultsToken,
-} from "../deck-theme-token-types";
-import { isDeckTextRole } from "../deck-theme-token-resolvers";
-import { DECK_TEXT_ROLES } from "../deck-theme-token-types";
+} from "../presentation-theme-types";
+import { isPresentationRole } from "../presentation-theme-resolvers";
+import { PRESENTATION_ROLES } from "../presentation-theme-types";
 import type { ConnectorArrow, ElementAlign } from "../deck-elements";
 import { validateImageFitMode, validateImageMaskShape } from "./media";
 import {
@@ -227,15 +227,15 @@ function validateTextRoleToken(input: unknown, context: string): TextRoleToken {
 function validateRoleTokenMap(
   input: unknown,
   context: string,
-): Partial<Record<DeckTextRole, TextRoleToken>> {
+): Partial<Record<PresentationRole, TextRoleToken>> {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
-  const roles: Partial<Record<DeckTextRole, TextRoleToken>> = {};
+  const roles: Partial<Record<PresentationRole, TextRoleToken>> = {};
   for (const key of Object.keys(input)) {
-    if (!isDeckTextRole(key)) {
+    if (!isPresentationRole(key)) {
       throw new DeckValidationError(
-        `${context}.${key} is not a known text role (expected one of: ${DECK_TEXT_ROLES.join(
+        `${context}.${key} is not a known text role (expected one of: ${PRESENTATION_ROLES.join(
           ", ",
         )})`,
       );
@@ -467,7 +467,7 @@ function validateImageDefaults(
 export function validateCustomTokenSet(
   input: unknown,
   context: string,
-): DeckThemeTokenSet {
+): PresentationTheme {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }

@@ -7,7 +7,7 @@ import {
   commitCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
-import type { DeckTemplatePatch } from "@/lib/presentation/deck-mutations";
+import type { PresentationThemeOverridesPatch } from "@/lib/presentation/deck-mutations";
 import {
   bucketCount,
   bucketDurationMs,
@@ -398,14 +398,14 @@ export function useSlideBackgroundCommands({
     [deck, doCommitAndChange],
   );
 
-  const handleUpdateDeckTemplate = useCallback(
-    (patch: DeckTemplatePatch) => {
+  const handleUpdateThemeOverrides = useCallback(
+    (patch: PresentationThemeOverridesPatch) => {
       doCommitAndChange(deck, { type: "UPDATE_THEME_OVERRIDES", patch });
     },
     [deck, doCommitAndChange],
   );
 
-  const handleResetDeckTemplate = useCallback(() => {
+  const handleResetThemeOverrides = useCallback(() => {
     doCommitAndChange(deck, {
       type: "UPDATE_THEME_OVERRIDES",
       patch: {},
@@ -448,8 +448,8 @@ export function useSlideBackgroundCommands({
     handleBackgroundImageChange,
     handleBackgroundAssetChange,
     handleSlideFormatChange,
-    handleUpdateDeckTemplate,
-    handleResetDeckTemplate,
+    handleUpdateThemeOverrides,
+    handleResetThemeOverrides,
     handleApplyDeckTheme,
     activeSolidBackground,
     activeGradientBackground,
