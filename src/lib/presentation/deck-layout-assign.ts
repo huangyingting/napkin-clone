@@ -351,8 +351,8 @@ function normalizeSlide(
   knownIds: ReadonlySet<string>,
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): Slide {
-  const visualIds = slideVisualIds(slide).filter((id) => knownIds.has(id));
-  const elements = buildElements(slide, visualIds, knownIds, inventory);
+  const visualRefs = slideVisualIds(slide).filter((id) => knownIds.has(id));
+  const elements = buildElements(slide, visualRefs, knownIds, inventory);
   const layout = slideLayout(slide);
 
   return {

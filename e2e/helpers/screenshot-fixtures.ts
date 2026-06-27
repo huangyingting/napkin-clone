@@ -27,8 +27,6 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
       index: 0,
       title: "Text and Bullets",
       bullets: [],
-      visualIds: [],
-      layout: "blank",
       notes: "",
       background: "#ffffff",
       elements: [
@@ -59,8 +57,6 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
       index: 1,
       title: "Shapes",
       bullets: [],
-      visualIds: [],
-      layout: "blank",
       notes: "",
       background: "#f8f9fa",
       elements: [
@@ -95,8 +91,6 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
       index: 2,
       title: "Image and Connector",
       bullets: [],
-      visualIds: [],
-      layout: "blank",
       notes: "",
       background: "#1e293b",
       elements: [

@@ -17,8 +17,6 @@ function baseSlide(overrides: Partial<Slide> = {}): Slide {
     index: 0,
     title: "",
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     ...overrides,
   };

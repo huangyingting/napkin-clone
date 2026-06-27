@@ -475,7 +475,6 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
             },
           },
         ],
-        elementsDerived: false,
       } as Slide,
     ]);
 

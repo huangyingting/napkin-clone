@@ -55,11 +55,6 @@ export function nextZIndex(elements: readonly SlideElement[]): number {
   );
 }
 
-/** Removes superseded slide provenance fields when an element edit touches a slide. */
-export function markElementsEdited(slide: Slide): Slide {
-  if (!("elementsDerived" in (slide as any))) {
-    return slide;
-  }
-  const { elementsDerived: _elementsDerived, ...next } = slide as any;
-  return next as Slide;
+export function withEditedElements(slide: Slide): Slide {
+  return slide;
 }

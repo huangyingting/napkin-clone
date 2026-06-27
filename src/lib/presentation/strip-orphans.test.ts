@@ -36,16 +36,13 @@ function slide(partial: Partial<Slide>): Slide {
     id: "test-id",
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     ...partial,
   };
 }
 
 function deck(slides: Slide[]): Deck {
-  return { themeId: "default", slides };
+  return { design: { themeId: "default" }, slides };
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +52,6 @@ function deck(slides: Slide[]): Deck {
 test("drops orphan visual elements", () => {
   const input = deck([
     slide({
-      visualIds: ["keep"],
       elements: [
         visualElement("el-keep", "keep"),
         visualElement("el-gone", "gone"),
@@ -75,11 +71,10 @@ test("preserves known visuals and non-visual elements", () => {
     textElement("el-text", "hello"),
     visualElement("el-keep", "keep"),
   ];
-  const input = deck([slide({ visualIds: ["keep"], elements })]);
+  const input = deck([slide({ elements })]);
   const result = stripOrphanedVisuals(input, new Set(["keep"]));
 
   assert.deepEqual(result.slides[0].elements, elements);
-  assert.deepEqual(result.slides[0].visualIds, ["keep"]);
   // Unchanged slides are returned by identity.
   assert.equal(result.slides[0], input.slides[0]);
 });

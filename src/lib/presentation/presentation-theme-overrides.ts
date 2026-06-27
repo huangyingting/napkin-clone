@@ -54,7 +54,7 @@ function mergeRoleTokens(
 
 /**
  * Applies a {@link PresentationThemeOverridesPatch} to the deck's global template (#614).
- * When the deck has no `customTokenSet` yet, one is materialised from the
+ * When the deck has no theme override token set yet, one is materialised from the
  * current theme's built-in token set first, so editing a template always
  * produces a complete, persistable set. Returns a new deck (immutable).
  */
@@ -119,7 +119,7 @@ export function updatePresentationThemeOverrides(
 }
 
 /**
- * Removes the deck's `customTokenSet`, resetting the global template back to the
+ * Removes the deck's theme override token set, resetting the global template back to the
  * built-in theme (#612 "reset to theme"). Returns a new deck (immutable).
  */
 export function resetPresentationThemeOverrides(deck: Deck): Deck {

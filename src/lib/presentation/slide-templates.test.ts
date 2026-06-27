@@ -274,7 +274,7 @@ test("visual template caption text carries the caption role", () => {
   assert.ok(roles.includes("caption"), roles.join(","));
 });
 
-test("every non-blank template text element carries a textRole", () => {
+test("every non-blank template text element carries a role", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
     for (const el of slide.elements ?? []) {

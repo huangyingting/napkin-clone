@@ -1170,15 +1170,15 @@ export function SlideEditor({
 
   const handleReplaceSelectedVisual = useCallback(
     (elementId: string) => {
-      const visualIds = [...visuals.keys()];
-      if (visualIds.length < 2) return;
+      const visualRefs = [...visuals.keys()];
+      if (visualRefs.length < 2) return;
       const visual = (deck.slides[safeSelected]?.elements ?? []).find(
         (element) => element.id === elementId && element.kind === "visual",
       );
       if (!visual || visual.kind !== "visual") return;
       const content = visualContent(visual);
-      const currentIndex = Math.max(0, visualIds.indexOf(content.visualId));
-      const nextVisualId = visualIds[(currentIndex + 1) % visualIds.length];
+      const currentIndex = Math.max(0, visualRefs.indexOf(content.visualId));
+      const nextVisualId = visualRefs[(currentIndex + 1) % visualRefs.length];
       if (!nextVisualId || nextVisualId === content.visualId) return;
       handleUpdateElement(visual.id, {
         content: {

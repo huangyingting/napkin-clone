@@ -235,8 +235,6 @@ describe("large fixture budget guards (#461)", () => {
       index,
       title: `Slide ${index}`,
       bullets: [],
-      visualIds: [],
-      layout: "content",
       notes: "",
       themeId: "default",
     };

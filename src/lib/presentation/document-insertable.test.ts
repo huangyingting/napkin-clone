@@ -388,7 +388,7 @@ test("visual insertable contentHash is deterministic", () => {
   assert.equal(i1.contentHash, i2.contentHash);
 });
 
-test("visual insertable contentHash differs for different visualIds", () => {
+test("visual insertable contentHash differs for different visual ids", () => {
   const items = buildInsertables([visualBlock("vis-1"), visualBlock("vis-2")]);
   const i1 = items[0] as Extract<(typeof items)[0], { kind: "visual" }>;
   const i2 = items[1] as Extract<(typeof items)[1], { kind: "visual" }>;

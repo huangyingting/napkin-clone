@@ -32,21 +32,18 @@ function element(id: string): SlideElement {
 }
 
 function textOf(element: SlideElement | undefined): string | undefined {
-  return (element as any)?.content?.text ?? (element as any)?.text;
+  return (element as any)?.content?.text;
 }
 
 function sourceOf(element: SlideElement | undefined) {
-  return (element as any)?.source ?? (element as any)?.source;
+  return (element as any)?.source;
 }
 
 function textStyleOf(element: SlideElement | undefined) {
-  return (
-    (element as any)?.designOverrides?.textStyle ?? (element as any)?.style
-  );
+  return (element as any)?.designOverrides?.textStyle;
 }
 
 function bulletsOf(slide: Slide): string[] {
-  if (Array.isArray((slide as any).bullets)) return (slide as any).bullets;
   const bullet = (slide.elements ?? []).find(
     (item) => item.kind === "text" && (item as any).role === "bullet",
   );
@@ -62,59 +59,78 @@ function slideBackgroundOf(slide: Slide): string | undefined {
 }
 
 function slideAccentOf(slide: Slide): string | undefined {
-  return (slide as any).designOverrides?.accent?.value ?? (slide as any).accent;
+  return (slide as any).designOverrides?.accent?.value;
 }
 
 function withTitleElement(
   title: string,
   elements: SlideElement[],
+  runs?: TextRun[],
 ): SlideElement[] {
   if (!title.trim()) return elements;
   if (elements.some((el) => el.kind === "text" && el.role === "title")) {
     return elements;
   }
   const id = `title-${title.toLowerCase().replace(/\s+/g, "-") || "slide"}`;
-  return [titleElement(id, title.trim()), ...elements];
+  return [titleElement(id, title.trim(), runs), ...elements];
 }
 
-function slide(partial: Partial<Slide>): Slide {
-  const title = partial.title ?? "";
-  const suppliedElements = partial.elements ?? [];
+type MergeSlideOverrides = Omit<Partial<Slide>, "elements" | "source"> & {
+  elements?: SlideElement[];
+  source?: Slide["source"];
+  bodyTexts?: string[];
+  bodyRuns?: TextRun[][];
+  visualRefs?: string[];
+  sectionId?: string;
+  titleRuns?: TextRun[];
+};
+
+function slide({
+  bodyTexts,
+  bodyRuns,
+  visualRefs,
+  sectionId,
+  titleRuns,
+  elements: suppliedElements = [],
+  source,
+  ...partial
+}: MergeSlideOverrides): Slide {
+  const title = typeof partial.title === "string" ? partial.title : "";
   const bulletElements =
-    Array.isArray((partial as any).bullets) &&
+    bodyTexts !== undefined &&
     suppliedElements.length === 0 &&
     !suppliedElements.some((element) => (element as any).role === "bullet")
       ? [
           buildBulletsElement({
             id: "body",
-            bullets: (partial as any).bullets,
-            bulletRuns: (partial as any).bulletRuns,
+            bullets: bodyTexts,
+            itemRuns: bodyRuns,
           }),
         ]
       : [];
   const visualElements =
-    Array.isArray((partial as any).visualIds) && suppliedElements.length === 0
-      ? (partial as any).visualIds.map((visualId: string, index: number) =>
+    visualRefs !== undefined && suppliedElements.length === 0
+      ? visualRefs.map((visualId: string, index: number) =>
           buildVisualElement({
             id: `visual-${index}`,
             visualId,
           }),
         )
       : [];
-  const elements = withTitleElement(title, [
-    ...suppliedElements,
-    ...bulletElements,
-    ...visualElements,
-  ]);
+  const elements = withTitleElement(
+    title,
+    [...suppliedElements, ...bulletElements, ...visualElements],
+    titleRuns,
+  );
+  const resolvedSource =
+    sectionId !== undefined ? { ...(source ?? {}), sectionId } : source;
   return buildSlide({
     id: "test-id",
     index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     ...partial,
+    title,
+    ...(resolvedSource !== undefined ? { source: resolvedSource } : {}),
     elements,
   });
 }
@@ -122,7 +138,7 @@ function slide(partial: Partial<Slide>): Slide {
 function deck(slides: Slide[], themeId = "default"): Deck {
   return buildDeck({
     slides: slides.map((s, index) => ({ ...s, index })),
-    themeId,
+    design: { themeId },
   });
 }
 
@@ -130,13 +146,15 @@ test("matched slide: refreshes content but preserves elements", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["old"],
+      bodyTexts: ["old"],
       elements: [element("el-1"), element("el-2")],
-      background: "#ffffff",
-      accent: "#123456",
+      designOverrides: {
+        background: { type: "solid", color: { value: "#ffffff" } },
+        accent: { value: "#123456" },
+      },
     }),
   ]);
-  const fresh = deck([slide({ title: "Intro", bullets: ["new", "extra"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["new", "extra"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -165,8 +183,8 @@ test("title match wins over index ordering", () => {
   ]);
   // Fresh has Second before First — should still match by title.
   const fresh = deck([
-    slide({ title: "Second", bullets: ["x"] }),
-    slide({ title: "First", bullets: ["y"] }),
+    slide({ title: "Second", bodyTexts: ["x"] }),
+    slide({ title: "First", bodyTexts: ["y"] }),
   ]);
 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
@@ -183,9 +201,9 @@ test("title match wins over index ordering", () => {
 
 test("index match used when titles differ/empty", () => {
   const existing = deck([
-    slide({ title: "", bullets: ["old"], elements: [element("a")] }),
+    slide({ title: "", bodyTexts: ["old"], elements: [element("a")] }),
   ]);
-  const fresh = deck([slide({ title: "", bullets: ["new"] })]);
+  const fresh = deck([slide({ title: "", bodyTexts: ["new"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -195,11 +213,16 @@ test("index match used when titles differ/empty", () => {
   assert.equal(summary.updatedCount, 1);
 });
 
-function titleElement(id: string, text: string): SlideElement {
+function titleElement(
+  id: string,
+  text: string,
+  runs?: TextRun[],
+): SlideElement {
   return buildTextElement({
     id,
     role: "title",
     text,
+    ...(runs !== undefined ? { runs } : {}),
     zIndex: 1,
     box: { x: 6, y: 6, w: 88, h: 16 },
     style: { fontSize: 6, bold: true, italic: false, align: "left" },
@@ -213,11 +236,11 @@ test("renamed title element matches its slide instead of appending a duplicate (
   const existing = deck([
     slide({
       title: "Old Name",
-      bullets: ["kept"],
+      bodyTexts: ["kept"],
       elements: [titleElement("t1", "New Name"), element("b1")],
     }),
   ]);
-  const fresh = deck([slide({ title: "New Name", bullets: ["fresh"] })]);
+  const fresh = deck([slide({ title: "New Name", bodyTexts: ["fresh"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -236,7 +259,7 @@ test("appends new slides with no match", () => {
   const existing = deck([slide({ title: "Intro", elements: [element("a")] })]);
   const fresh = deck([
     slide({ title: "Intro" }),
-    slide({ title: "Brand New", bullets: ["fresh"] }),
+    slide({ title: "Brand New", bodyTexts: ["fresh"] }),
   ]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
@@ -267,7 +290,7 @@ test("orphan existing slides are preserved, never discarded", () => {
     slide({ title: "Manual only", elements: [element("m1"), element("m2")] }),
   ]);
   // Fresh document only knows about "Intro".
-  const fresh = deck([slide({ title: "Intro", bullets: ["updated"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["updated"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -281,8 +304,8 @@ test("orphan existing slides are preserved, never discarded", () => {
 });
 
 test("unchanged matched slide reports no content change and keeps reference", () => {
-  const existing = deck([slide({ title: "Intro", bullets: ["same"] })]);
-  const fresh = deck([slide({ title: "Intro", bullets: ["same"] })]);
+  const existing = deck([slide({ title: "Intro", bodyTexts: ["same"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["same"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -298,8 +321,8 @@ test("summary lists every resulting slide in order with kinds", () => {
     slide({ title: "Orphan", elements: [element("o")] }),
   ]);
   const fresh = deck([
-    slide({ title: "Intro", bullets: ["x"] }),
-    slide({ title: "New", bullets: ["n"] }),
+    slide({ title: "Intro", bodyTexts: ["x"] }),
+    slide({ title: "New", bodyTexts: ["n"] }),
   ]);
 
   const { summary } = mergeDeckFromDocument(existing, fresh);
@@ -324,8 +347,8 @@ test("indices are contiguous after merge", () => {
 });
 
 test("merge is immutable — inputs untouched", () => {
-  const existing = deck([slide({ title: "Intro", bullets: ["old"] })]);
-  const fresh = deck([slide({ title: "Intro", bullets: ["new"] })]);
+  const existing = deck([slide({ title: "Intro", bodyTexts: ["old"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["new"] })]);
   const existingCopy = JSON.parse(JSON.stringify(existing));
 
   mergeDeckFromDocument(existing, fresh);
@@ -348,12 +371,12 @@ function elementText(s: Slide): string[] {
 }
 
 test("derived slide: sync re-materializes elements so document edits render", () => {
-  // An auto-built slide (elementsDerived=true) whose elements were derived from
+  // An auto-built slide (purely document-derived) whose elements were derived from
   // document content.
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["old bullet"],
+      bodyTexts: ["old bullet"],
       elements: [
         {
           id: "title",
@@ -396,10 +419,9 @@ test("derived slide: sync re-materializes elements so document edits render", ()
           },
         },
       ],
-      elementsDerived: true,
     }),
   ]);
-  const fresh = deck([slide({ title: "Intro", bullets: ["new bullet"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["new bullet"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -418,12 +440,11 @@ test("hand-edited slide: sync preserves elements verbatim", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["old bullet"],
+      bodyTexts: ["old bullet"],
       elements: [element("manual-1"), element("manual-2")],
-      elementsDerived: false,
     }),
   ]);
-  const fresh = deck([slide({ title: "Intro", bullets: ["new bullet"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["new bullet"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
 
@@ -440,9 +461,11 @@ test("hand-edited slide: sync preserves elements verbatim", () => {
 });
 
 test("untitled slide with no elements materializes fresh v6 content during sync", () => {
-  const existing = deck([slide({ title: "", bullets: ["old"], elements: [] })]);
+  const existing = deck([
+    slide({ title: "", bodyTexts: ["old"], elements: [] }),
+  ]);
   const fresh = deck([
-    slide({ title: "", bullets: ["brand new"], elements: [] }),
+    slide({ title: "", bodyTexts: ["brand new"], elements: [] }),
   ]);
 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
@@ -455,11 +478,11 @@ test("slide with elements but no provenance flag is treated as hand-edited", () 
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["old"],
+      bodyTexts: ["old"],
       elements: [element("manual-el")],
     }),
   ]);
-  const fresh = deck([slide({ title: "Intro", bullets: ["new"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["new"] })]);
 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
 
@@ -497,7 +520,7 @@ function visualElementId(element: unknown): string | undefined {
 }
 
 function slideSectionId(slide: Slide): string | undefined {
-  return (slide as any).source?.sectionId ?? (slide as any).sourceSectionId;
+  return (slide as any).source?.sectionId;
 }
 
 test("derived slide: document run text change reaches re-materialized elements", () => {
@@ -506,8 +529,8 @@ test("derived slide: document run text change reaches re-materialized elements",
     slide({
       title: "Intro",
       titleRuns: [{ text: "Intro" }],
-      bullets: ["old bullet"],
-      bulletRuns: [[{ text: "old bullet", bold: true }]],
+      bodyTexts: ["old bullet"],
+      bodyRuns: [[{ text: "old bullet", bold: true }]],
       elements: [
         {
           id: "title",
@@ -557,14 +580,13 @@ test("derived slide: document run text change reaches re-materialized elements",
           },
         },
       ],
-      elementsDerived: true,
     }),
   ]);
   const fresh = deck([
     slide({
       title: "Intro",
-      bullets: ["new bullet"],
-      bulletRuns: [[{ text: "new bullet", bold: true }]],
+      bodyTexts: ["new bullet"],
+      bodyRuns: [[{ text: "new bullet", bold: true }]],
     }),
   ]);
 
@@ -591,7 +613,7 @@ test("derived slide: stale title runs dropped when fresh has none", () => {
     slide({
       title: "Intro",
       titleRuns: [{ text: "Intro", bold: true }],
-      bullets: ["body"],
+      bodyTexts: ["body"],
       elements: [
         {
           id: "title",
@@ -614,12 +636,11 @@ test("derived slide: stale title runs dropped when fresh has none", () => {
           },
         },
       ],
-      elementsDerived: true,
     }),
   ]);
   // Fresh document keeps the matching title but drops the bold style
   // (no titleRuns) — a style-only change on the title.
-  const fresh = deck([slide({ title: "Intro", bullets: ["body"] })]);
+  const fresh = deck([slide({ title: "Intro", bodyTexts: ["body"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
   const s = merged.slides[0];
@@ -636,8 +657,8 @@ test("formatting-only document edit (same text, new runs) is detected as changed
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["point"],
-      bulletRuns: [[{ text: "point" }]],
+      bodyTexts: ["point"],
+      bodyRuns: [[{ text: "point" }]],
       elements: [
         {
           id: "body",
@@ -662,14 +683,13 @@ test("formatting-only document edit (same text, new runs) is detected as changed
           },
         },
       ],
-      elementsDerived: true,
     }),
   ]);
   const fresh = deck([
     slide({
       title: "Intro",
-      bullets: ["point"],
-      bulletRuns: [[{ text: "point", bold: true }]],
+      bodyTexts: ["point"],
+      bodyRuns: [[{ text: "point", bold: true }]],
     }),
   ]);
 
@@ -687,18 +707,17 @@ test("hand-edited slide: run refresh never clobbers verbatim elements", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["old bullet"],
+      bodyTexts: ["old bullet"],
       titleRuns: [{ text: "Intro", bold: true }],
-      bulletRuns: [[{ text: "old bullet" }]],
+      bodyRuns: [[{ text: "old bullet" }]],
       elements: [element("manual-1"), element("manual-2")],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([
     slide({
       title: "Intro",
-      bullets: ["new bullet"],
-      bulletRuns: [[{ text: "new bullet", bold: true }]],
+      bodyTexts: ["new bullet"],
+      bodyRuns: [[{ text: "new bullet", bold: true }]],
     }),
   ]);
 
@@ -712,7 +731,6 @@ test("hand-edited slide: run refresh never clobbers verbatim elements", () => {
   );
   // No removed slide-level bullet mirror is written alongside preserved elements.
   assert.deepEqual(bulletsOf(s), []);
-  assert.equal((s as any).bulletRuns, undefined);
   assert.equal(summary.updatedCount, 1);
   assert.equal(summary.preservedElementCount, 3);
 });
@@ -734,14 +752,13 @@ test("new document visual is appended to hand-edited slide (#294)", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["text"],
-      visualIds: [],
+      bodyTexts: ["text"],
+      visualRefs: [],
       elements: [element("manual-1")],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([
-    slide({ title: "Intro", bullets: ["text"], visualIds: ["vis-a"] }),
+    slide({ title: "Intro", bodyTexts: ["text"], visualRefs: ["vis-a"] }),
   ]);
 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
@@ -762,14 +779,13 @@ test("existing manual elements are unchanged and new visual is appended after (#
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["text"],
-      visualIds: [],
+      bodyTexts: ["text"],
+      visualRefs: [],
       elements: [manualEl],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([
-    slide({ title: "Intro", bullets: ["text"], visualIds: ["vis-b"] }),
+    slide({ title: "Intro", bodyTexts: ["text"], visualRefs: ["vis-b"] }),
   ]);
 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
@@ -786,18 +802,17 @@ test("already-rendered visual id is not duplicated (#294)", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["text"],
-      visualIds: ["vis-c"],
+      bodyTexts: ["text"],
+      visualRefs: ["vis-c"],
       elements: [element("manual-1"), visualElement("v-el-1", "vis-c")],
-      elementsDerived: false,
     }),
   ]);
   // Fresh doc also references "vis-c" — already on the slide, must not duplicate.
   const fresh = deck([
     slide({
       title: "Intro",
-      bullets: ["text"],
-      visualIds: ["vis-c"],
+      bodyTexts: ["text"],
+      visualRefs: ["vis-c"],
     }),
   ]);
 
@@ -814,14 +829,17 @@ test("merge summary reports visualsAdded for hand-edited slide (#294)", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["text"],
-      visualIds: [],
+      bodyTexts: ["text"],
+      visualRefs: [],
       elements: [element("manual-1")],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([
-    slide({ title: "Intro", bullets: ["text"], visualIds: ["vis-d", "vis-e"] }),
+    slide({
+      title: "Intro",
+      bodyTexts: ["text"],
+      visualRefs: ["vis-d", "vis-e"],
+    }),
   ]);
 
   const { summary } = mergeDeckFromDocument(existing, fresh);
@@ -832,28 +850,27 @@ test("merge summary reports visualsAdded for hand-edited slide (#294)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Stable sourceSectionId matching — Pass 0 (issue #296)
+// Stable source.sectionId matching — Pass 0 (issue #296)
 // ---------------------------------------------------------------------------
 
-test("renamed on-stage title: Pass 0 matches by sourceSectionId, no duplicate (#296)", () => {
+test("renamed on-stage title: Pass 0 matches by source.sectionId, no duplicate (#296)", () => {
   // Slide was synced from a doc section "Intro"; user renamed its on-stage title
-  // to "Introduction" via the canvas editor, but the frozen sourceSectionId
+  // to "Introduction" via the canvas editor, but the frozen source.sectionId
   // still identifies the original section. The doc heading stays "Intro".
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["kept"],
-      sourceSectionId: "sec-intro",
+      bodyTexts: ["kept"],
+      sectionId: "sec-intro",
       elements: [element("manual-el")],
-      elementsDerived: false,
     }),
   ]);
-  // Fresh deck re-derived from unchanged doc heading "Intro" → same sourceSectionId.
+  // Fresh deck re-derived from unchanged doc heading "Intro" → same source.sectionId.
   const fresh = deck([
     slide({
       title: "Intro",
-      bullets: ["updated content"],
-      sourceSectionId: "sec-intro",
+      bodyTexts: ["updated content"],
+      sectionId: "sec-intro",
     }),
   ]);
 
@@ -872,22 +889,22 @@ test("renamed on-stage title: Pass 0 matches by sourceSectionId, no duplicate (#
   assert.equal(summary.preservedCount, 0);
 });
 
-test("renamed slide title diverges from doc heading: sourceSectionId still matches (#296)", () => {
+test("renamed slide title diverges from doc heading: source.sectionId still matches (#296)", () => {
   // Existing slide.title drifted from the doc heading (user renamed on stage).
-  // Title-match would fail; Pass 0 by sourceSectionId must succeed.
+  // Title-match would fail; Pass 0 by source.sectionId must succeed.
   const existing = deck([
     slide({
       title: "Old On-Stage Name",
-      bullets: ["original"],
-      sourceSectionId: "sec-features",
+      bodyTexts: ["original"],
+      sectionId: "sec-features",
       elements: [element("feat-el")],
     }),
   ]);
   const fresh = deck([
     slide({
       title: "Features",
-      bullets: ["fresh bullets"],
-      sourceSectionId: "sec-features",
+      bodyTexts: ["fresh bullets"],
+      sectionId: "sec-features",
     }),
   ]);
 
@@ -899,27 +916,25 @@ test("renamed slide title diverges from doc heading: sourceSectionId still match
   assert.equal(summary.appendedCount, 0);
 });
 
-test("reordered sections: match by sourceSectionId, existing order preserved (#296)", () => {
+test("reordered sections: match by source.sectionId, existing order preserved (#296)", () => {
   const existing = deck([
     slide({
       title: "Alpha",
-      bullets: ["a-old"],
-      sourceSectionId: "sec-alpha",
+      bodyTexts: ["a-old"],
+      sectionId: "sec-alpha",
       elements: [element("el-a")],
-      elementsDerived: false,
     }),
     slide({
       title: "Beta",
-      bullets: ["b-old"],
-      sourceSectionId: "sec-beta",
+      bodyTexts: ["b-old"],
+      sectionId: "sec-beta",
       elements: [element("el-b")],
-      elementsDerived: false,
     }),
   ]);
   // Fresh deck has sections in reverse order but same ids.
   const fresh = deck([
-    slide({ title: "Beta", bullets: ["b-new"], sourceSectionId: "sec-beta" }),
-    slide({ title: "Alpha", bullets: ["a-new"], sourceSectionId: "sec-alpha" }),
+    slide({ title: "Beta", bodyTexts: ["b-new"], sectionId: "sec-beta" }),
+    slide({ title: "Alpha", bodyTexts: ["a-new"], sectionId: "sec-alpha" }),
   ]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
@@ -937,35 +952,33 @@ test("reordered sections: match by sourceSectionId, existing order preserved (#2
 });
 
 test("duplicate section ids: first-unconsumed pairing, no crash or over-duplication (#296)", () => {
-  // Two existing slides with the same sourceSectionId (identical heading text
+  // Two existing slides with the same source.sectionId (identical heading text
   // in the document produces identical ids). Both should be matched 1-to-1 with
   // the two fresh slides that carry the same id.
   const existing = deck([
     slide({
       title: "Topic",
-      bullets: ["first"],
-      sourceSectionId: "sec-topic",
+      bodyTexts: ["first"],
+      sectionId: "sec-topic",
       elements: [element("el-1")],
-      elementsDerived: false,
     }),
     slide({
       title: "Topic",
-      bullets: ["second"],
-      sourceSectionId: "sec-topic",
+      bodyTexts: ["second"],
+      sectionId: "sec-topic",
       elements: [element("el-2")],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([
     slide({
       title: "Topic",
-      bullets: ["fresh-1"],
-      sourceSectionId: "sec-topic",
+      bodyTexts: ["fresh-1"],
+      sectionId: "sec-topic",
     }),
     slide({
       title: "Topic",
-      bullets: ["fresh-2"],
-      sourceSectionId: "sec-topic",
+      bodyTexts: ["fresh-2"],
+      sectionId: "sec-topic",
     }),
   ]);
 
@@ -981,27 +994,27 @@ test("duplicate section ids: first-unconsumed pairing, no crash or over-duplicat
   assert.equal(summary.appendedCount, 0);
 });
 
-test("slides without sourceSectionId still match by title element (#296 regression)", () => {
+test("slides without source.sectionId still match by title element (#296 regression)", () => {
   const existing = deck([
     slide({
       title: "Intro",
-      bullets: ["old-intro"],
+      bodyTexts: ["old-intro"],
       elements: [element("intro-el")],
     }),
-    slide({ title: "Outro", bullets: ["old-outro"] }),
+    slide({ title: "Outro", bodyTexts: ["old-outro"] }),
   ]);
-  // Fresh slides carry sourceSectionId but existing don't — title match still
+  // Fresh slides carry source.sectionId but existing don't — title match still
   // fires in Pass 1.
   const fresh = deck([
     slide({
       title: "Outro",
-      bullets: ["outro-new"],
-      sourceSectionId: "sec-outro",
+      bodyTexts: ["outro-new"],
+      sectionId: "sec-outro",
     }),
     slide({
       title: "Intro",
-      bullets: ["intro-new"],
-      sourceSectionId: "sec-intro",
+      bodyTexts: ["intro-new"],
+      sectionId: "sec-intro",
     }),
   ]);
 
@@ -1017,7 +1030,7 @@ test("slides without sourceSectionId still match by title element (#296 regressi
   assert.equal(summary.appendedCount, 0);
 });
 
-test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide title syncs without duplicate (#296)", () => {
+test("buildDeckFromBlocks stamps source.sectionId; end-to-end: renamed slide title syncs without duplicate (#296)", () => {
   // Derive an initial deck from document blocks.
   const blocks = [
     {
@@ -1036,15 +1049,15 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
   const initialDeck = buildDeckFromBlocks(blocks);
   const derivedSlide = initialDeck.slides[0];
 
-  // The derived slide should carry a sourceSectionId.
+  // The derived slide should carry a source.sectionId.
   assert.ok(
     slideSectionId(derivedSlide) !== undefined,
-    "buildDeckFromBlocks must stamp sourceSectionId on heading-based slides",
+    "buildDeckFromBlocks must stamp source.sectionId on heading-based slides",
   );
 
   // Simulate user editing the on-stage title ("Getting Started" → "Quick Start").
-  // In practice this clears elementsDerived; here we just patch the title field
-  // to simulate a stale slide.title while sourceSectionId stays frozen.
+  // In practice this clears ; here we just patch the title field
+  // to simulate a stale slide.title while source.sectionId stays frozen.
   const existingDeck: Deck = {
     ...initialDeck,
     slides: [
@@ -1052,14 +1065,13 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
         ...derivedSlide,
         title: "Quick Start (renamed on stage)",
         elements: [element("manual-el")],
-        elementsDerived: false,
       },
     ],
   };
 
   // Re-derive from the SAME document blocks (heading text unchanged).
   const freshDeck = buildDeckFromBlocks(blocks);
-  // Confirm the fresh slide has the same sourceSectionId as the initial derive.
+  // Confirm the fresh slide has the same source.sectionId as the initial derive.
   assert.equal(
     slideSectionId(freshDeck.slides[0]),
     slideSectionId(derivedSlide),
@@ -1070,7 +1082,7 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
     freshDeck,
   );
 
-  // Pass 0 must match by sourceSectionId — one update, no duplicate appended.
+  // Pass 0 must match by source.sectionId — one update, no duplicate appended.
   assert.equal(merged.slides.length, 1);
   assert.equal(summary.updatedCount, 1);
   assert.equal(summary.appendedCount, 0);
@@ -1124,7 +1136,6 @@ test("element-level merge: updates linked text element content (#409)", () => {
     slide({
       title: "Slide",
       elements: [element("manual-1"), el],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([slide({ title: "Slide" })]);
@@ -1176,9 +1187,7 @@ test("element-level merge: preserves geometry and style of updated element (#409
     },
   };
 
-  const existing = deck([
-    slide({ title: "T", elements: [el], elementsDerived: false }),
-  ]);
+  const existing = deck([slide({ title: "T", elements: [el] })]);
   const fresh = deck([slide({ title: "T" })]);
   const newBlock = freshTextBlock("blk-2", "New content");
 
@@ -1212,9 +1221,7 @@ test("element-level merge: orphaned element (missing block) is not deleted (#409
     "Was here",
   );
 
-  const existing = deck([
-    slide({ title: "T", elements: [orphan], elementsDerived: false }),
-  ]);
+  const existing = deck([slide({ title: "T", elements: [orphan] })]);
   const fresh = deck([slide({ title: "T" })]);
 
   // freshBlocks does NOT include blk-deleted — simulates deletion.
@@ -1254,9 +1261,7 @@ test("element-level merge: unlinked elements are not updated (#409)", () => {
     },
   };
 
-  const existing = deck([
-    slide({ title: "T", elements: [unlinkedEl], elementsDerived: false }),
-  ]);
+  const existing = deck([slide({ title: "T", elements: [unlinkedEl] })]);
   const fresh = deck([slide({ title: "T" })]);
   const changedBlock = freshTextBlock("blk-x", "Changed");
 
@@ -1280,12 +1285,11 @@ test("element-level merge: decks without freshBlocks fall back to slide-level me
   const existing = deck([
     slide({
       title: "Slide",
-      bullets: ["old bullet"],
+      bodyTexts: ["old bullet"],
       elements: [element("manual-1"), el],
-      elementsDerived: false,
     }),
   ]);
-  const fresh = deck([slide({ title: "Slide", bullets: ["new bullet"] })]);
+  const fresh = deck([slide({ title: "Slide", bodyTexts: ["new bullet"] })]);
 
   // No freshBlocks — element content should NOT be updated.
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
@@ -1330,7 +1334,6 @@ test("element-level merge: mixed linked/unlinked/manual elements on one slide (#
     slide({
       title: "T",
       elements: [manualEl, linkedEl, unlinkedEl],
-      elementsDerived: false,
     }),
   ]);
   const fresh = deck([slide({ title: "T" })]);

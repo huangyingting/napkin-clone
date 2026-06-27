@@ -428,13 +428,13 @@ function buildSlideSpec(
     switch (element.kind) {
       case "text": {
         const content = elementContent(element);
-        const styleOverride = textStyleOverride(element);
+        const resolvedTextStyle = textStyleOverride(element);
         const exportStyle = adaptTextElementForExport(
           deck,
           element,
           geometry.slideHPt,
         );
-        const verticalAlign = styleOverride?.verticalAlign;
+        const verticalAlign = resolvedTextStyle?.verticalAlign;
         const fitMode = content.fitMode;
         const paragraphs = normalizeTextParagraphs(element);
         const hasListParagraphs = paragraphs.some(

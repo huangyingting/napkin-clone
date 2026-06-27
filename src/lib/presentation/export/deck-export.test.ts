@@ -174,8 +174,6 @@ function freeFormSlide(
     index,
     title: "",
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
     ...overrides,
@@ -425,8 +423,10 @@ test("per-slide background and accent overrides are applied", () => {
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [fixtureTextElement("t", "Themed")], {
-        background: "#123456",
-        accent: "#abcdef",
+        designOverrides: {
+          background: { type: "solid", color: { value: "#123456" } },
+          accent: { value: "#abcdef" },
+        },
       }),
     ],
   };
@@ -451,15 +451,12 @@ test("slide without overrides uses the theme background/accent", () => {
 test("slide without elements[] is not materialized for export", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
-    themeId: "indigo",
+    design: { themeId: "indigo" },
     slides: [
       {
         id: "sl-no-elements",
         index: 0,
         title: "Old Title",
-        bullets: ["alpha", "beta"],
-        visualIds: ["v1"],
-        layout: "content",
         notes: "",
       },
     ],
@@ -831,15 +828,19 @@ test("grouped shapes export in z-order and preserve geometry", () => {
 // ---------------------------------------------------------------------------
 
 test("backgroundGradient takes precedence over explicit background color", () => {
-  // The cascade resolves: image > gradient > solid, so when both backgroundGradient
-  // and background are set, the gradient wins and its 'from' stop is used as the
+  // The cascade resolves gradient backgrounds to their 'from' stop for the
   // PPTX solid background color.
   const deck: Deck = {
     themeId: "default",
     slides: [
       freeFormSlide(0, [fixtureTextElement("t", "Both")], {
-        background: "#ffffff",
-        backgroundGradient: { from: "#334455", to: "#aabbcc" },
+        designOverrides: {
+          background: {
+            type: "gradient",
+            from: { value: "#334455" },
+            to: { value: "#aabbcc" },
+          },
+        },
       }),
     ],
   };
@@ -943,27 +944,38 @@ function brandDeckWith(
   tokenExtras: Record<string, unknown>,
 ): Deck {
   return buildDeck({
-    themeId: "default",
-    customTokenSet: {
-      id: "brand:nt",
-      name: "NT",
-      colors: {
-        slideBg: "#ffffff",
-        surface: "#f0f0f0",
-        accent: "#3366ff",
-        onBg: "#0f172a",
-        onSurface: "#111111",
-        onAccent: "#ffffff",
-        muted: "#64748b",
+    design: {
+      themeId: "default",
+      themeOverrides: {
+        tokenSet: {
+          id: "brand:nt",
+          name: "NT",
+          colors: {
+            slideBg: "#ffffff",
+            surface: "#f0f0f0",
+            accent: "#3366ff",
+            onBg: "#0f172a",
+            onSurface: "#111111",
+            onAccent: "#ffffff",
+            muted: "#64748b",
+          },
+          typography: {
+            fontFamily: "Inter",
+            scale: {
+              h1: 36,
+              h2: 28,
+              h3: 22,
+              body: 16,
+              list: 14,
+              footer: 10,
+            },
+          },
+          spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+          shape: { cornerRadiusPt: 4, shadowCss: "none" },
+          defaultBackground: { type: "solid", color: "#ffffff" },
+          ...tokenExtras,
+        },
       },
-      typography: {
-        fontFamily: "Inter",
-        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
-      },
-      spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
-      shape: { cornerRadiusPt: 4, shadowCss: "none" },
-      defaultBackground: { type: "solid", color: "#ffffff" },
-      ...tokenExtras,
     },
     slides: [freeFormSlide(0, elements)],
   });

@@ -168,12 +168,12 @@ export function ElementToolbarContent({
     textParagraphs.every((paragraph) => paragraph.listType === "number");
   const updateTextParagraphs = (
     paragraphs: typeof textParagraphs,
-    textRole?: "body" | "bullet",
+    role?: "body" | "bullet",
   ) => {
     if (element.kind !== "text") return;
     const current = textContent(element);
     onUpdateElement(element.id, {
-      role: textRole ?? (element as { role?: string }).role,
+      role: role ?? (element as { role?: string }).role,
       content: {
         ...current,
         kind: "text",

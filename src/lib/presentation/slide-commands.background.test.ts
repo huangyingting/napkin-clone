@@ -15,8 +15,6 @@ function buildCommandSlide(id: string, index: number, title = ""): Slide {
     index,
     title,
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements: [],
   });

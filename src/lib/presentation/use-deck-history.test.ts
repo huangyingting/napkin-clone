@@ -28,9 +28,7 @@ function deck(n: number): Deck {
         index: 0,
         title: `slide-${n}`,
         bullets: [],
-        visualIds: [],
         notes: "",
-        layout: "content",
       },
     ],
   };

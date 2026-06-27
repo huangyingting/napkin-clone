@@ -100,8 +100,6 @@ function slide(id: string, elements: SlideElement[]): Slide {
     index: 0,
     title: "Slide",
     bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     elements,
   };
@@ -327,8 +325,6 @@ test("slides without elements array are skipped gracefully", () => {
     index: 0,
     title: "No elements",
     bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     // elements is absent
   };

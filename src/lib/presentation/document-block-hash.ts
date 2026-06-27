@@ -14,8 +14,8 @@
  *    heading level with ASCII record-separator characters so distinct fields
  *    can never accidentally produce the same string.
  *  - Visual blocks are identified solely by `visualId`; their content hash
- *    tracks visual identity rather than payload bytes, matching the
- *    `visualIds[]` granularity already used by the deck model.
+ *    tracks visual identity rather than payload bytes, matching visual element
+ *    references in the deck model.
  */
 
 import type { DocumentBlock } from "@/lib/content";

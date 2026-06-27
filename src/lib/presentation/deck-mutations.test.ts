@@ -43,9 +43,6 @@ function slide(index: number, title: string): Slide {
     id: "test-id",
     index,
     title,
-    bullets,
-    visualIds: [],
-    layout: "content",
     notes: "",
     elements: [
       {
@@ -83,7 +80,6 @@ function slide(index: number, title: string): Slide {
         },
       },
     ],
-    elementsDerived: true,
   };
 }
 
@@ -92,9 +88,6 @@ const makeDeck = (titles: string[]): Deck =>
     ...makeMinimalDeck(titles.map((title, index) => slide(index, title))),
     canvas: { format: "16:9" },
     design: { themeId: "default" },
-    slides: makeMinimalDeck(
-      titles.map((title, index) => slide(index, title)),
-    ).slides.map((entry) => ({ ...entry, elementsDerived: true })),
   }) as Deck;
 
 function authoredSlide(overrides: Partial<Slide> = {}): Slide {
@@ -102,12 +95,8 @@ function authoredSlide(overrides: Partial<Slide> = {}): Slide {
     id: "authored-id",
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     elements: [],
-    elementsDerived: false,
     ...overrides,
   };
 }
@@ -219,7 +208,6 @@ test("insertSlide places a caller-built slide and re-indexes", () => {
 
   assert.equal(next.slides.length, 3);
   assert.equal(next.slides[1].index, 1);
-  assert.equal(next.slides[1].elementsDerived, false);
   assert.deepEqual(
     next.slides.map((s) => s.index),
     [0, 1, 2],
@@ -231,10 +219,9 @@ test("insertSlide with -1 prepends the slide", () => {
   const authored = authoredSlide({
     id: "first-id",
     title: "First",
-    layout: "title",
+    templateId: "title",
   });
   delete authored.elements;
-  delete authored.elementsDerived;
   const next = insertSlide(deck, -1, authored);
   assert.equal(next.slides[0].title, "First");
   assert.equal(next.slides[1].title, "A");
@@ -291,11 +278,11 @@ test("updateSlide applies content-field patches", () => {
   const deck = makeDeck(["A", "B"]);
   const next = updateSlide(deck, 1, {
     title: "B2",
-    bullets: ["x", "y"],
+    notes: "speaker notes",
   });
 
   assert.equal(next.slides[1].title, "B2");
-  assert.deepEqual(next.slides[1].bullets, ["x", "y"]);
+  assert.equal(next.slides[1].notes, "speaker notes");
   assert.equal(next.slides[0].title, "A");
   assert.equal(deck.slides[1].title, "B");
 });
@@ -305,15 +292,13 @@ test("updateSlide applies element-slide fields without touching elements", () =>
   const before = deck.slides[0];
   const next = updateSlide(deck, 0, {
     title: "HACKED",
-    bullets: ["zzz"],
-    visualIds: ["v9"],
-    layout: "media",
+    templateId: "media",
+    source: { sectionId: "section-9" },
   });
 
   assert.equal(next.slides[0].title, "HACKED");
-  assert.deepEqual(next.slides[0].bullets, ["zzz"]);
-  assert.deepEqual(next.slides[0].visualIds, ["v9"]);
-  assert.equal(next.slides[0].layout, "media");
+  assert.equal(next.slides[0].templateId, "media");
+  assert.deepEqual(next.slides[0].source, { sectionId: "section-9" });
   assert.equal(next.slides[0].elements, before.elements);
 });
 
@@ -322,11 +307,16 @@ test("updateSlide applies mixed slide fields", () => {
   const next = updateSlide(deck, 0, {
     title: "updated",
     notes: "new notes",
-    background: "#123456",
+    designOverrides: {
+      background: { type: "solid", color: { value: "#123456" } },
+    },
   });
 
   assert.equal(next.slides[0].notes, "new notes");
-  assert.equal(next.slides[0].background, "#123456");
+  assert.deepEqual(next.slides[0].designOverrides?.background, {
+    type: "solid",
+    color: { value: "#123456" },
+  });
   assert.equal(next.slides[0].title, "updated");
 });
 
@@ -534,22 +524,15 @@ test("removeElements deletes only the named ids", () => {
   );
 });
 
-test("removeElements removes elementsDerived from the edited slide and is immutable", () => {
+test("removeElements is immutable", () => {
   const base = deckWithThreeElements();
-  const stamped: Deck = {
-    ...base,
-    slides: base.slides.map((s, i) =>
-      i === 0 ? { ...s, elementsDerived: true } : s,
-    ),
-  };
-  const beforeIds = stamped.slides[0].elements?.map((e) => e.id);
-  const next = removeElements(stamped, 0, ["e2"]);
-  assert.equal("elementsDerived" in next.slides[0], false);
+  const beforeIds = base.slides[0].elements?.map((e) => e.id);
+  const next = removeElements(base, 0, ["e2"]);
   // Original deck untouched.
-  assert.notEqual(next, stamped);
-  assert.notEqual(next.slides[0], stamped.slides[0]);
+  assert.notEqual(next, base);
+  assert.notEqual(next.slides[0], base.slides[0]);
   assert.deepEqual(
-    stamped.slides[0].elements?.map((e) => e.id),
+    base.slides[0].elements?.map((e) => e.id),
     beforeIds,
   );
 });
@@ -579,22 +562,17 @@ test("nudgeElements clamps each box within the slide", () => {
   assert.deepEqual(e1, { x: 0, y: 0, w: 10, h: 10 });
 });
 
-test("nudgeElements removes elementsDerived from the edited slide and is immutable", () => {
+test("nudgeElements is immutable", () => {
   const base = deckWithThreeElements();
-  const stamped: Deck = {
-    ...base,
-    slides: base.slides.map((s, i) =>
-      i === 0 ? { ...s, elementsDerived: true } : s,
-    ),
-  };
-  const next = nudgeElements(stamped, 0, ["e1"], 2, 2);
-  assert.equal("elementsDerived" in next.slides[0], false);
-  assert.notEqual(next, stamped);
+  const next = nudgeElements(base, 0, ["e1"], 2, 2);
+  assert.notEqual(next, base);
   // Original box untouched.
-  assert.deepEqual(
-    stamped.slides[0].elements?.find((e) => e.id === "e1")?.box,
-    { x: 0, y: 10, w: 10, h: 10 },
-  );
+  assert.deepEqual(base.slides[0].elements?.find((e) => e.id === "e1")?.box, {
+    x: 0,
+    y: 10,
+    w: 10,
+    h: 10,
+  });
 });
 
 test("nudgeElements is a no-op (same ref) on zero delta / empty / no match", () => {
@@ -685,58 +663,6 @@ test("duplicateSlide deep-copies elements", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Provenance flag: v6 removes elementsDerived from edited slides.
-// ---------------------------------------------------------------------------
-
-test("addElement removes elementsDerived from the edited slide", () => {
-  const derived = deckWithBullets();
-  assert.equal(derived.slides[0].elementsDerived, true);
-  const next = addElement(derived, 0, {
-    kind: "shape",
-    content: { kind: "shape", shape: "rect" },
-    designOverrides: { fill: { value: "#112233" } },
-    box: { x: 10, y: 10, w: 20, h: 20 },
-  });
-  assert.equal("elementsDerived" in next.slides[0], false);
-  // Other slide unaffected.
-  assert.equal(next.slides[1].elementsDerived, true);
-});
-
-test("updateElement removes elementsDerived from the edited slide", () => {
-  const derived = deckWithBullets();
-  const elementId = derived.slides[0].elements![0].id;
-  const next = updateElement(derived, 0, elementId, {
-    box: { x: 5, y: 5, w: 30, h: 30 },
-  });
-  assert.equal("elementsDerived" in next.slides[0], false);
-});
-
-test("removeElement / bringElementToFront / sendElementToBack remove elementsDerived", () => {
-  const derived = deckWithBullets();
-  const elementId = derived.slides[0].elements![0].id;
-
-  assert.equal(
-    "elementsDerived" in removeElement(derived, 0, elementId).slides[0],
-    false,
-  );
-  assert.equal(
-    "elementsDerived" in bringElementToFront(derived, 0, elementId).slides[0],
-    false,
-  );
-  assert.equal(
-    "elementsDerived" in sendElementToBack(derived, 0, elementId).slides[0],
-    false,
-  );
-});
-
-test("duplicateSlide carries the elementsDerived flag onto the copy", () => {
-  const derived = deckWithBullets();
-  const next = duplicateSlide(derived, 0);
-  assert.equal(next.slides[0].elementsDerived, true);
-  assert.equal(next.slides[1].elementsDerived, true);
-});
-
-// ---------------------------------------------------------------------------
 // duplicateElement (issue #225)
 // ---------------------------------------------------------------------------
 
@@ -772,14 +698,6 @@ test("duplicateElement clones with a new id, offset, and returns the copy id", (
     deck.slides[0].elements!.length,
   );
   assert.equal(next.slides[0].elements![0].box.x, original.box.x);
-});
-
-test("duplicateElement removes elementsDerived from the edited slide", () => {
-  const derived = deckWithBullets();
-  assert.equal(derived.slides[0].elementsDerived, true);
-  const id = derived.slides[0].elements![0].id;
-  const { deck: next } = duplicateElement(derived, 0, id);
-  assert.equal("elementsDerived" in next.slides[0], false);
 });
 
 test("duplicateElement is a no-op for a bad index or missing element", () => {
@@ -860,14 +778,12 @@ test("alignElements aligns only the named ids and leaves others untouched", () =
   assert.equal(byId(deck, "b").box.x, 30);
 });
 
-test("alignElements removes elementsDerived and returns a new deck", () => {
+test("alignElements returns a new deck", () => {
   const deck = makeDeck(["A"]);
-  assert.equal(deck.slides[0].elementsDerived, true);
   const ids = deck.slides[0].elements!.slice(0, 2).map((e) => e.id);
   const next = alignElements(deck, 0, ids, "top");
 
   assert.notEqual(next, deck);
-  assert.equal("elementsDerived" in next.slides[0], false);
 });
 
 test("alignElements is a no-op when no named ids are present", () => {
@@ -928,14 +844,6 @@ test("setElementHidden is immutable", () => {
   assert.equal(deck.slides[0].elements, before);
 });
 
-test("setElementHidden removes elementsDerived", () => {
-  const deck = makeDeck(["A"]);
-  assert.equal(deck.slides[0].elementsDerived, true);
-  const elementId = deck.slides[0].elements![0].id;
-  const next = setElementHidden(deck, 0, elementId, true);
-  assert.equal("elementsDerived" in next.slides[0], false);
-});
-
 // ---------------------------------------------------------------------------
 // setElementLocked (issue #331)
 // ---------------------------------------------------------------------------
@@ -971,9 +879,6 @@ function deckWithThreeByZ(): Deck {
       id: "s-z",
       index: 0,
       title: "",
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
       notes: "",
       elements: [
         {

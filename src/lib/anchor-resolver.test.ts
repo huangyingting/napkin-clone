@@ -51,9 +51,6 @@ function slide(id: string, elements: SlideElement[] = []): Slide {
     id,
     index: 0,
     title: "Slide",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     elements,
   };

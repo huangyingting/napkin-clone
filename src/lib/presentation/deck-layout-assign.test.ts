@@ -384,9 +384,9 @@ test("drops visual references that are not in the inventory", () => {
   ]);
 
   const result = normalizeGeneratedDeck(input, KNOWN);
-  const visualIds = slideVisualIds(result.slides[0]);
-  assert.ok(!visualIds.includes("ghost"));
-  assert.deepEqual(visualIds, ["vis-1"]);
+  const visualRefs = slideVisualIds(result.slides[0]);
+  assert.ok(!visualRefs.includes("ghost"));
+  assert.deepEqual(visualRefs, ["vis-1"]);
 });
 
 test("edge case: slide with no visual yields no visual element", () => {

@@ -1333,9 +1333,9 @@ export function TextPanel({
       <PanelSection title="Font">
         <RoleSelectControl
           element={element}
-          onChange={(textRole) =>
+          onChange={(role) =>
             onUpdateElement(element.id, {
-              role: deckTextRoleToPresentationRole(textRole),
+              role: deckTextRoleToPresentationRole(role),
             } as ElementPatch)
           }
         />

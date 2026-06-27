@@ -19,12 +19,8 @@ function buildCommandSlideWithElements(
     id,
     index,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
-    elementsDerived: false,
   });
 }
 
@@ -51,7 +47,7 @@ function buildCommandV6ShapeElement(id: string, zIndex = 0): SlideElement {
 
 function deckWithElements(slideId: string, elements: SlideElement[]): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [buildCommandSlideWithElements(slideId, 0, elements)],
   });
 }
@@ -61,18 +57,14 @@ function buildCommandDeckWithElements(
   elements: SlideElement[],
 ): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [
       buildSlide({
         id: slideId,
         index: 0,
         title: "Test",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
         notes: "",
         elements,
-        elementsDerived: false,
       }),
     ],
   });

@@ -26,8 +26,6 @@ function slide(id: string, elementIds: string[] = []): Slide {
     index: 0,
     title: "Slide",
     bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     elements: elementIds.map((eid) => ({
       id: eid,

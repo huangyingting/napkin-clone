@@ -298,7 +298,7 @@ function checkImageElement(
 
 /**
  * Deck-level check (#617): warns when an applied custom presentation theme (e.g. a
- * brand-derived `customTokenSet`) declares typography fonts that PPTX cannot
+ * brand-derived theme override token set) declares typography fonts that PPTX cannot
  * embed. The element-level font override now stores a self-hosted slide
  * `fontId`, so only template/brand typography can introduce a non-embeddable
  * custom font. Gated on the caller-provided `customFontFamilies` set so
@@ -390,8 +390,7 @@ function checkPptxFidelityFeatures(
 ): void {
   // Connector routing — check for elbow connectors.
   for (const el of elements) {
-    const routing = elementContent(el).routing ?? (el as any).routing;
-    if (el.kind === "connector" && routing === "elbow") {
+    if (el.kind === "connector" && elementContent(el).routing === "elbow") {
       const fidelity = getFidelity("connector-elbow", "pptx");
       if (fidelity === "partial" || fidelity === "degraded") {
         diagnostics.push({

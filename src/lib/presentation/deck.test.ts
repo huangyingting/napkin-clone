@@ -85,7 +85,7 @@ function slideBullets(slide: unknown): string[] {
   );
 }
 
-function slideBulletRuns(slide: unknown): Array<unknown[] | undefined> {
+function slideBodyRuns(slide: unknown): Array<unknown[] | undefined> {
   const bulletElement = slideTextElements(slide).find(
     (element) => element.role === "bullet",
   );
@@ -703,7 +703,7 @@ test("buildDeckFromBlocks threads title runs onto the slide", () => {
   ]);
 });
 
-test("buildDeckFromBlocks keeps bulletRuns parallel to bullets", () => {
+test("buildDeckFromBlocks keeps body runs parallel to body text", () => {
   const deck = buildDeckFromBlocks([
     h2("Section"),
     para("plain one"),
@@ -711,9 +711,9 @@ test("buildDeckFromBlocks keeps bulletRuns parallel to bullets", () => {
   ]);
   const slide = deck.slides[0];
   assert.deepEqual(slideBullets(slide), ["plain one", "rich two"]);
-  assert.equal(slideBulletRuns(slide).length, 2);
-  assert.deepEqual(slideBulletRuns(slide)[0], undefined);
-  assert.deepEqual(slideBulletRuns(slide)[1], [
+  assert.equal(slideBodyRuns(slide).length, 2);
+  assert.deepEqual(slideBodyRuns(slide)[0], undefined);
+  assert.deepEqual(slideBodyRuns(slide)[1], [
     { text: "rich " },
     { text: "two", italic: true },
   ]);
@@ -723,10 +723,10 @@ test("buildDeckFromBlocks omits runs entirely for a plain document", () => {
   const deck = buildDeckFromBlocks([h2("Plain"), para("a"), para("b")]);
   const slide = deck.slides[0];
   assert.equal(elementContent(firstTextElement(slide)).runs, undefined);
-  assert.deepEqual(slideBulletRuns(slide), [undefined, undefined]);
+  assert.deepEqual(slideBodyRuns(slide), [undefined, undefined]);
 });
 
-test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements", async () => {
+test("buildSlideElementsFromContent copies title and body runs to elements", async () => {
   const { buildSlideElementsFromContent } = await import("./deck");
   const elements = buildSlideElementsFromContent({
     id: "test-id",
@@ -772,9 +772,7 @@ test("a deck with runs round-trips through the schema", () => {
     assert.deepEqual(elementContent(firstTextElement(slide)).runs, [
       { text: "Rich", bold: true },
     ]);
-    assert.deepEqual(slideBulletRuns(slide)[0], [
-      { text: "body", italic: true },
-    ]);
+    assert.deepEqual(slideBodyRuns(slide)[0], [{ text: "body", italic: true }]);
   }
 });
 

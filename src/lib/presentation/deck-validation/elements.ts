@@ -208,7 +208,9 @@ function validateDesignOverrides(
   }
   if (input.stroke !== undefined) {
     if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
-      throw new DeckValidationError(`${context}.stroke.color must be a hex color`);
+      throw new DeckValidationError(
+        `${context}.stroke.color must be a hex color`,
+      );
     }
     out.stroke = {
       color: input.stroke.color,
@@ -263,7 +265,10 @@ function validateElementSource(
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
-  return validateSourceRef(input, context) as unknown as Record<string, unknown>;
+  return validateSourceRef(input, context) as unknown as Record<
+    string,
+    unknown
+  >;
 }
 
 function rejectRemovedElementFields(
@@ -377,8 +382,8 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
 /**
  * Validates a partial text-style override (#605). Unlike {@link validateTextStyle},
  * every field is optional — a present field is validated, an absent field means
- * "inherit from the resolved template/role style". Used for `styleOverride` and
- * shape `textStyleOverride`.
+ * "inherit from the resolved template/role style". Used for element and shape
+ * text style design overrides.
  */
 function validatePartialTextStyle(
   input: unknown,
@@ -723,7 +728,9 @@ function validateElementContent(
         shape: input.shape,
         ...(typeof input.text === "string" ? { text: input.text } : {}),
         ...(input.textRuns !== undefined
-          ? { textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`) }
+          ? {
+              textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`),
+            }
           : {}),
       };
     }

@@ -203,11 +203,11 @@ export function shouldStoreRuns(runs: readonly TextRun[]): boolean {
 
 export function bulletsToRuns(
   bullets: readonly string[],
-  bulletRuns?: TextRun[][],
+  itemRuns?: TextRun[][],
 ): TextRun[] {
   const runs: TextRun[] = [];
   bullets.forEach((bullet, index) => {
-    const rich = bulletRuns?.[index];
+    const rich = itemRuns?.[index];
     if (rich && rich.length > 0) runs.push(...rich);
     else if (bullet.length > 0) runs.push({ text: bullet });
     if (index < bullets.length - 1) runs.push({ text: "\n" });

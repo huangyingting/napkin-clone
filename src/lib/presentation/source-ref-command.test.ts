@@ -77,11 +77,8 @@ function slideWith(...elements: (TextElement | VisualElement)[]): Slide {
     index: 0,
     title: "",
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
-    elementsDerived: false,
   };
 }
 

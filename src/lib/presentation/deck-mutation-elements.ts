@@ -9,7 +9,7 @@ import {
   type DistributiveOmit,
   type ElementPatch,
   mapSlide,
-  markElementsEdited,
+  withEditedElements,
   nextZIndex,
 } from "./deck-mutation-shared";
 
@@ -29,7 +29,7 @@ export function addElement(
       id: element.id ?? makeElementId(),
       zIndex: element.zIndex ?? nextZIndex(existing),
     } as SlideElement;
-    return markElementsEdited({ ...slide, elements: [...existing, next] });
+    return withEditedElements({ ...slide, elements: [...existing, next] });
   });
 }
 
@@ -44,7 +44,7 @@ export function updateElement(
     if (!slide.elements) {
       return slide;
     }
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId
@@ -95,8 +95,6 @@ function offsetBox(box: ElementBox, delta: number): ElementBox {
  * select it; a no-op (bad index, missing element, or a slide with no
  * `elements[]`) returns the same deck and a `null` id.
  *
- * Like every element mutation this removes any superseded `elementsDerived`
- * flag so v6 output stays schema-valid.
  */
 export function duplicateElement(
   deck: Deck,
@@ -138,7 +136,7 @@ export function duplicateElement(
     slide.elements,
   );
 
-  const nextSlide = markElementsEdited({
+  const nextSlide = withEditedElements({
     ...slide,
     elements: [...slide.elements, patchedCopy],
   });
@@ -168,8 +166,7 @@ export interface DuplicateElementsResult {
  * {@link DUPLICATE_ELEMENT_OFFSET_PCT} offset, and a z-index above all existing
  * elements (copies keep their relative stacking order). Routing the whole group
  * through one mutation keeps it a single undo/redo `commit`. Pure and immutable;
- * removes any superseded `elementsDerived` flag. A no-op returns the same deck
- * and an empty id list.
+ * a no-op returns the same deck and an empty id list.
  */
 export function duplicateElements(
   deck: Deck,
@@ -253,7 +250,7 @@ export function duplicateElements(
     return without as SlideElement;
   });
 
-  const nextSlide = markElementsEdited({
+  const nextSlide = withEditedElements({
     ...slide,
     elements: [...slide.elements, ...patchedCopies],
   });
@@ -283,7 +280,7 @@ export function removeElement(
       return slide;
     }
     const patched = updateConnectorBindingsOnDelete(slide.elements, deletedIds);
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: patched.filter((element) => element.id !== elementId),
     });
@@ -295,10 +292,9 @@ export function removeElement(
  * single mutation — the multi-select counterpart of {@link removeElement}
  * (issue #245). Routing a multi-delete through one mutation keeps it a single
  * undo/redo `commit` (the caller never chains per-element removes). Pure and
- * immutable; like every element mutation it removes any superseded
- * `elementsDerived` flag. A no-op (empty `elementIds`, bad index, no
- * `elements[]`, or no id present) returns the same slide reference so a
- * `commit` of the result is skipped.
+ * immutable; a no-op (empty `elementIds`, bad index, no `elements[]`, or no id
+ * present) returns the same slide reference so a `commit` of the result is
+ * skipped.
  *
  * Before removing the elements, any connector endpoint that references a
  * deleted id is **detached** to a free point (issue #324 — delete policy:
@@ -322,7 +318,7 @@ export function removeElements(
     if (next.length === slide.elements.length) {
       return slide;
     }
-    return markElementsEdited({ ...slide, elements: next });
+    return withEditedElements({ ...slide, elements: next });
   });
 }
 
@@ -331,9 +327,8 @@ export function removeElements(
  * `dx`/`dy` delta (percent of slide), clamping each box so it stays within the
  * slide (issue #245). Powers the keyboard arrow-nudge across a multi-selection;
  * sizes are never changed and elements not in `elementIds` are left untouched.
- * Pure and immutable; removes any superseded `elementsDerived` flag. A no-op
- * (empty `elementIds`, zero delta, bad index, no `elements[]`, or no id
- * present) returns the same slide reference.
+ * Pure and immutable; a no-op (empty `elementIds`, zero delta, bad index, no
+ * `elements[]`, or no id present) returns the same slide reference.
  */
 export function nudgeElements(
   deck: Deck,
@@ -366,7 +361,7 @@ export function nudgeElements(
         },
       };
     });
-    return changed ? markElementsEdited({ ...slide, elements }) : slide;
+    return changed ? withEditedElements({ ...slide, elements }) : slide;
   });
 }
 
@@ -381,7 +376,7 @@ export function bringElementToFront(
       return slide;
     }
     const top = nextZIndex(slide.elements);
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId ? { ...element, zIndex: top } : element,
@@ -405,7 +400,7 @@ export function sendElementToBack(
         (min, element) => Math.min(min, element.zIndex),
         Number.POSITIVE_INFINITY,
       ) - 1;
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId ? { ...element, zIndex: bottom } : element,
@@ -427,7 +422,7 @@ export function setElementBoxes(
     if (!slide.elements) {
       return slide;
     }
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) =>
         boxesById[element.id]
@@ -455,7 +450,7 @@ export function setElementPatches(
     if (!slide.elements) {
       return slide;
     }
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) => {
         const patch = patchesById[element.id];
@@ -490,7 +485,7 @@ export function groupElements(
     if (!slide.elements.some((el) => idSet.has(el.id))) {
       return slide;
     }
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) =>
         idSet.has(element.id) ? { ...element, groupId } : element,
@@ -513,7 +508,7 @@ export function ungroupElements(
     if (!slide.elements.some((el) => el.groupId === groupId)) {
       return slide;
     }
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) => {
         if (element.groupId !== groupId) {

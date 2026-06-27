@@ -98,8 +98,6 @@ function deckWithElements(elements: SlideElement[]): Deck {
     index: 0,
     title: "Slide",
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
   };
@@ -112,8 +110,6 @@ function deckWithBackground(backgroundImage: string | undefined): Deck {
     index: 0,
     title: "Slide",
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     backgroundImage,
   };

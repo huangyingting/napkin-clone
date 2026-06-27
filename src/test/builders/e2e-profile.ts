@@ -101,15 +101,15 @@ export function buildE2EProfileContentJson(
 
 export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
   return buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [
       buildSlide({
         id: "e2e-fixture-slide-1",
         title: F.slideTitleText,
-        bullets: [],
-        visualIds: [],
         notes: "",
-        background: "#ffffff",
+        designOverrides: {
+          background: { type: "solid", color: { value: "#ffffff" } },
+        },
         elements: [
           buildTextElement({
             id: "fixture-title",

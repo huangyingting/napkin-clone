@@ -277,8 +277,8 @@ export function useSlideEditorOpen({
       setDocumentBlocks(ctx.documentBlocks);
       setDocumentTextBlocks(ctx.documentTextBlocks);
       setDeck(startDeck);
-      // freshDeck (current document) drives the merge; strip orphans so synced
-      // visualIds always resolve to a renderable visual.
+      // freshDeck (current document) drives the merge; strip orphans so visual
+      // elements always resolve to a renderable visual.
       setFreshDeck(stripOrphanedVisuals(ctx.baseDeck, ctx.knownVisualIds));
       setStale(isDeckStale(startDeck, ctx.currentContentHash));
       setPendingJson(null);
@@ -327,8 +327,8 @@ export function useSlideEditorOpen({
     [prepareOpen, finishOpen],
   );
 
-  // AI open path: a freshly generated deck (already normalized +
-  // safeParseDeck-valid + elementsDerived=false) is stamped with the current
+  // AI open path: a freshly generated deck (already normalized and
+  // safeParseDeck-valid) is stamped with the current
   // document hash so it isn't falsely flagged stale, then flowed through the
   // same strip-orphans pipeline as a derived deck. This is the
   // APPLY point of issue #269: it runs only after the user reviews the preview

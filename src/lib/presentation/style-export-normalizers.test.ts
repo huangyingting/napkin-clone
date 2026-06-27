@@ -70,8 +70,6 @@ function deck(element: TextElement): Deck {
         index: 0,
         title: "",
         bullets: [],
-        visualIds: [],
-        layout: "blank",
         notes: "",
         elements: [element],
       },

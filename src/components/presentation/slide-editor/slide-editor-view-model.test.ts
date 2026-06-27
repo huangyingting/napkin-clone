@@ -21,8 +21,6 @@ function makeSlide(overrides: Partial<Slide> = {}): Slide {
     index: 0,
     title: "Test slide",
     bullets: [],
-    visualIds: [],
-    layout: "content",
     notes: "",
     ...overrides,
   };

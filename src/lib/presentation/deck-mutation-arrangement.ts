@@ -9,7 +9,7 @@ import {
   matchSizeBoxes,
 } from "./element-align";
 import { type ArrangeMode, arrangeElements } from "./element-arrange";
-import { mapSlide, markElementsEdited } from "./deck-mutation-shared";
+import { mapSlide, withEditedElements } from "./deck-mutation-shared";
 
 /**
  * Aligns the elements named by `elementIds` on the slide at `index` to a shared
@@ -18,9 +18,8 @@ import { mapSlide, markElementsEdited } from "./deck-mutation-shared";
  * other element is left untouched. Pure and immutable — the input deck is never
  * mutated.
  *
- * Like every element mutation this clears `elementsDerived` so the slide is
- * treated as hand-edited. A no-op (bad index, no `elements[]`, or none of the
- * ids present) returns the same slide.
+ * A no-op (bad index, no `elements[]`, or none of the ids present) returns the
+ * same slide.
  */
 export function alignElements(
   deck: Deck,
@@ -43,7 +42,7 @@ export function alignElements(
     );
     const boxById = new Map<string, ElementBox>();
     targets.forEach((element, i) => boxById.set(element.id, aligned[i]));
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((element) => {
         const box = boxById.get(element.id);
@@ -82,7 +81,7 @@ export function distributeElements(
     const boxById = new Map<string, ElementBox>();
     targets.forEach((el, i) => boxById.set(el.id, distributed[i]!));
 
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((el) => {
         const box = boxById.get(el.id);
@@ -121,7 +120,7 @@ export function matchSizeElements(
     const boxById = new Map<string, ElementBox>();
     targets.forEach((el, i) => boxById.set(el.id, sized[i]!));
 
-    return markElementsEdited({
+    return withEditedElements({
       ...slide,
       elements: slide.elements.map((el) => {
         const box = boxById.get(el.id);
@@ -136,8 +135,8 @@ export function matchSizeElements(
  * `elementIds` are arranged according to `mode` (front / back / forward /
  * backward) relative to the rest (issue #328). Locked elements in the selection
  * are silently excluded from movement but still participate in the z-order
- * calculation. Pure and immutable; clears `elementsDerived`. Returns the same
- * deck unchanged when the slide has no `elements[]`.
+ * calculation. Pure and immutable. Returns the same deck unchanged when the
+ * slide has no `elements[]`.
  */
 export function arrangeSelectedElements(
   deck: Deck,
@@ -149,6 +148,6 @@ export function arrangeSelectedElements(
     if (!slide.elements) return slide;
     const selectedIds = new Set(elementIds);
     const next = arrangeElements(slide.elements, selectedIds, mode);
-    return markElementsEdited({ ...slide, elements: next });
+    return withEditedElements({ ...slide, elements: next });
   });
 }

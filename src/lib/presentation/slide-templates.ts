@@ -7,9 +7,8 @@
  * slide whose `elements[]` are pre-built from real text/image/visual elements,
  * so the slide is immediately editable with no materialization step.
  *
- * Template slides are **hand-authored**, not derived: they carry
- * `elementsDerived: false` so "Sync from document" preserves their `elements[]`
- * verbatim.
+ * Template slides are **hand-authored**, not derived from document blocks, so
+ * "Sync from document" preserves their `elements[]` verbatim.
  *
  * Pure and deterministic except for the generated element ids — fully testable
  * under `node --test`.
@@ -206,12 +205,12 @@ function bodyTextElement(
   box: ElementBox,
   zIndex: number,
   align: ElementAlign = "center",
-  textRole?: string,
+  role?: string,
 ): TextElement {
   return {
     id: makeElementId(),
     kind: "text",
-    ...(textRole ? { role: textRole } : {}),
+    ...(role ? { role } : {}),
     zIndex,
     box: { ...box },
     content: { kind: "text", text, paragraphs: [{ text }] },
@@ -294,9 +293,8 @@ function blankSlide(): Slide {
 /**
  * Constructs a {@link Slide} for the given template `kind`.
  *
- * Non-blank templates return a slide with a pre-built `elements[]` and
- * `elementsDerived === false` (authored, preserved on sync). `index` is a
- * placeholder — the caller re-indexes when inserting into the deck.
+ * Non-blank templates return a hand-authored slide with pre-built `elements[]`.
+ * `index` is a placeholder — the caller re-indexes when inserting into the deck.
  */
 export function buildTemplateSlide(
   kind: SlideTemplateKind,
@@ -313,13 +311,10 @@ export function buildTemplateSlide(
 
     case "visual": {
       const visual = spotlightElement(0, ctx.visualId);
-      return authoredSlide(
-        "media",
-        [
-          visual,
-          bodyTextElement("Caption", BOX.caption, 1, "center", "caption"),
-        ],
-      );
+      return authoredSlide("media", [
+        visual,
+        bodyTextElement("Caption", BOX.caption, 1, "center", "caption"),
+      ]);
     }
 
     case "two-column":

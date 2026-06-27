@@ -72,9 +72,6 @@ function slide(elements: TextElement[]): Slide {
     id: "s1",
     index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
   };
@@ -137,7 +134,7 @@ function exportBulletColor(deck: Deck): string {
 
 test("built-in themeId: renderer and export emit the same inherited title color", () => {
   const deck: Deck = buildDeck({
-    themeId: "default",
+    design: { themeId: "default" },
     slides: [slide([titleEl()])],
   });
   // toHex normalises to a 6-digit lowercase hex; renderer keeps the cascade hex.
@@ -149,7 +146,7 @@ test("built-in themeId: renderer and export emit the same inherited title color"
 
 test("built-in themeId: inherited title color equals the token onBg", () => {
   const deck: Deck = buildDeck({
-    themeId: "indigo",
+    design: { themeId: "indigo" },
     slides: [slide([titleEl()])],
   });
   const onBg = resolveThemeTokens("indigo").colors.onBg;
@@ -162,8 +159,7 @@ test("built-in themeId: inherited title color equals the token onBg", () => {
 
 test("custom token set: renderer title color matches the brand onBg", () => {
   const deck: Deck = buildDeck({
-    themeId: "default",
-    customTokenSet: BRAND,
+    design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [slide([titleEl()])],
   });
   assert.equal(rendererTitleColor(deck), "#fafafa");
@@ -171,8 +167,7 @@ test("custom token set: renderer title color matches the brand onBg", () => {
 
 test("custom token set: export inherits the brand heading font for h1", () => {
   const deck: Deck = buildDeck({
-    themeId: "default",
-    customTokenSet: BRAND,
+    design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [slide([titleEl()])],
   });
   // h1 is a heading role → heading font stack "Oswald".
@@ -187,8 +182,7 @@ test("custom token set: export inherits the brand heading font for h1", () => {
 
 test("custom token set: export bullet color matches the brand onBg (body role)", () => {
   const deck: Deck = buildDeck({
-    themeId: "default",
-    customTokenSet: BRAND,
+    design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [slide([titleEl(), bodyBulletsEl()])],
   });
   assert.equal(exportBulletColor(deck).toLowerCase(), "fafafa");
@@ -200,8 +194,7 @@ test("custom token set: export bullet color matches the brand onBg (body role)",
 
 test("a local color override wins in export regardless of the theme", () => {
   const deck: Deck = buildDeck({
-    themeId: "default",
-    customTokenSet: BRAND,
+    design: { themeId: "default", themeOverrides: { tokenSet: BRAND } },
     slides: [
       slide([
         titleEl({

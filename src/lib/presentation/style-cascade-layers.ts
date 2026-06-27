@@ -182,7 +182,7 @@ export function renderFooterText(template: string, slideIndex: number): string {
 
 /**
  * Resolves the {@link PresentationTheme} that governs a slide (#607). A full
- * deck is required because deck-level `themeId` / `customTokenSet` are the sole
+ * deck is required because `design.themeId` and `design.themeOverrides` are the
  * theme source.
  */
 export function resolveSlideTokenSet(
@@ -207,8 +207,8 @@ export interface SlideThemeColors {
 
 /**
  * Resolves the renderer's slide colours from the deck token cascade (#609).
- * A full {@link Deck} is required because deck-level `themeId` /
- * `customTokenSet` are the sole theme source. The background colour collapses a
+ * A full {@link Deck} is required because `design.themeId` and
+ * `design.themeOverrides` are the theme source. The background colour collapses a
  * gradient to its `from` stop and an image background to the token-set's
  * `slideBg`.
  */

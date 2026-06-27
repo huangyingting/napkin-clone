@@ -64,14 +64,14 @@ function visualElement(visualId: string, zIndex: number) {
 
 function slide(partial: Record<string, any>): Slide {
   const title = partial.title ?? "";
-  const bullets = (partial.bullets ?? []) as string[];
-  const visualIds = (partial.visualIds ?? []) as string[];
+  const bodyTexts = (partial.bodyTexts ?? []) as string[];
+  const visualRefs = (partial.visualRefs ?? []) as string[];
   const elements = [
     ...(title ? [textElement(title, "title", 0)] : []),
-    ...(bullets.length > 0
-      ? [textElement(bullets.join("\n"), "bullet", 1)]
+    ...(bodyTexts.length > 0
+      ? [textElement(bodyTexts.join("\n"), "bullet", 1)]
       : []),
-    ...visualIds.map((visualId, index) => visualElement(visualId, index + 2)),
+    ...visualRefs.map((visualId, index) => visualElement(visualId, index + 2)),
     ...(((partial as any).elements ?? []) as unknown[]),
   ];
   return {
@@ -114,16 +114,16 @@ test("normalizeTitle trims and lower-cases", () => {
 });
 
 test("identical decks produce identical content hashes", () => {
-  const a = deck([slide({ title: "Intro", bullets: ["a", "b"] })]);
-  const b = deck([slide({ title: "Intro", bullets: ["a", "b"] })]);
+  const a = deck([slide({ title: "Intro", bodyTexts: ["a", "b"] })]);
+  const b = deck([slide({ title: "Intro", bodyTexts: ["a", "b"] })]);
   assert.equal(computeDeckContentHash(a), computeDeckContentHash(b));
 });
 
 test("content hash ignores free-form elements and per-slide colors", () => {
-  const base = slide({ title: "Intro", bullets: ["a"] });
+  const base = slide({ title: "Intro", bodyTexts: ["a"] });
   const withElements = slide({
     title: "Intro",
-    bullets: ["a"],
+    bodyTexts: ["a"],
     designOverrides: {
       background: { type: "solid", color: { value: "#ffffff" } },
       accent: { value: "#123456" },
@@ -153,11 +153,11 @@ test("content hash ignores free-form elements and per-slide colors", () => {
 });
 
 test("content hash changes when document-derived content changes", () => {
-  const a = deck([slide({ title: "Intro", bullets: ["a"] })]);
-  const b = deck([slide({ title: "Intro", bullets: ["a", "c"] })]);
+  const a = deck([slide({ title: "Intro", bodyTexts: ["a"] })]);
+  const b = deck([slide({ title: "Intro", bodyTexts: ["a", "c"] })]);
   assert.notEqual(computeDeckContentHash(a), computeDeckContentHash(b));
 
-  const titleChanged = deck([slide({ title: "Outro", bullets: ["a"] })]);
+  const titleChanged = deck([slide({ title: "Outro", bodyTexts: ["a"] })]);
   assert.notEqual(
     computeDeckContentHash(a),
     computeDeckContentHash(titleChanged),
@@ -191,10 +191,10 @@ test("isDeckStale: false when hashes match", () => {
 });
 
 test("isDeckStale: true when document hash differs from stored hash", () => {
-  const built = deck([slide({ title: "Intro", bullets: ["a"] })]);
+  const built = deck([slide({ title: "Intro", bodyTexts: ["a"] })]);
   const stamped = stampDeckContentHash(built, computeDeckContentHash(built));
   const current = computeDeckContentHash(
-    deck([slide({ title: "Intro", bullets: ["a", "b"] })]),
+    deck([slide({ title: "Intro", bodyTexts: ["a", "b"] })]),
   );
   assert.equal(isDeckStale(stamped, current), true);
 });

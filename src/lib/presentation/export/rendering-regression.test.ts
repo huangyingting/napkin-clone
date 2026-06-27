@@ -77,8 +77,6 @@ function slide(
     index: 0,
     title: "",
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements,
     ...overrides,
@@ -1158,7 +1156,14 @@ function deckWith(slideOverrides: Partial<Slide>): Deck {
 }
 
 test("[AC-11] per-slide background color override is in the spec", () => {
-  const [spec] = buildDeckSpecs(deckWith({ background: "#abcdef" }), new Map());
+  const [spec] = buildDeckSpecs(
+    deckWith({
+      designOverrides: {
+        background: { type: "solid", color: { value: "#abcdef" } },
+      },
+    }),
+    new Map(),
+  );
 
   assert.equal(
     spec.background,
@@ -1169,7 +1174,15 @@ test("[AC-11] per-slide background color override is in the spec", () => {
 
 test("[AC-11] backgroundGradient uses the 'from' stop as the PPTX background color", () => {
   const [spec] = buildDeckSpecs(
-    deckWith({ backgroundGradient: { from: "#112233", to: "#aabbcc" } }),
+    deckWith({
+      designOverrides: {
+        background: {
+          type: "gradient",
+          from: { value: "#112233" },
+          to: { value: "#aabbcc" },
+        },
+      },
+    }),
     new Map(),
   );
 
@@ -1183,7 +1196,9 @@ test("[AC-11] backgroundGradient uses the 'from' stop as the PPTX background col
 test("[AC-11] backgroundImage is forwarded to the slide spec", () => {
   const dataUrl = "data:image/png;base64,BGBG";
   const [spec] = buildDeckSpecs(
-    deckWith({ backgroundImage: dataUrl }),
+    deckWith({
+      designOverrides: { background: { type: "image", url: dataUrl } },
+    }),
     new Map(),
   );
 
@@ -1207,7 +1222,11 @@ test("[AC-11] slide without background overrides falls back to theme defaults", 
 test("[AC-11] backgroundImage takes precedence: spec carries it even when background color is also set", () => {
   const dataUrl = "data:image/png;base64,IMG";
   const [spec] = buildDeckSpecs(
-    deckWith({ background: "#ffffff", backgroundImage: dataUrl }),
+    deckWith({
+      designOverrides: {
+        background: { type: "image", url: dataUrl },
+      },
+    }),
     new Map(),
   );
 
@@ -1337,12 +1356,18 @@ test("[#618] inherited title color tracks a presentation theme change", () => {
   const el = () => fixtureTextElement("t", "Heading", { role: "title" });
   const a = titleOpColor(
     deck([el()], {
-      customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: tokenSetWith({ onBg: "#112233" }) },
+      },
     }),
   );
   const b = titleOpColor(
     deck([el()], {
-      customTokenSet: tokenSetWith({ onBg: "#445566" }) as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: tokenSetWith({ onBg: "#445566" }) },
+      },
     }),
   );
   assert.equal(a, "112233");
@@ -1361,7 +1386,12 @@ test("[#618] inherited role font tracks a presentation theme heading-font change
   assert.equal(
     fontOf(
       deck([el()], {
-        customTokenSet: tokenSetWith({ headingFontFamily: "Oswald" }) as never,
+        design: {
+          themeId: "default",
+          themeOverrides: {
+            tokenSet: tokenSetWith({ headingFontFamily: "Oswald" }),
+          },
+        },
       }),
     ),
     "Oswald",
@@ -1369,9 +1399,12 @@ test("[#618] inherited role font tracks a presentation theme heading-font change
   assert.equal(
     fontOf(
       deck([el()], {
-        customTokenSet: tokenSetWith({
-          headingFontFamily: "Bebas Neue",
-        }) as never,
+        design: {
+          themeId: "default",
+          themeOverrides: {
+            tokenSet: tokenSetWith({ headingFontFamily: "Bebas Neue" }),
+          },
+        },
       }),
     ),
     "Bebas Neue",
@@ -1392,12 +1425,18 @@ test("[#618] a local color override is NOT clobbered by a global template change
     });
   const a = titleOpColor(
     deck([el()], {
-      customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: tokenSetWith({ onBg: "#112233" }) },
+      },
     }),
   );
   const b = titleOpColor(
     deck([el()], {
-      customTokenSet: tokenSetWith({ onBg: "#445566" }) as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: tokenSetWith({ onBg: "#445566" }) },
+      },
     }),
   );
   assert.equal(a, "abcdef");
@@ -1405,7 +1444,7 @@ test("[#618] a local color override is NOT clobbered by a global template change
 });
 
 test("[#618] export smoke: custom template fonts + gradient background do not crash", () => {
-  const customTokenSet = {
+  const tokenSet = {
     ...tokenSetWith({ headingFontFamily: "Some Unembeddable Font" }),
     defaultBackground: {
       type: "gradient" as const,
@@ -1421,17 +1460,24 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
       connectorEl("c"),
     ],
     {
-      customTokenSet: customTokenSet as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet },
+      },
       slides: [
         {
           id: "s1",
           index: 0,
           title: "",
-          bullets: [],
-          visualIds: [],
-          layout: "blank",
+          templateId: "blank",
           notes: "",
-          backgroundGradient: { from: "#123456", to: "#654321" },
+          designOverrides: {
+            background: {
+              type: "gradient",
+              from: { value: "#123456" },
+              to: { value: "#654321" },
+            },
+          },
           elements: [
             fixtureTextElement("t", "Title", { role: "title" }),
             bulletsEl("b", ["a", "b"]),

@@ -17,8 +17,6 @@ function buildCommandSlide(id: string, index: number, title = ""): Slide {
     index,
     title,
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements: [],
   });
@@ -52,11 +50,8 @@ function buildCommandDeckWithElements(
         index: 0,
         title: "Test",
         bullets: [],
-        visualIds: [],
-        layout: "blank",
         notes: "",
         elements,
-        elementsDerived: false,
       }),
     ],
   });

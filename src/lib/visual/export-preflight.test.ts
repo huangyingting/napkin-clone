@@ -48,8 +48,6 @@ const makeSlide = (
   buildSlide({
     id: "s1",
     title: "Test slide",
-    layout: "blank",
-    bullets: [],
     notes: "",
     elements,
     ...overrides,
@@ -424,9 +422,16 @@ describe("unsupported-pptx-feature diagnostics", () => {
     assert.equal(elbowWarnings.length, 0);
   });
 
-  test("slide with backgroundGradient emits unsupported-pptx-feature warning", () => {
+  test("slide with gradient background emits unsupported-pptx-feature warning", () => {
     const slide = makeSlide([], {
-      backgroundGradient: { from: "#ff0000", to: "#0000ff", angle: 45 },
+      designOverrides: {
+        background: {
+          type: "gradient",
+          from: { value: "#ff0000" },
+          to: { value: "#0000ff" },
+          angle: 45,
+        },
+      },
     });
     const deck = makeDeck([slide]);
     const result = runExportPreflight(deck, { target: "pptx" });
@@ -639,7 +644,10 @@ describe("custom presentation theme font diagnostics", () => {
 
   test("custom template font triggers a deck-level missing-font warning for PPTX", () => {
     const deck = makeDeck([makeSlide([textEl()])], {
-      customTokenSet: brandTokenSet() as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: brandTokenSet() },
+      },
     });
     const result = runExportPreflight(deck, {
       target: "pptx",
@@ -656,21 +664,26 @@ describe("custom presentation theme font diagnostics", () => {
 
   test("heading and role template fonts are each reported once", () => {
     const deck = makeDeck([makeSlide([textEl()])], {
-      customTokenSet: brandTokenSet({
-        typography: {
-          fontFamily: "Brandon Grotesque, Arial, sans-serif",
-          headingFontFamily: "Tungsten, Arial, sans-serif",
-          scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
-          roles: {
-            caption: {
-              fontFamily: "Tungsten",
-              fontSize: 12,
-              color: "#333333",
-              weight: 400,
+      design: {
+        themeId: "default",
+        themeOverrides: {
+          tokenSet: brandTokenSet({
+            typography: {
+              fontFamily: "Brandon Grotesque, Arial, sans-serif",
+              headingFontFamily: "Tungsten, Arial, sans-serif",
+              scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+              roles: {
+                caption: {
+                  fontFamily: "Tungsten",
+                  fontSize: 12,
+                  color: "#333333",
+                  weight: 400,
+                },
+              },
             },
-          },
+          }),
         },
-      }) as never,
+      },
     });
     const result = runExportPreflight(deck, {
       target: "pptx",
@@ -685,7 +698,10 @@ describe("custom presentation theme font diagnostics", () => {
 
   test("no warning when customFontFamilies is not provided", () => {
     const deck = makeDeck([makeSlide([textEl()])], {
-      customTokenSet: brandTokenSet() as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: brandTokenSet() },
+      },
     });
     const result = runExportPreflight(deck, { target: "pptx" });
     assert.equal(
@@ -696,7 +712,10 @@ describe("custom presentation theme font diagnostics", () => {
 
   test("no template-font warning for image-target export", () => {
     const deck = makeDeck([makeSlide([textEl()])], {
-      customTokenSet: brandTokenSet() as never,
+      design: {
+        themeId: "default",
+        themeOverrides: { tokenSet: brandTokenSet() },
+      },
     });
     const result = runExportPreflight(deck, {
       target: "image",

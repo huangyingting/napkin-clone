@@ -297,10 +297,10 @@ test("strips a visual element referencing an unknown visualId", async () => {
     { complete },
   );
   assert.ok(safeParseDeck(result).success);
-  const visualIds = (result.slides[0].elements ?? [])
+  const visualRefs = (result.slides[0].elements ?? [])
     .filter((el) => el.kind === "visual")
     .map((el) => visualId(el));
-  assert.deepEqual(visualIds, ["vis-1"]);
+  assert.deepEqual(visualRefs, ["vis-1"]);
 });
 
 test("regenerates duplicate element ids within a slide", async () => {

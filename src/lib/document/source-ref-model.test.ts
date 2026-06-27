@@ -24,7 +24,7 @@ import { buildDeck } from "@/test/builders/deck";
 // ---------------------------------------------------------------------------
 
 const makeDeck = (slides: Slide[]): Deck =>
-  buildDeck({ themeId: "indigo", slides });
+  buildDeck({ design: { themeId: "indigo" }, slides });
 
 function makeVisualSlide(
   slideId: string,
@@ -35,17 +35,13 @@ function makeVisualSlide(
   return {
     id: slideId,
     title: "",
-    bullets: [],
     index: 0,
-    visualIds: [],
-    layout: "content",
     notes: "",
-    themeId: "indigo",
     elements: [
       {
         id: elementId,
         kind: "visual",
-        visualId,
+        content: { kind: "visual", visualId },
         box: { x: 0, y: 0, w: 400, h: 300 },
         zIndex: 0,
         ...(sourceRef ? { source: sourceRef } : {}),
@@ -63,17 +59,13 @@ function makeTextSlide(
   return {
     id: slideId,
     title: "",
-    bullets: [],
     index: 0,
-    visualIds: [],
-    layout: "content",
     notes: "",
-    themeId: "indigo",
     elements: [
       {
         id: elementId,
         kind: "text",
-        text,
+        content: { kind: "text", text },
         box: { x: 0, y: 0, w: 400, h: 100 },
         zIndex: 0,
         ...(sourceRef ? { source: sourceRef } : {}),
@@ -100,12 +92,8 @@ describe("enumerateDeckDependencies", () => {
       {
         id: "s1",
         title: "Title",
-        bullets: [],
         index: 0,
-        visualIds: [],
-        layout: "content",
         notes: "",
-        themeId: "indigo",
       } as unknown as Slide,
     ]);
     const deps = enumerateDeckDependencies(deck);
@@ -239,12 +227,8 @@ describe("checkDependencyHealth", () => {
       {
         id: "s1",
         title: "No refs",
-        bullets: [],
         index: 0,
-        visualIds: [],
-        layout: "content",
         notes: "",
-        themeId: "indigo",
       } as unknown as Slide,
     ]);
     const health = checkDependencyHealth(deck, []);
@@ -305,12 +289,8 @@ describe("collectDeckVisualIds", () => {
       {
         id: "s1",
         title: "No visuals",
-        bullets: [],
         index: 0,
-        visualIds: [],
-        layout: "content",
         notes: "",
-        themeId: "indigo",
       } as unknown as Slide,
     ]);
     const ids = collectDeckVisualIds(deck);

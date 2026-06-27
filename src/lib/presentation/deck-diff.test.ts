@@ -10,15 +10,22 @@ import type { Deck, Slide, SlideElement } from "./deck";
 import { diffDecks } from "./deck-diff";
 import { buildDeck } from "@/test/builders/deck";
 
-function slide(partial: Partial<Slide>): Slide {
+type DiffSlideOverrides = Partial<Slide> & {
+  bodyTexts?: string[];
+  visualRefs?: string[];
+};
+
+function slide({
+  bodyTexts = [],
+  visualRefs = [],
+  elements: suppliedElements = [],
+  ...partial
+}: DiffSlideOverrides): Slide {
   const title = partial.title ?? "";
-  const suppliedElements = partial.elements ?? [];
   const elements = [
     ...(title.trim().length > 0 ? [titleElement("title", title.trim())] : []),
-    ...((((partial as any).bullets ?? []) as string[]).length > 0
-      ? [bulletsElement("body", ((partial as any).bullets ?? []) as string[])]
-      : []),
-    ...(((partial as any).visualIds ?? []) as string[]).map((visualId, index) =>
+    ...(bodyTexts.length > 0 ? [bodyElement("body", bodyTexts)] : []),
+    ...visualRefs.map((visualId, index) =>
       visualElement(`visual-${index}`, visualId),
     ),
     ...suppliedElements,
@@ -31,16 +38,13 @@ function slide(partial: Partial<Slide>): Slide {
     notes: "",
     elements,
     ...partial,
-    bullets: undefined,
-    visualIds: undefined,
-    layout: undefined,
   };
 }
 
 function deck(slides: Slide[], themeId = "default"): Deck {
   return buildDeck({
     slides: slides.map((s, index) => ({ ...s, index })),
-    themeId,
+    design: { themeId },
   });
 }
 
@@ -58,7 +62,7 @@ function titleElement(id: string, text: string): SlideElement {
   } as unknown as SlideElement;
 }
 
-function bulletsElement(id: string, bullets: string[]): SlideElement {
+function bodyElement(id: string, bodyTexts: string[]): SlideElement {
   return {
     id,
     kind: "text",
@@ -67,8 +71,8 @@ function bulletsElement(id: string, bullets: string[]): SlideElement {
     box: { x: 5, y: 24, w: 90, h: 50 },
     content: {
       kind: "text",
-      text: bullets.join("\n"),
-      paragraphs: bullets.map((text) => ({ text, listType: "bullet" })),
+      text: bodyTexts.join("\n"),
+      paragraphs: bodyTexts.map((text) => ({ text, listType: "bullet" })),
     },
   } as unknown as SlideElement;
 }
@@ -86,12 +90,12 @@ function visualElement(id: string, visualId: string): SlideElement {
 
 test("identical decks → no changes", () => {
   const baseline = deck([
-    slide({ title: "Intro", bullets: ["a", "b"] }),
-    slide({ title: "Body", bullets: ["c"] }),
+    slide({ title: "Intro", bodyTexts: ["a", "b"] }),
+    slide({ title: "Body", bodyTexts: ["c"] }),
   ]);
   const proposed = deck([
-    slide({ title: "Intro", bullets: ["a", "b"] }),
-    slide({ title: "Body", bullets: ["c"] }),
+    slide({ title: "Intro", bodyTexts: ["a", "b"] }),
+    slide({ title: "Body", bodyTexts: ["c"] }),
   ]);
 
   const diff = diffDecks(baseline, proposed);
@@ -128,14 +132,14 @@ test("empty baseline → all added", () => {
 
 test("detects added, changed, and removed slides", () => {
   const baseline = deck([
-    slide({ title: "Keep", bullets: ["same"] }),
-    slide({ title: "Edit me", bullets: ["old"] }),
-    slide({ title: "Gone", bullets: ["bye"] }),
+    slide({ title: "Keep", bodyTexts: ["same"] }),
+    slide({ title: "Edit me", bodyTexts: ["old"] }),
+    slide({ title: "Gone", bodyTexts: ["bye"] }),
   ]);
   const proposed = deck([
-    slide({ title: "Keep", bullets: ["same"] }),
-    slide({ title: "Edit me", bullets: ["new", "more"] }),
-    slide({ title: "Brand new", bullets: ["hello"] }),
+    slide({ title: "Keep", bodyTexts: ["same"] }),
+    slide({ title: "Edit me", bodyTexts: ["new", "more"] }),
+    slide({ title: "Brand new", bodyTexts: ["hello"] }),
   ]);
 
   const diff = diffDecks(baseline, proposed);
@@ -160,14 +164,14 @@ test("detects added, changed, and removed slides", () => {
 
 test("matches by normalized title regardless of order (reorder → no changes)", () => {
   const baseline = deck([
-    slide({ title: "Alpha", bullets: ["a"] }),
-    slide({ title: "Beta", bullets: ["b"] }),
-    slide({ title: "Gamma", bullets: ["c"] }),
+    slide({ title: "Alpha", bodyTexts: ["a"] }),
+    slide({ title: "Beta", bodyTexts: ["b"] }),
+    slide({ title: "Gamma", bodyTexts: ["c"] }),
   ]);
   const proposed = deck([
-    slide({ title: "Gamma", bullets: ["c"] }),
-    slide({ title: "Alpha", bullets: ["a"] }),
-    slide({ title: "Beta", bullets: ["b"] }),
+    slide({ title: "Gamma", bodyTexts: ["c"] }),
+    slide({ title: "Alpha", bodyTexts: ["a"] }),
+    slide({ title: "Beta", bodyTexts: ["b"] }),
   ]);
 
   const diff = diffDecks(baseline, proposed);
@@ -179,7 +183,7 @@ test("matches by normalized title regardless of order (reorder → no changes)",
 });
 
 test("matches title carried by free-form title element", () => {
-  const baseline = deck([slide({ title: "Vision", bullets: ["baseline"] })]);
+  const baseline = deck([slide({ title: "Vision", bodyTexts: ["baseline"] })]);
   const proposed = deck([
     slide({
       title: "",
@@ -198,12 +202,12 @@ test("matches title carried by free-form title element", () => {
 
 test("positionally matches title-less slides by index", () => {
   const baseline = deck([
-    slide({ title: "", bullets: ["one"] }),
-    slide({ title: "", bullets: ["two"] }),
+    slide({ title: "", bodyTexts: ["one"] }),
+    slide({ title: "", bodyTexts: ["two"] }),
   ]);
   const proposed = deck([
-    slide({ title: "", bullets: ["one"] }),
-    slide({ title: "", bullets: ["changed"] }),
+    slide({ title: "", bodyTexts: ["one"] }),
+    slide({ title: "", bodyTexts: ["changed"] }),
   ]);
 
   const diff = diffDecks(baseline, proposed);
@@ -216,12 +220,12 @@ test("positionally matches title-less slides by index", () => {
 
 test("does not mutate either input deck", () => {
   const baseline = deck([
-    slide({ title: "A", bullets: ["x"], visualIds: ["v1"] }),
-    slide({ title: "Drop", bullets: ["y"] }),
+    slide({ title: "A", bodyTexts: ["x"], visualRefs: ["v1"] }),
+    slide({ title: "Drop", bodyTexts: ["y"] }),
   ]);
   const proposed = deck([
-    slide({ title: "A", bullets: ["x", "z"], visualIds: ["v1"] }),
-    slide({ title: "New", bullets: ["q"] }),
+    slide({ title: "A", bodyTexts: ["x", "z"], visualRefs: ["v1"] }),
+    slide({ title: "New", bodyTexts: ["q"] }),
   ]);
   const baselineSnapshot = JSON.parse(JSON.stringify(baseline));
   const proposedSnapshot = JSON.parse(JSON.stringify(proposed));

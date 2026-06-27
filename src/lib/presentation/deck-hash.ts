@@ -52,10 +52,14 @@ function slideContentSignature(slide: Slide): string {
   const bullets = elements
     .filter((element) => element.kind === "text" && element.role === "bullet")
     .flatMap((element) => {
-      const content = element.content as { paragraphs?: Array<{ text?: string }> } | undefined;
-      return (content?.paragraphs ?? []).map((paragraph) => paragraph.text ?? "");
+      const content = element.content as
+        | { paragraphs?: Array<{ text?: string }> }
+        | undefined;
+      return (content?.paragraphs ?? []).map(
+        (paragraph) => paragraph.text ?? "",
+      );
     });
-  const visualIds = elements
+  const visualRefs = elements
     .filter((element) => element.kind === "visual")
     .map((element) => {
       const content = element.content as { visualId?: string } | undefined;
@@ -66,7 +70,7 @@ function slideContentSignature(slide: Slide): string {
     `t:${slide.title.trim()}`,
     `template:${(slide as any).templateId ?? "blank"}`,
     `b:${bullets.map((bullet) => bullet.trim()).join("\u0001")}`,
-    `v:${visualIds.join("\u0001")}`,
+    `v:${visualRefs.join("\u0001")}`,
     `n:${(slide.notes ?? "").trim()}`,
   ];
   return parts.join("\u0002");
@@ -78,10 +82,9 @@ function slideContentSignature(slide: Slide): string {
  */
 export function deckContentSignature(deck: Deck): string {
   const themeId = (deck as any).design?.themeId ?? "";
-  return [
-    `theme:${themeId}`,
-    ...deck.slides.map(slideContentSignature),
-  ].join("\u0003");
+  return [`theme:${themeId}`, ...deck.slides.map(slideContentSignature)].join(
+    "\u0003",
+  );
 }
 
 /**

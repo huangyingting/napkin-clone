@@ -15,8 +15,6 @@ function buildCommandSlide(id: string, index: number, title = ""): Slide {
     index,
     title,
     bullets: [],
-    visualIds: [],
-    layout: "blank",
     notes: "",
     elements: [],
   });
@@ -404,7 +402,6 @@ test("INSERT_TEMPLATE_SLIDE inserts at end by default", () => {
     index: 0,
     title: "Template",
     bullets: [],
-    visualIds: [],
     layout: "blank" as const,
     notes: "",
   };
@@ -427,7 +424,6 @@ test("INSERT_TEMPLATE_SLIDE inserts after specified index", () => {
     index: 0,
     title: "Template",
     bullets: [],
-    visualIds: [],
     layout: "blank" as const,
     notes: "",
   };
