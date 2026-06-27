@@ -1,9 +1,9 @@
 # End-to-end tests (Playwright)
 
 These Playwright specs cover critical product flows (issue #107). They live
-**only** in `e2e/` so the unit gate (`npm test` →
-`node --test "src/**/*.test.ts"`) never picks them up. They are **not** run by
-the required CI workflow — run them locally or in a dedicated E2E job.
+**only** in `e2e/` so the unit gate (`npm test`) maps them to subsystem buckets
+but never executes them. They are **not** run by the required CI workflow — run
+them locally or in a dedicated E2E job.
 
 ## What's covered
 

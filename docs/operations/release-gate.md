@@ -115,6 +115,22 @@ release; drift is remediated with the [repair playbook](./persisted-schema-repai
 
 - `src/**/*.test.ts` via `node --import tsx --test`
 - `scripts/**/*.test.mjs` via `node --test`
+- `scripts/test-subsystem.mjs --check` to ensure every source, script, and E2E
+  test file is assigned to at least one subsystem bucket.
+
+For focused local work, run the owning subsystem instead of the whole unit gate:
+
+```bash
+npm run test:subsystem -- editor
+npm run test:subsystem -- presentation --with-e2e
+npm run test:subsystem -- --list
+```
+
+The shortcut scripts (`test:auth`, `test:collab`, `test:documents`,
+`test:editor`, `test:import`, `test:presentation`, `test:public-render`,
+`test:security`, `test:visual`, and `test:operations`) call the same router.
+E2E specs remain opt-in for focused runs; add `--with-e2e` when the changed
+subsystem needs its mapped Playwright coverage.
 
 The following subsystems have dedicated test files that must stay green:
 

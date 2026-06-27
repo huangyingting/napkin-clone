@@ -1,0 +1,528 @@
+#!/usr/bin/env node
+
+import { spawnSync } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import process from "node:process";
+import { pathToFileURL } from "node:url";
+
+const TEST_ROOTS = ["src", "scripts", "e2e"];
+const SKIPPED_DIRECTORIES = new Set([
+  ".next",
+  "coverage",
+  "dist",
+  "node_modules",
+  "playwright-report",
+  "test-results",
+]);
+const TEST_FILE_PATTERN = /\.(?:test|spec)\.(?:ts|tsx|js|mjs)$/;
+
+export const SUBSYSTEM_TEST_TARGETS = {
+  ai: {
+    description: "AI generation routes, prompts, quotas, and model contracts",
+    patterns: [/^src\/lib\/ai\//, /^src\/app\/api\/generate(?:-deck)?\//],
+  },
+  auth: {
+    description: "Authentication, account lifecycle, settings, and login gates",
+    patterns: [
+      /^src\/auth\.config\.test\.ts$/,
+      /^src\/lib\/auth\//,
+      /^src\/lib\/account\//,
+      /^src\/lib\/settings\//,
+      /^e2e\/(?:auth-redirect|oauth-disabled)\.spec\.ts$/,
+    ],
+  },
+  billing: {
+    description:
+      "Billing providers, entitlements, credits, and webhook handling",
+    patterns: [
+      /^src\/lib\/billing\//,
+      /^src\/app\/api\/billing\//,
+      /^e2e\/billing-brand\.spec\.ts$/,
+    ],
+  },
+  brand: {
+    description: "Brand Studio view models, brand assets, fonts, and samples",
+    patterns: [
+      /^src\/lib\/brand\//,
+      /^src\/lib\/brand-studio\//,
+      /^e2e\/billing-brand\.spec\.ts$/,
+    ],
+  },
+  collaboration: {
+    description:
+      "Collaboration room access, server scripts, and flush/authorize APIs",
+    patterns: [
+      /^src\/lib\/collab\//,
+      /^src\/app\/api\/collab\//,
+      /^scripts\/collab-/,
+    ],
+  },
+  commands: {
+    description:
+      "Command envelope, shortcuts, action ports, and mutation routing",
+    patterns: [
+      /^src\/lib\/actions\//,
+      /^src\/lib\/commands\//,
+      /^src\/lib\/shortcuts\//,
+      /^src\/lib\/presentation\/slide-commands/,
+      /^scripts\/check-action-ports\.test\.mjs$/,
+    ],
+  },
+  comments: {
+    description:
+      "Comment anchors, permissions, unread state, and lifecycle tests",
+    patterns: [
+      /^src\/lib\/comments\//,
+      /^src\/app\/app\/documents\/.*comment.*\.test\.ts$/,
+      /^src\/lib\/presentation\/slide-comment/,
+    ],
+  },
+  "data-model": {
+    description:
+      "Persisted JSON contracts, deck schemas, Prisma row mappers, and schema audit",
+    patterns: [
+      /^src\/lib\/data-contracts\//,
+      /^src\/lib\/document\//,
+      /^src\/lib\/presentation\/deck/,
+      /^src\/lib\/presentation\/fnv-hash\.test\.ts$/,
+      /^src\/lib\/schema-audit\//,
+      /^src\/lib\/db\//,
+      /^src\/lib\/db-provider\.test\.ts$/,
+      /^src\/test\//,
+      /^scripts\/gen-sqlite-schema\.test\.mjs$/,
+    ],
+  },
+  diagnostics: {
+    description:
+      "Structured logs, diagnostic codes, telemetry, and abuse diagnostics",
+    patterns: [
+      /^src\/lib\/diagnostics\//,
+      /^src\/lib\/log\.test\.ts$/,
+      /^src\/lib\/telemetry\//,
+      /^scripts\/structured-log\.test\.mjs$/,
+    ],
+  },
+  documents: {
+    description:
+      "Document creation, listing, tags, search, templates, trash, and workspace UI",
+    patterns: [
+      /^src\/app\/app\/document-list/,
+      /^src\/lib\/dashboard\//,
+      /^src\/lib\/document\//,
+      /^src\/lib\/document-stats\.test\.ts$/,
+      /^src\/lib\/document-versions\.test\.ts$/,
+      /^src\/lib\/documents\.test\.ts$/,
+      /^src\/lib\/search\.test\.ts$/,
+      /^src\/lib\/templates\//,
+      /^src\/lib\/trash\.test\.ts$/,
+      /^src\/lib\/workspace\//,
+      /^e2e\/workspace\.spec\.ts$/,
+    ],
+  },
+  editor: {
+    description:
+      "Lexical editor, document editor view models, and document editing flows",
+    patterns: [
+      /^src\/lib\/document-editor\//,
+      /^src\/lib\/lexical\//,
+      /^src\/app\/app\/documents\//,
+      /^e2e\/(?:block-id-preservation|document-editor-profile)\.spec\.ts$/,
+    ],
+  },
+  import: {
+    description:
+      "Import parsers, content normalization, persistence, and import UI flow",
+    patterns: [
+      /^src\/lib\/content\//,
+      /^src\/lib\/import\//,
+      /^src\/app\/api\/import\//,
+      /^e2e\/import-roundtrip\.spec\.ts$/,
+    ],
+  },
+  localization: {
+    description: "Locale catalog and language activation gate",
+    patterns: [/^src\/lib\/i18n\//],
+  },
+  operations: {
+    description:
+      "Repository scripts, release guards, environment checks, and maintenance utilities",
+    patterns: [
+      /^scripts\/.*\.test\.mjs$/,
+      /^src\/lib\/client-config\.test\.ts$/,
+      /^src\/lib\/db-provider\.test\.ts$/,
+      /^src\/lib\/env\.test\.ts$/,
+      /^src\/lib\/limits\//,
+      /^src\/lib\/maintenance\.test\.ts$/,
+      /^src\/lib\/maintenance\//,
+      /^src\/lib\/privacy\//,
+      /^src\/lib\/schema-audit\//,
+      /^src\/scripts\//,
+      /^src\/test\//,
+      /^e2e\/screenshot-regression\.spec\.ts$/,
+    ],
+  },
+  presentation: {
+    description:
+      "Slide editor, deck runtime, exports, assets, and present mode",
+    patterns: [
+      /^src\/components\/presentation\//,
+      /^src\/lib\/assets\//,
+      /^src\/lib\/presentation\//,
+      /^src\/lib\/slides\//,
+      /^src\/app\/api\/slide-assets\//,
+      /^scripts\/(?:perf-budgets|slide-editor-size-budget)\.test\.mjs$/,
+      /^e2e\/(?:present-export|screenshot-regression|slide-asset-upload|slides-layout-screenshots|slides-smoke)\.spec\.ts$/,
+    ],
+  },
+  product: {
+    description: "Product-facing billing and brand surface coverage",
+    patterns: [
+      /^src\/lib\/billing\//,
+      /^src\/lib\/brand\//,
+      /^src\/lib\/brand-studio\//,
+      /^src\/app\/api\/billing\//,
+      /^e2e\/billing-brand\.spec\.ts$/,
+    ],
+  },
+  "public-render": {
+    description:
+      "Public share, embed, present, metadata, and social-share rendering",
+    patterns: [
+      /^src\/lib\/public-render\//,
+      /^src\/lib\/share\//,
+      /^src\/lib\/share-access\.test\.ts$/,
+      /^e2e\/(?:present-export|public-pages|share-fallback)\.spec\.ts$/,
+    ],
+  },
+  security: {
+    description:
+      "Authorization, API route policy, sharing, abuse controls, and asset access",
+    patterns: [
+      /^src\/proxy\.test\.ts$/,
+      /^src\/app\/api\/api-route-security-matrix\.test\.ts$/,
+      /^src\/app\/api\/slide-assets\//,
+      /^src\/lib\/abuse-budget\.test\.ts$/,
+      /^src\/lib\/access-policy\//,
+      /^src\/lib\/access-query\.test\.ts$/,
+      /^src\/lib\/api\//,
+      /^src\/lib\/auth\/(?:authz|document-|page-route|workspace-)/,
+      /^src\/lib\/invite-access\.test\.ts$/,
+      /^src\/lib\/rate-limit\.test\.ts$/,
+      /^src\/lib\/security-audit\.test\.ts$/,
+      /^src\/lib\/share-access\.test\.ts$/,
+      /^e2e\/(?:auth-redirect|oauth-disabled|share-fallback|slide-asset-upload)\.spec\.ts$/,
+    ],
+  },
+  system: {
+    description:
+      "Cross-cutting helpers, app shell, view model contracts, and UI support logic",
+    patterns: [
+      /^src\/components\/ui\//,
+      /^src\/lib\/a11y\//,
+      /^src\/lib\/action-result\.test\.ts$/,
+      /^src\/lib\/anchor-resolver\.test\.ts$/,
+      /^src\/lib\/anchored-position\.test\.ts$/,
+      /^src\/lib\/app-shell\//,
+      /^src\/lib\/client-config\.test\.ts$/,
+      /^src\/lib\/domain-identity\.test\.ts$/,
+      /^src\/lib\/env\.test\.ts$/,
+      /^src\/lib\/markdown\.test\.ts$/,
+      /^src\/lib\/mobile-viewport\.test\.ts$/,
+      /^src\/lib\/onboarding\//,
+      /^src\/lib\/pointer\.test\.ts$/,
+      /^src\/lib\/right-surface-coordinator\.test\.ts$/,
+      /^src\/lib\/slug\.test\.ts$/,
+      /^src\/lib\/taxonomy\.test\.ts$/,
+      /^src\/lib\/view-models\//,
+      /^e2e\/public-pages\.spec\.ts$/,
+    ],
+  },
+  ui: {
+    description:
+      "Reusable UI primitives, app chrome, a11y helpers, and viewport utilities",
+    patterns: [
+      /^src\/components\/ui\//,
+      /^src\/lib\/a11y\//,
+      /^src\/lib\/app-shell\//,
+      /^src\/lib\/mobile-viewport\.test\.ts$/,
+      /^scripts\/check-design-system\.test\.mjs$/,
+    ],
+  },
+  visual: {
+    description:
+      "Visual schemas, mirror logic, rendering helpers, icons, and visual components",
+    patterns: [
+      /^src\/components\/visual\//,
+      /^src\/lib\/icons\//,
+      /^src\/lib\/visual\//,
+      /^src\/lib\/lexical\/visual/,
+      /^e2e\/(?:screenshot-regression|slides-layout-screenshots)\.spec\.ts$/,
+    ],
+  },
+  workspace: {
+    description: "Workspace capabilities and owner/editor/viewer behavior",
+    patterns: [/^src\/lib\/workspace\//, /^e2e\/workspace\.spec\.ts$/],
+  },
+};
+
+function toPosix(path) {
+  return path.split(sep).join("/");
+}
+
+function walkFiles(root) {
+  const files = [];
+  const entries = readdirSync(root, { withFileTypes: true });
+  for (const entry of entries) {
+    if (SKIPPED_DIRECTORIES.has(entry.name)) continue;
+    const fullPath = join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkFiles(fullPath));
+    } else if (entry.isFile() && TEST_FILE_PATTERN.test(entry.name)) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+export function listTestFiles(repoRoot = process.cwd()) {
+  return TEST_ROOTS.flatMap((root) => {
+    const absoluteRoot = join(repoRoot, root);
+    if (!statSync(absoluteRoot, { throwIfNoEntry: false })?.isDirectory()) {
+      return [];
+    }
+    return walkFiles(absoluteRoot).map((filePath) =>
+      toPosix(relative(repoRoot, filePath)),
+    );
+  }).sort();
+}
+
+export function listSubsystems() {
+  return Object.keys(SUBSYSTEM_TEST_TARGETS).sort();
+}
+
+export function classifyTestFile(filePath) {
+  const normalized = toPosix(filePath);
+  return listSubsystems().filter((name) =>
+    SUBSYSTEM_TEST_TARGETS[name].patterns.some((pattern) =>
+      pattern.test(normalized),
+    ),
+  );
+}
+
+export function findUnclassifiedTestFiles(testFiles) {
+  return testFiles
+    .map(toPosix)
+    .filter((filePath) => classifyTestFile(filePath).length === 0)
+    .sort();
+}
+
+function normalizeSubsystems(subsystems) {
+  const unique = [...new Set(subsystems.map((name) => name.trim()))].filter(
+    Boolean,
+  );
+  const unknown = unique.filter((name) => !SUBSYSTEM_TEST_TARGETS[name]);
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown subsystem: ${unknown.join(", ")}. Run npm run test:subsystem -- --list.`,
+    );
+  }
+  if (unique.length === 0) {
+    throw new Error("Choose at least one subsystem to test.");
+  }
+  return unique.sort();
+}
+
+function splitByRunner(files) {
+  return {
+    source: files.filter((filePath) => filePath.startsWith("src/")),
+    scripts: files.filter((filePath) => filePath.startsWith("scripts/")),
+    e2e: files.filter((filePath) => filePath.startsWith("e2e/")),
+  };
+}
+
+export function buildTestPlan({ subsystems, testFiles, includeE2e = false }) {
+  const normalizedSubsystems = normalizeSubsystems(subsystems);
+  const selected = testFiles
+    .map(toPosix)
+    .filter((filePath) => {
+      const owners = classifyTestFile(filePath);
+      return normalizedSubsystems.some((name) => owners.includes(name));
+    })
+    .sort();
+  const buckets = splitByRunner(selected);
+  const commands = [];
+
+  if (buckets.source.length > 0) {
+    commands.push({
+      label: "source unit tests",
+      command: "node",
+      args: ["--import", "tsx", "--test", ...buckets.source],
+    });
+  }
+  if (buckets.scripts.length > 0) {
+    commands.push({
+      label: "script tests",
+      command: "node",
+      args: ["--test", ...buckets.scripts],
+    });
+  }
+  if (includeE2e && buckets.e2e.length > 0) {
+    commands.push({
+      label: "e2e tests",
+      command: "npx",
+      args: ["playwright", "test", ...buckets.e2e],
+    });
+  }
+
+  return {
+    subsystems: normalizedSubsystems,
+    files: selected,
+    buckets,
+    commands,
+    skippedE2e: includeE2e ? [] : buckets.e2e,
+  };
+}
+
+function displayCommand({ command, args }) {
+  return [command, ...args].join(" ");
+}
+
+function printUsage() {
+  console.log(`Usage:
+  npm run test:subsystem -- <subsystem> [more-subsystems] [--with-e2e]
+  npm run test:subsystem -- --list
+  npm run test:subsystem -- --check
+  npm run test:subsystem -- <subsystem> --dry-run
+
+Examples:
+  npm run test:subsystem -- editor
+  npm run test:subsystem -- presentation --with-e2e
+  npm run test:subsystem -- auth security --dry-run`);
+}
+
+function parseArgs(argv) {
+  const options = {
+    check: false,
+    dryRun: false,
+    help: false,
+    includeE2e: false,
+    list: false,
+    subsystems: [],
+  };
+
+  for (const arg of argv) {
+    if (arg === "--check") options.check = true;
+    else if (arg === "--dry-run") options.dryRun = true;
+    else if (arg === "--help" || arg === "-h") options.help = true;
+    else if (arg === "--list") options.list = true;
+    else if (arg === "--with-e2e" || arg === "--e2e") options.includeE2e = true;
+    else options.subsystems.push(arg);
+  }
+
+  return options;
+}
+
+function printSubsystemList(testFiles) {
+  for (const name of listSubsystems()) {
+    const plan = buildTestPlan({ subsystems: [name], testFiles });
+    const unitCount = plan.buckets.source.length + plan.buckets.scripts.length;
+    const e2eCount = plan.buckets.e2e.length;
+    console.log(
+      `${name}: ${unitCount} unit/script, ${e2eCount} e2e - ${SUBSYSTEM_TEST_TARGETS[name].description}`,
+    );
+  }
+}
+
+function runCommands(commands) {
+  for (const testCommand of commands) {
+    console.log(
+      `\n[test:subsystem] ${testCommand.label}: ${displayCommand(testCommand)}`,
+    );
+    const result = spawnSync(testCommand.command, testCommand.args, {
+      stdio: "inherit",
+      env: process.env,
+    });
+    if (result.status !== 0) {
+      return result.status ?? 1;
+    }
+  }
+  return 0;
+}
+
+export function main(argv = process.argv.slice(2), repoRoot = process.cwd()) {
+  const options = parseArgs(argv);
+  const testFiles = listTestFiles(repoRoot);
+
+  if (options.help) {
+    printUsage();
+    return 0;
+  }
+  if (options.list) {
+    printSubsystemList(testFiles);
+    return 0;
+  }
+  if (options.check) {
+    const unclassified = findUnclassifiedTestFiles(testFiles);
+    if (unclassified.length > 0) {
+      console.error("Unclassified test files:");
+      for (const filePath of unclassified) console.error(`- ${filePath}`);
+      return 1;
+    }
+    console.log(
+      `Test subsystem coverage map is complete (${testFiles.length} files).`,
+    );
+    return 0;
+  }
+
+  let plan;
+  try {
+    plan = buildTestPlan({
+      subsystems: options.subsystems,
+      testFiles,
+      includeE2e: options.includeE2e,
+    });
+  } catch (error) {
+    console.error(error.message);
+    printUsage();
+    return 1;
+  }
+
+  if (plan.files.length === 0) {
+    console.error(`No test files matched: ${plan.subsystems.join(", ")}`);
+    return 1;
+  }
+
+  console.log(
+    `[test:subsystem] ${plan.subsystems.join(", ")}: ${plan.files.length} matching test file(s).`,
+  );
+  if (plan.skippedE2e.length > 0) {
+    console.log(
+      `[test:subsystem] ${plan.skippedE2e.length} e2e file(s) are mapped but skipped. Add --with-e2e to include them.`,
+    );
+  }
+
+  if (options.dryRun) {
+    for (const testCommand of plan.commands)
+      console.log(displayCommand(testCommand));
+    if (plan.commands.length === 0)
+      console.log("No unit/script commands selected.");
+    return 0;
+  }
+
+  if (plan.commands.length === 0) {
+    console.error(
+      "No unit/script tests selected. Re-run with --with-e2e if this subsystem only has e2e coverage.",
+    );
+    return 1;
+  }
+
+  return runCommands(plan.commands);
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  process.exitCode = main();
+}

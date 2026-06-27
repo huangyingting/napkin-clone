@@ -22,4 +22,5 @@ Before handoff/check-in, verify only the files touched by the change whenever th
 - Format modified/added files only, for example `npx prettier --write <files>`.
 - Lint modified/added lintable files only, for example `npx eslint <files>`.
 - Typecheck modified/added TypeScript files with the smallest reliable scope; if the change touches shared types, route files, generated Next types, or anything that cannot be checked file-by-file, run `npm run typecheck`.
+- Prefer subsystem-focused tests, for example `npm run test:subsystem -- <subsystem>`, before broadening to the full test suite; add `--with-e2e` only when the mapped E2E coverage is relevant.
 - Run tests for modified/added test files, or the nearest focused tests covering modified code. Broaden only for shared behavior or cross-module contracts.
