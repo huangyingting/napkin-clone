@@ -1,10 +1,9 @@
-import type { Deck, Slide } from "./deck-core";
+import type { Deck, Slide, SlideMaster } from "./deck-core";
 import type { SlideElement } from "./deck-elements";
 import type { ImageFitMode, ImageMaskShape } from "./deck-element-primitives";
 import type {
   BackgroundTreatment,
   PresentationTheme,
-  MasterSlide,
 } from "./presentation-theme-types";
 import { slideFormatConfig, type SlideFormat } from "./slide-format";
 import {
@@ -17,6 +16,7 @@ import {
   resolveSlideThemeColors,
   type SlideThemeColors,
 } from "./style-cascade-layers";
+import { materializeMasterChromePlaceholders } from "./global-master-chrome";
 
 export interface ResolvedSlideCanvas {
   format: SlideFormat;
@@ -68,7 +68,7 @@ export interface ResolvedSlideRenderModel {
   tokenSet: PresentationTheme;
   background: BackgroundTreatment;
   accent: string;
-  master?: MasterSlide;
+  master?: SlideMaster;
   masterBackgroundElements: SlideElement[];
   slideElements: SlideElement[];
   masterForegroundElements: SlideElement[];
@@ -188,12 +188,23 @@ function resolveElementDesigns(
 }
 
 function masterElements(
-  master: MasterSlide | undefined,
+  master: SlideMaster | undefined,
   layer: "background" | "foreground",
+  deck: Deck,
+  slide: Slide,
 ): SlideElement[] {
   const elements = ((master as any)?.elements ?? []) as SlideElement[];
+  const slideIndex = deck.slides.findIndex((entry) => entry.id === slide.id);
+  const resolvedSlideIndex = slideIndex >= 0 ? slideIndex : slide.index;
   return elements
     .filter((element) => (element as any).layer === layer)
+    .map((element) =>
+      materializeMasterChromePlaceholders(
+        element,
+        resolvedSlideIndex,
+        deck.slides.length,
+      ),
+    )
     .sort((a, b) => a.zIndex - b.zIndex);
 }
 
@@ -206,8 +217,18 @@ export function resolveSlideRenderModel(
   const slideElements = [...(slide.elements ?? [])].sort(
     (a, b) => a.zIndex - b.zIndex,
   );
-  const masterBackgroundElements = masterElements(style.master, "background");
-  const masterForegroundElements = masterElements(style.master, "foreground");
+  const masterBackgroundElements = masterElements(
+    style.master,
+    "background",
+    deck,
+    slide,
+  );
+  const masterForegroundElements = masterElements(
+    style.master,
+    "foreground",
+    deck,
+    slide,
+  );
   const renderedElements = [
     ...masterBackgroundElements,
     ...slideElements,

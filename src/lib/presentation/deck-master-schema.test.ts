@@ -19,6 +19,7 @@ function baseDeck(overrides: Record<string, unknown> = {}) {
             id: "footer",
             kind: "text",
             role: "footer",
+            masterChromeKind: "footer",
             layer: "foreground",
             locked: true,
             zIndex: 0,
@@ -83,6 +84,8 @@ test("master elements must be locked and layered", () => {
             {
               id: "footer",
               kind: "text",
+              role: "footer",
+              masterChromeKind: "footer",
               locked: true,
               zIndex: 0,
               box: { x: 0, y: 0, w: 10, h: 10 },
@@ -106,6 +109,8 @@ test("master elements must be locked and layered", () => {
             {
               id: "footer",
               kind: "text",
+              role: "footer",
+              masterChromeKind: "footer",
               layer: "foreground",
               locked: false,
               zIndex: 0,
@@ -119,6 +124,87 @@ test("master elements must be locked and layered", () => {
   );
   assert.equal(unlocked.success, false);
   assert.match(unlocked.error, /locked must be true/);
+});
+
+test("master elements require a masterChromeKind", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      masters: [
+        {
+          id: "master-default",
+          name: "Default Master",
+          elements: [
+            {
+              id: "footer",
+              kind: "text",
+              role: "footer",
+              layer: "foreground",
+              locked: true,
+              zIndex: 0,
+              box: { x: 0, y: 0, w: 10, h: 10 },
+              content: { kind: "text", text: "Footer" },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(result.success, false);
+  assert.match(result.error, /masterChromeKind must be one of/);
+});
+
+test("masterChromeKind must match element kind, role, and layer", () => {
+  const logoAsText = safeParseDeck(
+    baseDeck({
+      masters: [
+        {
+          id: "master-default",
+          name: "Default Master",
+          elements: [
+            {
+              id: "logo",
+              kind: "text",
+              role: "logo",
+              masterChromeKind: "logo",
+              layer: "foreground",
+              locked: true,
+              zIndex: 0,
+              box: { x: 0, y: 0, w: 10, h: 10 },
+              content: { kind: "text", text: "Logo" },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(logoAsText.success, false);
+  assert.match(logoAsText.error, /kind must be "image"/);
+
+  const footerInBackground = safeParseDeck(
+    baseDeck({
+      masters: [
+        {
+          id: "master-default",
+          name: "Default Master",
+          elements: [
+            {
+              id: "footer",
+              kind: "text",
+              role: "footer",
+              masterChromeKind: "footer",
+              layer: "background",
+              locked: true,
+              zIndex: 0,
+              box: { x: 0, y: 0, w: 10, h: 10 },
+              content: { kind: "text", text: "Footer" },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(footerInBackground.success, false);
+  assert.match(footerInBackground.error, /layer must be "foreground"/);
 });
 
 test("defaultMasterId must reference an existing master", () => {

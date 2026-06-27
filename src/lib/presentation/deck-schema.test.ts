@@ -25,6 +25,7 @@ function masterElement(overrides: Record<string, unknown> = {}) {
     id: "master-footer",
     kind: "text",
     role: "footer",
+    masterChromeKind: "footer",
     layer: "foreground",
     locked: true,
     box: { x: 8, y: 92, w: 84, h: 4 },
@@ -133,6 +134,23 @@ test("safeParseDeck requires master element layer and locked=true", () => {
   );
   assert.equal(unlocked.success, false);
   assert.match(unlocked.error, /locked must be true/);
+});
+
+test("safeParseDeck rejects masterChromeKind on slide elements", () => {
+  const result = safeParseDeck(
+    minimalV6Deck({
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          elements: [textElement({ masterChromeKind: "footer" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(result.success, false);
+  assert.match(result.error, /masterChromeKind is not part/);
 });
 
 test("safeParseDeck requires defaultMasterId to reference an existing master", () => {

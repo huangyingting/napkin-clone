@@ -1,4 +1,5 @@
-import type { Deck } from "./deck-core";
+import type { Deck, MasterElement } from "./deck-core";
+import { validateMasterElement } from "./deck-validation/elements";
 import { makeElementId, makeSlideId } from "./deck-ids";
 import { insertSlide, updateSlide } from "./deck-mutation-slides";
 import {
@@ -27,6 +28,7 @@ import type {
 } from "./slide-command-contracts";
 import { failure, makePatch, success } from "./slide-command-executor-helpers";
 import { buildTemplateSlide, type SlideTemplateKind } from "./slide-templates";
+import { isMasterChromeTemplateElement } from "./global-master-chrome";
 
 export type PresentationThemeFamilyCommand =
   | SetPresentationThemeCommand
@@ -99,19 +101,20 @@ function materializeTemplate(
     title: template.name,
     notes: "",
     templateId: template.id,
-    ...(template.defaultMasterId ? { masterId: template.defaultMasterId } : {}),
     ...(template.slideDesignDefaults
       ? { designOverrides: template.slideDesignDefaults }
       : {}),
-    elements: template.elements.map((element, index) => ({
-      id: makeElementId(),
-      kind: element.kind,
-      role: element.role,
-      box: (element as any).box ?? { x: 10, y: 10, w: 80, h: 20 },
-      zIndex: index,
-      content: element.contentDefaults ?? { kind: element.kind },
-      designOverrides: element.designOverrides ?? {},
-    })) as any,
+    elements: template.elements
+      .filter((element) => !isMasterChromeTemplateElement(element))
+      .map((element, index) => ({
+        id: makeElementId(),
+        kind: element.kind,
+        role: element.role,
+        box: (element as any).box ?? { x: 10, y: 10, w: 80, h: 20 },
+        zIndex: index,
+        content: element.contentDefaults ?? { kind: element.kind },
+        designOverrides: element.designOverrides ?? {},
+      })) as any,
   } as Deck["slides"][number];
 }
 
@@ -139,6 +142,20 @@ function preserveExistingContent(
       content: existingElements[matchIndex].content,
     };
   });
+}
+
+function validateMasterElements(
+  elements: readonly MasterElement[],
+  context: string,
+): string | null {
+  for (const [index, element] of elements.entries()) {
+    try {
+      validateMasterElement(element, `${context}.elements[${index}]`);
+    } catch (error) {
+      return error instanceof Error ? error.message : "Invalid master element";
+    }
+  }
+  return null;
 }
 
 export function executePresentationThemeFamilyCommand(
@@ -210,6 +227,11 @@ export function executePresentationThemeFamilyCommand(
       if ((deck.masters ?? []).some((master) => master.id === cmd.master.id)) {
         return failure(deck, `Master already exists: ${cmd.master.id}`);
       }
+      const validationError = validateMasterElements(
+        cmd.master.elements,
+        "payload.master",
+      );
+      if (validationError) return failure(deck, validationError);
       const masters = [...(deck.masters ?? []), cmd.master];
       const next = { ...deck, masters } as Deck;
       return success(next, [], [], undefined, [
@@ -224,10 +246,18 @@ export function executePresentationThemeFamilyCommand(
       const index = masters.findIndex((master) => master.id === cmd.masterId);
       if (index === -1)
         return failure(deck, `Master not found: ${cmd.masterId}`);
+      const nextMaster = {
+        ...masters[index]!,
+        ...cmd.patch,
+        id: cmd.masterId,
+      };
+      const validationError = validateMasterElements(
+        nextMaster.elements,
+        "payload.patch",
+      );
+      if (validationError) return failure(deck, validationError);
       const nextMasters = masters.map((master) =>
-        master.id === cmd.masterId
-          ? { ...master, ...cmd.patch, id: master.id }
-          : master,
+        master.id === cmd.masterId ? nextMaster : master,
       );
       const next = { ...deck, masters: nextMasters } as Deck;
       return success(next, allSlideIds(deck), [], undefined, [
@@ -301,22 +331,26 @@ export function executePresentationThemeFamilyCommand(
       if (!master.elements.some((element) => element.id === cmd.elementId)) {
         return failure(deck, `Master element not found: ${cmd.elementId}`);
       }
+      const nextMaster = {
+        ...master,
+        elements: master.elements.map((element) =>
+          element.id === cmd.elementId
+            ? ({
+                ...element,
+                ...cmd.patch,
+                id: element.id,
+                locked: true,
+              } as typeof element)
+            : element,
+        ),
+      };
+      const validationError = validateMasterElements(
+        nextMaster.elements,
+        "payload.patch",
+      );
+      if (validationError) return failure(deck, validationError);
       const nextMasters = masters.map((entry) =>
-        entry.id === cmd.masterId
-          ? {
-              ...entry,
-              elements: entry.elements.map((element) =>
-                element.id === cmd.elementId
-                  ? ({
-                      ...element,
-                      ...cmd.patch,
-                      id: element.id,
-                      locked: true,
-                    } as typeof element)
-                  : element,
-              ),
-            }
-          : entry,
+        entry.id === cmd.masterId ? nextMaster : entry,
       );
       const next = { ...deck, masters: nextMasters } as Deck;
       return success(next, allSlideIds(deck), [cmd.elementId], undefined, [
@@ -362,7 +396,6 @@ export function executePresentationThemeFamilyCommand(
       const nextSlide = {
         ...existing,
         templateId: cmd.templateId,
-        ...(slide.masterId !== undefined ? { masterId: slide.masterId } : {}),
         ...(slide.designOverrides !== undefined
           ? { designOverrides: slide.designOverrides }
           : {}),

@@ -9,7 +9,6 @@ import type {
   PresentationTheme,
   FontScale,
   ImageDefaultsToken,
-  MasterSlide,
   ShapeToken,
   SpacingToken,
   PresentationRoleToken,
@@ -70,67 +69,6 @@ function validateBackgroundTreatment(
   throw new DeckValidationError(
     `${context}.type must be "solid", "gradient", or "image"`,
   );
-}
-
-const LOGO_PLACEMENTS = [
-  "top-left",
-  "top-right",
-  "bottom-left",
-  "bottom-right",
-] as const;
-
-export function validateMaster(input: unknown, context: string): MasterSlide {
-  if (!isPlainObject(input)) {
-    throw new DeckValidationError(`${context} must be an object`);
-  }
-  if (typeof input.id !== "string" || input.id.length === 0) {
-    throw new DeckValidationError(`${context}.id must be a non-empty string`);
-  }
-  if (typeof input.name !== "string" || input.name.length === 0) {
-    throw new DeckValidationError(`${context}.name must be a non-empty string`);
-  }
-  if (typeof input.themeId !== "string") {
-    throw new DeckValidationError(`${context}.themeId must be a string`);
-  }
-  const master: MasterSlide = {
-    id: input.id,
-    name: input.name,
-    themeId: input.themeId,
-    showPageNumbers: Boolean(input.showPageNumbers),
-  };
-  if (input.background !== undefined) {
-    master.background = validateBackgroundTreatment(
-      input.background,
-      `${context}.background`,
-    );
-  }
-  if (input.logoUrl !== undefined) {
-    if (typeof input.logoUrl !== "string" || input.logoUrl.length === 0) {
-      throw new DeckValidationError(
-        `${context}.logoUrl must be a non-empty string`,
-      );
-    }
-    master.logoUrl = input.logoUrl;
-  }
-  if (input.logoPlacement !== undefined) {
-    if (
-      !LOGO_PLACEMENTS.includes(
-        input.logoPlacement as (typeof LOGO_PLACEMENTS)[number],
-      )
-    ) {
-      throw new DeckValidationError(
-        `${context}.logoPlacement must be one of: ${LOGO_PLACEMENTS.join(", ")}`,
-      );
-    }
-    master.logoPlacement = input.logoPlacement as MasterSlide["logoPlacement"];
-  }
-  if (input.footerText !== undefined) {
-    if (typeof input.footerText !== "string") {
-      throw new DeckValidationError(`${context}.footerText must be a string`);
-    }
-    master.footerText = input.footerText;
-  }
-  return master;
 }
 
 const COLOR_TOKEN_KEYS = [

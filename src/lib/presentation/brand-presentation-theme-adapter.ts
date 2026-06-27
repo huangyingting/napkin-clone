@@ -11,6 +11,25 @@ import type { Deck, SlideMaster } from "./deck-core";
 import type { PresentationTheme } from "./presentation-theme-types";
 import { DEFAULT_TOKEN_SET } from "./presentation-theme-data";
 
+function brandLogoElement(brand: BrandStyle): SlideMaster["elements"][number] {
+  return {
+    id: `master-logo:${brand.id}`,
+    kind: "image",
+    role: "logo",
+    masterChromeKind: "logo",
+    name: "Logo",
+    layer: "foreground",
+    locked: true,
+    box: { x: 84, y: 4, w: 12, h: 7 },
+    zIndex: 0,
+    content: {
+      kind: "image",
+      src: brand.logoAssetUrl ?? "",
+      alt: `${brand.name} logo`,
+    },
+  } as SlideMaster["elements"][number];
+}
+
 /**
  * Generates a custom PresentationTheme from a BrandStyle.
  * Falls back to DEFAULT_TOKEN_SET for any brand fields that are null/absent.
@@ -44,7 +63,7 @@ export function brandToTokenSet(brand: BrandStyle): PresentationTheme {
 }
 
 /**
- * Generates a MasterSlide chrome record from a BrandStyle.
+ * Generates a deck master chrome record from a BrandStyle.
  */
 export function brandToMasterChrome(
   brand: BrandStyle,
@@ -53,12 +72,9 @@ export function brandToMasterChrome(
   return {
     id: `master:${brand.id}`,
     name: `${brand.name} Master`,
-    elements: [],
+    elements: brand.logoAssetUrl ? [brandLogoElement(brand)] : [],
     ...(brand.background
       ? { background: { type: "solid", color: { value: brand.background } } }
-      : {}),
-    ...(brand.logoAssetUrl
-      ? { logoUrl: brand.logoAssetUrl, logoPlacement: "top-right" as const }
       : {}),
   };
 }
@@ -92,5 +108,6 @@ export function applyBrandToDeck(deck: Deck, brand: BrandStyle): Deck {
       },
     },
     masters: brandMasters,
+    defaultMasterId: masterChrome.id,
   };
 }

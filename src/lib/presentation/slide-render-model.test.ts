@@ -6,23 +6,38 @@ import {
   type Deck,
   type SlideElement,
 } from "./deck";
+import type { MasterElement } from "./deck-core";
 import { resolveSlideRenderModel } from "./slide-render-model";
 
-function shapeElement(
-  id: string,
-  zIndex: number,
-  layer?: "background" | "foreground",
-): SlideElement {
+function shapeElement(id: string, zIndex: number): SlideElement {
   return {
     id,
     kind: "shape",
-    role: layer === "background" ? "background" : "label",
+    role: "label",
     box: { x: 0, y: 0, w: 10, h: 10 },
     zIndex,
-    ...(layer ? { layer, locked: true } : {}),
     content: { kind: "shape", shape: "rect" },
     designOverrides: { fill: { value: "#123456" } },
   } as unknown as SlideElement;
+}
+
+function masterTextElement(
+  id: string,
+  masterChromeKind: "footer" | "watermark",
+  zIndex: number,
+): MasterElement {
+  const text = masterChromeKind === "footer" ? "Footer" : "Watermark";
+  return {
+    id,
+    kind: "text",
+    role: masterChromeKind === "footer" ? "footer" : "background",
+    masterChromeKind,
+    layer: masterChromeKind === "footer" ? "foreground" : "background",
+    locked: true,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    zIndex,
+    content: { kind: "text", text, paragraphs: [{ text }] },
+  } as unknown as MasterElement;
 }
 
 function deck(): Deck {
@@ -37,8 +52,8 @@ function deck(): Deck {
         name: "Default",
         background: { type: "solid", color: { value: "#eeeeee" } },
         elements: [
-          shapeElement("master-fg", 2, "foreground"),
-          shapeElement("master-bg", 1, "background"),
+          masterTextElement("master-fg", "footer", 2),
+          masterTextElement("master-bg", "watermark", 1),
         ],
       },
     ],
@@ -54,6 +69,20 @@ function deck(): Deck {
       },
     ],
   } as unknown as Deck;
+}
+
+function textElement(id: string, text: string, zIndex: number): MasterElement {
+  return {
+    id,
+    kind: "text",
+    role: "pageNumber",
+    masterChromeKind: "pageNumber",
+    layer: "foreground",
+    locked: true,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    zIndex,
+    content: { kind: "text", text, paragraphs: [{ text }] },
+  } as unknown as MasterElement;
 }
 
 test("resolveSlideRenderModel includes master layers around slide elements", () => {
@@ -91,5 +120,31 @@ test("resolveSlideRenderModel includes master layers around slide elements", () 
   assert.equal(model.elementDesigns["slide-el"]?.kind, "shape");
   if (model.elementDesigns["slide-el"]?.kind === "shape") {
     assert.equal(model.elementDesigns["slide-el"].fill, "#123456");
+  }
+});
+
+test("resolveSlideRenderModel renders master chrome placeholders per slide", () => {
+  const d = deck();
+  d.masters = [
+    {
+      id: "master-default",
+      name: "Default",
+      elements: [textElement("page", "{{pageNumber}} / {{pageCount}}", 0)],
+    },
+  ];
+  d.slides = [
+    d.slides[0]!,
+    { ...d.slides[0]!, id: "slide-2", index: 1, elements: [] },
+  ];
+
+  const model = resolveSlideRenderModel(d, d.slides[1]!);
+  const page = model.masterForegroundElements.find(
+    (element) => element.id === "page",
+  );
+
+  assert.equal(page?.kind, "text");
+  if (page?.kind === "text") {
+    assert.equal(page.content.text, "2 / 2");
+    assert.equal(page.content.paragraphs?.[0]?.text, "2 / 2");
   }
 });

@@ -57,7 +57,7 @@ export function inspectSlideDesignOrigins(
     ...(master !== undefined
       ? {
           masterId: {
-            layer: rawSlide.masterId ? "slide" : "deck",
+            layer: "deck",
             value: master.id,
             sourceId: master.id,
           },

@@ -20,7 +20,14 @@ export {
   CURRENT_DECK_SCHEMA_VERSION,
   PRESENTATION_THEME_IDS,
 } from "./deck-core";
-export type { PresentationThemeId, Slide, Deck } from "./deck-core";
+export type {
+  PresentationThemeId,
+  MasterChromeKind,
+  MasterElement,
+  SlideMaster,
+  Slide,
+  Deck,
+} from "./deck-core";
 
 export {
   normalizeTextParagraphs,

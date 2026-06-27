@@ -5,10 +5,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION, type Deck, type Slide } from "./deck";
-import type { MasterSlide } from "./presentation-theme";
 import {
-  renderFooterText,
+  CURRENT_DECK_SCHEMA_VERSION,
+  type Deck,
+  type Slide,
+  type SlideMaster,
+} from "./deck";
+import {
   resolveMaster,
   resolveRoleTextStyle,
   resolveShapeLabelStyle,
@@ -25,12 +28,11 @@ const makeSlide = (overrides: Record<string, any> = {}): Slide =>
 const makeDeck = (overrides: Record<string, any> = {}): Deck =>
   buildDeck({ slides: [], ...overrides });
 
-function makeMaster(overrides: Partial<MasterSlide> = {}): MasterSlide {
+function makeMaster(overrides: Partial<SlideMaster> = {}): SlideMaster {
   return {
     id: "m1",
     name: "Default Master",
-    themeId: "default",
-    showPageNumbers: false,
+    elements: [],
     ...overrides,
   };
 }
@@ -56,30 +58,30 @@ test("resolveMaster returns undefined when masters array is empty", () => {
   assert.equal(resolveMaster(deck, slide), undefined);
 });
 
-test("resolveMaster returns first master when slide has no masterId", () => {
+test("resolveMaster returns the deck default master", () => {
   const master1 = makeMaster({ id: "m1" });
   const master2 = makeMaster({ id: "m2" });
-  const deck = makeDeck({ masters: [master1, master2] });
+  const deck = makeDeck({ masters: [master1, master2], defaultMasterId: "m2" });
   const slide = makeSlide();
   const resolved = resolveMaster(deck, slide);
-  assert.equal(resolved?.id, "m1");
+  assert.equal(resolved?.id, "m2");
 });
 
-test("resolveMaster returns the correct master by masterId", () => {
+test("resolveMaster ignores per-slide masterId", () => {
   const master1 = makeMaster({ id: "m1" });
   const master2 = makeMaster({ id: "m2" });
   const deck = makeDeck({ masters: [master1, master2] });
   const slide = makeSlide({ masterId: "m2" });
   const resolved = resolveMaster(deck, slide);
-  assert.equal(resolved?.id, "m2");
+  assert.equal(resolved?.id, "m1");
 });
 
-test("resolveMaster returns undefined when masterId does not match any master", () => {
+test("resolveMaster falls back to first master when defaultMasterId is missing", () => {
   const master = makeMaster({ id: "m1" });
-  const deck = makeDeck({ masters: [master] });
+  const deck = makeDeck({ masters: [master], defaultMasterId: "non-existent" });
   const slide = makeSlide({ masterId: "non-existent" });
   const resolved = resolveMaster(deck, slide);
-  assert.equal(resolved, undefined);
+  assert.equal(resolved?.id, "m1");
 });
 
 test("documents the stable five cascade layers in order", () => {
@@ -230,7 +232,7 @@ test("resolveSlideStyle applies slide.accent override", () => {
 
 test("resolveSlideStyle applies master background when slide has no override", () => {
   const master = makeMaster({
-    background: { type: "solid", color: "#001122" },
+    background: { type: "solid", color: { value: "#001122" } },
   });
   const deck = makeDeck({ masters: [master] });
   const slide = makeSlide();
@@ -243,7 +245,7 @@ test("resolveSlideStyle applies master background when slide has no override", (
 
 test("resolveSlideStyle slide background overrides master background", () => {
   const master = makeMaster({
-    background: { type: "solid", color: "#001122" },
+    background: { type: "solid", color: { value: "#001122" } },
   });
   const deck = makeDeck({ masters: [master] });
   const slide = makeSlide({
@@ -263,52 +265,6 @@ test("resolveSlideStyle exposes master in result", () => {
   const slide = makeSlide();
   const resolved = resolveSlideStyle(deck, slide);
   assert.equal(resolved.master?.id, "m1");
-});
-
-test("resolveSlideStyle exposes showPageNumbers from master", () => {
-  const master = makeMaster({ showPageNumbers: true });
-  const deck = makeDeck({ masters: [master] });
-  const slide = makeSlide();
-  const resolved = resolveSlideStyle(deck, slide);
-  assert.equal(resolved.showPageNumbers, true);
-});
-
-test("resolveSlideStyle showPageNumbers defaults to false with no master", () => {
-  const deck = makeDeck();
-  const slide = makeSlide();
-  const resolved = resolveSlideStyle(deck, slide);
-  assert.equal(resolved.showPageNumbers, false);
-});
-
-test("resolveSlideStyle falls back when optional master chrome fields are absent", () => {
-  const master = makeMaster();
-  const deck = makeDeck({ masters: [master] });
-  const resolved = resolveSlideStyle(deck, makeSlide());
-
-  assert.equal(resolved.footerText, undefined);
-  assert.equal(resolved.logoUrl, undefined);
-  assert.equal(resolved.logoPlacement, undefined);
-  assert.equal(resolved.showPageNumbers, false);
-});
-
-test("resolveSlideStyle exposes footerText from master", () => {
-  const master = makeMaster({ footerText: "Slide {{pageNumber}}" });
-  const deck = makeDeck({ masters: [master] });
-  const slide = makeSlide();
-  const resolved = resolveSlideStyle(deck, slide);
-  assert.equal(resolved.footerText, "Slide {{pageNumber}}");
-});
-
-test("resolveSlideStyle exposes logoUrl and logoPlacement from master", () => {
-  const master = makeMaster({
-    logoUrl: "https://example.com/logo.png",
-    logoPlacement: "top-left",
-  });
-  const deck = makeDeck({ masters: [master] });
-  const slide = makeSlide();
-  const resolved = resolveSlideStyle(deck, slide);
-  assert.equal(resolved.logoUrl, "https://example.com/logo.png");
-  assert.equal(resolved.logoPlacement, "top-left");
 });
 
 // ---------------------------------------------------------------------------
@@ -340,26 +296,6 @@ test("resolveSlideStyle provides correct backgroundCss for gradient", () => {
   });
   const resolved = resolveSlideStyle(deck, slide);
   assert.equal(resolved.backgroundCss, "linear-gradient(90deg, #111, #222)");
-});
-
-// ---------------------------------------------------------------------------
-// renderFooterText
-// ---------------------------------------------------------------------------
-
-test("renderFooterText replaces {{pageNumber}} with 1-based index", () => {
-  assert.equal(renderFooterText("Page {{pageNumber}}", 0), "Page 1");
-  assert.equal(renderFooterText("Page {{pageNumber}}", 4), "Page 5");
-});
-
-test("renderFooterText replaces multiple occurrences", () => {
-  assert.equal(
-    renderFooterText("Slide {{pageNumber}} of N — slide {{pageNumber}}", 2),
-    "Slide 3 of N — slide 3",
-  );
-});
-
-test("renderFooterText returns template unchanged when no token present", () => {
-  assert.equal(renderFooterText("Confidential", 0), "Confidential");
 });
 
 // ---------------------------------------------------------------------------

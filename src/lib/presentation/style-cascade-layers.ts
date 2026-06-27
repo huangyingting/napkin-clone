@@ -14,11 +14,10 @@
  * sizes at their own boundary.
  */
 
-import type { Deck, Slide } from "./deck-core";
+import type { Deck, Slide, SlideMaster } from "./deck-core";
 import type {
   BackgroundTreatment,
   PresentationTheme,
-  MasterSlide,
 } from "./presentation-theme-types";
 import {
   backgroundTreatmentToCss,
@@ -42,11 +41,7 @@ export interface ResolvedSlideStyle {
   mutedColor: string;
   headingFontFamily: string;
   bodyFontFamily: string;
-  master?: MasterSlide;
-  footerText?: string;
-  showPageNumbers: boolean;
-  logoUrl?: string;
-  logoPlacement?: string;
+  master?: SlideMaster;
   tokenSet: PresentationTheme;
 }
 
@@ -99,22 +94,14 @@ function backgroundFromDesign(
   return undefined;
 }
 
-/**
- * Resolves the master for a slide.
- * Falls back: slide.masterId → deck.defaultMasterId → first master → undefined.
- */
+/** Resolves the deck-wide global master. */
 export function resolveMaster(
   deck: Deck,
-  slide: Slide,
-): MasterSlide | undefined {
+  _slide: Slide,
+): SlideMaster | undefined {
   const rawDeck = deck as any;
-  const rawSlide = slide as any;
-  const masters = rawDeck.masters as MasterSlide[] | undefined;
+  const masters = rawDeck.masters as SlideMaster[] | undefined;
   if (!masters || masters.length === 0) return undefined;
-  const masterId = rawSlide.masterId;
-  if (masterId) {
-    return masters.find((m) => m.id === masterId);
-  }
   return masters.find((m) => m.id === rawDeck.defaultMasterId) ?? masters[0];
 }
 
@@ -159,24 +146,8 @@ export function resolveSlideStyle(
     headingFontFamily,
     bodyFontFamily,
     ...(master !== undefined ? { master } : {}),
-    ...(master?.footerText !== undefined
-      ? { footerText: master.footerText }
-      : {}),
-    showPageNumbers: master?.showPageNumbers ?? false,
-    ...(master?.logoUrl !== undefined ? { logoUrl: master.logoUrl } : {}),
-    ...(master?.logoPlacement !== undefined
-      ? { logoPlacement: master.logoPlacement }
-      : {}),
     tokenSet,
   };
-}
-
-/**
- * Renders the footer text for a specific slide, replacing {{pageNumber}}
- * with the 1-based slide index.
- */
-export function renderFooterText(template: string, slideIndex: number): string {
-  return template.replace(/\{\{pageNumber\}\}/g, String(slideIndex + 1));
 }
 
 /**

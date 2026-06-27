@@ -90,6 +90,16 @@ function slideBackgroundImageUrl(
   return undefined;
 }
 
+function masterImageUrls(deck: Deck): string[] {
+  return (deck.masters ?? []).flatMap((master) =>
+    master.elements.flatMap((element) =>
+      element.kind === "image" && element.content.src
+        ? [element.content.src]
+        : [],
+    ),
+  );
+}
+
 /**
  * Sums the inlined-image bytes across every {@link ImageElement} in the deck
  * AND every per-slide `backgroundImage` that is a `data:` URL — i.e. the total
@@ -99,6 +109,9 @@ function slideBackgroundImageUrl(
  */
 export function totalInlineImageBytes(deck: Deck): number {
   let total = 0;
+  for (const src of masterImageUrls(deck)) {
+    total += dataUrlByteSize(src);
+  }
   for (const slide of deck.slides) {
     total += dataUrlByteSize(slideBackgroundImageUrl(slide));
     for (const element of slide.elements ?? []) {

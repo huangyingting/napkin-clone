@@ -7,21 +7,16 @@ import {
   commitCommand,
   executeCommand,
   type DeckPatch,
+  type SlideCommand,
 } from "@/lib/presentation/slide-commands";
 import { appendPendingPatches } from "./use-slide-editor-commit";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
-import {
-  TEMPLATE_IMAGE_PLACEHOLDER_SRC,
-  type SlideTemplateKind,
-} from "@/lib/presentation/slide-templates";
+import { type SlideTemplateKind } from "@/lib/presentation/slide-templates";
+import { hasMasterChromeKind } from "@/lib/presentation/global-master-chrome";
 
 type TemplateId = SlideTemplateKind | string;
-type MasterChromeKind = "footer" | "pageNumber" | "logo" | "watermark";
 
-type DoCommitAndChange = (
-  deck: Deck,
-  cmd: Parameters<typeof commitCommand>[1],
-) => void;
+type DoCommitAndChange = (deck: Deck, cmd: SlideCommand) => void;
 
 interface UseSlideManagementCommandsOptions {
   deck: Deck;
@@ -183,9 +178,6 @@ export function useSlideManagementCommands({
         patch: {
           name: next.name,
           category: next.category,
-          ...(next.defaultMasterId
-            ? { defaultMasterId: next.defaultMasterId }
-            : {}),
           ...(next.slideDesignDefaults
             ? { slideDesignDefaults: next.slideDesignDefaults }
             : {}),
@@ -201,103 +193,6 @@ export function useSlideManagementCommands({
       doCommitAndChange(deck, { type: "DELETE_CUSTOM_TEMPLATE", templateId });
     },
     [deck, doCommitAndChange],
-  );
-
-  const handleSetSlideMaster = useCallback(
-    (masterId: string | undefined) => {
-      const slideId = deck.slides[safeSelected]?.id;
-      if (!slideId) return;
-      doCommitAndChange(deck, {
-        type: "SET_SLIDE_MASTER",
-        slideId,
-        masterId,
-      });
-    },
-    [deck, doCommitAndChange, safeSelected],
-  );
-
-  const handleCreateMaster = useCallback(() => {
-    const nextNumber = (deck.masters?.length ?? 0) + 1;
-    doCommitAndChange(deck, {
-      type: "CREATE_MASTER",
-      master: {
-        id: `master-${crypto.randomUUID()}`,
-        name: `Master ${nextNumber}`,
-        elements: [],
-      },
-    });
-  }, [deck, doCommitAndChange]);
-
-  const handleSetDefaultMaster = useCallback(
-    (masterId: string) => {
-      doCommitAndChange(deck, { type: "SET_DEFAULT_MASTER", masterId });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  const handleDeleteMaster = useCallback(
-    (masterId: string) => {
-      doCommitAndChange(deck, { type: "DELETE_MASTER", masterId });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  const handleUpdateMasterBackground = useCallback(
-    (masterId: string, color: string | undefined) => {
-      doCommitAndChange(deck, {
-        type: "UPDATE_MASTER",
-        masterId,
-        patch: {
-          background:
-            color === undefined
-              ? undefined
-              : { type: "solid", color: { value: color } },
-        },
-      });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  const handleAddMasterChromeText = useCallback(
-    (masterId: string, kind: MasterChromeKind) => {
-      const master = (deck.masters ?? []).find(
-        (entry) => entry.id === masterId,
-      );
-      if (!master) return;
-      const zIndex =
-        master.elements.reduce(
-          (max, element) => Math.max(max, element.zIndex),
-          -1,
-        ) + 1;
-      doCommitAndChange(deck, {
-        type: "UPDATE_MASTER",
-        masterId,
-        patch: {
-          elements: [...master.elements, masterChromeElement(kind, zIndex)],
-        },
-      });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  const handleApplyMasterToAllSlides = useCallback(
-    (masterId: string) => {
-      let working = deck;
-      const patches: DeckPatch[] = [];
-      for (const slide of deck.slides) {
-        const { result, patches: nextPatches } = commitCommand(working, {
-          type: "SET_SLIDE_MASTER",
-          slideId: slide.id,
-          masterId,
-        });
-        if (!result.ok) return;
-        working = result.deck;
-        patches.push(...nextPatches);
-      }
-      appendPendingPatches(pendingPatchesRef, patches);
-      onDeckChange(working);
-    },
-    [deck, onDeckChange, pendingPatchesRef],
   );
 
   const handleConfirmTemplateReapply = useCallback(
@@ -337,13 +232,6 @@ export function useSlideManagementCommands({
     handleCreateCustomTemplate,
     handleUpdateCustomTemplateFromSlide,
     handleDeleteCustomTemplate,
-    handleSetSlideMaster,
-    handleCreateMaster,
-    handleSetDefaultMaster,
-    handleDeleteMaster,
-    handleUpdateMasterBackground,
-    handleAddMasterChromeText,
-    handleApplyMasterToAllSlides,
     handleConfirmTemplateReapply,
   };
 }
@@ -353,11 +241,12 @@ function templateFromSlide(slide: Slide, id: string, name: string) {
     id,
     name,
     category: templateCategory(slide),
-    ...(slide.masterId ? { defaultMasterId: slide.masterId } : {}),
     ...(slide.designOverrides
       ? { slideDesignDefaults: slide.designOverrides }
       : {}),
-    elements: (slide.elements ?? []).map(templateElementFromSlide),
+    elements: (slide.elements ?? [])
+      .filter((element) => !hasMasterChromeKind(element))
+      .map(templateElementFromSlide),
   };
 }
 
@@ -383,65 +272,6 @@ function templateCategory(
 
 function cloneRecord(input: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(input)) as Record<string, unknown>;
-}
-
-function masterChromeElement(kind: MasterChromeKind, zIndex: number) {
-  const id = `master-el-${crypto.randomUUID()}`;
-  if (kind === "logo") {
-    return {
-      id,
-      kind: "image",
-      role: "logo",
-      layer: "foreground",
-      locked: true,
-      box: { x: 4, y: 4, w: 12, h: 8 },
-      zIndex,
-      content: {
-        kind: "image",
-        src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
-        alt: "Logo",
-      },
-    };
-  }
-  const text =
-    kind === "footer"
-      ? "Footer"
-      : kind === "pageNumber"
-        ? "{{pageNumber}}"
-        : "Watermark";
-  return {
-    id,
-    kind: "text",
-    role: kind === "watermark" ? "background" : kind,
-    layer: kind === "watermark" ? "background" : "foreground",
-    locked: true,
-    box:
-      kind === "footer"
-        ? { x: 6, y: 91, w: 72, h: 5 }
-        : kind === "pageNumber"
-          ? { x: 82, y: 91, w: 12, h: 5 }
-          : { x: 18, y: 42, w: 64, h: 16 },
-    zIndex,
-    content: {
-      kind: "text",
-      text,
-      paragraphs: [{ text }],
-    },
-    ...(kind === "watermark"
-      ? {
-          designOverrides: {
-            textStyle: {
-              fontSize: 8,
-              align: "center",
-              bold: true,
-              italic: false,
-              color: "#9ca3af",
-            },
-            opacity: 0.18,
-          },
-        }
-      : {}),
-  };
 }
 
 function templateElementFromSlide(element: SlideElement, index: number) {

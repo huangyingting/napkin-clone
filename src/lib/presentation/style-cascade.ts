@@ -10,7 +10,6 @@ export {
   resolveDeckTokenSet,
   resolveMaster,
   resolveSlideStyle,
-  renderFooterText,
   resolveSlideTokenSet,
   resolveSlideThemeColors,
 } from "./style-cascade-layers";

@@ -23,8 +23,6 @@ export type {
   ImageDefaultsToken,
   BackgroundTreatment,
   PresentationTheme,
-  LogoPlacement,
-  MasterSlide,
   OverrideLayer,
 } from "./presentation-theme-types";
 

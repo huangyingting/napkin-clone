@@ -36,12 +36,12 @@ import {
   Heading,
   Heading1,
   Heading2,
+  Images,
   Image as ImageIcon,
   Keyboard,
   List,
   Minus,
   Palette,
-  PanelBottom,
   Plus,
   Quote,
   RectangleHorizontal,
@@ -110,8 +110,15 @@ import {
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
 import { PresentationThemePanel } from "@/components/presentation/presentation-theme-panel";
+import { GlobalMasterChromePanel } from "@/components/presentation/global-master-chrome-panel";
 import { type PresentationRole } from "@/lib/presentation/presentation-theme";
 import { resolvePresentationThemeTokens } from "@/lib/presentation/presentation-theme";
+import {
+  applyGlobalMasterChromeUpdate,
+  getGlobalMaster,
+  readGlobalMasterChromeState,
+  type GlobalMasterChromeUpdate,
+} from "@/lib/presentation/global-master-chrome";
 import {
   SLIDE_TEMPLATES,
   type SlideTemplateKind,
@@ -307,7 +314,6 @@ const INSERT_TEXT_ROLES: ReadonlyArray<{
   { role: "bullet", label: "Bullet", icon: <List size={17} /> },
   { role: "quote", label: "Quote", icon: <Quote size={17} /> },
   { role: "caption", label: "Caption", icon: <Captions size={17} /> },
-  { role: "footer", label: "Footer", icon: <PanelBottom size={17} /> },
   { role: "label", label: "Label", icon: <Tag size={17} /> },
 ];
 
@@ -789,6 +795,7 @@ export function SlideEditor({
   const [insertTab, setInsertTab] = useState<"text" | "shape" | "media">(
     "text",
   );
+  const [masterChromeOpen, setMasterChromeOpen] = useState(false);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [stageInsets, setStageInsets] = useState({
     top: 0,
@@ -1089,13 +1096,6 @@ export function SlideEditor({
     handleCreateCustomTemplate,
     handleUpdateCustomTemplateFromSlide,
     handleDeleteCustomTemplate,
-    handleSetSlideMaster,
-    handleCreateMaster,
-    handleSetDefaultMaster,
-    handleDeleteMaster,
-    handleUpdateMasterBackground,
-    handleAddMasterChromeText,
-    handleApplyMasterToAllSlides,
     handleConfirmTemplateReapply,
   } = useSlideManagementCommands({
     deck,
@@ -1106,6 +1106,21 @@ export function SlideEditor({
     clearSelection,
     setSelectedIndex,
   });
+
+  const handleGlobalMasterChromeChange = useCallback(
+    (update: GlobalMasterChromeUpdate) => {
+      const master = getGlobalMaster(deck);
+      if (!master) return;
+      doCommitAndChange(deck, {
+        type: "UPDATE_MASTER",
+        masterId: master.id,
+        patch: {
+          elements: applyGlobalMasterChromeUpdate(master.elements, update),
+        },
+      });
+    },
+    [deck, doCommitAndChange],
+  );
 
   const {
     copyElementsToClipboard,
@@ -1671,6 +1686,12 @@ export function SlideEditor({
   ]);
 
   const presentationThemeTokenSet = resolvePresentationThemeTokens(deck);
+  const globalMasterChromeState = readGlobalMasterChromeState(deck);
+  const hasGlobalMasterChrome =
+    globalMasterChromeState.logo.enabled ||
+    globalMasterChromeState.footer.enabled ||
+    globalMasterChromeState.pageNumber.enabled ||
+    globalMasterChromeState.watermark.enabled;
   const activeSlideTemplateId = useMemo<SlideTemplateKind>(() => {
     const selectedTemplateId = selectedSlide?.templateId;
     if (selectedTemplateId === "title") return "title";
@@ -1749,13 +1770,6 @@ export function SlideEditor({
     handleDeleteCustomTemplate,
     handleNotesChangeForSelected: (value, coalesceKey) =>
       handleNotesChange(safeSelected, value, coalesceKey),
-    handleSetSlideMaster,
-    handleCreateMaster,
-    handleSetDefaultMaster,
-    handleDeleteMaster,
-    handleUpdateMasterBackground,
-    handleAddMasterChromeText,
-    handleApplyMasterToAllSlides,
     handleBackgroundChange,
     handleBackgroundGradientChange,
     handleBackgroundImageChange,
@@ -2081,6 +2095,33 @@ export function SlideEditor({
                   onUpdate={handleUpdateThemeOverrides}
                   onReset={handleResetThemeOverrides}
                   onApplyTheme={handleApplyPresentationTheme}
+                />
+              </Popover>
+              <Popover
+                open={masterChromeOpen}
+                onClose={() => setMasterChromeOpen(false)}
+                aria-label="Masters"
+                align="start"
+                portal
+                layer="tooltip"
+                className="w-auto p-0"
+                trigger={
+                  <ToolbarIconTrigger
+                    icon={<Images size={17} aria-hidden="true" />}
+                    label="Masters"
+                    open={masterChromeOpen}
+                    onClick={() => setMasterChromeOpen((open) => !open)}
+                    badge={hasGlobalMasterChrome}
+                  />
+                }
+              >
+                <GlobalMasterChromePanel
+                  deck={deck}
+                  slide={selectedSlide}
+                  visuals={visuals}
+                  documentId={documentId}
+                  slideAssetPort={slideAssetPort}
+                  onChange={handleGlobalMasterChromeChange}
                 />
               </Popover>
               <div

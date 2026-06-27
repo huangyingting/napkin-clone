@@ -50,7 +50,10 @@ export interface SlideSourceMetadata {
 export type MasterElement = SlideElement & {
   layer: "background" | "foreground";
   locked: true;
+  masterChromeKind: MasterChromeKind;
 };
+
+export type MasterChromeKind = "logo" | "footer" | "pageNumber" | "watermark";
 
 export interface SlideMaster {
   id: string;

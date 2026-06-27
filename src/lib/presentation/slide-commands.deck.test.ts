@@ -99,6 +99,7 @@ function masterTextElement(id: string) {
     id,
     kind: "text" as const,
     role: "footer",
+    masterChromeKind: "footer" as const,
     layer: "foreground" as const,
     locked: true as const,
     box: { x: 5, y: 92, w: 90, h: 5 },
@@ -120,6 +121,26 @@ test("CREATE_MASTER appends a master and patch replay matches", () => {
   assert.equal((result.deck as any).masters.at(-1).id, "master-alt");
   assert.equal(safeParseDeck(result.deck).success, true);
   assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
+});
+
+test("CREATE_MASTER rejects invalid master chrome elements", () => {
+  const deck = buildCommandDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "CREATE_MASTER",
+    master: {
+      id: "master-invalid",
+      name: "Invalid",
+      elements: [
+        {
+          ...masterTextElement("me-invalid"),
+          masterChromeKind: "logo",
+        } as any,
+      ],
+    },
+  });
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.match(result.error ?? "", /kind must be "image"/);
 });
 
 test("UPDATE_MASTER updates deck-owned master chrome", () => {
@@ -189,6 +210,28 @@ test("UPDATE_MASTER_ELEMENT patches a locked master element", () => {
   assert.equal(element.content.text, "New");
   assert.equal(result.patches[0]!.op, "master.element.update");
   assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("UPDATE_MASTER_ELEMENT rejects invalid master chrome patches", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [
+      {
+        id: "master-default",
+        name: "Default",
+        elements: [masterTextElement("me1")],
+      },
+    ],
+  } as unknown as Deck;
+  const result = executeCommand(deck, {
+    type: "UPDATE_MASTER_ELEMENT",
+    masterId: "master-default",
+    elementId: "me1",
+    patch: { layer: "background" } as never,
+  });
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.match(result.error ?? "", /layer must be "foreground"/);
 });
 
 test("DELETE_MASTER removes non-default master and clears slide assignment", () => {
@@ -355,4 +398,39 @@ test("ADD_SLIDE_FROM_TEMPLATE materializes a custom template", () => {
   assert.equal(added.templateId, "template-custom");
   assert.equal(added.elements[0].content.text, "Custom title");
   assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("ADD_SLIDE_FROM_TEMPLATE omits custom template master chrome elements", () => {
+  const template = customTemplate();
+  template.elements = [
+    ...template.elements,
+    {
+      id: "slot-footer",
+      kind: "text",
+      role: "footer",
+      masterChromeKind: "footer",
+      box: { x: 6, y: 92, w: 88, h: 4 },
+      contentDefaults: {
+        kind: "text",
+        text: "Footer",
+        paragraphs: [{ text: "Footer" }],
+      },
+    } as any,
+  ];
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    customTemplates: [template],
+  } as Deck;
+
+  const result = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "template-custom",
+  });
+
+  assert.equal(result.ok, true);
+  const added = result.deck.slides.at(-1) as any;
+  assert.deepEqual(
+    added.elements.map((element: any) => element.role),
+    ["title"],
+  );
 });

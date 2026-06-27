@@ -111,25 +111,31 @@ test("brandToMasterChrome creates master with brand id prefix", () => {
   const master = brandToMasterChrome(brand, "brand:brand-1");
   assert.equal(master.id, "master:brand-1");
   assert.equal(master.name, "Acme Brand Master");
-  assert.deepEqual(master.elements, []);
   assert.deepEqual(master.background, {
     type: "solid",
     color: { value: "#fafafa" },
   });
 });
 
-test("brandToMasterChrome includes deck logoUrl when logoAssetUrl is set", () => {
+test("brandToMasterChrome includes a logo master element when logoAssetUrl is set", () => {
   const brand = mockBrand({ logoAssetUrl: "https://example.com/logo.png" });
   const master = brandToMasterChrome(brand, "brand:brand-1");
-  assert.equal(master.logoUrl, "https://example.com/logo.png");
-  assert.equal(master.logoPlacement, "top-right");
+  assert.equal(master.elements.length, 1);
+  const logo = master.elements[0];
+  assert.equal(logo?.kind, "image");
+  assert.equal(logo?.role, "logo");
+  assert.equal(logo?.masterChromeKind, "logo");
+  assert.equal(logo?.layer, "foreground");
+  assert.equal(logo?.locked, true);
+  if (logo?.kind === "image") {
+    assert.equal(logo.content.src, "https://example.com/logo.png");
+  }
 });
 
 test("brandToMasterChrome omits logo fields when logoAssetUrl is null", () => {
   const brand = mockBrand({ logoAssetUrl: null });
   const master = brandToMasterChrome(brand, "brand:brand-1");
-  assert.equal(master.logoUrl, undefined);
-  assert.equal(master.logoPlacement, undefined);
+  assert.deepEqual(master.elements, []);
 });
 
 test("applyBrandToDeck sets design theme and theme override token set on deck", () => {
@@ -149,6 +155,7 @@ test("applyBrandToDeck adds brand master as first master", () => {
   const newDeck = applyBrandToDeck(deck, brand);
   assert.ok(newDeck.masters !== undefined);
   assert.equal(newDeck.masters?.[0].id, "master:brand-1");
+  assert.equal(newDeck.defaultMasterId, "master:brand-1");
 });
 
 test("applyBrandToDeck preserves existing masters after brand master", () => {

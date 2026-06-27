@@ -109,31 +109,29 @@ test("template slides are valid deck payloads", () => {
   }
 });
 
-test("title template = editable title, subtitle, and footer text", () => {
-  assert.deepEqual(elementKinds("title"), ["text", "text", "text"]);
+test("title template = editable title and subtitle text", () => {
+  assert.deepEqual(elementKinds("title"), ["text", "text"]);
   const slide = buildTemplateSlide("title", {});
   assert.equal(slideLayout(slide), "title");
   const textElements = slide.elements as TextElement[];
   assert.deepEqual(
     textElements.map((element) => content(element).text),
-    ["Title", "Subtitle", "Footer"],
+    ["Title", "Subtitle"],
   );
   assert.equal(role(textElements[0]), "title");
 });
 
-test("content template = editable title/body text plus image/footer", () => {
-  assert.deepEqual(elementKinds("content"), ["text", "text", "image", "text"]);
+test("content template = editable title/body text plus image", () => {
+  assert.deepEqual(elementKinds("content"), ["text", "text", "image"]);
   const slide = buildTemplateSlide("content", {});
   assert.equal(slideLayout(slide), "content");
-  const [title, body, image, footer] = slide.elements ?? [];
+  const [title, body, image] = slide.elements ?? [];
   assert.equal(title?.kind, "text");
   assert.equal(content(title).text, "Title");
   assert.equal(body?.kind, "text");
   assert.equal(content(body).text, "Body");
   assert.equal(image?.kind, "image");
   assert.match(content(image).src, /^data:image\/svg\+xml,/);
-  assert.equal(footer?.kind, "text");
-  assert.equal(content(footer).text, "Footer");
 });
 
 test("template blueprints no longer emit non-editable placeholders", () => {
@@ -147,13 +145,8 @@ test("template blueprints no longer emit non-editable placeholders", () => {
   }
 });
 
-test("two-column template = title + two editable text columns + footer", () => {
-  assert.deepEqual(elementKinds("two-column"), [
-    "text",
-    "text",
-    "text",
-    "text",
-  ]);
+test("two-column template = title + two editable text columns", () => {
+  assert.deepEqual(elementKinds("two-column"), ["text", "text", "text"]);
   const slide = buildTemplateSlide("two-column", {});
   const [, left, right] = slide.elements as [
     TextElement,
@@ -231,14 +224,29 @@ test("template free-form elements survive schema validation", () => {
 // Semantic text roles on template text (#610)
 // ---------------------------------------------------------------------------
 
-test("title template text carries title/subtitle/footer roles", () => {
+test("title template text carries title/subtitle roles", () => {
   const slide = buildTemplateSlide("title", {});
   const roles = (slide.elements ?? [])
     .filter((el) => el.kind === "text")
     .map((el) => (el.kind === "text" ? role(el) : undefined));
   assert.ok(roles.includes("title"), roles.join(","));
   assert.ok(roles.includes("subtitle"), roles.join(","));
-  assert.ok(roles.includes("footer"), roles.join(","));
+});
+
+test("built-in templates do not emit global master chrome elements", () => {
+  for (const kind of SLIDE_TEMPLATES.map((option) => option.kind)) {
+    const slide = buildTemplateSlide(kind, {});
+    assert.deepEqual(
+      (slide.elements ?? [])
+        .map(
+          (element) =>
+            (element as { masterChromeKind?: unknown }).masterChromeKind,
+        )
+        .filter(Boolean),
+      [],
+      kind,
+    );
+  }
 });
 
 test("visual template caption text carries the caption role", () => {

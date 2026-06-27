@@ -15,6 +15,7 @@ import type {
   VisualElement,
 } from "./deck-elements";
 import { makeElementId, makeSlideId } from "./deck-ids";
+import { isMasterChromeTemplateElement } from "./global-master-chrome";
 import type { SlideFormat } from "./slide-format";
 
 /** The set of templates the "+ Add slide" picker can insert. */
@@ -52,12 +53,12 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
   {
     kind: "title",
     label: "Title",
-    description: "Editable title, subtitle, and footer",
+    description: "Editable title and subtitle",
   },
   {
     kind: "content",
     label: "Content",
-    description: "Editable title, body, visual, and footer",
+    description: "Editable title, body, and visual",
   },
   {
     kind: "visual",
@@ -114,12 +115,7 @@ function textStyle(
   return { fontSize, align, bold, italic: false };
 }
 
-type TemplatePresentationRole =
-  | "title"
-  | "subtitle"
-  | "body"
-  | "caption"
-  | "footer";
+type TemplatePresentationRole = "title" | "subtitle" | "body" | "caption";
 
 function templateTextStyle(role: TemplatePresentationRole): TextElementStyle {
   switch (role) {
@@ -129,8 +125,6 @@ function templateTextStyle(role: TemplatePresentationRole): TextElementStyle {
       return textStyle(4.5, "center", false);
     case "body":
       return textStyle(4.25, "left", false);
-    case "footer":
-      return textStyle(2.4, "center", false);
     case "caption":
       return textStyle(4.5, "center", true);
   }
@@ -194,18 +188,11 @@ export const BUILT_IN_SLIDE_TEMPLATES: readonly SlideTemplate[] = [
       "Subtitle",
       BOX.titleSubtitle,
     ),
-    textTemplateElement("title-footer", "footer", "Footer", BOX.titleFooter),
   ]),
   builtInTemplate("content", "Content", [
     textTemplateElement("content-title", "title", "Title", BOX.contentTitle),
     textTemplateElement("content-body", "body", "Body", BOX.contentBody),
     imageTemplateElement("content-image", "Visual", BOX.contentMedia),
-    textTemplateElement(
-      "content-footer",
-      "footer",
-      "Footer",
-      BOX.contentFooter,
-    ),
   ]),
   builtInTemplate("visual", "Visual spotlight", [
     imageTemplateElement("visual-media", "Visual", BOX.spotlight),
@@ -224,12 +211,6 @@ export const BUILT_IN_SLIDE_TEMPLATES: readonly SlideTemplate[] = [
       "body",
       "Right column",
       BOX.twoColumnRight,
-    ),
-    textTemplateElement(
-      "two-column-footer",
-      "footer",
-      "Footer",
-      BOX.contentFooter,
     ),
   ]),
   builtInTemplate("blank", "Blank", []),
@@ -331,8 +312,8 @@ export function buildTemplateSlide(
     ...(template.slideDesignDefaults
       ? { designOverrides: template.slideDesignDefaults }
       : {}),
-    elements: template.elements.map((element, index) =>
-      materializeTemplateElement(element, index, ctx),
-    ),
+    elements: template.elements
+      .filter((element) => !isMasterChromeTemplateElement(element))
+      .map((element, index) => materializeTemplateElement(element, index, ctx)),
   } as unknown as Slide;
 }

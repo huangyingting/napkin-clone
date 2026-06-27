@@ -33,7 +33,6 @@ import type { Visual } from "@/lib/visual/schema";
 import type { SlideTemplateKind } from "@/lib/presentation/slide-templates";
 
 type TemplateId = SlideTemplateKind | string;
-type MasterChromeKind = "footer" | "pageNumber" | "logo" | "watermark";
 import type { SelectionMode } from "@/components/presentation/slide-stage-editor";
 
 export interface SlideEditorContextValue {
@@ -124,16 +123,6 @@ export interface SlideEditorContextValue {
   handleCreateCustomTemplate: () => void;
   handleUpdateCustomTemplateFromSlide: (templateId: string) => void;
   handleDeleteCustomTemplate: (templateId: string) => void;
-  handleSetSlideMaster: (masterId: string | undefined) => void;
-  handleCreateMaster: () => void;
-  handleSetDefaultMaster: (masterId: string) => void;
-  handleDeleteMaster: (masterId: string) => void;
-  handleUpdateMasterBackground: (
-    masterId: string,
-    color: string | undefined,
-  ) => void;
-  handleAddMasterChromeText: (masterId: string, role: MasterChromeKind) => void;
-  handleApplyMasterToAllSlides: (masterId: string) => void;
   /** Update notes for the currently-selected slide. */
   handleNotesChangeForSelected: (value: string, coalesceKey?: string) => void;
 
@@ -299,13 +288,6 @@ export const SlideInspectorFromContext = memo(
       handleCreateCustomTemplate,
       handleUpdateCustomTemplateFromSlide,
       handleDeleteCustomTemplate,
-      handleSetSlideMaster,
-      handleCreateMaster,
-      handleSetDefaultMaster,
-      handleDeleteMaster,
-      handleUpdateMasterBackground,
-      handleAddMasterChromeText,
-      handleApplyMasterToAllSlides,
       handleNotesChangeForSelected,
       handleUpdateElement,
       handleRemoveElement,
@@ -355,13 +337,6 @@ export const SlideInspectorFromContext = memo(
         onCreateCustomTemplate={handleCreateCustomTemplate}
         onUpdateCustomTemplateFromSlide={handleUpdateCustomTemplateFromSlide}
         onDeleteCustomTemplate={handleDeleteCustomTemplate}
-        onSetSlideMaster={handleSetSlideMaster}
-        onCreateMaster={handleCreateMaster}
-        onSetDefaultMaster={handleSetDefaultMaster}
-        onDeleteMaster={handleDeleteMaster}
-        onUpdateMasterBackground={handleUpdateMasterBackground}
-        onAddMasterChromeText={handleAddMasterChromeText}
-        onApplyMasterToAllSlides={handleApplyMasterToAllSlides}
         onUpdateNotes={handleNotesChangeForSelected}
         onUpdateElement={handleUpdateElement}
         onRemoveElement={handleRemoveElement}

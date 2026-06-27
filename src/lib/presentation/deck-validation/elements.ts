@@ -81,7 +81,20 @@ const BASE_ELEMENT_KEYS = [
   "content",
 ] as const;
 
-const MASTER_ELEMENT_KEYS = [...BASE_ELEMENT_KEYS, "layer"] as const;
+const MASTER_ELEMENT_KEYS = [
+  ...BASE_ELEMENT_KEYS,
+  "layer",
+  "masterChromeKind",
+] as const;
+
+const MASTER_CHROME_KINDS = [
+  "logo",
+  "footer",
+  "pageNumber",
+  "watermark",
+] as const;
+
+type MasterChromeKind = (typeof MASTER_CHROME_KINDS)[number];
 
 const ELEMENT_CONTENT_KEYS: Record<string, readonly string[]> = {
   text: [
@@ -738,12 +751,68 @@ export function validateMasterElement(
   if (input.locked !== true) {
     throw new DeckValidationError(`${context}.locked must be true`);
   }
+  const masterChromeKind = validateMasterChromeKind(
+    input.masterChromeKind,
+    `${context}.masterChromeKind`,
+  );
   const base = validateBaseElementFields(input, context, MASTER_ELEMENT_KEYS);
   const kind = base.kind as string;
+  const role = base.role;
+  const expected = expectedMasterChromeFields(masterChromeKind);
+  if (kind !== expected.kind) {
+    throw new DeckValidationError(
+      `${context}.kind must be "${expected.kind}" for masterChromeKind "${masterChromeKind}"`,
+    );
+  }
+  if (role !== expected.role) {
+    throw new DeckValidationError(
+      `${context}.role must be "${expected.role}" for masterChromeKind "${masterChromeKind}"`,
+    );
+  }
+  if (input.layer !== expected.layer) {
+    throw new DeckValidationError(
+      `${context}.layer must be "${expected.layer}" for masterChromeKind "${masterChromeKind}"`,
+    );
+  }
   const content = validateElementContent(
     kind,
     input.content,
     `${context}.content`,
   );
-  return { ...base, layer: input.layer, locked: true, content };
+  return {
+    ...base,
+    layer: input.layer,
+    locked: true,
+    masterChromeKind,
+    content,
+  };
+}
+
+function validateMasterChromeKind(
+  input: unknown,
+  context: string,
+): MasterChromeKind {
+  if (!MASTER_CHROME_KINDS.includes(input as MasterChromeKind)) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${MASTER_CHROME_KINDS.join(", ")}`,
+    );
+  }
+  return input as MasterChromeKind;
+}
+
+function expectedMasterChromeFields(kind: MasterChromeKind): {
+  kind: "image" | "text";
+  role: "logo" | "footer" | "pageNumber" | "background";
+  layer: "background" | "foreground";
+} {
+  switch (kind) {
+    case "logo":
+      return { kind: "image", role: "logo", layer: "foreground" };
+    case "footer":
+      return { kind: "text", role: "footer", layer: "foreground" };
+    case "pageNumber":
+      return { kind: "text", role: "pageNumber", layer: "foreground" };
+    case "watermark":
+      return { kind: "text", role: "background", layer: "background" };
+  }
 }

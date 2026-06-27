@@ -62,8 +62,8 @@ test("inspectSlideDesignOrigins reports slide overrides", () => {
       },
     }),
   );
-  assert.equal(report.masterId?.layer, "slide");
-  assert.equal(report.masterId?.value, "master-alt");
+  assert.equal(report.masterId?.layer, "deck");
+  assert.equal(report.masterId?.value, "master-default");
   assert.equal(report.background.layer, "slide");
   assert.deepEqual(report.background.value, {
     type: "solid",

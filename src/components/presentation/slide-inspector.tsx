@@ -252,13 +252,6 @@ export function SlideInspector({
   onCreateCustomTemplate,
   onUpdateCustomTemplateFromSlide,
   onDeleteCustomTemplate,
-  onSetSlideMaster,
-  onCreateMaster,
-  onSetDefaultMaster,
-  onDeleteMaster,
-  onUpdateMasterBackground,
-  onAddMasterChromeText,
-  onApplyMasterToAllSlides,
   onUpdateNotes,
   onUpdateElement,
   onAlign,
@@ -293,11 +286,9 @@ export function SlideInspector({
   const activeMaster = useMemo(() => {
     const masters = deck.masters ?? [];
     return (
-      masters.find((master) => master.id === slide.masterId) ??
-      masters.find((master) => master.id === deck.defaultMasterId) ??
-      masters[0]
+      masters.find((master) => master.id === deck.defaultMasterId) ?? masters[0]
     );
-  }, [deck.defaultMasterId, deck.masters, slide.masterId]);
+  }, [deck.defaultMasterId, deck.masters]);
   const masterElements = activeMaster?.elements ?? [];
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
@@ -396,13 +387,6 @@ export function SlideInspector({
             onCreateCustomTemplate={onCreateCustomTemplate}
             onUpdateCustomTemplateFromSlide={onUpdateCustomTemplateFromSlide}
             onDeleteCustomTemplate={onDeleteCustomTemplate}
-            onSetSlideMaster={onSetSlideMaster}
-            onCreateMaster={onCreateMaster}
-            onSetDefaultMaster={onSetDefaultMaster}
-            onDeleteMaster={onDeleteMaster}
-            onUpdateMasterBackground={onUpdateMasterBackground}
-            onAddMasterChromeText={onAddMasterChromeText}
-            onApplyMasterToAllSlides={onApplyMasterToAllSlides}
             onBackgroundChange={onBackgroundChange}
             onBackgroundGradientChange={onBackgroundGradientChange}
             onBackgroundImageChange={onBackgroundImageChange}

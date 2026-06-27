@@ -272,52 +272,6 @@ export type PresentationTheme = {
 };
 
 // ---------------------------------------------------------------------------
-// Master slide
-// ---------------------------------------------------------------------------
-
-/** Corner anchor for the logo overlay. */
-export type LogoPlacement =
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right";
-
-/**
- * Master-slide record stored in `Deck.masters`.
- *
- * A master controls structural chrome that appears on every slide assigned to
- * it — background, logo, footer, and page number.  One deck may carry multiple
- * masters (e.g., a title master and a content master).
- *
- * Cascade position: master fields narrow the token-set defaults before layout
- * and slide-level overrides are applied.
- */
-export type MasterSlide = {
-  /** Stable id referenced by `Slide.masterId`. */
-  id: string;
-  /** Display name (e.g., "Title", "Content", "Section"). */
-  name: string;
-  /** Id of the `PresentationTheme` this master inherits from. */
-  themeId: string;
-  /**
-   * Optional background override applied to every slide that uses this master.
-   * When absent the master inherits `PresentationTheme.defaultBackground`.
-   */
-  background?: BackgroundTreatment;
-  /** Show slide page numbers on all slides using this master. Default false. */
-  showPageNumbers: boolean;
-  /** Brand logo image URL rendered in the `logoPlacement` corner. */
-  logoUrl?: string;
-  /** Corner anchor for the logo.  Required when `logoUrl` is set. */
-  logoPlacement?: LogoPlacement;
-  /**
-   * Global footer text.  Supports the `{{pageNumber}}` placeholder token
-   * which the renderer replaces with the 1-based slide index at render time.
-   */
-  footerText?: string;
-};
-
-// ---------------------------------------------------------------------------
 // Override layer tag (documentation / type narrowing helper)
 // ---------------------------------------------------------------------------
 
