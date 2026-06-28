@@ -180,7 +180,7 @@ export function SpeakerNotesControl({
       rows={12}
       aria-label="Speaker notes"
       placeholder="Add speaker notes…"
-      className={`${FIELD_CLASS} min-h-64 resize-y leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
+      className={`${FIELD_CLASS} min-h-0 flex-1 resize-none leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
     />
   );
 }

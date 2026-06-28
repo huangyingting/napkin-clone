@@ -369,7 +369,9 @@ export function SlideInspector({
         </div>
       </div>
 
-      <div className={PANEL_BODY_CLASS}>
+      <div
+        className={`${PANEL_BODY_CLASS} ${activeTab === "notes" ? "flex min-h-0 flex-1 flex-col" : ""}`.trim()}
+      >
         {activeTab === "slide" ? (
           <SlidePanelBody
             slide={slide}
@@ -390,6 +392,7 @@ export function SlideInspector({
           <PanelSection
             title="Speaker notes"
             icon={<NotebookPen size={12} aria-hidden="true" />}
+            className="min-h-0 flex-1"
           >
             <SpeakerNotesControl
               notes={slide.notes ?? ""}
