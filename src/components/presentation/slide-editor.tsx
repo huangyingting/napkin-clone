@@ -105,6 +105,7 @@ import {
 } from "@/lib/presentation/canvas-a11y";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import {
+  defaultPanelTab,
   isPanelAvailable,
   isSlideToolbarVisible,
   toToolbarSelectionKind,
@@ -542,7 +543,6 @@ export function SlideEditor({
     rightPanelTab,
     setRightPanelTab,
     openRightPanel,
-    openSelectionPanel,
     zoom,
     zoomMenuOpen,
     setZoomMenuOpen,
@@ -670,9 +670,9 @@ export function SlideEditor({
   const undoShortcut = isMac ? "⌘Z" : "Ctrl+Z";
   const redoShortcut = isMac ? "⌘⇧Z" : "Ctrl+Shift+Z";
 
-  // No fallback panel routing: when the selection changes so the active
-  // right-panel tab no longer applies, close the panel instead of guessing a
-  // replacement.
+  // The right-panel open state is user controlled: selection changes never open
+  // or close it. When it is already open, keep it open and route an invalid tab
+  // to the default panel for the current selection.
   useEffect(() => {
     if (!inspectorOpen && !inspectorSheetOpen) return;
     const elements = selectedSlide?.elements ?? [];
@@ -703,7 +703,7 @@ export function SlideEditor({
           undefined,
       })
     ) {
-      closeRightPanel();
+      setRightPanelTab(defaultPanelTab(selectedCount > 0));
     }
   }, [
     inspectorOpen,
@@ -712,7 +712,7 @@ export function SlideEditor({
     effectiveSelectedElementId,
     effectiveSelectedElementIds,
     selectedSlide,
-    closeRightPanel,
+    setRightPanelTab,
   ]);
 
   const deckFormat = deckCanvasFormat(deck);
@@ -978,28 +978,47 @@ export function SlideEditor({
     setSelectedElementIds((current) =>
       current.size === 0 ? current : new Set(),
     );
-    closeRightPanel();
-  }, [closeRightPanel, setSelectedElementId, setSelectedElementIds]);
+  }, [setSelectedElementId, setSelectedElementIds]);
 
   const syncSelectionPanelForIds = useCallback(
     (ids: Set<string>) => {
-      if (ids.size === 0) {
-        closeRightPanel();
-        return;
+      if (!inspectorOpen && !inspectorSheetOpen) return;
+      const selectedCount = ids.size;
+      const [id] = ids;
+      const selectedElement =
+        selectedCount === 1
+          ? (selectedSlide?.elements?.find(
+              (candidate) => candidate.id === id,
+            ) ?? null)
+          : null;
+      const kind =
+        selectedCount >= 2 || !selectedElement
+          ? null
+          : toToolbarSelectionKind(
+              selectedElement.kind,
+              selectedElement.kind === "shape"
+                ? shapeContent(selectedElement).shape
+                : undefined,
+            );
+      if (
+        !isPanelAvailable(rightPanelTab, {
+          kind,
+          selectedCount,
+          hasSourceRef:
+            (selectedElement as { source?: unknown } | null)?.source !==
+            undefined,
+        })
+      ) {
+        setRightPanelTab(defaultPanelTab(selectedCount > 0));
       }
-      if (ids.size === 1) {
-        const [id] = ids;
-        const element = selectedSlide?.elements?.find(
-          (candidate) => candidate.id === id,
-        );
-        if (element?.kind === "visual") {
-          closeRightPanel();
-          return;
-        }
-      }
-      openSelectionPanel();
     },
-    [closeRightPanel, openSelectionPanel, selectedSlide?.elements],
+    [
+      inspectorOpen,
+      inspectorSheetOpen,
+      rightPanelTab,
+      selectedSlide?.elements,
+      setRightPanelTab,
+    ],
   );
 
   const handleSelectSlide = useCallback(() => {
@@ -1008,12 +1027,12 @@ export function SlideEditor({
     setSelectedElementIds((current) =>
       current.size === 0 ? current : new Set(),
     );
-    closeRightPanel();
+    syncSelectionPanelForIds(new Set());
   }, [
-    closeRightPanel,
     selectedSlide?.id,
     setSelectedElementId,
     setSelectedElementIds,
+    syncSelectionPanelForIds,
   ]);
 
   const handleSelectElement = useCallback(

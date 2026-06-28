@@ -29,19 +29,27 @@ export const PANEL_BODY_CLASS = "divide-y divide-ds-border-subtle";
 
 export function PanelSection({
   title,
+  icon,
   children,
   className,
 }: {
   title?: string;
+  /** Optional leading glyph (e.g. a lucide icon sized ~12px) for the caption. */
+  icon?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
   return (
     <section
-      className={`flex flex-col gap-2.5 px-3.5 py-3 ${className ?? ""}`.trim()}
+      className={`flex flex-col gap-2 px-3 py-2.5 ${className ?? ""}`.trim()}
     >
       {title ? (
-        <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+        <h4 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          {icon ? (
+            <span aria-hidden="true" className="flex text-ds-accent">
+              {icon}
+            </span>
+          ) : null}
           {title}
         </h4>
       ) : null}
@@ -62,7 +70,7 @@ export function PropRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[84px_minmax(0,1fr)] gap-2 ${
+      className={`grid grid-cols-[72px_minmax(0,1fr)] gap-2 ${
         align === "start" ? "items-start" : "items-center"
       }`}
     >

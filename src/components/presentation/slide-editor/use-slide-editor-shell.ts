@@ -142,10 +142,6 @@ export function useSlideEditorShell({
     [openInspectorSurface],
   );
 
-  const openSelectionPanel = useCallback(() => {
-    openInspectorSurface();
-  }, [openInspectorSurface]);
-
   // ── Zoom ─────────────────────────────────────────────────────────────────
   const [zoom, setZoom] = useState(1);
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
@@ -234,7 +230,6 @@ export function useSlideEditorShell({
     rightPanelTab,
     setRightPanelTab,
     openRightPanel,
-    openSelectionPanel,
     // Zoom
     zoom,
     zoomMenuOpen,

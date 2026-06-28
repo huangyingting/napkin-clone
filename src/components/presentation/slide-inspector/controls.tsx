@@ -24,16 +24,26 @@ import {
   AlignVerticalSpaceBetween,
   Bold,
   BringToFront,
+  CaseSensitive,
   Expand,
+  Image as ImageIcon,
   Italic,
+  Link2,
   Link2Off,
   Minus,
+  Move,
   MoveHorizontal,
   MoveVertical,
+  Pilcrow,
   Plus,
   SendToBack,
+  Shapes,
+  Sparkles,
+  Spline,
+  SlidersHorizontal,
   StepBack,
   StepForward,
+  Type,
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -46,7 +56,7 @@ import {
   SelectField,
 } from "@/components/presentation/slide-inspector/primitives";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
-import { Swatch, Tooltip } from "@/components/ui";
+import { ColorPicker, Swatch, Tooltip } from "@/components/ui";
 import type {
   ConnectorArrow,
   ConnectorElement,
@@ -218,15 +228,16 @@ export function RichTextBox({
         >
           <Italic size={14} aria-hidden="true" />
         </button>
-        <label className="ml-auto flex items-center gap-1 text-xs text-ds-text-muted">
-          Color
-          <input
-            type="color"
+        <div className="ml-auto flex items-center gap-1.5 text-xs text-ds-text-muted">
+          <span>Color</span>
+          <ColorPicker
+            color=""
             aria-label="Selected text color"
-            className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-            onChange={(event) => applyCommand("foreColor", event.target.value)}
+            size="md"
+            preserveSelection
+            onChange={(hex) => applyCommand("foreColor", hex)}
           />
-        </label>
+        </div>
       </div>
       <div
         ref={ref}
@@ -305,7 +316,10 @@ export function ImageElementEditor({
 
   return (
     <>
-      <PanelSection title="Image">
+      <PanelSection
+        title="Image"
+        icon={<ImageIcon size={12} aria-hidden="true" />}
+      >
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -388,7 +402,10 @@ export function ImageAdjustPanel({
 
   return (
     <>
-      <PanelSection title="Adjust">
+      <PanelSection
+        title="Adjust"
+        icon={<SlidersHorizontal size={12} aria-hidden="true" />}
+      >
         <ImageFitModeControl
           fitMode={design.fitMode}
           onChange={(fitMode) =>
@@ -1062,23 +1079,17 @@ export function RoleSelectControl({
   const options = TEXT_ROLE_OPTIONS[kindKey];
   const current = defaultPresentationRole(element);
   return (
-    <div className="flex flex-col gap-1.5">
-      <PropRow label="Role">
-        <SelectField
-          value={current}
-          ariaLabel="Text role"
-          onChange={(value) => onChange(value as PresentationRole)}
-          options={options.map((option) => ({
-            value: option.value,
-            label: option.label,
-          }))}
-        />
-      </PropRow>
-      <span className="text-[11px] text-ds-text-muted">
-        Inherits theme typography for this role; edits below override it
-        locally.
-      </span>
-    </div>
+    <PropRow label="Role">
+      <SelectField
+        value={current}
+        ariaLabel="Text role"
+        onChange={(value) => onChange(value as PresentationRole)}
+        options={options.map((option) => ({
+          value: option.value,
+          label: option.label,
+        }))}
+      />
+    </PropRow>
   );
 }
 
@@ -1244,12 +1255,11 @@ export function InheritedColorControl({
         }}
       />
       <div className="flex items-center gap-2">
-        <input
-          type="color"
+        <ColorPicker
+          color={value}
+          fallback="#000000"
           aria-label="Text color"
-          value={isHexColor(value) ? value : "#000000"}
-          onChange={(event) => setColor(event.target.value)}
-          className="h-7 w-9 cursor-pointer rounded-ds-sm border border-ds-border-subtle bg-ds-surface"
+          onChange={(hex) => setColor(hex)}
         />
         <input
           key={value}
@@ -1337,7 +1347,7 @@ export function TextPanel({
 
   return (
     <>
-      <PanelSection title="Text">
+      <PanelSection title="Text" icon={<Type size={12} aria-hidden="true" />}>
         <RichTextBox
           label="Text"
           placeholder="Add text"
@@ -1365,7 +1375,10 @@ export function TextPanel({
         />
       </PanelSection>
 
-      <PanelSection title="Font">
+      <PanelSection
+        title="Font"
+        icon={<CaseSensitive size={12} aria-hidden="true" />}
+      >
         <RoleSelectControl
           element={element}
           onChange={(role) =>
@@ -1388,7 +1401,10 @@ export function TextPanel({
         <LineHeightControl style={style} onChange={updateStyle} />
       </PanelSection>
 
-      <PanelSection title="Paragraph">
+      <PanelSection
+        title="Paragraph"
+        icon={<Pilcrow size={12} aria-hidden="true" />}
+      >
         <ParagraphSpacingControl style={style} onChange={updateStyle} />
         <VerticalAlignControl style={style} onChange={updateStyle} />
         <FitModeControl
@@ -1476,7 +1492,7 @@ export function ShapeLabelPanel({
 
   return (
     <>
-      <PanelSection title="Label">
+      <PanelSection title="Label" icon={<Type size={12} aria-hidden="true" />}>
         <RichTextBox
           label="Label"
           placeholder="Add label"
@@ -1501,7 +1517,10 @@ export function ShapeLabelPanel({
         />
       </PanelSection>
 
-      <PanelSection title="Font">
+      <PanelSection
+        title="Font"
+        icon={<CaseSensitive size={12} aria-hidden="true" />}
+      >
         <RoleSelectControl
           element={element}
           onChange={(role) =>
@@ -1524,7 +1543,10 @@ export function ShapeLabelPanel({
         <LineHeightControl style={style} onChange={updateStyle} />
       </PanelSection>
 
-      <PanelSection title="Paragraph">
+      <PanelSection
+        title="Paragraph"
+        icon={<Pilcrow size={12} aria-hidden="true" />}
+      >
         <ParagraphSpacingControl style={style} onChange={updateStyle} />
         <VerticalAlignControl style={style} onChange={updateStyle} />
       </PanelSection>
@@ -1549,7 +1571,10 @@ export function EffectsPanel({
     );
   }
   return (
-    <PanelSection title="Effects">
+    <PanelSection
+      title="Effects"
+      icon={<Sparkles size={12} aria-hidden="true" />}
+    >
       <ElementOpacityControl
         element={element}
         onUpdateElement={onUpdateElement}
@@ -1604,7 +1629,16 @@ export function ElementEditor({
           ? (currentShapeDesign.fill as { value: string }).value
           : "#6366f1";
       return (
-        <PanelSection title={currentShape.shape === "line" ? "Line" : "Shape"}>
+        <PanelSection
+          title={currentShape.shape === "line" ? "Line" : "Shape"}
+          icon={
+            currentShape.shape === "line" ? (
+              <Minus size={12} aria-hidden="true" />
+            ) : (
+              <Shapes size={12} aria-hidden="true" />
+            )
+          }
+        >
           <PropRow label="Kind">
             <SelectField
               value={currentShape.shape}
@@ -1626,19 +1660,18 @@ export function ElementEditor({
           </PropRow>
           {currentShape.shape !== "line" ? (
             <PropRow label="Fill">
-              <input
-                type="color"
-                value={currentFill}
-                onChange={(event) =>
+              <ColorPicker
+                color={currentFill}
+                fallback="#6366f1"
+                aria-label="Fill color"
+                onChange={(hex) =>
                   onUpdateElement(element.id, {
                     designOverrides: {
                       ...currentShapeDesign,
-                      fill: { value: event.target.value },
+                      fill: { value: hex },
                     },
                   } as ElementPatch)
                 }
-                className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                aria-label="Fill color"
               />
             </PropRow>
           ) : null}
@@ -1647,22 +1680,21 @@ export function ElementEditor({
               label={currentShape.shape === "line" ? "Thickness" : "Border"}
             >
               {currentShape.shape !== "line" ? (
-                <input
-                  type="color"
-                  value={currentStroke?.color ?? "#000000"}
-                  onChange={(event) =>
+                <ColorPicker
+                  color={currentStroke?.color ?? "#000000"}
+                  fallback="#000000"
+                  aria-label="Border color"
+                  onChange={(hex) =>
                     onUpdateElement(element.id, {
                       designOverrides: {
                         ...currentShapeDesign,
                         stroke: {
-                          color: event.target.value,
+                          color: hex,
                           width: currentStroke?.width ?? 0.4,
                         },
                       },
                     } as ElementPatch)
                   }
-                  className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                  aria-label="Border color"
                 />
               ) : null}
               <input
@@ -1799,7 +1831,7 @@ export function ConnectorElementEditor({
   }
 
   return (
-    <PanelSection title="Line">
+    <PanelSection title="Line" icon={<Spline size={12} aria-hidden="true" />}>
       {/* Arrowhead at start */}
       <PropRow label="Arrow start">
         <SelectField
@@ -1881,22 +1913,21 @@ export function ConnectorElementEditor({
 
       {/* Stroke color */}
       <PropRow label="Stroke">
-        <input
-          type="color"
-          value={design.stroke?.color ?? "#a1a1aa"}
-          onChange={(event) =>
+        <ColorPicker
+          color={design.stroke?.color ?? "#a1a1aa"}
+          fallback="#a1a1aa"
+          aria-label="Stroke color"
+          onChange={(hex) =>
             onUpdateElement(element.id, {
               designOverrides: {
                 ...elementDesignOverrides(element),
                 stroke: {
-                  color: event.target.value,
+                  color: hex,
                   width: design.stroke?.width ?? 0.4,
                 },
               },
             } as ElementPatch)
           }
-          className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-          aria-label="Stroke color"
         />
         <input
           type="range"
@@ -2016,7 +2047,10 @@ export function ElementArrangeControl({
   const clamp = (n: number, min: number, max: number) =>
     Math.max(min, Math.min(max, n));
   return (
-    <PanelSection title="Position &amp; size">
+    <PanelSection
+      title="Position &amp; size"
+      icon={<Move size={12} aria-hidden="true" />}
+    >
       <PropRow label="Position">
         <input
           type="number"
@@ -2422,8 +2456,7 @@ export function SourceSummary({
       <PanelSection>
         <p className="text-sm font-medium text-ds-text-primary">Standalone</p>
         <p className="text-xs text-ds-text-muted">
-          This element is not linked to a document. Insert content from the
-          slide toolbar’s Add menu to establish a source link.
+          Not linked to a document. Use the toolbar’s Add menu to link content.
         </p>
       </PanelSection>
     );
@@ -2445,20 +2478,17 @@ export function SourceSummary({
   }[status];
 
   const explanation = {
-    unlinked:
-      "This link was intentionally unlinked. Relink to track the source block again.",
-    source_missing:
-      "The linked source block no longer exists in the document. Unlink to keep this element as standalone.",
-    stale:
-      "The linked source block changed since this element was last synced. Update to pull the latest content.",
-    linked: "This element matches its linked source block.",
-    standalone: "This element is not linked to a document.",
+    unlinked: "Unlinked. Relink to track the source block again.",
+    source_missing: "Source block is gone. Unlink to keep standalone.",
+    stale: "Source changed since last sync. Update to pull changes.",
+    linked: "Matches the linked source block.",
+    standalone: "Not linked to a document.",
   }[status];
 
   const actionClass = `rounded-ds-md border border-ds-border-subtle px-2.5 py-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
 
   return (
-    <PanelSection title="Source">
+    <PanelSection title="Source" icon={<Link2 size={12} aria-hidden="true" />}>
       <div className="flex flex-col gap-1">
         <span
           className={`text-sm font-semibold ${statusMeta.tone}`}
@@ -2532,12 +2562,15 @@ export function ColorOverride({
   value,
   fallback,
   presets,
+  hint,
   onChange,
 }: {
   label: string;
   value: string | undefined;
   fallback: string;
   presets: readonly string[];
+  /** Compact inline origin tag (e.g. "Theme") shown to the right of the label. */
+  hint?: string;
   onChange: (color: string | undefined) => void;
 }) {
   const normalized = value?.toLowerCase();
@@ -2549,20 +2582,27 @@ export function ColorOverride({
   );
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-ds-text-secondary">
           {label}
         </span>
-        {value !== undefined ? (
-          <button
-            type="button"
-            onClick={() => onChange(undefined)}
-            className={`text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
-          >
-            Theme
-          </button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {value === undefined && hint ? (
+            <span className="text-[10px] uppercase tracking-wide text-ds-text-muted">
+              {hint}
+            </span>
+          ) : null}
+          {value !== undefined ? (
+            <button
+              type="button"
+              onClick={() => onChange(undefined)}
+              className={`text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              Theme
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {presets.map((preset) => (
@@ -2585,18 +2625,17 @@ export function ColorOverride({
         </button>
       </div>
       {showCustom ? (
-        <label className="flex items-center gap-2">
-          <input
-            type="color"
-            value={value ?? fallback}
-            onChange={(event) => onChange(event.target.value)}
-            className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+        <div className="flex items-center gap-2">
+          <ColorPicker
+            color={value ?? fallback}
+            fallback={fallback}
             aria-label={`${label} custom color`}
+            onChange={(hex) => onChange(hex)}
           />
           <span className="font-mono text-xs tabular-nums text-ds-text-secondary">
             {(value ?? fallback).toLowerCase()}
           </span>
-        </label>
+        </div>
       ) : null}
     </div>
   );

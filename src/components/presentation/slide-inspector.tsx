@@ -14,7 +14,7 @@
  * component never mutates the deck.
  */
 
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, NotebookPen, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
@@ -387,7 +387,10 @@ export function SlideInspector({
         ) : null}
 
         {activeTab === "notes" ? (
-          <PanelSection title="Speaker notes">
+          <PanelSection
+            title="Speaker notes"
+            icon={<NotebookPen size={12} aria-hidden="true" />}
+          >
             <SpeakerNotesControl
               notes={slide.notes ?? ""}
               onChange={onUpdateNotes}

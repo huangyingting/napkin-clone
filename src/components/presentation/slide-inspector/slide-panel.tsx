@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { Palette, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -10,6 +10,7 @@ import {
   slideSolidBackgroundValue,
 } from "@/components/presentation/v6-deck-ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import { ColorPicker } from "@/components/ui";
 import { assertNever } from "@/lib/assert-never";
 import { ColorOverride } from "@/components/presentation/slide-inspector/controls";
 import {
@@ -43,16 +44,16 @@ const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
   "accent",
 );
 
-function designOriginLabel(layer: SlideDesignOriginLayer): string {
+function designOriginTag(layer: SlideDesignOriginLayer): string {
   switch (layer) {
     case "theme":
-      return "Inherited from theme";
+      return "Theme";
     case "master":
-      return "Inherited from master";
+      return "Master";
     case "deck":
-      return "Inherited from deck default";
+      return "Deck";
     case "slide":
-      return "Slide override";
+      return "Override";
     default:
       return assertNever(layer);
   }
@@ -132,27 +133,26 @@ export function SlidePanelBody({
 
   return (
     <>
-      <PanelSection title="Background">
+      <PanelSection
+        title="Background"
+        icon={<Palette size={12} aria-hidden="true" />}
+      >
         <ColorOverride
           label="Background"
           value={backgroundColor}
           fallback={themeColors.bgColor}
           presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
+          hint={designOriginTag(designOrigins.background.layer)}
           onChange={onBackgroundChange}
         />
-        <p className="text-[11px] leading-relaxed text-ds-text-muted">
-          {designOriginLabel(designOrigins.background.layer)}
-        </p>
         <ColorOverride
           label="Accent"
           value={accentColor}
           fallback={themeColors.accentColor}
           presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
+          hint={designOriginTag(designOrigins.accent.layer)}
           onChange={onAccentChange}
         />
-        <p className="text-[11px] leading-relaxed text-ds-text-muted">
-          {designOriginLabel(designOrigins.accent.layer)}
-        </p>
         {showAdvanced ? (
           <>
             <PropRow label="Gradient">
@@ -176,29 +176,27 @@ export function SlidePanelBody({
             </PropRow>
             {backgroundGradient ? (
               <PropRow label="Stops" align="center">
-                <input
-                  type="color"
-                  value={backgroundGradient.from}
-                  onChange={(event) =>
-                    onBackgroundGradientChange({
-                      ...backgroundGradient,
-                      from: event.target.value,
-                    })
-                  }
-                  className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                <ColorPicker
+                  color={backgroundGradient.from}
+                  fallback="#6366f1"
                   aria-label="Gradient start color"
-                />
-                <input
-                  type="color"
-                  value={backgroundGradient.to}
-                  onChange={(event) =>
+                  onChange={(hex) =>
                     onBackgroundGradientChange({
                       ...backgroundGradient,
-                      to: event.target.value,
+                      from: hex,
                     })
                   }
-                  className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                />
+                <ColorPicker
+                  color={backgroundGradient.to}
+                  fallback="#ec4899"
                   aria-label="Gradient end color"
+                  onChange={(hex) =>
+                    onBackgroundGradientChange({
+                      ...backgroundGradient,
+                      to: hex,
+                    })
+                  }
                 />
                 <input
                   type="range"
@@ -257,10 +255,6 @@ export function SlidePanelBody({
               {bgImageError}
             </p>
           ) : null}
-          <p className="text-[11px] leading-relaxed text-ds-text-muted">
-            Overrides apply to this slide only. Image &gt; gradient &gt; solid
-            color. “Theme” clears the color override.
-          </p>
         </div>
       </PanelSection>
     </>
