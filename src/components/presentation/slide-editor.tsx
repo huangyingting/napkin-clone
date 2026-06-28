@@ -313,7 +313,7 @@ function DeckContextButton({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={onClick}
-        className={`relative flex h-8 shrink-0 items-center gap-1.5 rounded-ds-md border text-xs font-semibold transition-colors ${
+        className={`relative flex h-9 shrink-0 items-center gap-1.5 rounded-ds-md border text-xs font-semibold transition-colors ${
           label ? "px-2.5" : "px-2"
         } ${
           open
@@ -1679,7 +1679,7 @@ export function SlideEditor({
             <div
               role="toolbar"
               aria-label="Slide editing tools"
-              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-none [&::-webkit-scrollbar]:hidden"
+              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-none [&::-webkit-scrollbar]:hidden"
             >
               <Popover
                 open={themeOverridesOpen}
@@ -1760,7 +1760,7 @@ export function SlideEditor({
                       setSpotlightPickerOpen(false);
                       setAddTemplateOpen((open) => !open);
                     }}
-                    className={`flex h-8 shrink-0 items-center gap-1.5 rounded-ds-md border border-transparent bg-ds-accent px-2.5 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
+                    className={`flex h-9 shrink-0 items-center gap-1.5 rounded-ds-md border border-transparent bg-ds-accent px-2.5 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
                   >
                     <Plus size={14} aria-hidden="true" />
                     Add slide

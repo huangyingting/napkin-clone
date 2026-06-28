@@ -39,16 +39,16 @@ const TAB_OPTIONS: ReadonlyArray<{ value: MasterChromeTab; label: string }> = [
 
 const LOGO_PLACEMENTS: ReadonlyArray<{ value: LogoPlacement; label: string }> =
   [
-    { value: "top-left", label: "Top L" },
-    { value: "top-right", label: "Top R" },
-    { value: "bottom-left", label: "Bottom L" },
-    { value: "bottom-right", label: "Bottom R" },
+    { value: "top-left", label: "TL" },
+    { value: "top-right", label: "TR" },
+    { value: "bottom-left", label: "BL" },
+    { value: "bottom-right", label: "BR" },
   ];
 
 const LOGO_SIZES: ReadonlyArray<{ value: LogoSize; label: string }> = [
-  { value: "small", label: "Small" },
-  { value: "medium", label: "Medium" },
-  { value: "large", label: "Large" },
+  { value: "small", label: "S" },
+  { value: "medium", label: "M" },
+  { value: "large", label: "L" },
 ];
 
 const ALIGN_OPTIONS = [
@@ -67,9 +67,9 @@ const PAGE_PLACEMENTS: ReadonlyArray<{
   value: PageNumberPlacement;
   label: string;
 }> = [
-  { value: "bottom-left", label: "Left" },
-  { value: "bottom-center", label: "Center" },
-  { value: "bottom-right", label: "Right" },
+  { value: "bottom-left", label: "L" },
+  { value: "bottom-center", label: "C" },
+  { value: "bottom-right", label: "R" },
 ];
 
 const WATERMARK_LAYOUTS: ReadonlyArray<{
@@ -82,9 +82,9 @@ const WATERMARK_LAYOUTS: ReadonlyArray<{
 
 const WATERMARK_SIZES: ReadonlyArray<{ value: WatermarkSize; label: string }> =
   [
-    { value: "small", label: "Small" },
-    { value: "medium", label: "Medium" },
-    { value: "large", label: "Large" },
+    { value: "small", label: "S" },
+    { value: "medium", label: "M" },
+    { value: "large", label: "L" },
   ];
 
 export interface GlobalMasterChromePanelProps {

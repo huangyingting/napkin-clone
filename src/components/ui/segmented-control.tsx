@@ -123,7 +123,11 @@ export function SegmentedControl<T extends string>({
             )}
           >
             {option.icon}
-            {option.iconOnly ? null : option.label}
+            {option.iconOnly ? null : (
+              <span className="min-w-0 truncate whitespace-nowrap">
+                {option.label}
+              </span>
+            )}
           </button>
         );
       })}
