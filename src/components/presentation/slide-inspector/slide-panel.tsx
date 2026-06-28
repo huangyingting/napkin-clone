@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Palette, Upload } from "lucide-react";
+import { Check, Image as ImageIcon, Link, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -10,7 +10,7 @@ import {
   slideSolidBackgroundValue,
 } from "@/components/presentation/v6-deck-ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
-import { ColorPicker, Swatch } from "@/components/ui";
+import { ColorPicker, Swatch, Tabs } from "@/components/ui";
 import { assertNever } from "@/lib/assert-never";
 import {
   FIELD_CLASS,
@@ -89,37 +89,18 @@ function SlideStyleTabs({
   activeTab: SlideStyleTab;
   onChange: (tab: SlideStyleTab) => void;
 }) {
-  const tabs: ReadonlyArray<{ id: SlideStyleTab; label: string }> = [
-    { id: "background", label: "Background" },
-    { id: "accent", label: "Accent" },
-    { id: "image", label: "Image" },
+  const tabs = [
+    { value: "background" as const, label: "Background" },
+    { value: "accent" as const, label: "Accent" },
+    { value: "image" as const, label: "Image" },
   ];
   return (
-    <div
-      role="tablist"
+    <Tabs
       aria-label="Slide style panel"
-      className="grid grid-cols-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5"
-    >
-      {tabs.map((tab) => {
-        const active = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(tab.id)}
-            className={`rounded-ds-sm px-2 py-1.5 text-xs font-semibold transition-colors ${
-              active
-                ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
-                : "text-ds-text-muted hover:bg-ds-state-hover hover:text-ds-text-primary"
-            } ${FOCUS_RING}`}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
-    </div>
+      options={tabs}
+      value={activeTab}
+      onChange={onChange}
+    />
   );
 }
 
@@ -299,31 +280,17 @@ function SlideBackgroundControl({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <BackgroundChoiceHeader title="Customize" />
-          <div
-            role="tablist"
+          <Tabs
             aria-label="Custom background type"
-            className="grid grid-cols-2 rounded-ds-sm bg-ds-surface p-0.5 ring-1 ring-ds-border-subtle"
-          >
-            {(["solid", "gradient"] as const).map((mode) => {
-              const active = customMode === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setCustomMode(mode)}
-                  className={`rounded-ds-sm px-2 py-1 text-[11px] font-semibold capitalize transition-colors ${
-                    active
-                      ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
-                      : "text-ds-text-muted hover:text-ds-text-primary"
-                  } ${FOCUS_RING}`}
-                >
-                  {mode}
-                </button>
-              );
-            })}
-          </div>
+            options={[
+              { value: "solid", label: "Solid" },
+              { value: "gradient", label: "Gradient" },
+            ]}
+            value={customMode}
+            onChange={setCustomMode}
+            size="sm"
+            className="w-32"
+          />
         </div>
 
         {customMode === "solid" ? (
@@ -520,11 +487,8 @@ function SlideImageControl({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-ds-text-primary">
-          Image background
-        </span>
+    <div className="flex flex-col gap-2.5 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+      <div className="flex items-center justify-end gap-2">
         {backgroundImage ? (
           <button
             type="button"
@@ -539,17 +503,28 @@ function SlideImageControl({
           </span>
         )}
       </div>
-      {backgroundImage ? (
-        <span
-          aria-hidden="true"
-          className="block aspect-video w-full rounded-ds-md border border-ds-border-subtle bg-cover bg-center"
-          style={{ backgroundImage: `url(${backgroundImage})` }}
-        />
-      ) : null}
+
+      <div className="relative aspect-video overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface">
+        {backgroundImage ? (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-ds-text-muted">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ds-accent-surface text-ds-accent-text ring-1 ring-ds-accent-border">
+              <ImageIcon size={17} aria-hidden="true" />
+            </span>
+            <span className="text-xs font-medium">No image selected</span>
+          </div>
+        )}
+      </div>
+
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface-raised/60 px-2 py-2.5 text-[13px] font-medium text-ds-text-secondary transition-colors hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2.5 text-[13px] font-semibold text-ds-text-secondary transition-colors hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
       >
         <Upload size={14} aria-hidden="true" />
         {backgroundImage ? "Replace image" : "Upload image"}
@@ -564,20 +539,26 @@ function SlideImageControl({
           event.target.value = "";
         }}
       />
-      <input
-        type="text"
-        value={backgroundImage ?? ""}
-        onChange={(event) =>
-          onBackgroundImageChange(
-            event.target.value.trim() === ""
-              ? undefined
-              : event.target.value.trim(),
-          )
-        }
-        placeholder="https://… or data:image/…"
-        className={`${FIELD_CLASS} bg-ds-surface-raised/60 py-2 placeholder:text-ds-text-muted ${FOCUS_RING}`}
-        aria-label="Background image URL"
-      />
+      <label className="flex flex-col gap-1.5">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          <Link size={12} aria-hidden="true" />
+          Image URL
+        </span>
+        <input
+          type="text"
+          value={backgroundImage ?? ""}
+          onChange={(event) =>
+            onBackgroundImageChange(
+              event.target.value.trim() === ""
+                ? undefined
+                : event.target.value.trim(),
+            )
+          }
+          placeholder="https://… or data:image/…"
+          className={`${FIELD_CLASS} bg-ds-surface py-2 placeholder:text-ds-text-muted ${FOCUS_RING}`}
+          aria-label="Background image URL"
+        />
+      </label>
       {bgImageError ? (
         <p role="alert" className="text-xs text-ds-danger-text">
           {bgImageError}
@@ -661,10 +642,7 @@ export function SlidePanelBody({
 
   return (
     <>
-      <PanelSection
-        title="Background"
-        icon={<Palette size={12} aria-hidden="true" />}
-      >
+      <PanelSection>
         <SlideStyleTabs activeTab={activeTab} onChange={setActiveTab} />
         {activeTab === "background" ? (
           <SlideBackgroundControl

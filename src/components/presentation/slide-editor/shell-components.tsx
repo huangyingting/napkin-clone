@@ -55,7 +55,7 @@ import {
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
-import { ToolbarButton, Tooltip } from "@/components/ui";
+import { Tabs, ToolbarButton, Tooltip } from "@/components/ui";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
@@ -751,38 +751,16 @@ export function ColorThemePanel({
           </span>
         </div>
 
-        <div
-          role="tablist"
+        <Tabs
           aria-label="Custom background type"
-          className="grid grid-cols-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={customMode === "solid"}
-            onClick={() => setCustomMode("solid")}
-            className={`rounded-ds-sm px-2 py-1 text-xs font-semibold transition-colors ${
-              customMode === "solid"
-                ? "bg-ds-accent-surface text-ds-accent-text"
-                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-            } ${FOCUS_RING}`}
-          >
-            Solid
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={customMode === "gradient"}
-            onClick={() => setCustomMode("gradient")}
-            className={`rounded-ds-sm px-2 py-1 text-xs font-semibold transition-colors ${
-              customMode === "gradient"
-                ? "bg-ds-accent-surface text-ds-accent-text"
-                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-            } ${FOCUS_RING}`}
-          >
-            Gradient
-          </button>
-        </div>
+          options={[
+            { value: "solid", label: "Solid" },
+            { value: "gradient", label: "Gradient" },
+          ]}
+          value={customMode}
+          onChange={setCustomMode}
+          size="sm"
+        />
 
         {customMode === "solid" ? (
           <div className="flex flex-col gap-3">
@@ -2178,34 +2156,22 @@ export function SlideToolbar({
           />
         ) : (
           <div className="flex flex-col">
-            <div
-              role="tablist"
+            <Tabs
               aria-label="Element category"
-              className="flex gap-1 border-b border-ds-border-subtle px-2 py-1.5"
-            >
-              {addTabs.map((tab) => {
-                const selected = tab.id === addTab;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => setAddTab(tab.id)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-ds-sm px-2 py-1.5 text-xs font-semibold transition-colors ${
-                      selected
-                        ? "bg-ds-accent-surface text-ds-accent"
-                        : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-                    } ${FOCUS_RING}`}
-                  >
-                    {tab.label}
-                    <span className="rounded-full bg-ds-surface-raised px-1.5 text-[10px] text-ds-text-muted">
-                      {tab.items.length}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+              className="px-2 pt-1.5"
+              options={addTabs.map((tab) => ({
+                value: tab.id,
+                label: tab.label,
+                badge: (
+                  <span className="rounded-full bg-ds-surface-raised px-1.5 text-[10px] text-ds-text-muted">
+                    {tab.items.length}
+                  </span>
+                ),
+              }))}
+              value={addTab}
+              onChange={setAddTab}
+              size="sm"
+            />
             <div
               role="tabpanel"
               className="grid max-h-[min(28rem,calc(100vh-9rem))] grid-cols-5 gap-1.5 overflow-y-auto p-2"

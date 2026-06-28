@@ -14,7 +14,19 @@
  * component never mutates the deck.
  */
 
-import { Check, ChevronDown, NotebookPen, X } from "lucide-react";
+import {
+  Box,
+  Check,
+  ChevronDown,
+  Image as ImageIcon,
+  Link2,
+  Lock,
+  Minus,
+  NotebookPen,
+  Shapes,
+  Type,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
@@ -61,6 +73,20 @@ export type {
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 
 function elementLabel(element: SlideElement): string {
+  const masterChromeKind = (element as { masterChromeKind?: string })
+    .masterChromeKind;
+  if (masterChromeKind) {
+    switch (masterChromeKind) {
+      case "logo":
+        return "Logo";
+      case "footer":
+        return "Footer";
+      case "pageNumber":
+        return "Page #";
+      case "watermark":
+        return "Watermark";
+    }
+  }
   switch (element.kind) {
     case "text":
       return (element as { role?: string }).role === "title" ? "Title" : "Text";
@@ -72,6 +98,28 @@ function elementLabel(element: SlideElement): string {
       return `Shape · ${shapeContent(element).shape}`;
     case "connector":
       return "Connector";
+    default:
+      return assertNever(element);
+  }
+}
+
+function MasterChromeIcon({ element }: { element: SlideElement }) {
+  const className = "shrink-0 text-ds-accent";
+  switch (element.kind) {
+    case "text":
+      return <Type size={12} className={className} aria-hidden="true" />;
+    case "visual":
+      return <Box size={12} className={className} aria-hidden="true" />;
+    case "image":
+      return <ImageIcon size={12} className={className} aria-hidden="true" />;
+    case "shape":
+      return shapeContent(element).shape === "line" ? (
+        <Minus size={12} className={className} aria-hidden="true" />
+      ) : (
+        <Shapes size={12} className={className} aria-hidden="true" />
+      );
+    case "connector":
+      return <Link2 size={12} className={className} aria-hidden="true" />;
     default:
       return assertNever(element);
   }
@@ -402,25 +450,29 @@ export function SlideInspector({
         ) : null}
 
         {activeTab === "layers" ? (
-          <div className="p-2">
+          <div className="flex flex-col gap-2 p-2">
             {masterElements.length > 0 ? (
-              <div className="mb-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+              <div className="rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+                <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
                   Master chrome
                 </div>
-                <div className="space-y-1">
+                <div className="flex flex-wrap gap-1">
                   {masterElements.map((element) => (
-                    <div
+                    <span
                       key={element.id}
-                      className="flex items-center justify-between gap-2 rounded-ds-sm px-1.5 py-1 text-xs text-ds-text-secondary"
+                      className="inline-flex min-w-0 items-center gap-1 rounded-full bg-ds-surface px-2 py-1 text-xs font-medium text-ds-text-secondary ring-1 ring-ds-border-subtle"
+                      title={`${elementLabel(element)} · Locked`}
                     >
-                      <span className="min-w-0 truncate">
+                      <MasterChromeIcon element={element} />
+                      <span className="min-w-0 max-w-20 truncate">
                         {elementLabel(element)}
                       </span>
-                      <span className="shrink-0 text-[11px] text-ds-text-muted">
-                        Locked
-                      </span>
-                    </div>
+                      <Lock
+                        size={11}
+                        className="shrink-0 text-ds-text-muted"
+                        aria-hidden="true"
+                      />
+                    </span>
                   ))}
                 </div>
               </div>

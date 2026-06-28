@@ -34,6 +34,7 @@ import {
   Move,
   MoveHorizontal,
   MoveVertical,
+  Palette,
   Pilcrow,
   Plus,
   SendToBack,
@@ -44,6 +45,7 @@ import {
   StepBack,
   StepForward,
   Type,
+  Underline,
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -55,6 +57,14 @@ import {
   PanelSection,
   SelectField,
 } from "@/components/presentation/slide-inspector/primitives";
+import {
+  HorizontalAlignControl,
+  TextInspectorTabs,
+  type TextInspectorTab,
+  TextSizeColorControl,
+  TextPanelCardHeader,
+  TextEmphasisControl,
+} from "@/components/presentation/slide-inspector/text-style-controls";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 import { ColorPicker, Swatch, Tooltip } from "@/components/ui";
 import type {
@@ -96,9 +106,11 @@ import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
+  mergeRuns,
   runsToHtml,
   serializeRichText,
   shouldStoreRuns,
+  splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
 import {
   FONT_MAX,
@@ -163,11 +175,17 @@ export function RichTextBox({
   label,
   html,
   placeholder,
+  listMode = false,
+  hideLabel = false,
+  fill = false,
   onChange,
 }: {
   label: string;
   html: string;
   placeholder?: string;
+  listMode?: boolean;
+  hideLabel?: boolean;
+  fill?: boolean;
   onChange: (
     value: { text: string; runs: TextRun[] },
     coalesceKey?: string,
@@ -198,7 +216,10 @@ export function RichTextBox({
   }, [coalesceKeyRef, onChange]);
 
   const applyCommand = useCallback(
-    (command: "bold" | "italic" | "foreColor", value?: string) => {
+    (
+      command: "bold" | "italic" | "underline" | "foreColor",
+      value?: string,
+    ) => {
       const node = ref.current;
       if (!node) return;
       node.focus();
@@ -209,9 +230,9 @@ export function RichTextBox({
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <span className={LABEL_CLASS}>{label}</span>
-      <div className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-1 py-1">
+    <div className={`flex flex-col gap-2 ${fill ? "min-h-0 flex-1" : ""}`}>
+      {hideLabel ? null : <span className={LABEL_CLASS}>{label}</span>}
+      <div className="flex items-center gap-1 rounded-ds-md bg-ds-surface p-1 ring-1 ring-ds-border-subtle">
         <button
           type="button"
           aria-label="Bold selected text"
@@ -228,12 +249,21 @@ export function RichTextBox({
         >
           <Italic size={14} aria-hidden="true" />
         </button>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-ds-text-muted">
-          <span>Color</span>
+        <button
+          type="button"
+          aria-label="Underline selected text"
+          onClick={() => applyCommand("underline")}
+          className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <Underline size={14} aria-hidden="true" />
+        </button>
+        <div className="ml-auto flex items-center">
           <ColorPicker
             color=""
             aria-label="Selected text color"
             size="md"
+            layer="tooltip"
+            icon={<Palette size={14} aria-hidden="true" />}
             preserveSelection
             onChange={(hex) => applyCommand("foreColor", hex)}
           />
@@ -255,7 +285,11 @@ export function RichTextBox({
           onSessionEnd();
         }}
         onKeyDown={(event) => event.stopPropagation()}
-        className={`min-h-24 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none empty:before:pointer-events-none empty:before:text-ds-text-muted empty:before:content-[attr(data-placeholder)] ${FOCUS_RING}`}
+        className={`min-h-32 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2.5 py-2 text-sm leading-6 text-ds-text-primary outline-none transition-colors empty:before:pointer-events-none empty:before:text-ds-text-muted empty:before:content-[attr(data-placeholder)] focus:border-ds-accent ${
+          fill ? "flex-1 overflow-auto" : ""
+        } ${
+          listMode ? "[&>div]:min-h-[1.5em] [&>div]:pl-1" : ""
+        } ${FOCUS_RING}`}
       />
     </div>
   );
@@ -1097,36 +1131,12 @@ export function RoleSelectControl({
  * Header row marking a property as inherited or locally overridden, with a
  * per-property reset to the inherited theme value (#615).
  */
-export function OverrideHeader({
-  label,
-  overridden,
-  onReset,
-}: {
-  label: string;
-  overridden: boolean;
-  onReset: () => void;
-}) {
+export function OverrideHeader({ label }: { label: string }) {
   return (
-    <span className="mb-1 flex items-center justify-between gap-2">
+    <span className="mb-1 block">
       <span className="text-xs font-medium text-ds-text-secondary">
         {label}
       </span>
-      {overridden ? (
-        <span className="flex items-center gap-1.5">
-          <span className="rounded-ds-sm bg-ds-state-hover px-1 py-0.5 text-[10px] font-medium text-ds-text-secondary">
-            Custom
-          </span>
-          <button
-            type="button"
-            onClick={onReset}
-            className={`rounded-ds-sm text-[11px] text-ds-text-secondary underline-offset-2 hover:underline ${FOCUS_RING}`}
-          >
-            Reset
-          </button>
-        </span>
-      ) : (
-        <span className="text-[10px] text-ds-text-muted">Inherited</span>
-      )}
     </span>
   );
 }
@@ -1192,40 +1202,55 @@ export function InheritedFontControl({
   style,
   inheritedLabel,
   onChange,
+  showReset = true,
 }: {
   style: TextElementStyle;
   inheritedLabel: string;
   onChange: (style: TextElementStyle) => void;
+  showReset?: boolean;
 }) {
   const overridden = style.fontId !== undefined;
+  const reset = () => {
+    const next = { ...style };
+    delete next.fontId;
+    onChange(next);
+  };
   return (
     <div className="block">
-      <OverrideHeader
-        label="Font"
-        overridden={overridden}
-        onReset={() => {
-          const next = { ...style };
-          delete next.fontId;
-          onChange(next);
-        }}
-      />
-      <SelectField
-        value={style.fontId ?? ""}
-        ariaLabel="Font family"
-        onChange={(value) => {
-          const next = { ...style };
-          if (value) next.fontId = value;
-          else delete next.fontId;
-          onChange(next);
-        }}
-        options={[
-          { value: "", label: `Theme default (${inheritedLabel})` },
-          ...FONT_FAMILIES.filter((font) => font.value).map((font) => ({
-            value: font.value,
-            label: font.label,
-          })),
-        ]}
-      />
+      <OverrideHeader label="Font" />
+      <div className="flex items-center gap-2">
+        <SelectField
+          value={style.fontId ?? ""}
+          ariaLabel="Font family"
+          onChange={(value) => {
+            const next = { ...style };
+            if (value) next.fontId = value;
+            else delete next.fontId;
+            onChange(next);
+          }}
+          options={[
+            { value: "", label: `Theme default (${inheritedLabel})` },
+            ...FONT_FAMILIES.filter((font) => font.value).map((font) => ({
+              value: font.value,
+              label: font.label,
+            })),
+          ]}
+        />
+        {showReset ? (
+          <button
+            type="button"
+            onClick={reset}
+            disabled={!overridden}
+            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 transition-colors disabled:cursor-not-allowed disabled:bg-ds-surface disabled:text-ds-text-muted disabled:opacity-45 disabled:ring-ds-border-subtle ${
+              overridden
+                ? "bg-ds-accent-surface text-ds-accent-text ring-ds-accent-border hover:bg-ds-accent hover:text-ds-text-on-accent"
+                : ""
+            } ${FOCUS_RING}`}
+          >
+            Reset
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1243,22 +1268,20 @@ export function InheritedColorControl({
   const overridden = style.color !== undefined;
   const value = style.color ?? inheritedColor;
   const setColor = (hex: string) => onChange({ ...style, color: hex });
+  const reset = () => {
+    const next = { ...style };
+    delete next.color;
+    onChange(next);
+  };
   return (
     <div className="block">
-      <OverrideHeader
-        label="Color"
-        overridden={overridden}
-        onReset={() => {
-          const next = { ...style };
-          delete next.color;
-          onChange(next);
-        }}
-      />
+      <OverrideHeader label="Color" />
       <div className="flex items-center gap-2">
         <ColorPicker
           color={value}
           fallback="#000000"
           aria-label="Text color"
+          layer="tooltip"
           onChange={(hex) => setColor(hex)}
         />
         <input
@@ -1278,6 +1301,18 @@ export function InheritedColorControl({
           }}
           className={`w-24 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1.5 py-1 font-mono text-[11px] text-ds-text-primary ${FOCUS_RING}`}
         />
+        <button
+          type="button"
+          onClick={reset}
+          disabled={!overridden}
+          className={`ml-auto shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 transition-colors disabled:cursor-not-allowed disabled:bg-ds-surface disabled:text-ds-text-muted disabled:opacity-45 disabled:ring-ds-border-subtle ${
+            overridden
+              ? "bg-ds-accent-surface text-ds-accent-text ring-ds-accent-border hover:bg-ds-accent hover:text-ds-text-on-accent"
+              : ""
+          } ${FOCUS_RING}`}
+        >
+          Reset
+        </button>
       </div>
     </div>
   );
@@ -1294,6 +1329,7 @@ export function TextPanel({
   slide: Slide;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
+  const [activeTab, setActiveTab] = useState<TextInspectorTab>("style");
   if (!element) {
     return (
       <PanelSection>
@@ -1314,26 +1350,56 @@ export function TextPanel({
     );
   }
 
-  const currentText = textContent(element);
+  const textElement = element;
+  const currentText = textContent(textElement);
   const style = {
     fontSize: SLIDE_TEXT_FONT_SIZE.text,
     bold: false,
     italic: false,
     align: "left" as const,
-    ...textDesign(element),
+    ...textDesign(textElement),
   };
   const updateStyle = (next: TextElementStyle) => {
-    onUpdateElement(element.id, {
+    onUpdateElement(textElement.id, {
       designOverrides: {
-        ...elementDesignOverrides(element),
+        ...elementDesignOverrides(textElement),
         textStyle: next,
+      },
+    } as ElementPatch);
+  };
+  const resetStyle = () => {
+    const { textStyle: _discarded, ...nextDesign } =
+      elementDesignOverrides(textElement);
+    onUpdateElement(textElement.id, {
+      designOverrides: nextDesign,
+    } as ElementPatch);
+  };
+  const resetParagraph = () => {
+    const nextStyle = { ...textDesign(textElement) };
+    delete nextStyle.align;
+    delete nextStyle.lineHeight;
+    delete nextStyle.verticalAlign;
+    delete nextStyle.paragraphSpacing;
+    const { textStyle: _discarded, ...baseDesign } =
+      elementDesignOverrides(textElement);
+    onUpdateElement(textElement.id, {
+      designOverrides:
+        Object.keys(nextStyle).length > 0
+          ? { ...baseDesign, textStyle: nextStyle }
+          : baseDesign,
+      content: {
+        ...currentText,
+        kind: "text",
+        fitMode: undefined,
+        bulletGap: undefined,
+        bulletIndent: undefined,
       },
     } as ElementPatch);
   };
 
   // Resolve the inherited (role-token) values so the panel can show what the
   // element falls back to and mark per-property local overrides (#615).
-  const role = defaultPresentationRole(element);
+  const role = defaultPresentationRole(textElement);
   const tokenSet = resolveSlideTokenSet(deck, slide);
   const roleToken = resolveRoleToken(tokenSet, role);
   const inheritedColor = roleToken.color;
@@ -1344,99 +1410,192 @@ export function TextPanel({
   const hasList = currentText.paragraphs.some(
     (paragraph) => paragraph.listType !== undefined,
   );
+  const contentHtml = hasList
+    ? currentText.paragraphs
+        .map(
+          (paragraph) =>
+            `<div>${runsToHtml(paragraph.runs, paragraph.text)}</div>`,
+        )
+        .join("")
+    : runsToHtml(currentText.runs, currentText.text);
+
+  function updateTextContent(
+    { text, runs }: { text: string; runs: TextRun[] },
+    coalesceKey?: string,
+  ) {
+    if (hasList) {
+      const lines = splitRunsIntoLines(runs)
+        .map((line) => ({
+          text: line.text.replace(/\s+$/, ""),
+          runs: mergeRuns(line.runs),
+        }))
+        .filter((line) => line.text.length > 0);
+      const paragraphs: Paragraph[] = lines.map((line, index) => {
+        const previous =
+          currentText.paragraphs[index] ??
+          currentText.paragraphs[currentText.paragraphs.length - 1];
+        return {
+          text: line.text,
+          ...(shouldStoreRuns(line.runs) ? { runs: line.runs } : {}),
+          indent: previous?.indent ?? 0,
+          listType: previous?.listType ?? "bullet",
+        };
+      });
+      onUpdateElement(
+        textElement.id,
+        {
+          content: {
+            ...currentText,
+            kind: "text",
+            text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
+            runs: undefined,
+            paragraphs,
+          },
+        } as ElementPatch,
+        coalesceKey,
+      );
+      return;
+    }
+
+    onUpdateElement(
+      textElement.id,
+      {
+        content: {
+          ...currentText,
+          kind: "text",
+          text,
+          runs: shouldStoreRuns(runs) ? runs : undefined,
+          paragraphs: [
+            {
+              text,
+              ...(shouldStoreRuns(runs) ? { runs } : {}),
+            },
+          ],
+        },
+      } as ElementPatch,
+      coalesceKey,
+    );
+  }
+
+  function resetContentStyles() {
+    onUpdateElement(textElement.id, {
+      content: {
+        ...currentText,
+        kind: "text",
+        runs: undefined,
+        paragraphs: currentText.paragraphs.map((paragraph) => ({
+          text: paragraph.text,
+          ...(paragraph.indent !== undefined
+            ? { indent: paragraph.indent }
+            : {}),
+          ...(paragraph.listType !== undefined
+            ? { listType: paragraph.listType }
+            : {}),
+        })),
+      },
+    } as ElementPatch);
+  }
 
   return (
-    <>
-      <PanelSection title="Text" icon={<Type size={12} aria-hidden="true" />}>
-        <RichTextBox
-          label="Text"
-          placeholder="Add text"
-          html={runsToHtml(currentText.runs, currentText.text)}
-          onChange={({ text, runs }, coalesceKey) =>
-            onUpdateElement(
-              element.id,
-              {
+    <PanelSection
+      className={activeTab === "content" ? "min-h-0 flex-1 gap-1" : "gap-1"}
+    >
+      <TextInspectorTabs activeTab={activeTab} onChange={setActiveTab} />
+
+      {activeTab === "content" ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+          <div className="flex justify-end">
+            <TextPanelCardHeader
+              resetLabel="Reset content"
+              onReset={resetContentStyles}
+            />
+          </div>
+          <RichTextBox
+            label="Text"
+            placeholder="Add text"
+            html={contentHtml}
+            listMode={hasList}
+            hideLabel
+            fill
+            onChange={updateTextContent}
+          />
+        </div>
+      ) : null}
+
+      {activeTab === "style" ? (
+        <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+          <div className="flex justify-end">
+            <TextPanelCardHeader
+              resetLabel="Reset style"
+              onReset={resetStyle}
+            />
+          </div>
+          <RoleSelectControl
+            element={element}
+            onChange={(role) =>
+              onUpdateElement(element.id, {
+                role: presentationRoleValue(role),
+              } as ElementPatch)
+            }
+          />
+          <TextEmphasisControl style={style} onChange={updateStyle} />
+          <TextSizeColorControl
+            style={style}
+            inheritedColor={inheritedColor}
+            onChange={updateStyle}
+          />
+          <InheritedFontControl
+            style={style}
+            inheritedLabel={inheritedFontLabel}
+            showReset={false}
+            onChange={updateStyle}
+          />
+        </div>
+      ) : null}
+
+      {activeTab === "paragraph" ? (
+        <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+          <div className="flex justify-end">
+            <TextPanelCardHeader
+              resetLabel="Reset paragraph"
+              onReset={resetParagraph}
+            />
+          </div>
+          <HorizontalAlignControl style={style} onChange={updateStyle} />
+          <LineHeightControl style={style} onChange={updateStyle} />
+          <ParagraphSpacingControl style={style} onChange={updateStyle} />
+          <VerticalAlignControl style={style} onChange={updateStyle} />
+          <FitModeControl
+            fitMode={currentText.fitMode}
+            onChange={(fitMode) =>
+              onUpdateElement(element.id, {
                 content: {
                   ...currentText,
                   kind: "text",
-                  text,
-                  runs: shouldStoreRuns(runs) ? runs : undefined,
-                  paragraphs: [
-                    {
-                      text,
-                      ...(shouldStoreRuns(runs) ? { runs } : {}),
-                    },
-                  ],
+                  fitMode,
                 },
-              } as ElementPatch,
-              coalesceKey,
-            )
-          }
-        />
-      </PanelSection>
-
-      <PanelSection
-        title="Font"
-        icon={<CaseSensitive size={12} aria-hidden="true" />}
-      >
-        <RoleSelectControl
-          element={element}
-          onChange={(role) =>
-            onUpdateElement(element.id, {
-              role: presentationRoleValue(role),
-            } as ElementPatch)
-          }
-        />
-        <InheritedColorControl
-          style={style}
-          inheritedColor={inheritedColor}
-          onChange={updateStyle}
-        />
-        <InheritedFontControl
-          style={style}
-          inheritedLabel={inheritedFontLabel}
-          onChange={updateStyle}
-        />
-        <FontSizeControl style={style} onChange={updateStyle} />
-        <LineHeightControl style={style} onChange={updateStyle} />
-      </PanelSection>
-
-      <PanelSection
-        title="Paragraph"
-        icon={<Pilcrow size={12} aria-hidden="true" />}
-      >
-        <ParagraphSpacingControl style={style} onChange={updateStyle} />
-        <VerticalAlignControl style={style} onChange={updateStyle} />
-        <FitModeControl
-          fitMode={currentText.fitMode}
-          onChange={(fitMode) =>
-            onUpdateElement(element.id, {
-              content: {
-                ...currentText,
-                kind: "text",
-                fitMode,
-              },
-            } as ElementPatch)
-          }
-        />
-        {hasList ? (
-          <>
-            <ListTypeControl
-              element={element}
-              onChange={(patch) => onUpdateElement(element.id, patch)}
-            />
-            <BulletIndentControl
-              element={element}
-              onChange={(patch) => onUpdateElement(element.id, patch)}
-            />
-            <BulletGapControl
-              element={element}
-              onChange={(patch) => onUpdateElement(element.id, patch)}
-            />
-          </>
-        ) : null}
-      </PanelSection>
-    </>
+              } as ElementPatch)
+            }
+          />
+          {hasList ? (
+            <>
+              <ListTypeControl
+                element={element}
+                onChange={(patch) => onUpdateElement(element.id, patch)}
+              />
+              <BulletIndentControl
+                element={element}
+                onChange={(patch) => onUpdateElement(element.id, patch)}
+              />
+              <BulletGapControl
+                element={element}
+                onChange={(patch) => onUpdateElement(element.id, patch)}
+              />
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </PanelSection>
   );
 }
 

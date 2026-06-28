@@ -58,6 +58,9 @@ export type { SelectMenuOption } from "./select-menu";
 
 export { Surface } from "./surface";
 
+export { Tabs } from "./tabs";
+export type { TabOption } from "./tabs";
+
 export { Swatch } from "./swatch";
 export type { SwatchSize } from "./swatch";
 

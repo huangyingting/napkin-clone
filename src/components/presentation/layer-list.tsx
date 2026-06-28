@@ -68,7 +68,7 @@ function getDisplayName(
 
 /** Icon component for each element kind. */
 function KindIcon({ element }: { element: SlideElement }) {
-  const cls = "shrink-0 text-ds-text-muted";
+  const cls = "shrink-0 text-ds-accent";
   switch (element.kind) {
     case "text":
       return <Type size={12} className={cls} aria-hidden="true" />;
@@ -233,8 +233,8 @@ function LayerRow({
   }
 
   const iconBtn =
-    `flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-muted ` +
-    `transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`;
+    `flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-ds-text-muted ` +
+    `transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary aria-pressed:bg-ds-accent-surface aria-pressed:text-ds-accent-text ${FOCUS_RING}`;
 
   return (
     <div
@@ -266,10 +266,10 @@ function LayerRow({
         setDragOver(false);
         onDropOnRow?.();
       }}
-      className={`flex flex-col gap-0 rounded-ds-sm border px-2 py-1 transition-colors ${
+      className={`flex flex-col gap-0 rounded-ds-md border px-2 py-1.5 transition-[background-color,border-color,box-shadow] ${
         selected
-          ? "border-ds-accent-border bg-ds-accent-surface"
-          : "border-transparent hover:bg-ds-state-hover"
+          ? "border-transparent bg-ds-accent-surface"
+          : "border-transparent bg-ds-surface hover:bg-ds-state-hover"
       } ${dragOver ? "border-ds-accent-border ring-1 ring-ds-accent-border" : ""} ${
         element.hidden ? "opacity-50" : ""
       }`}
@@ -290,7 +290,9 @@ function LayerRow({
           />
         ) : (
           <span
-            className="min-w-0 flex-1 truncate text-xs text-ds-text-secondary"
+            className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
+              selected ? "text-ds-text-primary" : "text-ds-text-secondary"
+            }`}
             title={displayName}
             onDoubleClick={(e) => {
               e.stopPropagation();
@@ -336,9 +338,9 @@ function LayerRow({
             className={iconBtn}
           >
             {element.hidden ? (
-              <EyeOff size={12} aria-hidden="true" />
+              <EyeOff size={11} aria-hidden="true" />
             ) : (
-              <Eye size={12} aria-hidden="true" />
+              <Eye size={11} aria-hidden="true" />
             )}
           </button>
         </Tooltip>
@@ -361,9 +363,9 @@ function LayerRow({
             className={iconBtn}
           >
             {element.locked ? (
-              <Lock size={12} aria-hidden="true" />
+              <Lock size={11} aria-hidden="true" />
             ) : (
-              <LockOpen size={12} aria-hidden="true" />
+              <LockOpen size={11} aria-hidden="true" />
             )}
           </button>
         </Tooltip>
@@ -380,7 +382,7 @@ function LayerRow({
             }}
             className={`${iconBtn} disabled:cursor-not-allowed disabled:opacity-30`}
           >
-            <ArrowUp size={12} aria-hidden="true" />
+            <ArrowUp size={11} aria-hidden="true" />
           </button>
         </Tooltip>
 
@@ -396,7 +398,7 @@ function LayerRow({
             }}
             className={`${iconBtn} disabled:cursor-not-allowed disabled:opacity-30`}
           >
-            <ArrowDown size={12} aria-hidden="true" />
+            <ArrowDown size={11} aria-hidden="true" />
           </button>
         </Tooltip>
       </div>
@@ -489,21 +491,21 @@ export function LayerList({
   }, [selectedElementId]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
       {/* Search */}
       <div className="relative">
         <Search
-          size={12}
+          size={14}
           aria-hidden="true"
-          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ds-text-muted"
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ds-text-muted"
         />
         <input
           id={searchId}
           type="text"
-          placeholder="Filter… (kind:text, is:locked, is:hidden)"
+          placeholder="Filter layers"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface py-1.5 pl-6 pr-2 text-xs text-ds-text-primary placeholder:text-ds-text-muted outline-none ${FOCUS_RING}`}
+          className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface py-2 pl-8 pr-2 text-[13px] text-ds-text-primary placeholder:text-ds-text-muted outline-none transition-colors focus:border-ds-accent ${FOCUS_RING}`}
           aria-label="Filter layers"
           aria-controls={listId}
         />
@@ -517,7 +519,7 @@ export function LayerList({
         aria-label="Layers"
         aria-activedescendant={selectedElementId ?? undefined}
         onKeyDown={handleListKeyDown}
-        className="flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden"
+        className="flex flex-col gap-1 overflow-y-auto overflow-x-hidden"
         style={{ maxHeight: "20rem" }}
       >
         {filtered.length === 0 ? (

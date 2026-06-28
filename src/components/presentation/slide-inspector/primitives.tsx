@@ -123,42 +123,6 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 
 export { FIELD_CLASS, LABEL_CLASS, FONT_FAMILIES };
 
-export function TabButton({
-  active,
-  tabId,
-  panelId,
-  label,
-  onClick,
-  onKeyDown,
-}: {
-  active: boolean;
-  tabId: string;
-  panelId: string;
-  label: string;
-  onClick: () => void;
-  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      id={tabId}
-      aria-selected={active}
-      aria-controls={panelId}
-      tabIndex={active ? 0 : -1}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-      className={`flex-1 rounded-ds-sm px-2 py-1.5 text-xs font-medium transition-colors ${
-        active
-          ? "bg-ds-accent-surface text-ds-accent-text"
-          : "text-ds-text-secondary hover:bg-ds-state-hover"
-      } ${FOCUS_RING}`}
-    >
-      {label}
-    </button>
-  );
-}
-
 export function SpeakerNotesControl({
   notes,
   onChange,

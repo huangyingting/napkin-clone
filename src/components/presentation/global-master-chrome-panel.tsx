@@ -4,7 +4,7 @@ import { PanelBottom, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
-import { SegmentedControl } from "@/components/ui";
+import { SegmentedControl, Tabs } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { FIELD_CLASS } from "@/components/presentation/slide-inspector/primitives";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
@@ -221,13 +221,12 @@ export function GlobalMasterChromePanel({
       </div>
 
       <div className="flex flex-col gap-2.5 overflow-y-auto p-2.5">
-        <SegmentedControl
+        <Tabs
           aria-label="Master chrome"
           value={activeTab}
           onChange={setActiveTab}
           options={TAB_OPTIONS}
           size="sm"
-          stretch
         />
 
         <div className="mx-auto w-full max-w-[240px] rounded-ds-md border border-ds-border-subtle bg-ds-surface-sunken p-1.5">
