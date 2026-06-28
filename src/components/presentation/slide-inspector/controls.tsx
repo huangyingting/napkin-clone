@@ -2512,7 +2512,7 @@ export function SourceSummary({
         <p className="text-sm font-medium text-ds-text-primary">Standalone</p>
         <p className="text-xs text-ds-text-muted">
           This element is not linked to a document. Insert content from the
-          stage toolbar’s “From document” menu to establish a source link.
+          slide toolbar’s Add menu to establish a source link.
         </p>
       </PanelSection>
     );

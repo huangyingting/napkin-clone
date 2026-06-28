@@ -524,8 +524,16 @@ export function useSlideInsertCommands({
       const element = insertableVisualElement(item, { documentId });
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(element.id);
+      setInsertMenuOpen(false);
     },
-    [deck, doCommitAndChange, documentId, handleSelectElement, safeSelected],
+    [
+      deck,
+      doCommitAndChange,
+      documentId,
+      handleSelectElement,
+      safeSelected,
+      setInsertMenuOpen,
+    ],
   );
 
   const handleInsertDocumentText = useCallback(
@@ -538,6 +546,7 @@ export function useSlideInsertCommands({
       );
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(element.id);
+      setInsertMenuOpen(false);
     },
     [
       deck,
@@ -546,6 +555,7 @@ export function useSlideInsertCommands({
       fitInsertedTextElement,
       handleSelectElement,
       safeSelected,
+      setInsertMenuOpen,
     ],
   );
 

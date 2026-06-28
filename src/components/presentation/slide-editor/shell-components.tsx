@@ -39,6 +39,7 @@ import {
   Replace,
   SendToBack,
   Sparkles,
+  Spline,
   Columns3,
   Square,
   Tag,
@@ -59,6 +60,7 @@ import { Popover } from "@/components/ui/popover";
 import { ToolbarButton, Tooltip } from "@/components/ui";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
@@ -98,6 +100,8 @@ import {
 import {
   getThemePackage,
   isThemePackageTemplateId,
+  previewDeckForThemePackage,
+  slideFromThemePackageTemplate,
   themePackageTemplatesForDeck,
 } from "@/lib/presentation/theme-packages";
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
@@ -118,6 +122,8 @@ import {
   slideBackgroundImageValue,
   slideSolidBackgroundValue,
 } from "@/components/presentation/v6-deck-ui";
+
+const EMPTY_VISUALS: ReadonlyMap<string, Visual> = new Map<string, Visual>();
 
 /**
  * Icons for the toolbar `...` panel menu, keyed by panel (plus a `line`
@@ -535,23 +541,42 @@ function swatchColor(value: string, fallback: string): string {
 function SlideTemplatePreview({
   templateKind,
   template: providedTemplate,
+  deck,
   selected,
   className = "h-16 w-28 shrink-0",
 }: {
   templateKind?: SlideTemplateKind;
   template?: NonNullable<Deck["customTemplates"]>[number];
+  deck?: Deck;
   selected?: boolean;
   className?: string;
 }) {
   const template =
     providedTemplate ??
     (templateKind ? getBuiltInSlideTemplate(templateKind) : undefined);
+  const packageId =
+    typeof deck?.design?.themeId === "string" ? deck.design.themeId : undefined;
+  const themePackage = packageId ? getThemePackage(packageId) : undefined;
+  const packagePreview =
+    template && themePackage && isThemePackageTemplateId(template.id)
+      ? {
+          slide: slideFromThemePackageTemplate(template),
+          deck: previewDeckForThemePackage(themePackage),
+        }
+      : undefined;
   return (
     <span
       aria-hidden="true"
       className={`relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base ${className}`}
     >
-      {template?.elements.length ? (
+      {packagePreview ? (
+        <SlideCanvas
+          slide={packagePreview.slide}
+          deck={packagePreview.deck}
+          visuals={EMPTY_VISUALS}
+          preview
+        />
+      ) : template?.elements.length ? (
         template.elements.map((element) => {
           const box = element.box as
             | { x: number; y: number; w: number; h: number }
@@ -1027,7 +1052,7 @@ export function SlideTemplatePicker({
                 title={template.name}
                 className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
               >
-                <SlideTemplatePreview template={template} />
+                <SlideTemplatePreview template={template} deck={deck} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
                     {template.name}
@@ -1849,6 +1874,15 @@ export function SlideToolbar({
   visuals,
   imageError,
   onPickVisual,
+  canAddConnector,
+  onAddConnector,
+  documentVisualEntries,
+  documentTextInsertables,
+  documentVisualInsertables,
+  hasDocumentInsertables,
+  onAddAllVisuals,
+  onInsertDocumentVisual,
+  onInsertDocumentText,
   onDuplicateSlide,
   onRemoveSlide,
   onOpenPanel,
@@ -1864,13 +1898,26 @@ export function SlideToolbar({
   visuals: ReadonlyMap<string, Visual>;
   imageError?: string | null;
   onPickVisual: (visualId: string) => void;
+  canAddConnector: boolean;
+  onAddConnector: () => void;
+  documentVisualEntries: readonly (readonly [string, Visual])[];
+  documentTextInsertables: readonly Extract<Insertable, { kind: "text" }>[];
+  documentVisualInsertables: readonly Extract<Insertable, { kind: "visual" }>[];
+  hasDocumentInsertables: boolean;
+  onAddAllVisuals: () => void;
+  onInsertDocumentVisual: (
+    item: Extract<Insertable, { kind: "visual" }>,
+  ) => void;
+  onInsertDocumentText: (item: Extract<Insertable, { kind: "text" }>) => void;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
   onOpenPanel: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addVisualOpen, setAddVisualOpen] = useState(false);
-  const [addTab, setAddTab] = useState<"text" | "media" | "shape">("text");
+  const [addTab, setAddTab] = useState<"text" | "media" | "shape" | "document">(
+    "text",
+  );
   const [templateOpen, setTemplateOpen] = useState(false);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1928,16 +1975,18 @@ export function SlideToolbar({
     icon: ReactNode;
     onClick: () => void;
     keepOpen?: boolean;
+    disabled?: boolean;
   }) => (
     <Tooltip key={item.key} label={item.label} side="top">
       <button
         type="button"
         aria-label={item.label}
+        disabled={item.disabled}
         onClick={() => {
           item.onClick();
           if (!item.keepOpen) closeAddMenu();
         }}
-        className={`flex aspect-square w-full items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-secondary transition-colors hover:border-ds-accent-border hover:bg-ds-accent-surface hover:text-ds-accent ${FOCUS_RING}`}
+        className={`flex aspect-square w-full items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-secondary transition-colors hover:border-ds-accent-border hover:bg-ds-accent-surface hover:text-ds-accent disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
       >
         <span className="flex h-5 w-5 items-center justify-center">
           {item.icon}
@@ -1965,6 +2014,13 @@ export function SlideToolbar({
       onClick: () => setAddVisualOpen(true),
       keepOpen: true,
     },
+    {
+      key: "connector",
+      label: "Connector",
+      icon: <Spline size={16} aria-hidden="true" />,
+      onClick: onAddConnector,
+      disabled: !canAddConnector,
+    },
   ];
   const shapeItems = SHAPE_INSERT_OPTIONS.map((option) => ({
     key: option.kind,
@@ -1976,6 +2032,9 @@ export function SlideToolbar({
     { id: "text" as const, label: "Text", items: textItems },
     { id: "media" as const, label: "Media", items: mediaItems },
     { id: "shape" as const, label: "Shapes", items: shapeItems },
+    ...(hasDocumentInsertables
+      ? [{ id: "document" as const, label: "Document", items: [] }]
+      : []),
   ];
   const activeAddItems =
     addTabs.find((tab) => tab.id === addTab)?.items ?? textItems;
@@ -2084,13 +2143,36 @@ export function SlideToolbar({
                 );
               })}
             </div>
-            <div
-              role="tabpanel"
-              className="grid max-h-[min(28rem,calc(100vh-9rem))] grid-cols-5 gap-1.5 overflow-y-auto p-2"
-            >
-              {activeAddItems.map(addTile)}
-            </div>
-            {imageError ? (
+            {addTab === "document" ? (
+              <div role="tabpanel" className="min-h-0 overflow-hidden">
+                <FromDocumentPanel
+                  visuals={documentVisualEntries}
+                  textItems={documentTextInsertables}
+                  documentVisualInsertables={documentVisualInsertables}
+                  documentTextInsertables={documentTextInsertables}
+                  onAddAllVisuals={() => {
+                    onAddAllVisuals();
+                    closeAddMenu();
+                  }}
+                  onInsertVisual={(item) => {
+                    onInsertDocumentVisual(item);
+                    closeAddMenu();
+                  }}
+                  onInsertText={(item) => {
+                    onInsertDocumentText(item);
+                    closeAddMenu();
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                role="tabpanel"
+                className="grid max-h-[min(28rem,calc(100vh-9rem))] grid-cols-5 gap-1.5 overflow-y-auto p-2"
+              >
+                {activeAddItems.map(addTile)}
+              </div>
+            )}
+            {addTab !== "document" && imageError ? (
               <p role="alert" className="px-3 pb-3 text-xs text-ds-danger-text">
                 {imageError}
               </p>

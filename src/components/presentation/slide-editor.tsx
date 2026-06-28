@@ -26,37 +26,20 @@
 import {
   ChevronUp,
   ChevronDown,
-  ChevronLeft,
-  Captions,
-  Circle,
   Copy,
   Edit3,
   FileText,
   Grid3x3,
-  Heading,
-  Heading1,
-  Heading2,
   Images,
-  Image as ImageIcon,
   Keyboard,
-  List,
-  Minus,
   Palette,
   Plus,
-  Quote,
   RectangleHorizontal,
   Redo2,
   RefreshCw,
-  Shapes,
-  Sparkles,
-  Spline,
-  Square,
-  Tag,
   Trash2,
-  Triangle,
   Undo2,
   X,
-  Type,
 } from "lucide-react";
 import {
   useCallback,
@@ -90,11 +73,7 @@ import {
   DEFAULT_SCREEN_SIZE,
   type Size,
 } from "@/lib/presentation/stage-fit";
-import {
-  makeElementId,
-  type Deck,
-  type ShapeKind,
-} from "@/lib/presentation/deck";
+import { makeElementId, type Deck } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
   SLIDE_FORMATS,
@@ -111,7 +90,6 @@ import {
 } from "@/lib/presentation/slide-commands";
 import { PresentationThemePanel } from "@/components/presentation/presentation-theme-panel";
 import { GlobalMasterChromePanel } from "@/components/presentation/global-master-chrome-panel";
-import { type PresentationRole } from "@/lib/presentation/presentation-theme";
 import { resolvePresentationThemeTokens } from "@/lib/presentation/presentation-theme";
 import {
   applyGlobalMasterChromeUpdate,
@@ -125,7 +103,6 @@ import {
 } from "@/lib/presentation/slide-templates";
 import {
   buildConnectorBetween,
-  canvasShortcutHelp,
   focusTargetAfterDelete,
   orderedElementIds,
   selectedConnectablePair,
@@ -161,6 +138,7 @@ import { useSlideElementCommands } from "@/components/presentation/slide-editor/
 import { useSlideBackgroundCommands } from "@/components/presentation/slide-editor/use-slide-background-commands";
 import { useSlideInsertCommands } from "@/components/presentation/slide-editor/use-slide-insert-commands";
 import { useSlideManagementCommands } from "@/components/presentation/slide-editor/use-slide-management-commands";
+import { KeyboardShortcutHelpDialog } from "@/components/presentation/slide-editor/keyboard-shortcut-help-dialog";
 import { getThemePackage } from "@/lib/presentation/theme-packages";
 import {
   bucketCount,
@@ -168,7 +146,6 @@ import {
   emitProductTelemetry,
 } from "@/lib/telemetry/product";
 import {
-  FromDocumentPanel,
   MergeSummaryDialog,
   SlideBottomDock,
   SlideEditorTopToolbar,
@@ -341,34 +318,6 @@ function SlideKitTrigger({
   );
 }
 
-/** Text-role insert options for the Insert ▸ Text tab (semantic roles, #603). */
-const INSERT_TEXT_ROLES: ReadonlyArray<{
-  role: PresentationRole;
-  label: string;
-  icon: React.ReactNode;
-}> = [
-  { role: "title", label: "Title", icon: <Heading1 size={17} /> },
-  { role: "sectionTitle", label: "Section", icon: <Heading2 size={17} /> },
-  { role: "subtitle", label: "Subtitle", icon: <Heading size={17} /> },
-  { role: "body", label: "Body", icon: <Type size={17} /> },
-  { role: "bullet", label: "Bullet", icon: <List size={17} /> },
-  { role: "quote", label: "Quote", icon: <Quote size={17} /> },
-  { role: "caption", label: "Caption", icon: <Captions size={17} /> },
-  { role: "label", label: "Label", icon: <Tag size={17} /> },
-];
-
-/** Shape insert options for the Insert ▸ Shape tab. */
-const INSERT_SHAPES: ReadonlyArray<{
-  kind: ShapeKind;
-  label: string;
-  icon: React.ReactNode;
-}> = [
-  { kind: "rect", label: "Rectangle", icon: <Square size={17} /> },
-  { kind: "ellipse", label: "Ellipse", icon: <Circle size={17} /> },
-  { kind: "line", label: "Line", icon: <Minus size={17} /> },
-  { kind: "triangle", label: "Triangle", icon: <Triangle size={17} /> },
-];
-
 function TopToolbarMenuSection({
   title,
   children,
@@ -461,168 +410,6 @@ function TopToolbarPanelHeader({
         </span>
       ) : null}
     </div>
-  );
-}
-
-/**
- * Underlined tab bar used at the top of the Insert panel to separate object
- * categories (text roles, shapes, media).
- */
-function ToolbarTabs<T extends string>({
-  value,
-  options,
-  onChange,
-  ariaLabel,
-}: {
-  value: T;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  onChange: (value: T) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label={ariaLabel}
-      className="flex gap-1 border-b border-ds-border-subtle"
-    >
-      {options.map((option) => {
-        const selected = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            onClick={() => onChange(option.value)}
-            className={`relative flex-1 px-2 py-2 text-xs font-semibold transition-colors ${
-              selected
-                ? "text-ds-accent-text"
-                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-            } ${FOCUS_RING}`}
-          >
-            {option.label}
-            {selected ? (
-              <span
-                aria-hidden="true"
-                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-ds-accent"
-              />
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * A square icon tile for the Insert panel's object grid. Disabled tiles (e.g.
- * Connector without a valid selection) read as unavailable but stay visible.
- */
-function ToolbarObjectTile({
-  icon,
-  label,
-  onClick,
-  disabled,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex flex-col items-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-1 py-2.5 transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-        disabled
-          ? ""
-          : "hover:border-ds-accent-border hover:bg-ds-surface-raised hover:shadow-sm"
-      } ${FOCUS_RING}`}
-    >
-      <span
-        className={`flex h-8 w-8 items-center justify-center rounded-ds-md ${
-          disabled
-            ? "bg-ds-surface-sunken text-ds-text-muted"
-            : "bg-ds-accent-surface text-ds-accent-text"
-        }`}
-      >
-        {icon}
-      </span>
-      <span className="text-[11px] font-semibold text-ds-text-primary">
-        {label}
-      </span>
-    </button>
-  );
-}
-
-/**
- * In-product keyboard shortcut help overlay for the slide editor canvas (#535).
- * Built on the shared accessible {@link Dialog} (focus-trapped, Escape to
- * close, focus restored on close); the shortcut content comes from the pure
- * {@link canvasShortcutHelp} helper so it stays in sync with the keyboard
- * model and is unit-tested.
- */
-function KeyboardShortcutHelpDialog({
-  open,
-  isMac,
-  onClose,
-}: {
-  open: boolean;
-  isMac: boolean;
-  onClose: () => void;
-}) {
-  const groups = useMemo(() => canvasShortcutHelp({ isMac }), [isMac]);
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      aria-labelledby="canvas-keyboard-help-title"
-      className="max-w-2xl"
-    >
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h2
-          id="canvas-keyboard-help-title"
-          className="text-base font-semibold text-ds-text-primary"
-        >
-          Keyboard shortcuts
-        </h2>
-        <IconButton
-          aria-label="Close"
-          size="sm"
-          variant="plain"
-          onClick={onClose}
-        >
-          <X size={16} aria-hidden="true" />
-        </IconButton>
-      </div>
-      <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-        {groups.map((group) => (
-          <section key={group.title}>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
-              {group.title}
-            </h3>
-            <dl className="flex flex-col gap-1.5">
-              {group.entries.map((entry) => (
-                <div
-                  key={entry.keys}
-                  className="flex items-baseline justify-between gap-3 text-sm"
-                >
-                  <dt className="text-ds-text-secondary">
-                    {entry.description}
-                  </dt>
-                  <dd className="shrink-0">
-                    <kbd className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-1.5 py-0.5 text-xs font-medium text-ds-text-primary">
-                      {entry.keys}
-                    </kbd>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        ))}
-      </div>
-    </Dialog>
   );
 }
 
@@ -806,12 +593,8 @@ export function SlideEditor({
     setAddTemplateOpen,
     spotlightPickerOpen,
     setSpotlightPickerOpen,
-    insertMenuOpen,
     setInsertMenuOpen,
-    visualPickerOpen,
     setVisualPickerOpen,
-    fromDocOpen,
-    setFromDocOpen,
     setThemeMenuOpen,
     themeOverridesOpen,
     setThemeOverridesOpen,
@@ -832,9 +615,6 @@ export function SlideEditor({
     onDeckChange,
   });
   const [snapToGrid, setSnapToGrid] = useState(false);
-  const [insertTab, setInsertTab] = useState<"text" | "shape" | "media">(
-    "text",
-  );
   const [masterChromeOpen, setMasterChromeOpen] = useState(false);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [stageInsets, setStageInsets] = useState({
@@ -1911,6 +1691,33 @@ export function SlideEditor({
                 />
               </Popover>
               <Popover
+                open={masterChromeOpen}
+                onClose={() => setMasterChromeOpen(false)}
+                aria-label="Deck chrome"
+                align="start"
+                portal
+                layer="tooltip"
+                className="w-auto p-0"
+                trigger={
+                  <ToolbarIconTrigger
+                    icon={<Images size={17} aria-hidden="true" />}
+                    label="Deck chrome"
+                    open={masterChromeOpen}
+                    onClick={() => setMasterChromeOpen((open) => !open)}
+                    badge={hasGlobalMasterChrome}
+                  />
+                }
+              >
+                <GlobalMasterChromePanel
+                  deck={deck}
+                  slide={selectedSlide}
+                  visuals={visuals}
+                  documentId={documentId}
+                  slideAssetPort={slideAssetPort}
+                  onChange={handleGlobalMasterChromeChange}
+                />
+              </Popover>
+              <Popover
                 open={addTemplateOpen || spotlightPickerOpen}
                 onClose={() => {
                   setAddTemplateOpen(false);
@@ -1957,169 +1764,6 @@ export function SlideEditor({
                 className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
                 aria-hidden="true"
               />
-              <Popover
-                open={insertMenuOpen}
-                onClose={() => {
-                  setInsertMenuOpen(false);
-                  setVisualPickerOpen(false);
-                }}
-                aria-label="Insert object"
-                align="start"
-                portal
-                layer="tooltip"
-                className={visualPickerOpen ? "w-[340px] p-0" : "w-[300px] p-3"}
-                trigger={
-                  <ToolbarIconTrigger
-                    icon={<Shapes size={17} aria-hidden="true" />}
-                    label="Insert object"
-                    open={insertMenuOpen}
-                    onClick={() => {
-                      const nextOpen = !insertMenuOpen;
-                      setVisualPickerOpen(false);
-                      setInsertMenuOpen(nextOpen);
-                    }}
-                  />
-                }
-              >
-                {visualPickerOpen ? (
-                  <div className="flex max-h-[70vh] flex-col">
-                    <div className="border-b border-ds-border-subtle p-2">
-                      <button
-                        type="button"
-                        onClick={() => setVisualPickerOpen(false)}
-                        className={`flex items-center gap-1 rounded-ds-sm px-2 py-1 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                      >
-                        <ChevronLeft size={14} aria-hidden="true" />
-                        Back to Insert
-                      </button>
-                    </div>
-                    <VisualPicker
-                      className="w-full p-3"
-                      visuals={visuals}
-                      onPick={handleAddVisual}
-                      onClose={() => setVisualPickerOpen(false)}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex flex-col">
-                    <ToolbarTabs
-                      ariaLabel="Insert object category"
-                      value={insertTab}
-                      onChange={setInsertTab}
-                      options={[
-                        { value: "text", label: "Text" },
-                        { value: "shape", label: "Shape" },
-                        { value: "media", label: "Media" },
-                      ]}
-                    />
-                    <div className="pt-3">
-                      {insertTab === "text" ? (
-                        <div className="grid grid-cols-3 gap-2">
-                          {INSERT_TEXT_ROLES.map((item) => (
-                            <ToolbarObjectTile
-                              key={item.role}
-                              icon={item.icon}
-                              label={item.label}
-                              onClick={() => handleAddElement(item.role)}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {insertTab === "shape" ? (
-                        <div className="grid grid-cols-3 gap-2">
-                          {INSERT_SHAPES.map((item) => (
-                            <ToolbarObjectTile
-                              key={item.kind}
-                              icon={item.icon}
-                              label={item.label}
-                              onClick={() =>
-                                handleAddElement("shape", item.kind)
-                              }
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {insertTab === "media" ? (
-                        <>
-                          <div className="grid grid-cols-3 gap-2">
-                            <ToolbarObjectTile
-                              icon={<ImageIcon size={17} aria-hidden="true" />}
-                              label="Image"
-                              onClick={() => handleAddElement("image")}
-                            />
-                            {visuals.size > 0 ? (
-                              <ToolbarObjectTile
-                                icon={<Sparkles size={17} aria-hidden="true" />}
-                                label="Visual"
-                                onClick={() => setVisualPickerOpen(true)}
-                              />
-                            ) : null}
-                            <ToolbarObjectTile
-                              icon={<Spline size={17} aria-hidden="true" />}
-                              label="Connector"
-                              disabled={!selectedConnectorsPair}
-                              onClick={
-                                selectedConnectorsPair
-                                  ? handleAddConnector
-                                  : undefined
-                              }
-                            />
-                          </div>
-                          {!selectedConnectorsPair ? (
-                            <p className="px-1 pt-2 text-[11px] leading-relaxed text-ds-text-muted">
-                              Select two connectable objects to add a connector.
-                            </p>
-                          ) : null}
-                        </>
-                      ) : null}
-
-                      {insertImageError ? (
-                        <p
-                          role="alert"
-                          className="px-1 pt-2 text-xs text-ds-danger-text"
-                        >
-                          {insertImageError}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </Popover>
-              {hasDocumentInsertables ? (
-                <Popover
-                  open={fromDocOpen}
-                  onClose={() => setFromDocOpen(false)}
-                  aria-label="Insert from document"
-                  align="start"
-                  portal
-                  layer="tooltip"
-                  className="w-[340px] p-0"
-                  trigger={
-                    <ToolbarIconTrigger
-                      icon={<FileText size={17} aria-hidden="true" />}
-                      label="Insert from document"
-                      open={fromDocOpen}
-                      onClick={() => setFromDocOpen((open) => !open)}
-                    />
-                  }
-                >
-                  <FromDocumentPanel
-                    visuals={documentVisualEntries}
-                    textItems={documentTextInsertables}
-                    documentVisualInsertables={documentVisualInsertables}
-                    documentTextInsertables={documentTextInsertables}
-                    onAddAllVisuals={handleAddAllVisuals}
-                    onInsertVisual={handleInsertDocumentVisual}
-                    onInsertText={handleInsertDocumentText}
-                  />
-                </Popover>
-              ) : null}
-              <div
-                className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
-                aria-hidden="true"
-              />
 
               <SelectMenu
                 aria-label="Slide ratio"
@@ -2141,33 +1785,6 @@ export function SlideEditor({
                   icon: <RectangleHorizontal size={15} aria-hidden="true" />,
                 }))}
               />
-              <Popover
-                open={masterChromeOpen}
-                onClose={() => setMasterChromeOpen(false)}
-                aria-label="Deck chrome"
-                align="start"
-                portal
-                layer="tooltip"
-                className="w-auto p-0"
-                trigger={
-                  <ToolbarIconTrigger
-                    icon={<Images size={17} aria-hidden="true" />}
-                    label="Deck chrome"
-                    open={masterChromeOpen}
-                    onClick={() => setMasterChromeOpen((open) => !open)}
-                    badge={hasGlobalMasterChrome}
-                  />
-                }
-              >
-                <GlobalMasterChromePanel
-                  deck={deck}
-                  slide={selectedSlide}
-                  visuals={visuals}
-                  documentId={documentId}
-                  slideAssetPort={slideAssetPort}
-                  onChange={handleGlobalMasterChromeChange}
-                />
-              </Popover>
               <div
                 className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
                 aria-hidden="true"
@@ -2511,6 +2128,15 @@ export function SlideEditor({
                           visuals={visuals}
                           imageError={insertImageError ?? replaceImageError}
                           onPickVisual={handleAddVisual}
+                          canAddConnector={selectedConnectorsPair !== null}
+                          onAddConnector={handleAddConnector}
+                          documentVisualEntries={documentVisualEntries}
+                          documentTextInsertables={documentTextInsertables}
+                          documentVisualInsertables={documentVisualInsertables}
+                          hasDocumentInsertables={hasDocumentInsertables}
+                          onAddAllVisuals={handleAddAllVisuals}
+                          onInsertDocumentVisual={handleInsertDocumentVisual}
+                          onInsertDocumentText={handleInsertDocumentText}
                           onDuplicateSlide={() => handleDuplicate(safeSelected)}
                           onRemoveSlide={() => handleRemove(safeSelected)}
                           onOpenPanel={() => openRightPanel("slide")}

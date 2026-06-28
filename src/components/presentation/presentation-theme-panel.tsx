@@ -18,8 +18,9 @@
  *    **Reset to theme** clears the deck's theme override token set.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import {
   resolveRoleToken,
   PRESENTATION_ROLES,
@@ -31,7 +32,10 @@ import {
 } from "@/lib/presentation/presentation-theme";
 import {
   THEME_PACKAGES,
+  previewDeckForThemePackage,
   resolveThemePackageId,
+  slideFromThemePackageTemplate,
+  type PresentationThemePackage,
   type ThemePackageId,
 } from "@/lib/presentation/theme-packages";
 import type { PresentationThemeOverridesPatch } from "@/lib/presentation/deck-mutations";
@@ -42,6 +46,7 @@ import {
   type CustomThemePreset,
 } from "@/lib/presentation/theme-preset-store";
 import { SLIDE_FONT_OPTIONS } from "@/lib/presentation/slide-fonts";
+import type { Visual } from "@/lib/visual/schema";
 import {
   ColorPicker,
   SegmentedControl,
@@ -58,6 +63,7 @@ type PanelTab = "palette" | "type";
 type PanelView = "preset" | "customize";
 
 const PACKAGE_PRESETS = THEME_PACKAGES;
+const EMPTY_VISUALS: ReadonlyMap<string, Visual> = new Map<string, Visual>();
 
 /** Editable palette tokens (slideBg is owned by the Background section). */
 const COLOR_FIELDS: ReadonlyArray<{ key: keyof ColorToken; label: string }> = [
@@ -411,12 +417,14 @@ function BackgroundSection({
 function PresetCard({
   name,
   colors,
+  preview,
   active,
   onApply,
   onDelete,
 }: {
   name: string;
   colors: ColorToken;
+  preview?: ReactNode;
   active: boolean;
   onApply: () => void;
   onDelete?: () => void;
@@ -435,15 +443,17 @@ function PresetCard({
           FOCUS_RING,
         )}
       >
-        <span
-          aria-hidden="true"
-          className="h-9 w-full rounded-ds-sm border border-ds-border-subtle"
-          style={{ backgroundColor: colors.slideBg }}
-        >
-          <span className="flex h-full items-end p-1">
-            <PaletteStrip colors={colors} />
+        {preview ?? (
+          <span
+            aria-hidden="true"
+            className="h-9 w-full rounded-ds-sm border border-ds-border-subtle"
+            style={{ backgroundColor: colors.slideBg }}
+          >
+            <span className="flex h-full items-end p-1">
+              <PaletteStrip colors={colors} />
+            </span>
           </span>
-        </span>
+        )}
         <span className="truncate text-[11px] font-semibold text-ds-text-primary">
           {name}
         </span>
@@ -463,6 +473,29 @@ function PresetCard({
         </button>
       ) : null}
     </div>
+  );
+}
+
+function SlideKitCoverPreview({
+  themePackage,
+}: {
+  themePackage: PresentationThemePackage;
+}) {
+  const template =
+    themePackage.templates.find((entry) => entry.id.endsWith(":cover")) ??
+    themePackage.templates[0];
+  return (
+    <span
+      aria-hidden="true"
+      className="relative block aspect-video w-full overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base"
+    >
+      <SlideCanvas
+        slide={slideFromThemePackageTemplate(template)}
+        deck={previewDeckForThemePackage(themePackage)}
+        visuals={EMPTY_VISUALS}
+        preview
+      />
+    </span>
   );
 }
 
@@ -540,15 +573,13 @@ export function PresentationThemePanel({
 
         <div className="flex max-h-[52vh] flex-col gap-3 overflow-y-auto pr-0.5">
           <div className="flex flex-col gap-2">
-            <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ds-text-muted">
-              Slide kits
-            </span>
             <div className="grid grid-cols-2 gap-2">
               {PACKAGE_PRESETS.map((themePackage) => (
                 <PresetCard
                   key={themePackage.id}
                   name={themePackage.name}
                   colors={themePackage.tokenSet.colors}
+                  preview={<SlideKitCoverPreview themePackage={themePackage} />}
                   active={resolveThemePackageId(themeId) === themePackage.id}
                   onApply={() => onApplyThemePackage(themePackage.id)}
                 />

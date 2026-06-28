@@ -268,6 +268,57 @@ export function themePackageTemplatesForDeck(deck: Deck): SlideTemplate[] {
   );
 }
 
+export function slideFromThemePackageTemplate(template: SlideTemplate): Slide {
+  return {
+    id: `preview-${template.id.replace(/[^a-z0-9-]+/gi, "-")}`,
+    index: 0,
+    title: template.name,
+    notes: "",
+    templateId: template.id,
+    ...(template.defaultMasterId ? { masterId: template.defaultMasterId } : {}),
+    ...(template.slideDesignDefaults
+      ? { designOverrides: template.slideDesignDefaults }
+      : {}),
+    elements: template.elements.map((element, index) => ({
+      id: element.id,
+      kind: element.kind,
+      ...(element.role ? { role: element.role } : {}),
+      box: element.box ?? { x: 10, y: 10, w: 80, h: 20 },
+      zIndex: index,
+      content: element.contentDefaults ?? { kind: element.kind },
+      ...(element.designOverrides
+        ? { designOverrides: element.designOverrides }
+        : {}),
+      ...(typeof element.opacity === "number"
+        ? { opacity: element.opacity }
+        : {}),
+      ...(typeof element.rotation === "number"
+        ? { rotation: element.rotation }
+        : {}),
+      ...(typeof element.locked === "boolean"
+        ? { locked: element.locked }
+        : {}),
+      ...(typeof element.name === "string" ? { name: element.name } : {}),
+    })),
+  } as unknown as Slide;
+}
+
+export function previewDeckForThemePackage(
+  themePackage: PresentationThemePackage,
+): Deck {
+  return {
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: {
+      themeId: themePackage.id,
+      themeOverrides: { tokenSet: themePackage.tokenSet },
+    },
+    masters: themePackage.masters,
+    defaultMasterId: themePackage.defaultMasterId,
+    slides: [],
+  } as Deck;
+}
+
 export function applyThemePackage(deck: Deck, packageId: string): Deck | null {
   const themePackage = getThemePackage(packageId);
   if (!themePackage) return null;
