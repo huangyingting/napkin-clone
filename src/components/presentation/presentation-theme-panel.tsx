@@ -20,10 +20,7 @@
 
 import { useMemo, useState } from "react";
 
-import type { PresentationThemeId } from "@/lib/presentation/deck";
 import {
-  allThemeTokenSets,
-  isBuiltInTheme,
   resolveRoleToken,
   PRESENTATION_ROLES,
   type BackgroundTreatment,
@@ -32,6 +29,11 @@ import {
   type PresentationTheme,
   type PresentationRoleToken,
 } from "@/lib/presentation/presentation-theme";
+import {
+  THEME_PACKAGES,
+  resolveThemePackageId,
+  type ThemePackageId,
+} from "@/lib/presentation/theme-packages";
 import type { PresentationThemeOverridesPatch } from "@/lib/presentation/deck-mutations";
 import {
   deleteThemePreset,
@@ -55,7 +57,7 @@ import { cx, FOCUS_RING } from "@/components/ui/tokens";
 type PanelTab = "palette" | "type";
 type PanelView = "preset" | "customize";
 
-const BUILT_IN_THEMES = allThemeTokenSets();
+const PACKAGE_PRESETS = THEME_PACKAGES;
 
 /** Editable palette tokens (slideBg is owned by the Background section). */
 const COLOR_FIELDS: ReadonlyArray<{ key: keyof ColorToken; label: string }> = [
@@ -474,7 +476,7 @@ export function PresentationThemePanel({
   themeId,
   onUpdate,
   onReset,
-  onApplyTheme,
+  onApplyThemePackage,
 }: {
   /** The deck's resolved token set (custom set when present, else built-in). */
   tokenSet: PresentationTheme;
@@ -484,8 +486,8 @@ export function PresentationThemePanel({
   themeId: string;
   onUpdate: (patch: PresentationThemeOverridesPatch) => void;
   onReset: () => void;
-  /** Applies a built-in theme preset cleanly (clears any theme override token set). */
-  onApplyTheme: (themeId: PresentationThemeId) => void;
+  /** Applies a theme package: tokens, masters, and package templates. */
+  onApplyThemePackage: (themeId: ThemePackageId) => void;
 }) {
   const [view, setView] = useState<PanelView>("preset");
   const [tab, setTab] = useState<PanelTab>("palette");
@@ -539,18 +541,16 @@ export function PresentationThemePanel({
         <div className="flex max-h-[52vh] flex-col gap-3 overflow-y-auto pr-0.5">
           <div className="flex flex-col gap-2">
             <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ds-text-muted">
-              Built-in presets
+              Theme packages
             </span>
             <div className="grid grid-cols-2 gap-2">
-              {BUILT_IN_THEMES.map((ts) => (
+              {PACKAGE_PRESETS.map((themePackage) => (
                 <PresetCard
-                  key={ts.id}
-                  name={ts.name}
-                  colors={ts.colors}
-                  active={!isCustom && themeId === ts.id}
-                  onApply={() => {
-                    if (isBuiltInTheme(ts.id)) onApplyTheme(ts.id);
-                  }}
+                  key={themePackage.id}
+                  name={themePackage.name}
+                  colors={themePackage.tokenSet.colors}
+                  active={resolveThemePackageId(themeId) === themePackage.id}
+                  onApply={() => onApplyThemePackage(themePackage.id)}
                 />
               ))}
             </div>

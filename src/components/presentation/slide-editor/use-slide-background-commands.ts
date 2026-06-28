@@ -2,12 +2,13 @@
 
 import { useCallback } from "react";
 
-import type { Deck, PresentationThemeId } from "@/lib/presentation/deck";
+import type { Deck } from "@/lib/presentation/deck";
 import {
   commitCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
 import type { PresentationThemeOverridesPatch } from "@/lib/presentation/deck-mutations";
+import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 import {
   bucketCount,
   bucketDurationMs,
@@ -499,8 +500,8 @@ export function useSlideBackgroundCommands({
   }, [deck, doCommitAndChange]);
 
   const handleApplyPresentationTheme = useCallback(
-    (themeId: PresentationThemeId) => {
-      doCommitAndChange(deck, { type: "SET_PRESENTATION_THEME", themeId });
+    (packageId: ThemePackageId) => {
+      doCommitAndChange(deck, { type: "APPLY_THEME_PACKAGE", packageId });
     },
     [deck, doCommitAndChange],
   );

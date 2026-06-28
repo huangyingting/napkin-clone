@@ -74,6 +74,7 @@ const SLIDE_COMMAND_TYPES = [
   "RENAME_ELEMENT",
   "REORDER_ELEMENT",
   "SET_PRESENTATION_THEME",
+  "APPLY_THEME_PACKAGE",
   "UPDATE_THEME_OVERRIDES",
   "SET_CANVAS_FORMAT",
   "CREATE_MASTER",
@@ -459,6 +460,11 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
         errors.push("payload.themeId must be a non-empty string.");
       }
       break;
+    case "APPLY_THEME_PACKAGE":
+      if (!isNonEmptyString(payload.packageId)) {
+        errors.push("payload.packageId must be a non-empty string.");
+      }
+      break;
     case "UPDATE_THEME_OVERRIDES":
       if (!isPlainObject(payload.patch)) {
         errors.push("payload.patch must be an object.");
@@ -762,6 +768,10 @@ export const SLIDE_COMMAND_METADATA = {
   SET_PRESENTATION_THEME: makeMetadata(
     "SET_PRESENTATION_THEME",
     "presentation.set_theme",
+  ),
+  APPLY_THEME_PACKAGE: makeMetadata(
+    "APPLY_THEME_PACKAGE",
+    "presentation.apply_theme_package",
   ),
   UPDATE_THEME_OVERRIDES: makeMetadata(
     "UPDATE_THEME_OVERRIDES",

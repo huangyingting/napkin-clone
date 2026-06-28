@@ -5,6 +5,13 @@ import type { Deck, Slide, SlideElement } from "./deck";
 import { applyPatch, executeCommand } from "./slide-commands";
 import { safeParseDeck } from "./deck-schema";
 import { resolveThemeTokens } from "./presentation-theme";
+import {
+  DEFAULT_THEME_PACKAGE_ID,
+  THEME_PACKAGES,
+  isThemePackageTemplateId,
+  resolveThemePackageId,
+  themePackageTemplatesForDeck,
+} from "./theme-packages";
 import { buildDeck, buildSlide } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
@@ -281,6 +288,135 @@ function customTemplate(id = "template-custom") {
     ],
   };
 }
+
+test("APPLY_THEME_PACKAGE installs package assets and preserves user templates", () => {
+  const slideElement = {
+    id: "keep-shape",
+    kind: "shape",
+    role: "background",
+    box: { x: 10, y: 10, w: 20, h: 20 },
+    zIndex: 0,
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#ff0000" } },
+  } as unknown as SlideElement;
+  const deck = buildDeck({
+    design: {
+      themeId: "terra",
+      themeOverrides: {
+        tokenSet: {
+          ...resolveThemeTokens("terra"),
+          id: "custom:terra",
+          name: "Custom Terra",
+        },
+      },
+    },
+    slides: [
+      buildSlide({
+        id: "s1",
+        index: 0,
+        title: "Slide",
+        masterId: "master-terra",
+        designOverrides: { accent: { value: "#ff0000" } },
+        elements: [slideElement],
+      }),
+    ],
+    customTemplates: [
+      customTemplate("custom-keep"),
+      customTemplate("theme:terra:cover"),
+    ],
+  });
+
+  const result = executeCommand(deck, {
+    type: "APPLY_THEME_PACKAGE",
+    packageId: "pulse",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal((result.deck as any).design.themeId, "pulse");
+  assert.equal((result.deck as any).design.themeOverrides.tokenSet.id, "pulse");
+  assert.equal((result.deck as any).defaultMasterId, "master-pulse");
+  assert.equal((result.deck.slides[0] as any).masterId, "master-pulse");
+  assert.deepEqual(result.deck.slides[0]!.elements, [slideElement]);
+  assert.deepEqual(result.deck.slides[0]!.designOverrides, {
+    accent: { value: "#ff0000" },
+  });
+  assert.equal(
+    (result.deck.customTemplates ?? []).some(
+      (template) => template.id === "custom-keep",
+    ),
+    true,
+  );
+  assert.equal(
+    (result.deck.customTemplates ?? []).some(
+      (template) => template.id === "theme:terra:cover",
+    ),
+    false,
+  );
+  assert.equal(themePackageTemplatesForDeck(result.deck).length, 6);
+  assert.equal(result.patches[0]!.op, "presentation.apply_theme_package");
+  assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("theme package catalog applies as schema-valid decks", () => {
+  const deck = buildCommandDeck(["s1"]);
+  assert.equal(THEME_PACKAGES.length, 8);
+  assert.equal(
+    THEME_PACKAGES.map((themePackage) => themePackage.id as string).includes(
+      "default",
+    ),
+    false,
+  );
+  assert.equal(resolveThemePackageId("default"), DEFAULT_THEME_PACKAGE_ID);
+  for (const themePackage of THEME_PACKAGES) {
+    const result = executeCommand(deck, {
+      type: "APPLY_THEME_PACKAGE",
+      packageId: themePackage.id,
+    });
+    assert.equal(result.ok, true, themePackage.id);
+    assert.equal(safeParseDeck(result.deck).success, true, themePackage.id);
+    assert.equal(themePackageTemplatesForDeck(result.deck).length, 6);
+  }
+});
+
+test("APPLY_THEME_PACKAGE maps default to the default package target", () => {
+  const result = executeCommand(buildCommandDeck(["s1"]), {
+    type: "APPLY_THEME_PACKAGE",
+    packageId: "default",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal((result.deck as any).design.themeId, DEFAULT_THEME_PACKAGE_ID);
+  assert.equal(themePackageTemplatesForDeck(result.deck).length, 6);
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("ADD_SLIDE_FROM_TEMPLATE materializes theme package templates", () => {
+  const applied = executeCommand(buildCommandDeck(["s1"]), {
+    type: "APPLY_THEME_PACKAGE",
+    packageId: "pulse",
+  });
+  assert.equal(applied.ok, true);
+  const template = themePackageTemplatesForDeck(applied.deck)[0]!;
+  assert.equal(isThemePackageTemplateId(template.id), true);
+
+  const result = executeCommand(applied.deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: template.id,
+  });
+
+  assert.equal(result.ok, true);
+  const added = result.deck.slides.at(-1) as any;
+  assert.equal(added.templateId, template.id);
+  assert.equal(added.masterId, "master-pulse");
+  assert.equal(
+    added.elements.some(
+      (element: any) => element.opacity !== undefined || element.locked,
+    ),
+    true,
+  );
+  assert.equal(safeParseDeck(result.deck).success, true);
+});
 
 test("ADD_SLIDE_FROM_TEMPLATE materializes a built-in template slide", () => {
   const deck = buildCommandDeck(["s1"]);

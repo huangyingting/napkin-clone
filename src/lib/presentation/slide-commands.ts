@@ -68,6 +68,7 @@ import type {
 export type {
   AddElementCommand,
   AddSlideCommand,
+  ApplyThemePackageCommand,
   AlignElementsCommand,
   ArrangeElementsCommand,
   BringElementToFrontCommand,
@@ -157,6 +158,7 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     case "REORDER_ELEMENT":
       return executeElementFamilyCommand(deck, cmd);
     case "SET_PRESENTATION_THEME":
+    case "APPLY_THEME_PACKAGE":
     case "UPDATE_THEME_OVERRIDES":
     case "SET_CANVAS_FORMAT":
     case "CREATE_MASTER":
@@ -253,6 +255,30 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
       const theme = patch.deckFields?.design?.themeId;
       if (!theme) return null;
       return setPresentationTheme(deck, theme);
+    }
+    case "presentation.apply_theme_package": {
+      const design = patch.deckFields?.design;
+      const masters = patch.deckFields?.masters;
+      const defaultMasterId = patch.deckFields?.defaultMasterId;
+      const customTemplates = patch.deckFields?.customTemplates;
+      if (!design || !masters || !defaultMasterId || !customTemplates) {
+        return null;
+      }
+      let next = {
+        ...deck,
+        design: { ...((deck as any).design ?? {}), ...design },
+        masters,
+        defaultMasterId,
+        customTemplates,
+      } as Deck;
+      if (patch.slideFields) {
+        for (const [slideId, fields] of Object.entries(patch.slideFields)) {
+          const index = next.slides.findIndex((slide) => slide.id === slideId);
+          if (index === -1) return null;
+          next = updateSlide(next, index, fields);
+        }
+      }
+      return next;
     }
     case "presentation.update_theme_overrides": {
       if (patch.deckFields?.resetThemeOverrides) {

@@ -95,6 +95,10 @@ import {
   type SlideTemplateOption,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
+import {
+  isThemePackageTemplateId,
+  themePackageTemplatesForDeck,
+} from "@/lib/presentation/theme-packages";
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
 import type { Insertable } from "@/lib/presentation/document-insertable";
 import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
@@ -529,20 +533,24 @@ function swatchColor(value: string, fallback: string): string {
 
 function SlideTemplatePreview({
   templateKind,
+  template: providedTemplate,
   selected,
   className = "h-16 w-28 shrink-0",
 }: {
-  templateKind: SlideTemplateKind;
+  templateKind?: SlideTemplateKind;
+  template?: NonNullable<Deck["customTemplates"]>[number];
   selected?: boolean;
   className?: string;
 }) {
-  const template = getBuiltInSlideTemplate(templateKind);
+  const template =
+    providedTemplate ??
+    (templateKind ? getBuiltInSlideTemplate(templateKind) : undefined);
   return (
     <span
       aria-hidden="true"
       className={`relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base ${className}`}
     >
-      {template.elements.length ? (
+      {template?.elements.length ? (
         template.elements.map((element) => {
           const box = element.box as
             | { x: number; y: number; w: number; h: number }
@@ -968,12 +976,23 @@ export function ColorThemePanel({
 }
 
 export function SlideTemplatePicker({
+  deck,
   customTemplates = [],
   onPick,
 }: {
+  deck?: Deck;
   customTemplates?: NonNullable<Deck["customTemplates"]>;
   onPick: (kind: SlideTemplateKind | string) => void;
 }) {
+  const packageTemplates = deck
+    ? themePackageTemplatesForDeck(deck)
+    : customTemplates.filter((template) =>
+        isThemePackageTemplateId(template.id),
+      );
+  const userTemplates = customTemplates.filter(
+    (template) => !isThemePackageTemplateId(template.id),
+  );
+  const showBasicTemplates = packageTemplates.length === 0;
   return (
     <div
       role="menu"
@@ -990,33 +1009,62 @@ export function SlideTemplatePicker({
         </h4>
       </div>
       <div className="flex flex-col gap-1.5">
-        {SLIDE_TEMPLATES.map((template) => (
-          <button
-            key={template.kind}
-            type="button"
-            role="menuitem"
-            onClick={() => onPick(template.kind)}
-            title={template.description}
-            className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-          >
-            <TemplatePreview kind={template.kind} />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
-                {template.label}
-              </span>
-              <span className="truncate text-[10px] leading-tight text-ds-text-muted">
-                {template.description}
-              </span>
-            </span>
-          </button>
-        ))}
-        {customTemplates.length > 0 ? (
+        {packageTemplates.length > 0 ? (
+          <>
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+              Theme
+            </p>
+            {packageTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                role="menuitem"
+                onClick={() => onPick(template.id)}
+                title={template.name}
+                className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                <SlideTemplatePreview template={template} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
+                    {template.name}
+                  </span>
+                  <span className="truncate text-[10px] leading-tight text-ds-text-muted">
+                    Theme template
+                  </span>
+                </span>
+              </button>
+            ))}
+          </>
+        ) : null}
+        {showBasicTemplates
+          ? SLIDE_TEMPLATES.map((template) => (
+              <button
+                key={template.kind}
+                type="button"
+                role="menuitem"
+                onClick={() => onPick(template.kind)}
+                title={template.description}
+                className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                <TemplatePreview kind={template.kind} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
+                    {template.label}
+                  </span>
+                  <span className="truncate text-[10px] leading-tight text-ds-text-muted">
+                    {template.description}
+                  </span>
+                </span>
+              </button>
+            ))
+          : null}
+        {userTemplates.length > 0 ? (
           <>
             <div className="my-1 border-t border-ds-border-subtle" />
             <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
               Custom
             </p>
-            {customTemplates.map((template, index) => (
+            {userTemplates.map((template, index) => (
               <button
                 key={`custom-${template.id}-${index}`}
                 type="button"
@@ -1025,7 +1073,7 @@ export function SlideTemplatePicker({
                 title={template.name}
                 className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
               >
-                <TemplatePreview kind="blank" />
+                <SlideTemplatePreview template={template} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
                     {template.name}

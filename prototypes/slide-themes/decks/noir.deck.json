@@ -1,0 +1,1206 @@
+{
+  "schemaVersion": 6,
+  "canvas": {
+    "format": "16:9"
+  },
+  "design": {
+    "themeId": "pro-noir",
+    "themeOverrides": {
+      "tokenSet": {
+        "id": "pro-noir",
+        "name": "Noir",
+        "colors": {
+          "slideBg": "#0d0f14",
+          "surface": "#181b23",
+          "accent": "#f5b301",
+          "onBg": "#f2f3f5",
+          "onSurface": "#d4d7dd",
+          "onAccent": "#0d0f14",
+          "muted": "#8b909b"
+        },
+        "typography": {
+          "fontFamily": "'Inter', system-ui, sans-serif",
+          "headingFontFamily": "'Manrope', system-ui, sans-serif",
+          "scale": {
+            "h1": 40,
+            "h2": 32,
+            "h3": 22,
+            "body": 16,
+            "list": 15,
+            "footer": 10
+          },
+          "roles": {
+            "title": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 40,
+              "color": "#f2f3f5",
+              "weight": 800,
+              "align": "left",
+              "lineHeight": 1.05
+            },
+            "sectionTitle": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 34,
+              "color": "#f2f3f5",
+              "weight": 800,
+              "align": "left",
+              "lineHeight": 1.05
+            },
+            "subtitle": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 20,
+              "color": "#8b909b",
+              "weight": 400,
+              "align": "left",
+              "lineHeight": 1.3
+            },
+            "body": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 16,
+              "color": "#d4d7dd",
+              "weight": 400,
+              "align": "left",
+              "lineHeight": 1.45
+            },
+            "bullet": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 15,
+              "color": "#d4d7dd",
+              "weight": 400,
+              "align": "left",
+              "lineHeight": 1.5
+            },
+            "quote": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 26,
+              "color": "#f2f3f5",
+              "weight": 600,
+              "italic": true,
+              "align": "left",
+              "lineHeight": 1.3
+            },
+            "caption": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#8b909b",
+              "weight": 500,
+              "align": "left"
+            },
+            "label": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#f5b301",
+              "weight": 700,
+              "align": "left"
+            },
+            "footer": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 9,
+              "color": "#8b909b",
+              "weight": 500,
+              "align": "left"
+            },
+            "pageNumber": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 9,
+              "color": "#8b909b",
+              "weight": 600,
+              "align": "right"
+            }
+          }
+        },
+        "spacing": {
+          "slidePaddingPt": 40,
+          "gridUnitPt": 6
+        },
+        "shape": {
+          "cornerRadiusPt": 6,
+          "shadowCss": "0 20px 50px rgba(0,0,0,0.45)",
+          "fill": "#f5b301"
+        },
+        "defaultBackground": {
+          "type": "gradient",
+          "from": "#0d0f14",
+          "to": "#14171f",
+          "angle": 160
+        }
+      }
+    }
+  },
+  "masters": [
+    {
+      "id": "master-noir",
+      "name": "Noir Master",
+      "background": {
+        "type": "gradient",
+        "from": {
+          "value": "#0d0f14"
+        },
+        "to": {
+          "value": "#14171f"
+        },
+        "angle": 160
+      },
+      "elements": [
+        {
+          "id": "footer",
+          "kind": "text",
+          "role": "footer",
+          "box": {
+            "x": 5,
+            "y": 93.5,
+            "w": 60,
+            "h": 4
+          },
+          "zIndex": 0,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 1.7,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#8b909b",
+              "fontId": "manrope"
+            }
+          },
+          "locked": true,
+          "layer": "foreground",
+          "masterChromeKind": "footer",
+          "content": {
+            "kind": "text",
+            "text": "NOIR",
+            "paragraphs": [
+              {
+                "text": "NOIR"
+              }
+            ]
+          }
+        },
+        {
+          "id": "page-number",
+          "kind": "text",
+          "role": "pageNumber",
+          "box": {
+            "x": 88,
+            "y": 93.5,
+            "w": 7,
+            "h": 4
+          },
+          "zIndex": 0,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 1.7,
+              "bold": true,
+              "italic": false,
+              "align": "right",
+              "color": "#8b909b",
+              "fontId": "inter"
+            }
+          },
+          "locked": true,
+          "layer": "foreground",
+          "masterChromeKind": "pageNumber",
+          "content": {
+            "kind": "text",
+            "text": "{{pageNumber}}",
+            "paragraphs": [
+              {
+                "text": "{{pageNumber}}"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "defaultMasterId": "master-noir",
+  "slides": [
+    {
+      "id": "noir-cover",
+      "index": 0,
+      "title": "Noir",
+      "notes": "",
+      "templateId": "title",
+      "elements": [
+        {
+          "id": "s-1",
+          "kind": "shape",
+          "opacity": 0.1,
+          "box": {
+            "x": 55,
+            "y": -25,
+            "w": 70,
+            "h": 90
+          },
+          "zIndex": 1,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Glow",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "s-2",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 33,
+            "w": 8,
+            "h": 0.5
+          },
+          "zIndex": 2,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Rule",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-3",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 8,
+            "y": 26,
+            "w": 50,
+            "h": 5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.2,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "verticalAlign": "middle",
+              "color": "#f5b301",
+              "fontId": "manrope"
+            }
+          },
+          "name": "Kicker",
+          "content": {
+            "kind": "text",
+            "text": "SERIES A · CONFIDENTIAL",
+            "paragraphs": [
+              {
+                "text": "SERIES A · CONFIDENTIAL"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-4",
+          "kind": "text",
+          "role": "title",
+          "box": {
+            "x": 7.5,
+            "y": 36,
+            "w": 78,
+            "h": 26
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 9.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1,
+              "color": "#f2f3f5",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "The category\ndefining bet",
+            "paragraphs": [
+              {
+                "text": "The category\ndefining bet"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-5",
+          "kind": "text",
+          "role": "subtitle",
+          "box": {
+            "x": 8,
+            "y": 66,
+            "w": 56,
+            "h": 8
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.4,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "color": "#8b909b",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Infrastructure for the autonomous enterprise.",
+            "paragraphs": [
+              {
+                "text": "Infrastructure for the autonomous enterprise."
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-6",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 86,
+            "w": 1.4,
+            "h": 2.5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Dot",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "s-7",
+          "kind": "shape",
+          "box": {
+            "x": 10.5,
+            "y": 86,
+            "w": 1.4,
+            "h": 2.5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#38e1c2"
+            }
+          },
+          "locked": true,
+          "name": "Dot",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "s-8",
+          "kind": "shape",
+          "box": {
+            "x": 13,
+            "y": 86,
+            "w": 1.4,
+            "h": 2.5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#8b909b"
+            }
+          },
+          "locked": true,
+          "name": "Dot",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        }
+      ]
+    },
+    {
+      "id": "noir-section",
+      "index": 1,
+      "title": "Problem",
+      "notes": "",
+      "templateId": "title",
+      "elements": [
+        {
+          "id": "s-9",
+          "kind": "shape",
+          "opacity": 0.08,
+          "box": {
+            "x": -20,
+            "y": 30,
+            "w": 60,
+            "h": 80
+          },
+          "zIndex": 1,
+          "designOverrides": {
+            "fill": {
+              "value": "#38e1c2"
+            }
+          },
+          "locked": true,
+          "name": "Glow",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "t-a",
+          "kind": "text",
+          "box": {
+            "x": 8,
+            "y": 24,
+            "w": 30,
+            "h": 12
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 7,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#f5b301",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "01",
+            "paragraphs": [
+              {
+                "text": "01"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-b",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 39,
+            "w": 9,
+            "h": 0.5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Rule",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-c",
+          "kind": "text",
+          "role": "sectionTitle",
+          "box": {
+            "x": 8,
+            "y": 43,
+            "w": 76,
+            "h": 18
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 7,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.05,
+              "color": "#f2f3f5",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "The problem is expensive",
+            "paragraphs": [
+              {
+                "text": "The problem is expensive"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "noir-content",
+      "index": 2,
+      "title": "Solution",
+      "notes": "",
+      "templateId": "content",
+      "elements": [
+        {
+          "id": "t-d",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 8,
+            "y": 12,
+            "w": 40,
+            "h": 5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.2,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "verticalAlign": "middle",
+              "color": "#f5b301",
+              "fontId": "manrope"
+            }
+          },
+          "name": "Kicker",
+          "content": {
+            "kind": "text",
+            "text": "SOLUTION",
+            "paragraphs": [
+              {
+                "text": "SOLUTION"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-e",
+          "kind": "text",
+          "role": "title",
+          "box": {
+            "x": 8,
+            "y": 17,
+            "w": 54,
+            "h": 12
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 5.6,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#f2f3f5",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "One control plane",
+            "paragraphs": [
+              {
+                "text": "One control plane"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-f",
+          "kind": "text",
+          "role": "bullet",
+          "box": {
+            "x": 8,
+            "y": 32,
+            "w": 42,
+            "h": 48
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.3,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.55,
+              "paragraphSpacing": 1.8,
+              "color": "#d4d7dd",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Unifies fragmented tooling into one API.\nPolicy and audit built in from day zero.\nDeploys in the customer's own cloud.",
+            "paragraphs": [
+              {
+                "text": "Unifies fragmented tooling into one API.",
+                "listType": "bullet"
+              },
+              {
+                "text": "Policy and audit built in from day zero.",
+                "listType": "bullet"
+              },
+              {
+                "text": "Deploys in the customer's own cloud.",
+                "listType": "bullet"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-g",
+          "kind": "shape",
+          "box": {
+            "x": 56,
+            "y": 24,
+            "w": 38,
+            "h": 56
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "value": "#181b23"
+            },
+            "radius": 8
+          },
+          "locked": true,
+          "name": "Card",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "s-h",
+          "kind": "shape",
+          "box": {
+            "x": 56,
+            "y": 24,
+            "w": 38,
+            "h": 1
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Card edge",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "img-i",
+          "kind": "image",
+          "role": "image",
+          "box": {
+            "x": 59,
+            "y": 29,
+            "w": 32,
+            "h": 46
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "radius": 6,
+            "fitMode": "cover"
+          },
+          "content": {
+            "kind": "image",
+            "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22%23e9e9ee%22%2F%3E%3Cpath%20d%3D%22M300%20270l70-70%2055%2055%2040-40%2075%2075%22%20fill%3D%22none%22%20stroke%3D%22%2394949f%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22165%22%20r%3D%2226%22%20fill%3D%22%2394949f%22%2F%3E%3C%2Fsvg%3E",
+            "alt": "Image placeholder"
+          }
+        }
+      ]
+    },
+    {
+      "id": "noir-twocol",
+      "index": 3,
+      "title": "Traction",
+      "notes": "",
+      "templateId": "two-column",
+      "elements": [
+        {
+          "id": "t-j",
+          "kind": "text",
+          "role": "title",
+          "box": {
+            "x": 8,
+            "y": 12,
+            "w": 70,
+            "h": 8
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 5.6,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#f2f3f5",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Traction & team",
+            "paragraphs": [
+              {
+                "text": "Traction & team"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-k",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 28,
+            "w": 40,
+            "h": 54
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "value": "#181b23"
+            },
+            "radius": 8
+          },
+          "locked": true,
+          "name": "Left card",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "s-l",
+          "kind": "shape",
+          "box": {
+            "x": 52,
+            "y": 28,
+            "w": 40,
+            "h": 54
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "value": "#181b23"
+            },
+            "radius": 8
+          },
+          "locked": true,
+          "name": "Right card",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-m",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 32,
+            "w": 34,
+            "h": 6
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.6,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#f5b301",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "TRACTION",
+            "paragraphs": [
+              {
+                "text": "TRACTION"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-n",
+          "kind": "text",
+          "role": "bullet",
+          "box": {
+            "x": 11,
+            "y": 38,
+            "w": 34,
+            "h": 40
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.1,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.6,
+              "paragraphSpacing": 1.6,
+              "color": "#d4d7dd",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "$2.4M ARR, 18% MoM\n11 enterprise logos\nNet revenue retention 141%",
+            "paragraphs": [
+              {
+                "text": "$2.4M ARR, 18% MoM",
+                "listType": "bullet"
+              },
+              {
+                "text": "11 enterprise logos",
+                "listType": "bullet"
+              },
+              {
+                "text": "Net revenue retention 141%",
+                "listType": "bullet"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-o",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 55,
+            "y": 32,
+            "w": 34,
+            "h": 6
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.6,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#38e1c2",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "TEAM",
+            "paragraphs": [
+              {
+                "text": "TEAM"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-p",
+          "kind": "text",
+          "role": "bullet",
+          "box": {
+            "x": 55,
+            "y": 38,
+            "w": 34,
+            "h": 40
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.1,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.6,
+              "paragraphSpacing": 1.6,
+              "color": "#d4d7dd",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Ex-platform leads, two unicorns\nShipped to 40M+ users\nTogether for six years",
+            "paragraphs": [
+              {
+                "text": "Ex-platform leads, two unicorns",
+                "listType": "bullet"
+              },
+              {
+                "text": "Shipped to 40M+ users",
+                "listType": "bullet"
+              },
+              {
+                "text": "Together for six years",
+                "listType": "bullet"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "noir-stat",
+      "index": 4,
+      "title": "Ask",
+      "notes": "",
+      "templateId": "title",
+      "elements": [
+        {
+          "id": "s-q",
+          "kind": "shape",
+          "opacity": 0.1,
+          "box": {
+            "x": 58,
+            "y": 20,
+            "w": 55,
+            "h": 75
+          },
+          "zIndex": 1,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Glow",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "t-r",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 8,
+            "y": 24,
+            "w": 40,
+            "h": 5
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.2,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "verticalAlign": "middle",
+              "color": "#f5b301",
+              "fontId": "manrope"
+            }
+          },
+          "name": "Kicker",
+          "content": {
+            "kind": "text",
+            "text": "THE ASK",
+            "paragraphs": [
+              {
+                "text": "THE ASK"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-s",
+          "kind": "text",
+          "box": {
+            "x": 7.5,
+            "y": 30,
+            "w": 60,
+            "h": 26
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 18,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#f5b301",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "$12M",
+            "paragraphs": [
+              {
+                "text": "$12M"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-t",
+          "kind": "text",
+          "role": "subtitle",
+          "box": {
+            "x": 8,
+            "y": 58,
+            "w": 64,
+            "h": 10
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.6,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "color": "#d4d7dd",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Series A to reach $20M ARR and category leadership.",
+            "paragraphs": [
+              {
+                "text": "Series A to reach $20M ARR and category leadership."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "noir-closing",
+      "index": 5,
+      "title": "Thank you",
+      "notes": "",
+      "templateId": "title",
+      "elements": [
+        {
+          "id": "s-u",
+          "kind": "shape",
+          "opacity": 0.1,
+          "box": {
+            "x": 30,
+            "y": 30,
+            "w": 70,
+            "h": 90
+          },
+          "zIndex": 1,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Glow",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "s-v",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 42,
+            "w": 8,
+            "h": 0.5
+          },
+          "zIndex": 2,
+          "designOverrides": {
+            "fill": {
+              "value": "#f5b301"
+            }
+          },
+          "locked": true,
+          "name": "Rule",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-w",
+          "kind": "text",
+          "role": "title",
+          "box": {
+            "x": 8,
+            "y": 45,
+            "w": 70,
+            "h": 12
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 8.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#f2f3f5",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Let's talk.",
+            "paragraphs": [
+              {
+                "text": "Let's talk."
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-x",
+          "kind": "text",
+          "role": "subtitle",
+          "box": {
+            "x": 8,
+            "y": 60,
+            "w": 60,
+            "h": 8
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "color": "#8b909b",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "founders@noir.vc  ·  noir.vc/deck",
+            "paragraphs": [
+              {
+                "text": "founders@noir.vc  ·  noir.vc/deck"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

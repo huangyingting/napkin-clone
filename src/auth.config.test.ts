@@ -154,6 +154,7 @@ test("redirects signed-in users away from the auth pages", () => {
 
 test("auth config uses the shared route protection policy data", () => {
   assert.equal(authConfig.pages?.signIn, routeProtectionPolicy.signIn);
+  assert.equal(authConfig.pages?.error, routeProtectionPolicy.signIn);
   assert.equal(isProtectedRoute("/app/settings"), true);
   assert.equal(isProtectedRoute("/"), false);
   assert.equal(isAuthPageRoute("/login"), true);

@@ -344,6 +344,13 @@ export interface SetPresentationThemeCommand {
   commandId?: string;
 }
 
+/** Applies a presentation theme package: tokens, masters, and templates. */
+export interface ApplyThemePackageCommand {
+  type: "APPLY_THEME_PACKAGE";
+  packageId: string;
+  commandId?: string;
+}
+
 /** Edits global presentation theme overrides (colors, role typography, defaults). */
 export interface UpdateThemeOverridesCommand {
   type: "UPDATE_THEME_OVERRIDES";
@@ -570,6 +577,7 @@ export type SlideCommand =
   | ReorderElementCommand
   // #400 — style, theme, layout, asset
   | SetPresentationThemeCommand
+  | ApplyThemePackageCommand
   | UpdateThemeOverridesCommand
   | SetCanvasFormatCommand
   | CreateMasterCommand
@@ -646,6 +654,7 @@ export type PatchOp =
   | "element.reorder"
   // Deck-level
   | "presentation.set_theme"
+  | "presentation.apply_theme_package"
   | "presentation.update_theme_overrides"
   | "canvas.set_format"
   | "master.create"
@@ -689,7 +698,7 @@ export interface DeckPatch {
    * Only JSON-serialisable fields are included.
    */
   deckFields?: {
-    design?: { themeId?: PresentationThemeId; themeOverrides?: unknown };
+    design?: { themeId?: string; themeOverrides?: unknown };
     canvas?: { format?: SlideFormat };
     masters?: SlideMaster[];
     defaultMasterId?: string;

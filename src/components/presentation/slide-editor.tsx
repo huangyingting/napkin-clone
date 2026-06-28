@@ -1877,6 +1877,7 @@ export function SlideEditor({
                   />
                 ) : (
                   <SlideTemplatePicker
+                    deck={deck}
                     customTemplates={deck.customTemplates}
                     onPick={handleAddTemplate}
                   />
@@ -2094,7 +2095,7 @@ export function SlideEditor({
                   themeId={deckPresentationThemeId(deck)}
                   onUpdate={handleUpdateThemeOverrides}
                   onReset={handleResetThemeOverrides}
-                  onApplyTheme={handleApplyPresentationTheme}
+                  onApplyThemePackage={handleApplyPresentationTheme}
                 />
               </Popover>
               <Popover

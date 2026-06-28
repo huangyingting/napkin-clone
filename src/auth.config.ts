@@ -18,6 +18,7 @@ export const authConfig = {
   trustHost: true,
   pages: {
     signIn: routeProtectionPolicy.signIn,
+    error: routeProtectionPolicy.signIn,
   },
   providers: [],
   callbacks: {

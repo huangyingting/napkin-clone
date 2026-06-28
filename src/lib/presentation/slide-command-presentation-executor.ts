@@ -12,6 +12,7 @@ import {
 } from "./presentation-theme-overrides";
 import type {
   AddSlideFromTemplateCommand,
+  ApplyThemePackageCommand,
   ApplySlideTemplateCommand,
   CreateMasterCommand,
   CreateCustomTemplateCommand,
@@ -29,9 +30,11 @@ import type {
 import { failure, makePatch, success } from "./slide-command-executor-helpers";
 import { buildTemplateSlide, type SlideTemplateKind } from "./slide-templates";
 import { isMasterChromeTemplateElement } from "./global-master-chrome";
+import { applyThemePackage } from "./theme-packages";
 
 export type PresentationThemeFamilyCommand =
   | SetPresentationThemeCommand
+  | ApplyThemePackageCommand
   | UpdateThemeOverridesCommand
   | SetCanvasFormatCommand
   | CreateMasterCommand
@@ -101,6 +104,7 @@ function materializeTemplate(
     title: template.name,
     notes: "",
     templateId: template.id,
+    ...(template.defaultMasterId ? { masterId: template.defaultMasterId } : {}),
     ...(template.slideDesignDefaults
       ? { designOverrides: template.slideDesignDefaults }
       : {}),
@@ -114,6 +118,16 @@ function materializeTemplate(
         zIndex: index,
         content: element.contentDefaults ?? { kind: element.kind },
         designOverrides: element.designOverrides ?? {},
+        ...(typeof element.opacity === "number"
+          ? { opacity: element.opacity }
+          : {}),
+        ...(typeof element.rotation === "number"
+          ? { rotation: element.rotation }
+          : {}),
+        ...(typeof element.locked === "boolean"
+          ? { locked: element.locked }
+          : {}),
+        ...(typeof element.name === "string" ? { name: element.name } : {}),
       })) as any,
   } as Deck["slides"][number];
 }
@@ -178,6 +192,31 @@ export function executePresentationThemeFamilyCommand(
           ),
         ],
       );
+    case "APPLY_THEME_PACKAGE": {
+      const next = applyThemePackage(deck, cmd.packageId);
+      if (!next)
+        return failure(deck, `Theme package not found: ${cmd.packageId}`);
+      const affectedSlideIds = next.slides.map((slide) => slide.id);
+      return success(next, affectedSlideIds, [], undefined, [
+        makePatch("presentation.apply_theme_package", affectedSlideIds, [], {
+          deckFields: {
+            design: {
+              themeId: (next as any).design?.themeId,
+              themeOverrides: (next as any).design?.themeOverrides,
+            },
+            masters: next.masters,
+            defaultMasterId: next.defaultMasterId,
+            customTemplates: next.customTemplates,
+          },
+          slideFields: Object.fromEntries(
+            next.slides.map((slide) => [
+              slide.id,
+              { masterId: slide.masterId } as Partial<typeof slide>,
+            ]),
+          ),
+        }),
+      ]);
+    }
     case "UPDATE_THEME_OVERRIDES": {
       if (cmd.reset) {
         return success(

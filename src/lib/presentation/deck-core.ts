@@ -71,6 +71,10 @@ export interface SlideTemplateElement {
   box?: unknown;
   contentDefaults?: Record<string, unknown>;
   designOverrides?: Record<string, unknown>;
+  opacity?: number;
+  rotation?: number;
+  locked?: boolean;
+  name?: string;
   [key: string]: unknown;
 }
 

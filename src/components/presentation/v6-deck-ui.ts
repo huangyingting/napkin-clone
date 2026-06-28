@@ -3,6 +3,10 @@ import {
   resolveSlideFormat,
   type SlideFormat,
 } from "@/lib/presentation/slide-format";
+import {
+  getThemePackage,
+  resolveThemePackageId,
+} from "@/lib/presentation/theme-packages";
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
@@ -26,7 +30,21 @@ export function deckPresentationThemeId(deck: Deck): string {
 export function deckHasThemeOverrides(deck: Deck): boolean {
   const design = record((deck as { design?: unknown }).design);
   const overrides = record(design.themeOverrides);
-  return Object.keys(overrides).length > 0;
+  const overrideKeys = Object.keys(overrides);
+  if (overrideKeys.length === 0) return false;
+  const themeId = typeof design.themeId === "string" ? design.themeId : "";
+  const tokenSet = record(overrides.tokenSet);
+  const packageId = resolveThemePackageId(themeId);
+  const themePackage = packageId ? getThemePackage(packageId) : undefined;
+  if (
+    overrideKeys.length === 1 &&
+    themePackage &&
+    tokenSet.id === packageId &&
+    JSON.stringify(tokenSet) === JSON.stringify(themePackage.tokenSet)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function colorRefLiteral(value: unknown): string | undefined {

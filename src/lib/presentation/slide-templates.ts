@@ -244,6 +244,17 @@ function materializeTemplateElement(
   zIndex: number,
   ctx: SlideTemplateContext,
 ): SlideElement {
+  const elementScalars = {
+    ...(typeof element.opacity === "number"
+      ? { opacity: element.opacity }
+      : {}),
+    ...(typeof element.rotation === "number"
+      ? { rotation: element.rotation }
+      : {}),
+    ...(typeof element.locked === "boolean" ? { locked: element.locked } : {}),
+    ...(typeof element.name === "string" ? { name: element.name } : {}),
+  };
+
   if (element.id === "visual-media" && ctx.visualId) {
     return {
       id: makeElementId(),
@@ -252,6 +263,7 @@ function materializeTemplateElement(
       zIndex,
       box: { ...((element.box as ElementBox | undefined) ?? BOX.spotlight) },
       content: { kind: "visual", visualId: ctx.visualId },
+      ...elementScalars,
       ...(element.designOverrides
         ? { designOverrides: element.designOverrides }
         : {}),
@@ -274,6 +286,7 @@ function materializeTemplateElement(
     content: cloneContentDefaults(
       element.contentDefaults ?? { kind: element.kind },
     ),
+    ...elementScalars,
     ...(element.designOverrides
       ? { designOverrides: element.designOverrides }
       : {}),

@@ -29,6 +29,7 @@ export default async function SignupPage({
   const callbackUrl = safeCallbackUrl(
     Array.isArray(rawCallbackUrl) ? rawCallbackUrl[0] : rawCallbackUrl,
   );
+  const hasAuthError = typeof error === "string" && error.length > 0;
   const googleAvailable = isGoogleAuthConfigured();
 
   return (
@@ -43,7 +44,7 @@ export default async function SignupPage({
           </p>
         </div>
         <div className="flex flex-col gap-6">
-          {error === "OAuthError" ? (
+          {hasAuthError ? (
             <p role="alert" className="text-sm text-ds-danger">
               Google sign-in failed. Please try again or use email and password.
             </p>

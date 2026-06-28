@@ -1,4 +1,4 @@
-import type { Deck, PresentationThemeId } from "./deck-core";
+import type { Deck } from "./deck-core";
 import type { SlideFormat } from "./slide-format";
 
 /**
@@ -8,10 +8,7 @@ import type { SlideFormat } from "./slide-format";
  * theme resolver. Applying a built-in theme also clears a theme override token set so
  * the built-in token set is visible immediately.
  */
-export function setPresentationTheme(
-  deck: Deck,
-  themeId: PresentationThemeId,
-): Deck {
+export function setPresentationTheme(deck: Deck, themeId: string): Deck {
   const design = { ...((deck as any).design ?? {}), themeId };
   delete (design as { themeOverrides?: unknown }).themeOverrides;
   return { ...deck, design } as Deck;

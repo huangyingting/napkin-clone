@@ -14,6 +14,8 @@ import {
   isPlainObject,
   isSlideFormat,
   rejectUnknownKeys,
+  validateFiniteNumber,
+  validateOpacity,
 } from "./shared";
 
 const DECK_KEYS = [
@@ -66,6 +68,10 @@ const TEMPLATE_ELEMENT_KEYS = [
   "box",
   "contentDefaults",
   "designOverrides",
+  "opacity",
+  "rotation",
+  "locked",
+  "name",
 ] as const;
 
 function validateUnknownObject(
@@ -282,7 +288,31 @@ function validateCustomTemplate(
           `${elementContext}.contentDefaults`,
         );
       }
-      return validateUnknownObject(element, elementContext);
+      const out = validateUnknownObject(element, elementContext);
+      if (element.opacity !== undefined) {
+        out.opacity = validateOpacity(
+          element.opacity,
+          `${elementContext}.opacity`,
+        );
+      }
+      if (element.rotation !== undefined) {
+        out.rotation = validateFiniteNumber(
+          element.rotation,
+          `${elementContext}.rotation`,
+        );
+      }
+      if (element.locked !== undefined) {
+        out.locked = Boolean(element.locked);
+      }
+      if (
+        element.name !== undefined &&
+        (typeof element.name !== "string" || element.name.length === 0)
+      ) {
+        throw new DeckValidationError(
+          `${elementContext}.name must be a non-empty string`,
+        );
+      }
+      return out;
     }),
   };
 }
