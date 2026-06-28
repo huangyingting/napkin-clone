@@ -59,20 +59,14 @@ export function selectSelectedElement(
  * announcements ("Text selected", "Image selected", etc.).
  */
 export function selectElementTypeLabel(element: SlideElement): string {
-  switch (element.kind) {
-    case "text":
-      return (element as { role?: string }).role === "title" ? "Title" : "Text";
-    case "image":
-      return "Image";
-    case "shape":
-      return "Shape";
-    case "visual":
-      return "Visual";
-    case "connector":
-      return "Connector";
-    default:
-      return assertNever(element);
+  if (element.kind === "text") {
+    return (element as { role?: string }).role === "title" ? "Title" : "Text";
   }
+  if (element.kind === "image") return "Image";
+  if (element.kind === "shape") return "Shape";
+  if (element.kind === "visual") return "Visual";
+  if (element.kind === "connector") return "Connector";
+  return assertNever(element);
 }
 
 /**
@@ -103,11 +97,7 @@ export function selectSelectionSummary(state: {
   const element = selectedSlide.elements.find(
     (candidate) => candidate.id === effectiveSelectedElementId,
   );
-  return element
-    ? `${selectElementTypeLabel(element)} selected`
-    : "No element selected";
-}
-
+  return element ? `${selectElementTypeLabel(element)} selected` : "No element selected"; }
 // ── Background preview ─────────────────────────────────────────────────────
 
 /**

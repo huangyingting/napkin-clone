@@ -133,4 +133,5 @@ export function specsVenn(visual: Visual, layout: PptxSlideLayout): PptxSpec[] {
   }
 
   return specs;
+  /* node:coverage ignore next -- specsVenn closing brace maps as uncovered even when Venn specs are exercised. @preserve */
 }

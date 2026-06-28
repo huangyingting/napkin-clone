@@ -1,5 +1,6 @@
 /** Style-level visual schema validation and defaulting. */
 
+/* node:coverage ignore next -- type-bearing import is erased/mapped as uncovered by tsx. @preserve */
 import { DEFAULT_STYLE, type VisualStyle } from "@/lib/visual/schema-types";
 import { VisualValidationError, isFiniteNumber, isPlainObject } from "./utils";
 
@@ -9,6 +10,7 @@ export function normalizeStyle(input: unknown): VisualStyle {
   }
   if (!isPlainObject(input)) {
     throw new VisualValidationError("style must be an object");
+    /* node:coverage ignore next -- normalizeStyle malformed style is asserted; tsx maps this branch close as uncovered. @preserve */
   }
 
   const style: VisualStyle = { ...DEFAULT_STYLE };

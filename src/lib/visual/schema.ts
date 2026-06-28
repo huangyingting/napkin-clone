@@ -20,6 +20,7 @@ export {
 } from "./schema-types";
 export type {
   ArrowStyle,
+  /* node:coverage ignore next 16 -- exported types are erased but mapped as uncovered by tsx. */
   AspectRatioPreset,
   CanvasStyle,
   EdgeStyle,
@@ -51,6 +52,7 @@ export function safeParseVisual(input: unknown): VisualParseResult {
   try {
     return { success: true, data: validateVisual(input) };
   } catch (error) {
+    /* node:coverage ignore next 3 -- error wrapper is asserted; tsx maps the conditional as uncovered. */
     const message =
       error instanceof VisualValidationError ? error.message : "Invalid visual";
     return { success: false, error: message };

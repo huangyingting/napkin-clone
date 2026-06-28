@@ -40,6 +40,20 @@ describe("canvas-keyboard-connector", () => {
     );
   });
 
+  test("orders exact target ties by id", () => {
+    assert.deepEqual(
+      orderedKeyboardConnectorTargets(
+        [element("source", 0, 0), element("b", 20, 0), element("a", 20, 0)],
+        "source",
+      ).map((target) => target.id),
+      ["a", "b"],
+    );
+  });
+
+  test("returns no ordered targets when the source is missing", () => {
+    assert.deepEqual(orderedKeyboardConnectorTargets(elements, "missing"), []);
+  });
+
   test("starts mode at the nearest available target", () => {
     assert.deepEqual(startKeyboardConnectorMode(elements, "source"), {
       sourceId: "source",
@@ -57,6 +71,10 @@ describe("canvas-keyboard-connector", () => {
     assert.equal(nextKeyboardConnectorTargetId(targets, "near", 1), "below");
     assert.equal(nextKeyboardConnectorTargetId(targets, "near", -1), "far");
     assert.equal(nextKeyboardConnectorTargetId(targets, "far", 1), "near");
+    assert.equal(nextKeyboardConnectorTargetId([], "near", 1), null);
+    assert.equal(nextKeyboardConnectorTargetId(targets, null, 1), "near");
+    assert.equal(nextKeyboardConnectorTargetId(targets, null, -1), "far");
+    assert.equal(nextKeyboardConnectorTargetId(targets, "missing", -1), "far");
   });
 
   test("uses Tab and arrow keys to preview another target", () => {
@@ -77,6 +95,14 @@ describe("canvas-keyboard-connector", () => {
       keyboardConnectorDecision(mode, key("ArrowLeft"), elements),
       { type: "target", mode: { sourceId: "source", targetId: "far" } },
     );
+    assert.deepEqual(
+      keyboardConnectorDecision(mode, key("ArrowDown"), elements),
+      { type: "target", mode: { sourceId: "source", targetId: "below" } },
+    );
+    assert.deepEqual(
+      keyboardConnectorDecision(mode, key("ArrowUp"), elements),
+      { type: "target", mode: { sourceId: "source", targetId: "far" } },
+    );
   });
 
   test("confirms, cancels, and ignores unrelated keys", () => {
@@ -93,6 +119,33 @@ describe("canvas-keyboard-connector", () => {
     assert.deepEqual(keyboardConnectorDecision(mode, key("c"), elements), {
       type: "none",
     });
+    assert.deepEqual(
+      keyboardConnectorDecision(
+        { sourceId: "source", targetId: null },
+        key("Enter"),
+        elements,
+      ),
+      { type: "none" },
+    );
+    assert.deepEqual(
+      keyboardConnectorDecision(
+        { sourceId: "missing", targetId: "near" },
+        key("Tab"),
+        elements,
+      ),
+      { type: "none" },
+    );
+  });
+
+  test("returns none when cycling from a source with no eligible targets", () => {
+    assert.deepEqual(
+      keyboardConnectorDecision(
+        { sourceId: "source", targetId: null },
+        key("Tab"),
+        [elements[0]],
+      ),
+      { type: "none" },
+    );
   });
 });
 

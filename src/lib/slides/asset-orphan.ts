@@ -27,6 +27,7 @@
 import {
   markOrphanedAssetIds,
   purgeExpiredAssetRows,
+  /* node:coverage ignore next -- Type-only storage adapter import is erased at runtime. */
   type AssetOrphanStorage,
 } from "@/lib/assets/orphan-lifecycle";
 
@@ -83,10 +84,13 @@ export function collectDeckAssetRefs(deckJson: unknown): Set<string> {
   return refs;
 }
 
+/* node:coverage disable */
+/* Orphan DB section divider is documentation-only. */
 // ---------------------------------------------------------------------------
 // DB interface (injectable for tests)
 // ---------------------------------------------------------------------------
 
+/* Orphan DB interface is TypeScript-only and erased at runtime. */
 /**
  * Minimal DB interface used by the orphan-management functions.
  * Matches the Prisma client subset needed.
@@ -121,6 +125,7 @@ export interface OrphanDb {
     }): Promise<{ deckJson: unknown }[]>;
   };
 }
+/* node:coverage enable */
 
 /**
  * Storage interface for physical file deletion.

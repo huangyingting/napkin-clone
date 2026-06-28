@@ -226,6 +226,50 @@ test("resolveSlideStyle applies slide.accent override", () => {
   assert.equal(resolved.accent, "#ff9900");
 });
 
+test("resolveSlideStyle ignores unresolved color tokens and invalid backgrounds", () => {
+  const deck = makeDeck({ design: { themeId: "ocean" } });
+  const slide = makeSlide({
+    designOverrides: {
+      accent: { token: "missing-token" },
+      background: {
+        type: "gradient",
+        from: { token: "missing-from" },
+        to: { value: "#ffffff" },
+      },
+    },
+  });
+
+  const resolved = resolveSlideStyle(deck, slide);
+  assert.equal(resolved.background.type, "solid");
+  if (resolved.background.type === "solid") {
+    assert.equal(resolved.background.color, "#f6fbff");
+  }
+  assert.equal(resolved.accent, "#0284c7");
+});
+
+test("resolveSlideStyle exposes heading and body font families", () => {
+  const deck = makeDeck({ design: { themeId: "indigo" } });
+  const resolved = resolveSlideStyle(deck, makeSlide());
+
+  assert.equal(
+    resolved.headingFontFamily,
+    "Space Grotesk, Inter, ui-sans-serif, system-ui, sans-serif",
+  );
+  assert.equal(
+    resolved.bodyFontFamily,
+    "Inter, ui-sans-serif, system-ui, sans-serif",
+  );
+});
+
+test("resolveSlideStyle exposes theme text colors", () => {
+  const deck = makeDeck({ design: { themeId: "indigo" } });
+  const resolved = resolveSlideStyle(deck, makeSlide());
+
+  assert.equal(resolved.titleColor, "#1e1b4b");
+  assert.equal(resolved.bodyColor, "#1e1b4b");
+  assert.equal(resolved.mutedColor, "#6366f1");
+});
+
 // ---------------------------------------------------------------------------
 // resolveSlideStyle — master layer
 // ---------------------------------------------------------------------------
@@ -241,6 +285,30 @@ test("resolveSlideStyle applies master background when slide has no override", (
   if (resolved.background.type === "solid") {
     assert.equal(resolved.background.color, "#001122");
   }
+});
+
+test("resolveSlideStyle falls back to master background and resolves accent tokens", () => {
+  const deck = makeDeck({
+    design: { themeId: "ocean" },
+    masters: [
+      makeMaster({
+        id: "master-default",
+        background: { type: "solid", color: { value: "#ddeeff" } },
+      }),
+    ],
+    defaultMasterId: "master-default",
+  });
+  const slide = makeSlide({
+    designOverrides: { accent: { token: "muted" } },
+  });
+
+  const resolved = resolveSlideStyle(deck, slide);
+
+  assert.equal(resolved.background.type, "solid");
+  if (resolved.background.type === "solid") {
+    assert.equal(resolved.background.color, "#ddeeff");
+  }
+  assert.equal(resolved.accent, resolved.tokenSet.colors.muted);
 });
 
 test("resolveSlideStyle slide background overrides master background", () => {

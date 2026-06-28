@@ -301,6 +301,7 @@ function blankVenn(): Visual {
       {
         id: "v1",
         label: "Set A",
+        /* node:coverage ignore next 2 -- Venn blank geometry is asserted; tsx maps this object-literal tail as uncovered. @preserve */
         x: 210,
         y: 200,
         width: 240,

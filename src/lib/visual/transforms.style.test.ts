@@ -16,9 +16,13 @@ import {
   setNodeFillStyle,
   setNodeIcon,
   clearNodeIcon,
+  flipEdge,
   setNodeStyle,
   setNodeTextAlign,
   setVisualStyle,
+  toggleEdgeDirected,
+  toggleEdgeStyle,
+  setEdgeLabel,
 } from "./transforms";
 import { sourceFor } from "./transforms.test-helpers";
 
@@ -122,7 +126,7 @@ test("setNodeTextAlign sets textAlign and is immutable", () => {
   assert.ok(safeParseVisual(next).success);
 });
 
-test("resetNodeExtStyle clears fillStyle, borderStyle, borderWidth, textAlign", () => {
+test("resetNodeExtStyle clears extended node presentation overrides", () => {
   const source = sourceFor("flowchart");
   const id = source.nodes[0].id;
   const styled = setNodeFillStyle(
@@ -134,12 +138,14 @@ test("resetNodeExtStyle clears fillStyle, borderStyle, borderWidth, textAlign", 
     id,
     "gradient",
   );
+  styled.nodes[0].fontFamily = "Georgia";
   assert.equal(styled.nodes[0].fillStyle, "gradient");
   const reset = resetNodeExtStyle(styled, id);
   assert.equal(reset.nodes[0].fillStyle, undefined);
   assert.equal(reset.nodes[0].borderStyle, undefined);
   assert.equal(reset.nodes[0].borderWidth, undefined);
   assert.equal(reset.nodes[0].textAlign, undefined);
+  assert.equal(reset.nodes[0].fontFamily, undefined);
   assert.ok(safeParseVisual(reset).success);
 });
 
@@ -220,6 +226,30 @@ test("setAllEdgesStyle preserves edge content (from/to/label)", () => {
     assert.equal(next.edges[i].to, source.edges[i].to);
     assert.equal(next.edges[i].label, source.edges[i].label);
   }
+});
+
+test("edge content transforms update only the selected connector", () => {
+  const source = sourceFor("flowchart");
+  assert.ok(source.edges.length >= 1, "flowchart fixture has an edge");
+  const edge = source.edges[0];
+
+  const labeled = setEdgeLabel(source, edge.id, "Reviewed");
+  assert.equal(labeled.edges[0].label, "Reviewed");
+  assert.equal(source.edges[0].label, edge.label);
+
+  const flipped = flipEdge(source, edge.id);
+  assert.equal(flipped.edges[0].from, edge.to);
+  assert.equal(flipped.edges[0].to, edge.from);
+
+  const hiddenArrow = toggleEdgeDirected(source, edge.id);
+  assert.equal(hiddenArrow.edges[0].directed, false);
+  const shownArrow = toggleEdgeDirected(hiddenArrow, edge.id);
+  assert.equal(shownArrow.edges[0].directed, true);
+
+  const curved = toggleEdgeStyle(source, edge.id);
+  assert.equal(curved.edges[0].style, "curved");
+  const straight = toggleEdgeStyle(curved, edge.id);
+  assert.equal(straight.edges[0].style, "straight");
 });
 
 // ── Optional current fields ───────────────────────────────────────────────────

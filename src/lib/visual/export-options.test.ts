@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  applyAspectRatioToSvg,
   applyExportOptionsToSvg,
   applySocialPresetToOptions,
   clearSocialPreset,
   computeExportDimensions,
   computeLetterboxedDimensions,
   DEFAULT_EXPORT_OPTIONS,
+  getOutputProfile,
+  listOutputProfiles,
   SOCIAL_PRESET_CONFIGS,
   type ExportOptions,
 } from "@/lib/visual/export-options";
@@ -43,6 +46,11 @@ test("output profile catalog owns social preset ordering and metadata", () => {
     ["square", "portrait", "landscape", "story"],
   );
   assert.equal(OUTPUT_PROFILE_CATALOG[0], SOCIAL_PRESET_CONFIGS.square);
+  assert.equal(getOutputProfile("story").background, "#000000");
+  assert.deepEqual(
+    listOutputProfiles().map((profile) => profile.canonicalHeight),
+    [1080, 1350, 675, 1920],
+  );
 });
 
 test("computeExportDimensions: 1x returns natural dimensions", () => {
@@ -300,6 +308,48 @@ test("computeLetterboxedDimensions: padding=0 matches no-padding behaviour", () 
     "1:1",
   );
   assert.deepEqual(withPad, withoutPad);
+});
+
+test("computeLetterboxedDimensions returns natural dimensions for auto or missing presets", () => {
+  assert.deepEqual(
+    computeLetterboxedDimensions({ width: 320, height: 180 }, undefined),
+    {
+      canvasW: 320,
+      canvasH: 180,
+      offsetX: 0,
+      offsetY: 0,
+    },
+  );
+  assert.deepEqual(
+    computeLetterboxedDimensions({ width: 320, height: 180 }, "auto"),
+    {
+      canvasW: 320,
+      canvasH: 180,
+      offsetX: 0,
+      offsetY: 0,
+    },
+  );
+});
+
+test("computeLetterboxedDimensions preserves an already matching padded aspect", () => {
+  assert.deepEqual(
+    computeLetterboxedDimensions({ width: 100, height: 100 }, "1:1"),
+    {
+      canvasW: 100,
+      canvasH: 100,
+      offsetX: 0,
+      offsetY: 0,
+    },
+  );
+});
+
+test("applyAspectRatioToSvg returns unchanged SVG for auto, missing viewBox, and matching ratios", () => {
+  assert.equal(applyAspectRatioToSvg(BASE_SVG, "auto"), BASE_SVG);
+  const noViewBox = `<svg><circle cx="1" cy="1" r="1"/></svg>`;
+  assert.equal(applyAspectRatioToSvg(noViewBox, "1:1"), noViewBox);
+
+  const squareSvg = `<svg viewBox="0 0 100 100"><rect width="100" height="100"/></svg>`;
+  assert.equal(applyAspectRatioToSvg(squareSvg, "1:1"), squareSvg);
 });
 
 test("computeLetterboxedDimensions: padding produces larger canvas than without padding", () => {

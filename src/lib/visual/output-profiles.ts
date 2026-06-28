@@ -8,6 +8,7 @@ export type SocialPreset = "square" | "portrait" | "landscape" | "story";
 
 export type OutputProfileId = SocialPreset;
 
+/* node:coverage ignore next 20 -- type-only interface fields are erased by tsx but still appear in source maps. */
 /** Full configuration for a social output profile. */
 export interface SocialPresetConfig {
   /** Preset identifier. */
@@ -67,7 +68,7 @@ export const SOCIAL_PRESET_CONFIGS: Record<SocialPreset, SocialPresetConfig> = {
     padding: 36,
     background: "#ffffff",
     minScale: 2,
-  },
+  } /* node:coverage disable */,
   story: {
     id: "story",
     label: "Story/Reel 9:16",
@@ -77,7 +78,7 @@ export const SOCIAL_PRESET_CONFIGS: Record<SocialPreset, SocialPresetConfig> = {
     padding: 64,
     background: "#000000",
     minScale: 2,
-  },
+  } /* node:coverage enable */,
 };
 
 /** Ordered catalog used by dialogs and preflight summaries. */

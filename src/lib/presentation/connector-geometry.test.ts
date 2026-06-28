@@ -9,6 +9,7 @@ import {
   lineBoxFromEndpoints,
   lineEndpoints,
   resolveConnectorEndpoint,
+  resolveConnectorElementPoints,
   resolveLineEndpoints,
   snapLineEndpoint,
 } from "./connector-geometry";
@@ -259,6 +260,25 @@ test("snapLineEndpoint selects the nearest anchor when multiple candidates are w
   assert.deepEqual(result.binding, { elementId: "near", anchor: "right" });
 });
 
+test("snapLineEndpoint binds an anchor exactly at the custom threshold", () => {
+  const target = shape("target", { x: 20, y: 20, w: 20, h: 20 });
+  const line = shape("line", { x: 0, y: 0, w: 10, h: 2 }, { shape: "line" });
+
+  const result = snapLineEndpoint(
+    { x: 45, y: 30 },
+    line.id,
+    [target, line],
+    resolveBox,
+    1,
+    5,
+  );
+
+  assert.deepEqual(result, {
+    point: { x: 40, y: 30 },
+    binding: { elementId: "target", anchor: "right" },
+  });
+});
+
 test("snapLineEndpoint excludes the line itself from snap candidates", () => {
   // Only element is the line itself; snap should return the original point.
   const line = shape("line", { x: 10, y: 10, w: 10, h: 2 }, { shape: "line" });
@@ -349,6 +369,23 @@ test("connectorAnchorCandidates shows box-contained targets even without a snapp
   ]);
 });
 
+test("connectorAnchorCandidates omits targets outside the box and threshold", () => {
+  const target = shape("target", { x: 80, y: 80, w: 10, h: 10 });
+  const line = shape("line", { x: 0, y: 0, w: 10, h: 2 }, { shape: "line" });
+
+  assert.deepEqual(
+    connectorAnchorCandidates(
+      { x: 5, y: 5 },
+      line.id,
+      [target, line],
+      resolveBox,
+      1,
+      2,
+    ),
+    [],
+  );
+});
+
 test("connectorAnchorCandidates excludes connectors, the active line, and other line shapes", () => {
   const connector: SlideElement = {
     id: "connector",
@@ -377,6 +414,51 @@ test("connectorAnchorCandidates excludes connectors, the active line, and other 
   );
 
   assert.deepEqual(candidates, []);
+});
+
+test("resolveConnectorElementPoints falls back to target center or origin", () => {
+  const target = shape("target", { x: 20, y: 30, w: 10, h: 20 });
+  const connector: SlideElement = {
+    id: "connector",
+    kind: "connector",
+    content: {
+      kind: "connector",
+      start: { elementId: "target", anchor: "center" },
+      end: { elementId: "missing", anchor: "center" },
+    },
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+  };
+
+  assert.deepEqual(
+    resolveConnectorElementPoints(connector as any, [target], resolveBox),
+    {
+      start: { x: 25, y: 40 },
+      end: { x: 0, y: 0 },
+    },
+  );
+});
+
+test("resolveConnectorElementPoints preserves free connector points", () => {
+  const connector: SlideElement = {
+    id: "connector",
+    kind: "connector",
+    content: {
+      kind: "connector",
+      start: { x: 10, y: 20 },
+      end: { x: 30, y: 40 },
+    },
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+  };
+
+  assert.deepEqual(
+    resolveConnectorElementPoints(connector as any, [], resolveBox),
+    {
+      start: { x: 10, y: 20 },
+      end: { x: 30, y: 40 },
+    },
+  );
 });
 
 test("connectorElbowPoints: horizontal-dominant routes via midpoint x", () => {

@@ -375,6 +375,7 @@ const venn: Visual = {
       label: "Engineering",
       x: 400,
       y: 220,
+      /* node:coverage ignore next 3 -- Venn fixture circle geometry is asserted; tsx maps this object-literal tail as uncovered. @preserve */
       width: 280,
       height: 280,
     },

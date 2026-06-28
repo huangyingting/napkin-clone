@@ -20,6 +20,8 @@ import { KIND_EXPORT_SUPPORT } from "@/lib/visual/registry-export";
 import { KIND_PROMPT_CONSTRAINTS } from "@/lib/visual/registry-prompt";
 import { KIND_RUNTIME_DESCRIPTORS } from "@/lib/visual/registry-runtime";
 import { assertRegistryDataCompleteness } from "@/lib/visual/registry-validation";
+import { assertRegistryCompletenessFor } from "@/lib/visual/registry-validation";
+import type { VisualRegistry } from "@/lib/visual/registry-types";
 import {
   VISUAL_KIND_REGISTRY,
   assertRegistryCompleteness,
@@ -48,8 +50,173 @@ test("every VisualKind has a registry entry", () => {
   }
 });
 
+test("runtime descriptors expose the shared validation checklist", () => {
+  for (const kind of VISUAL_KINDS) {
+    const checklist = KIND_RUNTIME_DESCRIPTORS[kind].checklist;
+    assert.equal(checklist.schema, true);
+    assert.equal(checklist.validation, true);
+  }
+});
+
 test("assertRegistryCompleteness does not throw", () => {
   assert.doesNotThrow(() => assertRegistryCompleteness());
+});
+
+test("assertRegistryCompletenessFor reports missing or malformed entries", () => {
+  const registry = { ...VISUAL_KIND_REGISTRY } as VisualRegistry;
+  delete (registry as Partial<VisualRegistry>).flowchart;
+  assert.throws(
+    () => assertRegistryCompletenessFor(registry),
+    /Missing registry entry for kind: flowchart/,
+  );
+
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          id: "flowchart",
+        },
+      } as VisualRegistry),
+    /Entry id mismatch/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        notAKind: VISUAL_KIND_REGISTRY.chart,
+      } as unknown as VisualRegistry),
+    /Unexpected registry entry kind: notAKind/,
+  );
+});
+
+test("assertRegistryCompletenessFor validates labels, shapes, and runtime consistency", () => {
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: { ...VISUAL_KIND_REGISTRY.chart, label: "" },
+      } as VisualRegistry),
+    /missing a label/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: { ...VISUAL_KIND_REGISTRY.chart, iconName: "" },
+      } as VisualRegistry),
+    /missing an iconName/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: { ...VISUAL_KIND_REGISTRY.chart, allowedShapes: [] },
+      } as VisualRegistry),
+    /has no allowedShapes/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          runtime: {
+            ...VISUAL_KIND_REGISTRY.chart.runtime,
+            layout: {
+              ...VISUAL_KIND_REGISTRY.chart.runtime.layout,
+              family: "positioned",
+            },
+          },
+        },
+      } as VisualRegistry),
+    /Runtime layout family mismatch/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          runtime: undefined,
+        },
+      } as unknown as VisualRegistry),
+    /missing runtime descriptor/,
+  );
+});
+
+test("assertRegistryCompletenessFor validates transform, validation, and checklist contracts", () => {
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          runtime: {
+            ...VISUAL_KIND_REGISTRY.chart.runtime,
+            transform: {
+              ...VISUAL_KIND_REGISTRY.chart.runtime.transform,
+              defaultShape: "diamond",
+            },
+          },
+        },
+      } as VisualRegistry),
+    /Runtime default shape mismatch/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          runtime: {
+            ...VISUAL_KIND_REGISTRY.chart.runtime,
+            validation: {
+              ...VISUAL_KIND_REGISTRY.chart.runtime.validation,
+              requiresNodeValue:
+                !VISUAL_KIND_REGISTRY.chart.prompt.requiresNodeValue,
+            },
+          },
+        },
+      } as VisualRegistry),
+    /Runtime validation\/prompt mismatch/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          runtime: {
+            ...VISUAL_KIND_REGISTRY.chart.runtime,
+            transform: {
+              ...VISUAL_KIND_REGISTRY.chart.runtime.transform,
+              autoLayoutSupported:
+                !VISUAL_KIND_REGISTRY.chart.editing.autoLayoutSupported,
+            },
+          },
+        },
+      } as VisualRegistry),
+    /Runtime auto-layout support mismatch/,
+  );
+  assert.throws(
+    () =>
+      assertRegistryCompletenessFor({
+        ...VISUAL_KIND_REGISTRY,
+        chart: {
+          ...VISUAL_KIND_REGISTRY.chart,
+          runtime: {
+            ...VISUAL_KIND_REGISTRY.chart.runtime,
+            checklist: {
+              ...VISUAL_KIND_REGISTRY.chart.runtime.checklist,
+              export: false,
+            } as unknown as typeof VISUAL_KIND_REGISTRY.chart.runtime.checklist,
+          },
+        },
+      } as VisualRegistry),
+    /Runtime checklist item "export" is incomplete/,
+  );
 });
 
 test("split registry concern maps cover every VisualKind and compose into the facade", () => {

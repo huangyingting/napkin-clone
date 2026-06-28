@@ -274,6 +274,33 @@ test("keeps and cleans model elements that match the template", () => {
   );
 });
 
+test("clamps repaired element boxes and supplies safe text defaults", () => {
+  const malformed = textElement("t", "body", "Body", 0) as any;
+  malformed.box = {
+    x: Number.NaN,
+    y: -25,
+    w: 140,
+    h: Number.POSITIVE_INFINITY,
+  };
+  delete malformed.content.paragraphs;
+  malformed.designOverrides.textStyle.fontSize = 0;
+  const input = deck([
+    slide({
+      title: "Authored",
+      templateId: "content",
+      elements: [malformed],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const normalized = result.slides[0].elements?.[0];
+
+  assert.ok(normalized && normalized.kind === "text");
+  assert.deepEqual(normalized.box, { x: 10, y: 0, w: 100, h: 20 });
+  assert.deepEqual(content(normalized).paragraphs, [{ text: "Body" }]);
+  assert.equal(textStyle(normalized).fontSize, 4.5);
+});
+
 test("title text is forced bold for clear hierarchy", () => {
   const heading = textElement("t", "title", "Heading", 0) as any;
   heading.designOverrides.textStyle.bold = false;
@@ -446,6 +473,72 @@ test("works with an array inventory of { id } carriers", () => {
   assert.ok(
     result.slides[0].elements?.some((element) => element.kind === "visual"),
   );
+});
+
+test("uses an empty visual inventory for unsupported inventory values", () => {
+  const input = deck([
+    slide({ title: "M", visualRefs: ["vis-1"], templateId: "media" }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, {} as any);
+
+  assert.deepEqual(slideVisualIds(result.slides[0]), []);
+});
+
+test("keeps blank slides with matching elements instead of re-scaffolding", () => {
+  const input = deck([
+    slide({
+      title: "",
+      templateId: "blank",
+      elements: [textElement("note", "body", "Scratch", 0)],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+
+  assert.equal(result.slides[0].templateId, undefined);
+  assert.equal(result.slides[0].elements?.[0]?.id, "note");
+});
+
+test("handles slides without template ids and invalid template ids", () => {
+  const untitled = slide({
+    title: "Untyped",
+    templateId: "blank",
+    elements: [textElement("body", "body", "No template", 0)],
+  });
+  delete (untitled as any).templateId;
+  const invalid = slide({
+    title: "Invalid",
+    templateId: "custom" as any,
+    elements: [textElement("body", "body", "Invalid template", 0)],
+  });
+
+  const result = normalizeGeneratedDeck(deck([untitled, invalid]), KNOWN);
+
+  assert.equal(result.slides[0].templateId, undefined);
+  assert.equal(result.slides[0].elements?.[0]?.id, "body");
+  assert.equal(result.slides[1].templateId, "custom");
+  assert.equal(result.slides[1].elements?.[0]?.id, "body");
+});
+
+test("normalization preserves visual style theme ids", () => {
+  const visual = visualElement("v", "vis-1", 0, "Chart label") as any;
+  visual.content.styleThemeId = "analysis";
+  const input = deck([
+    slide({
+      title: "M",
+      visualRefs: ["vis-1"],
+      templateId: "media",
+      elements: [visual],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const normalized = result.slides[0].elements?.find(
+    (element) => element.kind === "visual",
+  );
+
+  assert.equal(content(normalized).styleThemeId, "analysis");
 });
 
 test("deriveVisualAccessibleName prefers title, then summary, then type", () => {

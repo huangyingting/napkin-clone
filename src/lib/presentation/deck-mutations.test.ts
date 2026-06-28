@@ -13,6 +13,7 @@ import {
   moveElementZOrder,
   reorderElement,
   updatePresentationThemeOverrides,
+  resetPresentationThemeOverrides,
   removeElement,
   removeElements,
   nudgeElements,
@@ -26,6 +27,10 @@ import {
   setPresentationTheme,
   setElementHidden,
   setElementLocked,
+  setElementBoxes,
+  setElementPatches,
+  groupElements,
+  ungroupElements,
   setSlideAccent,
   setSlideBackground,
   updateElement,
@@ -390,6 +395,21 @@ test("addElement honors an explicit id", () => {
   assert.ok(elements.some((el) => el.id === "custom-id"));
 });
 
+test("addElement honors an explicit z-index", () => {
+  const deck = deckWithBullets();
+  const next = addElement(deck, 0, {
+    id: "custom-z",
+    zIndex: 99,
+    kind: "shape",
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#112233" } },
+    box: { x: 10, y: 10, w: 20, h: 20 },
+  });
+
+  const added = next.slides[0].elements?.find((el) => el.id === "custom-z");
+  assert.equal(added?.zIndex, 99);
+});
+
 test("updateElement patches a single element by id", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "t1",
@@ -488,6 +508,24 @@ test("removeElement deletes an element by id", () => {
   });
   const next = removeElement(base, 0, "gone");
   assert.ok(!next.slides[0].elements?.some((e) => e.id === "gone"));
+});
+
+test("element mutations leave slides without elements unchanged", () => {
+  const base = makeDeck(["A"]);
+  const slideWithoutElements = { ...base.slides[0] };
+  delete slideWithoutElements.elements;
+  const deck: Deck = { ...base, slides: [slideWithoutElements] };
+
+  assert.equal(updateElement(deck, 0, "missing", {}).slides[0], deck.slides[0]);
+  assert.equal(removeElement(deck, 0, "missing").slides[0], deck.slides[0]);
+  assert.equal(
+    setElementBoxes(deck, 0, { missing: { x: 1, y: 2, w: 3, h: 4 } }).slides[0],
+    deck.slides[0],
+  );
+  assert.equal(
+    setElementPatches(deck, 0, { missing: { hidden: true } }).slides[0],
+    deck.slides[0],
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -618,6 +656,131 @@ test("duplicateElements is a no-op when nothing matches", () => {
   assert.deepEqual(newElementIds, []);
 });
 
+test("duplicateElements is a no-op for a slide without elements", () => {
+  const base = makeDeck(["A"]);
+  const slideWithoutElements = { ...base.slides[0] };
+  delete slideWithoutElements.elements;
+  const deck: Deck = { ...base, slides: [slideWithoutElements] };
+
+  const { deck: next, newElementIds } = duplicateElements(deck, 0, ["e1"]);
+
+  assert.equal(next, deck);
+  assert.deepEqual(newElementIds, []);
+});
+
+test("duplicateElements keeps a fully selected group together with a new group id", () => {
+  const base = deckWithThreeElements();
+  const withGroup: Deck = {
+    ...base,
+    slides: base.slides.map((s, i) =>
+      i === 0
+        ? {
+            ...s,
+            elements: s.elements?.map((element) =>
+              element.id === "e1" || element.id === "e2"
+                ? { ...element, groupId: "group-original" }
+                : element,
+            ),
+          }
+        : s,
+    ),
+  };
+
+  const { deck: next, newElementIds } = duplicateElements(withGroup, 0, [
+    "e1",
+    "e2",
+  ]);
+
+  const copiedGroupIds = newElementIds.map(
+    (id) =>
+      next.slides[0].elements?.find((element) => element.id === id)?.groupId,
+  );
+  assert.equal(copiedGroupIds[0], copiedGroupIds[1]);
+  assert.notEqual(copiedGroupIds[0], "group-original");
+});
+
+test("duplicateElements dissolves partial group copies", () => {
+  const base = deckWithThreeElements();
+  const withGroup: Deck = {
+    ...base,
+    slides: base.slides.map((s, i) =>
+      i === 0
+        ? {
+            ...s,
+            elements: s.elements?.map((element) =>
+              element.id === "e1" || element.id === "e2"
+                ? { ...element, groupId: "group-original" }
+                : element,
+            ),
+          }
+        : s,
+    ),
+  };
+
+  const { deck: next, newElementIds } = duplicateElements(withGroup, 0, ["e1"]);
+
+  const copy = next.slides[0].elements?.find(
+    (element) => element.id === newElementIds[0],
+  );
+  assert.equal(copy?.groupId, undefined);
+});
+
+test("setElementBoxes updates only boxes keyed by element id", () => {
+  const base = deckWithThreeElements();
+  const next = setElementBoxes(base, 0, {
+    e2: { x: 12, y: 13, w: 14, h: 15 },
+  });
+
+  assert.deepEqual(next.slides[0].elements?.find((e) => e.id === "e2")?.box, {
+    x: 12,
+    y: 13,
+    w: 14,
+    h: 15,
+  });
+  assert.deepEqual(next.slides[0].elements?.find((e) => e.id === "e1")?.box, {
+    x: 0,
+    y: 10,
+    w: 10,
+    h: 10,
+  });
+});
+
+test("setElementPatches ignores id and kind from patches", () => {
+  const base = deckWithThreeElements();
+  const next = setElementPatches(base, 0, {
+    e1: {
+      id: "hijack",
+      kind: "text",
+      box: { x: 1, y: 2, w: 3, h: 4 },
+    } as any,
+  });
+  const patched = next.slides[0].elements?.find((e) => e.id === "e1");
+
+  assert.equal(patched?.id, "e1");
+  assert.equal(patched?.kind, "shape");
+  assert.deepEqual(patched?.box, { x: 1, y: 2, w: 3, h: 4 });
+});
+
+test("groupElements and ungroupElements update only matching group membership", () => {
+  const base = deckWithThreeElements();
+  const grouped = groupElements(base, 0, ["e1", "e3"]);
+  assert.ok(grouped.groupId);
+  assert.equal(
+    grouped.deck.slides[0].elements?.find((e) => e.id === "e1")?.groupId,
+    grouped.groupId,
+  );
+  assert.equal(
+    grouped.deck.slides[0].elements?.find((e) => e.id === "e2")?.groupId,
+    undefined,
+  );
+
+  const ungrouped = ungroupElements(grouped.deck, 0, grouped.groupId);
+  assert.equal(
+    ungrouped.slides[0].elements?.some((e) => e.groupId === grouped.groupId),
+    false,
+  );
+});
+
 test("bringElementToFront / sendElementToBack reorder z-index", () => {
   let deck = deckWithBullets();
   const ids = (deck.slides[0].elements ?? []).map((e) => e.id);
@@ -715,6 +878,13 @@ test("duplicateElement is a no-op for a bad index or missing element", () => {
   const missingOnOtherSlide = duplicateElement(deck, 1, id);
   assert.equal(missingOnOtherSlide.deck, deck);
   assert.equal(missingOnOtherSlide.newElementId, null);
+
+  const slideWithoutElements = { ...deck.slides[0] };
+  delete slideWithoutElements.elements;
+  const noElementsDeck: Deck = { ...deck, slides: [slideWithoutElements] };
+  const noElements = duplicateElement(noElementsDeck, 0, id);
+  assert.equal(noElements.deck, noElementsDeck);
+  assert.equal(noElements.newElementId, null);
 });
 
 test("duplicateElement clamps the offset so the copy stays on the slide", () => {
@@ -1051,4 +1221,55 @@ test("updatePresentationThemeOverrides merges over an existing theme override to
   const tokenSet = (twice as any).design.themeOverrides.tokenSet;
   assert.equal(tokenSet.colors.accent, "#ff0000");
   assert.equal(tokenSet.colors.onBg, "#222222");
+});
+
+test("updatePresentationThemeOverrides patches typography, defaults, and reset branches", () => {
+  const deck: Deck = makeDeck([]);
+  const next = updatePresentationThemeOverrides(deck, {
+    typography: {
+      fontFamily: "Inter",
+      headingFontFamily: "Fraunces",
+      roles: {
+        title: { color: "#111111" },
+        subtitle: undefined,
+      },
+    },
+    defaultBackground: { type: "solid", color: "#f8fafc" },
+    bullet: { gapPct: 3 },
+    connector: { color: "#334155", endArrow: "filled" },
+    image: { fitMode: "cover" },
+    visual: { styleThemeId: "presentation" },
+  });
+  const tokenSet = (next as any).design.themeOverrides.tokenSet;
+  assert.equal(tokenSet.typography.fontFamily, "Inter");
+  assert.equal(tokenSet.typography.headingFontFamily, "Fraunces");
+  assert.equal(tokenSet.typography.roles.title.color, "#111111");
+  assert.equal(tokenSet.defaultBackground.color, "#f8fafc");
+  assert.equal(tokenSet.bullet.gapPct, 3);
+  assert.equal(tokenSet.connector.endArrow, "filled");
+  assert.equal(tokenSet.image.fitMode, "cover");
+  assert.equal(tokenSet.visual.styleThemeId, "presentation");
+
+  const reset = resetPresentationThemeOverrides(next);
+  assert.equal((reset as any).design.themeOverrides.tokenSet.id, "clarity");
+  assert.equal(resetPresentationThemeOverrides(deck), deck);
+
+  const preservedMetadata = resetPresentationThemeOverrides({
+    ...next,
+    design: {
+      ...(next as any).design,
+      themeOverrides: {
+        ...(next as any).design.themeOverrides,
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  } as Deck);
+  assert.equal(
+    (preservedMetadata as any).design.themeOverrides.updatedAt,
+    "2026-01-01T00:00:00.000Z",
+  );
+  assert.equal(
+    (preservedMetadata as any).design.themeOverrides.tokenSet.id,
+    "clarity",
+  );
 });

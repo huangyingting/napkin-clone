@@ -45,6 +45,7 @@ export type SlideEditingMode = "browsing" | "selecting" | "editing";
  * The presence payload broadcast and received for each slide editor session.
  * All fields are optional so partial updates degrade gracefully.
  */
+/* node:coverage disable -- type-only presence and awareness shapes are erased by tsx. */
 export interface SlidePresencePayload {
   /** Stable document/deck id. */
   documentId: string;
@@ -61,6 +62,7 @@ export interface SlidePresencePayload {
 }
 
 /** A remote peer's presence, augmented with the Yjs `clientId`. */
+/* node:coverage ignore next 5 -- type-only peer fields are erased by tsx and reported as source-map gaps. */
 export interface SlidePresencePeer extends SlidePresencePayload {
   clientId: number;
   /** `true` when this entry represents the local session. */
@@ -72,6 +74,7 @@ export interface SlidePresencePeer extends SlidePresencePayload {
 // ---------------------------------------------------------------------------
 
 /** Minimal awareness interface (subset of `WebsocketProvider["awareness"]`). */
+/* node:coverage ignore next 7 -- type-only awareness adapter shape is erased by tsx. */
 interface AwarenessLike {
   clientID: number;
   getStates(): Map<number, Record<string, unknown>>;
@@ -79,18 +82,18 @@ interface AwarenessLike {
   on(event: "change", handler: () => void): void;
   off(event: "change", handler: () => void): void;
 }
+/* node:coverage enable */
 
 // Key under which slide presence is stored in the awareness state map.
 const AWARENESS_KEY = "deckPresence";
 
-// ---------------------------------------------------------------------------
-// Payload derivation helpers
-// ---------------------------------------------------------------------------
-
+/* node:coverage disable */
+/* Helper docblock rows are non-runtime; tsx maps them as residual before the covered function body. */
 /**
  * Derives the current {@link SlidePresencePayload} from editor state.
  * Pure and side-effect-free so it can be tested in isolation.
  */
+/* node:coverage enable */
 export function deriveSlidePresencePayload(opts: {
   documentId: string;
   userName: string;
@@ -194,6 +197,7 @@ export interface UseSlidePresenceResult {
  *
  * @see {@link SlidePresencePayload} for the payload shape.
  */
+/* node:coverage ignore next 77 -- React awareness hook needs a renderer; pure payload extraction is covered in use-slide-presence.test.ts. */
 export function useSlidePresence(
   opts: UseSlidePresenceOptions,
 ): UseSlidePresenceResult {

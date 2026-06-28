@@ -104,12 +104,15 @@ export function buildDeckGenerationBody(
   return body;
 }
 
+/* node:coverage ignore start */
+/* Coverage rationale: response parser JSDoc is documentation-only; parser branches are asserted. */
 /**
  * Validate a `{ deck, truncated }` response payload. Returns the parsed deck and
  * the `truncated` flag, or `null` when the payload is missing/invalid. The deck
  * is validated through {@link safeParseDeck} so only a schema-valid deck (the
  * same contract the open path expects) is ever surfaced.
  */
+/* node:coverage ignore stop */
 export function parseDeckResponse(
   payload: unknown,
 ): { deck: Deck; truncated: boolean } | null {

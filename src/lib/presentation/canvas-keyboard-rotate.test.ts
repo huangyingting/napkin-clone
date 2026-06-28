@@ -33,6 +33,7 @@ describe("canvas-keyboard-rotate", () => {
     assert.equal(normalizeKeyboardRotationAngle(360), 0);
     assert.equal(normalizeKeyboardRotationAngle(-15), 345);
     assert.equal(normalizeKeyboardRotationAngle(725), 5);
+    assert.equal(Object.is(normalizeKeyboardRotationAngle(-0), -0), false);
   });
 
   test("converts display angles to the deck rotation convention", () => {

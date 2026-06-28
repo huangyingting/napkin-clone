@@ -10,6 +10,14 @@ import type {
   SourceRef,
 } from "@/lib/presentation/deck";
 import { unlinkSource } from "@/lib/presentation/deck";
+import {
+  activeSourceRef,
+  durableBlockIdFromSourceRef,
+  isSourceLinked,
+  isSourceStale,
+  relinkSource,
+  sourceRefFromDurableBlockId,
+} from "@/lib/presentation/deck-source-refs";
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
@@ -77,6 +85,84 @@ function unlinkedElement(id: string): TextElement {
     },
   };
 }
+
+const sourceRefFixture: SourceRef = {
+  documentId: "doc-1",
+  blockId: "block-1",
+  blockKind: "text",
+  contentHash: "hash-old",
+  linkedAt: "2026-01-01T00:00:00.000Z",
+  unlinked: true,
+};
+
+test("source ref helpers clone, activate, and expose durable block ids", () => {
+  const linked = sourceRefFromDurableBlockId(sourceRefFixture);
+
+  assert.deepEqual(linked, {
+    documentId: "doc-1",
+    blockId: "block-1",
+    blockKind: "text",
+    contentHash: "hash-old",
+    linkedAt: "2026-01-01T00:00:00.000Z",
+  });
+  assert.notEqual(linked, sourceRefFixture);
+  assert.deepEqual(
+    activeSourceRef({
+      documentId: "doc-1",
+      blockId: "visual-1",
+      blockKind: "visual",
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      unlinked: true,
+    }),
+    {
+      documentId: "doc-1",
+      blockId: "visual-1",
+      blockKind: "visual",
+      linkedAt: "2026-01-01T00:00:00.000Z",
+    },
+  );
+  assert.equal(durableBlockIdFromSourceRef(sourceRefFixture), "block-1");
+});
+
+test("source ref helpers classify linked and stale source state", () => {
+  assert.equal(isSourceLinked({}), false);
+  assert.equal(isSourceLinked({ source: sourceRefFixture }), false);
+
+  const active = activeSourceRef(sourceRefFixture);
+  assert.equal(isSourceLinked({ source: active }), true);
+  assert.equal(isSourceStale({ source: active }, "hash-new"), true);
+  assert.equal(isSourceStale({ source: active }, "hash-old"), false);
+  assert.equal(
+    isSourceStale(
+      {
+        source: {
+          documentId: "doc-1",
+          blockId: "block-1",
+          blockKind: "text",
+          linkedAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      "hash-new",
+    ),
+    false,
+  );
+});
+
+test("source ref helpers unlink idempotently and relink with an active clone", () => {
+  const element = { id: "el-1", source: activeSourceRef(sourceRefFixture) };
+  const unlinked = unlinkSource(element);
+
+  assert.notEqual(unlinked, element);
+  assert.equal(unlinked.source.unlinked, true);
+  assert.equal(unlinkSource(unlinked), unlinked);
+  assert.deepEqual(relinkSource(unlinked, sourceRefFixture), {
+    id: "el-1",
+    source: activeSourceRef(sourceRefFixture),
+  });
+  assert.deepEqual(unlinkSource({ id: "no-source" } as any), {
+    id: "no-source",
+  });
+});
 
 function textOf(element: SlideElement | undefined): string | undefined {
   return (element as any)?.content?.text;

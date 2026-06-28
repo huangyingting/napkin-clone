@@ -9,7 +9,9 @@ import {
 import { safeParseDeck } from "./deck-schema";
 import {
   buildTemplateSlide,
+  getBuiltInSlideTemplate,
   SLIDE_TEMPLATES,
+  TEMPLATE_IMAGE_PLACEHOLDER_SRC,
   type SlideTemplateKind,
 } from "./slide-templates";
 
@@ -65,6 +67,14 @@ test("SLIDE_TEMPLATES exposes the five expected kinds in order", () => {
     assert.ok(option.label.length > 0);
     assert.ok(option.description.length > 0);
   }
+});
+
+test("built-in template lookup returns authored records and rejects unknown kinds", () => {
+  assert.equal(getBuiltInSlideTemplate("content").category, "content");
+  assert.throws(
+    () => getBuiltInSlideTemplate("missing" as SlideTemplateKind),
+    /Missing built-in slide template/,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -171,6 +181,8 @@ test("visual spotlight without a visualId uses an image placeholder", () => {
   assert.equal(slideLayout(slide), "media");
   const image = slide.elements?.[0] as ImageElement;
   assert.match(content(image).src, /^data:image\/svg\+xml,/);
+  assert.equal(content(image).src, TEMPLATE_IMAGE_PLACEHOLDER_SRC);
+  assert.equal(content(image).alt, "Visual placeholder");
   assert.deepEqual(slideVisualIds(slide), []);
 });
 
@@ -182,7 +194,25 @@ test("visual spotlight with a visualId references that document visual", () => {
   const visual = slide.elements?.[0];
   assert.equal(visual?.kind, "visual");
   assert.equal(content(visual).visualId, "vis-42");
+  assert.equal((visual as any).box.w, 92);
   assert.deepEqual(slideVisualIds(slide), ["vis-42"]);
+});
+
+test("materialized template content defaults are deep-cloned", () => {
+  const first = buildTemplateSlide("content", {});
+  const second = buildTemplateSlide("content", {});
+  const firstBody = first.elements?.find((element) => role(element) === "body");
+  const secondBody = second.elements?.find(
+    (element) => role(element) === "body",
+  );
+
+  content(firstBody).paragraphs[0].text = "Mutated";
+
+  assert.equal(content(secondBody).paragraphs[0].text, "Body");
+  assert.notEqual(
+    content(firstBody).paragraphs,
+    content(secondBody).paragraphs,
+  );
 });
 
 // ---------------------------------------------------------------------------

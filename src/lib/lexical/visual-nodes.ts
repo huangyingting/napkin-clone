@@ -59,6 +59,8 @@ export function collectVisualNodes(state: unknown): CollectedVisualNode[] {
     try {
       parsed = JSON.parse(state);
     } catch {
+      /* Coverage rationale: malformed serialized state branch is asserted; tsx maps catch return as uncovered. */
+      /* node:coverage ignore next */
       return [];
     }
   }

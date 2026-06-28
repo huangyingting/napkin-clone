@@ -1354,3 +1354,46 @@ test("element-level merge: mixed linked/unlinked/manual elements on one slide (#
   assert.equal(textOf(linked), "Changed content"); // linked element updated
   assert.equal(textOf(unlinked), "Manual override"); // unlinked element not touched
 });
+
+test("element-level merge updates visual source hashes without moving visuals", () => {
+  const originalBlock: DocumentBlock = {
+    kind: "visual",
+    visualId: "vis-linked",
+    visual: { kind: "bar", title: "Original", data: [] } as any,
+  };
+  const originalHash = hashDocumentBlock(originalBlock);
+  const visual = {
+    ...visualElement("visual-linked", "vis-linked"),
+    source: {
+      documentId: "doc-1",
+      blockId: "vis-linked",
+      contentHash: originalHash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      blockKind: "visual" as const,
+    },
+  } as VisualElement;
+  const existing = deck([
+    slide({ title: "Visual", elements: [element("manual"), visual] }),
+  ]);
+  const fresh = deck([slide({ title: "Visual", visualRefs: ["vis-linked"] })]);
+  const changedBlock: DocumentBlock = {
+    kind: "visual",
+    visualId: "vis-linked",
+    visual: {
+      kind: "bar",
+      title: "Changed",
+      data: [{ label: "A", value: 1 }],
+    } as any,
+  };
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh, {
+    freshBlocks: [changedBlock],
+  });
+
+  const updated = merged.slides[0].elements?.find(
+    (entry): entry is VisualElement => entry.id === "visual-linked",
+  );
+  assert.ok(updated);
+  assert.deepEqual(updated.box, visual.box);
+  assert.equal(sourceOf(updated)?.contentHash, hashDocumentBlock(changedBlock));
+});

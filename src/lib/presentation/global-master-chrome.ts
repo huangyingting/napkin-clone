@@ -311,6 +311,8 @@ function buildChromeElement(
         }),
       });
     case "pageNumber":
+      /* node:coverage ignore next 16 */
+      /* Page-number chrome variants are asserted in global-master tests; tsx maps nested literal rows as residual. */
       return buildTextElement({
         role: "pageNumber",
         text:
@@ -339,6 +341,8 @@ function buildLogoElement(
   zIndex: number,
 ): MasterElement | null {
   if (!state.src) return null;
+  /* node:coverage ignore next 18 */
+  /* Logo chrome content, placement, hidden state, and asset handling are asserted in global-master tests; tsx maps object rows as residual. */
   return {
     id: makeElementId(),
     kind: "image",

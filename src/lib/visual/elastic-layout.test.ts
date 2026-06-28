@@ -323,6 +323,75 @@ test("elasticLayout mindmap: viewBox contains all nodes", () => {
   assert.ok(result.height >= bounds!.y + bounds!.height);
 });
 
+test("elasticLayout mindmap: tall leaves stay outside the center node clearance", () => {
+  const result = elasticLayout(
+    makeVisual("mindmap", [
+      "Central root label that wraps onto multiple lines",
+      "Tall child label with enough words to wrap onto several lines in the estimated node box",
+    ]),
+  );
+  const [root, leaf] = result.nodes;
+  const distance = Math.hypot(
+    (leaf.x ?? 0) - (root.x ?? 0),
+    (leaf.y ?? 0) - (root.y ?? 0),
+  );
+  const touchingDistance = ((root.height ?? 0) + (leaf.height ?? 0)) / 2;
+
+  assert.ok(
+    distance > touchingDistance,
+    `leaf distance ${distance} should exceed touching distance ${touchingDistance}`,
+  );
+});
+
+test("elasticLayout radial kinds handle empty and single-node visuals", () => {
+  const empty = elasticLayout(makeVisual("concept", []));
+  assert.deepEqual(empty.nodes, []);
+  assert.equal(empty.width, 760);
+  assert.equal(empty.height, 480);
+
+  const single = elasticLayout(makeVisual("venn", ["Only node"]));
+  assert.equal(single.nodes.length, 1);
+  assert.ok((single.nodes[0].x ?? 0) > 0);
+  assert.ok((single.nodes[0].y ?? 0) > 0);
+});
+
+test("elasticLayout orgchart lays out levels from valid parent-child edges", () => {
+  const visual = makeVisual("orgchart", ["CEO", "VP", "IC"], {
+    nodes: [
+      { id: "ceo", label: "CEO" },
+      { id: "vp", label: "VP" },
+      { id: "ic", label: "IC" },
+    ],
+    edges: [
+      { id: "e1", from: "ceo", to: "vp" },
+      { id: "e2", from: "vp", to: "ic" },
+      { id: "missing", from: "vp", to: "missing" },
+    ],
+  });
+
+  const result = elasticLayout(visual);
+  const [ceo, vp, ic] = result.nodes;
+  assert.ok((ceo.y ?? 0) < (vp.y ?? 0));
+  assert.ok((vp.y ?? 0) < (ic.y ?? 0));
+});
+
+test("elasticLayout orgchart falls back to flowchart when every node has a parent", () => {
+  const result = elasticLayout(
+    makeVisual("orgchart", ["A", "B"], {
+      nodes: [
+        { id: "a", label: "A" },
+        { id: "b", label: "B" },
+      ],
+      edges: [
+        { id: "ab", from: "a", to: "b" },
+        { id: "ba", from: "b", to: "a" },
+      ],
+    }),
+  );
+
+  assert.ok((result.nodes[0].y ?? 0) < (result.nodes[1].y ?? 0));
+});
+
 // ---------------------------------------------------------------------------
 // elasticLayout — derived-layout kinds (no-op)
 // ---------------------------------------------------------------------------

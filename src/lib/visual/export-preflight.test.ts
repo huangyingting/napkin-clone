@@ -1,5 +1,5 @@
 /**
- * Unit tests for export-preflight.ts (Epic #379, issue #416).
+ * Unit tests for export-preflight.ts.
  *
  * Validates:
  *  - FATAL missing-asset diagnostics for image elements with no source.
@@ -346,7 +346,7 @@ describe("remote-image-failure diagnostics", () => {
 // ---------------------------------------------------------------------------
 // Element font overrides now use a self-hosted slide `fontId`, so only
 // template/brand typography can introduce a non-embeddable custom font. The
-// element-level missing-font path was removed; see the #617 template-font
+// element-level missing-font path was removed; see the template-font
 // tests below for the surviving coverage.
 
 // ---------------------------------------------------------------------------
@@ -612,7 +612,7 @@ describe("multi-slide preflight", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: custom presentation theme fonts (#617)
+// Tests: custom presentation theme fonts
 // ---------------------------------------------------------------------------
 
 describe("custom presentation theme font diagnostics", () => {

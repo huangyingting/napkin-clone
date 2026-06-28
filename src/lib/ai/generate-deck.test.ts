@@ -171,6 +171,30 @@ test("parses a valid deck JSON in one attempt", async () => {
   assert.equal(result.slides.length, 2);
 });
 
+test("rejects blank and oversized deck outlines before any model call", async () => {
+  let calls = 0;
+  const complete = async (): Promise<string> => {
+    calls += 1;
+    return deck();
+  };
+
+  await assert.rejects(
+    generateDeck(
+      { outline: "  \n ", visualInventory: INVENTORY },
+      { complete },
+    ),
+    (error) => error instanceof EmptyInputError,
+  );
+  await assert.rejects(
+    generateDeck(
+      { outline: "x".repeat(MAX_INPUT_CHARS + 1), visualInventory: INVENTORY },
+      { complete },
+    ),
+    (error) => error instanceof InputTooLongError,
+  );
+  assert.equal(calls, 0);
+});
+
 test("tolerates a code-fenced JSON deck", async () => {
   const fenced = "```json\n" + deck() + "\n```";
   const { complete } = sequence([fenced]);
@@ -398,6 +422,22 @@ test("rejects an empty outline before any LLM call", async () => {
   };
   await assert.rejects(
     generateDeck({ outline: "   ", visualInventory: INVENTORY }, { complete }),
+    (error) => error instanceof EmptyInputError,
+  );
+  assert.equal(called, false);
+});
+
+test("rejects non-string deck outlines before any model call", async () => {
+  let called = false;
+  const complete = async (): Promise<string> => {
+    called = true;
+    return deck();
+  };
+
+  await assert.rejects(
+    generateDeck({ outline: null, visualInventory: INVENTORY } as any, {
+      complete,
+    }),
     (error) => error instanceof EmptyInputError,
   );
   assert.equal(called, false);

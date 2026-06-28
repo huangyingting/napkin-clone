@@ -117,15 +117,7 @@ export function parseGenerateDeckPayload(
   const blocks = collectDocumentBlocks(body.contentJson);
   const visuals = visualsFromContent(blocks);
   const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
-  const preferredTheme = inferPresentationTheme(blocks);
-
-  if (outline.trim().length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      message: "`contentJson` does not contain any usable outline content.",
-    };
-  }
+  if (outline.trim().length === 0) return { ok: false, status: 400, message: "`contentJson` does not contain any usable outline content." };
   if (outline.length > MAX_INPUT_CHARS) {
     return {
       ok: false,
@@ -133,6 +125,7 @@ export function parseGenerateDeckPayload(
       message: formatDeckInputTooLongError(outline.length),
     };
   }
+  const preferredTheme = inferPresentationTheme(blocks);
 
   return {
     ok: true,
@@ -157,14 +150,7 @@ export function mapGenerateDeckError(
   if (error instanceof InputTooLongError) {
     return { status: 413, message: error.message };
   }
-  if (error instanceof GenerationError) {
-    return {
-      status: 502,
-      message:
-        "We couldn't generate a deck from that document. Please try again.",
-      log: { reason: "generation-failed", status: 502 },
-    };
-  }
+  if (error instanceof GenerationError) return { status: 502, message: "We couldn't generate a deck from that document. Please try again.", log: { reason: "generation-failed", status: 502 } };
   if (error instanceof ModelOutputBudgetError) {
     return {
       status: 502,

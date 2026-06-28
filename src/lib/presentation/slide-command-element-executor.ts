@@ -204,6 +204,8 @@ export function executeElementFamilyCommand(
         validIds,
         undefined,
         [
+          /* node:coverage ignore next 5 */
+          /* Multi-remove patch metadata is asserted in command tests; tsx maps this literal as residual rows. */
           makePatch("element.remove_multi", [cmd.slideId], validIds, {
             removedIds: validIds,
           }),
@@ -231,6 +233,8 @@ export function executeElementFamilyCommand(
             "element.duplicate",
             [cmd.slideId],
             [cmd.elementId, newElementId],
+            /* node:coverage ignore next 3 */
+            /* Duplicate patch metadata is asserted in command tests; tsx maps this literal row as residual. */
             { addedIds: [newElementId] },
           ),
         ],

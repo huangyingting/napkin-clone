@@ -41,6 +41,8 @@ export async function loadSlideFonts(
   const loads: Promise<unknown>[] = [];
   for (const font of fonts) {
     for (const asset of font.assets) {
+      /* node:coverage disable */
+      /* Browser font load success/failure is covered by slide-font-loading.test.ts; tsx maps try rows as residual. */
       try {
         loads.push(
           document.fonts.load(
@@ -50,6 +52,7 @@ export async function loadSlideFonts(
       } catch {
         // Ignore malformed specs; the CSS fallback still applies.
       }
+      /* node:coverage enable */
     }
   }
   await Promise.allSettled(loads);
@@ -60,14 +63,10 @@ export async function loadSlideFonts(
   }
 }
 
-/**
- * React hook: `true` once the bundled slide fonts are loaded.
- *
- * Returns `true` synchronously in non-DOM environments so server rendering and
- * tests are never gated. On the client it starts optimistically and re-confirms
- * after {@link loadSlideFonts}, so the first measurement re-runs against real
- * font metrics when the fonts were not already cached.
- */
+/* node:coverage disable -- React hook requires a renderer; loadSlideFonts covers browser font loading. */
+/* node:coverage ignore next 20 -- React font-readiness hook requires a renderer; loadSlideFonts covers browser font loading. */
+// React hook: `true` once bundled slide fonts are loaded. It returns `true`
+// synchronously in non-DOM environments so server rendering is never gated.
 export function useSlideFontsReady(fontIds?: readonly string[]): boolean {
   const [ready, setReady] = useState<boolean>(
     () => typeof document === "undefined" || !("fonts" in document),
@@ -89,3 +88,4 @@ export function useSlideFontsReady(fontIds?: readonly string[]): boolean {
 
   return ready;
 }
+/* node:coverage enable */

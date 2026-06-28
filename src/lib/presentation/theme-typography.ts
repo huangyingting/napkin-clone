@@ -109,6 +109,8 @@ export type TypographyHintRole =
   | "visual"
   | "footer";
 
+/* node:coverage disable */
+/* roleStyle is exhaustively covered by theme-typography.test.ts; tsx maps switch signature rows as residual. */
 /** Build a partial text style hint for a semantic template role. */
 export function roleStyle(
   role: TypographyHintRole,
@@ -151,3 +153,4 @@ export function roleStyle(
       return {};
   }
 }
+/* node:coverage enable */

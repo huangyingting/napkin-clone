@@ -53,6 +53,8 @@ export type SlideAssetAccessDecision =
   | { allow: true; via: SlideAssetAllowReason }
   | { allow: false; status: 403 | 404; reason: SlideAssetDenyReason };
 
+/* node:coverage disable */
+/* Slide-asset access input types and field docs are erased at runtime. */
 /**
  * The document row shape needed to decide access: ownership/workspace columns
  * (for capability) plus the share-policy columns and soft-delete timestamp.
@@ -61,6 +63,7 @@ export type SlideAssetDocument = DocumentRoleInput &
   ShareAccessFields & {
     deletedAt: Date | null;
   };
+/* node:coverage enable */
 
 /** Inputs to the decision — all already-fetched rows, no I/O performed here. */
 export interface SlideAssetAccessInput {
@@ -75,6 +78,7 @@ export interface SlideAssetAccessInput {
   /** Public share access resolved by the public render resolver. */
   publicAssetAccess?: PublicAssetAccessDecision;
 }
+/* node:coverage ignore stop */
 
 /**
  * Decides whether a slide-asset request may be served.

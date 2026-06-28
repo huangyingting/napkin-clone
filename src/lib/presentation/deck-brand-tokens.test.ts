@@ -176,6 +176,19 @@ test("applyBrandToDeck preserves existing masters after brand master", () => {
   assert.equal(newDeck.masters?.[1].id, "existing-master");
 });
 
+test("applyBrandToDeck initializes masters when the deck has none", () => {
+  const {
+    masters: _masters,
+    defaultMasterId: _defaultMasterId,
+    ...deck
+  } = baseDeck();
+  const newDeck = applyBrandToDeck(deck, mockBrand());
+
+  assert.equal(newDeck.masters?.length, 1);
+  assert.equal(newDeck.masters?.[0]?.id, "master:brand-1");
+  assert.equal(newDeck.defaultMasterId, "master:brand-1");
+});
+
 test("applyBrandToDeck replaces existing brand master when reapplied", () => {
   const deck = baseDeck();
   const brand = mockBrand();
@@ -186,6 +199,36 @@ test("applyBrandToDeck replaces existing brand master when reapplied", () => {
     secondApply.masters?.filter((m) => m.id === "master:brand-1").length,
     1,
   );
+});
+
+test("applyBrandToDeck replaces the matching brand master and keeps other masters", () => {
+  const deck: Deck = {
+    ...baseDeck(),
+    masters: [
+      {
+        id: "master:brand-1",
+        name: "Old Brand Master",
+        elements: [],
+      },
+      {
+        id: "support-master",
+        name: "Support",
+        elements: [],
+      },
+    ],
+  };
+
+  const newDeck = applyBrandToDeck(
+    deck,
+    mockBrand({ logoAssetUrl: "https://example.com/new-logo.png" }),
+  );
+
+  assert.deepEqual(
+    newDeck.masters?.map((master) => master.id),
+    ["master:brand-1", "support-master"],
+  );
+  assert.equal(newDeck.masters?.[0]?.name, "Acme Brand Master");
+  assert.equal(newDeck.masters?.[0]?.elements.length, 1);
 });
 
 test("applyBrandToDeck does not mutate original deck", () => {

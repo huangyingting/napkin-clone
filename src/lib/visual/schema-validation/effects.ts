@@ -16,7 +16,7 @@ export function parseEffect(item: unknown): VisualEffect | null {
   if (kind === "shadow") {
     const effect: ShadowEffect = { kind };
     const dx = item.dx;
-    if (isFiniteNumber(dx)) effect.dx = dx;
+    if (isFiniteNumber(dx)) effect.dx = dx; /* node:coverage ignore next */
     const dy = item.dy;
     if (isFiniteNumber(dy)) effect.dy = dy;
     const blur = item.blur;

@@ -79,3 +79,17 @@ test("createBlankVisual produces graph types with connected edges", () => {
     );
   }
 });
+
+test("Venn blank and fixture keep the expected overlapping circle geometry", () => {
+  const blank = createBlankVisual("venn");
+  assert.deepEqual(
+    blank.nodes.map(({ x, y, width, height }) => ({ x, y, width, height })),
+    [
+      { x: 210, y: 200, width: 240, height: 240 },
+      { x: 350, y: 200, width: 240, height: 240 },
+    ],
+  );
+
+  assert.equal(FIXTURES.venn.nodes[1].width, 280);
+  assert.equal(FIXTURES.venn.nodes[1].height, 280);
+});

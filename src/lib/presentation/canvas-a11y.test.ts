@@ -1,6 +1,6 @@
 /**
  * Unit tests for the pure canvas keyboard accessibility helpers
- * (`canvas-a11y.ts`, issues #530–#535).
+ * (`canvas-a11y.ts`).
  *
  * The keyboard model's real coverage lives here: the fast gate cannot run a
  * browser, so the decision logic behind keyboard resize, traversal, focus
@@ -57,10 +57,10 @@ function textEl(id: string, b: ElementBox): TextElement {
 }
 
 // ---------------------------------------------------------------------------
-// #530 — resizeBoxByStep
+// resizeBoxByStep
 // ---------------------------------------------------------------------------
 
-describe("canvas-a11y: resizeBoxByStep (#530)", () => {
+describe("canvas-a11y: resizeBoxByStep", () => {
   test("ArrowRight widens, ArrowLeft narrows (right edge)", () => {
     const b = box(10, 10, 20, 20);
     assert.deepEqual(resizeBoxByStep(b, "ArrowRight", 1), box(10, 10, 21, 20));
@@ -126,10 +126,10 @@ describe("canvas-a11y: isArrowKey", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #531 — orderedElementIds + nextElementId
+// orderedElementIds + nextElementId
 // ---------------------------------------------------------------------------
 
-describe("canvas-a11y: orderedElementIds (#531)", () => {
+describe("canvas-a11y: orderedElementIds", () => {
   test("sorts top→bottom then left→right", () => {
     const els = [
       { id: "c", box: box(0, 50, 10, 10) },
@@ -157,7 +157,7 @@ describe("canvas-a11y: orderedElementIds (#531)", () => {
   });
 });
 
-describe("canvas-a11y: nextElementId (#531)", () => {
+describe("canvas-a11y: nextElementId", () => {
   const ids = ["a", "b", "c"];
 
   test("moves forward and wraps", () => {
@@ -182,10 +182,10 @@ describe("canvas-a11y: nextElementId (#531)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #532 — focusTargetAfterDelete
+// focusTargetAfterDelete
 // ---------------------------------------------------------------------------
 
-describe("canvas-a11y: focusTargetAfterDelete (#532)", () => {
+describe("canvas-a11y: focusTargetAfterDelete", () => {
   const ids = ["a", "b", "c", "d"];
 
   test("focuses the next surviving element after the deleted one", () => {
@@ -210,16 +210,23 @@ describe("canvas-a11y: focusTargetAfterDelete (#532)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #533 — announcement builders
+// announcement builders
 // ---------------------------------------------------------------------------
 
-describe("canvas-a11y: announcement builders (#533)", () => {
+describe("canvas-a11y: announcement builders", () => {
   test("announces selected element label", () => {
     assert.equal(announceSelection("Title text"), "Selected Title text");
   });
 
   test("move rounds coordinates", () => {
     assert.equal(announceMove("Box", 12.4, 33.6), "Moved Box to 12%, 34%");
+  });
+
+  test("move preserves the selected label while rounding signed coordinates", () => {
+    assert.equal(
+      announceMove("Chart A", -1.5, 0.5),
+      "Moved Chart A to -1%, 1%",
+    );
   });
 
   test("resize rounds dimensions", () => {
@@ -232,10 +239,10 @@ describe("canvas-a11y: announcement builders (#533)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #534 — connector helpers
+// connector helpers
 // ---------------------------------------------------------------------------
 
-describe("canvas-a11y: connector helpers (#534)", () => {
+describe("canvas-a11y: connector helpers", () => {
   const connector: ConnectorElement = {
     id: "conn",
     kind: "connector",

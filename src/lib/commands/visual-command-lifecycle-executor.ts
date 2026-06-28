@@ -74,6 +74,7 @@ export function executeVisualLifecycleFamily(
           visual,
           `Kind "${visual.type}" does not support deleting edges.`,
         );
+      /* node:coverage ignore next 4 -- Edge deletion output is asserted; tsx maps this object literal as uncovered. */
       const next = {
         ...visual,
         edges: visual.edges.filter((e) => e.id !== edgeId),

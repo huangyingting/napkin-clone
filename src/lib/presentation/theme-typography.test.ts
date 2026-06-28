@@ -18,6 +18,10 @@ test("getThemeTypography falls back to default for an unknown theme id", () => {
   assert.equal(getThemeTypography("unknown-theme"), DEFAULT_TYPOGRAPHY);
 });
 
+test("getThemeTypography falls back to default when no theme id is provided", () => {
+  assert.equal(getThemeTypography(), DEFAULT_TYPOGRAPHY);
+});
+
 test("resolveHeadingFont prefers a theme heading font when present", () => {
   assert.equal(
     resolveHeadingFont(THEME_TYPOGRAPHY.sunset),
@@ -73,4 +77,8 @@ test("roleStyle maps body and visual roles to list and H3 tokens", () => {
     bold: true,
     align: "center",
   });
+});
+
+test("roleStyle returns an empty hint for unsupported roles at runtime", () => {
+  assert.deepEqual(roleStyle("unknown" as never, THEME_TYPOGRAPHY.default), {});
 });

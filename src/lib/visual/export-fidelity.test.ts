@@ -11,6 +11,7 @@ import {
 test("getFidelity returns the expected level for known features", () => {
   assert.equal(getFidelity("text-content", "pptx"), "full");
   assert.equal(getFidelity("connector-elbow", "pptx"), "partial");
+  assert.equal(getFidelity("text-fit-mode", "pdf"), "full");
   assert.equal(getFidelity("source-ref-metadata", "image"), "unsupported");
   assert.equal(getFidelity("missing-feature", "pdf"), undefined);
 });
@@ -38,6 +39,14 @@ test("getDegradedFeatures returns partial and degraded entries for a target", ()
     "visual-element",
     "background-gradient",
   ]);
+});
+
+test("getDegradedFeatures returns no PDF entries when all PDF fidelity is full or unsupported", () => {
+  assert.deepEqual(getDegradedFeatures("pdf"), []);
+});
+
+test("getDegradedFeatures returns no image entries when image fidelity is full or unsupported", () => {
+  assert.deepEqual(getDegradedFeatures("image"), []);
 });
 
 test("image-crop note no longer claims crop metadata is absent", () => {
@@ -83,7 +92,7 @@ test("the fidelity matrix keeps every feature unique", () => {
 });
 
 // ---------------------------------------------------------------------------
-// New element kinds and slide features (issue #379)
+// New element kinds and slide features
 // ---------------------------------------------------------------------------
 
 test("hidden-element is unsupported on all export targets", () => {

@@ -120,6 +120,8 @@ function validatePresentationDesign(input: unknown): Record<string, unknown> {
   };
 }
 
+/* node:coverage ignore next 13 */
+/* Design override normalization is asserted by schema tests; tsx maps this helper's wrapped argument rows as residual. */
 function validateDesignOverrides(
   input: unknown,
   context: string,

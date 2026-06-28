@@ -84,6 +84,47 @@ test("summarizeSlideContent summarizes element content only", () => {
   });
 });
 
+test("summarizeSlideContent falls back to text content when paragraphs are absent", () => {
+  const slide = {
+    ...slideFixture(),
+    elements: [
+      {
+        id: "section",
+        kind: "text",
+        role: "sectionTitle",
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        zIndex: 0,
+        content: { kind: "text", text: "  Section heading  " },
+      },
+      {
+        id: "empty-title",
+        kind: "text",
+        role: "title",
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        zIndex: 1,
+        content: { kind: "text", text: "   " },
+      },
+      {
+        id: "blank-visual",
+        kind: "visual",
+        role: "visual",
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        zIndex: 2,
+        content: { kind: "visual", visualId: "" },
+      },
+    ],
+  } as unknown as Slide;
+
+  assert.equal(getSlideTitleFromElements(slide), "Section heading");
+  assert.deepEqual(getSlideVisualIds(slide), []);
+  assert.deepEqual(summarizeSlideContent(slide), {
+    title: "Section heading",
+    text: "Section heading",
+    visualIds: [],
+    sourceLinkedElementCount: 0,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // clampSlideIndex
 // ---------------------------------------------------------------------------
@@ -161,6 +202,17 @@ test("presentationProgress: returns shared progress label and percentage", () =>
   assert.deepEqual(presentationProgress(0, 1), {
     label: "1 / 1",
     percentage: 100,
+  });
+});
+
+test("presentationProgress: clamps out-of-range indexes before computing percentage", () => {
+  assert.deepEqual(presentationProgress(99, 5), {
+    label: "5 / 5",
+    percentage: 100,
+  });
+  assert.deepEqual(presentationProgress(-4, 5), {
+    label: "1 / 5",
+    percentage: 0,
   });
 });
 

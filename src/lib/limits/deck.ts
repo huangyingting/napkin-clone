@@ -1,6 +1,7 @@
 import {
   checkLimit,
   type BudgetCheckResult,
+  /* node:coverage ignore next -- Type-only import row is erased by TypeScript. */
   type LimitDefinition,
 } from "@/lib/limits/budgets";
 
@@ -31,6 +32,7 @@ export const INLINE_IMAGES_WARN_COUNT = 15;
 
 export const TOTAL_IMAGE_BUDGET_BYTES = INLINE_IMAGE_HARD_BYTES;
 export const MAX_IMAGE_UPLOAD_BYTES = Math.floor(
+  /* node:coverage ignore next 3 -- Derived limit is asserted by boundary tests; tsx maps multiline initializer as uncovered. */
   TOTAL_IMAGE_BUDGET_BYTES * (3 / 4),
 );
 

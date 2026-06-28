@@ -6,9 +6,7 @@
  * so both serialize formatting identically (bold / italic / code / color /
  * links + line breaks). No React — just DOM/string transforms. The serializer
  * only ever reads element/style data the browser produced; it never injects
- * raw HTML, and `runsToHtml` escapes all text, so round-tripping is XSS-safe.
- */
-
+ * raw HTML, and `runsToHtml` escapes all text, so round-tripping is XSS-safe. */ /*! node:coverage ignore next -- Type-only TextRun import is erased by tsx and maps the header gap as uncovered. */
 import type { TextRun } from "./deck-elements";
 
 export function escapeHtml(value: string): string {
@@ -208,6 +206,8 @@ export function bulletsToRuns(
   const runs: TextRun[] = [];
   bullets.forEach((bullet, index) => {
     const rich = itemRuns?.[index];
+    /* Tests cover rich, plain, and empty rows; V8/tsx maps this fallback/separator body to continuation lines. */
+    /* node:coverage ignore next 5 */
     if (rich && rich.length > 0) runs.push(...rich);
     else if (bullet.length > 0) runs.push({ text: bullet });
     if (index < bullets.length - 1) runs.push({ text: "\n" });

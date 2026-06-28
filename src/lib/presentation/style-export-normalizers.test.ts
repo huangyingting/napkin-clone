@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import type { Deck, TextElement } from "./deck";
 import {
+  adaptShapeLabelForExport,
+  adaptShapeLabelForRenderer,
   adaptTextElementForExport,
   adaptTextElementForRenderer,
 } from "./style-export-normalizers";
@@ -115,4 +117,63 @@ test("renderer/export text adapters track local override origin consistently", (
   assert.equal(exported.italic, true);
   assert.equal(renderer.resolved.origin.color, "element");
   assert.equal(exported.resolved.origin.weight, "element");
+});
+
+test("renderer/export adapters omit optional fields when the resolved style does not define them", () => {
+  const element = textElement({
+    role: "body",
+    designOverrides: {
+      textStyle: {
+        color: "#112233",
+        fontSize: 5,
+        bold: false,
+        italic: false,
+        underline: false,
+        align: "center",
+      },
+    },
+  });
+  const source = deck(element);
+  const renderer = adaptTextElementForRenderer(source, element);
+  const exported = adaptTextElementForExport(source, element, SLIDE_HEIGHT_PT);
+
+  assert.equal(renderer.lineHeight, undefined);
+  assert.equal(renderer.paragraphSpacingCqh, undefined);
+  assert.equal(exported.lineHeight, undefined);
+  assert.equal(exported.paragraphSpacingPt, undefined);
+  assert.equal(exported.bold, false);
+});
+
+test("shape label renderer/export adapters convert resolved label styles", () => {
+  const shape = {
+    id: "shape-label",
+    kind: "shape",
+    role: "label",
+    zIndex: 0,
+    box: { x: 5, y: 5, w: 20, h: 10 },
+    content: { kind: "shape", shape: "rect", text: "Label" },
+    designOverrides: {
+      textStyle: {
+        color: "#445566",
+        fontId: "source-serif-4",
+        fontSize: 4,
+        bold: true,
+        italic: true,
+        underline: true,
+        align: "right",
+        lineHeight: 1.4,
+        paragraphSpacing: 0.8,
+      },
+    },
+  } as any;
+  const source = deck(shape as never);
+  const renderer = adaptShapeLabelForRenderer(source, shape);
+  const exported = adaptShapeLabelForExport(source, shape, SLIDE_HEIGHT_PT);
+
+  assert.equal(renderer.fontFamily, "'Source Serif 4', 'Noto Sans SC', serif");
+  assert.equal(exported.fontFace, "Georgia");
+  assert.equal(exported.bold, true);
+  assert.equal(exported.italic, true);
+  assert.equal(exported.underline, true);
+  assert.equal(exported.paragraphSpacingPt, 6);
 });

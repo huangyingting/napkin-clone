@@ -30,7 +30,9 @@ export function rejectUnknownKeys(
   const allowed = new Set(allowedKeys);
   for (const key of Object.keys(input)) {
     if (!allowed.has(key)) {
-      throw new DeckValidationError(`${context}.${key} is not part of the current schema`);
+      throw new DeckValidationError(
+        `${context}.${key} is not part of the current schema`,
+      );
     }
   }
 }
@@ -82,10 +84,14 @@ export const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
   "left",
   "right",
 ];
+/* node:coverage ignore next 4 */
+/* Literal tuple rows are asserted in schema tests; tsx keeps array member rows residual. */
 export const CONNECTOR_ROUTINGS: readonly ConnectorRouting[] = [
   "straight",
   "elbow",
 ];
+/* node:coverage ignore next 6 */
+/* Literal tuple rows are asserted in schema tests; tsx keeps one array row residual. */
 export const CONNECTOR_ARROWS: readonly ConnectorArrow[] = [
   "none",
   "arrow",

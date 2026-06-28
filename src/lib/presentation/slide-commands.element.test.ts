@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide, SlideElement } from "./deck";
-import { applyPatch, executeCommand } from "./slide-commands";
+import {
+  applyPatch,
+  executeCommand,
+  type SlideCommand,
+} from "./slide-commands";
 import { safeParseDeck } from "./deck-schema";
 import { buildDeck, buildShapeElement, buildSlide } from "@/test/builders/deck";
 
@@ -874,4 +878,206 @@ test("RENAME_ELEMENT sets element name and emits patch", () => {
   const el = result.deck.slides[0]!.elements![0]!;
   assert.equal((el as { name?: string }).name, "My Shape");
   assert.equal(result.patches[0]!.op, "element.rename");
+});
+
+test("content and design update commands fail without mutating when targets are missing", () => {
+  const deck = buildCommandDeckWithElements("s1", [
+    buildCommandShapeElement("e1"),
+  ]);
+
+  const missingContentSlide = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_CONTENT",
+    slideId: "missing",
+    elementId: "e1",
+    content: { kind: "shape", shape: "rect" },
+  });
+  assert.equal(missingContentSlide.ok, false);
+  assert.equal(missingContentSlide.deck, deck);
+
+  const missingContentElement = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_CONTENT",
+    slideId: "s1",
+    elementId: "missing",
+    content: { kind: "shape", shape: "rect" },
+  });
+  assert.equal(missingContentElement.ok, false);
+  assert.equal(missingContentElement.deck, deck);
+
+  const missingDesignSlide = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_DESIGN_OVERRIDES",
+    slideId: "missing",
+    elementId: "e1",
+    designOverrides: {},
+  });
+  assert.equal(missingDesignSlide.ok, false);
+  assert.equal(missingDesignSlide.deck, deck);
+
+  const missingDesignElement = executeCommand(deck, {
+    type: "UPDATE_ELEMENT_DESIGN_OVERRIDES",
+    slideId: "s1",
+    elementId: "missing",
+    designOverrides: {},
+  });
+  assert.equal(missingDesignElement.ok, false);
+  assert.equal(missingDesignElement.deck, deck);
+});
+
+test("multi-element commands fail without mutating when inputs are empty or slide is missing", () => {
+  const deck = buildCommandDeckWithElements("s1", [
+    buildCommandShapeElement("e1"),
+    buildCommandShapeElement("e2"),
+  ]);
+
+  const commands = [
+    {
+      type: "REMOVE_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1"],
+    },
+    {
+      type: "DUPLICATE_ELEMENT",
+      slideId: "missing",
+      elementId: "e1",
+    },
+    {
+      type: "DUPLICATE_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1"],
+    },
+    {
+      type: "NUDGE_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1"],
+      dx: 1,
+      dy: 1,
+    },
+    {
+      type: "NUDGE_ELEMENTS",
+      slideId: "s1",
+      elementIds: [],
+      dx: 1,
+      dy: 1,
+    },
+    {
+      type: "GROUP_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1", "e2"],
+    },
+    {
+      type: "ALIGN_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1", "e2"],
+      mode: "left",
+    },
+    {
+      type: "DISTRIBUTE_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1", "e2", "missing"],
+      mode: "horizontal",
+    },
+    {
+      type: "MATCH_SIZE_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1", "e2"],
+      mode: "width",
+    },
+    {
+      type: "ARRANGE_ELEMENTS",
+      slideId: "missing",
+      elementIds: ["e1"],
+      mode: "front",
+    },
+    {
+      type: "ARRANGE_ELEMENTS",
+      slideId: "s1",
+      elementIds: [],
+      mode: "front",
+    },
+  ] satisfies SlideCommand[];
+
+  for (const command of commands) {
+    const result = executeCommand(deck, command);
+    assert.equal(result.ok, false, command.type);
+    assert.equal(result.deck, deck, command.type);
+  }
+});
+
+test("layer commands fail without mutating when slide or element is missing", () => {
+  const deck = buildCommandDeckWithElements("s1", [
+    buildCommandShapeElement("e1"),
+  ]);
+
+  const commands = [
+    { type: "BRING_ELEMENT_TO_FRONT", slideId: "missing", elementId: "e1" },
+    { type: "SEND_ELEMENT_TO_BACK", slideId: "s1", elementId: "missing" },
+    {
+      type: "SET_ELEMENT_HIDDEN",
+      slideId: "missing",
+      elementId: "e1",
+      hidden: true,
+    },
+    {
+      type: "SET_ELEMENT_LOCKED",
+      slideId: "s1",
+      elementId: "missing",
+      locked: true,
+    },
+    {
+      type: "MOVE_ELEMENT_ZORDER",
+      slideId: "missing",
+      elementId: "e1",
+      direction: "up",
+    },
+    { type: "RENAME_ELEMENT", slideId: "s1", elementId: "missing", name: "x" },
+    {
+      type: "REORDER_ELEMENT",
+      slideId: "missing",
+      elementId: "e1",
+      targetElementId: "e1",
+    },
+  ] as const;
+
+  for (const command of commands) {
+    const result = executeCommand(deck, command);
+    assert.equal(result.ok, false, command.type);
+    assert.equal(result.deck, deck, command.type);
+  }
+});
+
+test("REORDER_ELEMENT moves an element to the target z-order", () => {
+  const deck = buildCommandDeckWithElements("s1", [
+    buildCommandShapeElement("e1", 0),
+    buildCommandShapeElement("e2", 1),
+    buildCommandShapeElement("e3", 2),
+  ]);
+
+  const result = executeCommand(deck, {
+    type: "REORDER_ELEMENT",
+    slideId: "s1",
+    elementId: "e1",
+    targetElementId: "e3",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.patches[0]!.op, "element.reorder");
+  assert.deepEqual(result.affectedElementIds, ["e1"]);
+});
+
+test("batch patch commands fail without mutating when inputs are empty or slide is missing", () => {
+  const deck = buildCommandDeckWithElements("s1", [
+    buildCommandShapeElement("e1"),
+  ]);
+
+  const commands = [
+    { type: "SET_ELEMENT_BOXES", slideId: "missing", boxesById: {} },
+    { type: "SET_ELEMENT_BOXES", slideId: "s1", boxesById: {} },
+    { type: "SET_ELEMENT_PATCHES", slideId: "missing", patchesById: {} },
+    { type: "SET_ELEMENT_PATCHES", slideId: "s1", patchesById: {} },
+  ] as const;
+
+  for (const command of commands) {
+    const result = executeCommand(deck, command);
+    assert.equal(result.ok, false, command.type);
+    assert.equal(result.deck, deck, command.type);
+  }
 });

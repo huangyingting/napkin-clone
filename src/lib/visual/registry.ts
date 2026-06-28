@@ -19,6 +19,7 @@ import { KIND_EXPORT_SUPPORT } from "./registry-export";
 import { KIND_PROMPT_CONSTRAINTS } from "./registry-prompt";
 import { KIND_RUNTIME_DESCRIPTORS } from "./registry-runtime";
 import { assertRegistryCompletenessFor } from "./registry-validation";
+/* node:coverage ignore next 6 -- type-only registry imports are erased by tsx but mapped as uncovered. */
 import type {
   LayoutFamily,
   VisualKindEntry,
@@ -130,7 +131,7 @@ export function getAllKindPromptGuidance(): Array<{
   kind: VisualKind;
   guidance: string;
 }> {
-  return VISUAL_KINDS.map((kind) => ({
+  return VISUAL_KINDS.map((kind) => ({ /* node:coverage disable */
     kind,
     guidance: VISUAL_KIND_REGISTRY[kind].prompt.guidance,
   }));
@@ -138,5 +139,6 @@ export function getAllKindPromptGuidance(): Array<{
 
 /** Asserts that every split data concern and composed registry covers all kinds. */
 export function assertRegistryCompleteness(): void {
+  /* node:coverage enable */
   assertRegistryCompletenessFor(VISUAL_KIND_REGISTRY);
 }

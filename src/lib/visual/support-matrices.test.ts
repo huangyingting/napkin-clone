@@ -1,6 +1,5 @@
 /**
- * Unit tests for registry-derived support matrices and prompt constraints
- * (Epic #442, issue #447).
+ * Unit tests for registry-derived support matrices and prompt constraints.
  */
 
 import assert from "node:assert/strict";
@@ -166,6 +165,12 @@ test("getKindsForFormat svg returns all kinds", () => {
   assert.equal(svgKinds.length, VISUAL_KINDS.length);
 });
 
+test("getKindsForFormat covers every export format mapping", () => {
+  assert.equal(getKindsForFormat("png").length, VISUAL_KINDS.length);
+  assert.equal(getKindsForFormat("pdf").length, VISUAL_KINDS.length);
+  assert.ok(getKindsForFormat("pptx-raster").includes("pyramid"));
+});
+
 // ---------------------------------------------------------------------------
 // kindSupportsFormat
 // ---------------------------------------------------------------------------
@@ -180,6 +185,13 @@ test("kindSupportsFormat for chart/pptx-native is true", () => {
 
 test("kindSupportsFormat for chart/png is true", () => {
   assert.equal(kindSupportsFormat("chart", "png"), true);
+});
+
+test("kindSupportsFormat covers pdf, svg, and pptx-raster decisions", () => {
+  assert.equal(kindSupportsFormat("flowchart", "svg"), true);
+  assert.equal(kindSupportsFormat("flowchart", "pdf"), true);
+  assert.equal(kindSupportsFormat("chart", "pptx-raster"), true);
+  assert.equal(kindSupportsFormat("pyramid", "pptx-raster"), true);
 });
 
 // ---------------------------------------------------------------------------

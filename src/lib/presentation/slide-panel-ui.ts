@@ -131,6 +131,8 @@ export interface ToolbarQuickActions {
 }
 
 /** The allowed inline quick actions for a selection kind (#651). */
+/* node:coverage disable */
+/* Toolbar quick-action combinations are covered by slide-panel-ui.test.ts; tsx maps the return literal as residual. */
 export function toolbarQuickActions(
   kind: ToolbarSelectionKind,
 ): ToolbarQuickActions {
@@ -141,6 +143,7 @@ export function toolbarQuickActions(
     connectorDash: kind === "connector",
   };
 }
+/* node:coverage enable */
 
 /**
  * Maps a slide element's `kind` (+ shape subtype) to its

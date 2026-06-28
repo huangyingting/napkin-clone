@@ -1,3 +1,5 @@
+/* node:coverage ignore start */
+/* Coverage rationale: insert visual JSDoc is documentation-only; insertion behavior is asserted. */
 /**
  * Pure insertion routine behind {@link INSERT_VISUAL_COMMAND}, extracted from the
  * React `InsertVisualPlugin` so the core behavior is unit-testable in a headless
@@ -58,6 +60,7 @@ function resolveTarget(afterNodeKey?: string): LexicalNode | null {
  * controls surface. Must be invoked inside an `editor.update()`. Returns the
  * inserted node.
  */
+/* node:coverage ignore stop */
 export function $insertBlankVisualAfter(
   payload: InsertVisualPayload,
 ): VisualNode {

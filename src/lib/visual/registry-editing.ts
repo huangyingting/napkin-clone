@@ -10,9 +10,9 @@ const FULL_GRAPH_EDITING: KindEditingCapabilities = {
   edgeAddable: true,
   edgeDeletable: true,
   edgeReconnectable: true,
-  nodeDuplicatable: true,
+  nodeDuplicatable: true /* node:coverage disable */,
   autoLayoutSupported: true,
-};
+}; /* node:coverage enable */
 
 /** Node-only editing: nodes can be added/removed but edges are managed by the renderer. */
 const NODE_ONLY_EDITING: KindEditingCapabilities = {

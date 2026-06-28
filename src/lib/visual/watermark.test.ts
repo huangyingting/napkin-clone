@@ -12,7 +12,10 @@ import {
   applyExportOptionsToSvg,
   DEFAULT_EXPORT_OPTIONS,
 } from "@/lib/visual/export-options";
-import { resolveExportPolicy } from "@/lib/visual/export-policy";
+import {
+  applyExportPolicyWatermark,
+  resolveExportPolicy,
+} from "@/lib/visual/export-policy";
 import { PLAN_ENTITLEMENTS } from "@/lib/billing/catalog";
 
 const SAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="0" y="0" width="400" height="300" fill="#ffffff"/><text x="200" y="150">Hello</text></svg>`;
@@ -85,6 +88,7 @@ describe("watermark decision (free vs paid)", () => {
   it("free tier: policy defaults watermark on", () => {
     const policy = resolveExportPolicy(PLAN_ENTITLEMENTS.free);
     assert.strictEqual(policy.defaultWatermark, true);
+    assert.strictEqual(policy.showUpgrade, true);
   });
 
   it("plus/pro tier: policy defaults watermark off", () => {
@@ -95,6 +99,26 @@ describe("watermark decision (free vs paid)", () => {
     assert.strictEqual(
       resolveExportPolicy(PLAN_ENTITLEMENTS.pro).defaultWatermark,
       false,
+    );
+  });
+
+  it("missing entitlements fall back to free export limits", () => {
+    assert.deepStrictEqual(resolveExportPolicy(), {
+      canSvg: false,
+      canPptx: false,
+      canRemoveWatermark: false,
+      defaultWatermark: true,
+      showUpgrade: true,
+    });
+  });
+
+  it("policy watermark default overrides the current option value", () => {
+    assert.deepStrictEqual(
+      applyExportPolicyWatermark(
+        { background: "include" as const, watermark: false },
+        resolveExportPolicy(PLAN_ENTITLEMENTS.free),
+      ),
+      { background: "include", watermark: true },
     );
   });
 });
