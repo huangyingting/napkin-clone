@@ -243,7 +243,6 @@ function SelectionEffectsControl({
 export function SlideInspector({
   slide,
   deck,
-  visuals,
   selectedElementId,
   selectedElementIds,
   onSelectElement,
@@ -456,7 +455,6 @@ export function SlideInspector({
           <ElementEditor
             element={selectedElement}
             deck={deck}
-            visuals={visuals}
             showAdvanced={showAdvanced}
             elements={elements}
             onUpdateElement={onUpdateElement}

@@ -12,7 +12,6 @@ import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { PresentationRole } from "@/lib/presentation/presentation-theme";
-import type { Visual } from "@/lib/visual/schema";
 
 export type AddElementKind = PresentationRole | "image" | "shape";
 
@@ -20,7 +19,6 @@ export interface SlideInspectorProps {
   slide: Slide;
   slideIndex: number;
   deck: Deck;
-  visuals: ReadonlyMap<string, Visual>;
   selectedElementId: string | null;
   onSelectElement: (id: string | null) => void;
   canDelete: boolean;

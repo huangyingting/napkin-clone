@@ -47,7 +47,6 @@ import {
 } from "@/components/presentation/slide-inspector/primitives";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 import { Swatch, Tooltip } from "@/components/ui";
-import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
   ConnectorArrow,
   ConnectorElement,
@@ -101,9 +100,6 @@ import {
   SLIDE_FONT_OPTIONS,
   matchSlideFont,
 } from "@/lib/presentation/slide-fonts";
-import type { Visual } from "@/lib/visual/schema";
-import { STYLE_THEMES } from "@/lib/visual/themes";
-import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
 import { assertNever } from "@/lib/assert-never";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import {
@@ -117,7 +113,6 @@ import {
   shapeTextDesign,
   textContent,
   textDesign,
-  visualContent,
 } from "@/components/presentation/slide-canvas/v6-model";
 
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
@@ -1426,7 +1421,6 @@ export function EffectsPanel({
 export function ElementEditor({
   element,
   deck,
-  visuals,
   showAdvanced,
   elements,
   onUpdateElement,
@@ -1435,7 +1429,6 @@ export function ElementEditor({
 }: {
   element: SlideElement;
   deck: Deck;
-  visuals: ReadonlyMap<string, Visual>;
   showAdvanced: boolean;
   elements: readonly SlideElement[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
@@ -1694,13 +1687,7 @@ export function ElementEditor({
         </>
       );
     case "visual":
-      return (
-        <VisualElementEditor
-          element={element}
-          visuals={visuals}
-          onUpdateElement={onUpdateElement}
-        />
-      );
+      return null;
     case "connector":
       return (
         <ConnectorElementEditor
@@ -1923,126 +1910,6 @@ export function ConnectorElementEditor({
           End
         </button>
       </PropRow>
-    </PanelSection>
-  );
-}
-
-/**
- * Inspector controls for a selected visual element: a live thumbnail preview of
- * the referenced document visual (reflecting any restyle) plus a "Restyle" row
- * of theme presets. Selecting a theme stores `styleThemeId` on the element; the
- * shared `VisualElementView` re-tints the visual via `applyTheme` so the editor,
- * present mode and public viewer stay identical. "Original" clears the override.
- */
-export function VisualElementEditor({
-  element,
-  visuals,
-  onUpdateElement,
-}: {
-  element: Extract<SlideElement, { kind: "visual" }>;
-  visuals: ReadonlyMap<string, Visual>;
-  onUpdateElement: SlideInspectorProps["onUpdateElement"];
-}) {
-  const content = visualContent(element);
-  const visual = visuals.get(content.visualId);
-
-  if (!visual) {
-    return (
-      <PanelSection>
-        <p className="text-xs text-ds-text-muted">
-          This visual is no longer in the document. Delete it or pick another
-          from the Add menu.
-        </p>
-      </PanelSection>
-    );
-  }
-
-  const preview = content.styleThemeId
-    ? applyTheme(visual, content.styleThemeId)
-    : visual;
-  const usingOriginal = !content.styleThemeId;
-  const visualOptions = [...visuals.entries()];
-
-  return (
-    <PanelSection title="Visual">
-      <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base">
-        <VisualRenderer
-          visual={preview}
-          className="h-full w-full object-contain"
-          transparentBackground
-        />
-      </span>
-
-      {visualOptions.length > 1 ? (
-        <PropRow label="Replace">
-          <SelectField
-            value={content.visualId}
-            ariaLabel="Replace visual from document"
-            onChange={(value) =>
-              onUpdateElement(element.id, {
-                content: { ...content, kind: "visual", visualId: value },
-              } as ElementPatch)
-            }
-            options={visualOptions.map(([id, candidate]) => ({
-              value: id,
-              label: candidate.title?.trim() || `${candidate.type} visual`,
-            }))}
-          />
-        </PropRow>
-      ) : null}
-
-      <div>
-        <span className={LABEL_CLASS}>Restyle</span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            aria-pressed={usingOriginal}
-            onClick={() =>
-              onUpdateElement(element.id, {
-                designOverrides: {
-                  ...elementDesignOverrides(element),
-                  styleThemeId: undefined,
-                },
-              } as ElementPatch)
-            }
-            className={`rounded-ds-sm border px-2 py-1 text-xs font-medium transition-colors ${
-              usingOriginal
-                ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-                : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-            } ${FOCUS_RING}`}
-          >
-            Original
-          </button>
-          {STYLE_THEMES.map((theme) => {
-            const active =
-              content.styleThemeId === theme.id ||
-              (usingOriginal && isThemeActive(visual, theme.id));
-            return (
-              <Tooltip key={theme.id} label={theme.name} side="bottom">
-                <button
-                  type="button"
-                  aria-pressed={active}
-                  aria-label={`Restyle as ${theme.name}`}
-                  onClick={() =>
-                    onUpdateElement(element.id, {
-                      designOverrides: {
-                        ...elementDesignOverrides(element),
-                        styleThemeId: theme.id,
-                      },
-                    } as ElementPatch)
-                  }
-                  className={`flex h-7 w-7 items-center justify-center rounded-ds-sm border transition-shadow ${
-                    active
-                      ? "ring-2 ring-ds-focus-ring ring-offset-1 ring-offset-ds-focus-offset"
-                      : "border-ds-border-subtle"
-                  } ${FOCUS_RING}`}
-                  style={{ backgroundColor: theme.colors.nodeStroke }}
-                />
-              </Tooltip>
-            );
-          })}
-        </div>
-      </div>
     </PanelSection>
   );
 }

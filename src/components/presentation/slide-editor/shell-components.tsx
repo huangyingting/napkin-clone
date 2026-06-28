@@ -103,6 +103,7 @@ import {
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
 import type { Insertable } from "@/lib/presentation/document-insertable";
 import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
+import { STYLE_THEMES } from "@/lib/visual/themes";
 import type { AddElementKind } from "@/components/presentation/slide-inspector/types";
 import {
   availablePanels,
@@ -112,7 +113,12 @@ import {
   toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
-import { shapeContent } from "@/components/presentation/slide-canvas/v6-model";
+import {
+  elementContent,
+  elementDesignOverrides,
+  shapeContent,
+  visualContent,
+} from "@/components/presentation/slide-canvas/v6-model";
 import {
   slideBackgroundGradientValue,
   slideBackgroundImageValue,
@@ -1480,6 +1486,7 @@ export function SlideSelectionToolbar({
   selectedCount,
   theme,
   brandSwatches,
+  visuals,
   onUpdateElement,
   onOpenPanel,
   onDuplicateElement,
@@ -1492,8 +1499,6 @@ export function SlideSelectionToolbar({
   onDuplicateSelected,
   onRemoveSelected,
   onReplaceImage,
-  onReplaceVisual,
-  onRestyleVisual,
   selectedGroupId,
   isEditingText = false,
 }: {
@@ -1502,6 +1507,7 @@ export function SlideSelectionToolbar({
   selectedCount: number;
   theme: SlideThemeColors;
   brandSwatches: readonly string[];
+  visuals: ReadonlyMap<string, Visual>;
   onUpdateElement: (
     id: string,
     patch: ElementPatch,
@@ -1518,12 +1524,14 @@ export function SlideSelectionToolbar({
   onDuplicateSelected: () => void;
   onRemoveSelected: () => void;
   onReplaceImage: (id: string) => void;
-  onReplaceVisual: (id: string) => void;
-  onRestyleVisual: (id: string) => void;
   selectedGroupId?: string | null;
   isEditingText?: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [replaceVisualOpenFor, setReplaceVisualOpenFor] = useState<
+    string | null
+  >(null);
+  const [replaceVisualPage, setReplaceVisualPage] = useState(0);
   const visible = isSelectionToolbarVisible({
     hasSelectedElement: selectedElement !== null,
     selectedCount,
@@ -1563,8 +1571,40 @@ export function SlideSelectionToolbar({
     "layers",
   ];
   const hasMultiSelection = selectedIds.length >= 2;
-  const withToolbarPanelsClosed = (onClick: () => void) => () => {
+  const selectedVisualElement =
+    selectedElement?.kind === "visual" ? selectedElement : null;
+  const selectedVisualContent = selectedVisualElement
+    ? visualContent(selectedVisualElement)
+    : null;
+  const replaceVisualOpen = replaceVisualOpenFor === selectedVisualElement?.id;
+  const visualOptions = [...visuals.entries()];
+  const selectedVisualTheme = selectedVisualContent?.styleThemeId
+    ? STYLE_THEMES.find(
+        (theme) => theme.id === selectedVisualContent.styleThemeId,
+      )
+    : undefined;
+  const visualThemeSwatches = STYLE_THEMES.map(
+    (theme) => theme.colors.nodeStroke,
+  );
+  const replaceVisualPageSize = 4;
+  const replaceVisualPageCount = Math.max(
+    1,
+    Math.ceil(visualOptions.length / replaceVisualPageSize),
+  );
+  const safeReplaceVisualPage = Math.min(
+    replaceVisualPage,
+    replaceVisualPageCount - 1,
+  );
+  const replaceVisualPageItems = visualOptions.slice(
+    safeReplaceVisualPage * replaceVisualPageSize,
+    safeReplaceVisualPage * replaceVisualPageSize + replaceVisualPageSize,
+  );
+  const closeToolbarPanels = () => {
     setMoreOpen(false);
+    setReplaceVisualOpenFor(null);
+  };
+  const withToolbarPanelsClosed = (onClick: () => void) => () => {
+    closeToolbarPanels();
     onClick();
   };
   const iconButton = (
@@ -1684,7 +1724,7 @@ export function SlideSelectionToolbar({
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
       ) : null}
-      {showRich && selectedElement ? (
+      {showRich && selectedElement && selectedElement.kind !== "visual" ? (
         <ElementToolbarContent
           element={selectedElement}
           tc={theme}
@@ -1709,20 +1749,172 @@ export function SlideSelectionToolbar({
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
       ) : null}
-      {showRich && selectedElement?.kind === "visual" ? (
+      {showRich && selectedVisualElement ? (
         <>
-          {iconButton(
-            "Replace visual",
-            <Replace size={14} aria-hidden="true" />,
-            () => onReplaceVisual(selectedElement.id),
-          )}
-          {iconButton(
-            "Restyle visual",
-            <Paintbrush size={14} aria-hidden="true" />,
-            () => onRestyleVisual(selectedElement.id),
-          )}
+          <Popover
+            open={replaceVisualOpen}
+            onClose={() => setReplaceVisualOpenFor(null)}
+            aria-label="Replace visual"
+            placement="bottom"
+            align="start"
+            portal
+            layer="tooltip"
+            className="w-72 p-2 text-xs"
+            trigger={
+              <Tooltip label="Replace visual" side="bottom">
+                <ToolbarButton
+                  aria-label="Replace visual"
+                  aria-haspopup="dialog"
+                  aria-expanded={replaceVisualOpen}
+                  onClick={() => {
+                    const nextOpen = !replaceVisualOpen;
+                    closeToolbarPanels();
+                    setReplaceVisualOpenFor(
+                      nextOpen ? selectedVisualElement.id : null,
+                    );
+                  }}
+                >
+                  <Replace size={14} aria-hidden="true" />
+                </ToolbarButton>
+              </Tooltip>
+            }
+          >
+            <div className="flex flex-col gap-2">
+              <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                Replace visual
+              </div>
+              {visualOptions.length > 0 ? (
+                <>
+                  <ul className="grid grid-cols-2 gap-2 p-1">
+                    {replaceVisualPageItems.map(([id, visual]) => {
+                      const active = selectedVisualContent?.visualId === id;
+                      return (
+                        <li key={id}>
+                          <button
+                            type="button"
+                            aria-label={`Replace with ${fromDocVisualLabel(id, visual)}`}
+                            aria-pressed={active}
+                            onClick={() => {
+                              onUpdateElement(selectedVisualElement.id, {
+                                content: {
+                                  ...elementContent(selectedVisualElement),
+                                  kind: "visual",
+                                  visualId: id,
+                                },
+                              } as ElementPatch);
+                              setReplaceVisualOpenFor(null);
+                            }}
+                            className={`group flex w-full flex-col gap-1 rounded-ds-md border bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${
+                              active
+                                ? "border-ds-accent-border ring-1 ring-ds-accent"
+                                : "border-ds-border-subtle"
+                            } ${FOCUS_RING}`}
+                          >
+                            <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm bg-ds-surface-base">
+                              <VisualRenderer
+                                visual={visual}
+                                className="h-full w-full object-contain"
+                                transparentBackground
+                              />
+                            </span>
+                            <span className="truncate text-[11px] text-ds-text-muted">
+                              {fromDocVisualLabel(id, visual)}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="flex items-center justify-between border-t border-ds-border-subtle pt-1.5">
+                    <button
+                      type="button"
+                      aria-label="Previous visual page"
+                      disabled={safeReplaceVisualPage === 0}
+                      onClick={() =>
+                        setReplaceVisualPage((current) =>
+                          Math.max(0, current - 1),
+                        )
+                      }
+                      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-35 ${FOCUS_RING}`}
+                    >
+                      <ChevronLeft size={15} aria-hidden="true" />
+                    </button>
+                    <span className="text-[11px] font-medium tabular-nums text-ds-text-muted">
+                      {safeReplaceVisualPage + 1} / {replaceVisualPageCount}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Next visual page"
+                      disabled={
+                        safeReplaceVisualPage >= replaceVisualPageCount - 1
+                      }
+                      onClick={() =>
+                        setReplaceVisualPage((current) =>
+                          Math.min(replaceVisualPageCount - 1, current + 1),
+                        )
+                      }
+                      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-35 ${FOCUS_RING}`}
+                    >
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="px-2 py-5 text-center text-xs text-ds-text-muted">
+                  This document has no visuals to replace with.
+                </p>
+              )}
+            </div>
+          </Popover>
+          <ColorPicker
+            color={selectedVisualTheme?.colors.nodeStroke ?? ""}
+            onChange={(hex) => {
+              const nextTheme = STYLE_THEMES.find(
+                (theme) =>
+                  theme.colors.nodeStroke.toLowerCase() === hex.toLowerCase(),
+              );
+              if (!nextTheme) return;
+              onUpdateElement(selectedVisualElement.id, {
+                designOverrides: {
+                  ...elementDesignOverrides(selectedVisualElement),
+                  styleThemeId: nextTheme.id,
+                },
+              } as ElementPatch);
+            }}
+            aria-label="Restyle visual"
+            presets={visualThemeSwatches}
+            triggerChrome="toolbar"
+            icon={<Paintbrush size={14} aria-hidden="true" />}
+            active={selectedVisualTheme !== undefined}
+            onReset={() =>
+              onUpdateElement(selectedVisualElement.id, {
+                designOverrides: {
+                  ...elementDesignOverrides(selectedVisualElement),
+                  styleThemeId: undefined,
+                },
+              } as ElementPatch)
+            }
+            resetLabel="Original"
+            allowCustom={false}
+            preserveSelection
+          />
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
+      ) : null}
+      {showRich && selectedVisualElement ? (
+        <ElementToolbarContent
+          element={selectedVisualElement}
+          tc={theme}
+          brandSwatches={brandSwatches}
+          onUpdateElement={onUpdateElement}
+          onDuplicate={withToolbarPanelsClosed(() =>
+            onDuplicateElement(selectedVisualElement.id),
+          )}
+          onRemove={withToolbarPanelsClosed(() =>
+            onRemoveElement(selectedVisualElement.id),
+          )}
+          hideObjectActions={isEditingText}
+        />
       ) : null}
       <Popover
         open={moreOpen}

@@ -180,7 +180,7 @@ export interface PanelAvailabilityContext {
  * - Empty selection (slide is the current object): `slide`, `notes`, `layers`.
  * - Multi-selection: `arrange`, `effects`, `layers`.
  * - Single element: `arrange`, `effects`, `layers`, plus `text` for text
- *   elements and non-line shapes, `appearance` for shapes/lines/images/visuals/
+ *   elements and non-line shapes, `appearance` for shapes/lines/images/
  *   connectors, and `source` only when the element already has a `sourceRef`.
  */
 export function availablePanels(
@@ -210,7 +210,6 @@ export function availablePanels(
       context.kind === "shape" ||
       context.kind === "line" ||
       context.kind === "image" ||
-      context.kind === "visual" ||
       context.kind === "connector"
     ) {
       set.add("appearance");

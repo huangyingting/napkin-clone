@@ -155,8 +155,8 @@ test("availablePanels: line shape has Appearance but no Text", () => {
   );
 });
 
-test("availablePanels: image/visual/connector expose Appearance", () => {
-  for (const kind of ["image", "visual", "connector"] as const) {
+test("availablePanels: image/connector expose Appearance", () => {
+  for (const kind of ["image", "connector"] as const) {
     assert.deepEqual(
       availablePanels({ kind, hasSourceRef: false, selectedCount: 1 }),
       ["appearance", "arrange", "effects", "layers"],
@@ -165,10 +165,17 @@ test("availablePanels: image/visual/connector expose Appearance", () => {
   }
 });
 
+test("availablePanels: visual excludes Appearance", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "visual", hasSourceRef: false, selectedCount: 1 }),
+    ["arrange", "effects", "layers"],
+  );
+});
+
 test("availablePanels: Source only when a sourceRef exists", () => {
   assert.deepEqual(
     availablePanels({ kind: "visual", hasSourceRef: true, selectedCount: 1 }),
-    ["appearance", "arrange", "effects", "source", "layers"],
+    ["arrange", "effects", "source", "layers"],
   );
   assert.equal(
     isPanelAvailable("source", {

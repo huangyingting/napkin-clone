@@ -267,7 +267,6 @@ export const SlideInspectorFromContext = memo(
       selectedSlide,
       safeSelected,
       deck,
-      visuals,
       effectiveSelectedElementId,
       effectiveSelectedElementIds,
       handleSelectElement,
@@ -311,7 +310,6 @@ export const SlideInspectorFromContext = memo(
         slide={selectedSlide}
         slideIndex={safeSelected}
         deck={deck}
-        visuals={visuals}
         selectedElementId={effectiveSelectedElementId}
         selectedElementIds={effectiveSelectedElementIds}
         onSelectElement={handleSelectElement}
@@ -364,6 +362,7 @@ export const SlideSelectionToolbarFromContext = memo(
       effectiveSelectedElementIds,
       selectedTheme,
       brandSwatches,
+      visuals,
       handleUpdateElement,
       openRightPanel,
       handleDuplicateElement,
@@ -371,8 +370,6 @@ export const SlideSelectionToolbarFromContext = memo(
       handleDuplicateSelectedElements,
       handleRemoveSelectedElements,
       handleReplaceSelectedImage,
-      handleReplaceSelectedVisual,
-      handleRestyleSelectedVisual,
       handleAlign,
       handleDistribute,
       handleMatchSize,
@@ -408,6 +405,7 @@ export const SlideSelectionToolbarFromContext = memo(
         selectedCount={effectiveSelectedElementIds.size}
         theme={selectedTheme}
         brandSwatches={brandSwatches}
+        visuals={visuals}
         onUpdateElement={handleUpdateElement}
         onOpenPanel={openRightPanel}
         onDuplicateElement={handleDuplicateElement}
@@ -422,8 +420,6 @@ export const SlideSelectionToolbarFromContext = memo(
         onDuplicateSelected={handleDuplicateSelectedElements}
         onRemoveSelected={handleRemoveSelectedElements}
         onReplaceImage={handleReplaceSelectedImage}
-        onReplaceVisual={handleReplaceSelectedVisual}
-        onRestyleVisual={handleRestyleSelectedVisual}
         selectedGroupId={selectedGroupId}
         isEditingText={
           selectedElement?.kind === "text" &&

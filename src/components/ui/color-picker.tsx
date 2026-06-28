@@ -149,6 +149,8 @@ export type ColorPickerProps = {
   active?: boolean;
   /** Use shared toolbar button chrome for icon-only toolbar triggers. */
   triggerChrome?: "swatch" | "toolbar";
+  /** Whether to expose the custom HSV/hex controls. Defaults to true. */
+  allowCustom?: boolean;
   /**
    * When provided, the popover shows a "reset" action that clears the style.
    * Used for the "Default / None" affordance on text color & highlight.
@@ -187,6 +189,7 @@ export function ColorPicker({
   icon,
   active,
   triggerChrome = "swatch",
+  allowCustom = true,
   onReset,
   resetLabel = "Default",
   preserveSelection = false,
@@ -519,32 +522,37 @@ export function ColorPicker({
               ) : null}
             </div>
 
-            <div className="mt-2.5 grid grid-cols-2 gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-0.5 text-[11px] font-semibold">
-              {(["swatches", "custom"] as const).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onMouseDown={onPointerDownCapture}
-                  onClick={() => setTab(id)}
-                  aria-pressed={tab === id}
-                  className={cx(
-                    "rounded-[var(--ds-radius-sm,6px)] px-2 py-1 capitalize transition-colors",
-                    tab === id
-                      ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
-                      : "text-ds-text-muted hover:text-ds-text-primary",
-                    FOCUS_RING,
-                  )}
-                >
-                  {id}
-                </button>
-              ))}
-            </div>
+            {allowCustom ? (
+              <div className="mt-2.5 grid grid-cols-2 gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-0.5 text-[11px] font-semibold">
+                {(["swatches", "custom"] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onMouseDown={onPointerDownCapture}
+                    onClick={() => setTab(id)}
+                    aria-pressed={tab === id}
+                    className={cx(
+                      "rounded-[var(--ds-radius-sm,6px)] px-2 py-1 capitalize transition-colors",
+                      tab === id
+                        ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
+                        : "text-ds-text-muted hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    {id}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-            {tab === "swatches" ? (
+            {!allowCustom || tab === "swatches" ? (
               <div
                 role="group"
                 aria-labelledby={labelId}
-                className="mt-2.5 grid grid-cols-8 gap-1.5"
+                className={cx(
+                  "grid grid-cols-8 gap-1.5",
+                  allowCustom ? "mt-2.5" : "mt-2",
+                )}
               >
                 {presets.map((preset, index) => {
                   const selected = hasColor && toHex(preset, "") === hex;
