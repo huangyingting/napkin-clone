@@ -210,7 +210,6 @@ test("isPanelAvailable: empty selection excludes element panels", () => {
   for (const panel of [
     "arrange",
     "text",
-    "label",
     "shape",
     "image",
     "line",
@@ -242,28 +241,12 @@ test("resolvePanelTab falls back to the first panel for the current element", ()
     "image",
   );
   assert.equal(
-    resolvePanelTab("adjust", {
-      kind: "image",
-      hasSourceRef: false,
-      selectedCount: 1,
-    }),
-    "image",
-  );
-  assert.equal(
     resolvePanelTab("source", {
       kind: "visual",
       hasSourceRef: true,
       selectedCount: 1,
     }),
     "visual",
-  );
-  assert.equal(
-    resolvePanelTab("label", {
-      kind: "shape",
-      hasSourceRef: false,
-      selectedCount: 1,
-    }),
-    "shape",
   );
   assert.equal(
     resolvePanelTab("shape", {

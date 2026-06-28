@@ -11,17 +11,15 @@
  * Task panels available in the right supplemental panel. Each panel owns one
  * broad property category and exactly one is rendered at a time. `Layers` is a
  * normal panel, not a separate inspector mode; object panels use concrete ids
- * (`text`, `label`, `shape`, `image`, `visual`, `line`) instead of a generic
- * appearance bucket.
+ * (`text`, `shape`, `image`, `visual`, `line`) instead of a generic appearance
+ * bucket.
  */
 export type RightPanelTab =
   | "slide"
   | "arrange"
   | "text"
-  | "label"
   | "shape"
   | "image"
-  | "adjust"
   | "visual"
   | "line"
   | "effects"
@@ -34,10 +32,8 @@ export const PANEL_LABELS: Record<RightPanelTab, string> = {
   slide: "Slide",
   arrange: "Arrange",
   text: "Text",
-  label: "Label",
   shape: "Shape",
   image: "Image",
-  adjust: "Adjust",
   visual: "Visual",
   line: "Line",
   effects: "Effects",
@@ -54,7 +50,6 @@ const PANEL_ORDER: readonly RightPanelTab[] = [
   "slide",
   "notes",
   "text",
-  "label",
   "shape",
   "image",
   "visual",
