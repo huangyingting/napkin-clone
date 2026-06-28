@@ -94,8 +94,10 @@ type PresentationDesign = {
 ```
 
 `canvas` owns geometry. `design` owns global visual language. `masters` own live
-shared chrome. `customTemplates` stores only deck-local template blueprints;
-built-in templates live in code. `slides[]` owns authored page content.
+shared chrome. `customTemplates` stores deck-local template blueprints,
+including installed theme package templates (`theme:*:*`) and user-created
+custom templates (`custom-*`). Older generic built-in templates live in code.
+`slides[]` owns authored page content.
 
 ## Slide Content Model
 
@@ -122,7 +124,10 @@ optional `indent`. `content.text` is the compact text string, and `content.runs`
 / paragraph `runs` carry inline rich text.
 
 Templates are blueprints. Applying or creating from a template materializes real
-typed elements with `content`; `Slide.templateId` is provenance only.
+typed elements with `content`; `Slide.templateId` is provenance only. Template
+elements may carry the same scalar presentation fields used by slide elements,
+including `opacity`, `rotation`, `locked`, and `name`, so package templates can
+preserve authored decorative layers when they materialize.
 
 Masters are live deck data, not creation-time blueprints. The current product
 uses the deck-wide global master resolved from `Deck.defaultMasterId` (falling
@@ -160,9 +165,10 @@ model.
 ### Document-derived metadata
 
 Slides keep only metadata such as `title`, optional `notes`, optional
-`templateId`, and optional slide `source`. Render content lives in `elements[]`.
-`masterId` is currently retained as a field but ignored by current product
-flows.
+`templateId`, optional `masterId`, and optional slide `source`. Render content
+lives in `elements[]`. The current renderer resolves the deck-wide master from
+`Deck.defaultMasterId`; package application still normalizes `Slide.masterId` to
+the package default master for provenance and future per-slide master support.
 
 ### Provenance
 

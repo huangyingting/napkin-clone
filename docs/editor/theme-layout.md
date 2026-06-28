@@ -66,11 +66,12 @@ sorted within their own band.
 
 ## Templates
 
-Built-in templates live in code as `SlideTemplate` blueprints. Deck-local custom
-templates live in `Deck.customTemplates`. Applying a template materializes real
-`SlideElement` records with `content` and `designOverrides`; templates do not
-participate in normal render/export and do not update existing slides unless the
-user explicitly reapplies one.
+Older generic built-in templates live in code as `SlideTemplate` blueprints.
+Installed theme package templates and user-created custom templates live in
+`Deck.customTemplates`. Applying a template materializes real `SlideElement`
+records with `content`, scalar element fields such as `opacity` and `locked`,
+and `designOverrides`; templates do not participate in normal render/export and
+do not update existing slides unless the user explicitly reapplies one.
 
 Template reapply supports replacing elements or preserving matching element
 content while refreshing the template structure.

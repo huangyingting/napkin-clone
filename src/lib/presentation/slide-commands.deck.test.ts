@@ -8,6 +8,7 @@ import { resolveThemeTokens } from "./presentation-theme";
 import {
   DEFAULT_THEME_PACKAGE_ID,
   THEME_PACKAGES,
+  getThemePackage,
   isThemePackageTemplateId,
   resolveThemePackageId,
   themePackageTemplatesForDeck,
@@ -391,6 +392,36 @@ test("APPLY_THEME_PACKAGE maps default to the default package target", () => {
   assert.equal(safeParseDeck(result.deck).success, true);
 });
 
+test("UPDATE_THEME_OVERRIDES reset restores package token set", () => {
+  const applied = executeCommand(buildCommandDeck(["s1"]), {
+    type: "APPLY_THEME_PACKAGE",
+    packageId: "pulse",
+  });
+  assert.equal(applied.ok, true);
+  const edited = executeCommand(applied.deck, {
+    type: "UPDATE_THEME_OVERRIDES",
+    patch: { colors: { accent: "#123456" } },
+  });
+  assert.equal(edited.ok, true);
+  assert.equal(
+    (edited.deck as any).design.themeOverrides.tokenSet.colors.accent,
+    "#123456",
+  );
+
+  const reset = executeCommand(edited.deck, {
+    type: "UPDATE_THEME_OVERRIDES",
+    patch: {},
+    reset: true,
+  });
+
+  assert.equal(reset.ok, true);
+  assert.deepEqual(
+    (reset.deck as any).design.themeOverrides.tokenSet,
+    getThemePackage("pulse")!.tokenSet,
+  );
+  assert.equal(safeParseDeck(reset.deck).success, true);
+});
+
 test("ADD_SLIDE_FROM_TEMPLATE materializes theme package templates", () => {
   const applied = executeCommand(buildCommandDeck(["s1"]), {
     type: "APPLY_THEME_PACKAGE",
@@ -416,6 +447,34 @@ test("ADD_SLIDE_FROM_TEMPLATE materializes theme package templates", () => {
     true,
   );
   assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("theme package templates cannot be mutated through custom template commands", () => {
+  const applied = executeCommand(buildCommandDeck(["s1"]), {
+    type: "APPLY_THEME_PACKAGE",
+    packageId: "pulse",
+  });
+  assert.equal(applied.ok, true);
+  const templateId = themePackageTemplatesForDeck(applied.deck)[0]!.id;
+
+  const create = executeCommand(applied.deck, {
+    type: "CREATE_CUSTOM_TEMPLATE",
+    template: customTemplate(templateId),
+  });
+  assert.equal(create.ok, false);
+
+  const update = executeCommand(applied.deck, {
+    type: "UPDATE_CUSTOM_TEMPLATE",
+    templateId,
+    patch: { name: "Mutated" },
+  });
+  assert.equal(update.ok, false);
+
+  const remove = executeCommand(applied.deck, {
+    type: "DELETE_CUSTOM_TEMPLATE",
+    templateId,
+  });
+  assert.equal(remove.ok, false);
 });
 
 test("ADD_SLIDE_FROM_TEMPLATE materializes a built-in template slide", () => {

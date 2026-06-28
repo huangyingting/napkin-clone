@@ -94,6 +94,8 @@ theme:clarity:closing
 
 User-created templates keep their existing `custom-*` ids. The id prefix is the
 only distinction needed by v6; the schema already treats template ids as strings.
+Package template ids are reserved and cannot be updated or deleted through the
+user custom-template commands.
 
 ## Editor Surfaces
 

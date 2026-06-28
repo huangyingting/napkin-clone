@@ -16,6 +16,7 @@ import {
   resolvePresentationThemeTokens,
   resolveRoleToken,
 } from "./presentation-theme-resolvers";
+import { getThemePackage } from "./theme-packages";
 
 /**
  * Structured patch for editing the global presentation theme (#614). Every field is
@@ -127,6 +128,11 @@ export function resetPresentationThemeOverrides(deck: Deck): Deck {
   const themeOverrides = { ...(design.themeOverrides ?? {}) };
   if (!("tokenSet" in themeOverrides)) return deck;
   delete (themeOverrides as { tokenSet?: unknown }).tokenSet;
+  const packageTheme =
+    typeof design.themeId === "string" ? getThemePackage(design.themeId) : null;
+  if (packageTheme) {
+    themeOverrides.tokenSet = packageTheme.tokenSet;
+  }
   if (Object.keys(themeOverrides).length === 0) {
     delete (design as { themeOverrides?: unknown }).themeOverrides;
   } else {

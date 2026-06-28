@@ -31,6 +31,7 @@ import {
   SLIDE_TEMPLATES,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
+import { isThemePackageTemplateId } from "@/lib/presentation/theme-packages";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
@@ -146,7 +147,7 @@ export function SlidePanelBody({
     ...((deck.customTemplates ?? []).map((template) => ({
       id: template.id,
       label: template.name,
-      custom: true,
+      custom: !isThemePackageTemplateId(template.id),
     })) satisfies TemplateOption[]),
   ];
   const selectedTemplate =

@@ -30,7 +30,7 @@ import type {
 import { failure, makePatch, success } from "./slide-command-executor-helpers";
 import { buildTemplateSlide, type SlideTemplateKind } from "./slide-templates";
 import { isMasterChromeTemplateElement } from "./global-master-chrome";
-import { applyThemePackage } from "./theme-packages";
+import { applyThemePackage, isThemePackageTemplateId } from "./theme-packages";
 
 export type PresentationThemeFamilyCommand =
   | SetPresentationThemeCommand
@@ -454,6 +454,12 @@ export function executePresentationThemeFamilyCommand(
       ]);
     }
     case "CREATE_CUSTOM_TEMPLATE": {
+      if (isThemePackageTemplateId(cmd.template.id)) {
+        return failure(
+          deck,
+          `Theme package template ids are reserved: ${cmd.template.id}`,
+        );
+      }
       if (
         (deck.customTemplates ?? []).some(
           (entry) => entry.id === cmd.template.id,
@@ -471,6 +477,12 @@ export function executePresentationThemeFamilyCommand(
       ]);
     }
     case "UPDATE_CUSTOM_TEMPLATE": {
+      if (isThemePackageTemplateId(cmd.templateId)) {
+        return failure(
+          deck,
+          `Theme package templates cannot be updated as custom templates: ${cmd.templateId}`,
+        );
+      }
       const templates = deck.customTemplates ?? [];
       if (!templates.some((entry) => entry.id === cmd.templateId)) {
         return failure(deck, `Template not found: ${cmd.templateId}`);
@@ -488,6 +500,12 @@ export function executePresentationThemeFamilyCommand(
       ]);
     }
     case "DELETE_CUSTOM_TEMPLATE": {
+      if (isThemePackageTemplateId(cmd.templateId)) {
+        return failure(
+          deck,
+          `Theme package templates cannot be deleted as custom templates: ${cmd.templateId}`,
+        );
+      }
       const templates = deck.customTemplates ?? [];
       if (!templates.some((entry) => entry.id === cmd.templateId)) {
         return failure(deck, `Template not found: ${cmd.templateId}`);
