@@ -1,7 +1,7 @@
 # Presentation Rendering And Export
 
 **Status:** Current  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-29
 
 This document describes how authored decks render in the editor, present mode,
 public viewers, and export pipeline. For the deck JSON shape, see
@@ -18,7 +18,7 @@ see [../editor/theme-layout.md](../editor/theme-layout.md).
 | Public present viewer    | [`src/components/presentation/public-present-viewer.tsx`](../../src/components/presentation/public-present-viewer.tsx) |
 | Slide format geometry    | [`src/lib/presentation/slide-format.ts`](../../src/lib/presentation/slide-format.ts)                                   |
 | Style cascade            | [`src/lib/presentation/style-cascade.ts`](../../src/lib/presentation/style-cascade.ts)                                 |
-| Deck export specs        | [`src/lib/visual/deck-export.ts`](../../src/lib/visual/deck-export.ts)                                                 |
+| Deck export specs        | [`src/lib/presentation/export/deck-export.ts`](../../src/lib/presentation/export/deck-export.ts)                       |
 | Export preflight         | [`src/lib/visual/export-preflight.ts`](../../src/lib/visual/export-preflight.ts)                                       |
 | PPTX native visual specs | [`src/lib/visual/pptx-shapes.ts`](../../src/lib/visual/pptx-shapes.ts)                                                 |
 | PPTX applier             | [`src/lib/visual/pptx-apply.ts`](../../src/lib/visual/pptx-apply.ts)                                                   |
@@ -198,8 +198,8 @@ Preflight warnings describe expected fidelity changes before the export starts.
 
 ## Primary Tests
 
-- [`src/lib/presentation/rendering-regression.test.ts`](../../src/lib/presentation/rendering-regression.test.ts)
-- [`src/lib/visual/deck-export.test.ts`](../../src/lib/visual/deck-export.test.ts)
+- [`src/lib/presentation/export/rendering-regression.test.ts`](../../src/lib/presentation/export/rendering-regression.test.ts)
+- [`src/lib/presentation/export/deck-export.test.ts`](../../src/lib/presentation/export/deck-export.test.ts)
 - [`src/lib/visual/export-preflight.test.ts`](../../src/lib/visual/export-preflight.test.ts)
 - [`src/lib/visual/pptx-shapes.test.ts`](../../src/lib/visual/pptx-shapes.test.ts)
 - [`src/lib/visual/export-fidelity.test.ts`](../../src/lib/visual/export-fidelity.test.ts)

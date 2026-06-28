@@ -1,7 +1,7 @@
 # Collaboration Runtime
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
 This subsystem covers the application-level collaboration contract: Yjs room
 identity, client readiness, degraded local-only mode, title sync, presence, and
@@ -106,5 +106,5 @@ path segment.
 - [`src/lib/collab/deployment-config.test.ts`](../../src/lib/collab/deployment-config.test.ts)
 - [`src/lib/lexical/use-collaboration-gate.test.ts`](../../src/lib/lexical/use-collaboration-gate.test.ts)
 - [`scripts/collab-auth.test.mjs`](../../scripts/collab-auth.test.mjs)
-- [`scripts/collab-core.test.mjs`](../../scripts/collab-core.test.mjs)
+- [`scripts/collab-runtime.test.mjs`](../../scripts/collab-runtime.test.mjs)
 - [`scripts/collab-durability.test.mjs`](../../scripts/collab-durability.test.mjs)

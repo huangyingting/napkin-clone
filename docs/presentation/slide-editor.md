@@ -1,7 +1,7 @@
 # Slide Editor Runtime
 
 **Status:** Current  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-29
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON
@@ -67,7 +67,7 @@ The desktop editor is a current-object workflow:
 
 | Surface        | Responsibility                                                                                                               |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Top toolbar    | Deck/session menus: Add, Insert, Design, Source, View, plus undo/redo, save, and close.                                      |
+| Top toolbar    | Deck/session controls: theme, deck chrome, add slide, ratio, source, snap, shortcuts, undo/redo, save, and close.            |
 | Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.                             |
 | Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                                              |
 | Inspector      | One active task panel (Slide/Text/Label/Shape/Image/Adjust/Line/Arrange/Effects/Source/Notes/Layers) for the current object. |
@@ -80,30 +80,37 @@ the same controlled editor surface.
 ## Top Toolbar
 
 The top toolbar is a compact deck/session command surface. It uses stable
-first-level text controls:
+first-level text controls where space matters and icon buttons for compact view
+commands:
 
 ```text
-Slide kit | Add slide | Insert | Source | View       Undo Redo | Save status | Save | Close
+Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Shortcuts       Undo Redo | Save status | Save | Close
 ```
 
 - **Slide kit** selects the active theme package: theme tokens, package
   templates, and the deck chrome baseline. The visible label includes the
   current kit name.
+- **Deck chrome** opens global master chrome controls for deck-level frame,
+  header/footer, and shared master styling.
 - **Add slide** opens the slide template picker and creates a new slide from the
   active slide kit templates, deck-local custom templates, or fallback built-in
   templates. The picker updates automatically after the slide kit changes.
-- **Insert** creates new current-slide objects through slide commands: text,
-  image, shape, visual, connector when two connectable objects are selected, and
-  document text/visuals when insertable source content exists. Newly inserted
-  objects become selected so the canvas popover and inspector take over editing.
+- **Slide ratio** changes the deck format through the ratio selector.
+- **Insert actions** live in the current-object surfaces: slide templates come
+  from Add slide, while text, image, shape, visual, connector, and document
+  text/visual insertion are exposed through the canvas popover and inspector.
+  Newly inserted objects become selected so those surfaces take over editing.
 - **Design/style controls** own deck canvas size, slide kit style
   customization, presentation theme tokens, current-slide background,
   current-slide accent, clearing current-slide background/accent overrides, and
   applying the selected solid/gradient background or accent across the deck.
+  Deck-level theme controls are reached from Slide kit and Deck chrome; selected
+  object styling remains in the canvas popover and inspector.
 - **Source** owns document sync status, sync from document, stale-link review,
   and source-link actions that apply to the selected linked element.
-- **View** owns view toggles and shortcuts: thumbnails, snap to grid, and the
-  keyboard shortcut dialog. Zoom remains in the bottom dock.
+- **Snap** toggles snap-to-grid directly from the toolbar.
+- **Shortcuts** opens the keyboard shortcut dialog. Zoom remains in the bottom
+  dock.
 
 Fine-grained selected-element formatting stays out of the top toolbar. The
 canvas popover and inspector continue to own text style, object-specific
@@ -312,7 +319,9 @@ refs must carry explicit `blockKind`.
 
 ## Primary Tests
 
-- [`src/lib/presentation/slide-commands.test.ts`](../../src/lib/presentation/slide-commands.test.ts)
+- [`src/lib/presentation/slide-commands.deck.test.ts`](../../src/lib/presentation/slide-commands.deck.test.ts)
+- [`src/lib/presentation/slide-commands.slide.test.ts`](../../src/lib/presentation/slide-commands.slide.test.ts)
+- [`src/lib/presentation/slide-commands.element.test.ts`](../../src/lib/presentation/slide-commands.element.test.ts)
 - [`src/lib/presentation/deck-mutations.test.ts`](../../src/lib/presentation/deck-mutations.test.ts)
 - [`src/lib/presentation/patch-autosave.test.ts`](../../src/lib/presentation/patch-autosave.test.ts)
 - [`src/lib/presentation/autosave-hardening.test.ts`](../../src/lib/presentation/autosave-hardening.test.ts)

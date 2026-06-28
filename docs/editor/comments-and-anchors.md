@@ -1,22 +1,23 @@
 # Comments And Anchors
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-29
 
 This document describes comment threads and their document/slide anchors.
 
 ## Source Files
 
-| Area                    | Source                                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Comment actions         | [`src/app/app/documents/[id]/comments-actions.ts`](../../src/app/app/documents/%5Bid%5D/comments-actions.ts)                   |
-| Comment permissions     | [`src/app/app/documents/[id]/comment-permissions.ts`](../../src/app/app/documents/%5Bid%5D/comment-permissions.ts)             |
-| Anchor validation       | [`src/app/app/documents/[id]/comment-anchor-validation.ts`](../../src/app/app/documents/%5Bid%5D/comment-anchor-validation.ts) |
-| Inline comments UI      | [`src/app/app/documents/[id]/inline-comments-layer.tsx`](../../src/app/app/documents/%5Bid%5D/inline-comments-layer.tsx)       |
-| Slide comment panel     | [`src/app/app/documents/[id]/slide-comment-panel.tsx`](../../src/app/app/documents/%5Bid%5D/slide-comment-panel.tsx)           |
-| Slide anchor helpers    | [`src/lib/presentation/slide-comment-anchors.ts`](../../src/lib/presentation/slide-comment-anchors.ts)                         |
-| Slide lifecycle helpers | [`src/app/app/documents/[id]/slide-comment-lifecycle.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-lifecycle.ts)     |
-| Unread helpers          | [`src/app/app/documents/[id]/slide-comment-unread.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-unread.ts)           |
+| Area                          | Source                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Comment actions               | [`src/app/app/documents/[id]/comments-actions.ts`](../../src/app/app/documents/%5Bid%5D/comments-actions.ts)             |
+| Comment service               | [`src/lib/comments/service.ts`](../../src/lib/comments/service.ts)                                                       |
+| Comment permissions           | [`src/lib/comments/policy.ts`](../../src/lib/comments/policy.ts)                                                         |
+| Anchor helpers                | [`src/lib/comments/anchors.ts`](../../src/lib/comments/anchors.ts)                                                       |
+| Lifecycle helpers             | [`src/lib/comments/lifecycle.ts`](../../src/lib/comments/lifecycle.ts)                                                   |
+| Unread helpers                | [`src/lib/comments/read-state.ts`](../../src/lib/comments/read-state.ts)                                                 |
+| Inline comments UI            | [`src/app/app/documents/[id]/inline-comments-layer.tsx`](../../src/app/app/documents/%5Bid%5D/inline-comments-layer.tsx) |
+| Inline comment geometry       | [`src/app/app/documents/[id]/inline-comment-dom.ts`](../../src/app/app/documents/%5Bid%5D/inline-comment-dom.ts)         |
+| Slide anchor presentation API | [`src/lib/presentation/slide-comment-anchors.ts`](../../src/lib/presentation/slide-comment-anchors.ts)                   |
 
 ## Comment Thread Model
 
@@ -73,9 +74,10 @@ The lifecycle layer is pure and does not write the database directly.
 - `slideId` filter;
 - `anchorScope: "all" | "text" | "slide"`.
 
-The document editor uses inline comment surfaces for text/visual anchors. The
-slide editor uses slide comment panels and anchor state helpers for slide-level
-comments.
+The document editor uses inline comment surfaces for text/visual anchors.
+Slide-aware comment behavior is exposed through the comment service filters,
+anchor helpers, lifecycle helpers, and the presentation slide-anchor facade so
+slide-specific callers do not duplicate anchor logic.
 
 Unread helpers compute per-comment/thread read state for slide comment surfaces.
 
@@ -90,6 +92,8 @@ Unread helpers compute per-comment/thread read state for slide comment surfaces.
 
 ## Primary Tests
 
+- [`src/lib/comments/anchors.test.ts`](../../src/lib/comments/anchors.test.ts)
+- [`src/lib/comments/service.test.ts`](../../src/lib/comments/service.test.ts)
 - [`src/app/app/documents/[id]/comment-anchor-validation.test.ts`](../../src/app/app/documents/%5Bid%5D/comment-anchor-validation.test.ts)
 - [`src/app/app/documents/[id]/comment-permissions.test.ts`](../../src/app/app/documents/%5Bid%5D/comment-permissions.test.ts)
 - [`src/app/app/documents/[id]/slide-comment-lifecycle.test.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-lifecycle.test.ts)

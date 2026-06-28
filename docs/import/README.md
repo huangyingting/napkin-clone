@@ -1,7 +1,7 @@
 # Document Import Pipeline
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
 The import subsystem parses uploaded `.md`, `.html`, `.docx`, `.pptx`, and
 `.pdf` files into Markdown-compatible text that can be converted into the
@@ -21,7 +21,7 @@ validation and abuse controls are part of the design contract.
 | Text normalization       | [`src/lib/import/normalize.ts`](../../src/lib/import/normalize.ts)                               |
 | Parse timeout            | [`src/lib/import/timeout.ts`](../../src/lib/import/timeout.ts)                                   |
 | Archive budget           | [`src/lib/import/archive-budget.ts`](../../src/lib/import/archive-budget.ts)                     |
-| Document creation        | [`src/lib/document-management/create.ts`](../../src/lib/document-management/create.ts)           |
+| Document creation        | [`src/lib/document/create.ts`](../../src/lib/document/create.ts)                                 |
 
 ## Flow
 
@@ -29,7 +29,7 @@ validation and abuse controls are part of the design contract.
 File picker / dropzone
   -> useDocumentImportWorkflow
   -> POST /api/import multipart form-data
-  -> parseImportUploadRequest
+  -> parseImportUploadRequest (src/app/api/import/parser.ts)
   -> processImportUpload
   -> validateImportFile
   -> parseImportedFile

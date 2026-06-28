@@ -1,7 +1,7 @@
 # Brand Studio
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
 This document describes saved brand styles, brand media assets, brand
 entitlement gates, and applying brands to visuals. Billing plans and credits
@@ -99,7 +99,7 @@ changed by applying a brand.
 
 - [`src/lib/brand/brand.test.ts`](../../src/lib/brand/brand.test.ts)
 - [`src/lib/brand/asset-lifecycle.test.ts`](../../src/lib/brand/asset-lifecycle.test.ts)
-- [`src/lib/brand/upload-route-service.test.ts`](../../src/lib/brand/upload-route-service.test.ts)
+- [`src/lib/assets/upload-policy.test.ts`](../../src/lib/assets/upload-policy.test.ts)
 - [`src/lib/brand/font-face.test.ts`](../../src/lib/brand/font-face.test.ts)
 - [`src/lib/brand-studio/view-model.test.ts`](../../src/lib/brand-studio/view-model.test.ts)
 - [`src/lib/billing/brand-entitlements.test.ts`](../../src/lib/billing/brand-entitlements.test.ts)

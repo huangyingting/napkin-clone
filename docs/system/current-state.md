@@ -1,7 +1,7 @@
 # TextIQ — Current Architecture State
 
 **Status:** Current  
-**Date:** 2026-06-23  
+**Date:** 2026-06-29  
 **Purpose:** Current system design map
 
 > This document is the high-level map. Topic-level contracts live in flat
@@ -11,15 +11,15 @@
 
 ## 1. System Subsystems at a Glance
 
-| Subsystem           | Source of Truth                           | Derived Projections                                               |
-| ------------------- | ----------------------------------------- | ----------------------------------------------------------------- |
-| Document text       | `Document.contentJson`                    | `Document.content` (plain-text), `Visual` rows                    |
-| Slides/deck         | `Document.deckJson`                       | —                                                                 |
-| Version history     | `DocumentVersion`                         | —                                                                 |
-| Collaboration state | In-memory Y.Doc (collab server)           | Flushed to `Document.contentJson` on client save or room eviction |
-| Permissions         | `WorkspaceMembership`, `Document.ownerId` | `requireDocumentCapability` capability cache                      |
-| Sharing             | `Document.isShared`, `shareId`, `slug`    | Public URLs `/share/…`, `/embed/…`, `/present/…`                  |
-| Command envelope    | `CommandEnvelope` + pure executors        | Applied to `deckJson` via `saveDeckPatch`                         |
+| Subsystem           | Source of Truth                           | Derived Projections                                                                             |
+| ------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Document text       | `Document.contentJson`                    | `Document.content` (plain-text), `Visual` rows                                                  |
+| Slides/deck         | `Document.deckJson`                       | —                                                                                               |
+| Version history     | `DocumentVersion`                         | —                                                                                               |
+| Collaboration state | In-memory Y.Doc (collab server)           | Client autosave writes `contentJson`; dirty room eviction writes best-effort recovery snapshots |
+| Permissions         | `WorkspaceMembership`, `Document.ownerId` | `requireDocumentCapability` capability cache                                                    |
+| Sharing             | `Document.isShared`, `shareId`, `slug`    | Public URLs `/share/…`, `/embed/…`, `/present/…`                                                |
+| Command envelope    | `CommandEnvelope` + pure executors        | Applied to `deckJson` via `saveDeckPatch`                                                       |
 
 ---
 
@@ -28,7 +28,7 @@
 **Source files:**  
 `src/app/app/documents/[id]/lexical-editor.tsx`  
 `src/lib/collab/use-lexical-collaboration.ts`  
-`src/lib/lexical/import-persistence.ts`
+`src/lib/content/import-persistence.ts`
 
 ### 2.1 Editor state
 
@@ -38,7 +38,7 @@
 
 ### 2.2 Autosave and CRDT skipping
 
-`shouldAutosaveUpdate` (see `src/lib/lexical/import-persistence.ts`) decides whether an editor change triggers a DB save:
+`shouldAutosaveUpdate` (see `src/lib/content/import-persistence.ts`) decides whether an editor change triggers a DB save:
 
 | Tag                   | Autosave? | Reason                                           |
 | --------------------- | --------- | ------------------------------------------------ |
@@ -298,9 +298,9 @@ access-decision taxonomy/adapters.
 
 **Source files:**  
 `src/app/app/documents/[id]/actions.ts` (share actions)  
-`src/app/share/[...segment]/page.tsx`  
-`src/app/embed/[...segment]/page.tsx`  
-`src/app/present/[...segment]/page.tsx`
+`src/app/share/[shareId]/page.tsx`  
+`src/app/embed/[shareId]/page.tsx`  
+`src/app/present/[shareId]/page.tsx`
 
 ### 9.1 Share link
 
@@ -315,8 +315,10 @@ thumbnail/visual rendering — they do NOT read `contentJson` directly.
 
 ### 9.3 Cache revalidation
 
-`revalidateSharePaths(documentId)` (in `persistence-service.ts`) is called after
-version restore so cached public pages reflect the restored content.
+`revalidateSharePaths(documentId)` (implemented in
+`src/lib/document/persistence/sharing.ts` and re-exported by
+`persistence-service.ts`) is called after version restore so cached public pages
+reflect the restored content.
 
 ---
 

@@ -1,7 +1,7 @@
 # Access Control And Public Sharing
 
 **Status:** Current  
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-29
 
 This document defines document-level access control and public share behavior.
 It covers authenticated app permissions, public share/embed/present routes, and
@@ -54,8 +54,10 @@ domain-specific outcomes to the shared access taxonomy:
 - resource: document, workspace, share, invite, slide asset, or collab room;
 - capability/mode: view, edit, manage, mutate, embed, present, accept, serve,
   or connect;
-- denial reason: privacy not-found, insufficient capability, revoked/expired
-  share or invite, mode disabled, invalid role, or forbidden.
+- denial reason: unauthenticated, privacy not-found or deleted resource,
+  insufficient capability, share not enabled or revoked, expired link, mode
+  disabled, invite revoked or exhausted, invalid role, asset not found, or
+  forbidden.
 
 Adapters convert that shared decision into server-action errors, API responses,
 `notFound()`, and safe diagnostics. The adapters preserve the status selected by
@@ -67,15 +69,15 @@ response that would reveal resource existence.
 Public routes do not use workspace membership. They evaluate a pure share policy
 from `src/lib/share-access.ts`.
 
-The route supplies:
+The route supplies a `toShareAccessInput()` projection:
 
 - requested `shareId` from the URL segment;
-- stored `Document.shareId`;
-- `Document.isShared`;
-- `Document.deletedAt`;
-- `Document.shareExpiresAt`;
-- `Document.shareEmbedEnabled`;
-- `Document.sharePresentEnabled`;
+- stored `Document.shareId` as `shareId`;
+- `Document.isShared` as `isShared`;
+- `Document.deletedAt` as `deletedAt`;
+- `Document.shareExpiresAt` as `expiresAt`;
+- `Document.shareEmbedEnabled` as `embedEnabled`;
+- `Document.sharePresentEnabled` as `presentEnabled`;
 - requested mode: `view`, `embed`, or `present`.
 
 The request is denied when the document is not shared, the requested id no

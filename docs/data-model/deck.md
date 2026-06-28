@@ -1,7 +1,7 @@
 # Current Deck Model
 
 **Status:** Current  
-**Last updated:** 2026-06-28
+**Last updated:** 2026-06-29
 
 This document defines the current `Document.deckJson` contract. The deck schema
 is development-authoritative: payloads that do not match the current shape are
@@ -323,5 +323,5 @@ They do not synthesize elements from flat slide fields at render time.
 - `src/lib/presentation/deck-merge.test.ts`
 - `src/lib/presentation/source-link-staleness.test.ts`
 - `src/lib/presentation/save-conflict.test.ts`
-- `src/lib/visual/deck-export.test.ts`
+- `src/lib/presentation/export/deck-export.test.ts`
 - `src/lib/visual/export-preflight.test.ts`

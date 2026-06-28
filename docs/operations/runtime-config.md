@@ -1,7 +1,7 @@
 # Runtime Configuration Inventory
 
 **Status:** Current  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-29
 
 This is the single inventory for environment variables read by the app server,
 client bundle, plain Node scripts, Prisma tooling, and E2E tooling. Source code,

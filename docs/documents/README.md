@@ -1,7 +1,7 @@
 # Document Management
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
 This subsystem covers document creation, duplication, dashboard listing,
 search, tags, favorites, trash, and dashboard-load maintenance. Editor content
@@ -12,13 +12,13 @@ and deck shapes are documented in [../data-model/](../data-model/README.md).
 
 | Area                        | Source                                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------ |
-| Create from template/import | [`src/lib/document-management/create.ts`](../../src/lib/document-management/create.ts)           |
-| Duplicate document          | [`src/lib/document-management/duplicate.ts`](../../src/lib/document-management/duplicate.ts)     |
-| List and search documents   | [`src/lib/document-management/list.ts`](../../src/lib/document-management/list.ts)               |
-| Query policy builder        | [`src/lib/document-management/query.ts`](../../src/lib/document-management/query.ts)             |
-| Tags                        | [`src/lib/document-management/tags.ts`](../../src/lib/document-management/tags.ts)               |
-| Favorites and title changes | [`src/lib/document-management/mutations.ts`](../../src/lib/document-management/mutations.ts)     |
-| Trash and maintenance       | [`src/lib/document-management/trash.ts`](../../src/lib/document-management/trash.ts)             |
+| Create from template/import | [`src/lib/document/create.ts`](../../src/lib/document/create.ts)                                 |
+| Duplicate document          | [`src/lib/document/duplicate.ts`](../../src/lib/document/duplicate.ts)                           |
+| List and search documents   | [`src/lib/document/list.ts`](../../src/lib/document/list.ts)                                     |
+| Query policy builder        | [`src/lib/document/query.ts`](../../src/lib/document/query.ts)                                   |
+| Tags                        | [`src/lib/document/tags.ts`](../../src/lib/document/tags.ts)                                     |
+| Favorites and title changes | [`src/lib/document/mutations.ts`](../../src/lib/document/mutations.ts)                           |
+| Trash and maintenance       | [`src/lib/document/trash.ts`](../../src/lib/document/trash.ts)                                   |
 | Dashboard view model        | [`src/lib/dashboard/view-model.ts`](../../src/lib/dashboard/view-model.ts)                       |
 | Onboarding sample document  | [`src/lib/onboarding/seed-sample-document.ts`](../../src/lib/onboarding/seed-sample-document.ts) |
 
@@ -101,10 +101,10 @@ revoked, or exhausted invite links under the same lock policy.
 
 ## Primary Tests
 
-- [`src/lib/document-management/create.test.ts`](../../src/lib/document-management/create.test.ts)
-- [`src/lib/document-management/duplicate.test.ts`](../../src/lib/document-management/duplicate.test.ts)
-- [`src/lib/document-management/list.test.ts`](../../src/lib/document-management/list.test.ts)
-- [`src/lib/document-management/query.test.ts`](../../src/lib/document-management/query.test.ts)
-- [`src/lib/document-management/tags.test.ts`](../../src/lib/document-management/tags.test.ts)
+- [`src/lib/document/create.test.ts`](../../src/lib/document/create.test.ts)
+- [`src/lib/document/duplicate.test.ts`](../../src/lib/document/duplicate.test.ts)
+- [`src/lib/document/list.test.ts`](../../src/lib/document/list.test.ts)
+- [`src/lib/document/query.test.ts`](../../src/lib/document/query.test.ts)
+- [`src/lib/document/tags.test.ts`](../../src/lib/document/tags.test.ts)
 - [`src/lib/dashboard/view-model.test.ts`](../../src/lib/dashboard/view-model.test.ts)
 - [`src/lib/onboarding/checklist.test.ts`](../../src/lib/onboarding/checklist.test.ts)

@@ -227,8 +227,8 @@ consume the `--ds-*` chrome tokens, so every surface looks like one system in
 both light and dark mode.
 
 Shared control class strings (focus ring, gutter button, toggle states) live in
-[`src/components/motion/control-styles.ts`](../../src/components/motion/control-styles.ts)
-and compose the same tokens.
+[`src/components/ui/tokens.ts`](../../src/components/ui/tokens.ts) and are
+composed by shared chrome and editor toolbar components.
 
 ## Invariants (and why)
 
@@ -347,7 +347,7 @@ insert (deterministic or AI)  →  edit / restyle (theme-first)  →  persist / 
 - **AI.** The visual popover's "variations" path calls `/api/generate` and
   applies a chosen candidate through the same `node.setVisual()` seam.
 
-The `VisualNode` ([`visual-node.tsx`](../../src/app/app/documents/%5Bid%5D/visual-node.tsx))
+The `VisualNode` ([`visual-node.tsx`](../../src/lib/lexical/visual-node.tsx))
 is a Lexical `DecoratorNode` that serializes `{ visual, visualId }` into
 `contentJson` and renders via `VisualCard`.
 
@@ -448,7 +448,7 @@ Tests live next to the code they cover as `*.test.ts`, e.g.:
 - [`text-formatting.test.ts`](../../src/lib/lexical/text-formatting.test.ts) — format commands at the document layer
 - [`insert-visual.test.ts`](../../src/lib/lexical/insert-visual.test.ts) — deterministic insert in a headless editor
 - [`visual-edit-roundtrip.test.ts`](../../src/lib/lexical/visual-edit-roundtrip.test.ts) — transform → `setVisual` → serialize round-trip
-- [`transforms.test.ts`](../../src/lib/visual/transforms.test.ts), [`schema.test.ts`](../../src/lib/visual/schema.test.ts), [`fixtures.test.ts`](../../src/lib/visual/fixtures.test.ts) — pure data layer
+- [`transforms.style.test.ts`](../../src/lib/visual/transforms.style.test.ts), [`transforms.kind.test.ts`](../../src/lib/visual/transforms.kind.test.ts), [`schema.test.ts`](../../src/lib/visual/schema.test.ts), [`fixtures.test.ts`](../../src/lib/visual/fixtures.test.ts) — pure data layer
 
 They run headlessly with `node --test` via `tsx` (no browser):
 

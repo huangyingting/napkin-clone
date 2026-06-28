@@ -1,7 +1,7 @@
 # Visual System
 
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
 The visual subsystem owns visual schemas, kind capabilities, renderer/export
 support, transformations, and AI prompt constraints. Persistence of visual nodes
@@ -90,7 +90,9 @@ uses these capabilities through the pipeline documented in
 - [`src/lib/visual/schema.test.ts`](../../src/lib/visual/schema.test.ts)
 - [`src/lib/visual/registry.test.ts`](../../src/lib/visual/registry.test.ts)
 - [`src/lib/visual/support-matrices.test.ts`](../../src/lib/visual/support-matrices.test.ts)
-- [`src/lib/visual/transforms.test.ts`](../../src/lib/visual/transforms.test.ts)
+- [`src/lib/visual/transforms.style.test.ts`](../../src/lib/visual/transforms.style.test.ts)
+- [`src/lib/visual/transforms.kind.test.ts`](../../src/lib/visual/transforms.kind.test.ts)
+- [`src/lib/visual/transforms.theme.test.ts`](../../src/lib/visual/transforms.theme.test.ts)
 - [`src/lib/visual/export-capabilities.test.ts`](../../src/lib/visual/export-capabilities.test.ts)
 - [`src/lib/visual/pptx-shapes.test.ts`](../../src/lib/visual/pptx-shapes.test.ts)
 - [`src/components/visual/resize.test.ts`](../../src/components/visual/resize.test.ts)

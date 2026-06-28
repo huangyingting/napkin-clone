@@ -1,7 +1,7 @@
 # Presentation Theme — Authoring Workflow
 
 **Status:** Current
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-29
 
 This document is the authoring-facing companion to
 [theme-layout.md](theme-layout.md). It explains the **global presentation theme
@@ -99,18 +99,18 @@ When authoring or generating a theme override token set:
 - Custom fonts that PPTX cannot embed surface as a deck-level `missing-font`
   **warning** via export preflight (`export-preflight.ts`) — never a crash.
 
-## How generated slides map into roles and slots
+## How generated slides map into roles
 
-New slides carry semantic identity up front:
+New slides carry semantic role identity up front:
 
-- `buildSlideElementsFromContent` (`deck.ts`) emits document-derived elements
-  and binds layout slots (`title` → title, bullets → body, visuals → visual).
-- The `+ Add` templates (`slide-templates.ts`) bind every materialized element
-  to its slot (two-column body columns get `body#0` / `body#1`; the visual
-  spotlight binds `visual` + `caption`).
-- Slides without bindings remain unbound at runtime. If persisted role/slot
-  stamping is needed, add an explicit offline migration descriptor rather than
-  application-layer enrichment.
+- `buildSlideElementsFromContent` (`deck-derivation.ts`) emits
+  document-derived elements with roles such as `title`, `sectionTitle`,
+  `bullet`, and `visual`.
+- The `+ Add` templates (`slide-templates.ts`) stamp materialized elements with
+  roles such as `title`, `subtitle`, `body`, `caption`, and `visual`.
+- Generated deck normalization (`deck-layout-assign.ts`) preserves or repairs
+  element-first slides without adding an application-layer enrichment pass.
 
-The slot vocabulary (`SLIDE_SLOT_KINDS`) and `LayoutSlotBinding` shape live in
-`src/lib/presentation/slide-slots.ts`.
+The role vocabulary lives in
+`src/lib/presentation/presentation-role-primitives.ts`, and the element field is
+defined on `BaseElement.role` in `src/lib/presentation/deck-elements.ts`.
