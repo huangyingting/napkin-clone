@@ -46,6 +46,34 @@ describe("structured-log.mjs", () => {
     assert.equal(record.cookie, "[redacted]");
   });
 
+  test("buildScriptErrorLog normalizes string and circular error values", () => {
+    assert.deepEqual(
+      {
+        errorName: buildScriptErrorLog("scope", "plain failure").errorName,
+        message: buildScriptErrorLog("scope", "plain failure").message,
+      },
+      { errorName: "Error", message: "plain failure" },
+    );
+
+    const circular = {};
+    circular.self = circular;
+    const record = buildScriptErrorLog("scope", circular);
+    assert.equal(record.errorName, "Error");
+    assert.equal(record.message, "[object Object]");
+  });
+
+  test("emit helpers swallow console writer failures", () => {
+    const originalInfo = console.info;
+    console.info = () => {
+      throw new Error("console unavailable");
+    };
+    try {
+      assert.doesNotThrow(() => logScriptInfo("scope", "message"));
+    } finally {
+      console.info = originalInfo;
+    }
+  });
+
   test("emit helpers write one JSON line to the expected console method", () => {
     const originals = {
       info: console.info,

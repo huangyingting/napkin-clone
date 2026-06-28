@@ -1,0 +1,246 @@
+import assert from "node:assert/strict";
+import { afterEach, test } from "node:test";
+
+import {
+  DEFAULT_EXPORT_OPTIONS,
+  downloadBlob,
+  exportPDF,
+  exportPNG,
+  exportPPTX,
+} from "@/lib/visual/export";
+import { FIXTURES } from "@/lib/visual/fixtures";
+
+const ORIGINALS = {
+  document: globalThis.document,
+  Image: globalThis.Image,
+  FileReader: globalThis.FileReader,
+  XMLSerializer: globalThis.XMLSerializer,
+  createObjectURL: URL.createObjectURL,
+  revokeObjectURL: URL.revokeObjectURL,
+};
+
+const BASE_SVG =
+  '<svg viewBox="0 0 100 50" width="100" height="50"><rect width="100" height="50" fill="#fff"/><circle cx="50" cy="25" r="10"/></svg>';
+
+function svgElement(width = 100, height = 50): SVGSVGElement {
+  return {
+    viewBox: { baseVal: { width, height } },
+  } as SVGSVGElement;
+}
+
+function installBrowserStubs(
+  options: {
+    svg?: string;
+    context?: CanvasRenderingContext2D | null;
+    imageError?: boolean;
+  } = {},
+) {
+  const calls = {
+    appended: 0,
+    removed: 0,
+    clicked: 0,
+    revoked: [] as string[],
+    objectUrlBlobs: [] as Blob[],
+    scaled: [] as Array<[number, number]>,
+    drawn: [] as Array<[number, number, number, number]>,
+    blobType: "",
+  };
+  const context =
+    options.context === undefined
+      ? ({
+          scale: (x: number, y: number) => calls.scaled.push([x, y]),
+          drawImage: (
+            _image: unknown,
+            x: number,
+            y: number,
+            w: number,
+            h: number,
+          ) => calls.drawn.push([x, y, w, h]),
+        } as unknown as CanvasRenderingContext2D)
+      : options.context;
+
+  globalThis.XMLSerializer = class {
+    serializeToString() {
+      return options.svg ?? BASE_SVG;
+    }
+  } as typeof XMLSerializer;
+
+  globalThis.Image = class {
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+
+    set src(_value: string) {
+      queueMicrotask(() => {
+        if (options.imageError) {
+          this.onerror?.();
+        } else {
+          this.onload?.();
+        }
+      });
+    }
+  } as unknown as typeof Image;
+
+  globalThis.FileReader = class {
+    result: string | ArrayBuffer | null = null;
+    onloadend: (() => void) | null = null;
+
+    readAsDataURL(_blob: Blob) {
+      this.result =
+        "data:image/png;base64," +
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      queueMicrotask(() => this.onloadend?.());
+    }
+  } as unknown as typeof FileReader;
+
+  globalThis.document = {
+    createElement(tag: string) {
+      if (tag === "canvas") {
+        return {
+          width: 0,
+          height: 0,
+          getContext: () => context,
+          toBlob(callback: BlobCallback, type?: string) {
+            calls.blobType = type ?? "";
+            callback(new Blob(["png"], { type }));
+          },
+        };
+      }
+      return {
+        href: "",
+        download: "",
+        click: () => calls.clicked++,
+      };
+    },
+    body: {
+      appendChild: () => calls.appended++,
+      removeChild: () => calls.removed++,
+    },
+  } as unknown as Document;
+
+  URL.createObjectURL = (blob: Blob | MediaSource) => {
+    if (blob instanceof Blob) {
+      calls.objectUrlBlobs.push(blob);
+    }
+    return "blob:visual-export";
+  };
+  URL.revokeObjectURL = (url: string) => calls.revoked.push(url);
+
+  return calls;
+}
+
+afterEach(() => {
+  globalThis.document = ORIGINALS.document;
+  globalThis.Image = ORIGINALS.Image;
+  globalThis.FileReader = ORIGINALS.FileReader;
+  globalThis.XMLSerializer = ORIGINALS.XMLSerializer;
+  URL.createObjectURL = ORIGINALS.createObjectURL;
+  URL.revokeObjectURL = ORIGINALS.revokeObjectURL;
+});
+
+test("exportPNG rasterizes the transformed SVG at the requested scale", async () => {
+  const calls = installBrowserStubs();
+  const blob = await exportPNG(svgElement(), {
+    ...DEFAULT_EXPORT_OPTIONS,
+    scale: 3,
+    background: "custom",
+    customBackground: "#112233",
+  });
+
+  assert.ok(blob);
+  assert.equal(blob.type, "image/png");
+  assert.deepEqual(calls.scaled, [[3, 3]]);
+  assert.deepEqual(calls.drawn, [[0, 0, 100, 50]]);
+  assert.deepEqual(calls.revoked, ["blob:visual-export"]);
+  assert.equal(calls.blobType, "image/png");
+});
+
+test("exportPNG sizes the serialized SVG to the letterboxed raster canvas", async () => {
+  const calls = installBrowserStubs({
+    svg: '<svg viewBox="0 0 100 50" width="stale" height="stale"><rect width="100" height="50"/></svg>',
+  });
+
+  const blob = await exportPNG(svgElement(), {
+    ...DEFAULT_EXPORT_OPTIONS,
+    aspectRatio: "1:1",
+    scale: 1,
+  });
+
+  assert.ok(blob);
+  assert.equal(calls.objectUrlBlobs.length, 1);
+  const transformedSvg = await calls.objectUrlBlobs[0].text();
+  assert.match(transformedSvg, /<svg\b[^>]* width="100" height="100"/);
+  assert.ok(transformedSvg.includes('data-letterbox="true"'));
+  assert.deepEqual(calls.drawn, [[0, 0, 100, 100]]);
+});
+
+test("exportPNG returns null for zero-sized or unrasterizable inputs", async () => {
+  installBrowserStubs();
+  assert.equal(await exportPNG(svgElement(0, 50)), null);
+
+  installBrowserStubs({ context: null });
+  assert.equal(await exportPNG(svgElement()), null);
+
+  installBrowserStubs({ imageError: true });
+  assert.equal(await exportPNG(svgElement()), null);
+});
+
+test("downloadBlob appends, clicks, removes, and revokes the temporary anchor", () => {
+  const calls = installBrowserStubs();
+  downloadBlob(new Blob(["svg"], { type: "image/svg+xml" }), "diagram.svg");
+
+  assert.equal(calls.appended, 1);
+  assert.equal(calls.clicked, 1);
+  assert.equal(calls.removed, 1);
+  assert.deepEqual(calls.revoked, ["blob:visual-export"]);
+});
+
+test("exportPDF embeds a rasterized PNG on a matching PDF page", async () => {
+  const calls = installBrowserStubs();
+  const blob = await exportPDF(svgElement(120, 80), {
+    ...DEFAULT_EXPORT_OPTIONS,
+    scale: 1,
+  });
+
+  assert.ok(blob);
+  assert.equal(blob.type, "application/pdf");
+  assert.deepEqual(calls.scaled, [[2, 2]]);
+});
+
+test("exportPDF returns null when the source SVG has no drawable area", async () => {
+  installBrowserStubs();
+  assert.equal(
+    await exportPDF(svgElement(0, 80), DEFAULT_EXPORT_OPTIONS),
+    null,
+  );
+});
+
+test("exportPDF returns null when PNG rasterization fails", async () => {
+  installBrowserStubs({ context: null });
+  assert.equal(
+    await exportPDF(svgElement(120, 80), DEFAULT_EXPORT_OPTIONS),
+    null,
+  );
+});
+
+test("exportPPTX returns null when the source SVG has no drawable area", async () => {
+  installBrowserStubs();
+  assert.equal(
+    await exportPPTX(svgElement(120, 0), undefined, DEFAULT_EXPORT_OPTIONS),
+    null,
+  );
+});
+
+test("exportPPTX uses native shapes for supported visual payloads", async () => {
+  installBrowserStubs();
+  const blob = await exportPPTX(
+    svgElement(120, 80),
+    FIXTURES.flowchart,
+    DEFAULT_EXPORT_OPTIONS,
+  );
+
+  assert.ok(blob);
+  assert.equal(
+    blob.type,
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  );
+});

@@ -19,6 +19,7 @@ function buildExportPolicy(
   canPptx: boolean,
   canRemoveWatermark: boolean,
 ): ExportPolicy {
+  /* node:coverage disable */
   return {
     canSvg,
     canPptx,
@@ -27,6 +28,7 @@ function buildExportPolicy(
     showUpgrade: !canSvg || !canPptx || !canRemoveWatermark,
   };
 }
+/* node:coverage enable */
 
 /**
  * Central export entitlement policy for UI, preflight, and export option

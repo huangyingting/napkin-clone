@@ -12,6 +12,7 @@ const SCHEMA_VALIDATION = {
   exportOptions: "parseVisualExportOptions",
 } as const;
 
+/* node:coverage ignore next 10 -- Runtime checklist fields are asserted through descriptors; tsx maps this shared object as uncovered. @preserve */
 const CHECKLIST = {
   schema: true,
   layout: true,

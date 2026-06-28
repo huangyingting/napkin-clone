@@ -84,6 +84,12 @@ test("plain-text API adapter preserves binary-route privacy bodies", async () =>
 });
 
 test("diagnostic adapter omits resource and subject identifiers", () => {
+  assert.deepEqual(accessDecisionToDiagnostic(ALLOW), {
+    outcome: "allow",
+    resource: "document",
+    capability: "view",
+  });
+
   assert.deepEqual(accessDecisionToDiagnostic(FORBID), {
     outcome: "deny",
     resource: "workspace",

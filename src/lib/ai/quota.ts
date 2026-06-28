@@ -24,6 +24,7 @@ import { readPositiveIntEnv } from "@/lib/env";
 export const ANON_COOKIE_NAME = "textiq_anon";
 
 /** Lifetime number of free generations for an anonymous visitor. */
+/* node:coverage ignore next 3 -- anonTrialLimit is unit-tested; tsx maps the one-line env facade as uncovered. */
 export function anonTrialLimit(): number {
   return readPositiveIntEnv("ANON_GENERATION_LIMIT", 5);
 }
@@ -117,6 +118,7 @@ export interface RateLimitWindow {
 export interface RateLimitOptions {
   limit: number;
   windowMs: number;
+  /* node:coverage ignore next -- Interface fields are erased; tsx maps the final field as uncovered. */
   now: number;
 }
 
@@ -127,6 +129,7 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
+/* @preserve node:coverage ignore start -- computeRateLimit behavior is covered through public limiters; tsx maps this documentation/signature as uncovered. */
 /**
  * Pure fixed-window decision. Given the current window for a subject (or
  * `undefined` when there is none), returns the {@link RateLimitResult} plus the
@@ -142,6 +145,7 @@ function computeRateLimit(
   existing: RateLimitWindow | undefined,
   { limit, windowMs, now }: RateLimitOptions,
 ): { result: RateLimitResult; next: RateLimitWindow | null } {
+  /* @preserve node:coverage ignore stop */
   if (!existing || now >= existing.resetAt) {
     const next: RateLimitWindow = { count: 1, resetAt: now + windowMs };
     return {

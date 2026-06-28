@@ -24,6 +24,11 @@ import {
   type PptxRectSpec,
   type PptxSpec,
 } from "@/lib/visual/pptx-shapes";
+import {
+  edgeLineSpec,
+  pick,
+  toFontFace,
+} from "@/lib/visual/pptx-shapes/shared";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -94,6 +99,60 @@ test("toHex strips # prefix", () => {
 
 test("toHex upcases without #", () => {
   assert.equal(toHex("94a3b8"), "94A3B8");
+});
+
+test("pick wraps positive and negative palette indexes", () => {
+  assert.equal(pick(["#111111", "#222222", "#333333"], 4), "#222222");
+  assert.equal(pick(["#111111", "#222222", "#333333"], -1), "#333333");
+});
+
+test("toFontFace maps generic CSS font families to PPTX-safe faces", () => {
+  assert.equal(toFontFace("'Aptos', sans-serif"), "Aptos");
+  assert.equal(toFontFace("ui-sans-serif, system-ui"), "Calibri");
+  assert.equal(toFontFace("monospace"), "Courier New");
+  assert.equal(toFontFace("serif"), "Georgia");
+});
+
+test("isImageFallback recognizes only the fallback sentinel", () => {
+  assert.equal(isImageFallback([{ kind: "image-fallback" }]), true);
+  assert.equal(
+    isImageFallback([{ kind: "image-fallback" }, { kind: "image-fallback" }]),
+    false,
+  );
+  assert.equal(
+    isImageFallback([
+      {
+        kind: "rect",
+        x: 0,
+        y: 0,
+        w: 1,
+        h: 1,
+        fill: "FFFFFF",
+        stroke: "FFFFFF",
+        strokeWidth: 0,
+      },
+    ]),
+    false,
+  );
+});
+
+test("edgeLineSpec uses default target dimensions when node dimensions are absent", () => {
+  const spec = edgeLineSpec(
+    edge("e1", "a", "b"),
+    new Map([
+      ["a", node("a", "A", 0, 0, { width: 100, height: 40 })],
+      ["b", { id: "b", label: "B", x: 200, y: 0 }],
+    ]),
+    "#94a3b8",
+    2,
+    { offsetX: 0, offsetY: 0, scale: 1 },
+  );
+
+  assert.ok(spec);
+  assert.equal(spec.x1, 50);
+  assert.equal(spec.y1, 0);
+  assert.equal(spec.x2, 125);
+  assert.equal(spec.y2, 0);
 });
 
 // ---------------------------------------------------------------------------
@@ -218,6 +277,24 @@ test("flowchart: node fill colour propagates as hex-without-#", () => {
   const specs = visualToNativeSpecs(v, layout);
   const nodeRects = ofKind(specs, "rect").filter((r) => r.fill === "FF0000");
   assert.ok(nodeRects.length >= 1, "custom fill colour forwarded");
+});
+
+test("edgeLineSpec returns null for dangling PPTX edges", () => {
+  const v = flowchart(
+    [node("a", "A", 200, 100)],
+    [edge("missing", "a", "missing")],
+  );
+  const layout = computeVisualSlideLayout(v);
+  assert.equal(
+    edgeLineSpec(
+      v.edges[0],
+      new Map(v.nodes.map((n) => [n.id, n])),
+      "#94a3b8",
+      1,
+      layout,
+    ),
+    null,
+  );
 });
 
 test("flowchart: node text colour propagates to text spec", () => {
@@ -584,6 +661,16 @@ test("isImageFallback: false for native specs array", () => {
     strokeWidth: 1,
   };
   assert.ok(!isImageFallback([spec]));
+  assert.ok(!isImageFallback([]));
+});
+
+test("visualToNativeSpecs falls back for an unknown runtime kind", () => {
+  const v = {
+    ...flowchart([node("a", "A", 100, 100)], []),
+    type: "unknown" as never,
+  };
+  const specs = visualToNativeSpecs(v, computeVisualSlideLayout(v));
+  assert.deepEqual(specs, [{ kind: "image-fallback" }]);
 });
 
 // ---------------------------------------------------------------------------

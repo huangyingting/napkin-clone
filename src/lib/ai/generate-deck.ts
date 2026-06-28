@@ -50,6 +50,8 @@ export const MAX_DECK_SLIDES = REPAIRED_DECK_MAX_SLIDES;
 /** Default number of LLM attempts (the first try plus retries). */
 const DEFAULT_MAX_ATTEMPTS = 2;
 
+/* node:coverage disable */
+/* Generate-deck input contracts are TypeScript-only and erased at runtime. */
 export interface GenerateDeckInput {
   /** The structured outline the deck is built from. */
   outline: string;
@@ -70,7 +72,10 @@ export interface GenerateDeckDeps {
   /** First attempt + retries. Defaults to {@link DEFAULT_MAX_ATTEMPTS}. */
   maxAttempts?: number;
 }
+/* node:coverage enable */
 
+/* node:coverage disable */
+/* Public API JSDoc has no runtime branch; input validation branches are asserted. */
 /**
  * Generates a presentation {@link Deck} from a structured outline plus a visual
  * inventory the model may reference.
@@ -79,11 +84,13 @@ export interface GenerateDeckDeps {
  * @throws {InputTooLongError} when the outline exceeds {@link MAX_INPUT_CHARS}.
  * @throws {GenerationError} when no valid deck can be produced.
  */
+/* node:coverage enable */
 export async function generateDeck(
   input: GenerateDeckInput,
   deps: GenerateDeckDeps,
 ): Promise<Deck> {
   const outline = typeof input.outline === "string" ? input.outline.trim() : "";
+  /* node:coverage ignore next -- Empty-outline runtime branch is asserted; tsx maps the guard as uncovered. */
   if (!outline) {
     throw new EmptyInputError();
   }

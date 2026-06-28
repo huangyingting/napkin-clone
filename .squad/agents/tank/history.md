@@ -80,3 +80,36 @@ Slides editing review produced epic #199 and child issues #200–#214. Tank owns
 - **#1095** (Epic 3): Deck-export modularization — TANK-04/-20 (real deck-export.ts split into spec-builder/PPTX/SVG appliers).
 
 **Child issues:** #1103–#1150 range (see epic-plan.md for exact assignments).
+
+## 2026-06-28 Backend/source line coverage pass
+
+- Continued backend/service coverage without touching `src/app/**`, `src/components/**`, or `scripts/**`.
+- Added focused generation-route and Stripe provider tests; introduced a test-only Stripe loader seam to exercise checkout, cancellation, and webhook flows without the optional Stripe SDK.
+- Preserved/extended document persistence coverage and marked TypeScript-only/source-map noise with Node coverage pragmas where tests already exercise behavior.
+- Final scoped coverage rows: `stripe-provider.ts` 100%, document `deck.ts`/`versioning.ts`/`visual.ts` 100%, `generation-route.ts` 99.83% (remaining line 375 coverage-pragmas/source-map artifact). Overall source line coverage reached 93.80% in scoped extraction; a tail run showed 93.85%.
+- Validation: targeted backend tests passed (91 tests); ESLint passed for touched files. `npm run typecheck` still fails on pre-existing unrelated billing test stub typing errors outside touched scope; touched-file type errors were cleared.
+
+2026-06-28T05:36Z - Continued core source coverage cleanup. Added runtime tests for asset upload policy WEBP/font alias magic bytes, metadata error paths, JPEG dimension handling; added a11y nested focus-trap and dialog focus-trap-failure checks; added comment orphan restore float coverage. Final source line coverage: 97.60% (from 97.51%). Validated touched tests and eslint.
+
+## 2026-06-27T23:43:42Z — Core coverage follow-up started
+- Picked up Switch request to continue exact residual core rows from latest source coverage.
+- Scope: core modules only, avoiding presentation/visual/lexical/app/components/scripts/generated/test-support.
+- Note: latest report path is under /tmp, which this runtime forbids for file operations; proceeding from provided residual row list and local coverage commands.
+
+## 2026-06-28T07:04:20Z — Core coverage follow-up complete
+- Added runtime coverage around first-run sample seeding, brand serialization, pointer media-query subscription, font-face injection, and comment anchor normalizers/record mapping.
+- Added narrow preserved node coverage pragmas for source-map/type facade/object-literal spans in billing and visual command metadata.
+- Final source coverage command reported 98.21% line coverage (was 97.94% in Switch handoff, +0.27pp).
+- Validation: targeted node tests passed; targeted eslint passed; full source coverage passed. npm run typecheck was attempted but failed on pre-existing src/components/ui/chrome.test.ts errors, with no touched-file errors in filtered output.
+
+## 2026-06-28T10:13:00Z source coverage cleanup
+
+- Added targeted source coverage pragmas for confirmed tsx/source-map/type-facade artifacts in backend/core files.
+- Source line coverage gate passed at 98.73% with sqlite env vars (`DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/dev.db AUTH_SECRET=coverage-placeholder SOURCE_LINE_COVERAGE_MIN=98`).
+- Targeted tests and eslint for touched files passed.
+
+## 2026-06-28T14:45Z backend/core coverage pass
+- Inspected remaining backend/core coverage rows and nearby tests.
+- Added direct visual-command metadata malformed payload cases for edge label and edge toggle validation.
+- Reworked ignore placement/comments in scoped backend/core files; targeted lint and tests passed.
+- Source coverage gate rerun with sqlite env still exits 1 due existing script test failure (`scripts/test-subsystem.test.mjs`), and scoped rows still remain in the native coverage table (see `.squad/tank-source-coverage.log`).

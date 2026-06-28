@@ -5,6 +5,7 @@ import {
   queryIsPointerCoarse,
   queryIsPointerFine,
   queryIsWideViewport,
+  subscribePointerFine,
 } from "./pointer";
 
 test("queryIsPointerFine returns true when matchMedia reports matches:true", () => {
@@ -28,10 +29,7 @@ test("queryIsPointerFine passes the correct media query string", () => {
 });
 
 test("queryIsPointerFine defaults to true on server (no window)", () => {
-  // The default implementation returns { matches: true } when window is
-  // undefined. Simulate by passing an explicit mock that mimics the SSR path.
-  const ssrMatchMedia = (_: string) => ({ matches: true });
-  assert.equal(queryIsPointerFine(ssrMatchMedia), true);
+  assert.equal(queryIsPointerFine(), true);
 });
 
 test("queryIsPointerCoarse passes the correct media query string", () => {
@@ -45,8 +43,7 @@ test("queryIsPointerCoarse passes the correct media query string", () => {
 });
 
 test("queryIsPointerCoarse defaults to false on server (no window)", () => {
-  const ssrMatchMedia = (_: string) => ({ matches: false });
-  assert.equal(queryIsPointerCoarse(ssrMatchMedia), false);
+  assert.equal(queryIsPointerCoarse(), false);
 });
 
 test("queryIsWideViewport returns true when matchMedia reports matches:true", () => {
@@ -70,6 +67,41 @@ test("queryIsWideViewport passes the (min-width: 1024px) media query string", ()
 });
 
 test("queryIsWideViewport defaults to true on server (no window)", () => {
-  const ssrMatchMedia = (_: string) => ({ matches: true });
-  assert.equal(queryIsWideViewport(ssrMatchMedia), true);
+  assert.equal(queryIsWideViewport(), true);
+});
+
+test("subscribePointerFine wires change listener and cleanup", () => {
+  let receivedQuery = "";
+  let addedHandler: ((event: MediaQueryListEvent) => void) | undefined;
+  let removedHandler: ((event: MediaQueryListEvent) => void) | undefined;
+  const values: boolean[] = [];
+
+  const unsubscribe = subscribePointerFine(
+    (matches) => values.push(matches),
+    (query) => {
+      receivedQuery = query;
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: (_type, handler) => {
+          addedHandler = handler as (event: MediaQueryListEvent) => void;
+        },
+        removeEventListener: (_type, handler) => {
+          removedHandler = handler as (event: MediaQueryListEvent) => void;
+        },
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => true,
+      };
+    },
+  );
+
+  assert.equal(receivedQuery, "(pointer: fine)");
+  assert.ok(addedHandler);
+  addedHandler({ matches: true } as MediaQueryListEvent);
+  unsubscribe();
+
+  assert.deepEqual(values, [true]);
+  assert.equal(removedHandler, addedHandler);
 });

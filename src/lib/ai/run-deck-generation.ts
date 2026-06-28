@@ -29,6 +29,7 @@ import {
 import type { Deck, PresentationThemeId } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 
+/* @preserve node:coverage ignore start -- Run-deck-generation input contract is TypeScript-only and erased at runtime. */
 export interface RunDeckGenerationInput {
   /** Serialised Lexical editor state (string or pre-parsed) to build from. */
   contentJson: unknown;
@@ -45,7 +46,7 @@ export interface RunDeckGenerationInput {
   /**
    * Optional document-derived vibrant theme (from `inferPresentationTheme`) forwarded to
    * {@link generateDeck} → {@link normalizeGeneratedDeck} so a model `"default"`
-   * (or missing/invalid) theme is replaced with a vibrant one (issue #281).
+   * (or missing/invalid) theme is replaced with a vibrant one.
    */
   preferredTheme?: PresentationThemeId;
 }
@@ -60,6 +61,7 @@ export interface RunDeckGenerationResult {
   /** True when {@link buildDeckSource} trimmed the outline to fit the budget. */
   truncated: boolean;
 }
+/* @preserve node:coverage ignore stop */
 
 /**
  * Builds the deck source from `contentJson` + `visuals` and generates a

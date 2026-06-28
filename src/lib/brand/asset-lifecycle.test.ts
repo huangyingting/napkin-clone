@@ -11,8 +11,14 @@ import { decideBrandAssetAccess } from "@/lib/brand/asset-access";
 import {
   BRAND_MIME_TO_EXT,
   deriveBrandStorageKey,
+  resetBrandStorageAdapter,
+  setBrandStorageAdapter,
 } from "@/lib/brand/asset-storage";
-import { toBrandStyle, type BrandRow } from "@/lib/brand/serialize";
+import {
+  serializeBrands,
+  toBrandStyle,
+  type BrandRow,
+} from "@/lib/brand/serialize";
 import {
   BRAND_ASSET_RETENTION_MS,
   reconcileBrandAssets,
@@ -21,7 +27,39 @@ import {
   type BrandOrphanDb,
   type BrandOrphanStorage,
 } from "@/lib/brand/asset-orphan";
-import { brandAssetBelongsToOwner } from "@/lib/brand/persistence-service";
+import {
+  BrandAssetValidationError,
+  brandAssetBelongsToOwner,
+  createBrandForOwner,
+  deleteBrandForOwner,
+  updateBrandForOwner,
+} from "@/lib/brand/persistence-service";
+import { prisma } from "@/lib/prisma";
+
+function stubPrismaMethod<T extends object, K extends keyof T>(
+  t: { after: (fn: () => void) => void },
+  object: T,
+  methodName: K,
+  implementation: (...args: any[]) => unknown,
+): { calls: unknown[][] } {
+  const original = object[methodName];
+  const calls: unknown[][] = [];
+  const wrapped = (...args: unknown[]) => {
+    calls.push(args);
+    return (implementation as (...args: unknown[]) => unknown)(...args);
+  };
+  Object.defineProperty(object, methodName, {
+    value: wrapped,
+    configurable: true,
+  });
+  t.after(() => {
+    Object.defineProperty(object, methodName, {
+      value: original,
+      configurable: true,
+    });
+  });
+  return { calls };
+}
 
 // ---------------------------------------------------------------------------
 // decideBrandAssetAccess
@@ -157,6 +195,74 @@ describe("toBrandStyle", () => {
     assert.equal(style.fontAssetUrl, "/api/brand-assets/u1/bbb.woff2");
     assert.equal(style.logoAssetId, "la");
     assert.equal(style.fontAssetId, "fa");
+  });
+
+  describe("serializeBrands", () => {
+    const baseRow: BrandRow = {
+      id: "b1",
+      name: "Acme",
+      ownerId: "u1",
+      palette: ["#ff0000"],
+      background: null,
+      nodeFill: null,
+      nodeStroke: null,
+      nodeText: null,
+      edgeColor: null,
+      fontFamily: null,
+      logoAssetId: "logo-1",
+      fontAssetId: "font-1",
+      createdAt: new Date("2024-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+    };
+
+    it("batch-loads referenced assets and serializes protected URLs", async (t) => {
+      t.after(resetBrandStorageAdapter);
+      setBrandStorageAdapter({
+        store: async () => "",
+        read: async () => Buffer.from(""),
+        delete: async () => {},
+        urlFor: (key) => `/brand-assets/${key}`,
+      });
+      const findMany = stubPrismaMethod(
+        t,
+        prisma.asset,
+        "findMany",
+        async () => [
+          { id: "logo-1", storageKey: "u1/logo.png" },
+          { id: "font-1", storageKey: "u1/font.woff2" },
+        ],
+      );
+
+      const [style] = await serializeBrands([baseRow]);
+
+      assert.deepEqual(findMany.calls[0], [
+        {
+          where: { id: { in: ["logo-1", "font-1"] }, deletedAt: null },
+          select: { id: true, storageKey: true },
+        },
+      ]);
+      assert.equal(style.logoAssetUrl, "/brand-assets/u1/logo.png");
+      assert.equal(style.fontAssetUrl, "/brand-assets/u1/font.woff2");
+    });
+
+    it("skips the asset query when rows have no asset references", async (t) => {
+      const findMany = stubPrismaMethod(
+        t,
+        prisma.asset,
+        "findMany",
+        async () => {
+          throw new Error("findMany should not be called without asset ids");
+        },
+      );
+
+      const [style] = await serializeBrands([
+        { ...baseRow, logoAssetId: null, fontAssetId: null },
+      ]);
+
+      assert.equal(findMany.calls.length, 0);
+      assert.equal(style.logoAssetUrl, null);
+      assert.equal(style.fontAssetUrl, null);
+    });
   });
 
   it("null URLs when no asset ref is set", () => {
@@ -407,5 +513,202 @@ describe("purgeExpiredBrandAssets", () => {
     );
     assert.equal(count, 0);
     assert.deepEqual(deleted, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Brand persistence service
+// ---------------------------------------------------------------------------
+
+function stubObjectMethod<T extends object, K extends keyof T>(
+  t: { after: (fn: () => void) => void },
+  object: T,
+  methodName: K,
+  implementation: T[K] extends (...args: infer Args) => infer Return
+    ? (...args: Args) => Return
+    : never,
+): { calls: unknown[][] } {
+  const original = object[methodName];
+  const calls: unknown[][] = [];
+  Object.defineProperty(object, methodName, {
+    configurable: true,
+    value: (...args: unknown[]) => {
+      calls.push(args);
+      return (implementation as (...args: unknown[]) => unknown)(...args);
+    },
+  });
+  t.after(() => {
+    Object.defineProperty(object, methodName, {
+      configurable: true,
+      value: original,
+    });
+  });
+  return { calls };
+}
+
+function brandRow(overrides: Partial<BrandRow> = {}): BrandRow {
+  return {
+    id: "brand-acme",
+    name: "Acme",
+    ownerId: "owner-1",
+    palette: ["#111111"],
+    background: null,
+    nodeFill: null,
+    nodeStroke: null,
+    nodeText: null,
+    edgeColor: null,
+    fontFamily: null,
+    logoAssetId: null,
+    fontAssetId: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+describe("brand persistence service", () => {
+  it("creates a brand and links owner-scoped assets", async (t) => {
+    const tx = {
+      asset: {
+        findMany: async (args: any) => {
+          if (args.where.id?.in) {
+            return [
+              { id: "logo-asset", storageKey: "owner-1/logo.svg" },
+              { id: "font-asset", storageKey: "owner-1/font.woff2" },
+            ];
+          }
+          return [{ id: "logo-asset" }, { id: "font-asset" }];
+        },
+        updateMany: async () => ({ count: 2 }),
+      },
+      brand: {
+        create: async ({ data }: { data: Record<string, unknown> }) =>
+          brandRow({
+            id: "brand-created",
+            name: String(data.name),
+            logoAssetId: data.logoAssetId as string,
+            fontAssetId: data.fontAssetId as string,
+          }),
+        findUnique: async () => ({
+          logoAssetId: "logo-asset",
+          fontAssetId: "font-asset",
+        }),
+      },
+    };
+    const transaction = stubObjectMethod(
+      t,
+      prisma,
+      "$transaction",
+      async (fn: any) => fn(tx),
+    );
+
+    const created = await createBrandForOwner("owner-1", {
+      name: "Acme",
+      palette: ["#111111"],
+      logoAssetId: "logo-asset",
+      fontAssetId: "font-asset",
+    });
+
+    assert.equal(created.id, "brand-created");
+    assert.equal(transaction.calls.length, 1);
+  });
+
+  it("rejects brand assets outside the owner partition", async (t) => {
+    const tx = {
+      asset: {
+        findMany: async () => [
+          { id: "foreign-logo", storageKey: "other-owner/logo.svg" },
+        ],
+      },
+      brand: {
+        create: async () => brandRow(),
+      },
+    };
+    stubObjectMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    await assert.rejects(
+      () =>
+        createBrandForOwner("owner-1", {
+          name: "Acme",
+          palette: [],
+          logoAssetId: "foreign-logo",
+        }),
+      BrandAssetValidationError,
+    );
+  });
+
+  it("updates only brands owned by the caller", async (t) => {
+    const tx = {
+      asset: {
+        findMany: async () => [],
+        updateMany: async () => ({ count: 0 }),
+      },
+      brand: {
+        findUnique: async ({ select }: { select?: Record<string, boolean> }) =>
+          select?.ownerId
+            ? { ownerId: "owner-1" }
+            : { logoAssetId: null, fontAssetId: null },
+        update: async ({ data }: { data: Record<string, unknown> }) =>
+          brandRow({
+            name: String(data.name),
+            background: data.background as string,
+          }),
+      },
+    };
+    stubObjectMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    const updated = await updateBrandForOwner("brand-acme", "owner-1", {
+      name: "Acme refreshed",
+      palette: ["#222222"],
+      background: "#ffffff",
+    });
+
+    assert.equal(updated?.name, "Acme refreshed");
+    assert.equal(updated?.background, "#ffffff");
+  });
+
+  it("returns missing or unauthorized without deleting brands", async (t) => {
+    let existing: null | { ownerId: string } = null;
+    const tx = {
+      brand: {
+        findUnique: async () => existing,
+        delete: async () => {
+          throw new Error("delete should not run");
+        },
+      },
+      asset: {
+        findMany: async () => [],
+        updateMany: async () => ({ count: 0 }),
+      },
+    };
+    stubObjectMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    assert.equal(
+      await deleteBrandForOwner("brand-missing", "owner-1"),
+      "missing",
+    );
+    existing = { ownerId: "owner-2" };
+    assert.equal(
+      await deleteBrandForOwner("brand-foreign", "owner-1"),
+      "unauthorized",
+    );
+  });
+
+  it("deletes an owned brand and soft-deletes linked assets", async (t) => {
+    const tx = {
+      brand: {
+        findUnique: async () => ({ ownerId: "owner-1" }),
+        delete: async () => ({}),
+      },
+      asset: {
+        findMany: async () => [{ id: "logo-asset" }, { id: "font-asset" }],
+        updateMany: async (args: any) => ({
+          count: args.where.id.in.length,
+        }),
+      },
+    };
+    stubObjectMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    assert.equal(await deleteBrandForOwner("brand-acme", "owner-1"), "deleted");
   });
 });

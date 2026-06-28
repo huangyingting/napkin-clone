@@ -264,3 +264,125 @@ test("hitTestSlideElements uses distance threshold for line shapes", () => {
   );
   assert.equal(hitTestSlideElements({ x: 50, y: 65 }, [line]).length, 0);
 });
+
+test("hitTestSlideElements handles zero-length line shapes", () => {
+  const line: SlideElement = {
+    id: "point-line",
+    kind: "shape",
+    content: { kind: "shape", shape: "line" },
+    zIndex: 1,
+    box: box(50, 50, 0, 0),
+  };
+
+  assert.equal(
+    hitTestSlideElements({ x: 50, y: 50 }, [line], {
+      lineThresholdPct: 0.5,
+    })[0]?.reason,
+    "line-stroke",
+  );
+  assert.equal(
+    hitTestSlideElements({ x: 52, y: 50 }, [line], {
+      lineThresholdPct: 0.5,
+    }).length,
+    0,
+  );
+});
+
+test("hitTestSlideElements handles rotated and aligned text hit boxes", () => {
+  const rotated = {
+    ...text("rotated-text", 3, box(40, 40, 20, 10), "Rotated"),
+    rotation: 90,
+    designOverrides: {
+      textStyle: {
+        fontSize: 4,
+        bold: false,
+        italic: false,
+        align: "right" as const,
+        verticalAlign: "bottom" as const,
+      },
+    },
+  };
+
+  const hits = hitTestSlideElements({ x: 50, y: 50 }, [rotated], {
+    stageAspect: 16 / 9,
+  });
+
+  assert.equal(hits[0]?.element.id, "rotated-text");
+});
+
+test("hitTestSlideElements filters ellipse and triangle interiors", () => {
+  const ellipse: SlideElement = {
+    id: "ellipse",
+    kind: "shape",
+    content: { kind: "shape", shape: "ellipse" },
+    zIndex: 1,
+    box: box(10, 10, 20, 20),
+  };
+  const triangle: SlideElement = {
+    id: "triangle",
+    kind: "shape",
+    content: { kind: "shape", shape: "triangle" },
+    zIndex: 2,
+    box: box(40, 10, 20, 20),
+  };
+
+  assert.equal(
+    hitTestSlideElements({ x: 20, y: 20 }, [ellipse])[0]?.reason,
+    "shape-interior",
+  );
+  assert.equal(hitTestSlideElements({ x: 10, y: 10 }, [ellipse]).length, 0);
+  assert.equal(
+    hitTestSlideElements({ x: 50, y: 20 }, [triangle])[0]?.element.id,
+    "triangle",
+  );
+  assert.equal(hitTestSlideElements({ x: 40, y: 10 }, [triangle]).length, 0);
+});
+
+test("hitTestSlideElements applies z-index and selected bonuses to candidate scores", () => {
+  const low = rect("low", 1, box(10, 10, 30, 30));
+  const high = rect("high", 20, box(10, 10, 30, 30));
+  const selected = rect("selected", 1, box(10, 10, 30, 30));
+
+  const zHits = hitTestSlideElements({ x: 25, y: 25 }, [low, high]);
+  assert.ok((zHits[0]?.score ?? 0) > (zHits[1]?.score ?? 0));
+
+  const selectedHits = hitTestSlideElements(
+    { x: 25, y: 25 },
+    [selected, high],
+    { selectedElementIds: new Set(["selected"]) },
+  );
+  assert.equal(selectedHits[0]?.element.id, "selected");
+});
+
+test("hitTestSlideElements resolves connector strokes and fitted boxes", () => {
+  const start = rect("start", 0, box(10, 10, 10, 10));
+  const end = rect("end", 0, box(70, 10, 10, 10));
+  const connector: SlideElement = {
+    id: "connector",
+    kind: "connector",
+    content: {
+      kind: "connector",
+      start: { elementId: "start", anchor: "right" },
+      end: { elementId: "end", anchor: "left" },
+    },
+    zIndex: 5,
+    box: box(0, 0, 100, 100),
+  };
+
+  const hits = hitTestSlideElements({ x: 45, y: 15 }, [start, end, connector], {
+    fittedBoxes: new Map([
+      ["start", box(10, 10, 20, 10)],
+      ["end", box(70, 10, 20, 10)],
+    ]),
+    lineThresholdPct: 2,
+  });
+
+  assert.equal(hits[0]?.element.id, "connector");
+  assert.equal(hits[0]?.reason, "connector-stroke");
+  assert.equal(
+    hitTestSlideElements({ x: 45, y: 30 }, [start, end, connector]).some(
+      (hit) => hit.element.id === "connector",
+    ),
+    false,
+  );
+});

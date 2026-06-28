@@ -13,7 +13,7 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 
 import type {
   ConnectorElement,
@@ -34,6 +34,7 @@ import {
   type DeckOp,
   type DeckTextOp,
 } from "@/lib/presentation/export/deck-export";
+import { exportDeckAsSlideImages } from "@/lib/presentation/export/deck-export-slide-images";
 import { deckExportTestHelpers } from "@/test/deck-export-helpers";
 import {
   buildBulletsElement,
@@ -232,6 +233,88 @@ function recordingSlide() {
 }
 
 const NO_SVG = () => null;
+
+const exportGlobals = globalThis as typeof globalThis & {
+  DOMParser?: typeof DOMParser;
+  FileReader?: typeof FileReader;
+  Image?: typeof Image;
+  XMLSerializer?: typeof XMLSerializer;
+  document?: Document;
+  URL: typeof URL;
+};
+const originalDOMParser = exportGlobals.DOMParser;
+const originalFileReader = exportGlobals.FileReader;
+const originalImage = exportGlobals.Image;
+const originalXMLSerializer = exportGlobals.XMLSerializer;
+const originalDocument = exportGlobals.document;
+const originalCreateObjectURL = exportGlobals.URL.createObjectURL;
+const originalRevokeObjectURL = exportGlobals.URL.revokeObjectURL;
+
+afterEach(() => {
+  exportGlobals.DOMParser = originalDOMParser;
+  exportGlobals.FileReader = originalFileReader;
+  exportGlobals.Image = originalImage;
+  exportGlobals.XMLSerializer = originalXMLSerializer;
+  exportGlobals.document = originalDocument;
+  exportGlobals.URL.createObjectURL = originalCreateObjectURL;
+  exportGlobals.URL.revokeObjectURL = originalRevokeObjectURL;
+});
+
+function installRasterExportDom(): void {
+  const svg = {
+    tagName: "svg",
+    viewBox: { baseVal: { width: 10, height: 10 } },
+  } as unknown as SVGSVGElement;
+  exportGlobals.DOMParser = class {
+    parseFromString(): { documentElement: SVGSVGElement } {
+      return { documentElement: svg };
+    }
+  } as unknown as typeof DOMParser;
+  exportGlobals.XMLSerializer = class {
+    serializeToString(): string {
+      return '<svg viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
+    }
+  } as unknown as typeof XMLSerializer;
+  exportGlobals.document = {
+    createElement: (tagName: string) => {
+      assert.equal(tagName, "canvas");
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => ({ scale() {}, drawImage() {} }),
+        toBlob: (callback: (blob: Blob) => void) =>
+          callback(new Blob(["png"], { type: "image/png" })),
+      };
+    },
+  } as unknown as Document;
+  exportGlobals.URL.createObjectURL = () => "blob:textiq";
+  exportGlobals.URL.revokeObjectURL = () => {};
+  exportGlobals.Image = class {
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+
+    set src(_value: string) {
+      this.onload?.();
+    }
+  } as unknown as typeof Image;
+  exportGlobals.FileReader = class {
+    result: string | null = null;
+    onloadend: (() => void) | null = null;
+
+    readAsDataURL(_blob: Blob): void {
+      this.result = "data:image/png;base64,ZmFrZQ==";
+      this.onloadend?.();
+    }
+  } as unknown as typeof FileReader;
+}
+
+function installSvgSerializer(svgString: string): void {
+  exportGlobals.XMLSerializer = class {
+    serializeToString(): string {
+      return svgString;
+    }
+  } as unknown as typeof XMLSerializer;
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -664,6 +747,233 @@ test("all six element kinds (including connector) each emit at least one op", ()
   assert.ok(ofKind(spec.ops, "connector").length >= 1, "connector op emitted");
 });
 
+test("slide image export writes SVG slides with rich free-form content", async () => {
+  const visuals = new Map<string, Visual>([["v1", flowchart()]]);
+  const deck: Deck = buildDeck({
+    design: { themeId: "indigo" },
+    slides: [
+      freeFormSlide(
+        0,
+        [
+          fixtureTextElement("svg-text", "Plain <unsafe> & rich", {
+            runs: [
+              { text: "Bold's", bold: true, color: "#112233" },
+              { text: "\n" },
+              { text: "Linked", link: "https://example.test?q=1&ok=true" },
+            ],
+            rotation: 7,
+            opacity: 0.8,
+            shadow: true,
+            style: {
+              fontSize: 5,
+              bold: true,
+              italic: true,
+              underline: true,
+              align: "center",
+              verticalAlign: "bottom",
+              lineHeight: 1.35,
+            },
+          }),
+          bulletsEl("svg-bullets", ["first", "second"], {
+            items: [
+              { text: "first", listType: "number", indent: 0 },
+              {
+                text: "second",
+                listType: "bullet",
+                indent: 1,
+                runs: [{ text: "second", code: true }],
+              },
+            ],
+          }),
+          fixtureShapeElement("svg-ellipse", {
+            shape: "ellipse",
+            color: "#abcdef",
+            stroke: { color: "#123456", width: 2 },
+            rotation: 15,
+            shadow: true,
+          }),
+          fixtureShapeElement("svg-triangle", {
+            shape: "triangle",
+            color: "#fedcba",
+          }),
+          fixtureShapeElement("svg-line", {
+            shape: "line",
+            color: "#101010",
+            stroke: { color: "#101010", width: 3 },
+          }),
+          imageEl("svg-image", {
+            src: "https://example.test/a&b.png",
+            fitMode: "cover",
+            radius: 2,
+            opacity: 0.7,
+            rotation: 5,
+            shadow: true,
+          }),
+          connectorEl("svg-connector", {
+            dash: true,
+            arrowStart: "filled",
+            arrowEnd: "arrow",
+            opacity: 0.5,
+          }),
+          visualEl("svg-visual", "v1"),
+        ],
+        {
+          designOverrides: {
+            background: { type: "image", url: "https://example.test/bg.png" },
+          },
+        },
+      ),
+    ],
+  });
+
+  const blob = await exportDeckAsSlideImages(deck, visuals, NO_SVG);
+  assert.ok(blob, "expected a slide-image ZIP blob");
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const svg = await zip.file("slide-01.svg")?.async("string");
+
+  assert.ok(svg, "expected slide-01.svg in the ZIP");
+  assert.match(svg, /<foreignObject/);
+  assert.match(svg, /Bold&#39;s/);
+  assert.match(svg, /text-align:center/);
+  assert.match(svg, /line-height:1\.35/);
+  assert.match(svg, /https:\/\/example\.test\?q=1&amp;ok=true/);
+  assert.match(svg, /marker-start/);
+  assert.match(svg, /clipPath/);
+  assert.match(svg, /preserveAspectRatio="xMidYMid slice"/);
+  assert.match(svg, /<ellipse/);
+  assert.match(svg, /<polygon/);
+  assert.match(svg, /https:\/\/example\.test\/bg\.png/);
+});
+
+test("slide image export renders native ellipse, diamond, and hexagon visual specs", async () => {
+  const shapedVisual = buildVisual({
+    version: 1,
+    type: "flowchart",
+    width: 760,
+    height: 480,
+    nodes: [
+      buildVisualNode({
+        id: "start",
+        label: "Start",
+        shape: "ellipse",
+        x: 100,
+        y: 100,
+      }),
+      buildVisualNode({
+        id: "decision",
+        label: "Decision",
+        shape: "diamond",
+        x: 320,
+        y: 100,
+      }),
+      buildVisualNode({
+        id: "process",
+        label: "Process",
+        shape: "hexagon",
+        x: 540,
+        y: 100,
+      }),
+    ],
+    edges: [],
+    style: flowchart().style,
+  });
+  const deck: Deck = buildDeck({
+    design: { themeId: "indigo" },
+    slides: [freeFormSlide(0, [visualEl("native-shaped-visual", "v1")])],
+  });
+
+  const blob = await exportDeckAsSlideImages(
+    deck,
+    new Map([["v1", shapedVisual]]),
+    NO_SVG,
+  );
+  assert.ok(blob, "expected a slide-image ZIP blob");
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const svg = await zip.file("slide-01.svg")?.async("string");
+
+  assert.ok(svg, "expected slide-01.svg in the ZIP");
+  assert.match(svg, /<ellipse/);
+  assert.ok((svg.match(/<polygon/g) ?? []).length >= 2);
+  assert.match(svg, /Decision/);
+  assert.match(svg, /font-weight:700/);
+  assert.match(svg, /font-family:Calibri/);
+});
+
+test("slide image export inlines transformed visual fallback SVGs", async () => {
+  installSvgSerializer(
+    '<svg viewBox="0 0 200 100"><g id="fallback-inner"><rect width="200" height="100"/></g></svg>',
+  );
+  const deck: Deck = buildDeck({
+    design: { themeId: "indigo" },
+    slides: [
+      freeFormSlide(0, [
+        {
+          ...visualEl("fallback-visual", "v1"),
+          rotation: 11,
+          opacity: 0.45,
+          shadow: true,
+        },
+      ]),
+    ],
+  });
+  const fallbackSvg = {
+    getAttribute: (name: string) => (name === "viewBox" ? "0 0 200 100" : null),
+    viewBox: { baseVal: { width: 200, height: 100 } },
+  } as unknown as SVGSVGElement;
+
+  const blob = await exportDeckAsSlideImages(
+    deck,
+    new Map([["v1", flowchart()]]),
+    () => fallbackSvg,
+  );
+  assert.ok(blob, "expected a slide-image ZIP blob");
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const svg = await zip.file("slide-01.svg")?.async("string");
+
+  assert.ok(svg, "expected slide-01.svg in the ZIP");
+  assert.match(svg, /fallback-inner/);
+  assert.match(svg, /rotate\(11/);
+  assert.match(svg, /opacity:0\.45/);
+  assert.match(svg, /drop-shadow/);
+});
+
+test("slide image export falls back to an SVG viewBox from baseVal when no attribute exists", async () => {
+  installSvgSerializer('<svg><circle id="fallback-circle" r="5"/></svg>');
+  const deck: Deck = buildDeck({
+    design: { themeId: "indigo" },
+    slides: [
+      freeFormSlide(0, [
+        {
+          ...visualEl("fallback-with-base-val", "v1"),
+          opacity: 0.6,
+        },
+      ]),
+    ],
+  });
+  const fallbackSvg = {
+    getAttribute: () => null,
+    viewBox: { baseVal: { width: 320, height: 180 } },
+  } as unknown as SVGSVGElement;
+
+  const blob = await exportDeckAsSlideImages(
+    deck,
+    new Map([["v1", flowchart()]]),
+    () => fallbackSvg,
+  );
+  assert.ok(blob, "expected a slide-image ZIP blob");
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const svg = await zip.file("slide-01.svg")?.async("string");
+
+  assert.ok(svg, "expected slide-01.svg in the ZIP");
+  assert.match(svg, /viewBox="0 0 320 180"/);
+  assert.match(svg, /fallback-circle/);
+  assert.match(svg, /opacity:0\.6/);
+});
+
 test("shape text is applied to PPTX as a shape plus a text call", async () => {
   const deck: Deck = {
     design: { themeId: "indigo" },
@@ -732,6 +1042,274 @@ test("connector export is applied to PPTX as a line shape", async () => {
   assert.equal(shapeCalls[0]?.options.line?.dashType, "dash");
   assert.equal(shapeCalls[0]?.options.line?.endArrowType, "arrow");
   assert.equal(shapeCalls[0]?.options.line?.transparency, 60);
+});
+
+test("PPTX text applier preserves rich runs and paragraph options", async () => {
+  const { slide, textCalls } = recordingSlide();
+
+  deckExportTestHelpers.applyTextOp(slide, {
+    kind: "text",
+    text: "fallback",
+    runs: [
+      { text: "Code", code: true, bold: true, color: "#112233" },
+      { text: "\n" },
+      { text: "Link", link: "https://example.test" },
+    ],
+    x: 1,
+    y: 2,
+    w: 3,
+    h: 4,
+    color: "111111",
+    fontSize: 18,
+    fontFace: "Inter",
+    bold: true,
+    italic: true,
+    underline: true,
+    align: "center",
+    verticalAlign: "bottom",
+    fitMode: "shrink-to-fit",
+    rotation: 12,
+    opacity: 0.25,
+    lineHeight: 1.4,
+    paragraphSpacingPt: 8,
+    shadow: true,
+  });
+
+  assert.equal(textCalls.length, 1);
+  assert.equal(textCalls[0]?.options.valign, "bottom");
+  assert.equal(textCalls[0]?.options.shrinkText, true);
+  assert.equal(textCalls[0]?.options.transparency, 75);
+  assert.equal(textCalls[0]?.options.lineSpacing, 140);
+  assert.equal(textCalls[0]?.options.paraSpaceAfter, 8);
+  assert.deepEqual(textCalls[0]?.text, [
+    {
+      text: "Code",
+      options: { bold: true, fontFace: "Courier New", color: "112233" },
+    },
+    { text: "", options: { breakLine: true } },
+    { text: "Link", options: { hyperlink: { url: "https://example.test" } } },
+  ]);
+});
+
+test("PPTX bullets applier handles plain and rich numbered items", () => {
+  const plain = recordingSlide();
+  deckExportTestHelpers.applyBulletsOp(plain.slide, {
+    kind: "bullets",
+    items: ["one", "two"],
+    itemDetails: [
+      { listType: "bullet", indent: 0 },
+      { listType: "number", indent: 1 },
+    ],
+    x: 0,
+    y: 0,
+    w: 4,
+    h: 2,
+    color: "111111",
+    fontSize: 12,
+    bold: false,
+    italic: false,
+    align: "left",
+    verticalAlign: "top",
+  });
+  assert.equal(plain.textCalls[0]?.options.valign, "top");
+  assert.deepEqual((plain.textCalls[0]?.text as any[])[0].options.bullet, true);
+  assert.deepEqual((plain.textCalls[0]?.text as any[])[1].options.bullet, {
+    type: "number",
+  });
+
+  const rich = recordingSlide();
+  deckExportTestHelpers.applyBulletsOp(rich.slide, {
+    kind: "bullets",
+    items: ["one", "two", "three"],
+    itemRuns: [
+      [{ text: "one", italic: true }],
+      [{ text: "\n" }],
+      [{ text: "three" }],
+    ],
+    itemDetails: [{ listType: "bullet", indent: 0 }],
+    x: 0,
+    y: 0,
+    w: 4,
+    h: 2,
+    color: "111111",
+    fontSize: 12,
+    bold: false,
+    italic: false,
+    align: "left",
+    verticalAlign: "middle",
+    rotation: 3,
+    opacity: 0.5,
+    shadow: true,
+    fitMode: "shrink-to-fit",
+    lineHeight: 1.1,
+  });
+  assert.equal(rich.textCalls[0]?.options.rotate, 3);
+  assert.equal(rich.textCalls[0]?.options.transparency, 50);
+  assert.equal((rich.textCalls[0]?.text as any[])[0].options.italic, true);
+  assert.equal((rich.textCalls[0]?.text as any[])[1].options.breakLine, true);
+  assert.equal((rich.textCalls[0]?.text as any[])[1].text, "");
+});
+
+test("PPTX shape applier covers line, triangle, ellipse, and rounded rectangle variants", () => {
+  const { slide, shapeCalls, textCalls } = recordingSlide();
+
+  deckExportTestHelpers.applyShapeOp(slide, {
+    kind: "shape",
+    shape: "line",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 1,
+    color: "111111",
+    stroke: { color: "222222", width: 2, dash: true },
+    opacity: 0.5,
+  });
+  deckExportTestHelpers.applyShapeOp(slide, {
+    kind: "shape",
+    shape: "triangle",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 1,
+    color: "333333",
+    opacity: 0.25,
+    shadow: true,
+  });
+  deckExportTestHelpers.applyShapeOp(slide, {
+    kind: "shape",
+    shape: "ellipse",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 1,
+    color: "444444",
+  });
+  deckExportTestHelpers.applyShapeOp(slide, {
+    kind: "shape",
+    shape: "rect",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 1,
+    color: "555555",
+    radius: 0.2,
+    text: "Rounded",
+    textRuns: [{ text: "Rounded", underline: true }],
+    textColor: "ffffff",
+    fontFace: "Inter",
+    fontSize: 10,
+    underline: true,
+    align: "right",
+    rotation: 8,
+    opacity: 0.8,
+  });
+
+  assert.deepEqual(
+    shapeCalls.map((call) => call.shape),
+    ["line", "triangle", "ellipse", "roundRect"],
+  );
+  assert.equal(shapeCalls[0]?.options.line?.dashType, "dash");
+  assert.equal(shapeCalls[1]?.options.fill?.transparency, 75);
+  assert.equal(shapeCalls[3]?.options.rectRadius, 0.2);
+  assert.equal(textCalls.length, 1);
+});
+
+test("PPTX image and connector appliers handle fallbacks and skipped zero-length lines", async () => {
+  const { slide, imageCalls, shapeCalls } = recordingSlide();
+
+  await deckExportTestHelpers.applyImageOp(slide, {
+    kind: "image",
+    src: "https://example.test/image.png",
+    x: 1,
+    y: 2,
+    w: 3,
+    h: 4,
+    alt: "remote image",
+    fitMode: "cover",
+    rotation: 4,
+    shadow: true,
+    opacity: 0.6,
+  });
+  await deckExportTestHelpers.applyImageOp(slide, {
+    kind: "image",
+    src: "data:image/png;base64,AAAA",
+    x: 1,
+    y: 2,
+    w: 3,
+    h: 4,
+    fitMode: "none",
+  });
+  deckExportTestHelpers.applyConnectorOp(slide, {
+    kind: "connector",
+    x1: 1,
+    y1: 1,
+    x2: 1,
+    y2: 1,
+    color: "111111",
+    width: 1,
+  });
+
+  assert.equal(imageCalls.length, 2);
+  assert.equal(imageCalls[0]?.path, "https://example.test/image.png");
+  assert.deepEqual(imageCalls[0]?.sizing, { type: "cover", w: 3, h: 4 });
+  assert.equal(imageCalls[0]?.transparency, 40);
+  assert.equal(imageCalls[1]?.data, "data:image/png;base64,AAAA");
+  assert.equal(shapeCalls.length, 0, "zero-length connector should be skipped");
+});
+
+test("PPTX image applier rasterizes masked and cropped images when browser APIs are available", async () => {
+  installRasterExportDom();
+  const { slide, imageCalls } = recordingSlide();
+
+  await deckExportTestHelpers.applyImageOp(slide, {
+    kind: "image",
+    src: "https://example.test/crop.png?x=1&y=2",
+    x: 1,
+    y: 2,
+    w: 3,
+    h: 2,
+    alt: "cropped",
+    fitMode: "cover",
+    maskShape: "rounded",
+    radius: 0.1,
+    crop: { top: 0.1, right: 0.2, bottom: 0.3, left: 0.4 },
+    rotation: 9,
+    shadow: true,
+  });
+
+  assert.equal(imageCalls.length, 1);
+  assert.equal(imageCalls[0]?.data, "data:image/png;base64,ZmFrZQ==");
+  assert.equal(imageCalls[0]?.altText, "cropped");
+  assert.equal(imageCalls[0]?.rotate, 9);
+  assert.deepEqual(imageCalls[0]?.shadow, deckExportTestHelpers.SHADOW_OPTS);
+});
+
+test("PPTX image applier falls back when styled image SVG parsing fails", async () => {
+  const originalDOMParser = exportGlobals.DOMParser;
+  exportGlobals.DOMParser = class {
+    parseFromString(): { documentElement: { tagName: string } } {
+      return { documentElement: { tagName: "parsererror" } };
+    }
+  } as unknown as typeof DOMParser;
+  const { slide, imageCalls } = recordingSlide();
+
+  await deckExportTestHelpers.applyImageOp(slide, {
+    kind: "image",
+    src: "https://example.test/masked.png",
+    x: 1,
+    y: 2,
+    w: 3,
+    h: 4,
+    alt: "masked",
+    fitMode: "cover",
+    maskShape: "circle",
+  });
+
+  exportGlobals.DOMParser = originalDOMParser;
+  assert.equal(imageCalls.length, 1);
+  assert.equal(imageCalls[0]?.path, "https://example.test/masked.png");
+  assert.equal(imageCalls[0]?.altText, "masked");
+  assert.deepEqual(imageCalls[0]?.sizing, { type: "cover", w: 3, h: 4 });
 });
 
 // ---------------------------------------------------------------------------

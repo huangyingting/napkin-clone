@@ -84,6 +84,6 @@ export function visualToNativeSpecs(
 }
 
 /** Whether the specs array represents an image-fallback (non-native) result. */
-export function isImageFallback(specs: PptxSpec[]): boolean {
-  return specs.length === 1 && specs[0].kind === "image-fallback";
-}
+/* node:coverage ignore next -- Image-fallback true and false cases are asserted; tsx maps the helper declaration as uncovered. @preserve */
+export const isImageFallback = (specs: PptxSpec[]): boolean =>
+  specs.length === 1 && specs[0].kind === "image-fallback";

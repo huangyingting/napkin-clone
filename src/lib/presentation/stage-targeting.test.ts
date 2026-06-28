@@ -5,8 +5,10 @@ import type { ElementBox, SlideElement } from "./deck";
 import {
   groupedElementIds,
   isStageTargetSelected,
+  preselectionFromStageTarget,
   resolveStageElementTarget,
   resolveStageHitTarget,
+  samePreselection,
 } from "./stage-targeting";
 
 function box(x: number, y: number, w: number, h: number): ElementBox {
@@ -85,4 +87,76 @@ test("isStageTargetSelected requires every group member to be selected", () => {
 
   assert.equal(isStageTargetSelected(target, new Set(["a"])), false);
   assert.equal(isStageTargetSelected(target, new Set(["a", "b"])), true);
+});
+
+test("resolveStageHitTarget returns null for empty hits", () => {
+  assert.equal(resolveStageHitTarget(null, []), null);
+  assert.equal(resolveStageHitTarget(undefined, []), null);
+});
+
+test("preselectionFromStageTarget snapshots element and group targets", () => {
+  const elements = [rect("a", "g1"), rect("b", "g1"), rect("c")];
+
+  assert.deepEqual(
+    preselectionFromStageTarget(
+      resolveStageElementTarget(elements[2], elements),
+    ),
+    { kind: "element", elementId: "c" },
+  );
+  assert.deepEqual(
+    preselectionFromStageTarget(
+      resolveStageElementTarget(elements[0], elements),
+    ),
+    { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+  );
+});
+
+test("samePreselection compares null, element, and ordered group snapshots", () => {
+  assert.equal(samePreselection(null, null), true);
+  assert.equal(
+    samePreselection(null, { kind: "element", elementId: "a" }),
+    false,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "element", elementId: "a" },
+      { kind: "element", elementId: "a" },
+    ),
+    true,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "element", elementId: "a" },
+      { kind: "group", groupId: "g1", elementIds: ["a"] },
+    ),
+    false,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+      { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+    ),
+    true,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+      { kind: "group", groupId: "g1", elementIds: ["a"] },
+    ),
+    false,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+      { kind: "group", groupId: "g1", elementIds: ["b", "a"] },
+    ),
+    false,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "unknown" } as unknown as Parameters<typeof samePreselection>[0],
+      { kind: "unknown" } as unknown as Parameters<typeof samePreselection>[1],
+    ),
+    false,
+  );
 });

@@ -1,15 +1,42 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+export type CurrentUser = Awaited<ReturnType<typeof getCurrentUser>>;
+
 /**
  * Returns the currently authenticated user, or `null` when no valid session
  * exists. Safe to call from any server component, route handler, or action.
  */
+/* node:coverage disable */
 export async function getCurrentUser() {
   const session = await auth();
   return session?.user ?? null;
 }
+/* node:coverage enable */
 
+interface RequireUserDependencies {
+  getCurrentUser(): Promise<CurrentUser>;
+  findUserById(id: string): Promise<{ id: string } | null>;
+}
+
+export async function requireUserCore(
+  dependencies: RequireUserDependencies,
+  redirect: (url: string) => never,
+) {
+  const user = await dependencies.getCurrentUser();
+  if (!user?.id) {
+    redirect("/login");
+  }
+
+  const exists = await dependencies.findUserById(user.id);
+  if (!exists) {
+    redirect("/signout");
+  }
+
+  return user;
+}
+
+/* node:coverage disable */
 /**
  * Returns the currently authenticated user, or calls the supplied `redirect`
  * function when no valid session exists. The `redirect` parameter must be
@@ -23,19 +50,18 @@ export async function getCurrentUser() {
  * (`document.create({ ownerId })`). When the user can't be found we route to
  * `/signout`, which clears the stale cookie and returns to login.
  */
+/* node:coverage enable */
 export async function requireUser(redirect: (url: string) => never) {
-  const user = await getCurrentUser();
-  if (!user?.id) {
-    redirect("/login");
-  }
-
-  const exists = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true },
-  });
-  if (!exists) {
-    redirect("/signout");
-  }
-
-  return user;
+  return requireUserCore(
+    {
+      getCurrentUser,
+      findUserById(id) {
+        return prisma.user.findUnique({
+          where: { id },
+          select: { id: true },
+        });
+      },
+    },
+    redirect,
+  );
 }

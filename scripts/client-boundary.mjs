@@ -354,3 +354,5 @@ export function runClientBoundaryCheck(rootDir = process.cwd()) {
   const report = evaluateClientBoundary({ rootDir, sourceFiles });
   return { sourceFiles, report };
 }
+
+export const _testOnly = { isSourceFile };

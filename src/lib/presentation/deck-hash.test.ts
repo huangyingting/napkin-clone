@@ -164,6 +164,26 @@ test("content hash changes when document-derived content changes", () => {
   );
 });
 
+test("content hash ignores visual elements without a visual id", () => {
+  const base = deck([slide({ title: "Intro" })]);
+  const withEmptyVisual = deck([
+    slide({
+      title: "Intro",
+      elements: [
+        {
+          ...visualElement("", 2),
+          content: { kind: "visual" },
+        },
+      ],
+    }),
+  ]);
+
+  assert.equal(
+    computeDeckContentHash(withEmptyVisual),
+    computeDeckContentHash(base),
+  );
+});
+
 test("content hash changes with presentation theme", () => {
   const a = deck([slide({ title: "Intro" })], "default");
   const b = deck([slide({ title: "Intro" })], "ocean");

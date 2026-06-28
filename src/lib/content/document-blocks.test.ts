@@ -301,6 +301,70 @@ test("blockRichText emits a newline run for linebreaks", () => {
   ]);
 });
 
+test("blockRichText walks direct text nodes, nested elements, and malformed children", () => {
+  assert.deepEqual(blockRichText({ type: "text", text: "direct", format: 1 }), [
+    { text: "direct", bold: true },
+  ]);
+  assert.deepEqual(
+    blockRichText({
+      type: "paragraph",
+      children: [
+        "ignored",
+        {
+          type: "strong",
+          children: [
+            richText("nested", { format: 2 }),
+            { type: "linebreak" },
+            { type: "text", text: "" },
+          ],
+        },
+      ],
+    }),
+    [{ text: "nested", italic: true }, { text: "\n" }],
+  );
+});
+
+test("collectDocumentBlocks uses h2 for unsupported heading tags and walks generic containers", () => {
+  const blocks = collectDocumentBlocks({
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "container",
+          children: [
+            {
+              type: "heading",
+              tag: "h4",
+              children: [{ type: "text", text: "Fallback heading" }],
+            },
+            {
+              type: "list",
+              children: [
+                {
+                  type: "paragraph",
+                  children: [{ type: "text", text: "Nested paragraph" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(blocks.length, 2);
+  assert.equal(blocks[0].kind, "text");
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockType, "heading");
+    assert.equal(blocks[0].level, 2);
+  }
+  assert.equal(blocks[1].kind, "text");
+  if (blocks[1].kind === "text") {
+    assert.equal(blocks[1].blockType, "paragraph");
+    assert.equal(blocks[1].text, "Nested paragraph");
+  }
+});
+
 test("collectDocumentBlocks attaches runs only when formatting is present", () => {
   const blocks = collectDocumentBlocks(
     state([

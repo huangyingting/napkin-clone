@@ -1,75 +1,109 @@
-/**
- * Route-level tests for POST /api/billing/webhook (#1119).
- *
- * Canonical-shape coverage for the two app-level error responses:
- *   400 — missing stripe-signature header
- *   500 — handler threw
- *
- * The 200-when-disabled path is fully exercisable here because it fires before
- * any Stripe dependency is loaded. The 400 path requires Stripe to appear
- * "configured" (STRIPE_SECRET_KEY present) so that the guard is reached; the
- * env var is set and cleaned up within the test. The 500 path is not reachable
- * without mocking the dynamic `stripe-provider` import, so its canonical shape
- * is verified against the `serverError` helper directly.
- */
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { NextRequest } from "next/server";
 
-import { serverError } from "@/lib/api/errors";
+import { POST, runtime } from "./route";
 
-import { POST } from "./route";
+const STRIPE_ENV_KEYS = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] as const;
 
-function makeRequest(body = "{}"): NextRequest {
+function makeRequest(
+  body = "{}",
+  headers?: Record<string, string>,
+): NextRequest {
   return new NextRequest("http://localhost/api/billing/webhook", {
     method: "POST",
     body,
+    headers,
   });
 }
 
-test("billing-webhook: 200 {message:'ok'} when Stripe is not configured", async () => {
-  const saved = process.env.STRIPE_SECRET_KEY;
-  delete process.env.STRIPE_SECRET_KEY;
-  try {
-    const response = await POST(makeRequest());
-    assert.strictEqual(response.status, 200);
-    const body = await response.json();
-    assert.deepEqual(body, { message: "ok" });
-  } finally {
-    if (saved !== undefined) process.env.STRIPE_SECRET_KEY = saved;
-  }
-});
-
-test("billing-webhook: 400 canonical envelope when signature header is missing", async () => {
-  const saved = process.env.STRIPE_SECRET_KEY;
-  process.env.STRIPE_SECRET_KEY = "sk_test_ci_placeholder";
-  try {
-    const response = await POST(makeRequest());
-    assert.strictEqual(response.status, 400);
-    const body = await response.json();
-    assert.deepEqual(body, {
-      error: "Missing stripe-signature header",
-      code: "VALIDATION_ERROR",
-    });
-  } finally {
-    if (saved === undefined) {
-      delete process.env.STRIPE_SECRET_KEY;
+async function withStripeEnv(
+  values: Partial<Record<(typeof STRIPE_ENV_KEYS)[number], string>>,
+  run: () => Promise<void>,
+): Promise<void> {
+  const saved = Object.fromEntries(
+    STRIPE_ENV_KEYS.map((key) => [key, process.env[key]]),
+  );
+  for (const key of STRIPE_ENV_KEYS) {
+    const value = values[key];
+    if (value === undefined) {
+      delete process.env[key];
     } else {
-      process.env.STRIPE_SECRET_KEY = saved;
+      process.env[key] = value;
     }
   }
+  try {
+    await run();
+  } finally {
+    for (const key of STRIPE_ENV_KEYS) {
+      const value = saved[key];
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+test("billing webhook route opts into the Node runtime for Stripe", () => {
+  assert.equal(runtime, "nodejs");
 });
 
-test("billing-webhook: 500 canonical envelope from serverError helper", async () => {
-  // The handler uses `serverError(message)` in its catch block. Verify the
-  // canonical shape directly since the dynamic stripe-provider import cannot
-  // be mocked in this harness.
-  const resp = serverError("Webhook handler failed");
-  assert.strictEqual(resp.status, 500);
-  const body = await resp.json();
-  assert.deepEqual(body, {
-    error: "Webhook handler failed",
-    code: "SERVER_ERROR",
+test("POST returns ok when Stripe billing is not configured", async () => {
+  await withStripeEnv({}, async () => {
+    const response = await POST(makeRequest());
+    assert.strictEqual(response.status, 200);
+    assert.deepEqual(await response.json(), { message: "ok" });
   });
+});
+
+test("POST returns validation error when the Stripe signature is missing", async () => {
+  await withStripeEnv(
+    { STRIPE_SECRET_KEY: "sk_test_ci_placeholder" },
+    async () => {
+      const response = await POST(makeRequest());
+      assert.strictEqual(response.status, 400);
+      assert.deepEqual(await response.json(), {
+        error: "Missing stripe-signature header",
+        code: "VALIDATION_ERROR",
+      });
+    },
+  );
+});
+
+test("POST returns provider status when the webhook secret is missing", async () => {
+  await withStripeEnv(
+    { STRIPE_SECRET_KEY: "sk_test_ci_placeholder" },
+    async () => {
+      const response = await POST(
+        makeRequest("{}", { "stripe-signature": "test-signature" }),
+      );
+      assert.strictEqual(response.status, 500);
+      assert.deepEqual(await response.json(), {
+        message: "STRIPE_WEBHOOK_SECRET not configured",
+      });
+    },
+  );
+});
+
+test("POST wraps webhook handler failures in the canonical server error", async () => {
+  await withStripeEnv(
+    {
+      STRIPE_SECRET_KEY: "sk_test_ci_placeholder",
+      STRIPE_WEBHOOK_SECRET: "whsec_test_placeholder",
+    },
+    async () => {
+      const response = await POST(
+        makeRequest("{}", { "stripe-signature": "test-signature" }),
+      );
+      assert.strictEqual(response.status, 500);
+      assert.deepEqual(await response.json(), {
+        error:
+          "The `stripe` package is not installed. Run `npm install stripe` to enable Stripe billing.",
+        code: "SERVER_ERROR",
+      });
+    },
+  );
 });

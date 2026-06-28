@@ -14,6 +14,8 @@ import {
   resolveSlideFont,
   slideFontCssStack,
   slideFontExportFace,
+  resolveElementFontCss,
+  buildSlideFontFaceCss,
 } from "./slide-fonts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -28,6 +30,7 @@ describe("slide font registry", () => {
   it("exposes the default font", () => {
     assert.ok(isSlideFontId(DEFAULT_SLIDE_FONT_ID));
     assert.ok(resolveSlideFont(DEFAULT_SLIDE_FONT_ID));
+    assert.equal(resolveSlideFont("missing-font"), undefined);
   });
 
   it("every asset URL points to a file under public/fonts/slides", () => {
@@ -74,6 +77,9 @@ describe("slide font registry", () => {
   it("resolves CSS stacks by id", () => {
     assert.equal(slideFontCssStack("inter"), SLIDE_FONTS[0].cssStack);
     assert.equal(slideFontCssStack("unknown-font"), undefined);
+    assert.equal(resolveElementFontCss("inter"), SLIDE_FONTS[0].cssStack);
+    assert.equal(resolveElementFontCss("unknown-font"), undefined);
+    assert.equal(resolveElementFontCss(undefined), undefined);
   });
 
   it("picker options mirror the registry order and css stacks", () => {
@@ -170,6 +176,17 @@ describe("ensureCjkFallback", () => {
 });
 
 describe("slide-fonts.css coverage", () => {
+  it("buildSlideFontFaceCss emits one rule per asset with display and woff2 format", () => {
+    const css = buildSlideFontFaceCss();
+    const faceCount = (css.match(/@font-face/g) ?? []).length;
+    const assetCount = SLIDE_FONTS.reduce((n, f) => n + f.assets.length, 0);
+
+    assert.equal(faceCount, assetCount);
+    assert.match(css, /font-display: swap;/);
+    assert.match(css, /format\("woff2"\)/);
+    assert.ok(css.endsWith("\n"));
+  });
+
   it("checked-in CSS declares an @font-face for every registry asset", () => {
     const cssPath = path.join(REPO_ROOT, "src/app/slide-fonts.css");
     const css = readFileSync(cssPath, "utf8");

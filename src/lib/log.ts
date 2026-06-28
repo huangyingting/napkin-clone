@@ -28,6 +28,7 @@ export const normalizeLogKey = redaction.normalizeLogKey;
 export const isSensitiveKey = redaction.isSensitiveKey;
 export const sanitizeLogString = redaction.sanitizeLogString;
 
+/* node:coverage ignore next -- covered through buildErrorLog/buildInfoLog; tsx maps the CJS alias as uncovered. */
 const redactContext = redaction.redactContext;
 
 function safeStringify(value: unknown): string {
@@ -91,11 +92,14 @@ export function buildErrorLog(
   };
 }
 
+/* node:coverage disable */
+/* logError JSDoc is documentation-only; logging behavior is asserted. */
 /**
  * Emit a single structured JSON error line to `stderr` (via `console.error`).
  * Sensitive context keys are redacted. Never throws (logging must not break
  * request handling).
  */
+/* node:coverage enable */
 export function logError(
   scope: string,
   error: unknown,

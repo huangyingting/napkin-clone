@@ -11,8 +11,15 @@ import { test, describe } from "node:test";
 
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import {
+  auditAssetScope,
+  auditCommentAnchor,
   auditRows,
   auditDocumentDeck,
+  auditDocumentVersionRow,
+  auditSubscription,
+  auditTagSlug,
+  auditUsageLedgerEntry,
+  auditUserPlan,
   formatAuditReport,
   type DocumentAuditRow,
   type VisualAuditRow,
@@ -188,6 +195,231 @@ describe("auditRows — invalid rows", () => {
     assert.ok(violations.some((v) => v.area === "SourceRef"));
   });
 
+  test("ignores malformed or unlinked raw source refs while scanning decks", () => {
+    const deck = {
+      slides: [
+        null,
+        { elements: null },
+        {
+          elements: [
+            null,
+            { sourceRef: "not-an-object" },
+            { sourceRef: { unlinked: true, blockId: SECRET } },
+          ],
+        },
+      ],
+    };
+
+    const violations = auditDocumentDeck({
+      id: "doc-source-ref-skip",
+      deckJson: deck,
+      contentJson: null,
+    });
+
+    assert.ok(violations.some((v) => v.area === "Document.deckJson"));
+    assert.ok(!violations.some((v) => v.area === "SourceRef"));
+  });
+
+  test("audits invalid document-version decks and embedded visuals", () => {
+    const violations = auditDocumentVersionRow({
+      id: "version-1",
+      documentId: "doc-versioned",
+      deckJson: { not: "a deck" },
+      contentJson: contentWithVisual({ version: 1, type: "not-current" }),
+    });
+
+    assert.ok(
+      violations.some(
+        (v) =>
+          v.area === "DocumentVersion.deckJson" &&
+          v.documentId === "doc-versioned" &&
+          v.rowId === "version-1",
+      ),
+    );
+    assert.ok(
+      violations.some(
+        (v) =>
+          v.area === "DocumentVersion.contentJson:visual" &&
+          v.anchorId === "vis-1",
+      ),
+    );
+  });
+
+  test("audits comment anchors, tag slugs, enums, and asset scopes", () => {
+    assert.deepEqual(
+      auditCommentAnchor({
+        id: "comment-ok",
+        documentId: "doc-1",
+        anchorType: "text",
+        anchorText: "Selected text",
+      }),
+      [],
+    );
+    assert.equal(
+      auditCommentAnchor({
+        id: "comment-bad",
+        documentId: "doc-1",
+        elementId: "element-1",
+      })[0]?.area,
+      "Comment.anchor",
+    );
+
+    assert.deepEqual(
+      auditTagSlug({
+        id: "tag-ok",
+        ownerId: "owner-1",
+        name: "Launch Plan",
+        slug: "launch-plan",
+      }),
+      [],
+    );
+    assert.equal(
+      auditTagSlug({
+        id: "tag-bad",
+        ownerId: "owner-1",
+        name: "Launch Plan",
+        slug: "old-slug",
+      })[0]?.area,
+      "Tag.slug",
+    );
+
+    assert.deepEqual(auditUserPlan({ id: "user-ok", plan: "free" }), []);
+    assert.equal(
+      auditUserPlan({ id: "user-bad", plan: "enterprise" })[0]?.area,
+      "User.plan",
+    );
+    assert.deepEqual(
+      auditSubscription({
+        id: "sub-ok",
+        plan: "plus",
+        status: "active",
+      }),
+      [],
+    );
+    assert.deepEqual(
+      auditSubscription({
+        id: "sub-bad",
+        plan: "enterprise",
+        status: "paused",
+      }).map((v) => v.area),
+      ["Subscription.plan", "Subscription.status"],
+    );
+    assert.deepEqual(
+      auditSubscription({
+        id: "sub-bad-plan",
+        plan: "enterprise",
+        status: "active",
+      }).map((v) => v.area),
+      ["Subscription.plan"],
+    );
+    assert.deepEqual(
+      auditSubscription({
+        id: "sub-bad-status",
+        plan: "plus",
+        status: "paused",
+      }).map((v) => v.area),
+      ["Subscription.status"],
+    );
+    assert.deepEqual(
+      auditUsageLedgerEntry({ id: "usage-ok", status: "captured" }),
+      [],
+    );
+    assert.equal(
+      auditUsageLedgerEntry({ id: "usage-bad", status: "pending" })[0]?.area,
+      "UsageLedgerEntry.status",
+    );
+
+    assert.deepEqual(
+      auditAssetScope({
+        id: "asset-active",
+        documentId: "doc-1",
+        workspaceId: null,
+        brandId: null,
+      }),
+      [],
+    );
+    assert.deepEqual(
+      auditAssetScope({
+        id: "asset-deleted",
+        documentId: null,
+        workspaceId: null,
+        brandId: null,
+        deletedAt: new Date("2026-06-25T00:00:00Z"),
+      }),
+      [],
+    );
+    assert.equal(
+      auditAssetScope({
+        id: "asset-unscoped",
+        documentId: null,
+        workspaceId: null,
+        brandId: null,
+      })[0]?.area,
+      "Asset.scope",
+    );
+    assert.equal(
+      auditAssetScope({
+        id: "asset-deleted-multiscope",
+        documentId: "doc-1",
+        workspaceId: "workspace-1",
+        brandId: null,
+        deletedAt: new Date("2026-06-25T00:00:00Z"),
+      })[0]?.reason,
+      "Deleted asset rows may have at most one scope.",
+    );
+  });
+
+  test("summarizes every audit input collection and role area", () => {
+    const report = auditRows({
+      documentVersions: [
+        {
+          id: "version-1",
+          documentId: "doc-1",
+          deckJson: null,
+          contentJson: null,
+        },
+      ],
+      comments: [{ id: "comment-1", documentId: "doc-1", anchorType: "bogus" }],
+      tags: [
+        {
+          id: "tag-1",
+          ownerId: "owner-1",
+          name: "Roadmap",
+          slug: "old",
+        },
+      ],
+      workspaceMembers: [{ id: "member-1", role: "ADMIN" }],
+      inviteLinks: [{ id: "invite-1", role: "ADMIN" }],
+      inviteLinkUses: [{ id: "invite-use-1", role: "ADMIN" }],
+      users: [{ id: "user-1", plan: "enterprise" }],
+      subscriptions: [{ id: "sub-1", plan: "plus", status: "paused" }],
+      usageLedgerEntries: [{ id: "usage-1", status: "pending" }],
+      assets: [
+        {
+          id: "asset-1",
+          documentId: null,
+          workspaceId: null,
+          brandId: null,
+        },
+      ],
+    });
+
+    assert.equal(report.summary.scannedDocumentVersions, 1);
+    assert.equal(report.summary.scannedComments, 1);
+    assert.equal(report.summary.scannedTags, 1);
+    assert.equal(report.summary.scannedWorkspaceMembers, 1);
+    assert.equal(report.summary.scannedInviteLinks, 1);
+    assert.equal(report.summary.scannedInviteLinkUses, 1);
+    assert.equal(report.summary.scannedUsers, 1);
+    assert.equal(report.summary.scannedSubscriptions, 1);
+    assert.equal(report.summary.scannedUsageLedgerEntries, 1);
+    assert.equal(report.summary.scannedAssets, 1);
+    assert.equal(report.summary.byArea["WorkspaceMember.role"], 1);
+    assert.equal(report.summary.byArea["InviteLink.role"], 1);
+    assert.equal(report.summary.byArea["InviteLinkUse.role"], 1);
+    assert.equal(report.summary.byArea["Subscription.status"], 1);
+  });
+
   test("counts violations by area in the summary", () => {
     const report = auditRows({
       documents: [
@@ -240,5 +472,29 @@ describe("audit output never contains document content", () => {
       }),
     );
     assert.ok(lines.some((l) => l.includes("No schema violations found")));
+  });
+
+  test("formatAuditReport includes safe row and anchor identifiers", () => {
+    const lines = formatAuditReport(
+      auditRows({
+        documents: [
+          {
+            id: "doc-1",
+            deckJson: null,
+            contentJson: contentWithVisual({ type: "bogus" }),
+          },
+        ],
+      }),
+    );
+
+    assert.ok(lines.some((l) => l.includes("Found 1 violation")));
+    assert.ok(
+      lines.some((l) =>
+        l.includes("[Document.contentJson:visual] document=doc-1 anchor=vis-1"),
+      ),
+    );
+    assert.ok(
+      lines.some((l) => l.includes("· Document.contentJson:visual: 1")),
+    );
   });
 });

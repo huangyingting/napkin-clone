@@ -3,6 +3,7 @@ import { afterEach, describe, test } from "node:test";
 
 import {
   buildCollabHealthSummary,
+  createCollabHealthHandler,
   createRuntimeAuthorizer,
   createRuntimeEvictionFlusher,
   emitDeploymentDiagnostics,
@@ -62,6 +63,35 @@ describe("collab-runtime health summary", () => {
         },
       ],
     });
+
+    test("createCollabHealthHandler serializes live stats as JSON", () => {
+      const writes = [];
+      const response = {
+        writeHead: (status, headers) => writes.push({ status, headers }),
+        end: (body) => writes.push({ body }),
+      };
+      const handler = createCollabHealthHandler({
+        deploymentConfig: {
+          mode: "single-instance",
+          warnings: [],
+          healthy: true,
+        },
+        getStats: () => ({
+          rooms: 1,
+          connections: 2,
+          flushFailures: 0,
+          recentFlushFailures: [],
+        }),
+      });
+
+      handler({}, response);
+
+      assert.deepEqual(writes[0], {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+      assert.equal(JSON.parse(writes[1].body).connections, 2);
+    });
   });
 
   test("buildCollabHealthSummary reports unhealthy deployment as ok=false", () => {
@@ -80,6 +110,19 @@ describe("collab-runtime health summary", () => {
     assert.equal(summary.ok, false);
     assert.equal(summary.healthy, false);
     assert.equal(summary.warnings.length, 1);
+  });
+
+  test("resolveCollabDeployment accepts sticky multi-instance and advisory single-instance defaults", () => {
+    assert.deepEqual(
+      resolveCollabDeployment({
+        COLLAB_INSTANCE_COUNT: "3",
+        COLLAB_STICKY_ROUTING: "true",
+      }),
+      { mode: "unconfigured", warnings: [], healthy: true },
+    );
+    const advisory = resolveCollabDeployment({});
+    assert.equal(advisory.healthy, true);
+    assert.equal(advisory.warnings.length, 1);
   });
 });
 

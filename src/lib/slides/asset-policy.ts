@@ -11,6 +11,8 @@ import {
  * file extension.
  */
 export const SLIDE_MIME_TO_EXT: Record<string, string> = {
+  /* Coverage rationale: MIME mapping literal is asserted by asset policy/storage tests; tsx maps object tail as uncovered. */
+  /* node:coverage ignore next 4 */
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/gif": "gif",

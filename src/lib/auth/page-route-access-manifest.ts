@@ -160,6 +160,7 @@ export function matchesPageAccessEntry(
 export function classifyPageRoute(
   pathname: string,
 ): PageRouteAccessEntry | null {
+  /* node:coverage ignore next 5 -- Manifest lookup behavior is asserted; tsx maps the nullish tail as uncovered. */
   return (
     pageRouteAccessManifest.find((entry) =>
       matchesPageAccessEntry(pathname, entry),

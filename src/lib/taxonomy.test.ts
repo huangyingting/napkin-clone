@@ -6,6 +6,7 @@ import {
   firstAvailableTagSlug,
   normalizeTagName,
   TAG_NAME_MAX_LENGTH,
+  tagSlugCandidate,
   tagSlugCandidates,
 } from "./taxonomy";
 
@@ -40,6 +41,15 @@ test("tagSlugCandidates uses deterministic bounded suffixes", () => {
     "tag-3",
     "tag-4",
   ]);
+});
+
+test("tag slug candidates reject negative direct attempts and clamp invalid bounds", () => {
+  assert.throws(
+    () => tagSlugCandidate("tag", -1),
+    /attempt index must be non-negative/,
+  );
+  assert.deepEqual(tagSlugCandidates("tag", Number.NaN), []);
+  assert.deepEqual(tagSlugCandidates("tag", -2), []);
 });
 
 test("firstAvailableTagSlug returns the first unused deterministic candidate", () => {

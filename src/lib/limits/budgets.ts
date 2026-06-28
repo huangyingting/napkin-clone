@@ -95,6 +95,8 @@ export function checkLimit(
 export function budgetExceededDiagnostic(
   result: Pick<LimitCheckResult, "diagnostic">,
 ): BudgetExceededDiagnostic {
+  /* node:coverage disable */
+  /* Diagnostic object values are asserted by limits tests; tsx maps the literal as uncovered. */
   return {
     code: "BUDGET_EXCEEDED",
     severity: "warning",
@@ -106,6 +108,7 @@ export function budgetExceededDiagnostic(
       budget: result.diagnostic.budget,
     },
   };
+  /* node:coverage enable */
 }
 
 export function formatBytesAsMb(bytes: number): number {

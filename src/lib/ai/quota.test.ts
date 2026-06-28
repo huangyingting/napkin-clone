@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  anonTrialLimit,
   checkRateLimit,
   checkRateLimitWithStore,
   newAnonState,
@@ -12,6 +13,20 @@ import {
 } from "@/lib/ai/quota";
 
 const SECRET = "test-secret-value-1234567890";
+
+test("anonTrialLimit reads a positive environment override", () => {
+  const previous = process.env.ANON_GENERATION_LIMIT;
+  process.env.ANON_GENERATION_LIMIT = "7";
+  try {
+    assert.equal(anonTrialLimit(), 7);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ANON_GENERATION_LIMIT;
+    } else {
+      process.env.ANON_GENERATION_LIMIT = previous;
+    }
+  }
+});
 
 test("signAnonState / parseAnonCookie round-trips", () => {
   const state = { id: "anon-123", count: 2 };
@@ -40,6 +55,12 @@ test("parseAnonCookie rejects malformed or missing values", () => {
   assert.equal(parseAnonCookie("", SECRET), null);
   assert.equal(parseAnonCookie("no-separator", SECRET), null);
   assert.equal(parseAnonCookie("not.base64", SECRET), null);
+});
+
+test("parseAnonCookie rejects signatures with mismatched lengths", () => {
+  const cookie = signAnonState({ id: "anon-123", count: 0 }, SECRET);
+  const payload = cookie.slice(0, cookie.lastIndexOf("."));
+  assert.equal(parseAnonCookie(`${payload}.short`, SECRET), null);
 });
 
 test("newAnonState starts at zero with a unique non-empty id", () => {

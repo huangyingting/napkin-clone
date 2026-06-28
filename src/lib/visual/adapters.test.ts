@@ -81,6 +81,17 @@ test("default adapter passes any valid visual", () => {
   assert.equal(result.ok, true);
 });
 
+test("default adapter exposes generic node presentation fields", () => {
+  assert.deepEqual(getAdapter("mindmap").editableNodeFields(), [
+    "label",
+    "icon",
+    "shape",
+    "color",
+    "stroke",
+    "textColor",
+  ]);
+});
+
 // ---------------------------------------------------------------------------
 // Chart adapter
 // ---------------------------------------------------------------------------
@@ -103,12 +114,25 @@ test("chart adapter fails when a node is missing value", () => {
       { id: "n2", label: "B" },
     ],
   });
+
   const result = validateWithAdapter(visual);
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.errors.length, 1);
     assert.equal(result.errors[0]!.code, "chart.missing-value");
     assert.equal(result.errors[0]!.nodeId, "n2");
+  }
+});
+
+test("chart adapter fails when a node value is not finite", () => {
+  const visual = baseVisual("chart", {
+    nodes: [{ id: "n1", label: "A", value: Number.NaN }],
+  });
+  const result = validateWithAdapter(visual);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errors[0]!.code, "chart.missing-value");
+    assert.equal(result.errors[0]!.nodeId, "n1");
   }
 });
 
@@ -150,10 +174,30 @@ test("flowchart adapter fails on dangling edge target", () => {
     nodes: [{ id: "n1", label: "Start", x: 100, y: 100 }],
     edges: [{ id: "e1", from: "n1", to: "missing" }],
   });
+
   const result = validateWithAdapter(visual);
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.errors[0]!.code, "flowchart.dangling-edge-to");
+  }
+});
+
+test("flowchart adapter reports both dangling endpoints on the same edge", () => {
+  const visual = baseVisual("flowchart", {
+    nodes: [{ id: "n1", label: "Start", x: 100, y: 100 }],
+    edges: [{ id: "e1", from: "missing-from", to: "missing-to" }],
+  });
+  const result = validateWithAdapter(visual);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.deepEqual(
+      result.errors.map((error) => error.code),
+      ["flowchart.dangling-edge-from", "flowchart.dangling-edge-to"],
+    );
+    assert.deepEqual(
+      result.errors.map((error) => error.edgeId),
+      ["e1", "e1"],
+    );
   }
 });
 

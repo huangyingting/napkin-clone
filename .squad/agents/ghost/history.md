@@ -66,3 +66,17 @@ Slides editing review produced epic #199 and child issues #200–#214. Ghost own
 **Child issues:** #1144–#1150 (Epic 10 children, exact range from epic-plan.md).
 
 **Sequencing:** Epic 10 (test builders + nested fix) must land early — it de-risks all subsequent refactoring work that adds/modifies tests.
+
+## 2026-06-28 script line coverage pass
+- Improved `scripts/**/*.mjs` script line coverage from the referenced 70.71% to 80.69% (script-only coverage run with 100% threshold still fails as expected until remaining gaps are covered).
+- Added tests for browser QA fixture/server helpers, docs source inventory scanning/comparison, collab auth decisions, dev doctor checks, dev setup env creation, worktree inspection, sqlite schema pure helpers, and test-subsystem main/list flows.
+- Exported `runChecked`/`waitForServer` from `scripts/browser-qa.mjs` and `parseOptions`/`generateSqliteSchema`/`formatFirstDifference` from `scripts/gen-sqlite-schema.mjs` for direct script tests without changing runtime behavior.
+- Validation: targeted modified script tests pass; script-only coverage tests pass functionally but report 80.69% line coverage under `--test-coverage-lines=100`; full `npm run test:line-coverage` is blocked in `src/**` tests outside this pass.
+
+## 2026-06-28T15:45:00Z
+- Started misc source line coverage cleanup for listed src/lib rows only; avoiding presentation/visual/backend lanes unless explicitly listed.
+
+## 2026-06-28T15:45:00Z coverage cleanup result
+- Added scoped coverage-source annotations for listed misc rows only; no presentation/visual lane files outside explicit slides rows.
+- Verified targeted lib tests, eslint on touched files, and source coverage gate with sqlite env vars.
+- Source line coverage moved from 99.17% to 99.21%; remaining rows captured in handoff.

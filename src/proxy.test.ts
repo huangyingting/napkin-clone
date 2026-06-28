@@ -10,7 +10,7 @@ import {
   routeProtectionPolicy,
 } from "@/lib/auth/route-protection-policy";
 
-import { config } from "./proxy";
+import { config, proxy } from "./proxy";
 
 function proxyMatcherAllows(pathname: string): boolean {
   const [matcher] = config.matcher;
@@ -23,6 +23,10 @@ test("proxy matcher is explicit and sourced from the shared route policy", () =>
   assert.deepEqual(config.matcher, [
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ]);
+});
+
+test("proxy exports the NextAuth proxy handler", () => {
+  assert.equal(typeof proxy, "function");
 });
 
 test("proxy matcher excludes API, Next static/image, and favicon routes", () => {

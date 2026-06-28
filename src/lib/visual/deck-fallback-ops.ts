@@ -10,6 +10,7 @@ import {
   type PptxSlideLayout,
 } from "@/lib/visual/pptx-shapes";
 
+/* node:coverage ignore next 8 -- OperationBox is an erased type facade; tsx maps the declaration as uncovered. @preserve */
 interface OperationBox {
   x: number;
   y: number;

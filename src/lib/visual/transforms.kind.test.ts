@@ -7,7 +7,13 @@ import {
   validateVisual,
   type Visual,
 } from "@/lib/visual/schema";
-import { applyTheme, setVisualKind, setVisualStyle } from "./transforms";
+import {
+  applyTheme,
+  setAspectRatio,
+  setCanvasStyle,
+  setVisualKind,
+  setVisualStyle,
+} from "./transforms";
 import { sourceFor } from "./transforms.test-helpers";
 
 test("setVisualKind yields schema-valid output for every kind pair", () => {
@@ -70,6 +76,29 @@ test("setVisualKind assigns finite positions for positioned kinds", () => {
   }
 });
 
+test("setVisualKind supplies default node boxes when switching to positioned layouts", () => {
+  const source: Visual = {
+    ...sourceFor("list"),
+    nodes: sourceFor("list").nodes.map(
+      ({ width: _width, height: _height, ...node }) => {
+        void _width;
+        void _height;
+        return node;
+      },
+    ),
+  };
+
+  const flowchart = setVisualKind(source, "flowchart");
+  assert.equal(flowchart.nodes[0].width, 150);
+  assert.equal(flowchart.nodes[0].height, 56);
+  assert.equal(flowchart.nodes[0].shape, "rounded");
+
+  const mindmap = setVisualKind(source, "mindmap");
+  assert.equal(mindmap.nodes[0].width, 150);
+  assert.equal(mindmap.nodes[0].height, 56);
+  assert.equal(mindmap.nodes[0].shape, "pill");
+});
+
 test("setVisualKind keeps auto-layout Venn circles positioned", () => {
   const source: Visual = { ...sourceFor("flowchart"), autoLayout: true };
   const next = setVisualKind(source, "venn");
@@ -93,6 +122,17 @@ test("setVisualKind is immutable (input untouched)", () => {
   const before = JSON.stringify(source);
   setVisualKind(source, "funnel");
   assert.equal(JSON.stringify(source), before, "input must not be mutated");
+});
+
+test("frame-setting transforms set and clear export frame metadata", () => {
+  const source = sourceFor("chart");
+  const square = setAspectRatio(source, "1:1");
+  assert.equal(square.aspectRatio, "1:1");
+  assert.equal(setAspectRatio(square, "auto").aspectRatio, undefined);
+
+  const ruled = setCanvasStyle(source, "ruled");
+  assert.equal(ruled.canvasStyle, "ruled");
+  assert.equal(setCanvasStyle(ruled, "blank").canvasStyle, undefined);
 });
 
 test("transforms round-trip through safeParseVisual", () => {

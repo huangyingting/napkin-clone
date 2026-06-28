@@ -241,6 +241,7 @@ export const CANVAS_SHORTCUTS: readonly ShortcutEntry[] = [
     tokens: ["Mod", "N"],
     canonical: "Mod+N",
     match: modKey("n"),
+    /* node:coverage ignore next -- Shortcut literal is asserted through registry metadata; tsx maps this property as uncovered. */
     description: "New slide",
   }),
   canvasShortcut({

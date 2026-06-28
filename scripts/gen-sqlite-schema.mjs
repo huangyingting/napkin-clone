@@ -79,7 +79,7 @@ const REQUIRED_SCHEMA_CONTRACT_METADATA = [
   },
 ];
 
-function parseOptions(args) {
+export function parseOptions(args) {
   const options = {
     check: false,
     ifSqlite: false,
@@ -116,7 +116,7 @@ export function validateSchemaContractMetadata(schema) {
   return missing;
 }
 
-function generateSqliteSchema(canonical) {
+export function generateSqliteSchema(canonical) {
   const match = canonical.match(DATASOURCE_PROVIDER);
   if (!match) {
     throw new Error(
@@ -131,7 +131,7 @@ function generateSqliteSchema(canonical) {
   };
 }
 
-function formatFirstDifference(expected, actual) {
+export function formatFirstDifference(expected, actual) {
   const expectedLines = expected.split("\n");
   const actualLines = actual.split("\n");
   const maxLines = Math.max(expectedLines.length, actualLines.length);
@@ -165,62 +165,75 @@ function formatFirstDifference(expected, actual) {
   return lines.join("\n");
 }
 
-function main() {
-  const options = parseOptions(process.argv.slice(2));
+export function runSqliteSchemaCli({
+  argv = process.argv.slice(2),
+  env = process.env,
+  readFile = readFileSync,
+  writeFile = writeFileSync,
+  stdout = process.stdout,
+  stderr = process.stderr,
+  setExitCode = (code) => {
+    process.exitCode = code;
+  },
+  paths = { canonicalPath, sqlitePath },
+} = {}) {
+  const options = parseOptions(argv);
 
-  if (options.ifSqlite && process.env.DB_PROVIDER === "postgres") {
-    console.log("Skipping SQLite schema generation for DB_PROVIDER=postgres.");
+  if (options.ifSqlite && env.DB_PROVIDER === "postgres") {
+    stdout.write(
+      "Skipping SQLite schema generation for DB_PROVIDER=postgres.\n",
+    );
     return;
   }
 
-  const canonical = readFileSync(canonicalPath, "utf8");
+  const canonical = readFile(paths.canonicalPath, "utf8");
   const { from, schema: sqliteSchema } = generateSqliteSchema(canonical);
 
   if (options.stdout) {
-    process.stdout.write(sqliteSchema);
+    stdout.write(sqliteSchema);
     return;
   }
 
   if (options.check) {
-    const current = readFileSync(sqlitePath, "utf8");
+    const current = readFile(paths.sqlitePath, "utf8");
     if (current !== sqliteSchema) {
-      console.error(
+      stderr.write(
         "prisma/schema.sqlite.prisma is stale. Run `npm run db:schema:sqlite` " +
-          "and commit the regenerated file.",
+          "and commit the regenerated file.\n",
       );
-      console.error(formatFirstDifference(sqliteSchema, current));
-      process.exitCode = 1;
+      stderr.write(`${formatFirstDifference(sqliteSchema, current)}\n`);
+      setExitCode(1);
       return;
     }
 
     const missingMetadata = validateSchemaContractMetadata(canonical);
     if (missingMetadata.length > 0) {
-      console.error(
+      stderr.write(
         "prisma/schema.prisma is missing persisted-contract metadata for: " +
-          missingMetadata.join(", "),
+          `${missingMetadata.join(", ")}\n`,
       );
-      console.error(
+      stderr.write(
         "Document schema changes must keep migration/no-migration intent and " +
-          "contract comments with the schema they describe.",
+          "contract comments with the schema they describe.\n",
       );
-      process.exitCode = 1;
+      setExitCode(1);
       return;
     }
 
-    console.log(
-      "prisma/schema.sqlite.prisma matches generated output from prisma/schema.prisma.",
+    stdout.write(
+      "prisma/schema.sqlite.prisma matches generated output from prisma/schema.prisma.\n",
     );
     return;
   }
 
-  writeFileSync(sqlitePath, sqliteSchema);
+  writeFile(paths.sqlitePath, sqliteSchema);
 
-  console.log(
+  stdout.write(
     `Generated prisma/schema.sqlite.prisma from prisma/schema.prisma ` +
-      `(datasource provider "${from}" -> "${TARGET_PROVIDER}").`,
+      `(datasource provider "${from}" -> "${TARGET_PROVIDER}").\n`,
   );
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  runSqliteSchemaCli();
 }

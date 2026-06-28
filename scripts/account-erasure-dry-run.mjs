@@ -16,29 +16,33 @@ export function buildAccountErasureDryRunReport(userId, findings) {
   };
 }
 
-async function main() {
-  const userId = process.argv[2];
+export async function runAccountErasureDryRun({
+  argv = process.argv,
+  importDeps = async () =>
+    Promise.all([
+      import("../src/lib/prisma.ts"),
+      import("../src/lib/account/erasure.ts"),
+    ]),
+  stdout = console.log,
+  stderr = console.error,
+} = {}) {
+  const userId = argv[2];
   if (!userId || userId === "--help" || userId === "-h") {
-    console.error(
+    stderr(
       "Usage: node --import tsx scripts/account-erasure-dry-run.mjs <userId>",
     );
     process.exitCode = userId ? 0 : 1;
     return;
   }
 
-  const [{ prisma }, { verifyAccountErasure }] = await Promise.all([
-    import("../src/lib/prisma.ts"),
-    import("../src/lib/account/erasure.ts"),
-  ]);
+  const [{ prisma }, { verifyAccountErasure }] = await importDeps();
   const findings = await verifyAccountErasure(prisma, userId);
-  console.log(
-    JSON.stringify(buildAccountErasureDryRunReport(userId, findings)),
-  );
+  stdout(JSON.stringify(buildAccountErasureDryRunReport(userId, findings)));
   process.exitCode = findings.length === 0 ? 0 : 2;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
+  runAccountErasureDryRun().catch((error) => {
     console.error(error instanceof Error ? error.message : "dry-run failed");
     process.exitCode = 1;
   });

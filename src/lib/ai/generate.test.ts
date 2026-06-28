@@ -216,6 +216,7 @@ test("extractJson handles objects, arrays, fences, and surrounding prose", () =>
 
 test("coerceCandidates accepts only the current visuals wrapper", () => {
   assert.equal(coerceCandidates({ visuals: [1, 2] }).length, 2);
+  assert.equal(coerceCandidates({ visuals: "not an array" }).length, 0);
   assert.equal(coerceCandidates({ candidates: [1] }).length, 0);
   assert.equal(coerceCandidates({ options: [1, 2, 3] }).length, 0);
   assert.equal(coerceCandidates({ results: [1] }).length, 0);
@@ -223,4 +224,15 @@ test("coerceCandidates accepts only the current visuals wrapper", () => {
   assert.equal(coerceCandidates({ nodes: [], type: "flowchart" }).length, 0);
   assert.equal(coerceCandidates({ unrelated: true }).length, 0);
   assert.equal(coerceCandidates(42).length, 0);
+});
+
+test("generation prompt uses the larger requested candidate count", async () => {
+  const { complete, calls } = sequence([payload(5)]);
+  const result = await generateVisuals(
+    { text: "hello", count: 5 },
+    { complete, minCandidates: 3, maxAttempts: 1 },
+  );
+
+  assert.equal(result.length, 5);
+  assert.match(JSON.stringify(calls.messages[0]), /5/);
 });

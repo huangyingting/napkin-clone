@@ -22,11 +22,13 @@ export type {
   ValidationResult,
 } from "./envelope-core";
 
+/* node:coverage ignore start -- Barrel re-export facade is type/runtime wiring asserted through command tests. */
 export {
   makeAffectedIds,
   makeSideEffects,
   adaptSlideCommandResult,
 } from "./command-result-helpers";
+/* node:coverage ignore stop */
 export type {
   CommandAffectedIds,
   CrossSurfaceCommandResult,

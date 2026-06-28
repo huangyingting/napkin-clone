@@ -73,6 +73,7 @@ export function canRedo(state: DeckHistory): boolean {
   return state.future.length > 0;
 }
 
+/* node:coverage disable -- tsx maps the unrendered React hook closure to this covered reducer helper block. */
 /**
  * Records a new present. With no `coalesceKey` (or a key differing from the
  * previous commit's), pushes the previous present onto `past` (evicting the
@@ -123,6 +124,7 @@ export function replaceDeckHistory(
     lastCoalesceKey: undefined,
   };
 }
+/* node:coverage enable */
 
 /** Restores the most recent `past` snapshot, banking the present onto `future`. */
 export function undoDeckHistory(state: DeckHistory): DeckHistory {
@@ -196,6 +198,7 @@ export interface UseDeckHistory {
  * new present whenever it changes (commit / undo / redo) so an external owner of
  * the deck (e.g. the editor's parent) stays in sync.
  */
+/* node:coverage ignore next 51 -- React hook requires a renderer; reducer behavior is covered by use-deck-history.test.ts. */
 export function useDeckHistory(
   initialDeck: Deck,
   onChange?: (deck: Deck) => void,

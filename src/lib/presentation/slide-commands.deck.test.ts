@@ -70,6 +70,34 @@ test("SET_PRESENTATION_THEME clears theme overrides so built-in theme is visible
   assert.equal((result.deck as any).design.themeOverrides, undefined);
 });
 
+test("UPDATE_THEME_OVERRIDES stores token patches and emits deck fields", () => {
+  const deck = buildCommandDeck(["s1", "s2"]);
+  const patch = {
+    colors: { accent: "#112233" },
+  };
+
+  const result = executeCommand(deck, {
+    type: "UPDATE_THEME_OVERRIDES",
+    patch,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    (result.deck as any).design.themeOverrides.tokenSet.id,
+    "custom:default",
+  );
+  assert.equal(
+    (result.deck as any).design.themeOverrides.tokenSet.colors.accent,
+    "#112233",
+  );
+  assert.equal(result.patches[0]!.op, "presentation.update_theme_overrides");
+  assert.deepEqual(result.patches[0]!.slideIds, ["s1", "s2"]);
+  assert.equal(
+    result.patches[0]!.deckFields?.design?.themeOverrides?.tokenSet?.id,
+    "custom:default",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Issue #400 — SET_CANVAS_FORMAT
 // ---------------------------------------------------------------------------
@@ -162,6 +190,43 @@ test("UPDATE_MASTER updates deck-owned master chrome", () => {
   assert.equal(safeParseDeck(result.deck).success, true);
 });
 
+test("master commands fail for missing or protected masters", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [master("master-default"), master("master-alt")],
+    defaultMasterId: "master-default",
+  } as Deck;
+
+  const duplicate = executeCommand(deck, {
+    type: "CREATE_MASTER",
+    master: master("master-alt"),
+  });
+  assert.equal(duplicate.ok, false);
+  assert.match(duplicate.error ?? "", /already exists/);
+
+  const missingUpdate = executeCommand(deck, {
+    type: "UPDATE_MASTER",
+    masterId: "missing",
+    patch: {},
+  });
+  assert.equal(missingUpdate.ok, false);
+  assert.match(missingUpdate.error ?? "", /Master not found/);
+
+  const deleteDefault = executeCommand(deck, {
+    type: "DELETE_MASTER",
+    masterId: "master-default",
+  });
+  assert.equal(deleteDefault.ok, false);
+  assert.match(deleteDefault.error ?? "", /default master/);
+
+  const missingDefault = executeCommand(deck, {
+    type: "SET_DEFAULT_MASTER",
+    masterId: "missing",
+  });
+  assert.equal(missingDefault.ok, false);
+  assert.match(missingDefault.error ?? "", /Master not found/);
+});
+
 test("SET_DEFAULT_MASTER and SET_SLIDE_MASTER update master assignments", () => {
   const deck = {
     ...buildCommandDeck(["s1"]),
@@ -183,6 +248,39 @@ test("SET_DEFAULT_MASTER and SET_SLIDE_MASTER update master assignments", () => 
   assert.equal(slideResult.ok, true);
   assert.equal((slideResult.deck.slides[0] as any).masterId, "master-default");
   assert.equal(slideResult.patches[0]!.op, "slide.set_master");
+
+  const cleared = executeCommand(slideResult.deck, {
+    type: "SET_SLIDE_MASTER",
+    slideId: "s1",
+    masterId: undefined,
+  });
+  assert.equal(cleared.ok, true);
+  assert.equal((cleared.deck.slides[0] as any).masterId, undefined);
+});
+
+test("SET_SLIDE_MASTER fails without mutating when slide or master is missing", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [master("master-default")],
+  } as Deck;
+
+  const missingMaster = executeCommand(deck, {
+    type: "SET_SLIDE_MASTER",
+    slideId: "s1",
+    masterId: "missing",
+  });
+  assert.equal(missingMaster.ok, false);
+  assert.equal(missingMaster.deck, deck);
+  assert.match(missingMaster.error ?? "", /Master not found/);
+
+  const missingSlide = executeCommand(deck, {
+    type: "SET_SLIDE_MASTER",
+    slideId: "missing",
+    masterId: "master-default",
+  });
+  assert.equal(missingSlide.ok, false);
+  assert.equal(missingSlide.deck, deck);
+  assert.match(missingSlide.error ?? "", /Slide not found/);
 });
 
 test("UPDATE_MASTER_ELEMENT patches a locked master element", () => {
@@ -192,7 +290,7 @@ test("UPDATE_MASTER_ELEMENT patches a locked master element", () => {
       {
         id: "master-default",
         name: "Default",
-        elements: [masterTextElement("me1")],
+        elements: [masterTextElement("me1"), masterTextElement("me2")],
       },
     ],
   } as unknown as Deck;
@@ -208,6 +306,10 @@ test("UPDATE_MASTER_ELEMENT patches a locked master element", () => {
   const element = (result.deck as any).masters[0].elements[0];
   assert.equal(element.locked, true);
   assert.equal(element.content.text, "New");
+  assert.equal(
+    (result.deck as any).masters[0].elements[1].content.text,
+    "Footer",
+  );
   assert.equal(result.patches[0]!.op, "master.element.update");
   assert.equal(safeParseDeck(result.deck).success, true);
 });
@@ -232,6 +334,37 @@ test("UPDATE_MASTER_ELEMENT rejects invalid master chrome patches", () => {
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.match(result.error ?? "", /layer must be "foreground"/);
+});
+
+test("UPDATE_MASTER_ELEMENT fails for missing master or element", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    masters: [
+      {
+        id: "master-default",
+        name: "Default",
+        elements: [masterTextElement("me1")],
+      },
+    ],
+  } as unknown as Deck;
+
+  const missingMaster = executeCommand(deck, {
+    type: "UPDATE_MASTER_ELEMENT",
+    masterId: "missing",
+    elementId: "me1",
+    patch: {},
+  });
+  assert.equal(missingMaster.ok, false);
+  assert.match(missingMaster.error ?? "", /Master not found/);
+
+  const missingElement = executeCommand(deck, {
+    type: "UPDATE_MASTER_ELEMENT",
+    masterId: "master-default",
+    elementId: "missing",
+    patch: {},
+  });
+  assert.equal(missingElement.ok, false);
+  assert.match(missingElement.error ?? "", /Master element not found/);
 });
 
 test("DELETE_MASTER removes non-default master and clears slide assignment", () => {
@@ -354,6 +487,59 @@ test("APPLY_SLIDE_TEMPLATE can preserve matching element content", () => {
   assert.equal(safeParseDeck(result.deck).success, true);
 });
 
+test("APPLY_SLIDE_TEMPLATE preserves each existing matching element once", () => {
+  const titleElement = {
+    id: "existing-title",
+    kind: "text",
+    role: "title",
+    box: { x: 6, y: 6, w: 88, h: 14 },
+    zIndex: 0,
+    content: {
+      kind: "text",
+      text: "Keep title",
+      paragraphs: [{ text: "Keep title" }],
+    },
+  } as unknown as SlideElement;
+  const subtitleElement = {
+    id: "existing-subtitle",
+    kind: "text",
+    role: "subtitle",
+    box: { x: 8, y: 62, w: 84, h: 12 },
+    zIndex: 1,
+    content: {
+      kind: "text",
+      text: "Keep subtitle",
+      paragraphs: [{ text: "Keep subtitle" }],
+    },
+  } as unknown as SlideElement;
+  const deck = buildDeck({
+    design: { themeId: "default" },
+    slides: [
+      buildSlide({
+        id: "s1",
+        index: 0,
+        title: "Slide",
+        elements: [titleElement, subtitleElement],
+      }),
+    ],
+  });
+
+  const result = executeCommand(deck, {
+    type: "APPLY_SLIDE_TEMPLATE",
+    slideId: "s1",
+    templateId: "title",
+    mode: "preserve",
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    (result.deck.slides[0].elements ?? []).map(
+      (element: any) => element.content.text,
+    ),
+    ["Keep title", "Keep subtitle"],
+  );
+});
+
 test("custom template CRUD updates deck.customTemplates and replays patches", () => {
   const deck = buildCommandDeck(["s1"]);
   const create = executeCommand(deck, {
@@ -398,6 +584,108 @@ test("ADD_SLIDE_FROM_TEMPLATE materializes a custom template", () => {
   assert.equal(added.templateId, "template-custom");
   assert.equal(added.elements[0].content.text, "Custom title");
   assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("ADD_SLIDE_FROM_TEMPLATE copies custom template slide design defaults", () => {
+  const template = {
+    ...customTemplate("template-designed"),
+    slideDesignDefaults: {
+      background: { type: "solid", color: { value: "#112233" } },
+    },
+  };
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    customTemplates: [template],
+  } as Deck;
+
+  const result = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "template-designed",
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    (result.deck.slides.at(-1) as any).designOverrides,
+    template.slideDesignDefaults,
+  );
+});
+
+test("ADD_SLIDE_FROM_TEMPLATE supplies fallback content for sparse custom template slots", () => {
+  const template = customTemplate("template-sparse");
+  template.elements = [
+    {
+      id: "slot-visual",
+      kind: "visual",
+      role: "visual",
+      box: { x: 10, y: 10, w: 30, h: 30 },
+    } as any,
+  ];
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    customTemplates: [template],
+  } as Deck;
+
+  const result = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "template-sparse",
+  });
+
+  assert.equal(result.ok, true);
+  const added = result.deck.slides.at(-1) as any;
+  assert.equal(added.elements[0].kind, "visual");
+  assert.deepEqual(added.elements[0].content, { kind: "visual" });
+});
+
+test("template commands fail for missing slides and templates", () => {
+  const deck = {
+    ...buildCommandDeck(["s1"]),
+    customTemplates: [customTemplate()],
+  } as Deck;
+
+  const missingTemplateAdd = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "missing",
+  });
+  assert.equal(missingTemplateAdd.ok, false);
+  assert.match(missingTemplateAdd.error ?? "", /Template not found/);
+
+  const missingAfterSlide = executeCommand(deck, {
+    type: "ADD_SLIDE_FROM_TEMPLATE",
+    templateId: "title",
+    afterSlideId: "missing",
+  });
+  assert.equal(missingAfterSlide.ok, false);
+  assert.match(missingAfterSlide.error ?? "", /Slide not found/);
+
+  const missingApplySlide = executeCommand(deck, {
+    type: "APPLY_SLIDE_TEMPLATE",
+    slideId: "missing",
+    templateId: "title",
+  });
+  assert.equal(missingApplySlide.ok, false);
+  assert.match(missingApplySlide.error ?? "", /Slide not found/);
+
+  const duplicateTemplate = executeCommand(deck, {
+    type: "CREATE_CUSTOM_TEMPLATE",
+    template: customTemplate(),
+  });
+  assert.equal(duplicateTemplate.ok, false);
+  assert.match(duplicateTemplate.error ?? "", /already exists/);
+
+  const missingTemplateUpdate = executeCommand(deck, {
+    type: "UPDATE_CUSTOM_TEMPLATE",
+    templateId: "missing",
+    patch: {},
+  });
+  assert.equal(missingTemplateUpdate.ok, false);
+  assert.match(missingTemplateUpdate.error ?? "", /Template not found/);
+
+  const missingTemplateDelete = executeCommand(deck, {
+    type: "DELETE_CUSTOM_TEMPLATE",
+    templateId: "missing",
+  });
+  assert.equal(missingTemplateDelete.ok, false);
+  assert.match(missingTemplateDelete.error ?? "", /Template not found/);
 });
 
 test("ADD_SLIDE_FROM_TEMPLATE omits custom template master chrome elements", () => {

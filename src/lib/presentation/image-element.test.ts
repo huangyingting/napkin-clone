@@ -231,6 +231,38 @@ test("totalInlineImageBytes: background data URL counts toward the total", () =>
   assert.equal(totalInlineImageBytes(deck), 6000);
 });
 
+test("totalInlineImageBytes: master image data URLs count toward the total", () => {
+  const masterUrl = dataUrlOfBytes(700);
+  const deck: Deck = {
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "default" },
+    masters: [
+      {
+        id: "master-default",
+        name: "Default",
+        elements: [
+          {
+            id: "logo",
+            kind: "image",
+            role: "logo",
+            masterChromeKind: "logo",
+            layer: "foreground",
+            locked: true,
+            box: { x: 0, y: 0, w: 10, h: 10 },
+            zIndex: 0,
+            content: { kind: "image", src: masterUrl },
+          } as any,
+        ],
+      },
+    ],
+    defaultMasterId: "master-default",
+    slides: [{ id: "slide", index: 0, title: "", notes: "", elements: [] }],
+  };
+
+  assert.equal(totalInlineImageBytes(deck), 700);
+});
+
 test("totalInlineImageBytes: remote background contributes 0", () => {
   const deck = deckWithBackground("https://example.com/bg.jpg");
   assert.equal(totalInlineImageBytes(deck), 0);

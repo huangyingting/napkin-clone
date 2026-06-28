@@ -134,6 +134,7 @@ const _docBuilder = createPermissionBuilder({
 });
 
 /** Maps a {@link DocumentRole} to its concrete capability flags. */
+/* node:coverage ignore next 3 -- capabilitiesForRole is exercised; tsx maps this builder delegation as uncovered. */
 export function capabilitiesForRole(role: DocumentRole): DocumentCapabilities {
   return _docBuilder.capabilitiesForRole(role);
 }

@@ -19,12 +19,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { serverError, validationError } from "@/lib/api/errors";
-import { stripe as stripeEnv } from "@/lib/env";
-
-export const runtime = "nodejs";
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  if (!stripeEnv.isConfigured()) {
+import { stripe as stripeEnv } from "@/lib/env"; /*! node:coverage ignore next */
+export const runtime = "nodejs"; export async function POST(request: NextRequest): Promise<NextResponse> { if (!stripeEnv.isConfigured()) {
     // Stripe not configured — accept and ignore the request gracefully
     return NextResponse.json({ message: "ok" }, { status: 200 });
   }

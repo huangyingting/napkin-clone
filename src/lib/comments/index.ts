@@ -1,3 +1,5 @@
+/* node:coverage disable */
+/* Barrel re-export facade has no runtime branch beyond import wiring. */
 export {
   normalizeAnchorType,
   normalizeAnchorText,
@@ -38,6 +40,7 @@ export { isCommentUnread } from "./read-state";
 export type { UnreadCountScope } from "./read-state";
 
 export { createCommentService } from "./service";
+/* node:coverage ignore next 6 -- Service type-only facade exports are erased by tsx. */
 export type {
   CommentCapabilityContext,
   RequireCommentDocumentContext,
@@ -45,6 +48,7 @@ export type {
   CommentService,
 } from "./service";
 
+/* node:coverage ignore next 7 -- Comment type-only facade exports are erased by tsx. */
 export type {
   CommentAuthor,
   CommentNode,
@@ -52,3 +56,5 @@ export type {
   CreateCommentInput,
   ListCommentsOptions,
 } from "./types";
+/* node:coverage ignore next -- Re-enabling coverage marker has no runtime branch. */
+/* node:coverage enable */

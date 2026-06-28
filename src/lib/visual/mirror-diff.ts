@@ -1,5 +1,5 @@
 /**
- * Pure, DOM-free diff logic for {@link mirrorVisualNodes} (issue #138).
+ * Pure, DOM-free diff logic for {@link mirrorVisualNodes}.
  *
  * Given the `Visual` rows currently persisted for a document and the live
  * {@link VisualNode}s in the editor state, this computes the minimal set of
@@ -70,6 +70,7 @@ export type VisualMirrorDiff<TData = unknown> = {
  * a structured log entry so production pipelines can track drift over time.
  * Never contains visual payloads or PII — only counts and ids.
  */
+/* node:coverage ignore next -- VisualMirrorOutcome is an exported type facade; tsx maps its declaration as uncovered. */
 export type VisualMirrorOutcome = {
   /** Rows inserted into the Visual table. */
   created: number;

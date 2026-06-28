@@ -3,9 +3,13 @@ import { test } from "node:test";
 
 import {
   applyDocumentListViewState,
+  filterDocumentsByTag,
+  filterDocumentsByView,
   parseSort,
   parseTag,
   parseView,
+  replaceDocumentListQueryState,
+  sortDocuments,
 } from "./document-list-url-state";
 
 type TestDocument = Parameters<typeof applyDocumentListViewState>[0][number];
@@ -31,6 +35,7 @@ function doc(id: string, overrides: Partial<TestDocument> = {}): TestDocument {
 
 test("parseSort keeps URL sort state client-local with a safe default", () => {
   assert.equal(parseSort("title"), "title");
+  assert.equal(parseSort(null), "edited");
   assert.equal(parseSort("unknown"), "edited");
 });
 
@@ -95,5 +100,105 @@ test("applyDocumentListViewState sorts title view state without changing input",
   assert.deepEqual(
     documents.map((document) => document.title),
     ["Beta", "Alpha"],
+  );
+});
+
+test("replaceDocumentListQueryState replaces the URL with mutated query params", () => {
+  const originalWindow = globalThis.window;
+  const calls: Array<[unknown, string, string]> = [];
+  (globalThis as unknown as { window: unknown }).window = {
+    history: {
+      replaceState: (...args: [unknown, string, string]) => calls.push(args),
+    },
+  };
+
+  try {
+    replaceDocumentListQueryState(
+      "/app",
+      new URLSearchParams("sort=title&page=2"),
+      (params) => {
+        params.set("view", "favorites");
+        params.delete("page");
+      },
+    );
+
+    assert.deepEqual(calls, [[null, "", "/app?sort=title&view=favorites"]]);
+
+    replaceDocumentListQueryState(
+      "/app",
+      new URLSearchParams("sort=title"),
+      (params) => params.delete("sort"),
+    );
+
+    assert.deepEqual(calls[1], [null, "", "/app"]);
+  } finally {
+    (globalThis as unknown as { window: unknown }).window = originalWindow;
+  }
+});
+
+test("replaceDocumentListQueryState accepts search param facades from client hooks", () => {
+  const originalWindow = globalThis.window;
+  const calls: Array<[unknown, string, string]> = [];
+  const searchParams = {
+    get(name: string) {
+      return name === "sort" ? "created" : null;
+    },
+    entries() {
+      return new Map([
+        ["sort", "created"],
+        ["view", "favorites"],
+      ]).entries();
+    },
+  };
+  (globalThis as unknown as { window: unknown }).window = {
+    history: {
+      replaceState: (...args: [unknown, string, string]) => calls.push(args),
+    },
+  };
+
+  try {
+    assert.equal(searchParams.get("sort"), "created");
+    replaceDocumentListQueryState("/app", searchParams, (params) => {
+      params.delete("view");
+    });
+
+    assert.deepEqual(calls, [[null, "", "/app?sort=created"]]);
+  } finally {
+    (globalThis as unknown as { window: unknown }).window = originalWindow;
+  }
+});
+
+test("sortDocuments handles created sort and favorites-first grouping", () => {
+  const documents = [
+    doc("old-favorite", { favorite: true, createdAtMs: 1 }),
+    doc("new-regular", { favorite: false, createdAtMs: 3 }),
+    doc("new-favorite", { favorite: true, createdAtMs: 2 }),
+  ];
+
+  assert.deepEqual(
+    sortDocuments(documents, "created", true).map((document) => document.id),
+    ["new-favorite", "old-favorite", "new-regular"],
+  );
+  assert.deepEqual(
+    sortDocuments(documents, "created", false).map((document) => document.id),
+    ["new-regular", "new-favorite", "old-favorite"],
+  );
+});
+
+test("filterDocuments helpers return original list for all-view filters", () => {
+  const documents = [doc("alpha"), doc("beta", { favorite: true })];
+
+  assert.equal(filterDocumentsByTag(documents, null), documents);
+  assert.equal(filterDocumentsByView(documents, "all"), documents);
+});
+
+test("filterDocumentsByView returns only favorite documents for favorites view", () => {
+  const documents = [doc("alpha"), doc("beta", { favorite: true })];
+
+  assert.deepEqual(
+    filterDocumentsByView(documents, "favorites").map(
+      (document) => document.id,
+    ),
+    ["beta"],
   );
 });

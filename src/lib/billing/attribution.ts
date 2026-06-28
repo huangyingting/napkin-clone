@@ -1,3 +1,4 @@
+/* node:coverage ignore start -- Module documentation is a source-map artifact; attribution behavior is asserted. */
 /**
  * Attribution visibility logic.
  *
@@ -9,6 +10,7 @@
  * If the plan string is unrecognised (e.g. a future tier or a bad DB value),
  * we default to showing the badge (fail-open for attribution).
  */
+/* node:coverage ignore stop */
 
 import { PLAN_ENTITLEMENTS, type Plan } from "./catalog";
 

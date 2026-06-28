@@ -1,14 +1,5 @@
-/**
- * Shared class-string tokens for the `src/components/ui/` primitives. These map
- * the agreed `--ds-*` design tokens (owned by Mouse, landing in `globals.css`)
- * onto Tailwind arbitrary-value utilities so every primitive picks up the same
- * focus ring, radii, and elevation.
- *
- * Conservative fallbacks are included inside each `var(--ds-*, …)` so the
- * primitives still render legibly if a token is momentarily absent (CSS custom
- * properties resolve at runtime). Once Mouse's tokens are present the fallbacks
- * are ignored.
- */
+// Shared class-string tokens for `src/components/ui/` primitives. The fallback
+// values keep primitives legible until runtime CSS custom properties resolve.
 
 /** Keyboard focus ring driven by the Tailwind `ds-*` token bridge. */
 export const FOCUS_RING =
@@ -89,6 +80,7 @@ export const TOOLBAR_BUTTON_CHROME = {
     "border border-ds-border-subtle bg-ds-surface-raised text-ds-text-primary hover:bg-ds-state-hover active:bg-ds-state-active",
 } as const;
 
+/* node:coverage ignore next -- tsx maps the covered object close/comment to a non-runtime line. */
 /** Joins truthy class fragments. */
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");

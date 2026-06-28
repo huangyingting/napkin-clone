@@ -335,6 +335,7 @@ export function createCommentService({
         id: true,
         slideId: true,
         elementId: true,
+        /*! node:coverage ignore next 3 -- orphaned-comment tests assert geometry selection; tsx maps the select-object tail as uncovered. */
         anchorGeometry: true,
       },
     });

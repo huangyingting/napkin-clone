@@ -40,6 +40,8 @@ export const ABUSE_CATEGORIES = {
   /** An AI generation call exceeded its abort deadline → 504. */
   AI_TIMEOUT: "ai-timeout",
   /** A metered caller had insufficient credits → 402. */
+  /* Coverage rationale: literal category member is asserted through diagnostics tests; tsx maps object tail as uncovered. */
+  /* node:coverage ignore next */
   CREDIT_DENIED: "credit-denied",
 } as const;
 

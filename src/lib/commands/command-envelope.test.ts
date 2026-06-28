@@ -5,7 +5,12 @@ import {
   CURRENT_COMMAND_SCHEMA_VERSION,
   acceptDeckCommandEnvelope,
   adaptSlideCommandResult,
+  isStringArray,
   makeSideEffects,
+  pushUnknownKeyErrors,
+  uniqueStrings,
+  validateCommandEnvelopeStructure,
+  validateTarget,
   validateCommandEnvelope,
   type CommandEnvelope,
 } from "@/lib/commands/command-envelope";
@@ -84,6 +89,106 @@ test("validateCommandEnvelope reports invalid ids, targets, and payload mismatch
   assert.ok(
     validation.errors.some((error) => error.includes("payload.op must match")),
   );
+});
+
+test("envelope core helpers reject malformed targets and optional fields", () => {
+  assert.equal(isStringArray(["alpha", "beta"]), true);
+  assert.equal(isStringArray(["alpha", 1]), false);
+  assert.deepEqual(uniqueStrings(["alpha", "", "alpha", "beta"]), [
+    "alpha",
+    "beta",
+  ]);
+  assert.deepEqual(uniqueStrings(undefined), []);
+
+  const unknownKeyErrors: string[] = [];
+  pushUnknownKeyErrors(
+    { supported: true, extra: true },
+    ["supported"],
+    "payload",
+    unknownKeyErrors,
+  );
+  assert.deepEqual(unknownKeyErrors, ["payload.extra is not supported."]);
+
+  assert.deepEqual(validateTarget(null), {
+    errors: ["target must be an object."],
+  });
+  assert.deepEqual(validateTarget({ surface: "unsupported" }), {
+    errors: [
+      "target.surface must be one of: document, visual, deck, asset, comment, source-ref.",
+    ],
+  });
+
+  for (const [surface, requiredError] of [
+    ["document", "target.documentId is required for document commands."],
+    ["visual", "target.visualId is required for visual commands."],
+    ["deck", "target.documentId is required for deck commands."],
+    ["asset", "target.assetId is required for asset commands."],
+    ["comment", "target.commentId is required for comment commands."],
+    ["source-ref", "target.sourceRefId is required for source-ref commands."],
+  ] as const) {
+    const validation = validateTarget({
+      surface,
+      documentId: "",
+      visualId: "",
+      assetId: "",
+      commentId: "",
+      sourceRefId: "",
+      unexpected: true,
+    });
+    assert.equal(validation.surface, surface);
+    assert.ok(validation.errors.includes(requiredError));
+    assert.ok(
+      validation.errors.some((error) =>
+        error.includes("must be a non-empty string when provided"),
+      ),
+    );
+    assert.ok(
+      validation.errors.includes("target.unexpected is not supported."),
+    );
+  }
+});
+
+test("envelope structure validation covers non-object and optional field errors", () => {
+  assert.deepEqual(validateCommandEnvelopeStructure(null as never), {
+    valid: false,
+    errors: ["Command envelope must be an object."],
+  });
+  assert.deepEqual(validateCommandEnvelopeStructure("bad" as never), {
+    valid: false,
+    errors: ["Command envelope must be an object."],
+  });
+
+  const validation = validateCommandEnvelopeStructure({
+    id: commandId("7"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION + 1,
+    type: "deck.slide_command",
+    timestamp: BASE_TIMESTAMP,
+    actor: { id: "actor-1", sessionId: "" },
+    target: { surface: "deck", documentId: "doc-1" },
+    payload: undefined,
+    coalesceKey: "",
+    source: "manual",
+  } as unknown as CommandEnvelope);
+
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.some((error) => error.includes("schemaVersion")));
+  assert.ok(validation.errors.some((error) => error.includes("sessionId")));
+  assert.ok(validation.errors.some((error) => error.includes("payload")));
+  assert.ok(validation.errors.some((error) => error.includes("coalesceKey")));
+  assert.ok(validation.errors.some((error) => error.includes("source")));
+
+  const missingActorAndPayload = validateCommandEnvelopeStructure({
+    id: commandId("8"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "deck.slide_command",
+    timestamp: BASE_TIMESTAMP,
+    actor: null,
+    target: { surface: "deck", documentId: "doc-1" },
+  } as unknown as CommandEnvelope);
+
+  assert.equal(missingActorAndPayload.valid, false);
+  assert.ok(missingActorAndPayload.errors.includes("actor must be an object."));
+  assert.ok(missingActorAndPayload.errors.includes("payload must be present."));
 });
 
 test("validateCommandEnvelope accepts the new edge flip/toggle + label ops", () => {

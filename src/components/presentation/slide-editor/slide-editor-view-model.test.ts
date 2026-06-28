@@ -147,6 +147,10 @@ test("selectElementTypeLabel returns Text for non-h1 text elements", () => {
 
 test("selectElementTypeLabel returns Image for image elements", () => {
   assert.equal(selectElementTypeLabel(makeElement({ kind: "image" })), "Image");
+  assert.equal(
+    selectElementTypeLabel({ kind: "image" } as SlideElement),
+    "Image",
+  );
 });
 
 test("selectElementTypeLabel returns Shape for shape elements", () => {
@@ -198,8 +202,25 @@ test("selectSelectionSummary returns element type label for single selection", (
   assert.equal(summary, "Text selected");
 });
 
+test("selectSelectionSummary returns image labels for single image selections", () => {
+  const slide = makeSlide({
+    elements: [{ id: "image-1", kind: "image" } as SlideElement],
+  });
+
+  assert.equal(
+    selectSelectionSummary({
+      effectiveSelectedElementId: "image-1",
+      effectiveSelectedElementIds: new Set(["image-1"]),
+      selectedSlide: slide,
+    }),
+    "Image selected",
+  );
+});
+
 test("selectSelectionSummary returns no-selection message when element id not found", () => {
-  const slide = makeSlide({ elements: [] });
+  const slide = makeSlide({
+    elements: [makeElement({ id: "other-id", kind: "text", role: "body" })],
+  });
   const summary = selectSelectionSummary({
     effectiveSelectedElementId: "missing-id",
     effectiveSelectedElementIds: new Set(["missing-id"]),
@@ -213,6 +234,15 @@ test("selectSelectionSummary returns no-selection when selectedSlide is undefine
     effectiveSelectedElementId: "el-1",
     effectiveSelectedElementIds: new Set(["el-1"]),
     selectedSlide: undefined,
+  });
+  assert.equal(summary, "No element selected");
+});
+
+test("selectSelectionSummary returns no-selection when slide elements are omitted", () => {
+  const summary = selectSelectionSummary({
+    effectiveSelectedElementId: "el-1",
+    effectiveSelectedElementIds: new Set(["el-1"]),
+    selectedSlide: makeSlide({ elements: undefined }),
   });
   assert.equal(summary, "No element selected");
 });

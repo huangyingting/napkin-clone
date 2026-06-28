@@ -125,6 +125,23 @@ describe("buildDiagnosticErrorLog", () => {
     // code is injected as a top-level field, not via context keys
     assert.equal(rec.code, ERROR_CODES.PERMISSION_DENIED);
   });
+
+  test("uses diagnostic message and safe metadata when no error is supplied", () => {
+    const d = buildDiagnostic(
+      ERROR_CODES.BUDGET_EXCEEDED,
+      "deck.autosave",
+      "Autosave budget exceeded.",
+      { metric: "durationMs", actual: 1200, budget: 1000 },
+    );
+
+    const rec = buildDiagnosticErrorLog(d);
+
+    assert.equal(rec.message, "Autosave budget exceeded.");
+    assert.equal(rec.errorName, "Error");
+    assert.equal(rec.metric, "durationMs");
+    assert.equal(rec.actual, 1200);
+    assert.equal(rec.budget, 1000);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -12,10 +12,6 @@
  *
  * @param fontFamily  - CSS font-family value, e.g. `'MyFont', sans-serif`
  * @param fontAssetUrl - Protected font asset URL
- *
- * @example
- *   buildFontFaceCss("'Acme', sans-serif", "/api/brand-assets/u/font.woff2")
- *   // "@font-face { font-family: 'Acme'; src: url('/api/brand-assets/u/font.woff2'); font-display: swap; }"
  */
 export function buildFontFaceCss(
   fontFamily: string | null | undefined,
@@ -44,6 +40,7 @@ export function buildFontFaceCss(
  * @param fontFamily  - CSS font-family from the brand (can be null)
  * @param fontAssetUrl - Protected font asset URL derived from the brand asset id
  */
+/* @preserve node:coverage ignore next -- Inject behavior is exercised; tsx maps the exported signature line as uncovered. */
 export function injectBrandFontFace(
   brandId: string,
   fontFamily: string | null | undefined,

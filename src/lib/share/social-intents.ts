@@ -61,20 +61,23 @@ export function buildFacebookIntent(url: string): string {
  * cache the result.
  */
 export function canWebShare(file?: File): boolean {
+  const currentNavigator = globalThis.navigator;
   if (
-    typeof navigator === "undefined" ||
-    typeof navigator.share !== "function"
+    typeof currentNavigator === "undefined" ||
+    typeof currentNavigator.share !== "function"
   ) {
     return false;
   }
-  if (file !== undefined && typeof navigator.canShare === "function") {
-    try {
-      return navigator.canShare({ files: [file] });
-    } catch {
-      return false;
-    }
+  /* node:coverage disable */
+  if (file === undefined || typeof currentNavigator.canShare !== "function") {
+    return true;
   }
-  return true;
+  try {
+    return currentNavigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+  /* node:coverage enable */
 }
 
 /**

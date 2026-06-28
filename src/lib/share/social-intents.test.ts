@@ -2,10 +2,35 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
+  canCopyImageToClipboard,
+  canWebShare,
   buildTwitterIntent,
   buildLinkedInIntent,
   buildFacebookIntent,
 } from "@/lib/share/social-intents";
+
+function replaceGlobal(
+  t: { after(callback: () => void): void },
+  key: string,
+  value: unknown,
+) {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
+  const setValue = (nextValue: unknown) => {
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      value: nextValue,
+    });
+  };
+  setValue(value);
+  t.after(() => {
+    if (descriptor) {
+      Object.defineProperty(globalThis, key, descriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, key);
+    }
+  });
+  return setValue;
+}
 
 // ---------------------------------------------------------------------------
 // buildTwitterIntent
@@ -191,5 +216,86 @@ describe("intent URL encoding round-trips", () => {
       SHARE_URL,
       "u param should round-trip",
     );
+  });
+});
+
+describe("browser sharing capability detection", () => {
+  test("canWebShare returns false when navigator or share support is missing", (t) => {
+    const setNavigator = replaceGlobal(t, "navigator", undefined);
+    assert.equal(canWebShare(), false);
+
+    setNavigator({});
+    assert.equal(canWebShare(), false);
+  });
+
+  test("canWebShare returns true for basic Web Share support", (t) => {
+    replaceGlobal(t, "navigator", { share() {} });
+
+    assert.equal(canWebShare(), true);
+  });
+
+  test("canWebShare delegates file payload checks to navigator.canShare", (t) => {
+    const file = new File(["diagram"], "diagram.png", { type: "image/png" });
+    const calls: unknown[] = [];
+    replaceGlobal(t, "navigator", {
+      share() {},
+      canShare(payload: unknown) {
+        calls.push(payload);
+        return true;
+      },
+    });
+
+    assert.equal(canWebShare(file), true);
+    assert.deepEqual(calls, [{ files: [file] }]);
+  });
+
+  test("canWebShare returns false when canShare rejects a file payload", (t) => {
+    const file = new File(["diagram"], "diagram.png", { type: "image/png" });
+    replaceGlobal(t, "navigator", {
+      share() {},
+      canShare(payload: unknown) {
+        assert.deepEqual(payload, { files: [file] });
+        return false;
+      },
+    });
+
+    assert.equal(canWebShare(file), false);
+  });
+
+  test("canWebShare allows file payloads when canShare is unavailable", (t) => {
+    const file = new File(["diagram"], "diagram.png", { type: "image/png" });
+    replaceGlobal(t, "navigator", { share() {} });
+
+    assert.equal(canWebShare(file), true);
+  });
+
+  test("canWebShare treats canShare exceptions as unsupported", (t) => {
+    const file = new File(["diagram"], "diagram.png", { type: "image/png" });
+    replaceGlobal(t, "navigator", {
+      share() {},
+      canShare() {
+        throw new Error("unsupported payload");
+      },
+    });
+
+    assert.equal(canWebShare(file), false);
+  });
+
+  test("canCopyImageToClipboard requires navigator clipboard and ClipboardItem", (t) => {
+    const setNavigator = replaceGlobal(t, "navigator", {
+      clipboard: { write() {} },
+    });
+    const setClipboardItem = replaceGlobal(
+      t,
+      "ClipboardItem",
+      class ClipboardItem {},
+    );
+    assert.equal(canCopyImageToClipboard(), true);
+
+    setClipboardItem(undefined);
+    assert.equal(canCopyImageToClipboard(), false);
+
+    setNavigator({ clipboard: null });
+    assert.equal(canCopyImageToClipboard(), false);
   });
 });

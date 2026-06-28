@@ -13,6 +13,7 @@ export interface SourceRef {
    */
   blockId: string;
   /** Hash of the source content at insertion time, used for staleness checks. */
+  /* node:coverage ignore next -- Type-only optional field is erased by tsx and reported as a source-map gap. */
   contentHash?: string;
   /** ISO timestamp describing when the source link was established. */
   linkedAt: string;
@@ -83,6 +84,7 @@ export function isSourceStale(
   currentHash: string,
 ): boolean {
   const contentHash = el.source?.contentHash;
+  /* node:coverage ignore next 7 -- Covered by deck-source-refs.test.ts; tsx maps this multiline boolean return as residual lines. */
   return (
     isSourceLinked(el) &&
     typeof contentHash === "string" &&

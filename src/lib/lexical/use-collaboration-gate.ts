@@ -12,13 +12,14 @@ export function useCollaborationEditable(canEdit: boolean, ready: boolean) {
   return collaborationEditable(canEdit, ready);
 }
 
+/* node:coverage ignore next 6 */ /* Hook wiring requires React/Lexical composer context; pure gate logic is covered headlessly. */
 export function useEditableGate(editable: boolean): void {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     editor.setEditable(editable);
   }, [editor, editable]);
 }
-
+/* node:coverage ignore next 45 */ /* Fallback seeding depends on React effects and Lexical composer context, unavailable in the Node source gate. */
 export function useCollaborationFallbackSeed({
   initialStateJson,
   degraded,

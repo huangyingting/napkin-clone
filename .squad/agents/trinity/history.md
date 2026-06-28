@@ -48,3 +48,11 @@ Architecture review: balance inverted (free-form over-built, doc-leverage under-
 **Child issues:** #1103–#1150 range (see epic-plan.md for exact assignments).
 
 **Sequencing note:** Epic #1093 and #1102 (test builders) should land first to de-risk everything; Epic #1100 (facade burn-down) is last.
+
+## 2026-06-27T23:43Z coverage audit
+- Audited `scripts/check-line-coverage.mjs`: it honestly includes `src/**/*.ts(x)` excluding only tests, with current defaults below 100; no broad policy exclusion was added.
+- Fixed UI/tsx source-map artifacts without touching Tank-owned backend/service files: split `VisualKind` into a type-only import, removed unused `SearchParamsLike.get`, simplified `parseTag`, and added narrow `node:coverage` annotations only around erased type/comment/object-close artifacts in `focus-helpers.ts`/`tokens.ts`.
+- Added one assertion for `TOOLBAR_BUTTON_CHROME.active`; preserved existing runtime test coverage for dialog open/close/toggle and document list helpers.
+- Focused 100% line coverage now passes for `src/app/api/generate/parser.ts`, `src/app/app/document-list-url-state.ts`, `src/components/ui/focus-helpers.ts`, and `src/components/ui/tokens.ts`.
+- Full source audit after this pass reports 93.82% line coverage; remaining gaps are real runtime/backend/service or separate UI component paths, so source default should not be raised to 100 until Tank/coordinator closes those.
+- Validation: targeted tests passed; focused 100% coverage passed; `npx eslint` on touched files passed; `npm run typecheck` is blocked by existing unrelated test mock type errors in generation-route/billing tests.

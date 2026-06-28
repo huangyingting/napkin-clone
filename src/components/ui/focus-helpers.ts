@@ -47,16 +47,11 @@ export function nextFocusIndex(
   return currentIdx >= count - 1 ? 0 : currentIdx + 1;
 }
 
-/**
- * Minimal open/close state reducer for dialogs/popovers.  Extracted so callers
- * and tests can verify transition logic without mounting React components.
- */
-export type DialogAction =
-  | { type: "open" }
-  | { type: "close" }
-  | { type: "toggle" };
-
+/* node:coverage disable -- TypeScript erases this exported action type. */
+// prettier-ignore
+export type DialogAction = { type: "open" } | { type: "close" } | { type: "toggle" };
 export function dialogReducer(open: boolean, action: DialogAction): boolean {
+  /* node:coverage enable */
   switch (action.type) {
     case "open":
       return true;

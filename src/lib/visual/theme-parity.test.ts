@@ -1,5 +1,5 @@
 /**
- * Theme parity regression coverage (#608, #1104).
+ * Theme parity regression coverage.
  *
  * 1. Renderer↔export parity: the editor and presentation viewers render via
  *    `SlideCanvas` (which resolves colours through `resolveSlideThemeColors`),
@@ -8,7 +8,7 @@
  *    a deck looks the same in the editor, present mode, the public viewer, and
  *    an exported PPTX.
  *
- * 2. Catalog parity (#1104): every STYLE_THEMES entry must be present in
+ * 2. Catalog parity: every STYLE_THEMES entry must be present in
  *    PRESENTATION_THEME_IDS so AI generation and validation accept rose/amber/slate and
  *    any future additions.
  */
@@ -215,7 +215,7 @@ test("a local color override wins in export regardless of the theme", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Catalog parity: PRESENTATION_THEME_IDS derived from STYLE_THEMES (#1104)
+// Catalog parity: PRESENTATION_THEME_IDS derived from STYLE_THEMES
 // ---------------------------------------------------------------------------
 
 test("every STYLE_THEMES id is present in PRESENTATION_THEME_IDS", () => {
@@ -226,4 +226,16 @@ test("every STYLE_THEMES id is present in PRESENTATION_THEME_IDS", () => {
       `PRESENTATION_THEME_IDS is missing "${theme.id}" from STYLE_THEMES — update STYLE_THEME_IDS in presentation-theme-ids.ts`,
     );
   }
+});
+
+test("sunset style theme exposes its warm palette and background tokens", () => {
+  const sunset = STYLE_THEMES.find((theme) => theme.id === "sunset");
+  assert.ok(sunset);
+  assert.deepEqual(sunset.colors.palette.slice(0, 4), [
+    "#f97316",
+    "#ef4444",
+    "#f59e0b",
+    "#ec4899",
+  ]);
+  assert.equal(sunset.colors.background, "#fffaf5");
 });

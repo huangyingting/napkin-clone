@@ -91,6 +91,23 @@ test("repairElement emits text elements in v6 content/designOverrides shape", ()
   assert.equal((text as any).style, undefined);
 });
 
+test("repairElement assigns fallback ids and default text roles", () => {
+  const text = repairElement(
+    {
+      kind: "text",
+      role: "legacy",
+      content: { kind: "text" },
+      designOverrides: { textStyle: { color: "not-a-color" } },
+    },
+    0,
+    new Set(["el-1"]),
+  );
+  assert.equal(text?.id, "el-2");
+  assert.equal((text as any).role, "body");
+  assert.equal((text as any).content.text, "");
+  assert.equal((text as any).designOverrides.textStyle.color, undefined);
+});
+
 test("repairSlide normalizes ids, template ids, and duplicate element ids", () => {
   const [rawSlide] = repairableDeckModelOutput().slides as unknown[];
   const slide = repairSlide(rawSlide, 0);
@@ -111,6 +128,7 @@ test("repairDeck repairs malformed model output into a schema-valid deck candida
 });
 
 test("repairDeck rejects non-deck payloads and caps slide count", () => {
+  assert.equal(repairDeck([{ notSlides: [] }]), undefined);
   assert.equal(repairDeck({ notSlides: [] }), undefined);
   const repaired = repairDeck({
     slides: Array.from(

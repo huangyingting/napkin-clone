@@ -81,6 +81,25 @@ test("maps document rows to serial DTOs and validates current JSON contracts", (
       } as DocumentDtoRow),
     /Deck must be an object/,
   );
+  const deleted = mapDocumentRowToDto({
+    id: "doc-2",
+    title: "Deleted",
+    content: "",
+    contentJson: null,
+    deckJson: null,
+    deckRevisionToken: null,
+    ownerId: "user-1",
+    workspaceId: "workspace-1",
+    shareId: "share-1",
+    slug: "deleted",
+    isShared: true,
+    favorite: false,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: now,
+  } as DocumentDtoRow);
+  assert.equal(deleted.deletedAt, "2026-06-25T15:15:00.000Z");
+  assert.equal(deleted.deckJson, null);
 });
 
 test("maps visual rows with matching literal type and data type", () => {
@@ -98,6 +117,7 @@ test("maps visual rows with matching literal type and data type", () => {
   const dto = mapVisualRowToDto(row);
   assert.equal(dto.type, "flowchart");
   assert.equal(dto.data.type, "flowchart");
+  assert.equal(dto.updatedAt, "2026-06-25T15:15:00.000Z");
   assert.throws(
     () =>
       mapVisualRowToDto({
@@ -105,6 +125,22 @@ test("maps visual rows with matching literal type and data type", () => {
         type: "bogus",
       } as VisualDtoRow),
     /Visual type/,
+  );
+  assert.throws(
+    () =>
+      mapVisualRowToDto({
+        ...row,
+        data: { ...(visual() as Record<string, unknown>), type: "mindmap" },
+      } as VisualDtoRow),
+    /Visual row type must match/,
+  );
+  assert.throws(
+    () =>
+      mapVisualRowToDto({
+        ...row,
+        data: { bogus: true },
+      } as VisualDtoRow),
+    /\[Visual.data\]/,
   );
 });
 
@@ -126,6 +162,7 @@ test("maps comment, tag, workspace, and literal rows", () => {
     updatedAt: now,
   } as CommentDtoRow);
   assert.equal(comment.anchor.kind, "text");
+  assert.equal(comment.updatedAt, "2026-06-25T15:15:00.000Z");
 
   const tag = mapTagRowToDto({
     id: "tag-1",
@@ -159,4 +196,42 @@ test("maps comment, tag, workspace, and literal rows", () => {
   assert.deepEqual(mapUsageLedgerLiterals({ status: "captured" }), {
     status: "captured",
   });
+  assert.throws(
+    () =>
+      mapTagRowToDto({
+        id: "tag-2",
+        name: "Product Plan",
+        slug: "legacy-slug",
+        ownerId: "user-1",
+        createdAt: now,
+        updatedAt: now,
+      } as TagDtoRow),
+    /Tag slug/,
+  );
+  assert.throws(
+    () =>
+      mapWorkspaceRowToDto({
+        id: "workspace-1",
+        name: "Team",
+        ownerId: "owner-1",
+        createdAt: now,
+        updatedAt: now,
+        members: [
+          { id: "member-1", userId: "user-1", role: "ADMIN", createdAt: now },
+        ],
+      } as WorkspaceDtoRow),
+    /Workspace role/,
+  );
+  assert.throws(
+    () => mapSubscriptionLiterals({ plan: "enterprise", status: "active" }),
+    /Plan must be one of/,
+  );
+  assert.throws(
+    () => mapSubscriptionLiterals({ plan: "plus", status: "paused" }),
+    /Subscription status/,
+  );
+  assert.throws(
+    () => mapUsageLedgerLiterals({ status: "voided" }),
+    /Usage ledger status/,
+  );
 });

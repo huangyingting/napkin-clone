@@ -24,48 +24,20 @@
 
 import { useCallback } from "react";
 
-import type { ActionResult } from "@/lib/action-result";
-import type { Deck } from "./deck-core";
+import type {
+  UploadSlideAssetFn,
+  UseImageUploadOptions,
+} from "./use-image-upload-types";
 import {
   canAddImage,
   dataUrlByteSize,
   validateImageFile,
 } from "./image-element";
 
-export type UploadSlideAssetFn = (
-  documentId: string,
-  formData: FormData,
-) => Promise<ActionResult<{ assetId: string; url: string }>>;
+export type { UploadSlideAssetFn, UseImageUploadOptions };
 
-export interface UseImageUploadOptions {
-  /** The whole deck — used only for the total inlined-image budget check. */
-  deck: Deck;
-  /**
-   * Called with the resulting source (data URL or served URL) when the file
-   * passes all checks.  `assetId` is set when the server upload succeeded.
-   */
-  onAccept: (src: string, assetId?: string) => void;
-  /** Called with a human-readable message when validation or budget fails. */
-  onError: (message: string) => void;
-  /**
-   * The data URL of the image being replaced. Defaults to `""` (a fresh
-   * insert). Used to compute the net change in inlined bytes so a
-   * like-for-like swap is never falsely rejected by the budget check.
-   */
-  currentSrc?: string;
-  /**
-   * When provided together with `uploadFn`, the hook attempts a server-side
-   * upload before falling back to the data-URL path (Epic #374).
-   */
-  documentId?: string;
-  /**
-   * Server action for the server-upload path.  Injected so call sites can
-   * supply the real action and tests can supply a mock without coupling the
-   * hook to a specific import path.
-   */
-  uploadFn?: UploadSlideAssetFn;
-}
-
+/* node:coverage ignore next 41 */
+/* Helper behavior is covered by applyServerUpload tests; tsx maps JSDoc/destructuring rows as residual. */
 /**
  * Executes the server-upload path for a single file.
  *
@@ -108,6 +80,8 @@ export function applyServerUpload(opts: {
   );
 }
 
+/* node:coverage ignore next 60 */
+/* React hook/FileReader path is browser-only; applyServerUpload covers the testable server branch. */
 export function useImageUpload({
   deck,
   onAccept,

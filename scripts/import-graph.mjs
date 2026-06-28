@@ -357,3 +357,5 @@ export function runImportGraphCheck(rootDir = process.cwd()) {
   const report = evaluateImportGraph({ rootDir, sourceFiles });
   return { sourceFiles, report };
 }
+
+export const _testOnly = { isSourceFile };

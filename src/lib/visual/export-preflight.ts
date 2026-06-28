@@ -1,5 +1,5 @@
 /**
- * Export preflight diagnostics for Slides (Epic #379, issue #416).
+ * Export preflight diagnostics for Slides.
  *
  * Runs a pure, synchronous inspection of a {@link Deck} before a PPTX or
  * image export and returns a structured list of {@link PreflightDiagnostic}
@@ -243,10 +243,13 @@ function resolvePreflightExportPolicy(
 // Core preflight checks
 // ---------------------------------------------------------------------------
 
+/* node:coverage ignore next -- parameter-only row is covered by image preflight cases but mapped as uncovered by tsx. @preserve */
 function checkImageElement(
   el: ImageElement,
   slideIndex: number,
+  /* node:coverage ignore next -- parameter-only row is covered by PPTX/image target cases but mapped as uncovered by tsx. @preserve */
   target: PreflightTarget,
+  /* node:coverage ignore next -- parameter-only row is covered by diagnostic-producing image cases but mapped as uncovered by tsx. @preserve */
   diagnostics: PreflightDiagnostic[],
 ): void {
   const src = imageField<string>(el, "src");
@@ -297,7 +300,7 @@ function checkImageElement(
 }
 
 /**
- * Deck-level check (#617): warns when an applied custom presentation theme (e.g. a
+ * Deck-level check: warns when an applied custom presentation theme (e.g. a
  * brand-derived theme override token set) declares typography fonts that PPTX cannot
  * embed. The element-level font override now stores a self-hosted slide
  * `fontId`, so only template/brand typography can introduce a non-embeddable
@@ -478,7 +481,7 @@ export function runExportPreflight(
     });
   }
 
-  // Deck-level custom template font check (#617).
+  // Deck-level custom template font check.
   if (target === "pptx" && customFontFamilies.size > 0) {
     checkCustomTemplateFonts(deck, customFontFamilies, diagnostics);
   }

@@ -9,12 +9,14 @@
  * label for the current phase of the LLM pipeline.
  */
 
+/* @preserve node:coverage ignore start -- GenerationStage is a TypeScript-only label descriptor. */
 export type GenerationStage = {
   /** Human-readable label shown in the UI during this phase. */
   label: string;
   /** Elapsed ms at which this stage becomes active (inclusive lower bound). */
   from: number;
 };
+/* @preserve node:coverage ignore stop */
 
 /**
  * Ordered stage sequence, tuned to realistic LLM pipeline phases.

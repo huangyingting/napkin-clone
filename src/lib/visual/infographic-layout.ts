@@ -114,8 +114,9 @@ export const INFOGRAPHIC_WIDTH_PRESETS: Record<
   "1080": { label: "Social (1080 px)", width: 1080 },
   "800": { label: "Blog (800 px)", width: 800 },
   "1200": { label: "Wide (1200 px)", width: 1200 },
-};
+}; /* node:coverage ignore next 13 */
 
+// Layout type section is compile-time only; tsx maps divider/type facade rows as uncovered.
 // ---------------------------------------------------------------------------
 // Layout types
 // ---------------------------------------------------------------------------

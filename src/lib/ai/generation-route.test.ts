@@ -37,6 +37,9 @@ interface FakeState {
   rateAllowed: boolean;
   rateResetAt: number;
   generateError: Error | null;
+  captureError: Error | null;
+  captureInsufficientCredits: boolean;
+  refundError: Error | null;
   generated: number;
   reserved: unknown[];
   captured: unknown[];
@@ -105,6 +108,9 @@ function createState(overrides: Partial<FakeState> = {}): FakeState {
     rateAllowed: true,
     rateResetAt: Date.parse("2026-06-25T00:01:00Z"),
     generateError: null,
+    captureError: null,
+    captureInsufficientCredits: false,
+    refundError: null,
     generated: 0,
     reserved: [],
     captured: [],
@@ -204,10 +210,20 @@ function createDeps(state: FakeState): GenerationRouteDeps {
     },
     captureMeteredUsage: async (reservation) => {
       state.captured.push(reservation);
+      if (state.captureError) {
+        return {
+          ok: false,
+          error: state.captureError,
+          insufficientCredits: state.captureInsufficientCredits,
+        };
+      }
       return { ok: true };
     },
     refundMeteredUsage: async (reservation) => {
       state.refunded.push(reservation);
+      if (state.refundError) {
+        throw state.refundError;
+      }
     },
     isAzureConfigError: () => false,
     isTimeoutError: (error) => error instanceof GenerateTimeoutError,
@@ -268,6 +284,26 @@ test("readJsonObject returns route-compatible invalid payload errors", async () 
   });
 });
 
+test("invalid parsed payload returns validation error before auth or Azure setup", async () => {
+  const state = createState();
+  const deps = {
+    ...createDeps(state),
+    getSecret: () => {
+      throw new Error("auth should not be checked for invalid payloads");
+    },
+  };
+  const handler = createGenerationRouteHandler(createConfig(state), deps);
+
+  const response = await handler(createRequest({ text: "   " }));
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await responseJson(response), {
+    error: "`text` is required.",
+    code: "VALIDATION_ERROR",
+  });
+  assert.equal(state.generated, 0);
+});
+
 test("authenticated success reserves then captures credits without setting anon cookie", async () => {
   const state = createState();
   const handler = createGenerationRouteHandler(
@@ -287,6 +323,21 @@ test("authenticated success reserves then captures credits without setting anon 
   assert.equal(state.reserved.length, 1);
   assert.equal(state.captured.length, 1);
   assert.equal(state.refunded.length, 0);
+});
+
+test("zero-credit authenticated success skips capture", async () => {
+  const state = createState();
+  const config: GenerationRouteConfig<FakePayload, FakeResult> = {
+    ...createConfig(state),
+    creditText: () => "",
+  };
+  const handler = createGenerationRouteHandler(config, createDeps(state));
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 200);
+  assert.equal(state.reserved.length, 1);
+  assert.equal(state.captured.length, 0);
 });
 
 test("anonymous success increments the signed one-year trial cookie", async () => {
@@ -385,6 +436,32 @@ test("timeout refunds reserved usage and preserves 504 semantics", async () => {
   assert.equal(state.denials.length, 1);
 });
 
+test("generation errors without a reserved ledger skip refund attempts", async () => {
+  const state = createState({
+    generateError: new GenerationError("invalid model output"),
+  });
+  const deps = {
+    ...createDeps(state),
+    reserveMeteredUsage: async () => {
+      const reservation: MeteredUsageReservation = {
+        idempotencyKey: "request-1",
+        userId: "user-1",
+        operation: "fake-generate",
+        creditCost: 0,
+        ledgerReserved: false,
+      };
+      state.reserved.push(reservation);
+      return { ok: true as const, reservation };
+    },
+  };
+  const handler = createGenerationRouteHandler(createConfig(state), deps);
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 502);
+  assert.equal(state.refunded.length, 0);
+});
+
 test("generation failure refunds reserved usage and preserves 502 semantics", async () => {
   const state = createState({
     generateError: new GenerationError("invalid model output"),
@@ -405,4 +482,243 @@ test("generation failure refunds reserved usage and preserves 502 semantics", as
   assert.equal(state.captured.length, 0);
   assert.equal(state.refunded.length, 1);
   assert.equal(state.logs.length, 1);
+});
+
+test("missing auth secret fails closed before Azure setup", async () => {
+  const state = createState();
+  const deps = { ...createDeps(state), getSecret: () => undefined };
+  const handler = createGenerationRouteHandler(createConfig(state), deps);
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(await responseJson(response), {
+    error: "Server is misconfigured (missing AUTH_SECRET).",
+    code: "SERVER_ERROR",
+  });
+  assert.equal(state.generated, 0);
+  assert.equal(state.logs.length, 1);
+});
+
+test("Azure configuration errors return the feature-disabled response", async () => {
+  const state = createState();
+  const azureError = new Error("missing deployment");
+  const deps = {
+    ...createDeps(state),
+    getAzureConfig: () => {
+      throw azureError;
+    },
+    isAzureConfigError: (error: unknown) => error === azureError,
+  };
+  const handler = createGenerationRouteHandler(createConfig(state), deps);
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await responseJson(response), {
+    error: "AI generation is not configured.",
+    code: "FEATURE_DISABLED",
+  });
+  assert.equal(state.generated, 0);
+  assert.equal(state.logs.length, 1);
+});
+
+test("unexpected Azure setup errors are logged and rethrown", async () => {
+  const state = createState();
+  const setupError = new Error("unexpected Azure setup failure");
+  const deps = {
+    ...createDeps(state),
+    getAzureConfig: () => {
+      throw setupError;
+    },
+  };
+  const handler = createGenerationRouteHandler(createConfig(state), deps);
+
+  await assert.rejects(() => handler(createRequest({ text: "hello world" })), {
+    message: "unexpected Azure setup failure",
+  });
+  assert.equal(state.logs.length, 1);
+});
+
+test("complete helper calls Azure with config, timeout, and max output tokens", async () => {
+  const state = createState();
+  const seen: Record<string, unknown> = {};
+  const deps = {
+    ...createDeps(state),
+    withAbortDeadline: async <T>(
+      factory: (signal: AbortSignal) => Promise<T>,
+      timeoutMs: number,
+    ) => {
+      seen.timeoutMs = timeoutMs;
+      return factory(new AbortController().signal);
+    },
+    azureChatComplete: async (messages: unknown, options: unknown) => {
+      seen.messages = messages;
+      seen.options = options;
+      return "azure-result";
+    },
+  };
+  const config: GenerationRouteConfig<FakePayload, FakeResult> = {
+    ...createConfig(state),
+    azureMaxOutputTokens: 123,
+    generate: async ({ complete }) => ({
+      value: await complete([{ role: "user", content: "hello" }]),
+    }),
+  };
+  const handler = createGenerationRouteHandler(config, deps);
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await responseJson(response), {
+    result: { value: "azure-result" },
+  });
+  assert.equal(seen.timeoutMs, 45_000);
+  assert.deepEqual(seen.messages, [{ role: "user", content: "hello" }]);
+  assert.equal(
+    (seen.options as { maxOutputTokens?: number }).maxOutputTokens,
+    123,
+  );
+});
+
+test("anonymous IP rate limit returns a network-specific 429", async () => {
+  const state = createState({
+    user: null,
+    rateAllowed: false,
+    rateResetAt: Date.parse("2026-06-25T00:00:30Z"),
+  });
+  const handler = createGenerationRouteHandler(
+    createConfig(state),
+    createDeps(state),
+  );
+
+  const response = await handler(
+    createRequest(
+      { text: "hello anon" },
+      { headers: { "x-forwarded-for": "198.51.100.7" } },
+    ),
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "30");
+  assert.deepEqual(await responseJson(response), {
+    error:
+      "Too many anonymous generations from your network. Please wait and try again, or sign in.",
+    code: "RATE_LIMITED",
+  });
+  assert.equal(state.generated, 0);
+  assert.equal(state.denials.length, 1);
+});
+
+test("anonymous trial quota returns configured quota message", async () => {
+  const state = createState({ user: null });
+  const deps = {
+    ...createDeps(state),
+    anonTrialLimit: () => 1,
+  };
+  const handler = createGenerationRouteHandler(createConfig(state), deps);
+  const usedCookie = signAnonState({ id: "anon-used", count: 1 }, SECRET);
+
+  const response = await handler(
+    createRequest(
+      { text: "hello anon" },
+      { cookies: { [ANON_COOKIE_NAME]: usedCookie } },
+    ),
+  );
+
+  assert.equal(response.status, 429);
+  assert.deepEqual(await responseJson(response), {
+    error:
+      "You've used all your free generations. Sign in to keep creating fakes.",
+    code: "RATE_LIMITED",
+  });
+  assert.equal(state.generated, 0);
+  assert.equal(state.denials.length, 1);
+});
+
+test("capture insufficient credits converts a successful generation to payment required", async () => {
+  const state = createState({
+    captureError: new InsufficientCreditsError(0, 2),
+    captureInsufficientCredits: true,
+  });
+  const handler = createGenerationRouteHandler(
+    createConfig(state),
+    createDeps(state),
+  );
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 402);
+  const body = await responseJson(response);
+  assert.equal((body as { code?: string }).code, "PAYMENT_REQUIRED");
+  assert.match(
+    (body as { error?: string }).error ?? "",
+    /Insufficient credits/,
+  );
+  assert.equal(state.generated, 1);
+  assert.equal(state.captured.length, 1);
+  assert.equal(state.denials.length, 1);
+});
+
+test("capture failures are logged but do not block the success response", async () => {
+  const state = createState({
+    captureError: new Error("ledger capture unavailable"),
+  });
+  const handler = createGenerationRouteHandler(
+    createConfig(state),
+    createDeps(state),
+  );
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await responseJson(response), {
+    result: { value: "HELLO WORLD" },
+  });
+  assert.equal(state.logs.length, 1);
+});
+
+test("refund failures are logged while preserving the mapped generation error", async () => {
+  const state = createState({
+    generateError: new GenerationError("invalid model output"),
+    refundError: new Error("refund unavailable"),
+  });
+  const handler = createGenerationRouteHandler(
+    createConfig(state),
+    createDeps(state),
+  );
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 502);
+  assert.equal(state.refunded.length, 1);
+  assert.equal(state.logs.length, 2);
+  assert.deepEqual((state.logs[0] as { fields: unknown }).fields, {
+    requestId: "request-1",
+    reason: "ledger-refund-failed",
+  });
+});
+
+test("onSuccess receives latency and can finalize asynchronous side effects", async () => {
+  const state = createState();
+  const contexts: unknown[] = [];
+  const config: GenerationRouteConfig<FakePayload, FakeResult> = {
+    ...createConfig(state),
+    onSuccess: async (_result, context) => {
+      contexts.push(context);
+    },
+  };
+  const handler = createGenerationRouteHandler(config, {
+    ...createDeps(state),
+    now: () => {
+      state.now += 25;
+      return state.now;
+    },
+  });
+
+  const response = await handler(createRequest({ text: "hello world" }));
+
+  assert.equal(response.status, 200);
+  assert.equal(contexts.length, 1);
+  assert.equal((contexts[0] as { latencyMs: number }).latencyMs, 25);
 });

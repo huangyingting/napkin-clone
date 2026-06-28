@@ -23,6 +23,7 @@ export const PRESENTATION_THEME_IDS = [...STYLE_THEME_IDS] as const;
 /** Presentation themes — derived from the visual style theme catalog. */
 export type PresentationThemeId = (typeof PRESENTATION_THEME_IDS)[number];
 
+/* node:coverage ignore next 6 -- type-only deck aliases are erased by tsx and map to uncovered comment lines. */
 export type ColorRef = { token: string } | { value: string };
 
 export type SlideBackgroundDesign =

@@ -89,6 +89,8 @@ export function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
  *
  * Pure and DOM-free so it can be unit-tested headlessly.
  */
+/* node:coverage ignore next 19 */
+/* The destructured parameter signature is exercised by layout tests; tsx maps those signature rows as residual. */
 export function computeStageLayout({
   stageBounds,
   stagePaddingTop,

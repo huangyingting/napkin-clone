@@ -6,6 +6,8 @@
  */
 
 export { PRESENTATION_ROLES } from "./presentation-theme-types";
+/* node:coverage disable */
+/* Type-only facade exports are erased and reported as tsx source-map gaps. */
 export type {
   PresentationRole,
   PresentationRoleToken,
@@ -25,6 +27,7 @@ export type {
   PresentationTheme,
   OverrideLayer,
 } from "./presentation-theme-types";
+/* node:coverage enable */
 
 export {
   ROLE_TO_SCALE_KEY,
@@ -36,6 +39,8 @@ export {
   DEFAULT_TOKEN_SET,
 } from "./presentation-theme-data";
 
+/* node:coverage disable */
+/* Facade re-exports are exercised through resolver tests; tsx maps export-list rows as gaps. */
 export {
   isPresentationRole,
   resolveThemeTokens,
@@ -52,6 +57,9 @@ export {
   resolveImageDefaults,
   resolveVisualDefaults,
 } from "./presentation-theme-resolvers";
+/* node:coverage enable */
+/* node:coverage disable */
+/* Type-only facade exports are erased and reported as tsx source-map gaps. */
 export type {
   PresentationThemeSource,
   ResolvedBulletDefaults,
@@ -59,3 +67,4 @@ export type {
   ResolvedImageDefaults,
   ResolvedVisualDefaults,
 } from "./presentation-theme-resolvers";
+/* node:coverage enable */

@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { GenerationError, MAX_INPUT_CHARS } from "@/lib/ai/generate";
+import {
+  EmptyInputError,
+  GenerationError,
+  InputTooLongError,
+  MAX_INPUT_CHARS,
+} from "@/lib/ai/generate";
 import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 
 import { mapGenerateError, parseGeneratePayload } from "./parser";
@@ -34,6 +39,22 @@ test("parseGeneratePayload accepts the full typed payload", () => {
   });
 });
 
+test("parseGeneratePayload accepts a valid visual kind without other options", () => {
+  assert.deepEqual(
+    parseGeneratePayload({ text: "make a flowchart", type: "flowchart" }),
+    {
+      ok: true,
+      payload: {
+        text: "make a flowchart",
+        type: "flowchart",
+        orientation: undefined,
+        detailLevel: undefined,
+        stayCloserToText: undefined,
+      },
+    },
+  );
+});
+
 test("parseGeneratePayload preserves validation statuses", () => {
   assert.deepEqual(parseGeneratePayload({ text: " " }), {
     ok: false,
@@ -42,6 +63,67 @@ test("parseGeneratePayload preserves validation statuses", () => {
   });
   assertParseStatus({ text: "x".repeat(MAX_INPUT_CHARS + 1) }, 413);
   assertParseStatus({ text: "ok", type: "bad" }, 400);
+});
+
+test("parseGeneratePayload rejects non-string optional enums", () => {
+  assertParseStatus({ text: "ok", type: 1 }, 400);
+  assertParseStatus({ text: "ok", orientation: 1 }, 400);
+  assertParseStatus({ text: "ok", detailLevel: 1 }, 400);
+});
+
+test("parseGeneratePayload rejects invalid orientation and detail options", () => {
+  assert.deepEqual(
+    parseGeneratePayload({ text: "ok", orientation: "diagonal" }),
+    {
+      ok: false,
+      status: 400,
+      message:
+        "`orientation` must be one of: vertical, horizontal, square, auto.",
+    },
+  );
+  assert.deepEqual(
+    parseGeneratePayload({ text: "ok", detailLevel: "verbose" }),
+    {
+      ok: false,
+      status: 400,
+      message: "`detailLevel` must be one of: detailed, summary.",
+    },
+  );
+});
+
+test("parseGeneratePayload omits optional fields when null or false", () => {
+  assert.deepEqual(
+    parseGeneratePayload({
+      text: "make a process",
+      type: null,
+      orientation: null,
+      detailLevel: null,
+      stayCloserToText: false,
+    }),
+    {
+      ok: true,
+      payload: {
+        text: "make a process",
+        type: undefined,
+        orientation: undefined,
+        detailLevel: undefined,
+        stayCloserToText: undefined,
+      },
+    },
+  );
+});
+
+test("mapGenerateError maps input validation errors and ignores unknown errors", () => {
+  assert.deepEqual(mapGenerateError(new EmptyInputError()), {
+    status: 400,
+    message: "Input text is required.",
+  });
+  const tooLong = new InputTooLongError(MAX_INPUT_CHARS + 1);
+  assert.deepEqual(mapGenerateError(tooLong), {
+    status: 413,
+    message: tooLong.message,
+  });
+  assert.equal(mapGenerateError(new Error("unexpected")), null);
 });
 
 test("mapGenerateError preserves generation failure contract", () => {

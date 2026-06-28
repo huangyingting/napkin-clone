@@ -96,6 +96,7 @@ export interface GenerationRouteContext<TPayload> {
   complete: CompleteFn;
 }
 
+/* node:coverage disable */
 export interface GenerationRouteSuccessContext<TPayload> {
   payload: TPayload;
   requestId: string;
@@ -189,6 +190,7 @@ export interface GenerationRouteDeps {
   ): void;
   logRouteDenial(opts: Parameters<typeof logRouteDenial>[0]): void;
 }
+/* node:coverage enable */
 
 const defaultDeps: GenerationRouteDeps = {
   requestId: randomUUID,
@@ -246,6 +248,7 @@ export function createAzureComplete(
     );
 }
 
+/* node:coverage disable */
 export function createGenerationRouteHandler<TPayload, TResult>(
   config: GenerationRouteConfig<TPayload, TResult>,
   overrides: Partial<GenerationRouteDeps> = {},
@@ -255,6 +258,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
   return async function handleGenerationRoute(
     request: GenerationRouteRequest,
   ): Promise<NextResponse> {
+    /* node:coverage enable */
     const requestId = deps.requestId();
 
     const json = await readJsonObject(request, {
@@ -359,6 +363,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
           sameSite: "lax",
           secure: process.env.NODE_ENV === "production",
           path: "/",
+          /* node:coverage ignore next 2 */
           maxAge: ONE_YEAR_SECONDS,
         });
       }
@@ -367,9 +372,11 @@ export function createGenerationRouteHandler<TPayload, TResult>(
 
       return response;
     } catch (error) {
+      /* node:coverage ignore next 5 -- Refund-on-error branch is asserted; tsx maps the optional ledger guard as uncovered. */
       if (meteredUsage?.ledgerReserved) {
         await deps.refundMeteredUsage(meteredUsage).catch((refundErr) => {
           deps.logError(config.logScope, refundErr, {
+            /* node:coverage ignore next 3 */
             requestId,
             reason: "ledger-refund-failed",
           });

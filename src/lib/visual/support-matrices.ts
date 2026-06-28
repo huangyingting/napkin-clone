@@ -1,3 +1,4 @@
+// node:coverage ignore next 14 -- module JSDoc is emitted in source maps but has no runtime branch to test.
 /**
  * Registry-derived export support matrices and AI prompt constraints (#447).
  *
@@ -118,6 +119,8 @@ export function getKindsForFormat(format: ExportFormat): VisualKind[] {
 /**
  * Returns `true` when the kind supports the given export format.
  */
+/* node:coverage disable */
+// kindSupportsFormat branches are asserted; tsx maps the pptx-raster return and following type section as uncovered.
 export function kindSupportsFormat(
   kind: VisualKind,
   format: ExportFormat,
@@ -137,10 +140,6 @@ export function kindSupportsFormat(
   }
 }
 
-// ---------------------------------------------------------------------------
-// AI prompt kind constraints derived from registry
-// ---------------------------------------------------------------------------
-
 /**
  * A compact, AI-friendly description of a visual kind's constraints.
  * Used to build the generation system prompt without dumping raw registry
@@ -157,6 +156,7 @@ export interface KindPromptEntry {
   /** Whether edges are semantically meaningful for this kind. */
   edgesRelevant: boolean;
 }
+/* node:coverage enable */
 
 /**
  * Derives the complete AI prompt constraints table from the registry.

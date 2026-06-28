@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
-import { createAutosaveController, type SaveStatus } from "./use-autosave";
+import {
+  createAutosaveController,
+  useLexicalAutosave,
+  type SaveStatus,
+} from "./use-autosave";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -143,4 +149,87 @@ test("autosave controller suppresses callbacks after dispose", async () => {
 
   assert.deepEqual(statuses, ["pending", "saving"]);
   assert.deepEqual(errors, []);
+});
+
+test("autosave controller reports failed save results and thrown errors", async () => {
+  const statuses: SaveStatus[] = [];
+  const errors: unknown[] = [];
+  const controller = createAutosaveController({
+    save: async (json) =>
+      json === "failed-result"
+        ? { ok: false, error: "backend rejected save" }
+        : Promise.reject(new Error("network unavailable")),
+    debounceMs: 10,
+    onStatus: (status) => statuses.push(status),
+    onError: (error) => errors.push(error),
+  });
+
+  controller.queue("failed-result");
+  await controller.flush();
+  controller.queue("throws");
+  await controller.flush();
+
+  assert.deepEqual(statuses, [
+    "pending",
+    "saving",
+    "error",
+    "pending",
+    "saving",
+    "error",
+  ]);
+  assert.equal(errors[0], "backend rejected save");
+  assert.match(String(errors[1]), /network unavailable/);
+  controller.dispose();
+});
+
+test("autosave controller debounce timer starts a flush", async () => {
+  const statuses: SaveStatus[] = [];
+  const saved: string[] = [];
+  await new Promise<void>((resolve, reject) => {
+    const controller = createAutosaveController({
+      save: async (json) => {
+        saved.push(json);
+        return { ok: true };
+      },
+      debounceMs: 0,
+      onStatus: (status) => {
+        statuses.push(status);
+        if (status === "saved") {
+          controller.dispose();
+          resolve();
+        }
+      },
+      onError: reject,
+    });
+    controller.queue("timer-json");
+  });
+
+  assert.deepEqual(saved, ["timer-json"]);
+  assert.deepEqual(statuses, ["pending", "saving", "saved"]);
+});
+
+test("useLexicalAutosave exposes saved status and ignores tagged non-autosave changes during render", () => {
+  let shouldAutosaveTags: Set<string> | null = null;
+  function Probe() {
+    const { status, handleChange } = useLexicalAutosave({
+      save: async () => ({ ok: true }),
+      shouldAutosaveUpdate(tags) {
+        shouldAutosaveTags = tags;
+        return false;
+      },
+      debounceMs: 1,
+    });
+    handleChange(
+      { toJSON: () => ({ root: { children: [] } }) } as never,
+      null,
+      new Set(["history-merge"]),
+    );
+    return createElement("span", null, status);
+  }
+
+  assert.equal(
+    renderToStaticMarkup(createElement(Probe)),
+    "<span>saved</span>",
+  );
+  assert.deepEqual([...(shouldAutosaveTags ?? [])], ["history-merge"]);
 });

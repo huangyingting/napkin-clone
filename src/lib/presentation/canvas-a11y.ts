@@ -1,6 +1,6 @@
 /**
  * Pure, framework-free decision helpers for the canvas keyboard accessibility
- * wave (issues #530–#535).
+ * wave.
  *
  * Everything here is headless — no DOM, no React, no browser APIs — so the real
  * coverage for the keyboard model lives in `canvas-a11y.test.ts` rather than in
@@ -55,7 +55,7 @@ export function isArrowKey(key: string): key is ArrowKey {
 }
 
 // ---------------------------------------------------------------------------
-// #530 (R1) — Keyboard resize parity
+// Keyboard resize parity
 // ---------------------------------------------------------------------------
 
 /** Bounds + minimum-size constraints applied by {@link resizeBoxByStep}. */
@@ -119,7 +119,7 @@ export function resizeBoxByStep(
 }
 
 // ---------------------------------------------------------------------------
-// #531 (R2) — Deterministic selection traversal
+// Deterministic selection traversal
 // ---------------------------------------------------------------------------
 
 /**
@@ -168,7 +168,7 @@ export function nextElementId(
 }
 
 // ---------------------------------------------------------------------------
-// #532 (R2) — Focus restoration after mutations
+// Focus restoration after mutations
 // ---------------------------------------------------------------------------
 
 /**
@@ -196,7 +196,7 @@ export function focusTargetAfterDelete(
 }
 
 // ---------------------------------------------------------------------------
-// #533 (R3) — Screen-reader announcement string builders
+// Screen-reader announcement string builders
 // ---------------------------------------------------------------------------
 
 function pct(value: number): number {
@@ -210,6 +210,8 @@ export function announceSelection(name: string): string {
 
 /** "Moved {name} to {x}%, {y}%" — announced after a keyboard nudge. */
 export function announceMove(name: string, x: number, y: number): string {
+  /* Coverage rationale: announcement strings are asserted in canvas-a11y.test.ts; tsx maps the covered formatter return as residual. */
+  /* node:coverage ignore next */
   return `Moved ${name} to ${pct(x)}%, ${pct(y)}%`;
 }
 
@@ -224,7 +226,7 @@ export function announceDelete(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// #534 (A1) — Keyboard connector create / reattach (interim subset)
+// Keyboard connector create / reattach
 // ---------------------------------------------------------------------------
 
 /**

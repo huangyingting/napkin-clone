@@ -149,6 +149,45 @@ test("computeStageLayout overflows into scroll only when zoomed past the stage",
   assert.deepEqual(layout.inspectorPanel, { top: 8, height: 450 });
 });
 
+test("computeStageLayout clamps degenerate bounds and non-positive zoom", () => {
+  const layout = computeStageLayout({
+    stageBounds: { width: -20, height: 0 },
+    stagePaddingTop: 4,
+    aspectRatio: 2,
+    zoom: 0,
+    inspectorOpen: true,
+    inspectorShiftX: -100,
+  });
+
+  assert.deepEqual(layout.slide, {
+    left: 0,
+    top: 0.25,
+    width: 1,
+    height: 0.5,
+  });
+  assert.deepEqual(layout.scrollContentSize, { width: 1, height: 1 });
+  assert.equal(layout.needsScroll, false);
+  assert.deepEqual(layout.inspectorPanel, { top: 4.25, height: 0 });
+});
+
+test("computeStageLayout only shifts by available side gutter when inspector is wider", () => {
+  const layout = computeStageLayout({
+    stageBounds: { width: 1400, height: 600 },
+    stagePaddingTop: 0,
+    aspectRatio: 2,
+    zoom: 1,
+    inspectorOpen: true,
+    inspectorShiftX: 500,
+  });
+
+  assert.deepEqual(layout.slide, {
+    left: 0,
+    top: 0,
+    width: 1200,
+    height: 600,
+  });
+});
+
 // Bottom-dock zoom controls (issue #591) — pure clamp/convert helpers.
 
 test("ZOOM_PERCENT_PRESETS exposes the dock preset ladder", () => {

@@ -69,6 +69,17 @@ function visualElement(id: string, visualId: string): SlideElement {
   } as unknown as SlideElement;
 }
 
+function imageElement(id: string): SlideElement {
+  return {
+    id,
+    box: { ...BOX },
+    zIndex: 3,
+    kind: "image",
+    role: "media",
+    content: { kind: "image", src: "asset-1" },
+  } as unknown as SlideElement;
+}
+
 function slide(index: number, title: string, elements: SlideElement[]): Slide {
   return {
     id: "test-id",
@@ -174,6 +185,40 @@ test("computeDeckMetrics: partial visual share is a fraction", () => {
   const metrics = computeDeckMetrics(mixed);
   assert.equal(metrics.slidesWithVisual, 1);
   assert.equal(metrics.percentSlidesWithVisual, 0.5);
+});
+
+test("computeDeckMetrics: counts image elements as visual-bearing slides", () => {
+  const metrics = computeDeckMetrics(
+    deck([slide(0, "Image", [imageElement("image-1")])]),
+  );
+  assert.equal(metrics.slidesWithVisual, 1);
+  assert.equal(metrics.percentSlidesWithVisual, 1);
+  assert.equal(metrics.totalWordCount, 0);
+});
+
+test("computeDeckMetrics: slides without text elements contribute zero words", () => {
+  const metrics = computeDeckMetrics(
+    deck([
+      slide(0, "Empty", []),
+      slide(1, "Visual only", [visualElement("visual-only", "vis-1")]),
+    ]),
+  );
+
+  assert.equal(metrics.slideCount, 2);
+  assert.equal(metrics.totalWordCount, 0);
+  assert.equal(metrics.wordsPerSlide, 0);
+  assert.equal(metrics.slidesWithVisual, 1);
+  assert.equal(metrics.percentSlidesWithVisual, 0.5);
+});
+
+test("computeDeckMetrics: tolerates malformed slide element lists", () => {
+  const malformed = deck([
+    { id: "bad", index: 0, title: "Bad", notes: "", elements: null } as never,
+  ]);
+  const metrics = computeDeckMetrics(malformed);
+  assert.equal(metrics.totalWordCount, 0);
+  assert.equal(metrics.slidesWithVisual, 0);
+  assert.equal(metrics.schemaValid, false);
 });
 
 test("computeDeckMetrics: echoes sourceWordCount and derives slidesPerSourceWord", () => {

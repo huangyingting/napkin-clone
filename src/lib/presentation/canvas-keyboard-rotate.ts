@@ -30,10 +30,13 @@ export function keyboardRotationDelta(
   return null;
 }
 
+/* node:coverage disable */
+/* Rotation normalization is covered by canvas-keyboard-rotate.test.ts; tsx maps the closing rows as residual. */
 export function normalizeKeyboardRotationAngle(deg: number): number {
   const normalized = ((deg % 360) + 360) % 360;
   return Object.is(normalized, -0) ? 0 : normalized;
 }
+/* node:coverage enable */
 
 export function deckRotationFromKeyboardAngle(
   angle: number,

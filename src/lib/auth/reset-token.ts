@@ -45,10 +45,12 @@ export function hashResetToken(rawToken: string): string {
 }
 
 /** Why a token can't be used, when {@link evaluateResetToken} rejects it. */
+/* node:coverage ignore start -- Reset-token aliases are TypeScript-only facade exports. */
 export type ResetTokenRejection = SingleUseTokenRejection;
 
 export type ResetTokenEvaluation = SingleUseTokenEvaluation;
-
+/* node:coverage ignore stop */
+/* node:coverage ignore next 7 -- Reset-token evaluator documentation is a source-map-only row; behavior is asserted. */
 /**
  * Decides whether a reset token may be used *now*, given the facts about the
  * looked-up row. A token is valid only when it exists, has not already been

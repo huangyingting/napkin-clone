@@ -35,8 +35,9 @@ export function isGoogleLinkedImage(image: string | null | undefined): boolean {
 }
 
 /** A sign-in method we can surface in settings. */
+/* node:coverage ignore start -- Connected-account provider/interface declarations are TypeScript-only facade rows. */
 type ConnectedAccountProvider = "password" | "google";
-
+/* node:coverage ignore next 11 -- ConnectedAccount interface fields are type-only source-map rows. */
 export interface ConnectedAccount {
   provider: ConnectedAccountProvider;
   /** Human-readable provider name. */
@@ -50,6 +51,7 @@ export interface ConnectedAccount {
    */
   available: boolean;
 }
+/* node:coverage ignore stop */
 
 /**
  * Derives the user's connected sign-in methods from durable User-row signals.

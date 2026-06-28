@@ -6,10 +6,14 @@ import {
   commentAnchorFromRecord,
   commentAnchorToRecord,
   durableBlockIdFromAnchorRecord,
+  normalizeAnchorText,
+  normalizeAnchorType,
   sanitizeAnchorGeometry,
   slideAnchorFromRecord,
   slideAnchorToRecord,
   validateAnchorGeometry,
+  validateElementId,
+  validateSlideId,
 } from "./anchors";
 import type { SlideCommentAnchor } from "@/lib/presentation/slide-comment-anchors";
 import {
@@ -119,6 +123,52 @@ test("commentAnchorToRecord maps canonical variants to DB columns", () => {
   );
   assert.deepEqual(
     commentAnchorToRecord({
+      kind: "text",
+      text: "Paragraph",
+      nodeId: "block-1",
+    }),
+    {
+      anchorType: "text",
+      anchorText: "Paragraph",
+      anchorNodeId: "block-1",
+      slideId: null,
+      elementId: null,
+      anchorGeometry: null,
+    },
+  );
+  assert.deepEqual(
+    commentAnchorToRecord({
+      kind: "document-block",
+      blockKind: "visual",
+      text: "Chart",
+      nodeId: "visual-1",
+    }),
+    {
+      anchorType: "visual",
+      anchorText: "Chart",
+      anchorNodeId: "visual-1",
+      slideId: null,
+      elementId: null,
+      anchorGeometry: null,
+    },
+  );
+  assert.deepEqual(
+    commentAnchorToRecord({
+      kind: "slide",
+      slideId: "sl-1",
+      geometry: { x: 5, y: 6 },
+    }),
+    {
+      anchorType: null,
+      anchorText: null,
+      anchorNodeId: null,
+      slideId: "sl-1",
+      elementId: null,
+      anchorGeometry: { x: 5, y: 6 },
+    },
+  );
+  assert.deepEqual(
+    commentAnchorToRecord({
       ...buildCommentAnchor({
         kind: "slide-element",
         slideId: "sl-1",
@@ -135,6 +185,22 @@ test("commentAnchorToRecord maps canonical variants to DB columns", () => {
       anchorGeometry: { x: 5, y: 6 },
     },
   );
+});
+
+test("anchor primitive normalizers trim, coerce, and reject invalid values", () => {
+  assert.equal(normalizeAnchorType("text"), "text");
+  assert.equal(normalizeAnchorType("visual"), "visual");
+  assert.equal(normalizeAnchorType("deck"), null);
+  assert.equal(
+    normalizeAnchorText("  Many\n\nspaces\tinside  ", 11),
+    "Many spaces",
+  );
+  assert.equal(validateSlideId(null), null);
+  assert.equal(validateSlideId("  sl-1  "), "sl-1");
+  assert.throws(() => validateSlideId(42), /slideId must be a string/);
+  assert.equal(validateElementId(undefined), null);
+  assert.equal(validateElementId("  el-1  "), "el-1");
+  assert.throws(() => validateElementId({}), /elementId must be a string/);
 });
 
 test("comment anchor id adapters treat anchorNodeId as durable block id", () => {

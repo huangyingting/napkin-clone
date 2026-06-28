@@ -16,10 +16,28 @@ import { test, describe } from "node:test";
 import { Prisma } from "@/generated/prisma/client";
 
 import {
+  atomicSaveDocumentLexical,
   mirrorVisualNodesInTx,
+  patchDeck,
+  persistDeck,
+  persistDeckCommand,
+  regenerateDocumentShareLink,
+  rebuildMirror,
+  reconcileDeckAfterMirror,
+  revalidateSharePaths,
+  restoreVersion,
+  setDocumentSharing,
   sanitizeRestoredDeck,
+  updateDocumentSharePolicyData,
 } from "./persistence-service";
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { prisma } from "@/lib/prisma";
+import type {
+  DeckPatch,
+  SlideCommand,
+} from "@/lib/presentation/slide-commands";
+import type { CommandEnvelope } from "@/lib/commands/command-envelope";
+import { snapshotDocumentVersion } from "./persistence/helpers";
 
 // ---------------------------------------------------------------------------
 // mirrorVisualNodesInTx — shared transaction boundary
@@ -30,46 +48,92 @@ import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
  * used by `mirrorVisualNodesInTx`.  We record every call so tests can assert
  * that the function ran against this specific tx and NOT a fresh prisma client.
  */
-function makeStubTx() {
+function makeStubTx(
+  existingRows: Array<{
+    id: string;
+    anchorBlockId: string | null;
+    orderIndex: number;
+    data: Prisma.JsonValue;
+    type: string;
+    title: string | null;
+    createdAt: Date;
+  }> = [],
+  staleRevisionIds: string[] = [],
+) {
   const calls: string[] = [];
+  const payloads: Array<{ method: string; args: unknown }> = [];
 
   const tx = {
     visual: {
       findMany: async () => {
         calls.push("visual.findMany");
-        return [];
+        return existingRows;
       },
-      upsert: async () => {
+      upsert: async (args: unknown) => {
         calls.push("visual.upsert");
+        payloads.push({ method: "visual.upsert", args });
         return {};
       },
-      update: async () => {
+      update: async (args: unknown) => {
         calls.push("visual.update");
+        payloads.push({ method: "visual.update", args });
         return {};
       },
-      deleteMany: async () => {
+      deleteMany: async (args: unknown) => {
         calls.push("visual.deleteMany");
+        payloads.push({ method: "visual.deleteMany", args });
         return {};
       },
     },
     visualRevision: {
-      create: async () => {
+      create: async (args: unknown) => {
         calls.push("visualRevision.create");
+        payloads.push({ method: "visualRevision.create", args });
         return {};
       },
       findMany: async () => {
         calls.push("visualRevision.findMany");
-        return [];
+        return staleRevisionIds.map((id) => ({ id }));
       },
-      deleteMany: async () => {
+      deleteMany: async (args: unknown) => {
         calls.push("visualRevision.deleteMany");
+        payloads.push({ method: "visualRevision.deleteMany", args });
         return {};
       },
     },
     _calls: calls,
-  } as unknown as Prisma.TransactionClient & { _calls: string[] };
+    _payloads: payloads,
+  } as unknown as Prisma.TransactionClient & {
+    _calls: string[];
+    _payloads: Array<{ method: string; args: unknown }>;
+  };
 
   return tx;
+}
+
+function stubPrismaMethod<T extends object, K extends keyof T>(
+  t: { after: (fn: () => void) => void },
+  object: T,
+  methodName: K,
+  implementation: (...args: any[]) => unknown,
+): { calls: unknown[][] } {
+  const original = object[methodName];
+  const calls: unknown[][] = [];
+  const wrapped = (...args: unknown[]) => {
+    calls.push(args);
+    return (implementation as (...args: unknown[]) => unknown)(...args);
+  };
+  Object.defineProperty(object, methodName, {
+    value: wrapped,
+    configurable: true,
+  });
+  t.after(() => {
+    Object.defineProperty(object, methodName, {
+      value: original,
+      configurable: true,
+    });
+  });
+  return { calls };
 }
 
 /** Minimal serialized Lexical state with no visual nodes. */
@@ -126,6 +190,161 @@ describe("mirrorVisualNodesInTx: rollback simulation", () => {
         return true;
       },
       "mirror error should propagate so the outer transaction rolls back",
+    );
+  });
+});
+
+function lexicalStateWithVisuals(
+  visualIds: string[],
+  labelPrefix = "Node",
+): unknown {
+  return {
+    root: {
+      children: visualIds.map((visualId, index) => ({
+        type: "visual",
+        visualId,
+        visual: {
+          version: 1,
+          type: "flowchart",
+          title: `${labelPrefix} ${index + 1}`,
+          width: 760,
+          height: 480,
+          nodes: [
+            { id: `n${index + 1}`, label: `${labelPrefix} ${index + 1}` },
+          ],
+          edges: [],
+        },
+      })),
+      direction: "ltr",
+      format: "",
+      indent: 0,
+      type: "root",
+      version: 1,
+    },
+  };
+}
+
+describe("mirrorVisualNodesInTx: visual mirror diff writes", () => {
+  test("creates new rows and counts blank visual ids as invalid", async () => {
+    const tx = makeStubTx();
+    const base = lexicalStateWithVisuals([" vis-create "]) as any;
+    const outcome = await mirrorVisualNodesInTx(tx, "doc-create", {
+      root: {
+        ...base.root,
+        children: [
+          ...base.root.children,
+          {
+            type: "visual",
+            visualId: "   ",
+            visual: {
+              version: 1,
+              type: "flowchart",
+              width: 760,
+              height: 480,
+              nodes: [],
+              edges: [],
+            },
+          },
+        ],
+      },
+    });
+
+    assert.equal(outcome.created, 1);
+    assert.equal(outcome.invalid, 1);
+    assert.ok(tx._calls.includes("visual.upsert"));
+    assert.equal(
+      (tx._payloads.find((p) => p.method === "visual.upsert")?.args as any)
+        .create.anchorBlockId,
+      "vis-create",
+    );
+  });
+
+  test("snapshots payload changes, prunes stale revisions, and deletes missing rows", async () => {
+    const previousVisual = {
+      version: 1,
+      type: "flowchart",
+      title: "Old visual",
+      width: 760,
+      height: 480,
+      nodes: [{ id: "n1", label: "Old" }],
+      edges: [],
+    };
+    const tx = makeStubTx(
+      [
+        {
+          id: "row-update",
+          anchorBlockId: "vis-update",
+          orderIndex: 1,
+          data: previousVisual as Prisma.JsonValue,
+          type: "FLOWCHART",
+          title: "Old visual",
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+        },
+        {
+          id: "row-delete",
+          anchorBlockId: "vis-delete",
+          orderIndex: 0,
+          data: previousVisual as Prisma.JsonValue,
+          type: "FLOWCHART",
+          title: "Deleted visual",
+          createdAt: new Date("2026-01-02T00:00:00Z"),
+        },
+      ],
+      ["rev-stale"],
+    );
+
+    const outcome = await mirrorVisualNodesInTx(
+      tx,
+      "doc-update",
+      lexicalStateWithVisuals(["vis-update"], "New visual"),
+    );
+
+    assert.equal(outcome.updated, 1);
+    assert.equal(outcome.deleted, 1);
+    assert.ok(tx._calls.includes("visualRevision.create"));
+    assert.ok(tx._calls.includes("visualRevision.deleteMany"));
+    assert.ok(tx._calls.includes("visual.deleteMany"));
+    assert.equal(
+      (tx._payloads.find((p) => p.method === "visual.deleteMany")?.args as any)
+        .where.id.in[0],
+      "row-delete",
+    );
+  });
+
+  test("updates only order when payload data is unchanged", async () => {
+    const visual = {
+      version: 1,
+      type: "flowchart",
+      title: "Node 1",
+      width: 760,
+      height: 480,
+      nodes: [{ id: "n1", label: "Node 1" }],
+      edges: [],
+    };
+    const tx = makeStubTx([
+      {
+        id: "row-reorder",
+        anchorBlockId: "vis-reorder",
+        orderIndex: 5,
+        data: visual as Prisma.JsonValue,
+        type: "FLOWCHART",
+        title: "Node 1",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    ]);
+
+    const outcome = await mirrorVisualNodesInTx(
+      tx,
+      "doc-reorder",
+      lexicalStateWithVisuals(["vis-reorder"]),
+    );
+
+    assert.equal(outcome.updated, 1);
+    assert.equal(tx._calls.includes("visualRevision.create"), false);
+    assert.deepEqual(
+      (tx._payloads.find((p) => p.method === "visual.update")?.args as any)
+        .data,
+      { orderIndex: 0 },
     );
   });
 });
@@ -352,5 +571,684 @@ describe("schema parse-failure telemetry", () => {
     assert.ok(diag, "expected a content-visual-parse-failed diagnostic");
     assert.equal(diag?.documentId, "doc-1");
     assert.equal(diag?.anchorBlockId, "vis-bad");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// persistence/deck service boundaries
+// ---------------------------------------------------------------------------
+
+describe("deck persistence operations", () => {
+  test("patchDeck returns not found before replaying patches", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => null);
+
+    const result = await patchDeck("doc-missing", [], null);
+
+    assert.deepEqual(result, { ok: false, error: "Document not found." });
+  });
+
+  test("patchDeck reports revision conflicts without writing", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: VALID_DECK,
+      deckRevisionToken: "server-token",
+    }));
+    const updateMany = stubPrismaMethod(
+      t,
+      prisma.document,
+      "updateMany",
+      async () => ({ count: 1 }),
+    );
+
+    const result = await patchDeck("doc-conflict", [], "client-token");
+
+    assert.deepEqual(result, {
+      ok: "conflict",
+      serverRevisionToken: "server-token",
+    });
+    assert.equal(updateMany.calls.length, 0);
+  });
+
+  test("patchDeck returns fallback when a patch is not replayable", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: VALID_DECK,
+      deckRevisionToken: "deck-token",
+    }));
+
+    const unsupportedPatch = {
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      op: "slide.add",
+      slideIds: ["s2"],
+    } as unknown as DeckPatch;
+
+    const result = await patchDeck(
+      "doc-fallback",
+      [unsupportedPatch],
+      "deck-token",
+    );
+
+    assert.deepEqual(result, { ok: "fallback" });
+  });
+
+  test("patchDeck writes replayed patches and snapshots the saved document", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.deckJson && args.select?.deckRevisionToken) {
+        return { deckJson: VALID_DECK, deckRevisionToken: "deck-token" };
+      }
+      return { contentJson: EMPTY_LEXICAL_STATE, deckJson: VALID_DECK };
+    });
+    stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
+      count: 1,
+    }));
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    const createVersion = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "create",
+      async () => ({}),
+    );
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    const deleteMany = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "deleteMany",
+      async () => ({}),
+    );
+
+    const titlePatch = {
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      op: "slide.update_title",
+      slideIds: ["s1"],
+      slideFields: { s1: { title: "Quarterly Readout" } },
+    } as unknown as DeckPatch;
+
+    const result = await patchDeck("doc-patch", [titlePatch], "deck-token", {
+      userId: "user-editor",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(createVersion.calls.length, 1);
+    assert.equal(deleteMany.calls.length, 0);
+  });
+
+  test("persistDeck validates input before writing", async () => {
+    const result = await persistDeck("doc-invalid", { not: "a deck" }, null);
+
+    assert.equal(result.ok, false);
+    assert.match(result.error, /^Invalid deck:/);
+  });
+
+  test("persistDeck writes valid decks and snapshots on success", async (t) => {
+    stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
+      count: 1,
+    }));
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      contentJson: EMPTY_LEXICAL_STATE,
+      deckJson: VALID_DECK,
+    }));
+    const createVersion = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "create",
+      async () => ({}),
+    );
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+
+    const result = await persistDeck("doc-save", VALID_DECK, null, {
+      userId: "user-editor",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(createVersion.calls.length, 1);
+  });
+
+  test("patchDeck reports invalid stored deck content", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: { not: "a deck" },
+      deckRevisionToken: "deck-token",
+    }));
+
+    const result = await patchDeck("doc-invalid-stored", [], "deck-token");
+
+    assert.equal(result.ok, false);
+    assert.match(result.error, /^Stored deck is invalid:/);
+  });
+
+  test("persistDeckCommand returns document and execution failures", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: VALID_DECK,
+    }));
+
+    const envelope = deckCommandEnvelope({
+      type: "UPDATE_SLIDE_TITLE",
+      slideId: "missing-slide",
+      title: "Missing",
+    });
+
+    const result = await persistDeckCommand("doc-command", envelope);
+
+    assert.equal(result.ok, false);
+    assert.match(result.error, /Slide not found/i);
+  });
+
+  test("persistDeckCommand reports missing and invalid stored documents", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => null);
+    const missing = await persistDeckCommand(
+      "doc-missing",
+      deckCommandEnvelope({
+        type: "UPDATE_SLIDE_TITLE",
+        slideId: "s1",
+        title: "Title",
+      }),
+    );
+    assert.deepEqual(missing, { ok: false, error: "Document not found." });
+
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: { not: "a deck" },
+    }));
+    const invalid = await persistDeckCommand(
+      "doc-invalid",
+      deckCommandEnvelope({
+        type: "UPDATE_SLIDE_TITLE",
+        slideId: "s1",
+        title: "Title",
+      }),
+    );
+
+    assert.equal(invalid.ok, false);
+    assert.match(invalid.error, /^Stored deck is invalid:/);
+  });
+});
+
+function deckCommandEnvelope(
+  payload: SlideCommand,
+  overrides: Partial<CommandEnvelope<SlideCommand>> = {},
+): CommandEnvelope<SlideCommand> {
+  return {
+    id: "command-title-update",
+    schemaVersion: 1,
+    type: "deck.slide_command",
+    timestamp: "2026-06-28T00:00:00.000Z",
+    actor: { id: "user-editor" },
+    target: { surface: "deck", documentId: "doc-command" },
+    payload,
+    source: "user",
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// persistence/sharing service boundaries
+// ---------------------------------------------------------------------------
+
+describe("sharing persistence operations", () => {
+  test("setDocumentSharing disables a public share and clears link fields", async (t) => {
+    const update = stubPrismaMethod(t, prisma.document, "update", async () => ({
+      isShared: false,
+      shareId: null,
+      slug: null,
+      shareExpiresAt: null,
+      shareEmbedEnabled: false,
+      sharePresentEnabled: false,
+      shareMetadataMode: "generic",
+      shareDiscoverable: false,
+    }));
+
+    const result = await setDocumentSharing("doc-share", false);
+
+    assert.equal(result.isShared, false);
+    assert.equal(result.shareUrl, null);
+    assert.equal((update.calls[0]![0] as any).data.shareId, null);
+  });
+
+  test("setDocumentSharing enables a share with a slugged public URL", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findFirst", async () => ({
+      title: "Team Readout",
+    }));
+    stubPrismaMethod(t, prisma.document, "update", async (args: any) => ({
+      isShared: true,
+      shareId: args.data.shareId,
+      slug: args.data.slug,
+      shareExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+      shareEmbedEnabled: true,
+      sharePresentEnabled: true,
+      shareMetadataMode: "title-excerpt",
+      shareDiscoverable: true,
+    }));
+
+    const result = await setDocumentSharing("doc-share", true);
+
+    assert.equal(result.isShared, true);
+    assert.ok(result.shareId);
+    assert.match(result.slug ?? "", /^team-readout-/);
+    assert.match(result.shareUrl ?? "", /\/share\/team-readout-/);
+    assert.equal(result.metadataMode, "title-excerpt");
+    assert.equal(result.discoverable, true);
+  });
+
+  test("setDocumentSharing handles shared documents without a stored title", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.document, "update", async (args: any) => ({
+      isShared: true,
+      shareId: args.data.shareId,
+      slug: args.data.slug,
+      shareExpiresAt: null,
+      shareEmbedEnabled: false,
+      sharePresentEnabled: false,
+      shareMetadataMode: "generic",
+      shareDiscoverable: false,
+    }));
+
+    const result = await setDocumentSharing("doc-untitled", true);
+
+    assert.equal(result.isShared, true);
+    assert.ok(result.shareId);
+    assert.equal(result.slug, null);
+    assert.equal(result.shareUrl, null);
+  });
+
+  test("setDocumentSharing retries share slug writes after unique collisions", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findFirst", async () => ({
+      title: "Collision Deck",
+    }));
+    let attempts = 0;
+    const update = stubPrismaMethod(
+      t,
+      prisma.document,
+      "update",
+      async (args: any) => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Prisma.PrismaClientKnownRequestError("slug collision", {
+            code: "P2002",
+            clientVersion: "test",
+          });
+        }
+        return {
+          isShared: true,
+          shareId: args.data.shareId,
+          slug: args.data.slug,
+          shareExpiresAt: null,
+          shareEmbedEnabled: false,
+          sharePresentEnabled: false,
+          shareMetadataMode: "generic",
+          shareDiscoverable: false,
+        };
+      },
+    );
+
+    const result = await setDocumentSharing("doc-collision", true);
+
+    assert.equal(attempts, 2);
+    assert.equal(update.calls.length, 2);
+    assert.match(result.slug ?? "", /^collision-deck-/);
+  });
+
+  test("updateDocumentSharePolicyData normalizes invalid metadata modes", async (t) => {
+    stubPrismaMethod(t, prisma.document, "update", async () => ({
+      isShared: true,
+      shareId: "share-policy",
+      slug: "policy-deck",
+      shareExpiresAt: null,
+      shareEmbedEnabled: false,
+      sharePresentEnabled: true,
+      shareMetadataMode: "unexpected",
+      shareDiscoverable: undefined,
+    }));
+
+    const result = await updateDocumentSharePolicyData("doc-policy", {
+      shareMetadataMode: "unexpected",
+    });
+
+    assert.equal(result.metadataMode, "generic");
+    assert.equal(result.discoverable, false);
+    assert.match(result.shareUrl ?? "", /\/share\/policy-deck-share-policy$/);
+  });
+
+  test("regenerateDocumentShareLink returns null for private documents", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findFirst", async () => ({
+      title: "Private Draft",
+      isShared: false,
+    }));
+
+    const result = await regenerateDocumentShareLink("doc-private");
+
+    assert.equal(result, null);
+  });
+
+  test("regenerateDocumentShareLink returns null when the document is missing", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findFirst", async () => null);
+
+    const result = await regenerateDocumentShareLink("doc-missing");
+
+    assert.equal(result, null);
+  });
+
+  test("regenerateDocumentShareLink writes a fresh share id for shared documents", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findFirst", async () => ({
+      title: "Shared Roadmap",
+      isShared: true,
+    }));
+    const update = stubPrismaMethod(
+      t,
+      prisma.document,
+      "update",
+      async (args: any) => ({
+        isShared: true,
+        shareId: args.data.shareId,
+        slug: args.data.slug,
+        shareExpiresAt: null,
+        shareEmbedEnabled: true,
+        sharePresentEnabled: false,
+        shareMetadataMode: "title",
+        shareDiscoverable: false,
+      }),
+    );
+
+    const result = await regenerateDocumentShareLink("doc-shared");
+
+    assert.ok(result?.shareId);
+    assert.match(result?.slug ?? "", /^shared-roadmap-/);
+    assert.equal((update.calls[0]![0] as any).data.isShared, true);
+  });
+
+  test("revalidateSharePaths swallows lookup failures", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => {
+      throw new Error("cache lookup failed");
+    });
+
+    await assert.doesNotReject(() => revalidateSharePaths("doc-cache"));
+  });
+
+  test("revalidateSharePaths exits quietly for private documents", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      isShared: false,
+      shareId: "share-private",
+      slug: "private-deck",
+    }));
+
+    await assert.doesNotReject(() => revalidateSharePaths("doc-private"));
+  });
+
+  test("revalidateSharePaths handles shared documents with public paths", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      isShared: true,
+      shareId: "share-cache",
+      slug: "cache-deck",
+    }));
+
+    await assert.doesNotReject(() => revalidateSharePaths("doc-cache"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// persistence/helpers snapshots and version restore
+// ---------------------------------------------------------------------------
+
+describe("document snapshot and restore operations", () => {
+  test("snapshotDocumentVersion skips duplicate content inside the throttle window", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => ({
+      createdAt: new Date(),
+      contentJson: { b: 2, a: [1, { z: true }] },
+      deckJson: { theme: "indigo" },
+    }));
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      contentJson: { a: [1, { z: true }], b: 2 },
+      deckJson: { theme: "indigo" },
+    }));
+    const create = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "create",
+      async () => ({}),
+    );
+
+    await snapshotDocumentVersion("doc-snapshot");
+
+    assert.equal(create.calls.length, 0);
+  });
+
+  test("snapshotDocumentVersion skips when throttled before reading the document", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => ({
+      createdAt: new Date(),
+      contentJson: EMPTY_LEXICAL_STATE,
+      deckJson: null,
+    }));
+    const findUnique = stubPrismaMethod(
+      t,
+      prisma.document,
+      "findUnique",
+      async () => {
+        throw new Error("should not read document while throttled");
+      },
+    );
+
+    await snapshotDocumentVersion("doc-snapshot");
+
+    assert.equal(findUnique.calls.length, 0);
+  });
+
+  test("snapshotDocumentVersion skips missing or contentless documents", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    const create = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "create",
+      async () => ({}),
+    );
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => null);
+
+    await snapshotDocumentVersion("missing-doc");
+
+    assert.equal(create.calls.length, 0);
+  });
+
+  test("snapshotDocumentVersion skips documents without content JSON", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      contentJson: null,
+      deckJson: null,
+    }));
+    const create = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "create",
+      async () => ({}),
+    );
+
+    await snapshotDocumentVersion("contentless-doc");
+
+    assert.equal(create.calls.length, 0);
+  });
+
+  test("snapshotDocumentVersion prunes stale versions after creating a forced snapshot", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      contentJson: EMPTY_LEXICAL_STATE,
+      deckJson: null,
+    }));
+    const create = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "create",
+      async () => ({}),
+    );
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () =>
+      Array.from({ length: 55 }, (_, index) => ({ id: `version-${index}` })),
+    );
+    const deleteMany = stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "deleteMany",
+      async () => ({}),
+    );
+
+    await snapshotDocumentVersion("doc-snapshot", {
+      force: true,
+      label: "Manual checkpoint",
+      userId: "user-editor",
+    });
+
+    assert.equal(create.calls.length, 1);
+    assert.ok(
+      ((deleteMany.calls[0]![0] as any).where.id.in as string[]).length > 0,
+    );
+  });
+
+  test("snapshotDocumentVersion swallows persistence failures", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => {
+      throw new Error("database unavailable");
+    });
+
+    await assert.doesNotReject(() => snapshotDocumentVersion("doc-snapshot"));
+  });
+
+  test("restoreVersion rejects snapshots from a different document", async (t) => {
+    stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "findUniqueOrThrow",
+      async () => ({
+        documentId: "other-doc",
+        contentJson: EMPTY_LEXICAL_STATE,
+        deckJson: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    );
+
+    await assert.rejects(
+      () => restoreVersion("doc-restore", "version-other", "user-editor"),
+      /does not belong to document/,
+    );
+  });
+
+  test("restoreVersion writes sanitized state, rebuilds visual rows, and revalidates shares", async (t) => {
+    stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "findUniqueOrThrow",
+      async () => ({
+        documentId: "doc-restore",
+        contentJson: lexicalStateWithVisual("vis-keep"),
+        deckJson: VALID_DECK,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    );
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.contentJson) {
+        return { contentJson: EMPTY_LEXICAL_STATE, deckJson: VALID_DECK };
+      }
+      if (args.select?.deckJson) {
+        return { deckJson: null };
+      }
+      return { shareId: null, slug: null, isShared: false };
+    });
+    const tx = {
+      ...makeStubTx(),
+      document: {
+        updateMany: async () => ({ count: 1 }),
+      },
+    } as unknown as Prisma.TransactionClient;
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    const result = await restoreVersion(
+      "doc-restore",
+      "version-restore",
+      "user-editor",
+    );
+
+    assert.equal(result.documentId, "doc-restore");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// persistence/visual exported flows
+// ---------------------------------------------------------------------------
+
+describe("visual persistence exported flows", () => {
+  test("atomicSaveDocumentLexical snapshots, writes content, mirrors visuals, and logs outcome", async (t) => {
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      contentJson: EMPTY_LEXICAL_STATE,
+      deckJson: null,
+    }));
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+
+    const tx = {
+      ...makeStubTx(),
+      document: {
+        updateMany: async () => ({ count: 1 }),
+      },
+    } as unknown as Prisma.TransactionClient & {
+      _calls: string[];
+    };
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    const outcome = await atomicSaveDocumentLexical(
+      "doc-atomic",
+      EMPTY_LEXICAL_STATE,
+      "user-editor",
+    );
+
+    assert.equal(outcome.created, 0);
+    assert.ok(tx._calls.includes("visual.findMany"));
+  });
+
+  test("rebuildMirror wraps mirror rebuilds in a transaction", async (t) => {
+    const tx = makeStubTx();
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    const outcome = await rebuildMirror("doc-rebuild", EMPTY_LEXICAL_STATE);
+
+    assert.equal(outcome.deleted, 0);
+    assert.ok(tx._calls.includes("visual.findMany"));
+  });
+
+  test("reconcileDeckAfterMirror strips deck visuals without live rows", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: VALID_DECK,
+    }));
+    stubPrismaMethod(t, prisma.visual, "findMany", async () => [
+      { anchorBlockId: "vis-keep" },
+    ]);
+    const updateMany = stubPrismaMethod(
+      t,
+      prisma.document,
+      "updateMany",
+      async () => ({ count: 1 }),
+    );
+
+    await reconcileDeckAfterMirror("doc-reconcile");
+
+    assert.equal(updateMany.calls.length, 1);
+    const deckJson = (updateMany.calls[0]![0] as any).data.deckJson;
+    const visualIds = deckJson.slides[0].elements
+      .filter((element: any) => element.kind === "visual")
+      .map((element: any) => element.content.visualId);
+    assert.deepEqual(visualIds, ["vis-keep"]);
+  });
+
+  test("reconcileDeckAfterMirror logs and swallows invalid stored decks", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      deckJson: { not: "a deck" },
+    }));
+    const updateMany = stubPrismaMethod(
+      t,
+      prisma.document,
+      "updateMany",
+      async () => ({ count: 1 }),
+    );
+
+    await assert.doesNotReject(() =>
+      reconcileDeckAfterMirror("doc-invalid-deck"),
+    );
+    assert.equal(updateMany.calls.length, 0);
   });
 });

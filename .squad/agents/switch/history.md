@@ -112,3 +112,5 @@ Frontend impl review (8 HIGH issues → #304–#307); immediately implemented #2
 **Child issues:** #1103–#1150 range (see epic-plan.md for exact assignments).
 
 **P0 to fix first:** SWTCH-10 `execCommand` deprecation (issue #1138 range, Epic 9.2).
+
+- 2026-06-28T01:43Z coverage-gap diagnostic: reran exact source line coverage and focused coverage for stubborn app/UI files. No production/test edits made; focused tests already execute the relevant runtime paths. Remaining listed app/UI gaps persist as Node+tsx source-map/type-only/object-literal artifacts rather than missing feasible runtime branches. Validation passed: targeted app/UI node tests (116 pass), eslint on app/UI test files, exact source coverage gate (all files 93.62%, pass).

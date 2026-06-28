@@ -84,6 +84,120 @@ test("validateVisualCommand rejects actor/document mismatches as unauthorized", 
   assert.equal(result.errorCode, "unauthorized");
 });
 
+test("validateVisualCommand rejects malformed envelopes", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(
+    makeVisualCommand({ id: "not-a-uuid" }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateVisualCommand rejects non-visual surfaces", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(
+    makeVisualCommand({
+      target: {
+        surface: "deck" as never,
+        documentId: "doc-1",
+        visualId: "vis-1",
+      },
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateVisualCommand rejects target document mismatches", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(
+    makeVisualCommand({
+      target: {
+        surface: "visual",
+        documentId: "doc-2",
+        visualId: "vis-1",
+      },
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unauthorized");
+});
+
+test("validateVisualCommand rejects missing visuals", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: false,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(makeVisualCommand(), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "missing_target");
+});
+
+test("validateVisualCommand rejects target visual mismatches", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(
+    makeVisualCommand({
+      target: {
+        surface: "visual",
+        documentId: "doc-1",
+        visualId: "vis-2",
+      },
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unauthorized");
+});
+
+test("validateVisualCommand accepts valid visual commands", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  assert.deepEqual(validateVisualCommand(makeVisualCommand(), ctx), {
+    valid: true,
+  });
+});
+
 test("validateDeckCommand rejects missing decks", () => {
   const ctx: DeckCommandContext = {
     documentId: "doc-1",
@@ -95,6 +209,92 @@ test("validateDeckCommand rejects missing decks", () => {
   const result = validateDeckCommand(makeDeckCommand(), ctx);
   assert.equal(result.valid, false);
   assert.equal(result.errorCode, "missing_target");
+});
+
+test("validateDeckCommand rejects future schema versions as unsupported", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(
+    makeDeckCommand({ schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION + 1 }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unsupported_command");
+});
+
+test("validateDeckCommand rejects malformed envelopes", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(makeDeckCommand({ id: "bad-id" }), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateDeckCommand rejects non-deck surfaces", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(
+    makeDeckCommand({
+      target: {
+        surface: "visual" as never,
+        documentId: "doc-1",
+        slideId: "s1",
+      },
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateDeckCommand rejects actor/document mismatches as unauthorized", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-2",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(makeDeckCommand(), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unauthorized");
+});
+
+test("validateDeckCommand rejects target document mismatches", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(
+    makeDeckCommand({
+      target: {
+        surface: "deck",
+        documentId: "doc-2",
+        slideId: "s1",
+      },
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unauthorized");
 });
 
 test("validateDeckCommand rejects unsupported slide payload types", () => {
@@ -113,6 +313,19 @@ test("validateDeckCommand rejects unsupported slide payload types", () => {
   );
   assert.equal(result.valid, false);
   assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateDeckCommand rejects stale revisions", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-2",
+  };
+
+  const result = validateDeckCommand(makeDeckCommand(), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "stale_revision");
 });
 
 test("validateDeckCommand rejects mismatched target and payload ids", () => {
@@ -238,6 +451,25 @@ test("logCommandValidationFailure emits allowlisted metadata without command pay
   assert.equal(record.errorCode, "invalid_command");
   assert.ok(!lines[0].includes("SECRET TITLE"));
   assert.ok(!lines[0].includes("raw command text"));
+});
+
+test("logCommandValidationFailure skips valid results", () => {
+  const original = console.error;
+  const lines: string[] = [];
+  console.error = (line?: unknown) => {
+    lines.push(String(line));
+  };
+  try {
+    logCommandValidationFailure(
+      "command.validation.accept",
+      { valid: true },
+      makeDeckCommand(),
+    );
+  } finally {
+    console.error = original;
+  }
+
+  assert.deepEqual(lines, []);
 });
 
 test("logCommandValidationFailure preserves UNSUPPORTED_COMMAND diagnostic code", () => {

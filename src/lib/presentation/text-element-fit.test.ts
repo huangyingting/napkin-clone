@@ -9,16 +9,90 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 
 import type { TextLikeElement, TextResizeMeasurer } from "./text-element-fit";
 import {
+  createTextResizeMeasurer,
   fitNewTextElementBox,
   fitTextElementToContent,
   isAutoHeight,
   shrinkFontSizeToFit,
   textFitPaddingPct,
 } from "./text-element-fit";
+
+const globals = globalThis as typeof globalThis & {
+  document?: {
+    body: FakeDomElement;
+    createElement(tagName: string): FakeDomElement;
+  };
+};
+const originalDocument = globals.document;
+
+class FakeDomElement {
+  readonly tagName: string;
+  readonly style: Record<string, string> = {};
+  readonly children: FakeDomElement[] = [];
+  isConnected = false;
+  textContent = "";
+  innerHTML = "";
+  scrollHeight = 0;
+  width = 0;
+  height = 0;
+
+  constructor(tagName: string) {
+    this.tagName = tagName.toUpperCase();
+  }
+
+  appendChild(child: FakeDomElement): FakeDomElement {
+    child.isConnected = this.isConnected;
+    this.children.push(child);
+    return child;
+  }
+
+  append(...children: FakeDomElement[]): void {
+    children.forEach((child) => this.appendChild(child));
+  }
+
+  replaceChildren(...children: FakeDomElement[]): void {
+    this.children.length = 0;
+    children.forEach((child) => this.appendChild(child));
+  }
+
+  getBoundingClientRect(): Pick<DOMRect, "width" | "height"> {
+    const explicitWidth = Number.parseFloat(this.style.width);
+    const textLength =
+      this.textContent.length + this.innerHTML.replace(/<[^>]*>/g, "").length;
+    const childWidth = this.children.reduce(
+      (max, child) => Math.max(max, child.getBoundingClientRect().width),
+      0,
+    );
+    const width = Number.isFinite(explicitWidth)
+      ? explicitWidth
+      : Math.max(12, childWidth, textLength * 6);
+    const childHeight = this.children.reduce(
+      (total, child) => total + child.getBoundingClientRect().height,
+      0,
+    );
+    const ownHeight = Math.max(12, Math.ceil(textLength / 12) * 12);
+    const height = Math.max(ownHeight, childHeight);
+    this.scrollHeight = height + 3;
+    return { width, height };
+  }
+}
+
+function installFakeDocument(): void {
+  const body = new FakeDomElement("body");
+  body.isConnected = true;
+  globals.document = {
+    body,
+    createElement: (tagName: string) => new FakeDomElement(tagName),
+  };
+}
+
+afterEach(() => {
+  globals.document = originalDocument;
+});
 
 // ---------------------------------------------------------------------------
 // Minimal element factories
@@ -165,6 +239,27 @@ test("shrinkFontSizeToFit converges within 16 iterations", () => {
   assert.ok(result > 0 && result <= 8, `Result ${result} out of range`);
 });
 
+test("shrinkFontSizeToFit searches upward after a fitting midpoint", () => {
+  const el = textEl({ fontSize: 10 });
+  const measuredFontSizes: number[] = [];
+  const measurer: TextResizeMeasurer = {
+    measureHeightPct: (_el, _widthPct, fontSizePct) => {
+      measuredFontSizes.push(fontSizePct);
+      return fontSizePct * 2;
+    },
+    measureMinWidthPct: () => 5,
+    measureMaxWidthPct: () => 40,
+  };
+
+  const result = shrinkFontSizeToFit(el, 40, 15, measurer);
+
+  assert.ok(result > 6 && result < 6.4, `Expected near 6.3, got ${result}`);
+  assert.ok(
+    measuredFontSizes.some((fontSize) => fontSize > 5 && fontSize < 7),
+    "expected binary search to probe a fitting midpoint before raising lo",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // textFitPaddingPct
 // ---------------------------------------------------------------------------
@@ -290,4 +385,61 @@ test("fitNewTextElementBox clamps to slide boundaries", () => {
   const result = fitNewTextElementBox(el, box, measurer);
   assert.ok(result.x >= 0 && result.x + result.w <= 100, "X out of bounds");
   assert.ok(result.y >= 0 && result.y + result.h <= 100, "Y out of bounds");
+});
+
+test("createTextResizeMeasurer returns zero without a DOM host", () => {
+  globals.document = undefined;
+  const measurer = createTextResizeMeasurer(800, 450);
+
+  assert.equal(measurer.measureHeightPct(textEl({}), 40, 5), 0);
+  assert.equal(measurer.measureMinWidthPct(textEl({}), 5), 0);
+  assert.equal(measurer.measureMaxWidthPct(textEl({}), 5), 0);
+});
+
+test("createTextResizeMeasurer measures styled plain text and reuses the DOM host", () => {
+  installFakeDocument();
+  const el = textEl({ fontSize: 5, align: "center" });
+  el.content.paragraphs = [
+    { text: "Bold", runs: [{ text: "Bold", bold: true }] },
+    { text: "Plain" },
+  ];
+  el.designOverrides = {
+    textStyle: {
+      fontSize: 5,
+      bold: true,
+      italic: true,
+      underline: true,
+      align: "center",
+      fontId: "jetbrains-mono",
+    },
+  };
+
+  const measurer = createTextResizeMeasurer(1000, 500);
+  const firstHeight = measurer.measureHeightPct(el, 25, 5);
+  const secondHeight = measurer.measureHeightPct(el, 25, 5);
+  const host = globals.document?.body.children[0];
+
+  assert.ok(firstHeight > 0);
+  assert.equal(secondHeight, firstHeight);
+  assert.ok(measurer.measureMinWidthPct(el, 5) > 0);
+  assert.equal(globals.document?.body.children.length, 1);
+  assert.equal(host?.style.position, "fixed");
+});
+
+test("createTextResizeMeasurer measures list min and max widths with rich rows", () => {
+  installFakeDocument();
+  const el = bulletsEl(6);
+  el.content.paragraphs = [
+    {
+      text: "one",
+      listType: "bullet",
+      runs: [{ text: "one", code: true }],
+    },
+    { text: "two", listType: "number" },
+  ];
+
+  const measurer = createTextResizeMeasurer(1200, 600);
+
+  assert.ok(measurer.measureMinWidthPct(el, 6) > 0);
+  assert.ok(measurer.measureMaxWidthPct(el, 6) > 0);
 });

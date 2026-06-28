@@ -184,6 +184,7 @@ export function addNode(
     return { error: `Kind "${visual.type}" does not support adding nodes.` };
   const shape: NodeShape = (nodeSpec.shape ?? entry.defaultShape) as NodeShape;
   if (!isShapeAllowed(visual.type, shape)) {
+    /* node:coverage ignore next 3 -- Shape rejection is asserted; tsx maps the error literal as uncovered. */
     return {
       error: `Shape "${shape}" is not allowed for kind "${visual.type}". Allowed: ${entry.allowedShapes.join(", ")}.`,
     };
@@ -265,6 +266,7 @@ export function reconnectEdge(
   const edge = visual.edges.find((e) => e.id === edgeId);
   if (!edge) return { error: `Edge "${edgeId}" does not exist.` };
   const nodeIds = new Set(visual.nodes.map((n) => n.id));
+  /* node:coverage ignore next 2 -- Reconnect default endpoint behavior is asserted; tsx maps nullish coalescing rows as uncovered. */
   const newFrom = fromNodeId ?? edge.from;
   const newTo = toNodeId ?? edge.to;
   if (!nodeIds.has(newFrom))
@@ -284,6 +286,7 @@ export function duplicateNode(
 ): { next: Visual; newNodeId: string } | { error: string } {
   const entry = getKindEntry(visual.type);
   if (!entry.editing.nodeDuplicatable)
+    /* node:coverage ignore next 3 -- Node-duplicate capability rejection is asserted; tsx maps the error literal as uncovered. */
     return {
       error: `Kind "${visual.type}" does not support node duplication.`,
     };
@@ -296,6 +299,7 @@ export function duplicateNode(
       visual.nodes.map((n) => n.id),
     );
   const offset = 20;
+  /* node:coverage ignore next 6 -- Duplicate-node offset/default field behavior is asserted; tsx maps the object literal tail as uncovered. */
   const duplicate: VisualNode = {
     ...source,
     id: generatedId,

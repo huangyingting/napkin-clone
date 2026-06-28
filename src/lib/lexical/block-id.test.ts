@@ -5,7 +5,14 @@ import { createHeadlessEditor } from "@lexical/headless";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { $getRoot, $isElementNode, $isTextNode } from "lexical";
+import {
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  $isElementNode,
+  $isTextNode,
+  type LexicalEditor,
+} from "lexical";
 
 import { collectDocumentBlocks } from "@/lib/content";
 
@@ -19,6 +26,7 @@ import {
   $ensureBlockIdsInDocument,
   ensureLexicalBlockIdSupport,
   registerBlockIdTransforms,
+  serializeEditorStateWithBlockIds,
 } from "./block-id-runtime";
 import { markdownToLexicalStateObject } from "@/lib/content";
 
@@ -352,3 +360,134 @@ test("patched Lexical block nodes preserve bid across parse, edit, and export", 
   assert.ok(firstBid);
   assert.equal(secondBid, firstBid);
 });
+
+test("block id runtime install is idempotent and serialize delegates to editor state JSON", () => {
+  ensureLexicalBlockIdSupport();
+  ensureLexicalBlockIdSupport();
+
+  const { editor, unregister } = makeHeadlessEditor();
+  seedPlainParagraph(editor, "serialized");
+
+  const serialized = serializeEditorStateWithBlockIds(editor.getEditorState());
+  assert.deepEqual(serialized, editor.getEditorState().toJSON());
+
+  unregister();
+});
+
+test("block id runtime registers and unregisters every durable node transform", () => {
+  const registered: string[] = [];
+  const unregistered: string[] = [];
+  const unregister = registerBlockIdTransforms({
+    registerNodeTransform(klass: { name: string }) {
+      registered.push(klass.name);
+      return () => unregistered.push(klass.name);
+    },
+  } as unknown as Parameters<typeof registerBlockIdTransforms>[0]);
+
+  unregister();
+
+  assert.deepEqual(registered, [
+    "ParagraphNode",
+    "HeadingNode",
+    "QuoteNode",
+    "ListItemNode",
+    "HorizontalRuleNode",
+  ]);
+  assert.deepEqual(unregistered, registered);
+});
+
+test("block id runtime transform stamps bidless horizontal rules", () => {
+  const transforms: Array<{
+    klassName: string;
+    transform: (node: unknown) => void;
+  }> = [];
+  const unregister = registerBlockIdTransforms({
+    registerNodeTransform(
+      klass: { name: string },
+      transform: (node: unknown) => void,
+    ) {
+      transforms.push({ klassName: klass.name, transform });
+      return () => undefined;
+    },
+  } as unknown as Parameters<typeof registerBlockIdTransforms>[0]);
+
+  const quoteTransform = transforms.find(
+    ({ klassName }) => klassName === "QuoteNode",
+  )?.transform;
+  const listItemTransform = transforms.find(
+    ({ klassName }) => klassName === "ListItemNode",
+  )?.transform;
+  const horizontalRuleTransform = transforms.find(
+    ({ klassName }) => klassName === "HorizontalRuleNode",
+  )?.transform;
+  assert.ok(quoteTransform, "expected QuoteNode transform");
+  assert.ok(listItemTransform, "expected ListItemNode transform");
+  assert.ok(horizontalRuleTransform, "expected HorizontalRuleNode transform");
+
+  const bidlessNode = {
+    getWritable() {
+      return this;
+    },
+  } as { __bid?: string; getWritable(): unknown };
+  quoteTransform(bidlessNode);
+  delete bidlessNode.__bid;
+  listItemTransform(bidlessNode);
+  delete bidlessNode.__bid;
+  horizontalRuleTransform(bidlessNode);
+  assert.match(String(bidlessNode.__bid), /^[A-Za-z0-9]{12}$/);
+
+  const stampedNode = {
+    __bid: "existing-block-id",
+    getWritable() {
+      throw new Error("already-stamped nodes should not be rewritten");
+    },
+  };
+  horizontalRuleTransform(stampedNode);
+  assert.equal(stampedNode.__bid, "existing-block-id");
+
+  unregister();
+});
+
+test("block id runtime exports a fresh bid for manually cleared bidless nodes", () => {
+  const { editor, unregister } = makeHeadlessEditor();
+  seedPlainParagraph(editor, "bidless export");
+
+  const exportedBid = editor.getEditorState().read(() => {
+    const paragraph = $getRoot().getFirstChild();
+    assert.ok(paragraph, "expected paragraph");
+    delete (paragraph as typeof paragraph & { __bid?: string }).__bid;
+    return (paragraph.exportJSON() as { bid?: string }).bid;
+  });
+
+  assert.match(String(exportedBid), /^[A-Za-z0-9]{12}$/);
+  unregister();
+});
+
+test("block id runtime hydrates bid values from imported JSON", () => {
+  const { editor, unregister } = makeHeadlessEditor();
+  const state = bidlessState();
+  state.root.children = [state.root.children[0]];
+  (state.root.children[0] as { bid?: string }).bid = "stored-block-id";
+  editor.setEditorState(editor.parseEditorState(JSON.stringify(state)));
+
+  const importedBid = editor.getEditorState().read(() => {
+    const paragraph = $getRoot().getFirstChild();
+    assert.ok(paragraph, "expected imported paragraph");
+    return (paragraph.exportJSON() as { bid?: string }).bid;
+  });
+
+  assert.equal(importedBid, "stored-block-id");
+  unregister();
+});
+
+function seedPlainParagraph(editor: LexicalEditor, text: string): void {
+  editor.update(
+    () => {
+      const paragraph = $createParagraphNode();
+      paragraph.append($createTextNode(text));
+      $getRoot().clear().append(paragraph);
+      paragraph.selectStart();
+    },
+    { discrete: true },
+  );
+}

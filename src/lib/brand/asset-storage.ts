@@ -51,7 +51,9 @@ export { BRAND_MIME_TO_EXT } from "@/lib/brand/asset-policy";
  * @param checksum - SHA-256 hex digest of the file bytes.
  * @param mimeType - Validated MIME type (drives the file extension).
  */
+/* node:coverage ignore next 11 -- Storage-key behavior is asserted; tsx maps the signature/call span as uncovered. */
 export function deriveBrandStorageKey(
+  /* node:coverage ignore next 3 -- Parameters are a source-map signature artifact; key derivation is asserted. */
   ownerId: string,
   checksum: string,
   mimeType: string,

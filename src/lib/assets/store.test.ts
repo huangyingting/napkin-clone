@@ -85,6 +85,38 @@ describe("storeAssetWithUpsert", () => {
     assert.deepEqual(writes, []);
   });
 
+  it("can write before lookup and refresh metadata for an existing asset", async () => {
+    const writes: string[] = [];
+    const updates: unknown[] = [];
+    const existing: ExistingStoredAsset = {
+      id: "asset-existing",
+      storageKey: "doc1/existing.png",
+    };
+
+    const result = await storeAssetWithUpsert({
+      scopeId: "doc1",
+      buffer: Buffer.from("pixels"),
+      mimeType: "image/png",
+      originalName: "renamed.png",
+      mimeToExt: { "image/png": "png" },
+      storage: memoryStorage(writes),
+      storeBeforeFind: true,
+      findExisting: async () => existing,
+      updateExisting: async (_existing, input) => {
+        updates.push(input);
+      },
+      createAsset: async () => {
+        throw new Error("should not create");
+      },
+      findAfterConflict: async () => null,
+    });
+
+    assert.equal(result.assetId, "asset-existing");
+    assert.equal(result.url, `/api/assets/${writes[0]}`);
+    assert.equal(result.storageKey, "doc1/existing.png");
+    assert.equal(updates.length, 1);
+  });
+
   it("recovers from a P2002 race via the shared DB fallback", async () => {
     const result = await storeAssetWithUpsert({
       scopeId: "brand-owner",

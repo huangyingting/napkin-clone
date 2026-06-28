@@ -148,3 +148,24 @@ test("resolveSlideRenderModel renders master chrome placeholders per slide", () 
     assert.equal(page.content.paragraphs?.[0]?.text, "2 / 2");
   }
 });
+
+test("resolveSlideRenderModel falls back from unresolved shape fill tokens", () => {
+  const d = deck();
+  d.slides[0]!.elements = [
+    {
+      ...shapeElement("bad-fill", 0),
+      designOverrides: { fill: { token: "missing-color" } },
+    } as SlideElement,
+  ];
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+  const design = model.elementDesigns["bad-fill"];
+
+  assert.equal(design?.kind, "shape");
+  if (design?.kind === "shape") {
+    assert.equal(
+      design.fill,
+      model.tokenSet.shape.fill ?? model.tokenSet.colors.accent,
+    );
+  }
+});

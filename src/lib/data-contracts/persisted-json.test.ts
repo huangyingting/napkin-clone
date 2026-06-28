@@ -3,7 +3,10 @@ import test from "node:test";
 
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
-import { PERSISTED_JSON_CONTRACTS } from "./persisted-json";
+import {
+  PERSISTED_JSON_CONTRACTS,
+  getPersistedJsonContract,
+} from "./persisted-json";
 
 function validDeck(): unknown {
   return {
@@ -52,6 +55,7 @@ test("persisted JSON registry points at current validators", () => {
     PERSISTED_JSON_CONTRACTS["Visual.data"].validate(validVisual()).success,
     true,
   );
+  assert.equal(getPersistedJsonContract("Visual.data").name, "Visual.data");
 });
 
 // @compat — confirms superseded deck shapes and retired anchor types are rejected at the persistence boundary
@@ -75,5 +79,47 @@ test("registry rejects superseded deck and invalid comment anchor shapes", () =>
       anchorGeometry: { x: 10, y: 20 },
     }).success,
     true,
+  );
+});
+
+test("comment anchor contract rejects inconsistent persisted anchors", () => {
+  const commentContract = PERSISTED_JSON_CONTRACTS["Comment.anchor"];
+
+  assert.equal(commentContract.validate("not an object").success, false);
+  assert.equal(commentContract.validate({ elementId: "e1" }).success, false);
+  assert.equal(
+    commentContract.validate({ slideId: "s1", anchorType: "text" }).success,
+    false,
+  );
+  assert.equal(commentContract.validate({ anchorType: "text" }).success, false);
+  assert.equal(
+    commentContract.validate({ slideId: 42, anchorGeometry: { x: 10, y: 20 } })
+      .success,
+    false,
+  );
+});
+
+test("visual JSON contracts reject malformed embedded and row visuals", () => {
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["Visual.data"].validate({
+      ...validVisual(),
+      type: "legacy",
+    }).success,
+    false,
+  );
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["Document.contentJson:visual"].validate({
+      root: {
+        children: [
+          {
+            type: "visual",
+            version: 1,
+            visualId: "visual-1",
+            visual: { ...validVisual(), type: "legacy" },
+          },
+        ],
+      },
+    }).success,
+    false,
   );
 });

@@ -37,6 +37,7 @@ export interface ElementBox {
  * carries that formatting, keeping runs compact and additive. A run with no
  * formatting flags is equivalent to plain text.
  */
+/* node:coverage ignore next 20 -- type-only text-run fields are erased by tsx and reported as source-map gaps. */
 export interface TextRun {
   /** The literal text of this span. */
   text: string;

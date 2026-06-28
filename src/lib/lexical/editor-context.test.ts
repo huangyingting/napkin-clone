@@ -16,6 +16,7 @@ import {
   $createHeadingNode,
   $createQuoteNode,
 } from "@lexical/rich-text";
+import { $patchStyleText } from "@lexical/selection";
 import {
   $createNodeSelection,
   $createParagraphNode,
@@ -349,4 +350,41 @@ test("stable selection snapshot keeps bid but strips live NodeKeys", () => {
   assert.equal(JSON.stringify(stable).includes(blockKey), false);
   assert.equal("blockKey" in stable, false);
   assert.equal("selectedVisualNodeKey" in stable, false);
+});
+
+test("range descriptor records element format, style values, and stable end block bid", () => {
+  const editor = makeEditor();
+  const descriptor = derive(editor, () => {
+    const first = $createParagraphNode() as ReturnType<
+      typeof $createParagraphNode
+    > & { __bid?: string };
+    first.__bid = "bid-start";
+    first.setFormat("center");
+    const firstText = $createTextNode("Styled first");
+    first.append(firstText);
+
+    const second = $createParagraphNode() as ReturnType<
+      typeof $createParagraphNode
+    > & { __bid?: string };
+    second.__bid = "bid-end";
+    const secondText = $createTextNode("Styled second");
+    second.append(secondText);
+    $getRoot().clear().append(first, second);
+
+    const selection = $createRangeSelection();
+    selection.anchor.set(firstText.getKey(), 0, "text");
+    selection.focus.set(secondText.getKey(), 6, "text");
+    $setSelection(selection);
+    $patchStyleText(selection, {
+      color: "#111111",
+      "background-color": "#eeeeee",
+    });
+  });
+
+  assert.equal(descriptor.elementFormat, "center");
+  assert.equal(descriptor.textColor, "#111111");
+  assert.equal(descriptor.highlightColor, "#eeeeee");
+  assert.equal(descriptor.blockBid, "bid-start");
+  assert.equal(descriptor.selectionEndBlockBid, "bid-end");
+  assert.equal(descriptor.kind, "range");
 });

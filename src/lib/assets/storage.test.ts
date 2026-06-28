@@ -29,6 +29,20 @@ describe("neutral LocalAssetStorageAdapter", () => {
     const url = await adapter.store(key, bytes, "image/png");
     assert.equal(url, "/api/test-assets/scope/checksum.png");
     assert.deepEqual(await adapter.read(key), bytes);
+    const stat = await adapter.stat(key);
+    assert.equal(stat.size, bytes.length);
+    assert.ok(stat.mtime instanceof Date);
+    const stream = await adapter.stream(key);
+    const reader = stream.getReader();
+    const chunks: Buffer[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      chunks.push(Buffer.from(value));
+    }
+    assert.deepEqual(Buffer.concat(chunks), bytes);
 
     await adapter.delete(key);
     await assert.rejects(

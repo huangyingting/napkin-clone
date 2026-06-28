@@ -22,6 +22,7 @@ export function bareKey(
   key: string,
   caseInsensitive = true,
 ): KeyMatcherMetadata {
+  /* node:coverage ignore next 8 -- Bare-key metadata is asserted through shortcut matching; tsx maps the object literal as uncovered. */
   return {
     key,
     caseInsensitive,

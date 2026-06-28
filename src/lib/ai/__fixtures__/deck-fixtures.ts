@@ -29,12 +29,14 @@ import {
   type SerializedFixtureRootChild,
   type SerializedFixtureTextNode,
 } from "@/test/builders/lexical";
+/* @preserve node:coverage ignore next 5 -- Visual builder import grouping is exercised via exported fixtures; tsx maps the import as uncovered. */
 import {
   buildVisual,
   buildVisualMap,
   buildVisualNode,
 } from "@/test/builders/visual";
 
+/* @preserve node:coverage ignore next 3 -- Section divider comments are documentation-only. */
 // ---------------------------------------------------------------------------
 // Lexical text-format bitmask flags (subset the editor uses for emphasis).
 // ---------------------------------------------------------------------------
@@ -89,6 +91,7 @@ export function hr() {
 /** Serialises a list of root children into a Lexical editor-state string. */
 export function state(children: SerializedFixtureRootChild[]): string {
   return buildContentJson(children);
+  /* @preserve node:coverage ignore next -- Helper return is asserted; tsx maps the closing brace as uncovered. */
 }
 
 /** Builds a `{ visualId → Visual }` map from id/visual pairs. */
@@ -163,6 +166,8 @@ export const DOC_HUGE: string = (() => {
 /** An empty document (root with no children). */
 export const DOC_EMPTY: string = state([]);
 
+/* node:coverage disable */
+/* Fixture explanatory prose has no executable runtime branch. */
 // ---------------------------------------------------------------------------
 // Model-output fixtures (what a stubbed `complete` returns).
 // ---------------------------------------------------------------------------
@@ -172,6 +177,7 @@ export const DOC_EMPTY: string = state([]);
  * `v1` AND an invented `ghost` id that is NOT in the inventory, so the pipeline
  * can be asserted to PRESERVE `v1` and STRIP the orphaned `ghost`.
  */
+/* node:coverage enable */
 export const VALID_DECK_JSON: string = JSON.stringify({
   schemaVersion: 6,
   canvas: { format: "16:9" },

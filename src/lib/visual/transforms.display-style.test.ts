@@ -203,6 +203,71 @@ test("isDisplayStyleActive returns false for unknown style id", () => {
   assert.equal(isDisplayStyleActive(source, "does-not-exist"), false);
 });
 
+test("isDisplayStyleActive detects palette, node shape, and edge style drift", () => {
+  const source = sourceFor("flowchart");
+  const preset = VISUAL_DISPLAY_STYLES[0];
+  const applied = applyDisplayStyle(source, preset.id);
+  const alternateShape =
+    preset.nodeShape === "diamond" ? "rectangle" : "diamond";
+  const alternateEdge = preset.edgeStyle === "curved" ? "straight" : "curved";
+
+  assert.equal(
+    isDisplayStyleActive(
+      {
+        ...applied,
+        style: { ...applied.style, palette: ["#000000"] },
+      },
+      preset.id,
+    ),
+    false,
+  );
+  assert.equal(
+    isDisplayStyleActive(
+      {
+        ...applied,
+        nodes: [
+          { ...applied.nodes[0], shape: alternateShape },
+          ...applied.nodes.slice(1),
+        ],
+      },
+      preset.id,
+    ),
+    false,
+  );
+  assert.equal(
+    isDisplayStyleActive(
+      {
+        ...applied,
+        edges: [
+          { ...applied.edges[0], style: alternateEdge },
+          ...applied.edges.slice(1),
+        ],
+      },
+      preset.id,
+    ),
+    false,
+  );
+});
+
+test("isDisplayStyleActive detects same-length palette value drift", () => {
+  const source = sourceFor("list");
+  const preset = VISUAL_DISPLAY_STYLES[0];
+  const applied = applyDisplayStyle(source, preset.id);
+  const palette = [...applied.style.palette];
+  palette[0] = palette[0] === "#000000" ? "#ffffff" : "#000000";
+
+  assert.equal(
+    isDisplayStyleActive(
+      {
+        ...applied,
+        style: { ...applied.style, palette },
+      },
+      preset.id,
+    ),
+    false,
+  );
+});
+
 test("applyDisplayStyle round-trips through safeParseVisual", () => {
   for (const kind of VISUAL_KINDS) {
     const source = sourceFor(kind);

@@ -158,3 +158,150 @@ test("safeParseDeck requires defaultMasterId to reference an existing master", (
   assert.equal(result.success, false);
   assert.match(result.error, /defaultMasterId must reference/);
 });
+
+test("safeParseDeck preserves optional design, slide, master, and custom template payloads", () => {
+  const result = safeParseDeck(
+    minimalV6Deck({
+      design: {
+        themeId: "  ocean  ",
+        themeOverrides: { tokenSet: { id: "custom:ocean" } },
+      },
+      masters: [
+        {
+          id: "master-default",
+          name: "Default",
+          background: {
+            type: "solid",
+            color: { value: "#112233" },
+          },
+          designOverrides: {
+            background: {
+              type: "gradient",
+              from: { token: "slideBg" },
+              to: { value: "#445566" },
+              angle: 45,
+            },
+          },
+          elements: [masterElement()],
+        },
+      ],
+      customTemplates: [
+        {
+          id: "template-report",
+          name: "Report",
+          category: "content",
+          defaultMasterId: "master-default",
+          slideDesignDefaults: {
+            background: {
+              type: "image",
+              url: "https://example.test/bg.png",
+              assetId: "asset-bg",
+            },
+          },
+          elements: [
+            {
+              id: "slot-title",
+              kind: "text",
+              role: "title",
+              box: { x: 8, y: 8, w: 84, h: 12 },
+              contentDefaults: { kind: "text", text: "Default title" },
+              designOverrides: { textStyle: { fontSize: 6 } },
+            },
+          ],
+        },
+      ],
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          notes: "Speaker notes",
+          masterId: "master-default",
+          templateId: "template-report",
+          designOverrides: {
+            background: {
+              type: "solid",
+              color: { token: "surface" },
+            },
+          },
+          source: { documentId: "doc-1" },
+          elements: [textElement()],
+        },
+      ],
+    }),
+  );
+
+  assert.equal(result.success, true, result.success ? undefined : result.error);
+  if (!result.success) return;
+  assert.equal(result.data.design.themeId, "ocean");
+  assert.equal(result.data.slides[0]?.notes, "Speaker notes");
+  assert.equal(result.data.slides[0]?.masterId, "master-default");
+  assert.equal(
+    result.data.customTemplates?.[0]?.defaultMasterId,
+    "master-default",
+  );
+});
+
+test("safeParseDeck rejects invalid optional object payloads", () => {
+  const invalidDesign = safeParseDeck(
+    minimalV6Deck({ design: { themeId: "default", themeOverrides: null } }),
+  );
+  assert.equal(invalidDesign.success, false);
+  assert.match(invalidDesign.error, /themeOverrides must be an object/);
+
+  const invalidSlideSource = safeParseDeck(
+    minimalV6Deck({
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          source: null,
+          elements: [textElement()],
+        },
+      ],
+    }),
+  );
+  assert.equal(invalidSlideSource.success, false);
+  assert.match(invalidSlideSource.error, /source must be an object/);
+});
+
+test("safeParseDeck rejects invalid masters and custom templates", () => {
+  const invalidMaster = safeParseDeck(
+    minimalV6Deck({
+      masters: [{ id: "master-default", name: "", elements: [] }],
+    }),
+  );
+  assert.equal(invalidMaster.success, false);
+  assert.match(invalidMaster.error, /name must be a non-empty string/);
+
+  const invalidTemplateCategory = safeParseDeck(
+    minimalV6Deck({
+      customTemplates: [
+        {
+          id: "template-1",
+          name: "Invalid",
+          category: "poster",
+          elements: [],
+        },
+      ],
+    }),
+  );
+  assert.equal(invalidTemplateCategory.success, false);
+  assert.match(invalidTemplateCategory.error, /category must be one of/);
+
+  const invalidTemplateElement = safeParseDeck(
+    minimalV6Deck({
+      customTemplates: [
+        {
+          id: "template-1",
+          name: "Invalid",
+          category: "content",
+          elements: [null],
+        },
+      ],
+    }),
+  );
+  assert.equal(invalidTemplateElement.success, false);
+  assert.match(invalidTemplateElement.error, /elements\[0\] must be an object/);
+});

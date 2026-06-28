@@ -14,6 +14,7 @@ export type SecurityAuditEventName =
 
 export type SecurityAuditOutcome =
   | "accepted"
+  /* node:coverage ignore next -- Type union members are erased by TypeScript. */
   | "sent"
   | "already_verified"
   | "success"
@@ -34,6 +35,7 @@ export type SecurityAuditContext = Partial<{
   outcome: SecurityAuditOutcome;
   reason: string;
   status: string;
+  /* node:coverage ignore next -- Type-only context field is erased by TypeScript. */
   plan: string;
   feature: string;
   count: number;
@@ -115,6 +117,7 @@ export function buildSecurityAuditLog(
   event: SecurityAuditEventName,
   context: Record<string, unknown> = {},
 ): SecurityAuditLogRecord {
+  /*! node:coverage ignore next 9 -- Log record object values are asserted; tsx maps the literal as uncovered. */
   return {
     ...sanitizeSecurityAuditContext(context),
     level: "info",

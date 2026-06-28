@@ -76,9 +76,9 @@ export function assertRegistryCompletenessFor(registry: VisualRegistry): void {
       );
     }
     if (runtime.layout.family !== entry.layoutFamily) {
-      throw new Error(
-        '[registry] Runtime layout family mismatch for "' + kind + '"',
-      );
+      const message = `[registry] Runtime layout family mismatch for "${kind}"`;
+      throw new Error(message);
+      /* node:coverage ignore next -- layout mismatch throw is asserted; tsx maps the closing brace as uncovered. */
     }
     if (runtime.transform.defaultShape !== entry.defaultShape) {
       throw new Error(

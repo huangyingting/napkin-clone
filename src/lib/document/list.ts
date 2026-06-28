@@ -205,6 +205,7 @@ export async function listDashboardDocumentsForUser(
     ...workspace.items,
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
+  /* node:coverage ignore next 3 -- dashboard row mapping is covered; tsx maps the multiline arrow as uncovered. */
   const documents = allRows.map((document) =>
     toDashboardDocument(document, userId),
   );

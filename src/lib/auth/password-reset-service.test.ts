@@ -173,6 +173,34 @@ test("requestPasswordResetForEmail stores only a hash and sends the raw-token UR
   }
 });
 
+test("requestPasswordResetForEmail validates email and preserves generic response on storage errors", async () => {
+  assert.deepEqual(
+    await requestPasswordResetForEmail("not-an-email", {} as typeof prisma),
+    { status: "error", message: "Enter a valid email address." },
+  );
+
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const client = {
+      user: {
+        findUnique: async () => {
+          throw new Error("database unavailable");
+        },
+      },
+    } as unknown as typeof prisma;
+    assert.deepEqual(
+      await requestPasswordResetForEmail("ada@example.com", client),
+      {
+        status: "sent",
+        message: GENERIC_PASSWORD_RESET_SENT_MESSAGE,
+      },
+    );
+  } finally {
+    console.error = originalError;
+  }
+});
+
 test("resetPasswordWithToken consumes the token with a race-safe conditional update", async () => {
   const client = makeResetClient("raw-reset-token");
   const originalInfo = console.info;
@@ -215,4 +243,117 @@ test("resetPasswordWithToken consumes the token with a race-safe conditional upd
     1,
   );
   assert.equal(client._passwordHashes.length, 1);
+});
+
+test("resetPasswordWithToken rejects missing, unknown, expired, and invalid replacement inputs", async () => {
+  assert.deepEqual(
+    await resetPasswordWithToken(
+      {
+        token: "",
+        newPassword: "new-password",
+        confirmPassword: "new-password",
+      },
+      {} as typeof prisma,
+    ),
+    {
+      status: "error",
+      message: RESET_TOKEN_REJECTION_MESSAGE.not_found,
+    },
+  );
+
+  const rawToken = "raw-rejected-token";
+  const clientForRecord = (
+    record: {
+      id: string;
+      userId: string;
+      expiresAt: Date;
+      usedAt: Date | null;
+    } | null,
+  ) =>
+    ({
+      passwordResetToken: {
+        findUnique: async () => record,
+      },
+    }) as unknown as typeof prisma;
+
+  assert.deepEqual(
+    await resetPasswordWithToken(
+      {
+        token: rawToken,
+        newPassword: "new-password",
+        confirmPassword: "new-password",
+      },
+      clientForRecord(null),
+    ),
+    {
+      status: "error",
+      message: RESET_TOKEN_REJECTION_MESSAGE.not_found,
+    },
+  );
+  assert.deepEqual(
+    await resetPasswordWithToken(
+      {
+        token: rawToken,
+        newPassword: "new-password",
+        confirmPassword: "new-password",
+      },
+      clientForRecord({
+        id: "prt_expired",
+        userId: "u1",
+        expiresAt: new Date(Date.now() - 1_000),
+        usedAt: null,
+      }),
+    ),
+    {
+      status: "error",
+      message: RESET_TOKEN_REJECTION_MESSAGE.expired,
+    },
+  );
+  assert.deepEqual(
+    await resetPasswordWithToken(
+      {
+        token: rawToken,
+        newPassword: "new-password",
+        confirmPassword: "different-password",
+      },
+      clientForRecord({
+        id: "prt_valid",
+        userId: "u1",
+        expiresAt: new Date(Date.now() + 60_000),
+        usedAt: null,
+      }),
+    ),
+    { status: "error", message: "New passwords don't match." },
+  );
+});
+
+test("resetPasswordWithToken returns a generic error when storage throws", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  const client = {
+    passwordResetToken: {
+      findUnique: async () => {
+        throw new Error("database unavailable");
+      },
+    },
+  } as unknown as typeof prisma;
+
+  try {
+    assert.deepEqual(
+      await resetPasswordWithToken(
+        {
+          token: "raw-token",
+          newPassword: "new-password",
+          confirmPassword: "new-password",
+        },
+        client,
+      ),
+      {
+        status: "error",
+        message: "Could not reset your password. Please try again.",
+      },
+    );
+  } finally {
+    console.error = originalError;
+  }
 });

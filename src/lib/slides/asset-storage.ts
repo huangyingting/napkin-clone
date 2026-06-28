@@ -59,6 +59,8 @@ export function resetDefaultStorageAdapter(): void {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/* node:coverage disable */
+/* Extension-spoofing prose documents policy; deriveStorageKey behavior is asserted. */
 /**
  * Canonical mapping from accepted slide-asset MIME types to their storage
  * file extension.
@@ -69,6 +71,7 @@ export function resetDefaultStorageAdapter(): void {
  * `.html`, so the file cannot be served as HTML from the public assets
  * directory.
  */
+/* node:coverage enable */
 export const MIME_TO_EXT: Record<string, string> = {
   ...SLIDE_MIME_TO_EXT,
 };

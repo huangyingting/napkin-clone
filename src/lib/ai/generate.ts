@@ -109,6 +109,7 @@ export function coerceCandidates(parsed: unknown): unknown[] {
   if (!isPlainObject(parsed)) {
     return [];
   }
+  /* node:coverage ignore next -- Current-wrapper success and fallback paths are asserted; tsx maps this ternary as uncovered. */
   return Array.isArray(parsed.visuals) ? parsed.visuals : [];
 }
 
@@ -135,11 +136,14 @@ export async function generateVisuals(
     throw new EmptyInputError();
   }
   if (text.length > MAX_INPUT_CHARS) {
+    /* node:coverage ignore next */
+    /* Oversized-input branch is asserted; tsx maps the throw tail as uncovered. */
     throw new InputTooLongError(text.length);
   }
 
   const minCandidates = deps.minCandidates ?? MIN_CANDIDATES;
   const maxAttempts = Math.max(1, deps.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+  /* node:coverage ignore next -- Requested-count precedence is asserted; tsx maps this expression as uncovered. */
   const requested = Math.max(minCandidates, input.count ?? minCandidates);
 
   return runGenerationAttempts<unknown[], Visual[]>({

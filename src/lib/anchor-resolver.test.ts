@@ -127,6 +127,22 @@ test("resolveSourceRef returns found, stale, and missing for text and visual sou
   assert.equal(staleVisual.status, "stale");
   assert.equal(staleVisual.target?.kind, "visual");
 
+  assert.deepEqual(
+    resolveSourceRef(
+      {
+        documentId: "doc-1",
+        blockId: "blk-1",
+        linkedAt: "2026-06-23T00:00:00.000Z",
+        blockKind: "legacy",
+      },
+      blocks,
+    ),
+    {
+      status: "invalid",
+      reason: "Unsupported source ref blockKind: legacy.",
+    },
+  );
+
   assert.equal(
     resolveSourceRef(
       {
@@ -174,6 +190,15 @@ test("resolveCommentAnchor maps deck, attached, orphaned, and unknown anchor sta
   );
   assert.equal(
     resolveCommentAnchor(anchor({ slideId: "sl-1" }), null).status,
+    "unknown",
+  );
+  assert.equal(
+    resolveCommentAnchor(anchor({ slideId: "missing-slide" }), d).status,
+    "missing",
+  );
+  assert.equal(
+    resolveCommentAnchor(anchor({ slideId: "sl-1", elementId: "el-1" }), null)
+      .status,
     "unknown",
   );
 });

@@ -160,6 +160,17 @@ test("shape element returns 'Shape: line'", () => {
   assert.equal(elementAccessibleName(fixtureShape("line")), "Shape: line");
 });
 
+test("shape element prefers label text and truncates long labels", () => {
+  const long = "Shape label ".repeat(8);
+  const element = {
+    ...fixtureShape("rect"),
+    content: { kind: "shape", shape: "rect", text: long },
+  } as unknown as SlideElement;
+  const name = elementAccessibleName(element);
+  assert.ok(name.endsWith("…"));
+  assert.equal(name.length, 61);
+});
+
 // ---------------------------------------------------------------------------
 // Connector element
 // ---------------------------------------------------------------------------
@@ -232,5 +243,30 @@ test("connector bound to missing element falls back to point", () => {
   assert.equal(
     elementAccessibleName(connectorEl(true, true), []),
     "Connector from point to point",
+  );
+});
+
+test("connector target labels use text, image alt, and visual alt fallbacks", () => {
+  const longText = fixtureText("Long connector label ".repeat(3));
+  const image = { ...imageEl("Photo alt"), id: "image1" } as SlideElement;
+  const visual = { ...visualEl("Chart alt"), id: "visual1" } as SlideElement;
+  const toImage = buildConnectorElement({
+    ...BASE,
+    start: { elementId: longText.id, anchor: "center" },
+    end: { elementId: image.id, anchor: "center" },
+  });
+  const toVisual = buildConnectorElement({
+    ...BASE,
+    start: { elementId: visual.id, anchor: "center" },
+    end: { elementId: "shape1", anchor: "center" },
+  });
+
+  assert.equal(
+    elementAccessibleName(toImage, [longText, image]),
+    "Connector from Long connector label… to Photo alt",
+  );
+  assert.equal(
+    elementAccessibleName(toVisual, [visual, SHAPE_ONE]),
+    "Connector from Chart alt to rect",
   );
 });

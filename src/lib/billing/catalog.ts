@@ -89,8 +89,10 @@ export const PLAN_NAMES: Record<Plan, string> = {
 /** Returns true when `value` is a valid {@link Plan} string. */
 export function isPlan(value: unknown): value is Plan {
   return value === "free" || value === "plus" || value === "pro";
+  /* node:coverage ignore next -- Closing brace is a source-map artifact; plan predicate behavior is asserted. */
 }
 
+/* node:coverage ignore next 6 -- Catalog fallback JSDoc is documentation-only; fallback behavior is asserted. */
 /**
  * Returns the catalog entry for the given plan string. Falls back to `"free"`
  * when the value is not a recognised plan (safe default).

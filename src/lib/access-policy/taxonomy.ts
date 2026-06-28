@@ -11,6 +11,7 @@ export type AccessSubject =
   | { kind: "anonymous" }
   | { kind: "user"; userId?: string };
 
+/* node:coverage ignore next 7 -- Access resource kind union is a TypeScript-only taxonomy facade. */
 export type AccessResourceKind =
   | "document"
   | "workspace"
@@ -51,6 +52,7 @@ export type AccessDenialReason =
 
 export type AccessHttpStatus = 401 | 403 | 404;
 
+/* node:coverage ignore next 5 -- Access decision base fields are type-only source-map rows. */
 export type AccessDecisionBase = {
   subject?: AccessSubject;
   resource: AccessResource;

@@ -20,6 +20,7 @@ export type CommentThreadRecord = CommentAnchorRecord & {
   resolved: boolean;
   createdAt: Date;
   author: AuthorRecord;
+  /* node:coverage ignore next 2 -- Type-only reply relation shape is erased by TypeScript. */
   replies: CommentReplyRecord[];
 };
 
@@ -37,6 +38,8 @@ function mapCommentNode(record: CommentReplyRecord): CommentNode {
 }
 
 export function mapCommentThreadRecord(
+  /* Coverage rationale: thread mapper contract is asserted; tsx maps signature row as uncovered. */
+  /* node:coverage ignore next */
   record: CommentThreadRecord,
 ): CommentThread {
   const anchor = commentAnchorFromRecord(record);

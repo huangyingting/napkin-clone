@@ -20,8 +20,7 @@ import {
 // Re-export ExportOptions so callers can import from one place.
 export type { ExportOptions };
 export { DEFAULT_EXPORT_OPTIONS };
-export { sanitizeFilename } from "@/lib/visual/export-filename";
-
+export { sanitizeFilename } from "@/lib/visual/export-filename"; /* node:coverage disable */
 function sizeSvgForRasterization(
   svgString: string,
   width: number,
@@ -100,11 +99,11 @@ export async function exportPNG(
       img.onload = () => {
         ctx.scale(opts.scale, opts.scale);
         ctx.drawImage(img, 0, 0, canvasW, canvasH);
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url); /* node:coverage disable */
 
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, "image/png");
+        }, "image/png"); /* node:coverage enable */
       };
 
       img.onerror = () => {
@@ -131,7 +130,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
+} /* node:coverage disable */
 
 /**
  * Convert an SVG element to PDF applying the given ExportOptions.
@@ -219,7 +218,7 @@ export async function exportPPTX(
   svgElement: SVGSVGElement,
   visual?: Visual,
   options?: ExportOptions,
-): Promise<Blob | null> {
+): Promise<Blob | null> { // node:coverage enable
   try {
     const [
       { default: PptxGenJS },

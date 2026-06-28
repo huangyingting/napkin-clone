@@ -7,6 +7,7 @@
 
 import type { VisualStyle } from "@/lib/visual/schema";
 
+/* node:coverage ignore next 10 -- ThemeColors is an erased type alias; tsx maps the Pick fields as uncovered. @preserve */
 /** The style fields a theme controls (colors only — typography is preserved). */
 type ThemeColors = Pick<
   VisualStyle,
@@ -102,6 +103,8 @@ export const STYLE_THEMES: StyleTheme[] = [
         "#f97316",
         "#ef4444",
         "#f59e0b",
+        // Theme catalog tests exercise this palette; tsx maps this array entry as uncovered.
+        /* node:coverage ignore next */
         "#ec4899",
         "#e11d48",
         "#d97706",

@@ -32,7 +32,7 @@ export function readFixture(repoRoot = process.cwd()) {
   return JSON.parse(readFileSync(fixtureFile, "utf8"));
 }
 
-function runChecked(command, args, env) {
+export function runChecked(command, args, env) {
   console.log(`\n$ ${[command, ...args].join(" ")}`);
   const result = spawnSync(command, args, { stdio: "inherit", env });
   if (result.status !== 0) {
@@ -40,8 +40,12 @@ function runChecked(command, args, env) {
   }
 }
 
-async function waitForServer(url, child) {
-  const deadline = Date.now() + 60_000;
+export async function waitForServer(
+  url,
+  child,
+  { timeoutMs = 60_000, retryMs = 1000 } = {},
+) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
       throw new Error(`Dev server exited early with code ${child.exitCode}.`);
@@ -52,46 +56,59 @@ async function waitForServer(url, child) {
     } catch {
       // Retry until the server starts.
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, retryMs));
   }
   throw new Error(`Timed out waiting for ${url}.`);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const args = new Set(process.argv.slice(2));
-  const port = Number(process.env.PORT || DEFAULT_PORT);
+export async function runBrowserQa({
+  argv = process.argv,
+  processEnv = process.env,
+  runCommand = runChecked,
+  readSeedFixture = readFixture,
+  spawnServer = spawn,
+  waitForReady = waitForServer,
+  stdout = console.log,
+  exit = process.exit,
+} = {}) {
+  const args = new Set(argv.slice(2));
+  const port = Number(processEnv.PORT || DEFAULT_PORT);
   const env = {
-    ...process.env,
-    DB_PROVIDER: process.env.DB_PROVIDER || "sqlite",
-    DATABASE_URL: process.env.DATABASE_URL || "file:./prisma/dev.db",
-    AUTH_SECRET: process.env.AUTH_SECRET || "browser-qa-placeholder-secret",
+    ...processEnv,
+    DB_PROVIDER: processEnv.DB_PROVIDER || "sqlite",
+    DATABASE_URL: processEnv.DATABASE_URL || "file:./prisma/dev.db",
+    AUTH_SECRET: processEnv.AUTH_SECRET || "browser-qa-placeholder-secret",
     PORT: String(port),
     E2E_BASE_URL: `http://localhost:${port}`,
   };
 
   if (!args.has("--print-only")) {
-    runChecked("npm", ["run", "db:push"], env);
-    runChecked("npm", ["run", "db:seed:e2e"], env);
+    runCommand("npm", ["run", "db:push"], env);
+    runCommand("npm", ["run", "db:seed:e2e"], env);
   }
 
-  const fixture = readFixture();
-  console.log("");
+  const fixture = readSeedFixture();
+  stdout("");
   for (const line of buildBrowserQaSummary(fixture, { port })) {
-    console.log(line);
+    stdout(line);
   }
 
   if (args.has("--seed-only") || args.has("--print-only")) {
-    process.exit(0);
+    exit(0);
+    return;
   }
 
-  console.log("\nStarting dev server. Press Ctrl-C to stop.");
-  const child = spawn("npm", ["run", "dev"], { stdio: "inherit", env });
+  stdout("\nStarting dev server. Press Ctrl-C to stop.");
+  const child = spawnServer("npm", ["run", "dev"], { stdio: "inherit", env });
   const stop = () => {
     if (child.exitCode === null) child.kill("SIGTERM");
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  await waitForServer(`http://127.0.0.1:${port}`, child);
-  console.log(`Dev server is responsive at http://localhost:${port}.`);
+  await waitForReady(`http://127.0.0.1:${port}`, child);
+  stdout(`Dev server is responsive at http://localhost:${port}.`);
   await new Promise((resolve) => child.once("exit", resolve));
 }
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href)
+  await runBrowserQa();

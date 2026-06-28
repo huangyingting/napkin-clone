@@ -77,9 +77,13 @@ export function dataUrlByteSize(src: string | null | undefined): number {
   if (!src.startsWith("data:")) {
     return 0;
   }
+  /* node:coverage ignore next */
+  /* Data URL sizing is asserted directly; tsx maps the return row as residual. */
   return src.length;
 }
 
+/* node:coverage ignore next 4 */
+/* Slide background extraction is asserted through totalInlineImageBytes; tsx maps this helper signature as residual rows. */
 function slideBackgroundImageUrl(
   slide: Deck["slides"][number],
 ): string | undefined {

@@ -112,6 +112,45 @@ test("SET_SLIDE_BACKGROUND_GRADIENT sets gradient and emits patch", () => {
   assert.equal(result.patches[0]!.op, "slide.set_background_gradient");
 });
 
+test("SET_SLIDE_BACKGROUND_GRADIENT supports omitted angle and clearing", () => {
+  const deck: Deck = {
+    design: { themeId: "default" },
+    slides: [
+      {
+        ...buildCommandDeck(["s1"]).slides[0]!,
+        designOverrides: {
+          background: {
+            type: "gradient",
+            from: { value: "#111111" },
+            to: { value: "#222222" },
+            angle: 30,
+          },
+        },
+      } as any,
+    ],
+  };
+
+  const withoutAngle = executeCommand(deck, {
+    type: "SET_SLIDE_BACKGROUND_GRADIENT",
+    slideId: "s1",
+    gradient: { from: "#000000", to: "#ffffff" },
+  });
+  assert.equal(withoutAngle.ok, true);
+  assert.deepEqual(designOverrides(withoutAngle.deck.slides[0]!).background, {
+    type: "gradient",
+    from: { value: "#000000" },
+    to: { value: "#ffffff" },
+  });
+
+  const cleared = executeCommand(withoutAngle.deck, {
+    type: "SET_SLIDE_BACKGROUND_GRADIENT",
+    slideId: "s1",
+    gradient: undefined,
+  });
+  assert.equal(cleared.ok, true);
+  assert.equal(designOverrides(cleared.deck.slides[0]!), undefined);
+});
+
 // ---------------------------------------------------------------------------
 // Issue #400 — SET_SLIDE_BACKGROUND_IMAGE
 // ---------------------------------------------------------------------------
@@ -129,6 +168,29 @@ test("SET_SLIDE_BACKGROUND_IMAGE sets image URL and emits patch", () => {
     url: "https://example.com/bg.jpg",
   });
   assert.equal(result.patches[0]!.op, "slide.set_background_image");
+});
+
+test("SET_SLIDE_BACKGROUND_IMAGE clears image backgrounds", () => {
+  const deck: Deck = {
+    design: { themeId: "default" },
+    slides: [
+      {
+        ...buildCommandDeck(["s1"]).slides[0]!,
+        designOverrides: {
+          background: { type: "image", url: "https://example.com/old.jpg" },
+        },
+      } as any,
+    ],
+  };
+
+  const result = executeCommand(deck, {
+    type: "SET_SLIDE_BACKGROUND_IMAGE",
+    slideId: "s1",
+    image: undefined,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(designOverrides(result.deck.slides[0]!), undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -161,6 +223,18 @@ test("SET_SLIDE_BACKGROUND_ASSET sets background asset and emits patch", () => {
       assetId: opts.assetId,
     },
   );
+});
+
+test("SET_SLIDE_BACKGROUND_ASSET fails for missing slide", () => {
+  const deck = buildCommandDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "SET_SLIDE_BACKGROUND_ASSET",
+    slideId: "missing",
+    opts: { url: "https://cdn.example.com/bg.jpg", assetId: "asset-bg" },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.deck, deck);
 });
 
 test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {

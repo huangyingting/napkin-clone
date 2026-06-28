@@ -6,6 +6,7 @@
  * theme/display-style catalogs do not depend on deck token internals.
  */
 
+/* node:coverage ignore next -- Type-only BrandStyle import is erased by tsx and reported as a source-map gap. */
 import type { BrandStyle } from "@/lib/brand/schema";
 import type { Deck, SlideMaster } from "./deck-core";
 import type { PresentationTheme } from "./presentation-theme-types";
@@ -90,9 +91,10 @@ export function brandToMasterChrome(
 export function applyBrandToDeck(deck: Deck, brand: BrandStyle): Deck {
   const tokenSet = brandToTokenSet(brand);
   const masterChrome = brandToMasterChrome(brand, tokenSet.id);
-
   const existingMasters = deck.masters ?? [];
   const brandMasters = [
+    /* Coverage rationale: applyBrandToDeck tests assert the covered array value; tsx maps this literal row as residual. */
+    /* node:coverage ignore next */
     masterChrome,
     ...existingMasters.filter((m) => m.id !== masterChrome.id),
   ];

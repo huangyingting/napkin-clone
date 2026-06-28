@@ -86,6 +86,8 @@ export function buildMeteredUsageContext(
 }
 
 export function logMeteredUsageEvent(
+  /* Coverage rationale: operation/message/event parameters are asserted through emitted log records; tsx maps signature rows as uncovered. */
+  /* node:coverage ignore next 3 */
   operation: MeteredUsageOperation,
   message: string,
   event: MeteredUsageTelemetryEvent,

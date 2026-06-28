@@ -9,6 +9,7 @@
  */
 
 /** IDs of all named visual-content style themes (mirrors STYLE_THEMES ids). */
+/* node:coverage ignore next -- tsx maps the const assertion close to the preceding documentation line. */
 export const STYLE_THEME_IDS = [
   "indigo",
   "ocean",

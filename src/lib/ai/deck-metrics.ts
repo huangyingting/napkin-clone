@@ -80,11 +80,13 @@ function slideWordCount(slide: Slide): number {
         for (const paragraph of paragraphs) {
           words += countWords(paragraph.text);
         }
+        /* node:coverage ignore next 2 -- Textless-element behavior is asserted; tsx maps this loop close as uncovered. */
       }
     }
     return words;
   }
 
+  /* node:coverage ignore next 2 -- Empty-element behavior is asserted; tsx maps this fallback as uncovered. */
   return 0;
 }
 

@@ -1,14 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { GenerationError } from "@/lib/ai/generate";
+import {
+  EmptyInputError,
+  GenerationError,
+  InputTooLongError,
+  MAX_INPUT_CHARS,
+} from "@/lib/ai/generate";
 import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 import { AI_OPTION_MAX_CHARS } from "@/lib/limits";
+import {
+  buildContentJson,
+  buildParagraphNode,
+  buildTextNode,
+} from "@/test/builders/lexical";
 
 import {
   mapGenerateDeckError,
   parseDeckOptions,
   parseGenerateDeckPayload,
+  visualsFromContent,
 } from "./parser";
 
 test("parseDeckOptions accepts current tuning fields", () => {
@@ -20,8 +31,12 @@ test("parseDeckOptions accepts current tuning fields", () => {
   );
 });
 
-// @compat — validates rejection of superseded option shapes (non-object, retired enum values)
-test("parseDeckOptions rejects superseded or invalid option shapes", () => {
+test("parseDeckOptions treats missing or null options as defaults", () => {
+  assert.deepEqual(parseDeckOptions(undefined), { options: {} });
+  assert.deepEqual(parseDeckOptions(null), { options: {} });
+});
+
+test("parseDeckOptions rejects non-object and invalid option shapes", () => {
   assert.deepEqual(parseDeckOptions("short"), {
     error: "`options` must be an object.",
   });
@@ -34,6 +49,18 @@ test("parseDeckOptions rejects superseded or invalid option shapes", () => {
       error: `\`options.tone\` is too long (${AI_OPTION_MAX_CHARS + 1} characters). The maximum is ${AI_OPTION_MAX_CHARS}.`,
     },
   );
+  assert.deepEqual(parseDeckOptions({ tone: 42 }), {
+    error: "`options.tone` must be a string.",
+  });
+  assert.deepEqual(parseDeckOptions({ audience: 42 }), {
+    error: "`options.audience` must be a string.",
+  });
+  assert.deepEqual(
+    parseDeckOptions({ audience: "x".repeat(AI_OPTION_MAX_CHARS + 1) }),
+    {
+      error: `\`options.audience\` is too long (${AI_OPTION_MAX_CHARS + 1} characters). The maximum is ${AI_OPTION_MAX_CHARS}.`,
+    },
+  );
 });
 
 test("parseGenerateDeckPayload preserves required content errors", () => {
@@ -42,6 +69,72 @@ test("parseGenerateDeckPayload preserves required content errors", () => {
     status: 400,
     message: "`contentJson` is required.",
   });
+});
+
+test("parseGenerateDeckPayload returns an empty content error", () => {
+  assert.deepEqual(parseGenerateDeckPayload({ contentJson: { root: [] } }), {
+    ok: false,
+    status: 400,
+    message: "`contentJson` does not contain any usable outline content.",
+  });
+});
+
+test("parseGenerateDeckPayload rejects whitespace-only document content", () => {
+  assert.deepEqual(
+    parseGenerateDeckPayload({
+      contentJson: buildContentJson([
+        buildParagraphNode([buildTextNode("   \n\t   ")]),
+      ]),
+    }),
+    {
+      ok: false,
+      status: 400,
+      message: "`contentJson` does not contain any usable outline content.",
+    },
+  );
+});
+
+test("parseGenerateDeckPayload builds a payload with outline and options", () => {
+  const result = parseGenerateDeckPayload({
+    contentJson: buildContentJson([
+      buildParagraphNode([buildTextNode("Roadmap")]),
+    ]),
+    options: { length: "medium", tone: "direct" },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.payload.options.length, "medium");
+  assert.equal(result.payload.options.tone, "direct");
+  assert.match(result.payload.outline, /Roadmap/);
+});
+
+test("visualsFromContent indexes visual blocks by id", () => {
+  const visual = {
+    kind: "timeline",
+    title: "Roadmap",
+    items: [{ label: "Launch", date: "Q1" }],
+  } as const;
+
+  const visuals = visualsFromContent([
+    { kind: "paragraph", text: "Intro" } as never,
+    { kind: "visual", visualId: "visual-roadmap", visual } as never,
+  ]);
+
+  assert.equal(visuals.get("visual-roadmap"), visual);
+  assert.equal(visuals.size, 1);
+});
+
+test("mapGenerateDeckError maps input validation errors and ignores unknown errors", () => {
+  assert.deepEqual(mapGenerateDeckError(new EmptyInputError()), {
+    status: 400,
+    message: "Input text is required.",
+  });
+  const tooLong = new InputTooLongError(MAX_INPUT_CHARS + 1);
+  assert.deepEqual(mapGenerateDeckError(tooLong), {
+    status: 413,
+    message: tooLong.message,
+  });
+  assert.equal(mapGenerateDeckError(new Error("unexpected")), null);
 });
 
 test("mapGenerateDeckError preserves generation failure contract", () => {

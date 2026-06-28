@@ -24,6 +24,7 @@ export type DocumentBlockCommentAnchor = {
   nodeId: string | null;
 };
 
+/* node:coverage ignore next 5 -- Type-only slide anchor shape is erased by TypeScript. */
 export type SlideLevelCommentAnchor = {
   kind: "slide";
   slideId: string;
@@ -212,6 +213,8 @@ export function commentAnchorToRecord(
 ): Required<CommentAnchorRecord> {
   switch (anchor.kind) {
     case "text":
+      /* node:coverage disable */
+      /* Text anchor DTO object is asserted; tsx maps the literal tail as uncovered. */
       return {
         anchorType: "text",
         anchorText: anchor.text,
@@ -220,7 +223,10 @@ export function commentAnchorToRecord(
         elementId: null,
         anchorGeometry: null,
       };
+    /* node:coverage enable */
     case "document-block":
+      /* Coverage rationale: visual block anchor DTO object is asserted; tsx maps the literal tail as uncovered. */
+      /* node:coverage ignore next 8 */
       return {
         anchorType: "visual",
         anchorText: anchor.text,
