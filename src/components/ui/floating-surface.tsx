@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -47,6 +48,8 @@ export type FloatingSurfaceProps = {
   closeOnEscape?: boolean;
   /** Close on pointer-down outside the surface. Defaults to `true`. */
   closeOnClickAway?: boolean;
+  /** Optional external trigger/anchor that should not count as click-away. */
+  clickAwayIgnoreRef?: RefObject<HTMLElement | null>;
   /**
    * Prevent default on pointer-down so the editor text selection survives a
    * click on the surface (used by selection-anchored toolbars).
@@ -83,6 +86,7 @@ export function FloatingSurface({
   layer = "dropdown",
   closeOnEscape = true,
   closeOnClickAway = true,
+  clickAwayIgnoreRef,
   keepSelection = false,
   clampToViewport = true,
   className,
@@ -135,13 +139,19 @@ export function FloatingSurface({
       return;
     }
     const onPointerDown = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideSurface = ref.current?.contains(target) ?? false;
+      const insideIgnored =
+        clickAwayIgnoreRef?.current?.contains(target) ?? false;
+      if (!insideSurface && !insideIgnored) {
         onClose?.();
       }
     };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [open, closeOnClickAway, onClose]);
+    const capture = clickAwayIgnoreRef !== undefined;
+    document.addEventListener("mousedown", onPointerDown, capture);
+    return () =>
+      document.removeEventListener("mousedown", onPointerDown, capture);
+  }, [open, closeOnClickAway, clickAwayIgnoreRef, onClose]);
 
   useEffect(() => {
     if (!open || !closeOnEscape) {

@@ -15,8 +15,7 @@ import { usePopMotion } from "@/components/motion/reveal";
 
 import { cx, MENU_CHROME } from "./tokens";
 
-// Gap (px) between the trigger's bottom edge and the panel — matches the old
-// `mt-2` spacing.
+// Gap (px) between the trigger's edge and the panel.
 const PANEL_GAP = 8;
 const VIEWPORT_INSET = 8;
 
@@ -114,37 +113,71 @@ export function Popover({
         : el;
     const rect = anchorEl.getBoundingClientRect();
     const panelWidth = panelRef.current?.offsetWidth ?? 0;
-    const preferredLeft =
-      align === "start" || panelWidth === 0
-        ? rect.left
-        : align === "center"
-          ? rect.left + rect.width / 2 - panelWidth / 2
-          : rect.right - panelWidth;
+    const measuredWidth = panelWidth || rect.width;
+    const startLeft = rect.left;
+    const endLeft = rect.right - measuredWidth;
+    const viewportRight = window.innerWidth - VIEWPORT_INSET;
+    let preferredLeft =
+      align === "center"
+        ? rect.left + rect.width / 2 - measuredWidth / 2
+        : align === "end"
+          ? endLeft
+          : startLeft;
+    if (
+      align === "start" &&
+      startLeft + measuredWidth > viewportRight &&
+      endLeft >= VIEWPORT_INSET
+    ) {
+      preferredLeft = endLeft;
+    } else if (
+      align === "end" &&
+      endLeft < VIEWPORT_INSET &&
+      startLeft + measuredWidth <= viewportRight
+    ) {
+      preferredLeft = startLeft;
+    }
     const maxLeft = Math.max(
       VIEWPORT_INSET,
-      window.innerWidth - (panelWidth || rect.width) - VIEWPORT_INSET,
+      window.innerWidth - measuredWidth - VIEWPORT_INSET,
     );
     const left = Math.min(Math.max(preferredLeft, VIEWPORT_INSET), maxLeft);
-    if (placement === "top") {
-      setCoords({
-        bottom: Math.max(0, window.innerHeight - rect.top + PANEL_GAP),
-        left,
-      });
-    } else {
-      setCoords({ top: rect.bottom + PANEL_GAP, left });
-    }
+    const nextCoords =
+      placement === "top"
+        ? {
+            bottom: Math.max(0, window.innerHeight - rect.top + PANEL_GAP),
+            left,
+          }
+        : { top: rect.bottom + PANEL_GAP, left };
+    setCoords((prev) =>
+      prev.top === nextCoords.top &&
+      prev.bottom === nextCoords.bottom &&
+      prev.left === nextCoords.left
+        ? prev
+        : nextCoords,
+    );
   }, [align, anchor, placement]);
 
   // Measure the trigger on open and keep the panel pinned while the user
   // scrolls or resizes.
   useLayoutEffect(() => {
     if (!open) return;
+    let animationFrame = 0;
+    const trackPosition = () => {
+      reposition();
+      animationFrame = window.requestAnimationFrame(trackPosition);
+    };
     reposition();
+    animationFrame = window.requestAnimationFrame(trackPosition);
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
+    window.visualViewport?.addEventListener("resize", reposition);
+    window.visualViewport?.addEventListener("scroll", reposition);
     return () => {
+      window.cancelAnimationFrame(animationFrame);
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
+      window.visualViewport?.removeEventListener("resize", reposition);
+      window.visualViewport?.removeEventListener("scroll", reposition);
     };
   }, [open, reposition]);
 
@@ -174,8 +207,9 @@ export function Popover({
         onClose();
       }
     };
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("mousedown", onDocMouseDown, true);
+    return () =>
+      document.removeEventListener("mousedown", onDocMouseDown, true);
   }, [open, onClose]);
 
   const panel = (

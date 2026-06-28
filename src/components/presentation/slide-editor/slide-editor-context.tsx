@@ -167,7 +167,6 @@ export function useSlideEditorContext(): SlideEditorContextValue {
 import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
 import { SlideInspector } from "@/components/presentation/slide-inspector";
 import { SlideSelectionToolbar } from "@/components/presentation/slide-editor/selection-toolbar";
-import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
 import { selectSelectedElement } from "@/components/presentation/slide-editor/slide-editor-view-model";
 
 /** Renders SlideStageEditor with all data sourced from SlideEditorContext. */
@@ -369,8 +368,6 @@ export const SlideSelectionToolbarFromContext = memo(
       openRightPanel,
       handleDuplicateElement,
       handleRemoveElement,
-      handleBringToFront,
-      handleSendToBack,
       handleDuplicateSelectedElements,
       handleRemoveSelectedElements,
       handleReplaceSelectedImage,
@@ -379,10 +376,8 @@ export const SlideSelectionToolbarFromContext = memo(
       handleAlign,
       handleDistribute,
       handleMatchSize,
-      handleArrange,
       handleGroupElements,
       handleUngroupElements,
-      stageBounds,
       editingElementId,
     } = useSlideEditorContext();
 
@@ -417,12 +412,9 @@ export const SlideSelectionToolbarFromContext = memo(
         onOpenPanel={openRightPanel}
         onDuplicateElement={handleDuplicateElement}
         onRemoveElement={handleRemoveElement}
-        onBringToFront={handleBringToFront}
-        onSendToBack={handleSendToBack}
         onAlignSelected={(mode) => handleAlign(selectedIds, mode)}
         onDistributeSelected={(mode) => handleDistribute(selectedIds, mode)}
         onMatchSizeSelected={(mode) => handleMatchSize(selectedIds, mode)}
-        onArrangeSelected={(mode) => handleArrange(selectedIds, mode)}
         onGroupSelected={() => handleGroupElements(selectedIds)}
         onUngroupSelected={() => {
           if (selectedGroupId) handleUngroupElements(selectedGroupId);
@@ -437,7 +429,6 @@ export const SlideSelectionToolbarFromContext = memo(
           selectedElement?.kind === "text" &&
           selectedElement.id === editingElementId
         }
-        compact={shouldCollapseToolbar(stageBounds.width)}
       />
     );
   },

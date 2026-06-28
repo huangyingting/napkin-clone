@@ -122,12 +122,8 @@ export function ElementToolbarContent({
   brandSwatches,
   onUpdateElement,
   onDuplicate,
-  onBringToFront,
-  onSendToBack,
   onRemove,
   hideObjectActions = false,
-  showAdvanced = true,
-  compact = false,
 }: {
   element: SlideElement;
   tc: SlideThemeColors;
@@ -138,12 +134,8 @@ export function ElementToolbarContent({
     coalesceKey?: string,
   ) => void;
   onDuplicate: () => void;
-  onBringToFront: () => void;
-  onSendToBack: () => void;
   onRemove: () => void;
   hideObjectActions?: boolean;
-  showAdvanced?: boolean;
-  compact?: boolean;
 }) {
   const textColorPresets = mergeSwatches(brandSwatches, [
     tc.titleColor,
@@ -446,20 +438,6 @@ export function ElementToolbarContent({
           label="Duplicate"
           onClick={onDuplicate}
         />
-      ) : null}
-      {showAdvanced && !compact && !hideObjectActions ? (
-        <>
-          <ElementToolbarButton
-            icon={ArrowUpToLine}
-            label="Bring to front"
-            onClick={onBringToFront}
-          />
-          <ElementToolbarButton
-            icon={ArrowDownToLine}
-            label="Send to back"
-            onClick={onSendToBack}
-          />
-        </>
       ) : null}
       {!hideObjectActions ? (
         <ElementToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />

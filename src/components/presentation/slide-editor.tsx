@@ -2067,6 +2067,8 @@ export function SlideEditor({
                           onDuplicateSlide={() => handleDuplicate(safeSelected)}
                           onRemoveSlide={() => handleRemove(safeSelected)}
                           onOpenPanel={() => openRightPanel("slide")}
+                          onOpenNotes={() => openRightPanel("notes")}
+                          onOpenLayers={() => openRightPanel("layers")}
                         />
                       ) : null}
                       <SlideSelectionToolbarFromContext />

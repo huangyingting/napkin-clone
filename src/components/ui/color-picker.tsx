@@ -50,8 +50,8 @@ export const DEFAULT_SWATCH_PRESETS: readonly string[] = [
   "#78716c",
 ];
 
-// Gap (px) between the trigger swatch and the picker popover.
-const PICKER_GAP = 6;
+// Gap (px) between the trigger/toolbar edge and the picker popover.
+const PICKER_GAP = 8;
 const EDGE_INSET = 8;
 const PICKER_WIDTH = 216;
 // Height (px) of the saturation/value square in the custom tab.
@@ -215,25 +215,44 @@ export function ColorPicker({
       return;
     }
     const rect = el.getBoundingClientRect();
-    let left = rect.left;
+    const startLeft = rect.left;
+    const endLeft = rect.right - PICKER_WIDTH;
+    const viewportRight = window.innerWidth - EDGE_INSET;
+    let left =
+      startLeft + PICKER_WIDTH > viewportRight && endLeft >= EDGE_INSET
+        ? endLeft
+        : startLeft;
     left = Math.max(
       EDGE_INSET,
       Math.min(left, window.innerWidth - PICKER_WIDTH - EDGE_INSET),
     );
     const top = rect.bottom + PICKER_GAP;
-    setCoords({ top, left });
+    setCoords((prev) =>
+      prev.top === top && prev.left === left ? prev : { top, left },
+    );
   }, []);
 
   useLayoutEffect(() => {
     if (!open) {
       return;
     }
+    let animationFrame = 0;
+    const trackPosition = () => {
+      reposition();
+      animationFrame = window.requestAnimationFrame(trackPosition);
+    };
     reposition();
+    animationFrame = window.requestAnimationFrame(trackPosition);
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
+    window.visualViewport?.addEventListener("resize", reposition);
+    window.visualViewport?.addEventListener("scroll", reposition);
     return () => {
+      window.cancelAnimationFrame(animationFrame);
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
+      window.visualViewport?.removeEventListener("resize", reposition);
+      window.visualViewport?.removeEventListener("scroll", reposition);
     };
   }, [open, reposition]);
 
@@ -448,6 +467,7 @@ export function ColorPicker({
         layer={triggerChrome === "toolbar" ? "tooltip" : "dropdown"}
         elevation="popover"
         radius="lg"
+        clickAwayIgnoreRef={triggerRef}
         style={{ width: PICKER_WIDTH }}
       >
         <div

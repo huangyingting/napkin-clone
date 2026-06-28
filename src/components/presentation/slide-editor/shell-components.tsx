@@ -14,7 +14,6 @@ import {
   AlignCenterVertical,
   AlignEndVertical,
   AlignHorizontalDistributeCenter,
-  BringToFront,
   Captions,
   Check,
   ChevronLeft,
@@ -38,7 +37,6 @@ import {
   Paintbrush,
   Plus,
   Replace,
-  SendToBack,
   Sparkles,
   Spline,
   Square,
@@ -82,7 +80,6 @@ import type {
   DistributeMode,
   MatchSizeMode,
 } from "@/lib/presentation/element-align";
-import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import {
   SLIDE_FORMATS,
   slideFormatConfig,
@@ -1487,12 +1484,9 @@ export function SlideSelectionToolbar({
   onOpenPanel,
   onDuplicateElement,
   onRemoveElement,
-  onBringToFront,
-  onSendToBack,
   onAlignSelected,
   onDistributeSelected,
   onMatchSizeSelected,
-  onArrangeSelected,
   onGroupSelected,
   onUngroupSelected,
   onDuplicateSelected,
@@ -1502,7 +1496,6 @@ export function SlideSelectionToolbar({
   onRestyleVisual,
   selectedGroupId,
   isEditingText = false,
-  compact,
 }: {
   selectedElement: SlideElement | null;
   selectedIds: readonly string[];
@@ -1517,12 +1510,9 @@ export function SlideSelectionToolbar({
   onOpenPanel: (tab: RightPanelTab) => void;
   onDuplicateElement: (id: string) => void;
   onRemoveElement: (id: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
   onAlignSelected: (mode: AlignMode) => void;
   onDistributeSelected: (mode: DistributeMode) => void;
   onMatchSizeSelected: (mode: MatchSizeMode) => void;
-  onArrangeSelected: (mode: ArrangeMode) => void;
   onGroupSelected: () => void;
   onUngroupSelected: () => void;
   onDuplicateSelected: () => void;
@@ -1532,7 +1522,6 @@ export function SlideSelectionToolbar({
   onRestyleVisual: (id: string) => void;
   selectedGroupId?: string | null;
   isEditingText?: boolean;
-  compact: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const visible = isSelectionToolbarVisible({
@@ -1565,6 +1554,10 @@ export function SlideSelectionToolbar({
     hasSourceRef:
       (selectedElement as { source?: unknown } | null)?.source !== undefined,
   });
+  const morePanels: RightPanelTab[] = [
+    ...panels.filter((panel) => panel !== "layers"),
+    "layers",
+  ];
   const hasMultiSelection = selectedIds.length >= 2;
   const withToolbarPanelsClosed = (onClick: () => void) => () => {
     setMoreOpen(false);
@@ -1593,7 +1586,7 @@ export function SlideSelectionToolbar({
         onClick();
         setMoreOpen(false);
       }}
-      className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      className={`flex w-max items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
       {icon}
       {label}
@@ -1665,16 +1658,6 @@ export function SlideSelectionToolbar({
           )}
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
           {iconButton(
-            "Bring selection to front",
-            <BringToFront size={14} aria-hidden="true" />,
-            () => onArrangeSelected("front"),
-          )}
-          {iconButton(
-            "Send selection to back",
-            <SendToBack size={14} aria-hidden="true" />,
-            () => onArrangeSelected("back"),
-          )}
-          {iconButton(
             selectedGroupId ? "Ungroup selection" : "Group selection",
             selectedGroupId ? (
               <Ungroup size={14} aria-hidden="true" />
@@ -1705,17 +1688,10 @@ export function SlideSelectionToolbar({
           onDuplicate={withToolbarPanelsClosed(() =>
             onDuplicateElement(selectedElement.id),
           )}
-          onBringToFront={withToolbarPanelsClosed(() =>
-            onBringToFront(selectedElement.id),
-          )}
-          onSendToBack={withToolbarPanelsClosed(() =>
-            onSendToBack(selectedElement.id),
-          )}
           onRemove={withToolbarPanelsClosed(() =>
             onRemoveElement(selectedElement.id),
           )}
           hideObjectActions={isEditingText}
-          compact={compact}
         />
       ) : null}
       {showRich && selectedElement?.kind === "image" ? (
@@ -1743,17 +1719,15 @@ export function SlideSelectionToolbar({
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
       ) : null}
-      {showRich ? (
-        <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-      ) : null}
       <Popover
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
         aria-label="More element actions"
         placement="bottom"
+        align="end"
         portal
         layer="tooltip"
-        className="w-48 p-1"
+        className="w-max p-1"
         trigger={
           <ToolbarButton
             aria-label="More actions"
@@ -1766,21 +1740,6 @@ export function SlideSelectionToolbar({
         }
       >
         <div className="flex flex-col">
-          {compact && showRich && selectedElement && !isEditingText ? (
-            <>
-              {menuItem(
-                "Bring to front",
-                <BringToFront size={14} aria-hidden="true" />,
-                () => onBringToFront(selectedElement.id),
-              )}
-              {menuItem(
-                "Send to back",
-                <SendToBack size={14} aria-hidden="true" />,
-                () => onSendToBack(selectedElement.id),
-              )}
-              <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
-            </>
-          ) : null}
           {showRich && selectedElement?.kind === "image"
             ? menuItem(
                 "Crop image",
@@ -1788,14 +1747,14 @@ export function SlideSelectionToolbar({
                 () => onOpenPanel("appearance"),
               )
             : null}
-          {panels.map((panel) => {
+          {morePanels.map((panel) => {
             const connectorAppearance =
               panel === "appearance" && selectedElement?.kind === "connector";
             const label = connectorAppearance
-              ? "Line settings"
+              ? "Line"
               : panel === "layers"
                 ? "Layers"
-                : `${PANEL_LABELS[panel]} settings`;
+                : PANEL_LABELS[panel];
             const icon = connectorAppearance
               ? PANEL_MENU_ICONS.line
               : PANEL_MENU_ICONS[panel];
@@ -1832,6 +1791,8 @@ export function SlideToolbar({
   onDuplicateSlide,
   onRemoveSlide,
   onOpenPanel,
+  onOpenNotes,
+  onOpenLayers,
 }: {
   slide: Slide;
   canDelete: boolean;
@@ -1855,6 +1816,8 @@ export function SlideToolbar({
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
   onOpenPanel: () => void;
+  onOpenNotes: () => void;
+  onOpenLayers: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addVisualOpen, setAddVisualOpen] = useState(false);
@@ -1902,7 +1865,7 @@ export function SlideToolbar({
         onClick();
         setMoreOpen(false);
       }}
-      className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      className={`flex w-max items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
       {icon}
       {label}
@@ -2009,8 +1972,7 @@ export function SlideToolbar({
         onClose={closeAddMenu}
         aria-label="Add element"
         placement="bottom"
-        align="center"
-        anchor="toolbar"
+        align="start"
         portal
         layer="tooltip"
         className="w-[320px] p-0 text-xs"
@@ -2085,8 +2047,7 @@ export function SlideToolbar({
           onClose={closeFromDocumentMenu}
           aria-label="From document"
           placement="bottom"
-          align="center"
-          anchor="toolbar"
+          align="start"
           portal
           layer="tooltip"
           className="w-[340px] p-0 text-xs"
@@ -2145,8 +2106,7 @@ export function SlideToolbar({
         onClose={() => setBackgroundOpen(false)}
         aria-label="Slide background"
         placement="bottom"
-        align="center"
-        anchor="toolbar"
+        align="start"
         portal
         layer="tooltip"
         className="w-[300px] p-3 text-xs"
@@ -2206,9 +2166,10 @@ export function SlideToolbar({
         onClose={() => setMoreOpen(false)}
         aria-label="More slide actions"
         placement="bottom"
+        align="end"
         portal
         layer="tooltip"
-        className="w-44 p-1"
+        className="w-max p-1"
         trigger={
           <ToolbarButton
             aria-label="More actions"
@@ -2226,9 +2187,19 @@ export function SlideToolbar({
       >
         <div className="flex flex-col">
           {moreMenuItem(
-            "Open properties panel",
+            "Slide",
             <LayoutPanelLeft size={14} aria-hidden="true" />,
             onOpenPanel,
+          )}
+          {moreMenuItem(
+            "Note",
+            <Captions size={14} aria-hidden="true" />,
+            onOpenNotes,
+          )}
+          {moreMenuItem(
+            "Layers",
+            <LayoutPanelLeft size={14} aria-hidden="true" />,
+            onOpenLayers,
           )}
         </div>
       </Popover>
