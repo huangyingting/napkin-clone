@@ -26,6 +26,8 @@ import {
   BringToFront,
   Expand,
   Italic,
+  Image as ImageIcon,
+  Link,
   Link2,
   Link2Off,
   Minus,
@@ -346,10 +348,39 @@ function ImageContentControls({
 
   return (
     <>
+      <div className="flex items-center justify-end gap-2">
+        {hasSource ? (
+          <span className="rounded-full bg-ds-accent-surface px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ds-accent-text ring-1 ring-ds-accent-border">
+            Image set
+          </span>
+        ) : (
+          <span className="rounded-full bg-ds-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted ring-1 ring-ds-border-subtle">
+            Empty
+          </span>
+        )}
+      </div>
+
+      <div className="relative aspect-video overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface">
+        {hasSource ? (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${content.src})` }}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-ds-text-muted">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ds-accent-surface text-ds-accent-text ring-1 ring-ds-accent-border">
+              <ImageIcon size={17} aria-hidden="true" />
+            </span>
+            <span className="text-xs font-medium">No image selected</span>
+          </div>
+        )}
+      </div>
+
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+        className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2.5 text-[13px] font-semibold text-ds-text-secondary transition-colors hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
       >
         <Upload size={14} aria-hidden="true" />
         {hasSource ? "Replace image" : "Upload image"}
@@ -370,8 +401,11 @@ function ImageContentControls({
           {error}
         </p>
       ) : null}
-      <label className="block">
-        <span className={LABEL_CLASS}>Image URL</span>
+      <label className="flex flex-col gap-1.5">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          <Link size={12} aria-hidden="true" />
+          Image URL
+        </span>
         <input
           type="text"
           value={content.src ?? ""}
@@ -386,11 +420,13 @@ function ImageContentControls({
             } as ElementPatch)
           }
           placeholder="https://… or data:image/…"
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          className={`${FIELD_CLASS} bg-ds-surface py-2 placeholder:text-ds-text-muted ${FOCUS_RING}`}
         />
       </label>
-      <label className="block">
-        <span className={LABEL_CLASS}>Alt text</span>
+      <label className="flex flex-col gap-1.5">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          Alt text
+        </span>
         <input
           type="text"
           value={content.alt ?? ""}
@@ -404,7 +440,7 @@ function ImageContentControls({
               },
             } as ElementPatch)
           }
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          className={`${FIELD_CLASS} bg-ds-surface py-2 placeholder:text-ds-text-muted ${FOCUS_RING}`}
         />
       </label>
     </>
