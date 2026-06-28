@@ -21,7 +21,7 @@
  * Responses:
  *   - 503 — feature disabled (no server secret configured).
  *   - 401 — missing/invalid internal secret.
- *   - 400 — malformed body (missing documentId/room or invalid base64 update).
+ *   - 400 — malformed body (missing documentId or invalid base64 update).
  *   - 404 — the document does not exist (the route never creates rows).
  *   - 200 — `{ ok: true }` snapshot persisted.
  */

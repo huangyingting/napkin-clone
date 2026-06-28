@@ -3,20 +3,12 @@ import { test } from "node:test";
 
 import { isValidBase64, parseCollabFlushPayload } from "./parser";
 
-// @compat — covers the legacy `room` alias field alongside the canonical `documentId`
-test("parseCollabFlushPayload accepts documentId and legacy room aliases", () => {
+test("parseCollabFlushPayload accepts the canonical documentId", () => {
   assert.deepEqual(
     parseCollabFlushPayload({ documentId: " doc ", update: "AQID" }),
     {
       ok: true,
       payload: { documentId: "doc", update: "AQID" },
-    },
-  );
-  assert.deepEqual(
-    parseCollabFlushPayload({ room: "room-1", update: "AQID" }),
-    {
-      ok: true,
-      payload: { documentId: "room-1", update: "AQID" },
     },
   );
 });

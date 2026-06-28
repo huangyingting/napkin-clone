@@ -61,7 +61,7 @@ const RESPONSE_EXCEPTIONS = new Set([
   "Binary/plain-text",
   "Framework delegated",
   "Provider contract",
-  "Legacy {error} body",
+  "Shared {error, code} body",
 ]);
 
 type MatrixHeader = (typeof MATRIX_HEADERS)[number];
@@ -211,8 +211,8 @@ test("#985: explicit response exceptions are scoped to known route contracts", (
       ["auth/[...nextauth]", "Framework delegated"],
       ["billing/webhook", "Provider contract"],
       ["brand-assets/[ownerId]/[...path]", "Binary/plain-text"],
-      ["generate", "Legacy {error} body"],
-      ["generate-deck", "Legacy {error} body"],
+      ["generate", "Shared {error, code} body"],
+      ["generate-deck", "Shared {error, code} body"],
       ["slide-assets/[documentId]/[...path]", "Binary/plain-text"],
     ],
   );

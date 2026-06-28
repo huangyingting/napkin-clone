@@ -10,8 +10,7 @@ import {
   retryAfterHeader,
 } from "@/lib/api/route-adapters";
 
-// @compat — pins legacy error-body shape { error, code } for existing API consumers
-test("readJsonObject preserves legacy route error bodies", async () => {
+test("readJsonObject returns shared route error bodies", async () => {
   const invalid = await readJsonObject({
     async json() {
       throw new Error("bad json");
@@ -26,8 +25,7 @@ test("readJsonObject preserves legacy route error bodies", async () => {
   });
 });
 
-// @compat — pins legacy error-body shape for multipart parser failures
-test("readFormData maps parser failures to legacy route errors", async () => {
+test("readFormData maps parser failures to shared route errors", async () => {
   const result = await readFormData({
     async formData() {
       throw new Error("bad form");

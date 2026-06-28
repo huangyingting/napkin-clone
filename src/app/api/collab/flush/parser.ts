@@ -18,15 +18,12 @@ export function parseCollabFlushPayload(
 ): PayloadParseResult<CollabFlushPayload> {
   const payload = body as {
     documentId?: unknown;
-    room?: unknown;
     update?: unknown;
   };
   const documentId =
     typeof payload.documentId === "string" && payload.documentId.trim()
       ? payload.documentId.trim()
-      : typeof payload.room === "string" && payload.room.trim()
-        ? payload.room.trim()
-        : null;
+      : null;
 
   if (!documentId) {
     return { ok: false, status: 400, message: "Missing documentId." };

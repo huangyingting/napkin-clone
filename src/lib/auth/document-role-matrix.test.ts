@@ -161,30 +161,6 @@ const SURFACES: SurfaceContract[] = [
         name: "setCommentResolved",
         file: "src/app/app/documents/[id]/comments-actions.ts",
       },
-      {
-        name: "floatCommentsOnSlideDelete",
-        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
-      },
-      {
-        name: "floatCommentsOnElementDelete",
-        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
-      },
-      {
-        name: "getOrphanedCommentIds",
-        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
-      },
-      {
-        name: "floatOrphanedCommentsAfterRestore",
-        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
-      },
-      {
-        name: "getUnreadCommentCount",
-        file: "src/app/app/documents/[id]/slide-comment-unread.ts",
-      },
-      {
-        name: "markDocumentCommentsRead",
-        file: "src/app/app/documents/[id]/slide-comment-unread.ts",
-      },
     ],
   },
   {

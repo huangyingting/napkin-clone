@@ -455,22 +455,6 @@ export function buildDeck(overrides: DeckBuilderOverrides = {}): Deck {
   } as Deck;
 }
 
-export function buildDeckWithElements(elements: SlideElement[]): Deck {
-  return buildDeck({
-    design: { themeId: "indigo" },
-    slides: [
-      buildSlide({
-        id: "slide-elements",
-        designOverrides: {
-          background: { type: "solid", color: { value: "#101010" } },
-          accent: { value: "#abcdef" },
-        },
-        elements,
-      }),
-    ],
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Lightweight factories — for tests that need a minimal Slide or Deck shape
 // without the full element defaults from buildSlide/buildDeck.

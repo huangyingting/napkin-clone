@@ -307,13 +307,7 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   listComments: "view",
   createComment: "view",
   setCommentResolved: "view",
-  // Slide comments / assets
-  floatCommentsOnSlideDelete: "view",
-  floatCommentsOnElementDelete: "view",
-  getOrphanedCommentIds: "view",
-  floatOrphanedCommentsAfterRestore: "view",
-  getUnreadCommentCount: "view",
-  markDocumentCommentsRead: "view",
+  // Slide assets
   uploadSlideAsset: "edit",
 };
 

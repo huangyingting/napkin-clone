@@ -84,7 +84,7 @@ with `origin: deck`.
 
 ## Authoring a custom (brand-derived) template
 
-`brandToTokenSet` (`src/lib/presentation/deck-brand-tokens.ts`) builds a
+`brandToTokenSet` (`src/lib/presentation/brand-presentation-theme-adapter.ts`) builds a
 `PresentationTheme` from a saved brand, and `applyBrandToDeck` stores it on
 `Deck.design.themeOverrides` and installs brand master chrome **without touching any
 element `style` / `designOverrides`**, so existing local overrides are preserved.

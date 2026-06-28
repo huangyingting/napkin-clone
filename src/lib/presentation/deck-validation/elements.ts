@@ -440,18 +440,6 @@ export function validateTextRuns(value: unknown, context: string): TextRun[] {
   );
 }
 
-export function validateBulletRuns(
-  value: unknown,
-  context: string,
-): TextRun[][] {
-  if (!Array.isArray(value)) {
-    throw new DeckValidationError(`${context} must be an array`);
-  }
-  return value.map((runs, index) =>
-    validateTextRuns(runs, `${context}[${index}]`),
-  );
-}
-
 const LIST_TYPES = ["bullet", "number"] as const;
 
 /** Validates and normalises a single {@link Paragraph}. */

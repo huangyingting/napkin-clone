@@ -1,5 +1,5 @@
 /**
- * Tests for deck-brand-tokens.ts — brandToTokenSet, brandToMasterChrome, applyBrandToDeck.
+ * Tests for brand-presentation-theme-adapter.ts — brandToTokenSet, brandToMasterChrome, applyBrandToDeck.
  */
 
 import assert from "node:assert/strict";

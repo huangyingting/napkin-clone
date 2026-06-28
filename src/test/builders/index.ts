@@ -44,7 +44,6 @@ export {
   buildPlaceholderElement,
   buildSlide,
   buildDeck,
-  buildDeckWithElements,
   makeSlideWithElementIds,
   makeMinimalSlide,
   makeMinimalDeck,
