@@ -142,6 +142,7 @@ const PANEL_MENU_ICONS: Record<RightPanelTab, ReactNode> = {
   shape: <Square size={14} aria-hidden="true" />,
   image: <ImageIcon size={14} aria-hidden="true" />,
   adjust: <Crop size={14} aria-hidden="true" />,
+  visual: <FileText size={14} aria-hidden="true" />,
   line: <Minus size={14} aria-hidden="true" />,
   effects: <Sparkles size={14} aria-hidden="true" />,
   source: <FileText size={14} aria-hidden="true" />,

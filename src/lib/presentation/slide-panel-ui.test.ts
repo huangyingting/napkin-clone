@@ -176,22 +176,22 @@ test("availablePanels: connector exposes Line", () => {
   );
 });
 
-test("availablePanels: visual excludes object-specific panels", () => {
+test("availablePanels: visual exposes Visual", () => {
   assert.deepEqual(
     availablePanels({ kind: "visual", hasSourceRef: false, selectedCount: 1 }),
-    ["arrange", "effects", "layers"],
+    ["visual", "arrange", "effects", "layers"],
   );
 });
 
-test("availablePanels: Source only when a sourceRef exists", () => {
+test("availablePanels: Source only for non-visual sourceRef elements", () => {
   assert.deepEqual(
-    availablePanels({ kind: "visual", hasSourceRef: true, selectedCount: 1 }),
-    ["arrange", "effects", "source", "layers"],
+    availablePanels({ kind: "text", hasSourceRef: true, selectedCount: 1 }),
+    ["text", "arrange", "effects", "source", "layers"],
   );
   assert.equal(
     isPanelAvailable("source", {
       kind: "visual",
-      hasSourceRef: false,
+      hasSourceRef: true,
       selectedCount: 1,
     }),
     false,
@@ -242,6 +242,14 @@ test("resolvePanelTab falls back to the first panel for the current element", ()
     "image",
   );
   assert.equal(
+    resolvePanelTab("source", {
+      kind: "visual",
+      hasSourceRef: true,
+      selectedCount: 1,
+    }),
+    "visual",
+  );
+  assert.equal(
     resolvePanelTab("label", {
       kind: "shape",
       hasSourceRef: false,
@@ -259,7 +267,7 @@ test("resolvePanelTab falls back to the first panel for the current element", ()
   );
 });
 
-test("resolvePanelTab falls back to slide or arrange when there is no object panel", () => {
+test("resolvePanelTab falls back to slide or first object panel", () => {
   assert.equal(
     resolvePanelTab("text", {
       kind: null,
@@ -274,7 +282,7 @@ test("resolvePanelTab falls back to slide or arrange when there is no object pan
       hasSourceRef: false,
       selectedCount: 1,
     }),
-    "arrange",
+    "visual",
   );
 });
 
@@ -287,21 +295,19 @@ test("toolbarMorePanels keeps layers last for normal selections", () => {
     toolbarMorePanels({ kind: "shape", hasSourceRef: false, selectedCount: 1 }),
     ["shape", "arrange", "effects", "layers"],
   );
+  assert.deepEqual(
+    toolbarMorePanels({ kind: "visual", hasSourceRef: true, selectedCount: 1 }),
+    ["visual", "arrange", "effects", "layers"],
+  );
 });
 
-test("toolbarMorePanels puts visual source first and labels it Visual", () => {
+test("toolbarMorePanelLabel returns panel labels", () => {
   const context = {
     kind: "visual",
     hasSourceRef: true,
     selectedCount: 1,
   } as const;
-  assert.deepEqual(toolbarMorePanels(context), [
-    "source",
-    "arrange",
-    "effects",
-    "layers",
-  ]);
-  assert.equal(toolbarMorePanelLabel("source", context), "Visual");
+  assert.equal(toolbarMorePanelLabel("visual", context), "Visual");
   assert.equal(
     toolbarMorePanelLabel("source", {
       kind: "text",

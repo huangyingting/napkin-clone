@@ -2776,9 +2776,13 @@ export function SourceSummary({
   }[status];
 
   const actionClass = `rounded-ds-md border border-ds-border-subtle px-2.5 py-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
+  const panelTitle = element.kind === "visual" ? "Visual" : "Source";
 
   return (
-    <PanelSection title="Source" icon={<Link2 size={12} aria-hidden="true" />}>
+    <PanelSection
+      title={panelTitle}
+      icon={<Link2 size={12} aria-hidden="true" />}
+    >
       <div className="flex flex-col gap-1">
         <span
           className={`text-sm font-semibold ${statusMeta.tone}`}

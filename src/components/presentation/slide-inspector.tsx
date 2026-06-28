@@ -42,11 +42,12 @@ import { Popover, Tooltip } from "@/components/ui";
 import type { SlideElement } from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
 import {
-  availablePanels,
   defaultPanelTab,
-  PANEL_LABELS,
   resolvePanelTab,
+  toolbarMorePanelLabel,
+  toolbarMorePanels,
   toToolbarSelectionKind,
+  type PanelAvailabilityContext,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
 import {
@@ -132,14 +133,17 @@ function MasterChromeIcon({ element }: { element: SlideElement }) {
 function PanelSwitcher({
   panels,
   activeTab,
+  availability,
   onSelectTab,
 }: {
   panels: readonly RightPanelTab[];
   activeTab: RightPanelTab;
+  availability: PanelAvailabilityContext;
   onSelectTab: (tab: RightPanelTab) => void;
 }) {
   const [open, setOpen] = useState(false);
   if (panels.length <= 1) return null;
+  const activeLabel = toolbarMorePanelLabel(activeTab, availability);
   return (
     <Popover
       open={open}
@@ -157,7 +161,7 @@ function PanelSwitcher({
           onClick={() => setOpen((value) => !value)}
           className={`flex shrink-0 items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs font-semibold text-ds-text-primary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
         >
-          {PANEL_LABELS[activeTab]}
+          {activeLabel}
           <ChevronDown size={13} aria-hidden="true" />
         </button>
       }
@@ -165,6 +169,7 @@ function PanelSwitcher({
       <div className="flex flex-col">
         {panels.map((panel) => {
           const active = panel === activeTab;
+          const label = toolbarMorePanelLabel(panel, availability);
           return (
             <button
               key={panel}
@@ -181,7 +186,7 @@ function PanelSwitcher({
                   : "text-ds-text-secondary hover:text-ds-text-primary"
               } ${FOCUS_RING}`}
             >
-              {PANEL_LABELS[panel]}
+              {label}
               {active ? (
                 <Check
                   size={13}
@@ -366,7 +371,7 @@ export function SlideInspector({
     hasSourceRef:
       (selectedElement as { source?: unknown } | null)?.source !== undefined,
   };
-  const panels = availablePanels(availability);
+  const panels = toolbarMorePanels(availability);
 
   const requestedTab = initialTab ?? defaultPanelTab(selectedCount > 0);
   const activeTab = resolvePanelTab(requestedTab, availability);
@@ -395,6 +400,7 @@ export function SlideInspector({
             <PanelSwitcher
               panels={panels}
               activeTab={activeTab}
+              availability={availability}
               onSelectTab={onSelectTab}
             />
           ) : null}
@@ -525,9 +531,7 @@ export function SlideInspector({
           />
         ) : null}
 
-        {(activeTab === "image" ||
-          activeTab === "line") &&
-        selectedElement ? (
+        {(activeTab === "image" || activeTab === "line") && selectedElement ? (
           <ElementEditor
             element={selectedElement}
             deck={deck}
@@ -588,7 +592,8 @@ export function SlideInspector({
           ) : null
         ) : null}
 
-        {activeTab === "source" && selectedElement ? (
+        {(activeTab === "source" || activeTab === "visual") &&
+        selectedElement ? (
           <SourceSummary
             element={selectedElement}
             staleReason={sourceStaleReasonById?.get(selectedElement.id)}

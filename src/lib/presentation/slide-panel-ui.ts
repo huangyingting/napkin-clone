@@ -11,8 +11,8 @@
  * Task panels available in the right supplemental panel. Each panel owns one
  * broad property category and exactly one is rendered at a time. `Layers` is a
  * normal panel, not a separate inspector mode; object panels use concrete ids
- * (`text`, `label`, `shape`, `image`, `adjust`, `line`) instead of a generic
- * appearance bucket.
+ * (`text`, `label`, `shape`, `image`, `adjust`, `visual`, `line`) instead of a
+ * generic appearance bucket.
  */
 export type RightPanelTab =
   | "slide"
@@ -22,6 +22,7 @@ export type RightPanelTab =
   | "shape"
   | "image"
   | "adjust"
+  | "visual"
   | "line"
   | "effects"
   | "source"
@@ -37,6 +38,7 @@ export const PANEL_LABELS: Record<RightPanelTab, string> = {
   shape: "Shape",
   image: "Image",
   adjust: "Adjust",
+  visual: "Visual",
   line: "Line",
   effects: "Effects",
   source: "Source",
@@ -55,11 +57,10 @@ const PANEL_ORDER: readonly RightPanelTab[] = [
   "label",
   "shape",
   "image",
-  "adjust",
+  "visual",
   "line",
   "arrange",
   "effects",
-  "source",
   "layers",
 ];
 
@@ -193,8 +194,8 @@ export interface PanelAvailabilityContext {
  * - Empty selection (slide is the current object): `slide`, `notes`, `layers`.
  * - Multi-selection: `arrange`, `effects`, `layers`.
  * - Single element: `arrange`, `effects`, `layers`, plus the matching object
- *   panel (`text`, `shape`, `image` + `adjust`, or `line`), and `source` only
- *   when the element already has a `sourceRef`.
+ *   panel (`text`, `shape`, `image` + `adjust`, `visual`, or `line`), and
+ *   `source` only when a non-visual element already has a `sourceRef`.
  */
 export function availablePanels(
   context: PanelAvailabilityContext,
@@ -226,10 +227,13 @@ export function availablePanels(
       set.add("image");
       set.add("adjust");
     }
+    if (context.kind === "visual") {
+      set.add("visual");
+    }
     if (context.kind === "line" || context.kind === "connector") {
       set.add("line");
     }
-    if (context.hasSourceRef) {
+    if (context.hasSourceRef && context.kind !== "visual") {
       set.add("source");
     }
   }
@@ -268,23 +272,14 @@ export function toolbarMorePanels(
     ...panels.filter((panel) => panel !== "layers"),
     ...panels.filter((panel) => panel === "layers"),
   ];
-  if (context.kind === "visual" && layersLast.includes("source")) {
-    return [
-      "source",
-      ...layersLast.filter((panel) => panel !== "source"),
-    ];
-  }
   return layersLast;
 }
 
 /** Context-aware labels for selected-object toolbar More menu rows. */
 export function toolbarMorePanelLabel(
   panel: RightPanelTab,
-  context: PanelAvailabilityContext,
+  _context: PanelAvailabilityContext,
 ): string {
-  if (context.kind === "visual" && panel === "source") {
-    return "Visual";
-  }
   return PANEL_LABELS[panel];
 }
 

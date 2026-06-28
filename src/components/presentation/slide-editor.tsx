@@ -1462,7 +1462,7 @@ export function SlideEditor({
     setSelectedSlideFrameId(null);
     setSelectedElementId(link.elementId);
     setSelectedElementIds(new Set([link.elementId]));
-    setRightPanelTab("source");
+    setRightPanelTab(link.blockKind === "visual" ? "visual" : "source");
     openInspectorSurface();
     setSourceMenuOpen(false);
   }, [
@@ -1823,7 +1823,11 @@ export function SlideEditor({
                         icon={<FileText size={15} aria-hidden="true" />}
                         label="Open source panel"
                         onClick={() => {
-                          openRightPanel("source");
+                          openRightPanel(
+                            selectedSource.blockKind === "visual"
+                              ? "visual"
+                              : "source",
+                          );
                           setSourceMenuOpen(false);
                         }}
                       />
