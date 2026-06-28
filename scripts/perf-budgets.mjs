@@ -1,5 +1,8 @@
+#!/usr/bin/env node
+
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
 const HEAVY_EXPORT_PACKAGES = new Set(["jspdf", "jszip", "pptxgenjs"]);
@@ -105,4 +108,26 @@ export function formatPerfBudgetFindings(report) {
         "Performance budget violations:",
         ...report.violations.map((v) => `- ${v}`),
       ].join("\n");
+}
+
+export function runPerfBudgetCli({
+  rootDir = process.cwd(),
+  stdout = console.log,
+  stderr = console.error,
+} = {}) {
+  const report = runPerfBudgetCheck(rootDir);
+  const text = formatPerfBudgetFindings(report);
+  if (report.violations.length > 0) {
+    stderr(text);
+    return 1;
+  }
+  stdout(text);
+  return 0;
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  process.exitCode = runPerfBudgetCli();
 }

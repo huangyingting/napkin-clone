@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -13,12 +13,10 @@ import {
   scanEnvReads,
   scanEnvReadsInText,
 } from "./check-docs-source-inventory.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
-function fixtureRoot(name) {
-  const root = join(process.cwd(), ".squad", "test-fixtures", name);
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  return root;
+function fixtureRoot(name, testContext) {
+  return createTestFixtureRoot(name, testContext);
 }
 
 test("docs source inventory: extracts env reads from direct and constant-key access", () => {
@@ -212,12 +210,8 @@ test("docs source inventory CLI reports pass and drift results", (t) => {
     "scripts",
     "check-docs-source-inventory.mjs",
   );
-  const passRoot = fixtureRoot("docs-source-cli-pass");
-  const failRoot = fixtureRoot("docs-source-cli-fail");
-  t.after(() => {
-    rmSync(passRoot, { recursive: true, force: true });
-    rmSync(failRoot, { recursive: true, force: true });
-  });
+  const passRoot = fixtureRoot("docs-source-cli-pass", t);
+  const failRoot = fixtureRoot("docs-source-cli-fail", t);
 
   for (const root of [passRoot, failRoot]) {
     mkdirSync(join(root, "src", "app", "api", "status"), { recursive: true });
@@ -264,7 +258,7 @@ test("docs source inventory CLI reports pass and drift results", (t) => {
   assert.match(failed.stderr, /Runtime config inventory drift/);
   assert.match(failed.stderr, /API route security matrix drift/);
 
-  const missingOnlyRoot = fixtureRoot("docs-source-cli-missing-only");
+  const missingOnlyRoot = fixtureRoot("docs-source-cli-missing-only", t);
   mkdirSync(join(missingOnlyRoot, "docs", "operations"), { recursive: true });
   mkdirSync(join(missingOnlyRoot, "docs", "security"), { recursive: true });
   mkdirSync(join(missingOnlyRoot, "src"), { recursive: true });
@@ -280,7 +274,6 @@ test("docs source inventory CLI reports pass and drift results", (t) => {
     join(missingOnlyRoot, "docs", "security", "api-route-security-matrix.md"),
     "## Matrix\n| Route | Classification |\n| --- | --- |\n",
   );
-  t.after(() => rmSync(missingOnlyRoot, { recursive: true, force: true }));
   const missingOnly = spawnSync(process.execPath, [scriptPath], {
     cwd: missingOnlyRoot,
     encoding: "utf8",

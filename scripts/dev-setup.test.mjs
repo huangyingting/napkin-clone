@@ -1,11 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  chmodSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -16,12 +10,10 @@ import {
   runDevSetup,
   setupCommands,
 } from "./dev-setup.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
-function fixtureRoot(name) {
-  const root = join(process.cwd(), ".squad", "test-fixtures", name);
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  return root;
+function fixtureRoot(name, testContext) {
+  return createTestFixtureRoot(name, testContext);
 }
 
 test("dev setup builds a local SQLite env without printing secrets", () => {
@@ -106,9 +98,8 @@ test("dev setup runner supports no-db mode without running commands", () => {
 });
 
 test("dev setup CLI supports no-db mode in an empty fixture", (t) => {
-  const root = fixtureRoot("dev-setup-cli-no-db");
+  const root = fixtureRoot("dev-setup-cli-no-db", t);
   const scriptPath = join(process.cwd(), "scripts", "dev-setup.mjs");
-  t.after(() => rmSync(root, { recursive: true, force: true }));
 
   const result = spawnSync(process.execPath, [scriptPath, "--no-db"], {
     cwd: root,
@@ -121,13 +112,12 @@ test("dev setup CLI supports no-db mode in an empty fixture", (t) => {
 });
 
 test("dev setup CLI runs database commands through the default runner", (t) => {
-  const root = fixtureRoot("dev-setup-cli-db");
+  const root = fixtureRoot("dev-setup-cli-db", t);
   const binDir = join(root, "bin");
   mkdirSync(binDir, { recursive: true });
   const npmPath = join(binDir, "npm");
   writeFileSync(npmPath, "#!/usr/bin/env sh\nexit 0\n");
   chmodSync(npmPath, 0o755);
-  t.after(() => rmSync(root, { recursive: true, force: true }));
 
   const result = spawnSync(
     process.execPath,

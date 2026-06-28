@@ -34,6 +34,15 @@ Owned asset storage keys are deleted before database rows are removed. After the
 delete, erasure verification counts every inventoried user identifier and fails
 closed if any residual personal data remains.
 
+For an operator dry run after deletion, use:
+
+```bash
+npm run account:erasure:dry-run -- <userId>
+```
+
+The command prints count-only JSON, exits `0` when no inventoried personal data
+remains, and exits `2` when residual rows or asset references are found.
+
 ## Public share metadata
 
 Public links default to `noindex,nofollow` and generic social metadata. Owners

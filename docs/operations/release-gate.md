@@ -30,17 +30,17 @@ npm run db:generate
 npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run docs:check && npm run format:check && npm run build
 ```
 
-| Step                | Tool / command             | Failure means                                                                                   |
-| ------------------- | -------------------------- | ----------------------------------------------------------------------------------------------- |
-| SQLite schema drift | `npm run db:schema:check`  | The generated SQLite schema is stale                                                            |
-| Prisma client       | `npm run db:generate`      | Generated Prisma client cannot be refreshed                                                     |
-| Unit + pure tests   | `npm test`                 | A pure helper, schema, or domain model is broken                                                |
-| TypeScript          | `npm run typecheck`        | Type errors or unused symbols in src/ or scripts                                                |
-| Unused guard        | `npm run typecheck:unused` | Focused unused-symbol gate regressed                                                            |
-| Lint                | `npm run lint`             | Client dependency boundary, import-graph, design-system, action-port, or ESLint rule violations |
-| Docs verification   | `npm run docs:check`       | Runtime config, route inventory, docs links/indexes, or docs formatting drifted                 |
-| Formatting          | `npm run format:check`     | Prettier formatting drift                                                                       |
-| Build               | `npm run build`            | Next.js production build or static-analysis constraints regressed                               |
+| Step                | Tool / command             | Failure means                                                                                                       |
+| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| SQLite schema drift | `npm run db:schema:check`  | The generated SQLite schema is stale                                                                                |
+| Prisma client       | `npm run db:generate`      | Generated Prisma client cannot be refreshed                                                                         |
+| Unit + pure tests   | `npm test`                 | A pure helper, schema, or domain model is broken                                                                    |
+| TypeScript          | `npm run typecheck`        | Type errors or unused symbols in src/ or scripts                                                                    |
+| Unused guard        | `npm run typecheck:unused` | Focused unused-symbol gate regressed                                                                                |
+| Lint                | `npm run lint`             | Client dependency boundary, import-graph, design-system, action-port, performance-budget, or ESLint rule violations |
+| Docs verification   | `npm run docs:check`       | Runtime config, route inventory, docs links/indexes, or docs formatting drifted                                     |
+| Formatting          | `npm run format:check`     | Prettier formatting drift                                                                                           |
+| Build               | `npm run build`            | Next.js production build or static-analysis constraints regressed                                                   |
 
 **All nine steps must be green. A single failure is a release blocker.**
 

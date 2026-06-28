@@ -195,7 +195,7 @@ describe("slide-fonts.css coverage", () => {
     assert.equal(
       faceCount,
       assetCount,
-      "slide-fonts.css @font-face count must match registry assets; run scripts/gen-slide-fonts-css.ts",
+      "slide-fonts.css @font-face count must match registry assets; run npm run slide-fonts:generate",
     );
     for (const font of SLIDE_FONTS) {
       for (const asset of font.assets) {

@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { scanGovernance, scanText } from "./check-e2e-governance.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
 test("e2e governance: flags unapproved raw sleeps", () => {
   const findings = scanText(
@@ -66,8 +67,7 @@ test("e2e governance: accepts profile-gated skips and legacy allowlisted issues"
 });
 
 test("e2e governance: scans roots while skipping dependency directories", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "e2e-governance-scan-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("e2e-governance-scan-test", t);
   mkdirSync(join(repoRoot, "e2e", "nested"), { recursive: true });
   mkdirSync(join(repoRoot, "e2e", "node_modules"), { recursive: true });
   mkdirSync(join(repoRoot, "src", "lib"), { recursive: true });
@@ -92,12 +92,8 @@ test("e2e governance: scans roots while skipping dependency directories", (t) =>
 
 test("e2e governance CLI reports pass and failure results", (t) => {
   const scriptPath = join(process.cwd(), "scripts", "check-e2e-governance.mjs");
-  const passRoot = join(process.cwd(), ".squad", "e2e-governance-cli-pass");
-  const failRoot = join(process.cwd(), ".squad", "e2e-governance-cli-fail");
-  t.after(() => {
-    rmSync(passRoot, { recursive: true, force: true });
-    rmSync(failRoot, { recursive: true, force: true });
-  });
+  const passRoot = createTestFixtureRoot("e2e-governance-cli-pass", t);
+  const failRoot = createTestFixtureRoot("e2e-governance-cli-fail", t);
   mkdirSync(join(passRoot, "e2e"), { recursive: true });
   mkdirSync(join(failRoot, "e2e"), { recursive: true });
   writeFileSync(

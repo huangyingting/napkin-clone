@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { scanActionPorts, scanText } from "./check-action-ports.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
 test("action-port check: flags shared component imports from app actions", () => {
   const findings = scanText(
@@ -62,8 +63,7 @@ test("action-port check: allows route-only app components to import sibling acti
 });
 
 test("action-port check: scans repository roots and skips unsupported files", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "action-port-scan-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("action-port-scan-test", t);
   mkdirSync(join(repoRoot, "src", "components", "nested"), { recursive: true });
   mkdirSync(join(repoRoot, "src", "lib"), { recursive: true });
   writeFileSync(
@@ -89,12 +89,8 @@ test("action-port check: scans repository roots and skips unsupported files", (t
 
 test("action-port CLI reports pass and failure results", (t) => {
   const scriptPath = join(process.cwd(), "scripts", "check-action-ports.mjs");
-  const passRoot = join(process.cwd(), ".squad", "action-port-cli-pass");
-  const failRoot = join(process.cwd(), ".squad", "action-port-cli-fail");
-  t.after(() => {
-    rmSync(passRoot, { recursive: true, force: true });
-    rmSync(failRoot, { recursive: true, force: true });
-  });
+  const passRoot = createTestFixtureRoot("action-port-cli-pass", t);
+  const failRoot = createTestFixtureRoot("action-port-cli-fail", t);
   mkdirSync(join(passRoot, "src", "components"), { recursive: true });
   mkdirSync(join(failRoot, "src", "components"), { recursive: true });
   writeFileSync(

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
@@ -12,6 +12,7 @@ import {
   runClientBoundaryCheck,
   sourceFilesForRoot,
 } from "./client-boundary.mjs";
+import { createTestFixtureRoot, testFixturePath } from "./test-fixtures.mjs";
 
 function fixtureFiles(rootDir, entries) {
   const files = [];
@@ -48,7 +49,7 @@ test("collectClientBoundaryImports ignores type-only imports and detects client 
 });
 
 test("evaluateClientBoundary reports server-only dependencies reachable from a client root", () => {
-  const rootDir = path.resolve("fixture-client-boundary");
+  const rootDir = testFixturePath("client-boundary-evaluate");
   const { files, contents } = fixtureFiles(rootDir, {
     "src/components/client.tsx":
       '"use client"; import { helper } from "@/lib/helper"; export { helper };',
@@ -81,7 +82,7 @@ test("evaluateClientBoundary reports server-only dependencies reachable from a c
 });
 
 test("evaluateClientBoundary allows lazy-only packages when they are not statically imported", () => {
-  const rootDir = path.resolve("fixture-client-boundary-lazy");
+  const rootDir = testFixturePath("client-boundary-lazy");
   const { files, contents } = fixtureFiles(rootDir, {
     "src/components/client.tsx": `"use client";
       export async function exportNow() {
@@ -134,7 +135,7 @@ test("collectClientBoundaryImports skips non-directive string prologues", () => 
 });
 
 test("evaluateClientBoundary reports builtins and lazy-only static imports but stops at server files", () => {
-  const rootDir = path.resolve("fixture-client-boundary-builtins");
+  const rootDir = testFixturePath("client-boundary-builtins");
   const { files, contents } = fixtureFiles(rootDir, {
     "src/components/client.tsx": `"use client";
       import fs from "fs";
@@ -162,7 +163,7 @@ test("evaluateClientBoundary reports builtins and lazy-only static imports but s
 });
 
 test("evaluateClientBoundary reports node protocol builtins in client files", () => {
-  const rootDir = path.resolve("fixture-client-boundary-node-protocol");
+  const rootDir = testFixturePath("client-boundary-node-protocol");
   const { files, contents } = fixtureFiles(rootDir, {
     "src/components/client.tsx": '"use client"; import fs from "node:fs";',
   });
@@ -177,8 +178,7 @@ test("evaluateClientBoundary reports node protocol builtins in client files", ()
 });
 
 test("client boundary resolves explicit files, indexes, packages, and missing locals", (t) => {
-  const rootDir = path.join(process.cwd(), ".squad", "client-boundary-resolve");
-  t.after(() => rmSync(rootDir, { recursive: true, force: true }));
+  const rootDir = createTestFixtureRoot("client-boundary-resolve", t);
   const importer = path.join(rootDir, "src", "components", "client.tsx");
   const explicit = path.join(rootDir, "src", "lib", "explicit.ts");
   const index = path.join(rootDir, "src", "lib", "folder", "index.ts");
@@ -198,8 +198,7 @@ test("client boundary resolves explicit files, indexes, packages, and missing lo
 });
 
 test("client boundary discovers source files from disk and runs the check", (t) => {
-  const rootDir = path.join(process.cwd(), ".squad", "client-boundary-source");
-  t.after(() => rmSync(rootDir, { recursive: true, force: true }));
+  const rootDir = createTestFixtureRoot("client-boundary-source", t);
   for (const directory of [
     "src/components",
     "src/generated/prisma",

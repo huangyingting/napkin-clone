@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -13,6 +13,7 @@ import {
   signatureForScc,
   sourceFilesForRoot,
 } from "./import-graph.mjs";
+import { createTestFixtureRoot, testFixturePath } from "./test-fixtures.mjs";
 
 test("collectImportsFromSource parses imports, re-exports, and export-star barrels", () => {
   const parsed = collectImportsFromSource(`
@@ -42,7 +43,7 @@ test("computeSccs returns stable signatures for cyclic components", () => {
 });
 
 test("evaluateImportGraph reports unallowlisted cycles, star barrels, and facade imports", () => {
-  const rootDir = path.resolve("fixture");
+  const rootDir = testFixturePath("import-graph-evaluate");
   const files = [
     "src/lib/domain/a.ts",
     "src/lib/domain/b.ts",
@@ -91,12 +92,7 @@ test("evaluateImportGraph reports unallowlisted cycles, star barrels, and facade
 });
 
 test("resolveImport handles aliases, relatives, packages, and missing modules", (t) => {
-  const rootDir = path.join(
-    process.cwd(),
-    ".squad",
-    "import-graph-resolve-test",
-  );
-  t.after(() => rmSync(rootDir, { recursive: true, force: true }));
+  const rootDir = createTestFixtureRoot("import-graph-resolve-test", t);
   const importer = path.join(rootDir, "src", "lib", "feature", "index.ts");
   const aliasTarget = path.join(rootDir, "src", "lib", "shared.ts");
   const relativeTarget = path.join(
@@ -122,12 +118,7 @@ test("resolveImport handles aliases, relatives, packages, and missing modules", 
 });
 
 test("sourceFilesForRoot skips generated, dependency, build, and test files", (t) => {
-  const rootDir = path.join(
-    process.cwd(),
-    ".squad",
-    "import-graph-source-test",
-  );
-  t.after(() => rmSync(rootDir, { recursive: true, force: true }));
+  const rootDir = createTestFixtureRoot("import-graph-source-test", t);
   for (const directory of [
     "src/lib",
     "src/generated/prisma",
@@ -173,7 +164,7 @@ test("sourceFilesForRoot skips generated, dependency, build, and test files", (t
 });
 
 test("evaluateImportGraph honors allowlists and public facade consumers", () => {
-  const rootDir = path.resolve("fixture-allowlisted");
+  const rootDir = testFixturePath("import-graph-allowlisted");
   const files = [
     "src/lib/domain/a.ts",
     "src/lib/domain/b.ts",
@@ -243,8 +234,7 @@ test("formatFindings renders all violation sections and returns empty text for a
 });
 
 test("runImportGraphCheck evaluates files discovered from disk", (t) => {
-  const rootDir = path.join(process.cwd(), ".squad", "import-graph-run-test");
-  t.after(() => rmSync(rootDir, { recursive: true, force: true }));
+  const rootDir = createTestFixtureRoot("import-graph-run-test", t);
   mkdirSync(path.join(rootDir, "src", "lib"), { recursive: true });
   writeFileSync(
     path.join(rootDir, "src", "lib", "a.ts"),

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -11,12 +11,10 @@ import {
   sanitizeWorktreeName,
   worktreeInstructions,
 } from "./dev-worktree.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
-function fixtureRoot(name) {
-  const root = join(process.cwd(), ".squad", "test-fixtures", name);
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  return root;
+function fixtureRoot(name, testContext) {
+  return createTestFixtureRoot(name, testContext);
 }
 
 test("worktree helper sanitizes names for SQLite filenames", () => {
@@ -93,9 +91,8 @@ test("worktree helper runner preserves an existing env file", () => {
 });
 
 test("worktree helper CLI runs in a fixture worktree", (t) => {
-  const root = fixtureRoot("dev-worktree-cli");
+  const root = fixtureRoot("dev-worktree-cli", t);
   const scriptPath = join(process.cwd(), "scripts", "dev-worktree.mjs");
-  t.after(() => rmSync(root, { recursive: true, force: true }));
 
   const result = spawnSync(process.execPath, [scriptPath], {
     cwd: root,

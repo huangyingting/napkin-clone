@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { scanDesignSystem, scanText } from "./check-design-system.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
 test("design-system check: flags raw numeric z-index classes", () => {
   const findings = scanText(
@@ -114,8 +115,7 @@ test("design-system check: skips token-owned chrome files but still scans z-inde
 });
 
 test("design-system check: scans repository roots and skips unsupported files", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "design-system-scan-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("design-system-scan-test", t);
   mkdirSync(join(repoRoot, "src", "app", "nested"), { recursive: true });
   mkdirSync(join(repoRoot, "src", "app", ".next"), { recursive: true });
   mkdirSync(join(repoRoot, "src", "components"), { recursive: true });
@@ -160,12 +160,8 @@ test("design-system check: scans repository roots and skips unsupported files", 
 
 test("design-system CLI reports pass and failure results", (t) => {
   const scriptPath = join(process.cwd(), "scripts", "check-design-system.mjs");
-  const passRoot = join(process.cwd(), ".squad", "design-system-cli-pass");
-  const failRoot = join(process.cwd(), ".squad", "design-system-cli-fail");
-  t.after(() => {
-    rmSync(passRoot, { recursive: true, force: true });
-    rmSync(failRoot, { recursive: true, force: true });
-  });
+  const passRoot = createTestFixtureRoot("design-system-cli-pass", t);
+  const failRoot = createTestFixtureRoot("design-system-cli-fail", t);
   mkdirSync(join(passRoot, "src", "app"), { recursive: true });
   mkdirSync(join(failRoot, "src", "app"), { recursive: true });
   writeFileSync(

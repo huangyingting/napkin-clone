@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { join } from "node:path";
@@ -18,12 +18,10 @@ import {
   runDoctor,
   summarize,
 } from "./dev-doctor.mjs";
+import { createTestFixtureRoot, testFixturePath } from "./test-fixtures.mjs";
 
-function fixtureRoot(name) {
-  const root = join(process.cwd(), ".squad", "test-fixtures", name);
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  return root;
+function fixtureRoot(name, testContext) {
+  return createTestFixtureRoot(name, testContext);
 }
 
 test("dev doctor accepts Node 22 and newer", () => {
@@ -120,7 +118,7 @@ test("dev doctor reports SQLite schema drift when verification fails", () => {
 
 test("dev doctor reports missing Playwright Chromium installs", () => {
   mock.method(chromium, "executablePath", () =>
-    join(process.cwd(), ".squad", "test-fixtures", "missing-chromium"),
+    testFixturePath("missing-chromium"),
   );
 
   const result = checkPlaywrightBrowser();
@@ -172,8 +170,7 @@ test("dev doctor loads local env and returns the full check list", async () => {
 });
 
 test("dev doctor CLI prints results and exits nonzero for missing fixture setup", (t) => {
-  const root = fixtureRoot("dev-doctor-cli");
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const root = fixtureRoot("dev-doctor-cli", t);
 
   const result = spawnSync(
     process.execPath,

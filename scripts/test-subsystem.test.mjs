@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -17,12 +17,10 @@ import {
   runTestCoverageAudit,
   scanTestText,
 } from "./test-subsystem.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
 function fixtureRoot(name) {
-  const root = join(process.cwd(), ".squad", "test-fixtures", name);
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  return root;
+  return createTestFixtureRoot(name);
 }
 
 function captureConsole(callback) {

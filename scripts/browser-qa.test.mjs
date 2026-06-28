@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -11,12 +11,10 @@ import {
   runChecked,
   waitForServer,
 } from "./browser-qa.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
-function fixtureRoot(name) {
-  const root = join(process.cwd(), ".squad", "test-fixtures", name);
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  return root;
+function fixtureRoot(name, testContext) {
+  return createTestFixtureRoot(name, testContext);
 }
 
 test("browser QA summary prints deterministic URLs and credentials", () => {
@@ -223,8 +221,7 @@ test("browser QA runner starts and stops the dev server in interactive mode", as
 });
 
 test("browser QA CLI prints an existing fixture in print-only mode", (t) => {
-  const root = fixtureRoot("browser-qa-cli-print-only");
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const root = fixtureRoot("browser-qa-cli-print-only", t);
   mkdirSync(join(root, "e2e"), { recursive: true });
   writeFileSync(
     join(root, "e2e", ".e2e-fixture.json"),

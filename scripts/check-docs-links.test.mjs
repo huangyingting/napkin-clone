@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -9,6 +9,7 @@ import {
   validateDocsIndex,
   validateMarkdownLinks,
 } from "./check-docs-links.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
 test("docs links: extracts inline markdown links but ignores images", () => {
   assert.deepEqual(
@@ -20,8 +21,7 @@ test("docs links: extracts inline markdown links but ignores images", () => {
 });
 
 test("docs links: validates local files, anchors, and index reachability", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "docs-link-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("docs-link-test", t);
   const docsRoot = join(repoRoot, "docs");
   mkdirSync(join(docsRoot, "guide"), { recursive: true });
   writeFileSync(
@@ -39,8 +39,7 @@ test("docs links: validates local files, anchors, and index reachability", (t) =
 });
 
 test("docs links: reports missing targets and unindexed markdown", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "docs-link-missing-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("docs-link-missing-test", t);
   const docsRoot = join(repoRoot, "docs");
   mkdirSync(join(docsRoot, "guide"), { recursive: true });
   writeFileSync(
@@ -64,8 +63,7 @@ test("docs links: reports missing targets and unindexed markdown", (t) => {
 });
 
 test("docs links: handles directory, extensionless, external, and non-markdown links", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "docs-link-shapes-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("docs-link-shapes-test", t);
   const docsRoot = join(repoRoot, "docs");
   mkdirSync(join(docsRoot, "guide"), { recursive: true });
   mkdirSync(join(repoRoot, "src"), { recursive: true });
@@ -97,8 +95,7 @@ test("docs links: handles directory, extensionless, external, and non-markdown l
 });
 
 test("docs links: reports missing anchors and directories without README indexes", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "docs-link-anchor-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("docs-link-anchor-test", t);
   const docsRoot = join(repoRoot, "docs");
   mkdirSync(join(docsRoot, "guide"), { recursive: true });
   writeFileSync(
@@ -126,12 +123,8 @@ test("docs links: reports missing anchors and directories without README indexes
 
 test("docs links CLI reports pass and failure results", (t) => {
   const scriptPath = join(process.cwd(), "scripts", "check-docs-links.mjs");
-  const passRoot = join(process.cwd(), ".squad", "docs-links-cli-pass");
-  const failRoot = join(process.cwd(), ".squad", "docs-links-cli-fail");
-  t.after(() => {
-    rmSync(passRoot, { recursive: true, force: true });
-    rmSync(failRoot, { recursive: true, force: true });
-  });
+  const passRoot = createTestFixtureRoot("docs-links-cli-pass", t);
+  const failRoot = createTestFixtureRoot("docs-links-cli-fail", t);
   mkdirSync(join(passRoot, "docs"), { recursive: true });
   mkdirSync(join(failRoot, "docs", "guide"), { recursive: true });
   writeFileSync(join(passRoot, "docs", "README.md"), "# Docs\n");

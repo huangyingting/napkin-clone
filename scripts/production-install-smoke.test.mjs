@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -9,8 +8,9 @@ import {
   resolveModule,
   runProductionInstallSmoke,
 } from "./production-install-smoke.mjs";
+import { createTestFixtureRoot, testFixturePath } from "./test-fixtures.mjs";
 
-const ROOT = path.resolve("fixture-production-smoke");
+const ROOT = testFixturePath("production-install-smoke");
 const GENERATED = path.join(ROOT, "src", "generated", "prisma", "client.ts");
 const PRISMA_CLI = path.join(ROOT, "node_modules", ".bin", "prisma");
 
@@ -124,14 +124,7 @@ test("runProductionInstallSmoke prints the resolved module count", () => {
 });
 
 test("production install smoke CLI reports missing fixture artifacts", (t) => {
-  const root = path.join(
-    process.cwd(),
-    ".squad",
-    "production-smoke-cli-missing",
-  );
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const root = createTestFixtureRoot("production-smoke-cli-missing", t);
 
   const result = spawnSync(
     process.execPath,

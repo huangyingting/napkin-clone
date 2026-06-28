@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -8,6 +8,7 @@ import {
   scanNextBuildConstraints,
   scanText,
 } from "./check-next-build-constraints.mjs";
+import { createTestFixtureRoot } from "./test-fixtures.mjs";
 
 test("next build guard flags imported proxy matcher config", () => {
   const findings = scanText(
@@ -74,8 +75,7 @@ test("next build guard handles directives, unterminated exports, and runtime lit
 });
 
 test("next build guard scans source files and skips unsupported files", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "next-build-scan-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  const repoRoot = createTestFixtureRoot("next-build-scan-test", t);
   mkdirSync(join(repoRoot, "src", "app", "api", "example"), {
     recursive: true,
   });
@@ -98,9 +98,7 @@ test("next build guard scans source files and skips unsupported files", (t) => {
 });
 
 test("next build guard returns no findings without a src tree", (t) => {
-  const repoRoot = join(process.cwd(), ".squad", "next-build-no-src-test");
-  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
-  mkdirSync(repoRoot, { recursive: true });
+  const repoRoot = createTestFixtureRoot("next-build-no-src-test", t);
 
   assert.deepEqual(scanNextBuildConstraints(repoRoot), []);
 });
@@ -111,12 +109,8 @@ test("next build CLI reports pass and failure results", (t) => {
     "scripts",
     "check-next-build-constraints.mjs",
   );
-  const passRoot = join(process.cwd(), ".squad", "next-build-cli-pass");
-  const failRoot = join(process.cwd(), ".squad", "next-build-cli-fail");
-  t.after(() => {
-    rmSync(passRoot, { recursive: true, force: true });
-    rmSync(failRoot, { recursive: true, force: true });
-  });
+  const passRoot = createTestFixtureRoot("next-build-cli-pass", t);
+  const failRoot = createTestFixtureRoot("next-build-cli-fail", t);
   mkdirSync(join(passRoot, "src", "app"), { recursive: true });
   mkdirSync(join(failRoot, "src", "app"), { recursive: true });
   writeFileSync(
