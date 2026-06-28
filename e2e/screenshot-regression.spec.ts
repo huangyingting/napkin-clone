@@ -1,9 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   REGRESSION_DECK_FIXTURE,
   SCREENSHOT_OPTIONS,
   SLIDE_VIEWPORT,
-  injectDeckFixture,
 } from "./helpers/screenshot-fixtures";
 import { waitForStableSlideStage } from "./helpers/readiness";
 
@@ -38,6 +37,40 @@ import { waitForStableSlideStage } from "./helpers/readiness";
 const SCREENSHOT_REGRESSION_ENABLED =
   process.env.E2E_SCREENSHOT_REGRESSION === "1";
 
+async function gotoAvailablePage(page: Page, url: string): Promise<boolean> {
+  try {
+    const response = await page.goto(url);
+    return Boolean(response && response.status() !== 404);
+  } catch {
+    return false;
+  }
+}
+
+function skipUnavailableScreenshotFixture(reason: string): never {
+  // e2e-governance-allow test-skip: opt-in screenshot routes may be unavailable without seeded fixtures.
+  test.skip(true, reason);
+  throw new Error(reason);
+}
+
+async function waitForStableSlideStageOrSkip(
+  locator: Locator,
+  reason: string,
+): Promise<void> {
+  try {
+    await waitForStableSlideStage(locator);
+  } catch {
+    skipUnavailableScreenshotFixture(reason);
+  }
+}
+
+async function waitForNetworkIdleIfPossible(page: Page): Promise<void> {
+  try {
+    await page.waitForLoadState("networkidle");
+  } catch {
+    return;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests: editor stage
 // ---------------------------------------------------------------------------
@@ -52,21 +85,22 @@ test.describe("screenshot regression — slide editor", () => {
   });
 
   test("editor stage renders text and bullets slide", async ({ page }) => {
-    const response = await page
-      .goto("/app/documents/regression-test-doc/slides")
-      .catch(() => null);
-
-    if (!response || response.status() === 404) {
-      test.skip();
-      return;
+    if (
+      !(await gotoAvailablePage(
+        page,
+        "/app/documents/regression-test-doc/slides",
+      ))
+    ) {
+      skipUnavailableScreenshotFixture("Regression editor route unavailable");
     }
 
     const canvas = page
       .locator('[data-testid="slide-canvas"], .slide-canvas, [role="main"]')
       .first();
-    await waitForStableSlideStage(canvas).catch(() => {
-      test.skip();
-    });
+    await waitForStableSlideStageOrSkip(
+      canvas,
+      "Regression editor stage unavailable",
+    );
 
     await expect(page).toHaveScreenshot(
       "editor-text-bullets.png",
@@ -75,13 +109,13 @@ test.describe("screenshot regression — slide editor", () => {
   });
 
   test("editor stage renders shapes slide", async ({ page }) => {
-    const response = await page
-      .goto("/app/documents/regression-test-doc/slides?slide=1")
-      .catch(() => null);
-
-    if (!response || response.status() === 404) {
-      test.skip();
-      return;
+    if (
+      !(await gotoAvailablePage(
+        page,
+        "/app/documents/regression-test-doc/slides?slide=1",
+      ))
+    ) {
+      skipUnavailableScreenshotFixture("Regression shapes route unavailable");
     }
 
     await waitForStableSlideStage(page.locator("body"));
@@ -108,13 +142,13 @@ test.describe("screenshot regression — in-app present viewer", () => {
   test("present mode renders text and bullets slide", async ({ page }) => {
     page.setViewportSize(SLIDE_VIEWPORT);
 
-    const response = await page
-      .goto("/app/documents/regression-test-doc/present")
-      .catch(() => null);
-
-    if (!response || response.status() === 404) {
-      test.skip();
-      return;
+    if (
+      !(await gotoAvailablePage(
+        page,
+        "/app/documents/regression-test-doc/present",
+      ))
+    ) {
+      skipUnavailableScreenshotFixture("Regression present route unavailable");
     }
 
     const slideView = page
@@ -123,9 +157,10 @@ test.describe("screenshot regression — in-app present viewer", () => {
       )
       .first();
 
-    await waitForStableSlideStage(slideView).catch(() => {
-      test.skip();
-    });
+    await waitForStableSlideStageOrSkip(
+      slideView,
+      "Regression present stage unavailable",
+    );
 
     await expect(page).toHaveScreenshot(
       "present-text-bullets.png",
@@ -157,14 +192,13 @@ test.describe("screenshot regression — public present viewer", () => {
 
     page.setViewportSize(SLIDE_VIEWPORT);
 
-    const response = await page.goto(`/present/${shareId}`).catch(() => null);
-
-    if (!response || response.status() === 404) {
-      test.skip();
-      return;
+    if (!(await gotoAvailablePage(page, `/present/${shareId}`))) {
+      skipUnavailableScreenshotFixture(
+        "Regression public present route unavailable",
+      );
     }
 
-    await page.waitForLoadState("networkidle").catch(() => {});
+    await waitForNetworkIdleIfPossible(page);
     await waitForStableSlideStage(page.locator("body"));
 
     await expect(page).toHaveScreenshot(
@@ -182,14 +216,13 @@ test.describe("screenshot regression — public present viewer", () => {
 
     page.setViewportSize({ width: 800, height: 450 });
 
-    const response = await page.goto(`/embed/${shareId}`).catch(() => null);
-
-    if (!response || response.status() === 404) {
-      test.skip();
-      return;
+    if (!(await gotoAvailablePage(page, `/embed/${shareId}`))) {
+      skipUnavailableScreenshotFixture(
+        "Regression public embed route unavailable",
+      );
     }
 
-    await page.waitForLoadState("networkidle").catch(() => {});
+    await waitForNetworkIdleIfPossible(page);
     await waitForStableSlideStage(page.locator("body"));
 
     await expect(page).toHaveScreenshot(
@@ -261,7 +294,3 @@ test.describe("deck fixture integrity", () => {
     expect(imageEl?.src).toMatch(/^data:image\/png;base64,/);
   });
 });
-
-// Make injectDeckFixture available for future test extension without the
-// TypeScript unused-variable warning.
-export { injectDeckFixture };

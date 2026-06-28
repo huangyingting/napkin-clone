@@ -61,18 +61,11 @@ test("e2e governance: accepts file-level oversized test allow comments", () => {
   assert.deepEqual(findings, []);
 });
 
-test("e2e governance: accepts profile-gated skips and legacy allowlisted issues", () => {
+test("e2e governance: accepts profile-gated skips", () => {
   assert.deepEqual(
     scanText(
       "e2e/example.spec.ts",
       'test.skip(!process.env.E2E_PROFILE, "profile required");\n',
-    ),
-    [],
-  );
-  assert.deepEqual(
-    scanText(
-      "e2e/slides-smoke.spec.ts",
-      "await page.waitForTimeout(100);\nDate.now();\ncatch {}\n",
     ),
     [],
   );

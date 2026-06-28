@@ -1,5 +1,3 @@
-import type { Page } from "@playwright/test";
-
 import type { Deck } from "@/lib/presentation/deck";
 import {
   buildBulletsElement,
@@ -116,18 +114,3 @@ export const REGRESSION_DECK_FIXTURE: Deck = buildDeck({
     }),
   ],
 });
-
-export async function injectDeckFixture(
-  page: Page,
-  documentId: string,
-): Promise<void> {
-  await page.evaluate(
-    ({ id, deck }) => {
-      localStorage.setItem(
-        `textiq:deck:${id}`,
-        JSON.stringify({ deckJson: deck }),
-      );
-    },
-    { id: documentId, deck: REGRESSION_DECK_FIXTURE },
-  );
-}

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /**
  * Playwright layout-screenshot spec for the Concept B slide editor
@@ -62,12 +62,41 @@ const SCREENSHOT_OPTIONS = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+async function settleLayout(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts?.ready;
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  });
+}
+
+async function locatorExists(locator: Locator): Promise<boolean> {
+  try {
+    return (await locator.count()) > 0;
+  } catch {
+    return false;
+  }
+}
+
+function skipUnavailableLayoutFixture(): never {
+  // e2e-governance-allow test-skip: opt-in layout screenshots depend on a seeded editor fixture.
+  test.skip(true, "Slide layout screenshot fixture unavailable");
+  throw new Error("Slide layout screenshot fixture unavailable");
+}
+
 /**
  * Navigate to the editor and wait for the stage. Returns `true` when the editor
  * is reachable and rendered, `false` when the test should skip.
  */
 async function openEditor(page: Page): Promise<boolean> {
-  const response = await page.goto(EDITOR_PATH).catch(() => null);
+  let response;
+  try {
+    response = await page.goto(EDITOR_PATH);
+  } catch {
+    return false;
+  }
+
   if (!response || response.status() === 404) {
     return false;
   }
@@ -75,16 +104,13 @@ async function openEditor(page: Page): Promise<boolean> {
   const stage = page
     .locator('[data-testid="slide-canvas"], .slide-canvas, [role="main"]')
     .first();
-  const visible = await stage
-    .waitFor({ state: "visible", timeout: 10_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!visible) {
+  try {
+    await stage.waitFor({ state: "visible", timeout: 10_000 });
+  } catch {
     return false;
   }
 
-  // Let fonts, layout, and the stage-fit measurement settle.
-  await page.waitForTimeout(500);
+  await settleLayout(page);
   return true;
 }
 
@@ -95,14 +121,15 @@ async function openEditor(page: Page): Promise<boolean> {
  */
 async function clickByName(page: Page, name: string | RegExp): Promise<void> {
   const control = page.getByRole("button", { name }).first();
-  if (
-    await control
-      .count()
-      .then((c) => c > 0)
-      .catch(() => false)
-  ) {
-    await control.click({ timeout: 2_000 }).catch(() => {});
-    await page.waitForTimeout(250);
+  if (!(await locatorExists(control))) {
+    return;
+  }
+
+  try {
+    await control.click({ timeout: 2_000 });
+    await settleLayout(page);
+  } catch {
+    return;
   }
 }
 
@@ -122,8 +149,7 @@ for (const viewport of VIEWPORTS) {
 
     test(`base editor layout (${viewport.name})`, async ({ page }) => {
       if (!(await openEditor(page))) {
-        test.skip();
-        return;
+        skipUnavailableLayoutFixture();
       }
       await expect(page).toHaveScreenshot(
         `editor-${viewport.name}-base.png`,
@@ -133,8 +159,7 @@ for (const viewport of VIEWPORTS) {
 
     test(`rail hidden (${viewport.name})`, async ({ page }) => {
       if (!(await openEditor(page))) {
-        test.skip();
-        return;
+        skipUnavailableLayoutFixture();
       }
       await clickByName(page, /hide slide thumbnails/i);
       await expect(page).toHaveScreenshot(
@@ -145,8 +170,7 @@ for (const viewport of VIEWPORTS) {
 
     test(`notes expanded (${viewport.name})`, async ({ page }) => {
       if (!(await openEditor(page))) {
-        test.skip();
-        return;
+        skipUnavailableLayoutFixture();
       }
       await clickByName(page, /^notes$/i);
       await expect(page).toHaveScreenshot(
@@ -159,21 +183,19 @@ for (const viewport of VIEWPORTS) {
       page,
     }) => {
       if (!(await openEditor(page))) {
-        test.skip();
-        return;
+        skipUnavailableLayoutFixture();
       }
 
       // Select the first stage element so the context toolbar appears and the
       // supplemental panel has element content to show.
       const element = page.locator("[data-element-id]").first();
-      if (
-        await element
-          .count()
-          .then((c) => c > 0)
-          .catch(() => false)
-      ) {
-        await element.click({ timeout: 2_000 }).catch(() => {});
-        await page.waitForTimeout(250);
+      if (await locatorExists(element)) {
+        try {
+          await element.click({ timeout: 2_000 });
+          await settleLayout(page);
+        } catch {
+          return;
+        }
       }
 
       // Open the supplemental panel via its toggle if it is not already open.

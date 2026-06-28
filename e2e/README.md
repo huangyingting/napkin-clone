@@ -31,7 +31,7 @@ them locally or in a dedicated E2E job.
 
 2. Start the app (in a separate terminal). The unlimited-credit UI is gated by
    `BILLING_UNLIMITED_CREDITS`, and Google OAuth visibility by
-   `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`:
+   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`:
 
    ```bash
    export DB_PROVIDER=sqlite
@@ -71,7 +71,7 @@ credentials:
 | `E2E_VIEWER_DOC_URL`        | workspace                         | A document URL the viewer can open read-only                  |
 | `E2E_BRAND_FONT_URL`        | brand                             | Path to a `.woff2`/`.ttf` font to upload                      |
 | `BILLING_UNLIMITED_CREDITS` | billing                           | Match the server's unlimited-credit gate                      |
-| `AUTH_GOOGLE_ID/SECRET`     | oauth-disabled                    | Match the server's Google provider configuration              |
+| `GOOGLE_CLIENT_ID/SECRET`   | oauth-disabled                    | Match the server's Google provider configuration              |
 | `E2E_SLIDES_DOC_URL`        | slides-smoke                      | Full URL to a seeded document with a Slides presentation      |
 | `E2E_SCREENSHOT_REGRESSION` | screenshot-regression             | Set to `1` to enable screenshot comparison tests              |
 | `E2E_REGRESSION_SHARE_ID`   | screenshot-regression             | A share id for the public present/embed regression slides     |

@@ -27,26 +27,6 @@ const FIXTURE_FACTORY_FILES = new Set([
   "e2e/screenshot-regression.spec.ts",
   "e2e/helpers/screenshot-fixtures.ts",
 ]);
-const LEGACY_E2E_ALLOWLIST = new Map([
-  [
-    "e2e/slides-smoke.spec.ts",
-    new Set([
-      "test-skip",
-      "wait-for-timeout",
-      "nondeterministic-id",
-      "broad-catch",
-    ]),
-  ],
-  [
-    "e2e/slides-layout-screenshots.spec.ts",
-    new Set(["test-skip", "wait-for-timeout", "broad-catch"]),
-  ],
-  ["e2e/screenshot-regression.spec.ts", new Set(["test-skip", "broad-catch"])],
-  // slide-asset-upload.spec.ts: wait-for-timeout removed (#1150) — no
-  // waitForTimeout calls remain in the file; test.skip calls match the
-  // auto-approved "Set E2E_" pattern and need no allowlist entry.
-]);
-
 const RULES = [
   { rule: "test-only", pattern: /\btest\.only\s*\(/g },
   { rule: "test-skip", pattern: /\btest\.skip\s*\(/g },
@@ -119,7 +99,7 @@ function isApprovedFinding(filePath, lines, item) {
       return true;
     }
   }
-  return LEGACY_E2E_ALLOWLIST.get(filePath)?.has(item.rule) ?? false;
+  return false;
 }
 
 function finding(filePath, text, index, rule, match) {

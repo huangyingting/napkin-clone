@@ -4,8 +4,8 @@ import { expect, test } from "@playwright/test";
  * Provider-disabled OAuth UI coverage (issue #107, building on #91/#98).
  *
  * The Google "Continue with Google" CTA is only rendered when Google OAuth is
- * configured (`isGoogleAuthConfigured()` — i.e. AUTH_GOOGLE_ID /
- * AUTH_GOOGLE_SECRET are present). When the provider is unconfigured the button
+ * configured (`isGoogleAuthConfigured()` — i.e. GOOGLE_CLIENT_ID /
+ * GOOGLE_CLIENT_SECRET are present). When the provider is unconfigured the button
  * and its "or" divider must be hidden so users are never shown a broken sign-in
  * path, while the email/password form stays fully usable.
  *
@@ -16,7 +16,9 @@ import { expect, test } from "@playwright/test";
  * staging environment.
  */
 function googleConfigured(): boolean {
-  return Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+  );
 }
 
 for (const path of ["/login", "/signup"] as const) {
