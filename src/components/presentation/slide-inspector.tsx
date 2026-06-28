@@ -247,11 +247,6 @@ export function SlideInspector({
   selectedElementId,
   selectedElementIds,
   onSelectElement,
-  onApplyTemplate,
-  onReapplyTemplate,
-  onCreateCustomTemplate,
-  onUpdateCustomTemplateFromSlide,
-  onDeleteCustomTemplate,
   onUpdateNotes,
   onUpdateElement,
   onAlign,
@@ -382,11 +377,6 @@ export function SlideInspector({
             showAdvanced={showAdvanced}
             documentId={documentId}
             slideAssetPort={slideAssetPort}
-            onApplyTemplate={onApplyTemplate}
-            onReapplyTemplate={onReapplyTemplate}
-            onCreateCustomTemplate={onCreateCustomTemplate}
-            onUpdateCustomTemplateFromSlide={onUpdateCustomTemplateFromSlide}
-            onDeleteCustomTemplate={onDeleteCustomTemplate}
             onBackgroundChange={onBackgroundChange}
             onBackgroundGradientChange={onBackgroundGradientChange}
             onBackgroundImageChange={onBackgroundImageChange}

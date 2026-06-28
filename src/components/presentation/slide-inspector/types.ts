@@ -12,11 +12,9 @@ import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { PresentationRole } from "@/lib/presentation/presentation-theme";
-import type { SlideTemplateKind } from "@/lib/presentation/slide-templates";
 import type { Visual } from "@/lib/visual/schema";
 
 export type AddElementKind = PresentationRole | "image" | "shape";
-type TemplateId = SlideTemplateKind | string;
 
 export interface SlideInspectorProps {
   slide: Slide;
@@ -28,11 +26,6 @@ export interface SlideInspectorProps {
   canDelete: boolean;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
-  onApplyTemplate: (templateId: TemplateId) => void;
-  onReapplyTemplate: (templateId: TemplateId) => void;
-  onCreateCustomTemplate: () => void;
-  onUpdateCustomTemplateFromSlide: (templateId: string) => void;
-  onDeleteCustomTemplate: (templateId: string) => void;
   onUpdateNotes: (value: string, coalesceKey?: string) => void;
   onUpdateElement: (
     id: string,

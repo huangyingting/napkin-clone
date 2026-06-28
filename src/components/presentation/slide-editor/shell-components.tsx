@@ -18,6 +18,7 @@ import {
   Captions,
   Check,
   ChevronLeft,
+  ChevronRight,
   Copy,
   Crop,
   FileText,
@@ -40,7 +41,6 @@ import {
   SendToBack,
   Sparkles,
   Spline,
-  Columns3,
   Square,
   Tag,
   Text as TextIcon,
@@ -94,7 +94,6 @@ import {
 import {
   getBuiltInSlideTemplate,
   SLIDE_TEMPLATES,
-  type SlideTemplateOption,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
 import {
@@ -618,13 +617,6 @@ function SlideTemplatePreview({
   );
 }
 
-function templateDisplayName(kind: SlideTemplateKind | undefined): string {
-  return (
-    SLIDE_TEMPLATES.find((template) => template.kind === kind)?.label ??
-    "Template"
-  );
-}
-
 const TEXT_ROLE_LABELS: Record<PresentationRole, string> = {
   title: "Title",
   sectionTitle: "Section title",
@@ -867,8 +859,8 @@ export function ColorThemePanel({
               }
               fallback={activeGradientStop === "from" ? "#6366f1" : "#ec4899"}
             />
-            <label className="flex items-center gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
-              <span className="w-10 text-xs font-medium text-ds-text-secondary">
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium text-ds-text-secondary">
                 Angle
               </span>
               <input
@@ -1010,6 +1002,22 @@ export function SlideTemplatePicker({
   customTemplates?: NonNullable<Deck["customTemplates"]>;
   onPick: (kind: SlideTemplateKind | string) => void;
 }) {
+  type TemplatePickerItem =
+    | {
+        source: "deck";
+        id: string;
+        label: string;
+        title: string;
+        template: NonNullable<Deck["customTemplates"]>[number];
+      }
+    | {
+        source: "built-in";
+        id: SlideTemplateKind;
+        label: string;
+        title: string;
+        templateKind: SlideTemplateKind;
+      };
+  const [page, setPage] = useState(0);
   const packageTemplates = deck
     ? themePackageTemplatesForDeck(deck)
     : customTemplates.filter((template) =>
@@ -1022,162 +1030,103 @@ export function SlideTemplatePicker({
     (template) => !isThemePackageTemplateId(template.id),
   );
   const showBasicTemplates = packageTemplates.length === 0;
+  const templateItems: TemplatePickerItem[] = [
+    ...packageTemplates.map((template) => ({
+      source: "deck" as const,
+      id: template.id,
+      label: template.name,
+      title: template.name,
+      template,
+    })),
+    ...(showBasicTemplates
+      ? SLIDE_TEMPLATES.map((template) => ({
+          source: "built-in" as const,
+          id: template.kind,
+          label: template.label,
+          title: template.description,
+          templateKind: template.kind,
+        }))
+      : []),
+    ...userTemplates.map((template) => ({
+      source: "deck" as const,
+      id: template.id,
+      label: template.name,
+      title: template.name,
+      template,
+    })),
+  ];
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(templateItems.length / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageItems = templateItems.slice(
+    safePage * pageSize,
+    safePage * pageSize + pageSize,
+  );
   return (
     <div
       role="menu"
       aria-label="Slide templates"
       className="rounded-ds-md bg-ds-surface-raised"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <Plus
-          aria-hidden="true"
-          className="h-5 w-5 shrink-0 text-ds-text-primary"
-        />
-        <h4 className="text-sm font-bold leading-none text-ds-text-primary">
-          Add slide
-        </h4>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {packageTemplates.length > 0 ? (
-          <>
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
-              {kitName} templates
-            </p>
-            {packageTemplates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                role="menuitem"
-                onClick={() => onPick(template.id)}
-                title={template.name}
-                className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-              >
-                <SlideTemplatePreview template={template} deck={deck} />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
-                    {template.name}
-                  </span>
-                  <span className="truncate text-[10px] leading-tight text-ds-text-muted">
-                    Theme template
-                  </span>
-                </span>
-              </button>
-            ))}
-          </>
-        ) : null}
-        {showBasicTemplates
-          ? SLIDE_TEMPLATES.map((template) => (
-              <button
-                key={template.kind}
-                type="button"
-                role="menuitem"
-                onClick={() => onPick(template.kind)}
-                title={template.description}
-                className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-              >
-                <TemplatePreview kind={template.kind} />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
-                    {template.label}
-                  </span>
-                  <span className="truncate text-[10px] leading-tight text-ds-text-muted">
-                    {template.description}
-                  </span>
-                </span>
-              </button>
-            ))
-          : null}
-        {userTemplates.length > 0 ? (
-          <>
-            <div className="my-1 border-t border-ds-border-subtle" />
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
-              Custom
-            </p>
-            {userTemplates.map((template, index) => (
-              <button
-                key={`custom-${template.id}-${index}`}
-                type="button"
-                role="menuitem"
-                onClick={() => onPick(template.id)}
-                title={template.name}
-                className={`group flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-              >
-                <SlideTemplatePreview template={template} />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-xs font-semibold leading-tight text-ds-text-primary">
-                    {template.name}
-                  </span>
-                  <span className="truncate text-[10px] leading-tight text-ds-text-muted">
-                    Deck template
-                  </span>
-                </span>
-              </button>
-            ))}
-          </>
-        ) : null}
+      <div className="flex flex-col gap-2">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+          {packageTemplates.length > 0 ? `${kitName} templates` : "Templates"}
+        </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {pageItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="menuitem"
+              onClick={() => onPick(item.id)}
+              title={item.title}
+              className={`group flex min-w-0 flex-col gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
+            >
+              {item.source === "deck" ? (
+                <SlideTemplatePreview
+                  template={item.template}
+                  deck={deck}
+                  className="aspect-video h-auto w-full"
+                />
+              ) : (
+                <SlideTemplatePreview
+                  templateKind={item.templateKind}
+                  className="aspect-video h-auto w-full"
+                />
+              )}
+              <span className="truncate px-0.5 text-xs font-semibold leading-tight text-ds-text-primary">
+                {item.label}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-between border-t border-ds-border-subtle pt-1.5">
+          <button
+            type="button"
+            aria-label="Previous template page"
+            disabled={safePage === 0}
+            onClick={() => setPage((current) => Math.max(0, current - 1))}
+            className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-35 ${FOCUS_RING}`}
+          >
+            <ChevronLeft size={15} aria-hidden="true" />
+          </button>
+          <span className="text-[11px] font-medium tabular-nums text-ds-text-muted">
+            {safePage + 1} / {pageCount}
+          </span>
+          <button
+            type="button"
+            aria-label="Next template page"
+            disabled={safePage >= pageCount - 1}
+            onClick={() =>
+              setPage((current) => Math.min(pageCount - 1, current + 1))
+            }
+            className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-35 ${FOCUS_RING}`}
+          >
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
-  );
-}
-
-/** Bar used inside {@link TemplatePreview} to mock a line of slide content. */
-function PreviewBar({ className = "" }: { className?: string }) {
-  return (
-    <span className={`block rounded-ds-sm bg-ds-text-muted/40 ${className}`} />
-  );
-}
-
-/**
- * A tiny 16:9 mock of each slide template, shown in the gallery so the
- * user recognises the structure at a glance instead of reading labels alone.
- */
-function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
-  return (
-    <span
-      aria-hidden
-      className="block aspect-video w-14 shrink-0 overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised"
-    >
-      {kind === "title" ? (
-        <span className="flex h-full flex-col items-center justify-center gap-1 px-3">
-          <PreviewBar className="h-1.5 w-3/4" />
-          <PreviewBar className="h-1 w-1/2 bg-ds-text-muted/25" />
-        </span>
-      ) : null}
-      {kind === "content" ? (
-        <span className="flex h-full flex-col gap-1 p-2">
-          <PreviewBar className="h-1.5 w-1/2" />
-          <PreviewBar className="mt-0.5 h-1 w-full bg-ds-text-muted/25" />
-          <PreviewBar className="h-1 w-5/6 bg-ds-text-muted/25" />
-          <PreviewBar className="h-1 w-3/4 bg-ds-text-muted/25" />
-        </span>
-      ) : null}
-      {kind === "visual" ? (
-        <span className="flex h-full flex-col gap-1 p-1.5">
-          <span className="block flex-1 rounded-ds-sm bg-ds-text-muted/30" />
-          <PreviewBar className="h-1 w-1/2 self-center bg-ds-text-muted/25" />
-        </span>
-      ) : null}
-      {kind === "two-column" ? (
-        <span className="flex h-full flex-col gap-1 p-2">
-          <PreviewBar className="h-1.5 w-1/2" />
-          <span className="flex flex-1 gap-1.5">
-            <span className="flex flex-1 flex-col gap-1">
-              <PreviewBar className="h-1 w-full bg-ds-text-muted/25" />
-              <PreviewBar className="h-1 w-5/6 bg-ds-text-muted/25" />
-            </span>
-            <span className="flex flex-1 flex-col gap-1">
-              <PreviewBar className="h-1 w-full bg-ds-text-muted/25" />
-              <PreviewBar className="h-1 w-5/6 bg-ds-text-muted/25" />
-            </span>
-          </span>
-        </span>
-      ) : null}
-      {kind === "blank" ? (
-        <span className="flex h-full items-center justify-center">
-          <span className="block h-3/4 w-5/6 rounded-ds-sm border border-dashed border-ds-border-strong" />
-        </span>
-      ) : null}
-    </span>
   );
 }
 
@@ -1864,10 +1813,7 @@ export function SlideSelectionToolbar({
 
 export function SlideToolbar({
   slide,
-  templates,
-  selectedTemplateId,
   canDelete,
-  onSelectTemplate,
   onBackgroundChange,
   onBackgroundGradientChange,
   onAddElement,
@@ -1888,10 +1834,7 @@ export function SlideToolbar({
   onOpenPanel,
 }: {
   slide: Slide;
-  templates: readonly SlideTemplateOption[];
-  selectedTemplateId: SlideTemplateKind;
   canDelete: boolean;
-  onSelectTemplate: (templateId: SlideTemplateKind) => void;
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (gradient: ColorGradient | undefined) => void;
   onAddElement: (kind: AddElementKind, shapeKind?: ShapeKind) => void;
@@ -1915,15 +1858,10 @@ export function SlideToolbar({
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addVisualOpen, setAddVisualOpen] = useState(false);
-  const [addTab, setAddTab] = useState<"text" | "media" | "shape" | "document">(
-    "text",
-  );
-  const [templateOpen, setTemplateOpen] = useState(false);
+  const [addTab, setAddTab] = useState<"text" | "media" | "shape">("text");
+  const [fromDocumentOpen, setFromDocumentOpen] = useState(false);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const selectedTemplate =
-    templates.find((template) => template.kind === selectedTemplateId) ??
-    templates[0];
   const backgroundImage = slideBackgroundImageValue(slide);
   const backgroundGradient = slideBackgroundGradientValue(slide);
   const backgroundColor = slideSolidBackgroundValue(slide);
@@ -1941,17 +1879,18 @@ export function SlideToolbar({
         )?.id
       : undefined;
   const closeToolbarPanels = (
-    keep?: "add" | "template" | "background" | "more",
+    keep?: "add" | "document" | "background" | "more",
   ) => {
     if (keep !== "add") {
       setAddOpen(false);
       setAddVisualOpen(false);
     }
-    if (keep !== "template") setTemplateOpen(false);
+    if (keep !== "document") setFromDocumentOpen(false);
     if (keep !== "background") setBackgroundOpen(false);
     if (keep !== "more") setMoreOpen(false);
   };
   const closeAddMenu = () => closeToolbarPanels();
+  const closeFromDocumentMenu = () => closeToolbarPanels();
   const moreMenuItem = (
     label: string,
     icon: ReactNode,
@@ -2032,9 +1971,6 @@ export function SlideToolbar({
     { id: "text" as const, label: "Text", items: textItems },
     { id: "media" as const, label: "Media", items: mediaItems },
     { id: "shape" as const, label: "Shapes", items: shapeItems },
-    ...(hasDocumentInsertables
-      ? [{ id: "document" as const, label: "Document", items: [] }]
-      : []),
   ];
   const activeAddItems =
     addTabs.find((tab) => tab.id === addTab)?.items ?? textItems;
@@ -2066,21 +2002,6 @@ export function SlideToolbar({
       <Palette size={14} aria-hidden="true" />
     </ToolbarButton>
   );
-  const templateTriggerButton = (
-    <ToolbarButton
-      aria-label="Slide template"
-      aria-haspopup="dialog"
-      aria-expanded={templateOpen}
-      onClick={() => {
-        const nextOpen = !templateOpen;
-        closeToolbarPanels();
-        setTemplateOpen(nextOpen);
-      }}
-    >
-      <Columns3 size={14} aria-hidden="true" />
-    </ToolbarButton>
-  );
-
   return (
     <StageFloatingToolbar ariaLabel="Slide tools">
       <Popover
@@ -2143,36 +2064,13 @@ export function SlideToolbar({
                 );
               })}
             </div>
-            {addTab === "document" ? (
-              <div role="tabpanel" className="min-h-0 overflow-hidden">
-                <FromDocumentPanel
-                  visuals={documentVisualEntries}
-                  textItems={documentTextInsertables}
-                  documentVisualInsertables={documentVisualInsertables}
-                  documentTextInsertables={documentTextInsertables}
-                  onAddAllVisuals={() => {
-                    onAddAllVisuals();
-                    closeAddMenu();
-                  }}
-                  onInsertVisual={(item) => {
-                    onInsertDocumentVisual(item);
-                    closeAddMenu();
-                  }}
-                  onInsertText={(item) => {
-                    onInsertDocumentText(item);
-                    closeAddMenu();
-                  }}
-                />
-              </div>
-            ) : (
-              <div
-                role="tabpanel"
-                className="grid max-h-[min(28rem,calc(100vh-9rem))] grid-cols-5 gap-1.5 overflow-y-auto p-2"
-              >
-                {activeAddItems.map(addTile)}
-              </div>
-            )}
-            {addTab !== "document" && imageError ? (
+            <div
+              role="tabpanel"
+              className="grid max-h-[min(28rem,calc(100vh-9rem))] grid-cols-5 gap-1.5 overflow-y-auto p-2"
+            >
+              {activeAddItems.map(addTile)}
+            </div>
+            {imageError ? (
               <p role="alert" className="px-3 pb-3 text-xs text-ds-danger-text">
                 {imageError}
               </p>
@@ -2181,62 +2079,66 @@ export function SlideToolbar({
         )}
       </Popover>
 
-      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-
-      <Popover
-        open={templateOpen}
-        onClose={() => setTemplateOpen(false)}
-        aria-label="Slide template"
-        placement="bottom"
-        align="center"
-        anchor="toolbar"
-        portal
-        layer="tooltip"
-        className="w-[336px] p-2.5 text-xs"
-        trigger={
-          templateOpen ? (
-            templateTriggerButton
-          ) : (
-            <Tooltip
-              label={`Template: ${templateDisplayName(selectedTemplate?.kind)}`}
-              side="bottom"
-            >
-              {templateTriggerButton}
-            </Tooltip>
-          )
-        }
-      >
-        <div className="grid max-h-[min(24rem,calc(100vh-9rem))] grid-cols-2 gap-1.5 overflow-y-auto">
-          {templates.map((template) => {
-            const selected = template.kind === selectedTemplate?.kind;
-            return (
-              <button
-                key={template.kind}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => {
-                  onSelectTemplate(template.kind);
-                  setTemplateOpen(false);
-                }}
-                className={`relative rounded-ds-md border bg-ds-surface p-1.5 text-left transition-colors ${
-                  selected
-                    ? "border-ds-accent-border bg-ds-accent-surface text-ds-text-primary shadow-sm ring-1 ring-ds-accent-border"
-                    : "border-ds-border-subtle text-ds-text-secondary hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary"
-                } ${FOCUS_RING}`}
+      {hasDocumentInsertables ? (
+        <Popover
+          open={fromDocumentOpen}
+          onClose={closeFromDocumentMenu}
+          aria-label="From document"
+          placement="bottom"
+          align="center"
+          anchor="toolbar"
+          portal
+          layer="tooltip"
+          className="w-[340px] p-0 text-xs"
+          trigger={
+            fromDocumentOpen ? (
+              <ToolbarButton
+                aria-label="From document"
+                aria-haspopup="dialog"
+                aria-expanded={fromDocumentOpen}
+                onClick={() => setFromDocumentOpen(false)}
               >
-                <SlideTemplatePreview
-                  templateKind={template.kind}
-                  selected={selected}
-                  className="h-20 w-full"
-                />
-                <span className="mt-1.5 block text-xs font-semibold leading-tight text-ds-text-primary">
-                  {template.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Popover>
+                <FileText size={14} aria-hidden="true" />
+              </ToolbarButton>
+            ) : (
+              <Tooltip label="From document" side="bottom">
+                <ToolbarButton
+                  aria-label="From document"
+                  aria-haspopup="dialog"
+                  aria-expanded={fromDocumentOpen}
+                  onClick={() => {
+                    closeToolbarPanels("document");
+                    setFromDocumentOpen(true);
+                  }}
+                >
+                  <FileText size={14} aria-hidden="true" />
+                </ToolbarButton>
+              </Tooltip>
+            )
+          }
+        >
+          <FromDocumentPanel
+            visuals={documentVisualEntries}
+            textItems={documentTextInsertables}
+            documentVisualInsertables={documentVisualInsertables}
+            documentTextInsertables={documentTextInsertables}
+            onAddAllVisuals={() => {
+              onAddAllVisuals();
+              closeFromDocumentMenu();
+            }}
+            onInsertVisual={(item) => {
+              onInsertDocumentVisual(item);
+              closeFromDocumentMenu();
+            }}
+            onInsertText={(item) => {
+              onInsertDocumentText(item);
+              closeFromDocumentMenu();
+            }}
+          />
+        </Popover>
+      ) : null}
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
       <Popover
         open={backgroundOpen}

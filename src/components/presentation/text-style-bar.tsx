@@ -170,6 +170,7 @@ export function TextStyleBar({
         onChange(next);
       }}
       resetLabel="Theme color"
+      preserveSelection={variant === "compact"}
     />
   );
 

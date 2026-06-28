@@ -16,7 +16,6 @@ import {
   FIELD_CLASS,
   PanelSection,
   PropRow,
-  SelectField,
 } from "@/components/presentation/slide-inspector/primitives";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 import {
@@ -27,11 +26,6 @@ import {
 } from "@/lib/presentation/deck";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { allThemeTokenSets } from "@/lib/presentation/presentation-theme";
-import {
-  SLIDE_TEMPLATES,
-  type SlideTemplateKind,
-} from "@/lib/presentation/slide-templates";
-import { isThemePackageTemplateId } from "@/lib/presentation/theme-packages";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
@@ -49,12 +43,6 @@ const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
   "accent",
 );
 
-type TemplateOption = {
-  id: string;
-  label: string;
-  custom: boolean;
-};
-
 function designOriginLabel(layer: SlideDesignOriginLayer): string {
   switch (layer) {
     case "theme":
@@ -70,15 +58,6 @@ function designOriginLabel(layer: SlideDesignOriginLayer): string {
   }
 }
 
-function slideTemplateKind(slide: Slide): SlideTemplateKind {
-  const templateId = slide.templateId;
-  if (templateId === "title") return "title";
-  if (templateId === "content") return "content";
-  if (templateId === "two-column") return "two-column";
-  if (templateId === "media" || templateId === "visual") return "visual";
-  return "blank";
-}
-
 export function SlidePanelBody({
   slide,
   deck,
@@ -86,11 +65,6 @@ export function SlidePanelBody({
   showAdvanced,
   documentId,
   slideAssetPort,
-  onApplyTemplate,
-  onReapplyTemplate,
-  onCreateCustomTemplate,
-  onUpdateCustomTemplateFromSlide,
-  onDeleteCustomTemplate,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -103,56 +77,14 @@ export function SlidePanelBody({
   showAdvanced: boolean;
   documentId?: string;
   slideAssetPort?: SlideInspectorProps["slideAssetPort"];
-  onApplyTemplate: SlideInspectorProps["onApplyTemplate"];
-  onReapplyTemplate: SlideInspectorProps["onReapplyTemplate"];
-  onCreateCustomTemplate: SlideInspectorProps["onCreateCustomTemplate"];
-  onUpdateCustomTemplateFromSlide: SlideInspectorProps["onUpdateCustomTemplateFromSlide"];
-  onDeleteCustomTemplate: SlideInspectorProps["onDeleteCustomTemplate"];
   onBackgroundChange: SlideInspectorProps["onBackgroundChange"];
   onBackgroundGradientChange: SlideInspectorProps["onBackgroundGradientChange"];
   onBackgroundImageChange: SlideInspectorProps["onBackgroundImageChange"];
   onBackgroundAssetChange?: SlideInspectorProps["onBackgroundAssetChange"];
   onAccentChange: SlideInspectorProps["onAccentChange"];
 }) {
-  const slideTemplateId = slideTemplateKind(slide);
-  const [templateSelection, setTemplateSelection] = useState<{
-    slideId: string;
-    slideTemplateId: string;
-    templateId: string;
-  }>(() => ({
-    slideId: slide.id,
-    slideTemplateId,
-    templateId: slideTemplateId,
-  }));
-  const selectedTemplateId =
-    templateSelection.slideId === slide.id &&
-    templateSelection.slideTemplateId === slideTemplateId
-      ? templateSelection.templateId
-      : slideTemplateId;
-  const setSelectedTemplateId = (templateId: string) => {
-    setTemplateSelection({
-      slideId: slide.id,
-      slideTemplateId,
-      templateId,
-    });
-  };
   const [bgImageError, setBgImageError] = useState<string | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
-  const templateOptions: TemplateOption[] = [
-    ...SLIDE_TEMPLATES.map((template) => ({
-      id: template.kind,
-      label: template.label,
-      custom: false,
-    })),
-    ...((deck.customTemplates ?? []).map((template) => ({
-      id: template.id,
-      label: template.name,
-      custom: !isThemePackageTemplateId(template.id),
-    })) satisfies TemplateOption[]),
-  ];
-  const selectedTemplate =
-    templateOptions.find((template) => template.id === selectedTemplateId) ??
-    templateOptions[0];
   const backgroundImage = slideBackgroundImageValue(slide);
   const backgroundGradient = slideBackgroundGradientValue(slide);
   const backgroundColor = slideSolidBackgroundValue(slide);
@@ -200,66 +132,6 @@ export function SlidePanelBody({
 
   return (
     <>
-      {selectedTemplate ? (
-        <PanelSection title="Template">
-          <PropRow label="Blueprint">
-            <SelectField
-              value={selectedTemplate.id}
-              onChange={setSelectedTemplateId}
-              ariaLabel="Slide template"
-              options={templateOptions.map((template) => ({
-                value: template.id,
-                label: template.label,
-              }))}
-            />
-          </PropRow>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onApplyTemplate(selectedTemplate.id)}
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
-            >
-              Apply
-            </button>
-            <button
-              type="button"
-              onClick={() => onReapplyTemplate(selectedTemplate.id)}
-              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
-            >
-              Reapply
-            </button>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={onCreateCustomTemplate}
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
-            >
-              Save custom
-            </button>
-            <button
-              type="button"
-              disabled={!selectedTemplate.custom}
-              onClick={() =>
-                onUpdateCustomTemplateFromSlide(selectedTemplate.id)
-              }
-              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-            >
-              Update custom
-            </button>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              disabled={!selectedTemplate.custom}
-              onClick={() => onDeleteCustomTemplate(selectedTemplate.id)}
-              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-            >
-              Delete custom
-            </button>
-          </div>
-        </PanelSection>
-      ) : null}
       <PanelSection title="Background">
         <ColorOverride
           label="Background"

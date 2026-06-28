@@ -99,9 +99,9 @@ user custom-template commands.
 
 ## Editor Surfaces
 
-The theme picker presents packages as the primary theme choices. Saved theme
-presets remain token-only presets: applying a saved preset updates the resolved
-theme tokens but does not replace masters or templates.
+The theme picker presents packages as the primary theme choices. Selecting a
+theme package replaces the deck's theme tokens, master catalog, default master,
+and installed package templates.
 
 The Add slide picker prioritizes the currently installed package templates. When
 package templates are present, they form the main template family. User-created

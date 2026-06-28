@@ -9,11 +9,13 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 
 import { FloatingSurface } from "./floating-surface";
 import { Swatch, type SwatchSize } from "./swatch";
+import { Tooltip } from "./tooltip";
 import { cx, FOCUS_RING, RADIUS, TOOLBAR_BUTTON_CHROME } from "./tokens";
 
 /**
@@ -51,14 +53,79 @@ export const DEFAULT_SWATCH_PRESETS: readonly string[] = [
 // Gap (px) between the trigger swatch and the picker popover.
 const PICKER_GAP = 6;
 const EDGE_INSET = 8;
-const PICKER_WIDTH = 208;
+const PICKER_WIDTH = 216;
+// Height (px) of the saturation/value square in the custom tab.
+const SQUARE_HEIGHT = 124;
+const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+type HsvColor = { h: number; s: number; v: number };
 
 /** Coerces an arbitrary CSS color to a `#rrggbb` value for the native input. */
 function toHex(value: string | undefined, fallback: string): string {
-  if (value && /^#[0-9a-fA-F]{6}$/.test(value)) {
+  if (value && HEX_PATTERN.test(value)) {
     return value.toLowerCase();
   }
   return fallback;
+}
+
+function hexToHsv(hex: string): HsvColor {
+  const normalized = toHex(hex, "#000000").slice(1);
+  const r = parseInt(normalized.slice(0, 2), 16) / 255;
+  const g = parseInt(normalized.slice(2, 4), 16) / 255;
+  const b = parseInt(normalized.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) {
+      h = ((g - b) / d) % 6;
+    } else if (max === g) {
+      h = (b - r) / d + 2;
+    } else {
+      h = (r - g) / d + 4;
+    }
+    h *= 60;
+    if (h < 0) {
+      h += 360;
+    }
+  }
+  const s = max === 0 ? 0 : d / max;
+  return {
+    h: Math.round(h),
+    s: Math.round(s * 100),
+    v: Math.round(max * 100),
+  };
+}
+
+function hsvToHex({ h, s, v }: HsvColor): string {
+  const saturation = Math.max(0, Math.min(100, s)) / 100;
+  const value = Math.max(0, Math.min(100, v)) / 100;
+  const hue = (((h % 360) + 360) % 360) / 60;
+  const c = value * saturation;
+  const x = c * (1 - Math.abs((hue % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hue < 1) {
+    [r, g, b] = [c, x, 0];
+  } else if (hue < 2) {
+    [r, g, b] = [x, c, 0];
+  } else if (hue < 3) {
+    [r, g, b] = [0, c, x];
+  } else if (hue < 4) {
+    [r, g, b] = [0, x, c];
+  } else if (hue < 5) {
+    [r, g, b] = [x, 0, c];
+  } else {
+    [r, g, b] = [c, 0, x];
+  }
+  const m = value - c;
+  const toChannel = (channel: number) =>
+    Math.round((channel + m) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toChannel(r)}${toChannel(g)}${toChannel(b)}`;
 }
 
 export type ColorPickerProps = {
@@ -136,6 +203,11 @@ export function ColorPicker({
   const labelId = useId();
   const hex = toHex(color, fallback);
   const hasColor = color.trim() !== "";
+  const [hexDraftState, setHexDraftState] = useState({
+    source: hex,
+    value: hex,
+  });
+  const hexDraft = hexDraftState.source === hex ? hexDraftState.value : hex;
 
   const reposition = useCallback(() => {
     const el = triggerRef.current;
@@ -215,42 +287,135 @@ export function ColorPicker({
     ? (event: MouseEvent) => event.preventDefault()
     : undefined;
 
+  const [tab, setTab] = useState<"swatches" | "custom">("swatches");
+  const rawHsv = hexToHsv(hex);
+  const [lastHue, setLastHue] = useState(rawHsv.h);
+  const hsv =
+    rawHsv.s === 0 || rawHsv.v === 0 ? { ...rawHsv, h: lastHue } : rawHsv;
+
   const pick = useCallback(
     (next: string) => {
+      const nextHsv = hexToHsv(next);
+      if (nextHsv.s > 0 && nextHsv.v > 0) {
+        setLastHue(nextHsv.h);
+      }
       onChange(next);
     },
     [onChange],
   );
 
+  const updateHsv = (patch: Partial<HsvColor>) => {
+    const next = { ...hsv, ...patch };
+    if (patch.h !== undefined) {
+      next.h = ((patch.h % 360) + 360) % 360;
+      setLastHue(next.h);
+    }
+    pick(hsvToHex(next));
+  };
+
+  // Saturation/value square (Design 2): x is saturation, y is value (top is
+  // brightest). A separate hue bar below rotates the hue. Pure HSV so the
+  // gradient overlays stay perceptually accurate.
+  const squareRef = useRef<HTMLDivElement | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+
+  const startPointerDrag = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    apply: (clientX: number, clientY: number) => void,
+  ) => {
+    if (preserveSelection) {
+      event.preventDefault();
+    }
+    event.stopPropagation();
+    apply(event.clientX, event.clientY);
+    dragCleanupRef.current?.();
+    const onMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      apply(moveEvent.clientX, moveEvent.clientY);
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", cleanup, true);
+      window.removeEventListener("pointercancel", cleanup, true);
+      dragCleanupRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", cleanup, true);
+    window.addEventListener("pointercancel", cleanup, true);
+    dragCleanupRef.current = cleanup;
+  };
+
+  const applySquareFromPoint = (clientX: number, clientY: number) => {
+    const el = squareRef.current;
+    if (!el) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const ratioX = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const ratioY = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+    pick(
+      hsvToHex({
+        ...hsv,
+        s: Math.round(ratioX * 100),
+        v: Math.round((1 - ratioY) * 100),
+      }),
+    );
+  };
+
+  // Hue bar: a custom pointer-driven control (not a native range input) so it
+  // keeps working when `preserveSelection` swallows the mousedown default to
+  // protect the host editor's text selection.
+  const hueBarRef = useRef<HTMLDivElement | null>(null);
+  const applyHueFromPoint = (clientX: number) => {
+    const el = hueBarRef.current;
+    if (!el) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    updateHsv({ h: Math.round(ratio * 360) });
+  };
+
+  const toolbarTrigger = icon ? (
+    <Tooltip label={ariaLabel} side="bottom">
+      <button
+        ref={triggerRef}
+        type="button"
+        title={ariaLabel}
+        aria-pressed={active}
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onMouseDown={
+          preserveSelection ? (event) => event.preventDefault() : undefined
+        }
+        onClick={() => setOpen((value) => !value)}
+        className={cx(
+          "inline-flex h-7 min-w-7 w-7 items-center justify-center text-xs transition-colors disabled:pointer-events-none disabled:opacity-50",
+          RADIUS.sm,
+          active === true
+            ? TOOLBAR_BUTTON_CHROME.active
+            : TOOLBAR_BUTTON_CHROME.subtle,
+          FOCUS_RING,
+        )}
+      >
+        <span className="relative flex h-full w-full items-center justify-center">
+          {icon}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-ds-border-subtle"
+            style={{ backgroundColor: hasColor ? hex : "transparent" }}
+          />
+        </span>
+      </button>
+    </Tooltip>
+  ) : null;
+
   return (
     <>
       {icon && triggerChrome === "toolbar" ? (
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-pressed={active}
-          aria-label={ariaLabel}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className={cx(
-            "inline-flex items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-50 h-7 min-w-7 text-xs w-7",
-            RADIUS.sm,
-            active === true
-              ? TOOLBAR_BUTTON_CHROME.active
-              : TOOLBAR_BUTTON_CHROME.subtle,
-            FOCUS_RING,
-          )}
-        >
-          <span className="relative flex h-full w-full items-center justify-center">
-            {icon}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-ds-border-subtle"
-              style={{ backgroundColor: hasColor ? hex : "transparent" }}
-            />
-          </span>
-        </button>
+        toolbarTrigger
       ) : (
         <Swatch
           ref={triggerRef}
@@ -280,6 +445,7 @@ export function ColorPicker({
         position={coords}
         role="dialog"
         aria-label={`${ariaLabel} picker`}
+        layer={triggerChrome === "toolbar" ? "tooltip" : "dropdown"}
         elevation="popover"
         radius="lg"
         style={{ width: PICKER_WIDTH }}
@@ -287,88 +453,238 @@ export function ColorPicker({
         <div
           ref={contentRef}
           data-ds-floating="color-picker"
-          className="p-2"
+          className="overflow-hidden"
           onKeyDown={onContentKeyDown}
         >
-          <p
-            id={labelId}
-            className="mb-1.5 px-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)]"
-          >
-            {ariaLabel}
-          </p>
-          {onReset ? (
-            <button
-              type="button"
-              onMouseDown={onPointerDownCapture}
-              onClick={() => {
-                onReset();
-                setOpen(false);
-              }}
-              className={cx(
-                "mb-1.5 flex w-full items-center gap-2 px-1.5 py-1 text-left text-xs text-[var(--ds-text-primary,#18181b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
-                RADIUS.sm,
-                FOCUS_RING,
-              )}
-            >
+          <div className="p-2.5">
+            <div className="mb-2 flex items-center gap-2">
               <span
                 aria-hidden="true"
                 className={cx(
-                  "flex h-4 w-4 items-center justify-center overflow-hidden border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))]",
-                  RADIUS.sm,
+                  "relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden border border-ds-border-subtle shadow-inner",
+                  RADIUS.md,
                 )}
+                style={{ backgroundColor: hex }}
               >
-                <span className="block h-px w-5 -rotate-45 bg-[var(--ds-border-strong,rgba(0,0,0,0.3))]" />
+                {!hasColor ? (
+                  <span className="block h-px w-8 -rotate-45 bg-ds-border-strong/70" />
+                ) : null}
               </span>
-              {resetLabel}
-            </button>
-          ) : null}
-          <div
-            role="group"
-            aria-labelledby={labelId}
-            className="grid grid-cols-6 gap-1.5"
-          >
-            {presets.map((preset, index) => (
-              <Swatch
-                key={`${preset}-${index}`}
-                ref={index === 0 ? firstPresetRef : undefined}
-                color={preset}
-                size="md"
-                selected={toHex(preset, "") === hex}
-                aria-label={preset}
-                onMouseDown={onPointerDownCapture}
-                onClick={() => pick(preset)}
-              />
-            ))}
+              <div className="min-w-0 flex-1">
+                <p
+                  id={labelId}
+                  className="truncate text-xs font-normal text-ds-text-primary"
+                >
+                  {ariaLabel}
+                </p>
+                <p className="text-xs font-normal tracking-normal text-ds-text-muted">
+                  {hasColor ? hex : resetLabel}
+                </p>
+              </div>
+              {onReset ? (
+                <button
+                  type="button"
+                  onMouseDown={onPointerDownCapture}
+                  onClick={() => {
+                    onReset();
+                    setOpen(false);
+                  }}
+                  className={cx(
+                    "px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted transition hover:text-ds-text-primary",
+                    RADIUS.sm,
+                    FOCUS_RING,
+                  )}
+                >
+                  Reset
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-2.5 grid grid-cols-2 gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-0.5 text-[11px] font-semibold">
+              {(["swatches", "custom"] as const).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onMouseDown={onPointerDownCapture}
+                  onClick={() => setTab(id)}
+                  aria-pressed={tab === id}
+                  className={cx(
+                    "rounded-[var(--ds-radius-sm,6px)] px-2 py-1 capitalize transition-colors",
+                    tab === id
+                      ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
+                      : "text-ds-text-muted hover:text-ds-text-primary",
+                    FOCUS_RING,
+                  )}
+                >
+                  {id}
+                </button>
+              ))}
+            </div>
+
+            {tab === "swatches" ? (
+              <div
+                role="group"
+                aria-labelledby={labelId}
+                className="mt-2.5 grid grid-cols-8 gap-1.5"
+              >
+                {presets.map((preset, index) => {
+                  const selected = hasColor && toHex(preset, "") === hex;
+                  return (
+                    <button
+                      key={`${preset}-${index}`}
+                      ref={index === 0 ? firstPresetRef : undefined}
+                      type="button"
+                      aria-label={preset}
+                      aria-pressed={selected}
+                      title={preset}
+                      onMouseDown={onPointerDownCapture}
+                      onClick={() => pick(preset)}
+                      className={cx(
+                        "aspect-square w-full rounded-full border transition-transform hover:scale-110",
+                        selected
+                          ? "border-transparent ring-2 ring-ds-accent ring-offset-1 ring-offset-ds-surface-base"
+                          : "border-ds-border-subtle",
+                        FOCUS_RING,
+                      )}
+                      style={{ backgroundColor: preset }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-2.5">
+                <div
+                  ref={squareRef}
+                  role="slider"
+                  tabIndex={0}
+                  aria-label={`${ariaLabel} saturation and brightness`}
+                  aria-valuetext={`Saturation ${hsv.s}%, brightness ${hsv.v}%`}
+                  aria-valuenow={hsv.v}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  onPointerDown={(event) =>
+                    startPointerDrag(event, applySquareFromPoint)
+                  }
+                  onKeyDown={(event) => {
+                    const step = event.shiftKey ? 10 : 2;
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      updateHsv({ s: hsv.s - step });
+                    } else if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      updateHsv({ s: hsv.s + step });
+                    } else if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      updateHsv({ v: hsv.v + step });
+                    } else if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      updateHsv({ v: hsv.v - step });
+                    }
+                  }}
+                  className={cx(
+                    "relative w-full cursor-crosshair overflow-hidden border border-ds-border-subtle",
+                    RADIUS.md,
+                    FOCUS_RING,
+                  )}
+                  style={{
+                    height: SQUARE_HEIGHT,
+                    backgroundColor: `hsl(${hsv.h}, 100%, 50%)`,
+                    backgroundImage:
+                      "linear-gradient(to top, #000000, rgba(0,0,0,0)), linear-gradient(to right, #ffffff, rgba(255,255,255,0))",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45)]"
+                    style={{
+                      left: `${hsv.s}%`,
+                      top: `${100 - hsv.v}%`,
+                      backgroundColor: hex,
+                    }}
+                  />
+                </div>
+
+                <div
+                  ref={hueBarRef}
+                  role="slider"
+                  tabIndex={0}
+                  aria-label={`${ariaLabel} hue`}
+                  aria-valuenow={hsv.h}
+                  aria-valuemin={0}
+                  aria-valuemax={360}
+                  onPointerDown={(event) =>
+                    startPointerDrag(event, (clientX) =>
+                      applyHueFromPoint(clientX),
+                    )
+                  }
+                  onKeyDown={(event) => {
+                    const step = event.shiftKey ? 10 : 2;
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      updateHsv({ h: hsv.h - step });
+                    } else if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      updateHsv({ h: hsv.h + step });
+                    }
+                  }}
+                  className={cx(
+                    "relative mt-2.5 h-3 w-full cursor-pointer rounded-full border border-ds-border-subtle",
+                    FOCUS_RING,
+                  )}
+                  style={{
+                    background:
+                      "linear-gradient(to right, #ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45)]"
+                    style={{
+                      left: `${(hsv.h / 360) * 100}%`,
+                      backgroundColor: `hsl(${hsv.h}, 100%, 50%)`,
+                    }}
+                  />
+                </div>
+
+                <div className="mt-2.5 flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-7 w-8 shrink-0 rounded-full border border-ds-border-subtle shadow-inner"
+                    style={{ backgroundColor: hex }}
+                  />
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Custom hex color</span>
+                    <input
+                      type="text"
+                      aria-label={`${ariaLabel} hex value`}
+                      value={hexDraft}
+                      spellCheck={false}
+                      onBlur={() => {
+                        if (!HEX_PATTERN.test(hexDraft)) {
+                          setHexDraftState({ source: hex, value: hex });
+                        }
+                      }}
+                      onChange={(event) => {
+                        const value = event.target.value.trim();
+                        setHexDraftState({ source: hex, value });
+                        if (HEX_PATTERN.test(value)) {
+                          pick(value.toLowerCase());
+                        }
+                      }}
+                      className={cx(
+                        "h-7 w-full min-w-0 border bg-ds-surface-base px-2 text-xs font-normal tracking-normal text-ds-text-primary outline-none transition",
+                        HEX_PATTERN.test(hexDraft)
+                          ? "border-ds-border-subtle"
+                          : "border-red-400/70",
+                        RADIUS.sm,
+                        FOCUS_RING,
+                      )}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
-          <label className="mt-2 flex items-center gap-2 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] pt-2 text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-            <input
-              type="color"
-              aria-label={`${ariaLabel} custom value`}
-              value={hex}
-              onChange={(event) => pick(event.target.value)}
-              className={cx(
-                "h-7 w-9 shrink-0 cursor-pointer border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))] bg-transparent p-0.5",
-                RADIUS.sm,
-              )}
-            />
-            <input
-              type="text"
-              aria-label={`${ariaLabel} hex value`}
-              value={hex}
-              spellCheck={false}
-              onChange={(event) => {
-                const value = event.target.value.trim();
-                if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-                  pick(value.toLowerCase());
-                }
-              }}
-              className={cx(
-                "h-7 w-full min-w-0 border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))] bg-[var(--ds-surface-base,#ffffff)] px-2 font-mono text-xs tabular-nums text-[var(--ds-text-primary,#18181b)] outline-none",
-                RADIUS.sm,
-                FOCUS_RING,
-              )}
-            />
-          </label>
         </div>
       </FloatingSurface>
     </>

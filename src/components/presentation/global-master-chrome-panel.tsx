@@ -209,12 +209,12 @@ export function GlobalMasterChromePanel({
 
   return (
     <div className="flex max-h-[70vh] w-[320px] flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-2">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm bg-ds-accent-surface text-ds-accent-text">
           <PanelBottom size={14} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-xs font-semibold text-ds-text-primary">
+          <h3 className="truncate text-xs font-bold uppercase tracking-wide text-ds-text-muted">
             Customize deck chrome
           </h3>
         </div>

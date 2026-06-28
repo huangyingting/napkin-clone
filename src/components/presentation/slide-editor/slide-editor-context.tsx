@@ -30,9 +30,6 @@ import type { Size } from "@/lib/presentation/stage-fit";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import type { Visual } from "@/lib/visual/schema";
-import type { SlideTemplateKind } from "@/lib/presentation/slide-templates";
-
-type TemplateId = SlideTemplateKind | string;
 import type { SelectionMode } from "@/components/presentation/slide-stage-editor";
 
 export interface SlideEditorContextValue {
@@ -118,11 +115,6 @@ export interface SlideEditorContextValue {
   canDelete: boolean;
   handleDuplicateSlide: () => void;
   handleRemoveSlide: () => void;
-  handleApplySlideTemplate: (templateId: TemplateId) => void;
-  handleReapplySlideTemplate: (templateId: TemplateId) => void;
-  handleCreateCustomTemplate: () => void;
-  handleUpdateCustomTemplateFromSlide: (templateId: string) => void;
-  handleDeleteCustomTemplate: (templateId: string) => void;
   /** Update notes for the currently-selected slide. */
   handleNotesChangeForSelected: (value: string, coalesceKey?: string) => void;
 
@@ -283,11 +275,6 @@ export const SlideInspectorFromContext = memo(
       canDelete,
       handleDuplicateSlide,
       handleRemoveSlide,
-      handleApplySlideTemplate,
-      handleReapplySlideTemplate,
-      handleCreateCustomTemplate,
-      handleUpdateCustomTemplateFromSlide,
-      handleDeleteCustomTemplate,
       handleNotesChangeForSelected,
       handleUpdateElement,
       handleRemoveElement,
@@ -332,11 +319,6 @@ export const SlideInspectorFromContext = memo(
         canDelete={canDelete}
         onDuplicateSlide={handleDuplicateSlide}
         onRemoveSlide={handleRemoveSlide}
-        onApplyTemplate={handleApplySlideTemplate}
-        onReapplyTemplate={handleReapplySlideTemplate}
-        onCreateCustomTemplate={handleCreateCustomTemplate}
-        onUpdateCustomTemplateFromSlide={handleUpdateCustomTemplateFromSlide}
-        onDeleteCustomTemplate={handleDeleteCustomTemplate}
         onUpdateNotes={handleNotesChangeForSelected}
         onUpdateElement={handleUpdateElement}
         onRemoveElement={handleRemoveElement}

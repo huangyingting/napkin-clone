@@ -41,6 +41,8 @@ export type FloatingSurfaceProps = {
   /** ARIA role for the surface. Defaults to `dialog`. */
   role?: string;
   "aria-label"?: string;
+  /** Layer for the portal surface. Defaults to `dropdown`. */
+  layer?: "dropdown" | "tooltip";
   /** Close when Escape is pressed. Defaults to `true`. */
   closeOnEscape?: boolean;
   /** Close on pointer-down outside the surface. Defaults to `true`. */
@@ -78,6 +80,7 @@ export function FloatingSurface({
   radius = "lg",
   role = "dialog",
   "aria-label": ariaLabel,
+  layer = "dropdown",
   closeOnEscape = true,
   closeOnClickAway = true,
   keepSelection = false,
@@ -176,7 +179,8 @@ export function FloatingSurface({
           transition={popMotion.transition}
           style={{ top: clamped.top, left: clamped.left, ...style }}
           className={cx(
-            "fixed z-dropdown border",
+            "fixed border",
+            layer === "tooltip" ? "z-tooltip" : "z-dropdown",
             SURFACE_BASE,
             RADIUS[radius],
             ELEVATION[elevation],

@@ -98,10 +98,6 @@ import {
   type GlobalMasterChromeUpdate,
 } from "@/lib/presentation/global-master-chrome";
 import {
-  SLIDE_TEMPLATES,
-  type SlideTemplateKind,
-} from "@/lib/presentation/slide-templates";
-import {
   buildConnectorBetween,
   focusTargetAfterDelete,
   orderedElementIds,
@@ -467,61 +463,6 @@ function CloseConfirmDialog({
           className="flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
         >
           Discard changes
-        </button>
-      </div>
-    </Dialog>
-  );
-}
-
-function ReapplyTemplateConfirmDialog({
-  templateName,
-  onCancel,
-  onReplace,
-  onPreserve,
-}: {
-  templateName: string;
-  onCancel: () => void;
-  onReplace: () => void;
-  onPreserve: () => void;
-}) {
-  return (
-    <Dialog
-      open
-      onClose={onCancel}
-      aria-labelledby="slide-editor-reapply-template-confirm-title"
-      className="max-w-sm"
-    >
-      <h2
-        id="slide-editor-reapply-template-confirm-title"
-        className="text-base font-semibold text-ds-text-primary"
-      >
-        Reapply &ldquo;{templateName}&rdquo; template?
-      </h2>
-      <p className="mt-2 text-sm text-ds-text-secondary">
-        This will replace the slide elements with freshly materialized template
-        elements.
-      </p>
-      <div className="mt-6 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onPreserve}
-          className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-        >
-          Preserve content
-        </button>
-        <button
-          type="button"
-          onClick={onReplace}
-          className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
-        >
-          Replace elements
         </button>
       </div>
     </Dialog>
@@ -921,28 +862,13 @@ export function SlideEditor({
     return () => observer.disconnect();
   }, []);
 
-  const {
-    pendingTemplateReapply,
-    setPendingTemplateReapply,
-    handleMove,
-    handleDuplicate,
-    handleRemove,
-    handleNotesChange,
-    handleApplySlideTemplate,
-    handleReapplySlideTemplate,
-    handleCreateCustomTemplate,
-    handleUpdateCustomTemplateFromSlide,
-    handleDeleteCustomTemplate,
-    handleConfirmTemplateReapply,
-  } = useSlideManagementCommands({
-    deck,
-    safeSelected,
-    pendingPatchesRef,
-    onDeckChange,
-    doCommitAndChange,
-    clearSelection,
-    setSelectedIndex,
-  });
+  const { handleMove, handleDuplicate, handleRemove, handleNotesChange } =
+    useSlideManagementCommands({
+      deck,
+      pendingPatchesRef,
+      onDeckChange,
+      setSelectedIndex,
+    });
 
   const handleGlobalMasterChromeChange = useCallback(
     (update: GlobalMasterChromeUpdate) => {
@@ -1471,8 +1397,6 @@ export function SlideEditor({
     handleBackgroundImageChange,
     handleBackgroundAssetChange,
     handleSlideFormatChange,
-    handleUpdateThemeOverrides,
-    handleResetThemeOverrides,
     handleApplyPresentationTheme,
   } = useSlideBackgroundCommands({
     deck,
@@ -1533,16 +1457,6 @@ export function SlideEditor({
     globalMasterChromeState.footer.enabled ||
     globalMasterChromeState.pageNumber.enabled ||
     globalMasterChromeState.watermark.enabled;
-  const activeSlideTemplateId = useMemo<SlideTemplateKind>(() => {
-    const selectedTemplateId = selectedSlide?.templateId;
-    if (selectedTemplateId === "title") return "title";
-    if (selectedTemplateId === "content") return "content";
-    if (selectedTemplateId === "two-column") return "two-column";
-    if (selectedTemplateId === "media" || selectedTemplateId === "visual") {
-      return "visual";
-    }
-    return "blank";
-  }, [selectedSlide?.templateId]);
   const showSlideToolbar = selectedSlide
     ? slideSelectionActive &&
       isSlideToolbarVisible({
@@ -1604,11 +1518,6 @@ export function SlideEditor({
     canDelete: deck.slides.length > 1,
     handleDuplicateSlide: () => handleDuplicate(safeSelected),
     handleRemoveSlide: () => handleRemove(safeSelected),
-    handleApplySlideTemplate,
-    handleReapplySlideTemplate,
-    handleCreateCustomTemplate,
-    handleUpdateCustomTemplateFromSlide,
-    handleDeleteCustomTemplate,
     handleNotesChangeForSelected: (value, coalesceKey) =>
       handleNotesChange(safeSelected, value, coalesceKey),
     handleBackgroundChange,
@@ -1703,12 +1612,11 @@ export function SlideEditor({
                 }
               >
                 <PresentationThemePanel
-                  tokenSet={presentationThemeTokenSet}
-                  isCustom={deckHasThemeOverrides(deck)}
                   themeId={deckPresentationThemeId(deck)}
-                  onUpdate={handleUpdateThemeOverrides}
-                  onReset={handleResetThemeOverrides}
-                  onApplyThemePackage={handleApplyPresentationTheme}
+                  onApplyThemePackage={(themePackageId) => {
+                    handleApplyPresentationTheme(themePackageId);
+                    setThemeOverridesOpen(false);
+                  }}
                 />
               </Popover>
               <Popover
@@ -2138,10 +2046,7 @@ export function SlideEditor({
                       {showSlideToolbar ? (
                         <SlideToolbar
                           slide={selectedSlide}
-                          templates={SLIDE_TEMPLATES}
-                          selectedTemplateId={activeSlideTemplateId}
                           canDelete={deck.slides.length > 1}
-                          onSelectTemplate={handleApplySlideTemplate}
                           onBackgroundChange={handleBackgroundChange}
                           onBackgroundGradientChange={
                             handleBackgroundGradientChange
@@ -2401,18 +2306,6 @@ export function SlideEditor({
               setCloseConfirmOpen(false);
               onClose();
             }}
-          />
-        )}
-        {pendingTemplateReapply && (
-          <ReapplyTemplateConfirmDialog
-            templateName={
-              SLIDE_TEMPLATES.find(
-                (template) => template.kind === pendingTemplateReapply,
-              )?.label ?? pendingTemplateReapply
-            }
-            onCancel={() => setPendingTemplateReapply(null)}
-            onPreserve={() => handleConfirmTemplateReapply("preserve")}
-            onReplace={() => handleConfirmTemplateReapply("replace")}
           />
         )}
       </div>
