@@ -11,6 +11,8 @@ import {
   shouldCollapseToolbar,
   shouldShowRichToolbarControls,
   TOOLBAR_COMPACT_WIDTH,
+  toolbarMorePanelLabel,
+  toolbarMorePanels,
   toolbarQuickActions,
   toToolbarSelectionKind,
 } from "./slide-panel-ui";
@@ -142,10 +144,10 @@ test("availablePanels: single text element", () => {
   );
 });
 
-test("availablePanels: non-line shape exposes Label + Shape", () => {
+test("availablePanels: non-line shape exposes Shape", () => {
   assert.deepEqual(
     availablePanels({ kind: "shape", hasSourceRef: false, selectedCount: 1 }),
-    ["label", "shape", "arrange", "effects", "layers"],
+    ["shape", "arrange", "effects", "layers"],
   );
 });
 
@@ -240,12 +242,12 @@ test("resolvePanelTab falls back to the first panel for the current element", ()
     "image",
   );
   assert.equal(
-    resolvePanelTab("image", {
+    resolvePanelTab("label", {
       kind: "shape",
       hasSourceRef: false,
       selectedCount: 1,
     }),
-    "label",
+    "shape",
   );
   assert.equal(
     resolvePanelTab("shape", {
@@ -273,6 +275,40 @@ test("resolvePanelTab falls back to slide or arrange when there is no object pan
       selectedCount: 1,
     }),
     "arrange",
+  );
+});
+
+test("toolbarMorePanels keeps layers last for normal selections", () => {
+  assert.deepEqual(
+    toolbarMorePanels({ kind: "image", hasSourceRef: false, selectedCount: 1 }),
+    ["image", "adjust", "arrange", "effects", "layers"],
+  );
+  assert.deepEqual(
+    toolbarMorePanels({ kind: "shape", hasSourceRef: false, selectedCount: 1 }),
+    ["shape", "arrange", "effects", "layers"],
+  );
+});
+
+test("toolbarMorePanels puts visual source first and labels it Visual", () => {
+  const context = {
+    kind: "visual",
+    hasSourceRef: true,
+    selectedCount: 1,
+  } as const;
+  assert.deepEqual(toolbarMorePanels(context), [
+    "source",
+    "arrange",
+    "effects",
+    "layers",
+  ]);
+  assert.equal(toolbarMorePanelLabel("source", context), "Visual");
+  assert.equal(
+    toolbarMorePanelLabel("source", {
+      kind: "text",
+      hasSourceRef: true,
+      selectedCount: 1,
+    }),
+    "Source",
   );
 });
 

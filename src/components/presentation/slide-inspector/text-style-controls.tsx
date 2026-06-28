@@ -5,12 +5,9 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
-  CaseSensitive,
   Italic,
   Minus,
-  Pilcrow,
   Plus,
-  Type,
   Underline,
 } from "lucide-react";
 
@@ -35,21 +32,9 @@ export function TextInspectorTabs({
   onChange: (tab: TextInspectorTab) => void;
 }) {
   const tabs = [
-    {
-      value: "style" as const,
-      label: "Style",
-      icon: <CaseSensitive size={13} aria-hidden="true" />,
-    },
-    {
-      value: "paragraph" as const,
-      label: "Paragraph",
-      icon: <Pilcrow size={13} aria-hidden="true" />,
-    },
-    {
-      value: "content" as const,
-      label: "Content",
-      icon: <Type size={13} aria-hidden="true" />,
-    },
+    { value: "style" as const, label: "Style" },
+    { value: "paragraph" as const, label: "Paragraph" },
+    { value: "content" as const, label: "Content" },
   ];
   return (
     <Tabs

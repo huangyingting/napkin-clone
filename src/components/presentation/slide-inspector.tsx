@@ -55,7 +55,7 @@ import {
   ElementEditor,
   ImageAdjustPanel,
   MultiSelectTools,
-  ShapeLabelPanel,
+  ShapePanel,
   SourceSummary,
   TextPanel,
 } from "@/components/presentation/slide-inspector/controls";
@@ -507,15 +507,6 @@ export function SlideInspector({
           />
         ) : null}
 
-        {activeTab === "label" && selectedElement ? (
-          <ShapeLabelPanel
-            element={selectedElement}
-            deck={deck}
-            slide={slide}
-            onUpdateElement={onUpdateElement}
-          />
-        ) : null}
-
         {activeTab === "adjust" && selectedElement?.kind === "image" ? (
           <ImageAdjustPanel
             element={selectedElement}
@@ -524,8 +515,17 @@ export function SlideInspector({
           />
         ) : null}
 
-        {(activeTab === "shape" ||
-          activeTab === "image" ||
+        {activeTab === "shape" && selectedElement?.kind === "shape" ? (
+          <ShapePanel
+            element={selectedElement}
+            deck={deck}
+            slide={slide}
+            showAdvanced={showAdvanced}
+            onUpdateElement={onUpdateElement}
+          />
+        ) : null}
+
+        {(activeTab === "image" ||
           activeTab === "line") &&
         selectedElement ? (
           <ElementEditor

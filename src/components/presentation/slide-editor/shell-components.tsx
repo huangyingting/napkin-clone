@@ -112,10 +112,10 @@ import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import type { AddElementKind } from "@/components/presentation/slide-inspector/types";
 import {
-  availablePanels,
   isSelectionToolbarVisible,
-  PANEL_LABELS,
   shouldShowRichToolbarControls,
+  toolbarMorePanelLabel,
+  toolbarMorePanels,
   toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
@@ -1538,18 +1538,15 @@ export function SlideSelectionToolbar({
             : undefined,
         )
       : null;
-  // Same availability calculation as the right-panel switcher so a toolbar
-  // hand-off always opens a panel that can render.
-  const panels = availablePanels({
+  const panelContext = {
     kind: selectedCount >= 2 ? null : selectionKind,
     selectedCount,
     hasSourceRef:
       (selectedElement as { source?: unknown } | null)?.source !== undefined,
-  });
-  const morePanels: RightPanelTab[] = [
-    ...panels.filter((panel) => panel !== "layers"),
-    "layers",
-  ];
+  };
+  // Same availability calculation as the right-panel switcher so a toolbar
+  // hand-off always opens a panel that can render.
+  const morePanels = toolbarMorePanels(panelContext);
   const hasMultiSelection = selectedIds.length >= 2;
   const selectedVisualElement =
     selectedElement?.kind === "visual" ? selectedElement : null;
@@ -1918,7 +1915,7 @@ export function SlideSelectionToolbar({
       >
         <div className="flex min-w-max flex-col">
           {morePanels.map((panel) => {
-            const label = PANEL_LABELS[panel];
+            const label = toolbarMorePanelLabel(panel, panelContext);
             const icon = PANEL_MENU_ICONS[panel];
             return (
               <Fragment key={panel}>
