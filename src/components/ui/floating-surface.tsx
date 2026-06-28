@@ -19,8 +19,10 @@ import {
   ELEVATION,
   RADIUS,
   SURFACE_BASE,
+  UI_LAYER,
   type Elevation,
   type Radius,
+  type UILayer,
 } from "./tokens";
 
 // Minimum inset (px) kept between a clamped surface and the viewport edges.
@@ -43,7 +45,7 @@ export type FloatingSurfaceProps = {
   role?: string;
   "aria-label"?: string;
   /** Layer for the portal surface. Defaults to `dropdown`. */
-  layer?: "dropdown" | "tooltip";
+  layer?: UILayer;
   /** Close when Escape is pressed. Defaults to `true`. */
   closeOnEscape?: boolean;
   /** Close on pointer-down outside the surface. Defaults to `true`. */
@@ -190,7 +192,7 @@ export function FloatingSurface({
           style={{ top: clamped.top, left: clamped.left, ...style }}
           className={cx(
             "fixed border",
-            layer === "tooltip" ? "z-tooltip" : "z-dropdown",
+            UI_LAYER[layer],
             SURFACE_BASE,
             RADIUS[radius],
             ELEVATION[elevation],

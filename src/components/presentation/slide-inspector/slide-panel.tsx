@@ -12,7 +12,6 @@ import {
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { ColorPicker, Swatch } from "@/components/ui";
 import { assertNever } from "@/lib/assert-never";
-import { ColorOverride } from "@/components/presentation/slide-inspector/controls";
 import {
   FIELD_CLASS,
   PanelSection,
@@ -333,6 +332,8 @@ function SlideBackgroundControl({
               color={customSolid}
               fallback={fallbackColor}
               aria-label="Custom solid background color"
+              layer="tooltip"
+              customOnly
               onChange={setCustomSolid}
             />
             <span className="truncate font-mono text-xs tabular-nums text-ds-text-secondary">
@@ -364,12 +365,16 @@ function SlideBackgroundControl({
                 color={customGradientFrom}
                 fallback="#6366f1"
                 aria-label="Custom gradient start color"
+                layer="tooltip"
+                customOnly
                 onChange={setCustomGradientFrom}
               />
               <ColorPicker
                 color={customGradientTo}
                 fallback="#ec4899"
                 aria-label="Custom gradient end color"
+                layer="tooltip"
+                customOnly
                 onChange={setCustomGradientTo}
               />
               <input
@@ -400,6 +405,95 @@ function SlideBackgroundControl({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SlideAccentControl({
+  accentColor,
+  fallbackColor,
+  presets,
+  originHint,
+  onAccentChange,
+}: {
+  accentColor: string | undefined;
+  fallbackColor: string;
+  presets: readonly string[];
+  originHint: string;
+  onAccentChange: SlideInspectorProps["onAccentChange"];
+}) {
+  const currentColor = accentColor ?? fallbackColor;
+  const inlinePresets = presets.slice(0, 14);
+  const activePreset = accentColor
+    ? presets.find((preset) => sameHex(accentColor, preset))
+    : undefined;
+  const status = accentColor
+    ? activePreset
+      ? "Preset accent"
+      : "Custom accent"
+    : originHint;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="h-8 w-10 shrink-0 rounded-ds-md border border-ds-border-subtle"
+          style={{ backgroundColor: currentColor }}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-end gap-2">
+            <span className="flex shrink-0 items-center gap-1.5">
+              <span className="rounded-full bg-ds-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted ring-1 ring-ds-border-subtle">
+                {status}
+              </span>
+              {accentColor ? (
+                <button
+                  type="button"
+                  onClick={() => onAccentChange(undefined)}
+                  className={`rounded-full bg-ds-accent-surface px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ds-accent-text ring-1 ring-ds-accent-border transition-colors hover:bg-ds-accent hover:text-ds-text-on-accent ${FOCUS_RING}`}
+                >
+                  Reset
+                </button>
+              ) : null}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <BackgroundChoiceHeader title="Accent presets" />
+        <div className="grid grid-cols-7 gap-1.5">
+          {inlinePresets.map((preset) => (
+            <Swatch
+              key={preset}
+              color={preset}
+              size="lg"
+              selected={sameHex(accentColor, preset)}
+              aria-label={`Accent ${preset}`}
+              className="rounded-full transition-transform hover:scale-110"
+              onClick={() => onAccentChange(preset)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <BackgroundChoiceHeader title="Customize" />
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+          <ColorPicker
+            color={currentColor}
+            fallback={fallbackColor}
+            aria-label="Custom accent color"
+            layer="tooltip"
+            customOnly
+            onChange={onAccentChange}
+          />
+          <span className="truncate font-mono text-xs tabular-nums text-ds-text-secondary">
+            {currentColor.toLowerCase()}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -584,13 +678,12 @@ export function SlidePanelBody({
           />
         ) : null}
         {activeTab === "accent" ? (
-          <ColorOverride
-            label="Accent"
-            value={accentColor}
-            fallback={themeColors.accentColor}
+          <SlideAccentControl
+            accentColor={accentColor}
+            fallbackColor={themeColors.accentColor}
             presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
-            hint={designOriginTag(designOrigins.accent.layer)}
-            onChange={onAccentChange}
+            originHint={designOriginTag(designOrigins.accent.layer)}
+            onAccentChange={onAccentChange}
           />
         ) : null}
         {activeTab === "image" ? (

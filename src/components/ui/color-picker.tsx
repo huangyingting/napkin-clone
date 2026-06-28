@@ -16,7 +16,13 @@ import {
 import { FloatingSurface } from "./floating-surface";
 import { Swatch, type SwatchSize } from "./swatch";
 import { Tooltip } from "./tooltip";
-import { cx, FOCUS_RING, RADIUS, TOOLBAR_BUTTON_CHROME } from "./tokens";
+import {
+  cx,
+  FOCUS_RING,
+  RADIUS,
+  TOOLBAR_BUTTON_CHROME,
+  type UILayer,
+} from "./tokens";
 
 /**
  * A neutral, broadly-useful default palette spanning the hue wheel plus a
@@ -149,8 +155,12 @@ export type ColorPickerProps = {
   active?: boolean;
   /** Use shared toolbar button chrome for icon-only toolbar triggers. */
   triggerChrome?: "swatch" | "toolbar";
+  /** Portal z-layer for the picker popover. Defaults from triggerChrome. */
+  layer?: UILayer;
   /** Whether to expose the custom HSV/hex controls. Defaults to true. */
   allowCustom?: boolean;
+  /** Show only the custom HSV/hex controls, without the swatch tab. */
+  customOnly?: boolean;
   /**
    * When provided, the popover shows a "reset" action that clears the style.
    * Used for the "Default / None" affordance on text color & highlight.
@@ -189,7 +199,9 @@ export function ColorPicker({
   icon,
   active,
   triggerChrome = "swatch",
+  layer,
   allowCustom = true,
+  customOnly = false,
   onReset,
   resetLabel = "Default",
   preserveSelection = false,
@@ -309,7 +321,10 @@ export function ColorPicker({
     ? (event: MouseEvent) => event.preventDefault()
     : undefined;
 
-  const [tab, setTab] = useState<"swatches" | "custom">("swatches");
+  const [tab, setTab] = useState<"swatches" | "custom">(
+    customOnly ? "custom" : "swatches",
+  );
+  const effectiveTab = customOnly ? "custom" : tab;
   const rawHsv = hexToHsv(hex);
   const [lastHue, setLastHue] = useState(rawHsv.h);
   const hsv =
@@ -466,7 +481,7 @@ export function ColorPicker({
         position={coords}
         role="dialog"
         aria-label={`${ariaLabel} picker`}
-        layer={triggerChrome === "toolbar" ? "tooltip" : "dropdown"}
+        layer={layer ?? (triggerChrome === "toolbar" ? "tooltip" : "dropdown")}
         elevation="popover"
         radius="lg"
         clickAwayIgnoreRef={triggerRef}
@@ -522,7 +537,7 @@ export function ColorPicker({
               ) : null}
             </div>
 
-            {allowCustom ? (
+            {allowCustom && !customOnly ? (
               <div className="mt-2.5 grid grid-cols-2 gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-0.5 text-[11px] font-semibold">
                 {(["swatches", "custom"] as const).map((id) => (
                   <button
@@ -545,7 +560,7 @@ export function ColorPicker({
               </div>
             ) : null}
 
-            {!allowCustom || tab === "swatches" ? (
+            {!customOnly && (!allowCustom || effectiveTab === "swatches") ? (
               <div
                 role="group"
                 aria-labelledby={labelId}

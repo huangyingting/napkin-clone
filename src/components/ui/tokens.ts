@@ -37,6 +37,21 @@ export const ELEVATION = {
 
 export type Elevation = keyof typeof ELEVATION;
 
+/** Semantic app z-index layers. Mirrors the global `--z-index-*` scale. */
+export const UI_LAYER = {
+  raised: "z-raised",
+  sticky: "z-sticky",
+  header: "z-header",
+  dropdown: "z-dropdown",
+  overlay: "z-overlay",
+  panel: "z-panel",
+  modal: "z-modal",
+  toast: "z-toast",
+  tooltip: "z-tooltip",
+} as const;
+
+export type UILayer = keyof typeof UI_LAYER;
+
 /** Base surface fill, border color, and text color. */
 export const SURFACE_BASE =
   "bg-[var(--ds-surface-base,#f8fafc)] text-[var(--ds-text-primary,#172033)] border-[var(--ds-border-subtle,rgba(23,32,51,0.10))]";

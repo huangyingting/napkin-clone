@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 
 import { usePopMotion } from "@/components/motion/reveal";
 
-import { cx, MENU_CHROME } from "./tokens";
+import { cx, MENU_CHROME, UI_LAYER, type UILayer } from "./tokens";
 
 // Gap (px) between the trigger's edge and the panel.
 const PANEL_GAP = 8;
@@ -47,7 +47,7 @@ export type PopoverProps = {
   /** Render the panel in `document.body` so overflow ancestors cannot clip it. */
   portal?: boolean;
   /** Semantic z-index layer for the floating panel. */
-  layer?: "dropdown" | "tooltip";
+  layer?: UILayer;
   /** ARIA role for the panel. Defaults to `"dialog"`. */
   role?: string;
   "aria-label"?: string;
@@ -235,7 +235,7 @@ export function Popover({
           }}
           className={cx(
             "fixed max-w-[calc(100vw-1rem)]",
-            layer === "tooltip" ? "z-tooltip" : "z-dropdown",
+            UI_LAYER[layer],
             // Default sizing only when the caller doesn't supply its own.
             // `cx` concatenates without Tailwind-merge, so a hardcoded
             // default width/padding would otherwise override the caller's.

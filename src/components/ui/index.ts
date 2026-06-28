@@ -76,4 +76,6 @@ export {
   MENU_ITEM,
   PANEL_CHROME,
   TOOLBAR_BUTTON_CHROME,
+  UI_LAYER,
 } from "./tokens";
+export type { UILayer } from "./tokens";
