@@ -29,11 +29,11 @@ import {
   Copy,
   Edit3,
   FileText,
+  Frame,
   Grid3x3,
-  Images,
   Keyboard,
-  Palette,
   Plus,
+  SwatchBook,
   RectangleHorizontal,
   Redo2,
   RefreshCw,
@@ -279,34 +279,51 @@ function ToolbarIconTrigger({
   );
 }
 
-function SlideKitTrigger({
+/**
+ * Shared shell for the deck-context controls in the top toolbar (Theme and
+ * Deck chrome). Both read as outlined siblings of equal height so the row feels
+ * like one cohesive group, while the primary "Add slide" action stays the only
+ * filled button. `label` is optional so the same shell renders a labelled pill
+ * (Theme) or a compact icon button (Deck chrome).
+ */
+function DeckContextButton({
+  icon,
   label,
+  srLabel,
+  tooltip,
   open,
   onClick,
   badge,
+  showChevron = false,
 }: {
-  label: string;
+  icon: React.ReactNode;
+  label?: string;
+  srLabel: string;
+  tooltip: string;
   open: boolean;
   onClick: () => void;
   badge?: boolean;
+  showChevron?: boolean;
 }) {
   return (
-    <Tooltip label="Choose slide kit" side="bottom">
+    <Tooltip label={tooltip} side="bottom">
       <button
         type="button"
-        aria-label="Choose slide kit"
+        aria-label={srLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={onClick}
-        className={`relative flex h-8 shrink-0 items-center gap-1.5 rounded-ds-md border px-2.5 text-xs font-semibold transition-colors ${
+        className={`relative flex h-8 shrink-0 items-center gap-1.5 rounded-ds-md border text-xs font-semibold transition-colors ${
+          label ? "px-2.5" : "px-2"
+        } ${
           open
             ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
             : "border-ds-border-subtle bg-ds-surface text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
         } ${FOCUS_RING}`}
       >
-        <Palette size={15} aria-hidden="true" />
-        <span className="max-w-[8.5rem] truncate">Slide kit: {label}</span>
-        <ChevronDown size={13} aria-hidden="true" />
+        {icon}
+        {label ? <span className="max-w-[10rem] truncate">{label}</span> : null}
+        {showChevron ? <ChevronDown size={13} aria-hidden="true" /> : null}
         {badge ? (
           <span
             aria-hidden="true"
@@ -1667,17 +1684,21 @@ export function SlideEditor({
               <Popover
                 open={themeOverridesOpen}
                 onClose={() => setThemeOverridesOpen(false)}
-                aria-label="Slide kit"
+                aria-label="Theme"
                 align="start"
                 portal
                 layer="tooltip"
                 className="w-auto p-2"
                 trigger={
-                  <SlideKitTrigger
+                  <DeckContextButton
+                    icon={<SwatchBook size={15} aria-hidden="true" />}
                     label={activeSlideKitName}
+                    srLabel="Choose theme"
+                    tooltip="Choose theme"
                     open={themeOverridesOpen}
                     onClick={() => setThemeOverridesOpen((open) => !open)}
                     badge={deckHasThemeOverrides(deck)}
+                    showChevron
                   />
                 }
               >
@@ -1699,9 +1720,10 @@ export function SlideEditor({
                 layer="tooltip"
                 className="w-auto p-0"
                 trigger={
-                  <ToolbarIconTrigger
-                    icon={<Images size={17} aria-hidden="true" />}
-                    label="Deck chrome"
+                  <DeckContextButton
+                    icon={<Frame size={16} aria-hidden="true" />}
+                    srLabel="Deck chrome"
+                    tooltip="Deck chrome"
                     open={masterChromeOpen}
                     onClick={() => setMasterChromeOpen((open) => !open)}
                     badge={hasGlobalMasterChrome}
@@ -1738,7 +1760,7 @@ export function SlideEditor({
                       setSpotlightPickerOpen(false);
                       setAddTemplateOpen((open) => !open);
                     }}
-                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-transparent bg-ds-accent px-2 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
+                    className={`flex h-8 shrink-0 items-center gap-1.5 rounded-ds-md border border-transparent bg-ds-accent px-2.5 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
                   >
                     <Plus size={14} aria-hidden="true" />
                     Add slide

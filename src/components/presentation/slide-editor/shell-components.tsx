@@ -1016,8 +1016,8 @@ export function SlideTemplatePicker({
         isThemePackageTemplateId(template.id),
       );
   const kitName = deck?.design?.themeId
-    ? (getThemePackage(deck.design.themeId)?.name ?? "Slide kit")
-    : "Slide kit";
+    ? (getThemePackage(deck.design.themeId)?.name ?? "Theme")
+    : "Theme";
   const userTemplates = customTemplates.filter(
     (template) => !isThemePackageTemplateId(template.id),
   );
@@ -1058,7 +1058,7 @@ export function SlideTemplatePicker({
                     {template.name}
                   </span>
                   <span className="truncate text-[10px] leading-tight text-ds-text-muted">
-                    Slide kit template
+                    Theme template
                   </span>
                 </span>
               </button>

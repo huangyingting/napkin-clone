@@ -558,7 +558,7 @@ export function PresentationThemePanel({
             ) : null}
           </span>
           <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
-            Slide kit
+            Theme
           </span>
           <span className="flex flex-1 justify-end">
             <button
