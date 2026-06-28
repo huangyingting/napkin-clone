@@ -45,6 +45,10 @@ import {
   resolveRoleToken,
   type PresentationTheme,
 } from "@/lib/presentation/presentation-theme";
+import {
+  resolveShapeLabelStyle,
+  resolveTextElementStyle,
+} from "@/lib/presentation/style-cascade-text";
 import { orderedElementIds } from "@/lib/presentation/canvas-a11y";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
@@ -1780,6 +1784,11 @@ export function SlideStageEditor({
                 <InlineTextEditor
                   element={element}
                   color={resolveTextColor(element, tc, stageTokenSet)}
+                  resolvedTextStyle={
+                    element.kind === "text"
+                      ? resolveTextElementStyle(deck, element)
+                      : resolveShapeLabelStyle(deck, element)
+                  }
                   accent={accent}
                   stageHeight={height}
                   caretClient={pendingCaret}

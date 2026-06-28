@@ -8,6 +8,7 @@ import type {
   TextElementStyle,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import type { ResolvedTextStyle } from "@/lib/presentation/style-cascade-text";
 import {
   mergeRuns,
   runsToHtml,
@@ -93,6 +94,7 @@ function caretRangeFromPoint(x: number, y: number): Range | null {
 export function InlineTextEditor({
   element,
   color,
+  resolvedTextStyle,
   accent,
   stageHeight,
   caretClient,
@@ -101,6 +103,7 @@ export function InlineTextEditor({
 }: {
   element: Extract<SlideElement, { kind: "text" | "shape" }>;
   color: string;
+  resolvedTextStyle?: ResolvedTextStyle;
   accent: string;
   stageHeight: number;
   caretClient: { x: number; y: number } | null;
@@ -415,7 +418,13 @@ export function InlineTextEditor({
           align: "left" as const,
           ...textDesign(element as Extract<SlideElement, { kind: "text" }>),
         };
-  const fontSizePx = (style.fontSize / 100) * stageHeight;
+  const resolvedFontSize = resolvedTextStyle?.fontSize ?? style.fontSize;
+  const fontSizePx = (resolvedFontSize / 100) * stageHeight;
+  const verticalAlign =
+    kind === "text"
+      ? textDesign(element as Extract<SlideElement, { kind: "text" }>)
+          .verticalAlign
+      : undefined;
 
   // Mirror the static text element styles exactly
   // so entering edit mode is visually identical — no size / weight / line-height
@@ -423,17 +432,27 @@ export function InlineTextEditor({
   // surface a plain block, which keeps caret / Enter behaviour predictable.
   const editableStyle = {
     width: "100%",
-    color,
+    color: resolvedTextStyle?.color ?? color,
     fontSize: `${fontSizePx}px`,
-    fontWeight: style.bold ? 700 : 400,
-    fontStyle: style.italic ? "italic" : "normal",
-    textAlign: style.align,
-    lineHeight: isListText ? 1.2 : 1.15,
-    wordBreak: "break-word",
-    ...(style.underline ? { textDecoration: "underline" } : {}),
-    ...(resolveElementFontCss(style.fontId)
-      ? { fontFamily: resolveElementFontCss(style.fontId) }
+    fontWeight: resolvedTextStyle
+      ? resolvedTextStyle.weight
+      : style.bold
+        ? 700
+        : 400,
+    fontStyle:
+      (resolvedTextStyle?.italic ?? style.italic) ? "italic" : "normal",
+    textAlign: resolvedTextStyle?.align ?? style.align,
+    lineHeight: resolvedTextStyle?.lineHeight ?? (isListText ? 1.2 : 1.15),
+    overflowWrap: "break-word",
+    wordBreak: "normal",
+    ...((resolvedTextStyle?.underline ?? style.underline)
+      ? { textDecoration: "underline" }
       : {}),
+    ...(resolvedTextStyle?.fontFamily
+      ? { fontFamily: resolvedTextStyle.fontFamily }
+      : resolveElementFontCss(style.fontId)
+        ? { fontFamily: resolveElementFontCss(style.fontId) }
+        : {}),
   } as CSSProperties & Record<string, string>;
   if (isListText) {
     editableStyle["--ds-bullet-accent"] = accent;
@@ -442,6 +461,14 @@ export function InlineTextEditor({
   return (
     <div
       className="absolute inset-0 flex flex-col justify-center overflow-hidden"
+      style={{
+        justifyContent:
+          verticalAlign === "top"
+            ? "flex-start"
+            : verticalAlign === "bottom"
+              ? "flex-end"
+              : "center",
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => {
         // A click in the padding around the text should still focus the editor
