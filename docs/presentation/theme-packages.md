@@ -1,7 +1,7 @@
 # Presentation Theme Packages
 
 **Status:** Current  
-**Last updated:** 2026-06-28
+**Last updated:** 2026-06-29
 
 Theme packages are the presentation editor's bundled slide-design units. A
 package combines the deck-level theme tokens, the chrome-only master, and the
@@ -46,10 +46,12 @@ Each package provides six templates:
 - Quote or stat
 - Closing
 
-The professional packages are derived from the validated prototype decks under
-`prototypes/slide-themes`. `clarity` and `ocean` follow the same quality bar and
-data shape rather than falling back to the older generic built-in slide
-templates.
+Six packages (`aurora`, `monolith`, `editorial`, `noir`, `terra`, and `pulse`)
+are derived from the validated prototype decks under `prototypes/slide-themes`.
+`clarity` and `ocean` are additional complete package decks under
+`src/lib/presentation/theme-package-decks/`. All eight packages follow the same
+quality bar and data shape rather than falling back to the older generic
+built-in slide templates.
 
 ## Apply Behavior
 

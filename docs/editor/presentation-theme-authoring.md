@@ -38,13 +38,14 @@ that omits them renders exactly as before they existed.
 
 ## Semantic text roles
 
-`PRESENTATION_ROLES` = `h1`, `h2`, `h3`, `subtitle`, `body`, `bullet`, `caption`,
-`footer`, `shapeLabel`. A template may author full per-role typography under
-`typography.roles`; any role it omits is derived from `typography.scale` +
+`PRESENTATION_ROLES` = `title`, `subtitle`, `sectionTitle`, `body`, `bullet`,
+`quote`, `caption`, `footer`, `label`, `media`, `visual`, `image`, `logo`,
+`pageNumber`, `background`. A template may author full per-role typography
+under `typography.roles`; any role it omits is derived from `typography.scale` +
 color tokens via `deriveRoleToken`, so **every theme exposes complete role
 typography**. A text-bearing element opts into the template by carrying a
-`role`; without one it falls back to the text-element mapping (`role: "title"` →
-`h1`, `role: "body"` → `body`).
+`role`; without one it falls back to the text-element mapping (`role: "title"`
+uses the `title` token, `role: "body"` uses the `body` token).
 
 ## Reset-to-inherited
 
@@ -58,18 +59,18 @@ during the transition for renderers that have not yet adopted the resolvers.
 
 ## Worked cascade example
 
-Given a deck whose template sets `h1` to Space Grotesk 42 / `#111827` / 700 and
-a master with a navy background:
+Given a deck whose template sets `title` to Space Grotesk 42 / `#111827` / 700
+and a master with a navy background:
 
 ```
-presentation theme   roles.h1 = { fontFamily: "Space Grotesk", fontSize: 42, color: "#111827", weight: 700 }
+presentation theme   roles.title = { fontFamily: "Space Grotesk", fontSize: 42, color: "#111827", weight: 700 }
   → master      background = { type: "solid", color: "#0b1020" }
-    → layout    (title slot geometry)
+    → layout    (title element geometry)
       → slide   accent = "#22d3ee"        (slide-level override)
         → element  designOverrides = { color: "#ffffff" }   (local override)
 ```
 
-Resolving a title element (`role: "h1"`) yields:
+Resolving a title element (`role: "title"`) yields:
 
 | Field      | Value         | Origin    |
 | ---------- | ------------- | --------- |
@@ -91,11 +92,11 @@ element `style` / `designOverrides`**, so existing local overrides are preserved
 
 When authoring or generating a theme override token set:
 
-- It must pass `validateCustomTokenSet` (`deck-schema.ts`): all `colors` must be
-  hex, `typography.scale` numeric, any `typography.roles[*]` must use a known
-  role key with a hex `color`, and optional `bullet` / `connector` / `visual` /
-  `image` groups must be well-formed. Malformed token sets are rejected before
-  persistence.
+- Use the typed `PresentationThemeOverridesPatch` path for user edits and
+  `brandToTokenSet` / `applyBrandToDeck` for brand-derived tokens. Persisted
+  decks are parsed through `safeParseDeck`; that boundary validates the current
+  deck envelope and element/template `role` values, while `themeOverrides` stays
+  an object-shaped token payload consumed by the theme resolvers.
 - Custom fonts that PPTX cannot embed surface as a deck-level `missing-font`
   **warning** via export preflight (`export-preflight.ts`) — never a crash.
 

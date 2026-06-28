@@ -1,7 +1,7 @@
 # Feedback Docs
 
 **Status:** Current  
-**Last updated:** 2026-06-28
+**Last updated:** 2026-06-29
 
 Feedback docs capture QA findings, product feedback, and launch-readiness
 follow-ups that do not yet belong to a single implementation subsystem. Source
@@ -17,3 +17,7 @@ code, tests, and schemas remain authoritative for current runtime behavior.
 
 When a feedback item is implemented, update the owning subsystem document if
 the implementation changes current behavior or runtime contracts.
+
+Dated UI audit files are retained as historical QA evidence. Their sibling
+`*-assets/` directories contain screenshots referenced by the matching audit and
+are not current behavior documentation.
