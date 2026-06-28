@@ -158,10 +158,10 @@ test("availablePanels: line shape exposes Line but no Label", () => {
   );
 });
 
-test("availablePanels: image exposes Image + Adjust", () => {
+test("availablePanels: image exposes Image", () => {
   assert.deepEqual(
     availablePanels({ kind: "image", hasSourceRef: false, selectedCount: 1 }),
-    ["image", "adjust", "arrange", "effects", "layers"],
+    ["image", "arrange", "effects", "layers"],
   );
 });
 
@@ -242,6 +242,14 @@ test("resolvePanelTab falls back to the first panel for the current element", ()
     "image",
   );
   assert.equal(
+    resolvePanelTab("adjust", {
+      kind: "image",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    "image",
+  );
+  assert.equal(
     resolvePanelTab("source", {
       kind: "visual",
       hasSourceRef: true,
@@ -289,7 +297,7 @@ test("resolvePanelTab falls back to slide or first object panel", () => {
 test("toolbarMorePanels keeps layers last for normal selections", () => {
   assert.deepEqual(
     toolbarMorePanels({ kind: "image", hasSourceRef: false, selectedCount: 1 }),
-    ["image", "adjust", "arrange", "effects", "layers"],
+    ["image", "arrange", "effects", "layers"],
   );
   assert.deepEqual(
     toolbarMorePanels({ kind: "shape", hasSourceRef: false, selectedCount: 1 }),

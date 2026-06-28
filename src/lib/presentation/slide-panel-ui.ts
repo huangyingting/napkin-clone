@@ -11,8 +11,8 @@
  * Task panels available in the right supplemental panel. Each panel owns one
  * broad property category and exactly one is rendered at a time. `Layers` is a
  * normal panel, not a separate inspector mode; object panels use concrete ids
- * (`text`, `label`, `shape`, `image`, `adjust`, `visual`, `line`) instead of a
- * generic appearance bucket.
+ * (`text`, `label`, `shape`, `image`, `visual`, `line`) instead of a generic
+ * appearance bucket.
  */
 export type RightPanelTab =
   | "slide"
@@ -61,6 +61,7 @@ const PANEL_ORDER: readonly RightPanelTab[] = [
   "line",
   "arrange",
   "effects",
+  "source",
   "layers",
 ];
 
@@ -194,8 +195,8 @@ export interface PanelAvailabilityContext {
  * - Empty selection (slide is the current object): `slide`, `notes`, `layers`.
  * - Multi-selection: `arrange`, `effects`, `layers`.
  * - Single element: `arrange`, `effects`, `layers`, plus the matching object
- *   panel (`text`, `shape`, `image` + `adjust`, `visual`, or `line`), and
- *   `source` only when a non-visual element already has a `sourceRef`.
+ *   panel (`text`, `shape`, `image`, `visual`, or `line`), and `source` only
+ *   when a non-visual element already has a `sourceRef`.
  */
 export function availablePanels(
   context: PanelAvailabilityContext,
@@ -225,7 +226,6 @@ export function availablePanels(
     }
     if (context.kind === "image") {
       set.add("image");
-      set.add("adjust");
     }
     if (context.kind === "visual") {
       set.add("visual");

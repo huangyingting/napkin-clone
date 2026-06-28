@@ -25,7 +25,6 @@ import {
   Bold,
   BringToFront,
   Expand,
-  Image as ImageIcon,
   Italic,
   Link2,
   Link2Off,
@@ -39,7 +38,6 @@ import {
   Shapes,
   Sparkles,
   Spline,
-  SlidersHorizontal,
   StepBack,
   StepForward,
   Underline,
@@ -307,7 +305,7 @@ export function RichTextBox({
  *  - **Fit / mask / crop** — non-destructive presentation controls stored on the
  *    element so the canvas, present mode, and export paths can honor them.
  */
-export function ImageElementEditor({
+function ImageContentControls({
   element,
   deck,
   onUpdateElement,
@@ -348,79 +346,72 @@ export function ImageElementEditor({
 
   return (
     <>
-      <PanelSection
-        title="Image"
-        icon={<ImageIcon size={12} aria-hidden="true" />}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
       >
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
-        >
-          <Upload size={14} aria-hidden="true" />
-          {hasSource ? "Replace image" : "Upload image"}
-        </button>
+        <Upload size={14} aria-hidden="true" />
+        {hasSource ? "Replace image" : "Upload image"}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          handleFile(event.target.files?.[0]);
+          // Reset so re-selecting the same file fires onChange again.
+          event.target.value = "";
+        }}
+      />
+      {error ? (
+        <p role="alert" className="text-xs text-ds-danger-text">
+          {error}
+        </p>
+      ) : null}
+      <label className="block">
+        <span className={LABEL_CLASS}>Image URL</span>
         <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(event) => {
-            handleFile(event.target.files?.[0]);
-            // Reset so re-selecting the same file fires onChange again.
-            event.target.value = "";
-          }}
+          type="text"
+          value={content.src ?? ""}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              content: {
+                ...(element as unknown as { content?: Record<string, unknown> })
+                  .content,
+                kind: "image",
+                src: event.target.value,
+              },
+            } as ElementPatch)
+          }
+          placeholder="https://… or data:image/…"
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
         />
-        {error ? (
-          <p role="alert" className="text-xs text-ds-danger-text">
-            {error}
-          </p>
-        ) : null}
-        <label className="block">
-          <span className={LABEL_CLASS}>Image URL</span>
-          <input
-            type="text"
-            value={content.src ?? ""}
-            onChange={(event) =>
-              onUpdateElement(element.id, {
-                content: {
-                  ...(
-                    element as unknown as { content?: Record<string, unknown> }
-                  ).content,
-                  kind: "image",
-                  src: event.target.value,
-                },
-              } as ElementPatch)
-            }
-            placeholder="https://… or data:image/…"
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          />
-        </label>
-        <label className="block">
-          <span className={LABEL_CLASS}>Alt text</span>
-          <input
-            type="text"
-            value={content.alt ?? ""}
-            onChange={(event) =>
-              onUpdateElement(element.id, {
-                content: {
-                  ...(
-                    element as unknown as { content?: Record<string, unknown> }
-                  ).content,
-                  kind: "image",
-                  alt: event.target.value,
-                },
-              } as ElementPatch)
-            }
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          />
-        </label>
-      </PanelSection>
+      </label>
+      <label className="block">
+        <span className={LABEL_CLASS}>Alt text</span>
+        <input
+          type="text"
+          value={content.alt ?? ""}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              content: {
+                ...(element as unknown as { content?: Record<string, unknown> })
+                  .content,
+                kind: "image",
+                alt: event.target.value,
+              },
+            } as ElementPatch)
+          }
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+        />
+      </label>
     </>
   );
 }
 
-export function ImageAdjustPanel({
+function ImageAdjustControls({
   element,
   showAdvanced,
   onUpdateElement,
@@ -434,69 +425,120 @@ export function ImageAdjustPanel({
 
   return (
     <>
-      <PanelSection
-        title="Adjust"
-        icon={<SlidersHorizontal size={12} aria-hidden="true" />}
-      >
-        <ImageFitModeControl
-          fitMode={design.fitMode}
-          onChange={(fitMode) =>
-            onUpdateElement(element.id, {
-              designOverrides: {
-                ...elementDesignOverrides(element),
-                fitMode,
-              },
-            } as ElementPatch)
-          }
-        />
-        <ImageMaskControl
-          maskShape={design.maskShape}
-          onChange={(maskShape) =>
-            onUpdateElement(element.id, {
-              designOverrides: {
-                ...elementDesignOverrides(element),
-                maskShape,
-              },
-            } as ElementPatch)
-          }
-        />
-        <ImageCropControl
-          crop={content.crop}
-          onChange={(crop) =>
-            onUpdateElement(element.id, {
-              content: {
-                ...(element as unknown as { content?: Record<string, unknown> })
-                  .content,
-                kind: "image",
-                crop,
-              },
-            } as ElementPatch)
-          }
-        />
-        {showAdvanced ? (
-          <PropRow label="Radius">
-            <input
-              type="range"
-              min={0}
-              max={50}
-              step={1}
-              value={design.radius ?? 0}
-              onChange={(event) => {
-                const radius = Number(event.target.value);
-                onUpdateElement(element.id, {
-                  designOverrides: {
-                    ...elementDesignOverrides(element),
-                    radius: radius <= 0 ? undefined : radius,
-                  },
-                } as ElementPatch);
-              }}
-              className="min-w-0 flex-1 accent-ds-accent"
-              aria-label="Image corner radius"
-            />
-          </PropRow>
-        ) : null}
-      </PanelSection>
+      <ImageFitModeControl
+        fitMode={design.fitMode}
+        onChange={(fitMode) =>
+          onUpdateElement(element.id, {
+            designOverrides: {
+              ...elementDesignOverrides(element),
+              fitMode,
+            },
+          } as ElementPatch)
+        }
+      />
+      <ImageMaskControl
+        maskShape={design.maskShape}
+        onChange={(maskShape) =>
+          onUpdateElement(element.id, {
+            designOverrides: {
+              ...elementDesignOverrides(element),
+              maskShape,
+            },
+          } as ElementPatch)
+        }
+      />
+      <ImageCropControl
+        crop={content.crop}
+        onChange={(crop) =>
+          onUpdateElement(element.id, {
+            content: {
+              ...(element as unknown as { content?: Record<string, unknown> })
+                .content,
+              kind: "image",
+              crop,
+            },
+          } as ElementPatch)
+        }
+      />
+      {showAdvanced ? (
+        <PropRow label="Radius">
+          <input
+            type="range"
+            min={0}
+            max={50}
+            step={1}
+            value={design.radius ?? 0}
+            onChange={(event) => {
+              const radius = Number(event.target.value);
+              onUpdateElement(element.id, {
+                designOverrides: {
+                  ...elementDesignOverrides(element),
+                  radius: radius <= 0 ? undefined : radius,
+                },
+              } as ElementPatch);
+            }}
+            className="min-w-0 flex-1 accent-ds-accent"
+            aria-label="Image corner radius"
+          />
+        </PropRow>
+      ) : null}
     </>
+  );
+}
+
+type ImageInspectorTab = "image" | "adjust";
+
+export function ImagePanel({
+  element,
+  deck,
+  showAdvanced,
+  onUpdateElement,
+  documentId,
+  slideAssetPort,
+}: {
+  element: ImageElement;
+  deck: Deck;
+  showAdvanced: boolean;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+  documentId?: string;
+  slideAssetPort?: SlideAssetActionPort;
+}) {
+  const [activeTab, setActiveTab] = useState<ImageInspectorTab>("image");
+
+  return (
+    <PanelSection className="gap-1">
+      <Tabs
+        aria-label="Image settings"
+        value={activeTab}
+        onChange={setActiveTab}
+        options={[
+          { value: "image", label: "Image" },
+          { value: "adjust", label: "Adjust" },
+        ]}
+      />
+
+      {activeTab === "image" ? (
+        <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+          <ImageContentControls
+            element={element}
+            deck={deck}
+            onUpdateElement={onUpdateElement}
+            documentId={documentId}
+            slideAssetPort={slideAssetPort}
+          />
+        </div>
+      ) : null}
+
+      {activeTab === "adjust" ? (
+        <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+          <ImageAdjustControls
+            element={element}
+            showAdvanced={showAdvanced}
+            onUpdateElement={onUpdateElement}
+          />
+        </div>
+      ) : null}
+    </PanelSection>
   );
 }
 
@@ -2036,7 +2078,7 @@ export function ElementEditor({
       return null;
     case "image":
       return (
-        <ImageElementEditor
+        <ImageContentControls
           element={element}
           deck={deck}
           onUpdateElement={onUpdateElement}

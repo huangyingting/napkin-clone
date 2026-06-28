@@ -54,7 +54,7 @@ import {
   EffectsPanel,
   ElementArrangeControl,
   ElementEditor,
-  ImageAdjustPanel,
+  ImagePanel,
   MultiSelectTools,
   ShapePanel,
   SourceSummary,
@@ -513,14 +513,6 @@ export function SlideInspector({
           />
         ) : null}
 
-        {activeTab === "adjust" && selectedElement?.kind === "image" ? (
-          <ImageAdjustPanel
-            element={selectedElement}
-            showAdvanced={showAdvanced}
-            onUpdateElement={onUpdateElement}
-          />
-        ) : null}
-
         {activeTab === "shape" && selectedElement?.kind === "shape" ? (
           <ShapePanel
             element={selectedElement}
@@ -531,7 +523,18 @@ export function SlideInspector({
           />
         ) : null}
 
-        {(activeTab === "image" || activeTab === "line") && selectedElement ? (
+        {activeTab === "image" && selectedElement?.kind === "image" ? (
+          <ImagePanel
+            element={selectedElement}
+            deck={deck}
+            showAdvanced={showAdvanced}
+            onUpdateElement={onUpdateElement}
+            documentId={documentId}
+            slideAssetPort={slideAssetPort}
+          />
+        ) : null}
+
+        {activeTab === "line" && selectedElement ? (
           <ElementEditor
             element={selectedElement}
             deck={deck}
