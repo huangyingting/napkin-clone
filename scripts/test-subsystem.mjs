@@ -46,6 +46,7 @@ export const SUBSYSTEM_TEST_TARGETS = {
     description: "Authentication, account lifecycle, settings, and login gates",
     patterns: [
       /^src\/auth\.config\.test\.ts$/,
+      /^src\/auth\.test\.ts$/,
       /^src\/lib\/auth\//,
       /^src\/lib\/account\//,
       /^src\/lib\/settings\//,

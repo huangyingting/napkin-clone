@@ -12,7 +12,6 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 export type ViewKey = "all" | "favorites";
 
 type SearchParamsLike = {
-  get(name: string): string | null;
   entries(): IterableIterator<[string, string]>;
 };
 
@@ -28,9 +27,8 @@ export function parseTag(
   value: string | null,
   availableTags: { slug: string }[],
 ): string | null {
-  return value && availableTags.some((tag) => tag.slug === value)
-    ? value
-    : null;
+  if (!value) return null;
+  return availableTags.some((tag) => tag.slug === value) ? value : null;
 }
 
 export function replaceDocumentListQueryState(

@@ -62,18 +62,18 @@ function pathCheck(repoRoot, relativePath, label) {
   };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const repoRoot = process.cwd();
+export function runDevWorktree({
+  repoRoot = process.cwd(),
+  envFile = ".env.worktree",
+  stdout = console.log,
+} = {}) {
   const worktreeName = sanitizeWorktreeName(basename(repoRoot));
-  const envFile = ".env.worktree";
   const envPath = join(repoRoot, envFile);
   if (!existsSync(envPath)) {
     writeFileSync(envPath, buildWorktreeEnv({ worktreeName }), { mode: 0o600 });
-    console.log(
-      `Created ${envFile} with isolated SQLite path for ${worktreeName}.`,
-    );
+    stdout(`Created ${envFile} with isolated SQLite path for ${worktreeName}.`);
   } else {
-    console.log(`${envFile} already exists; leaving it unchanged.`);
+    stdout(`${envFile} already exists; leaving it unchanged.`);
   }
   mkdirSync(join(repoRoot, "storage", "slide-assets"), { recursive: true });
 
@@ -83,21 +83,25 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
         ? "symlink"
         : "present"
       : "missing";
-    console.log(`- ${check.path}: ${state} (${check.label})`);
+    stdout(`- ${check.path}: ${state} (${check.label})`);
     if (check.path === ".next" && check.exists) {
-      console.log(
+      stdout(
         "  Hint: remove .next before rebuilding after switching dependency trees.",
       );
     }
     if (check.path === "node_modules" && check.symlink) {
-      console.log(
+      stdout(
         "  Hint: keep .next worktree-local; do not share .next across symlinked node_modules worktrees.",
       );
     }
   }
 
-  console.log("");
+  stdout("");
   for (const line of worktreeInstructions({ envFile })) {
-    console.log(line);
+    stdout(line);
   }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runDevWorktree();
 }

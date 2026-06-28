@@ -15,10 +15,11 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const PASSWORD_HASH_COST = 12;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+/* node:coverage ignore start -- Password validation result variants are TypeScript-only facade rows. */
 export type PasswordValidationResult =
   | { ok: true }
   | { ok: false; message: string };
+/* node:coverage ignore stop */
 
 /**
  * Validates a new password and its confirmation for the change/set-password

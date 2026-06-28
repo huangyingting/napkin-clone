@@ -23,6 +23,12 @@ import {
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
 import { isProductionEnv } from "@/lib/billing/provider";
 
+type MockBillingProviderDeps = {
+  applyLocalPlanChange?: typeof applyLocalPlanChange;
+  getBillingSubscription?: typeof getBillingSubscription;
+  markSubscriptionCancelAtPeriodEnd?: typeof markSubscriptionCancelAtPeriodEnd;
+};
+
 /**
  * Pure guard: may the mock provider grant `targetPlan` in the given env?
  *
@@ -39,6 +45,19 @@ export function isMockPlanChangeAllowed(
 }
 
 export class MockBillingProvider implements BillingProvider {
+  private readonly deps: Required<MockBillingProviderDeps>;
+
+  constructor(deps: MockBillingProviderDeps = {}) {
+    this.deps = {
+      applyLocalPlanChange: deps.applyLocalPlanChange ?? applyLocalPlanChange,
+      getBillingSubscription:
+        deps.getBillingSubscription ?? getBillingSubscription,
+      markSubscriptionCancelAtPeriodEnd:
+        deps.markSubscriptionCancelAtPeriodEnd ??
+        markSubscriptionCancelAtPeriodEnd,
+    };
+  }
+
   async changePlan(
     userId: string,
     targetPlan: Plan,
@@ -61,7 +80,7 @@ export class MockBillingProvider implements BillingProvider {
       };
     }
 
-    await applyLocalPlanChange(userId, targetPlan);
+    await this.deps.applyLocalPlanChange(userId, targetPlan);
 
     return {
       success: true,
@@ -74,7 +93,7 @@ export class MockBillingProvider implements BillingProvider {
   async cancelSubscriptionImmediately(_userId: string): Promise<void> {}
 
   async cancelSubscription(userId: string): Promise<ChangePlanResult> {
-    const sub = await getBillingSubscription(userId);
+    const sub = await this.deps.getBillingSubscription(userId);
 
     if (!sub) {
       // No active subscription — nothing to cancel
@@ -85,7 +104,7 @@ export class MockBillingProvider implements BillingProvider {
       };
     }
 
-    await markSubscriptionCancelAtPeriodEnd(userId);
+    await this.deps.markSubscriptionCancelAtPeriodEnd(userId);
 
     return {
       success: true,

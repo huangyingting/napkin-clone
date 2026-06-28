@@ -12,7 +12,12 @@ export const LINE_COVERAGE_STAGES = [
     command: "node",
     args: ["--import", "tsx", "--test", "--experimental-test-coverage"],
     includes: ["src/**/*.ts", "src/**/*.tsx"],
-    excludes: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    excludes: [
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "src/generated/**",
+      "src/test/**",
+    ],
     testFiles: ["src/**/*.test.ts"],
   },
   {

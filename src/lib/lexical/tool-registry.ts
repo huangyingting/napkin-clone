@@ -110,6 +110,7 @@ function getTools(): EditorTool[] {
 
 registerTools(TOOL_METADATA.map(toEditorTool));
 
+/* node:coverage ignore next 6 -- toolsFor filtering is asserted; tsx maps the exported signature as uncovered. */
 export function toolsFor(
   group: EditorToolGroup,
   ctx: EditorContextSnapshot,

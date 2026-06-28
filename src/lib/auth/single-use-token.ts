@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 /** Number of random bytes behind each raw token (256 bits of entropy). */
 const TOKEN_BYTES = 32;
 
+/* @preserve node:coverage ignore start -- Single-use token result contracts are TypeScript-only. */
 export type SingleUseTokenRejection = "not_found" | "used" | "expired";
 
 export type SingleUseTokenEvaluation =
@@ -13,6 +14,7 @@ export type SingleUseTokenRejectionMessages = Record<
   SingleUseTokenRejection,
   string
 >;
+/* @preserve node:coverage ignore stop */
 
 /** Generates a cryptographically-random, URL-safe raw token. */
 export function generateSingleUseToken(): string {

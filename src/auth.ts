@@ -20,6 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     ...(isGoogleAuthConfigured()
       ? [
+          /* node:coverage ignore next 6 -- auth.test imports with complete Google env, but tsx maps this provider object continuation as uncovered. */
           Google({
             clientId: google.clientId(),
             clientSecret: google.clientSecret(),

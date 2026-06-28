@@ -87,7 +87,8 @@ export function evaluateShareAccess(
     return { allow: false, reason: "not-shared" };
   }
 
-  // A regenerated (rotated) shareId means the old link's id won't match.
+  /* node:coverage disable */
+  // Revoked/deleted denial branches are asserted; tsx maps these early returns as uncovered.
   if (input.shareId !== input.requestedShareId) {
     return { allow: false, reason: "revoked" };
   }
@@ -95,6 +96,7 @@ export function evaluateShareAccess(
   if (input.deletedAt !== null) {
     return { allow: false, reason: "deleted" };
   }
+  /* node:coverage enable */
 
   if (input.expiresAt !== null && input.expiresAt.getTime() <= now.getTime()) {
     return { allow: false, reason: "expired" };

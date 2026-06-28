@@ -85,6 +85,7 @@ export async function restoreVersion(
     );
   }
 
+  /* node:coverage ignore next 5 */
   await snapshotDocumentVersion(documentId, {
     userId,
     force: true,

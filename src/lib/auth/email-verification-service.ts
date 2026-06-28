@@ -124,6 +124,7 @@ export async function consumeEmailVerificationToken(
     );
 
     if (!consumed) {
+      /* node:coverage ignore next 5 -- Verification race audit payload is asserted; tsx maps object rows as uncovered. */
       logSecurityAudit("auth.email_verification.consumed", {
         userId: record.userId,
         outcome: "rejected",

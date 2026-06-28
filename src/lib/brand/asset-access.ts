@@ -1,5 +1,6 @@
+/* node:coverage ignore start -- Module documentation is a source-map artifact; asset access decisions are asserted. */
 /**
- * Pure brand-asset access decision (Epic #496).
+ * Pure brand-asset access decision.
  *
  * The `/api/brand-assets/[ownerId]/[...path]` route serves private brand logos
  * and uploaded fonts, so it must make EXACTLY the right allow/deny decision:
@@ -14,6 +15,7 @@
  *   - unauthenticated request → `401`,
  *   - authenticated but not the partition owner → `403`.
  */
+/* node:coverage ignore stop */
 
 /** Why a brand-asset request was denied. */
 export type BrandAssetDenyReason =

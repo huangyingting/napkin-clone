@@ -1,5 +1,5 @@
 /**
- * Unit tests for billing provider selection (#97).
+ * Unit tests for billing provider selection.
  *
  * Pure decision functions — no DB, no network. Verifies the production
  * fail-closed behaviour (criterion 2) and the mock-provider paid-plan guard
@@ -11,10 +11,12 @@ import assert from "node:assert/strict";
 
 import {
   decideBillingProvider,
+  getBillingProvider,
   isProductionEnv,
   shouldCancelSubscription,
   BillingMisconfiguredError,
 } from "@/lib/billing/provider";
+import { MockBillingProvider } from "@/lib/billing/mock-provider";
 import { isMockPlanChangeAllowed } from "@/lib/billing/mock-provider";
 
 describe("isProductionEnv", () => {
@@ -151,5 +153,31 @@ describe("shouldCancelSubscription", () => {
       }),
       true,
     );
+  });
+});
+
+describe("getBillingProvider", () => {
+  it("returns the mock provider in non-production without Stripe", async () => {
+    const env = process.env as Record<string, string | undefined>;
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousStripeKey = process.env.STRIPE_SECRET_KEY;
+    env.NODE_ENV = "test";
+    delete process.env.STRIPE_SECRET_KEY;
+    try {
+      const provider = await getBillingProvider();
+      assert.ok(provider instanceof MockBillingProvider);
+      assert.strictEqual(await getBillingProvider(), provider);
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete env.NODE_ENV;
+      } else {
+        env.NODE_ENV = previousNodeEnv;
+      }
+      if (previousStripeKey === undefined) {
+        delete process.env.STRIPE_SECRET_KEY;
+      } else {
+        process.env.STRIPE_SECRET_KEY = previousStripeKey;
+      }
+    }
   });
 });

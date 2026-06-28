@@ -1,6 +1,7 @@
 import { app as appEnv } from "@/lib/env";
 import { logError } from "@/lib/log";
 
+/* @preserve node:coverage ignore start -- Auth email message contracts are TypeScript-only and erased at runtime. */
 export interface PasswordResetEmail {
   /** Recipient address (a real, matched user — never echoed back to clients). */
   to: string;
@@ -9,6 +10,7 @@ export interface PasswordResetEmail {
 }
 
 export interface VerificationEmail {
+  /* @preserve node:coverage ignore next -- Interface field declaration is erased at runtime. */
   /** Recipient address (the logged-in user's own email). */
   to: string;
   /** Absolute, ready-to-click verification URL containing the raw token. */
@@ -31,6 +33,7 @@ export interface AuthEmailDeliveryPort {
   /** Delivers a concrete auth/account email message. */
   send(message: AuthEmailMessage): Promise<void>;
 }
+/* @preserve node:coverage ignore stop */
 
 function trimTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/$/, "");
@@ -57,6 +60,7 @@ const devConsoleEmailDeliveryPort: AuthEmailDeliveryPort = {
         messageScope(message),
         new Error(`No ${message.kind} email transport is configured`),
       );
+      /* node:coverage ignore next -- Production fallback early return is asserted; tsx maps the return boundary as uncovered. */
       return;
     }
 
@@ -95,6 +99,7 @@ export async function deliverAuthEmail(
   }
 }
 
+/* node:coverage ignore next 4 -- Password-reset wrapper delegation is asserted; tsx maps the signature as uncovered. */
 export async function deliverPasswordResetEmail(
   email: PasswordResetEmail,
 ): Promise<void> {

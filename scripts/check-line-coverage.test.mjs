@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
@@ -53,7 +54,7 @@ test("line coverage minimum rejects invalid thresholds", () => {
   );
 });
 
-test("line coverage command includes threshold, include, exclude, and tests", () => {
+test("source line coverage command excludes tests, generated code, and test support", () => {
   const command = buildCoverageCommand(LINE_COVERAGE_STAGES[0], {
     SOURCE_LINE_COVERAGE_MIN: "92",
   });
@@ -69,6 +70,8 @@ test("line coverage command includes threshold, include, exclude, and tests", ()
     "--test-coverage-include=src/**/*.tsx",
     "--test-coverage-exclude=src/**/*.test.ts",
     "--test-coverage-exclude=src/**/*.test.tsx",
+    "--test-coverage-exclude=src/generated/**",
+    "--test-coverage-exclude=src/test/**",
     "src/**/*.test.ts",
   ]);
 });
@@ -88,6 +91,35 @@ test("line coverage runner stops on the first failed stage", () => {
   assert.equal(calls.length, 1);
 });
 
+test("line coverage runner reports invalid environment thresholds", () => {
+  const originalError = console.error;
+  const errors = [];
+  console.error = (line) => errors.push(String(line));
+  try {
+    const exitCode = runLineCoverage({
+      stages: [LINE_COVERAGE_STAGES[0]],
+      env: { SOURCE_LINE_COVERAGE_MIN: "invalid" },
+      spawn: () => {
+        throw new Error("must not spawn");
+      },
+    });
+    assert.equal(exitCode, 1);
+  } finally {
+    console.error = originalError;
+  }
+  assert.match(errors[0], /SOURCE_LINE_COVERAGE_MIN/);
+});
+
+test("line coverage runner maps signal-only failures to exit code 1", () => {
+  const exitCode = runLineCoverage({
+    stages: [LINE_COVERAGE_STAGES[0]],
+    env: {},
+    spawn: () => ({ status: null }),
+  });
+
+  assert.equal(exitCode, 1);
+});
+
 test("line coverage runner succeeds after all stages pass", () => {
   const calls = [];
   const exitCode = runLineCoverage({
@@ -101,4 +133,18 @@ test("line coverage runner succeeds after all stages pass", () => {
 
   assert.equal(exitCode, 0);
   assert.equal(calls.length, 2);
+});
+
+test("line coverage CLI maps an unavailable runner to failure", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/check-line-coverage.mjs"],
+    {
+      cwd: process.cwd(),
+      env: { ...process.env, PATH: "" },
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 1);
 });

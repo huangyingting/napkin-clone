@@ -5,16 +5,7 @@
  * The test is marked as **skipped** (not silently passed) so it appears
  * correctly in test output and can be tracked over time.
  *
- * @example
- * ```ts
- * import { test } from "node:test";
- * import { skipIf } from "@/test/skip";
- *
- * test("has edges", (t) => {
- *   skipIf(t, source.edges.length === 0, "flowchart fixture has no edges");
- *   // … assertions that need at least one edge …
- * });
- * ```
+ * This keeps conditionally unavailable coverage visible in test output.
  */
 import type { TestContext } from "node:test";
 

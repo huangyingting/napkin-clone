@@ -94,6 +94,7 @@ export function adaptSlideCommandResult(
     }),
     ...(result.historyKey ? { coalesceKey: result.historyKey } : {}),
     patches: result.patches,
+    /* node:coverage ignore next -- Empty side-effect normalization is asserted; tsx maps the literal tail as uncovered. */
     sideEffects: [],
   };
 }

@@ -1,5 +1,5 @@
 /**
- * Accessibility smoke tests for editor, canvas, and read-only paths (issue #462).
+ * Accessibility smoke tests for editor, canvas, and read-only paths.
  *
  * These tests use pure a11y assertion helpers (no DOM, no browser) to verify:
  *  - Visual SVG renderer declares role="img" and aria-label.
@@ -36,7 +36,7 @@ import {
 // accessibleName derivation
 // ---------------------------------------------------------------------------
 
-describe("a11y: accessibleName (#462)", () => {
+describe("a11y: accessibleName", () => {
   test("returns aria-label when present", () => {
     const el: A11yElement = { ariaLabel: "My chart" };
     assert.equal(accessibleName(el), "My chart");
@@ -74,10 +74,10 @@ describe("a11y: accessibleName (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SVG visual renderer a11y (#462: visual-renderer.tsx uses role="img" + aria-label)
+// SVG visual renderer a11y: visual-renderer.tsx uses role="img" + aria-label
 // ---------------------------------------------------------------------------
 
-describe("a11y: SVG visual renderer (#462)", () => {
+describe("a11y: SVG visual renderer", () => {
   test("VisualRenderer SVG: role=img and aria-label → passes", () => {
     const el: A11yElement = {
       role: "img",
@@ -119,10 +119,10 @@ describe("a11y: SVG visual renderer (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Icon-only controls (#462: toolbar / editor controls)
+// Icon-only controls: toolbar / editor controls
 // ---------------------------------------------------------------------------
 
-describe("a11y: icon-only controls (#462)", () => {
+describe("a11y: icon-only controls", () => {
   test("icon-only button with aria-label → passes", () => {
     const btn: A11yElement = {
       role: "button",
@@ -151,10 +151,10 @@ describe("a11y: icon-only controls (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Interactive controls (#462)
+// Interactive controls
 // ---------------------------------------------------------------------------
 
-describe("a11y: interactive controls (#462)", () => {
+describe("a11y: interactive controls", () => {
   test("visible button with text content → passes both checks", () => {
     const btn: A11yElement = {
       role: "button",
@@ -195,10 +195,10 @@ describe("a11y: interactive controls (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Modal dialog semantics (#462: slide editor modal)
+// Modal dialog semantics: slide editor modal
 // ---------------------------------------------------------------------------
 
-describe("a11y: modal dialog semantics (#462)", () => {
+describe("a11y: modal dialog semantics", () => {
   test("slide editor modal with role=dialog and aria-label → passes", () => {
     const modal: A11yElement = {
       role: "dialog",
@@ -246,10 +246,10 @@ describe("a11y: modal dialog semantics (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Read-only / public surface navigability (#462)
+// Read-only / public surface navigability
 // ---------------------------------------------------------------------------
 
-describe("a11y: read-only and public surface navigability (#462)", () => {
+describe("a11y: read-only and public surface navigability", () => {
   test("read-only route with no focus traps → passes", () => {
     const surface: A11yElement = {
       role: "main",
@@ -297,6 +297,41 @@ describe("a11y: read-only and public surface navigability (#462)", () => {
     );
   });
 
+  test("nested descendants are inspected for visible focus traps", () => {
+    const surface: A11yElement = {
+      role: "main",
+      children: [
+        {
+          role: "region",
+          children: [{ role: "button", tabIndex: -1, ariaHidden: false }],
+        },
+      ],
+    };
+    const result = assertReadOnlyNavigable(surface, "nested public surface");
+    assert.equal(result.passed, false);
+    assert.match(result.reason ?? "", /tabIndex < 0/);
+  });
+
+  test("deeply nested visible negative-tabIndex descendants are flagged", () => {
+    const surface: A11yElement = {
+      children: [
+        {
+          children: [
+            { role: "link", textContent: "Hidden link", tabIndex: -1 },
+          ],
+        },
+      ],
+    };
+
+    const result = assertReadOnlyNavigable(surface, "deep public surface");
+
+    assert.equal(result.passed, false);
+    assert.equal(
+      result.reason,
+      "deep public surface contains a non-hidden element with tabIndex < 0 that could trap focus",
+    );
+  });
+
   test("slide canvas decorative elements are aria-hidden (from slide-canvas.tsx)", () => {
     // The SlideCanvas component marks background/decorative SVG elements as
     // aria-hidden. Simulate that pattern here.
@@ -316,7 +351,7 @@ describe("a11y: read-only and public surface navigability (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Surface descriptors (#748)
+// Surface descriptors
 // ---------------------------------------------------------------------------
 
 const MAJOR_SURFACE_DESCRIPTORS: A11ySurfaceDescriptor[] = [
@@ -393,7 +428,7 @@ const MAJOR_SURFACE_DESCRIPTORS: A11ySurfaceDescriptor[] = [
   }),
 ];
 
-describe("a11y: surface descriptors (#748)", () => {
+describe("a11y: surface descriptors", () => {
   test("descriptor builders produce passing smoke checks", () => {
     for (const descriptor of MAJOR_SURFACE_DESCRIPTORS) {
       const summary = summariseResults(assertSurfaceDescriptor(descriptor));
@@ -403,6 +438,43 @@ describe("a11y: surface descriptors (#748)", () => {
         `${descriptor.id}: ${summary.failures.map((f) => f.reason).join(", ")}`,
       );
     }
+  });
+
+  test("dialog descriptors report missing focus-trap policy", () => {
+    const descriptor = dialogSurfaceDescriptor({
+      id: "settings.modal",
+      owner: "SettingsModal",
+      element: { role: "dialog", ariaLabel: "Settings" },
+      focusTrap: false,
+      coverage: ["src/lib/a11y/a11y-helpers.test.ts"],
+    });
+
+    assert.equal(descriptor.kind, "dialog");
+    const summary = summariseResults(assertSurfaceDescriptor(descriptor));
+    assert.equal(summary.failed, 1);
+    assert.match(summary.failures[0].reason ?? "", /no focus trap policy/);
+  });
+
+  test("dialog descriptor exposes its metadata and focus-trap kind", () => {
+    const descriptor = dialogSurfaceDescriptor({
+      id: "report.modal",
+      owner: "ReportModal",
+      element: { role: "dialog", ariaLabel: "Report" },
+      focusTrap: true,
+      coverage: ["src/lib/a11y/a11y-helpers.test.ts"],
+    });
+
+    assert.equal(descriptor.id, "report.modal");
+    assert.equal(descriptor.kind, "focus-trap");
+    assert.equal(descriptor.owner, "ReportModal");
+    assert.match(descriptor.policy, /dialog semantics/);
+    assert.deepEqual(descriptor.coverage, [
+      "src/lib/a11y/a11y-helpers.test.ts",
+    ]);
+    assert.deepEqual(
+      descriptor.checks.map((check) => check.passed),
+      [true, true, true],
+    );
   });
 
   test("major modal, fullscreen, editor, and public surfaces are covered", () => {
@@ -429,7 +501,7 @@ describe("a11y: surface descriptors (#748)", () => {
 // summariseResults helper
 // ---------------------------------------------------------------------------
 
-describe("a11y: summariseResults utility (#462)", () => {
+describe("a11y: summariseResults utility", () => {
   test("all passed: failed = 0, passed = N", () => {
     const results = [
       { check: "a", passed: true },
@@ -456,10 +528,10 @@ describe("a11y: summariseResults utility (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #462/#752: Known canvas keyboard backlog references
+// Known canvas keyboard backlog references
 // ---------------------------------------------------------------------------
 
-describe("a11y: known canvas keyboard limitations (#462, ADR 0002)", () => {
+describe("a11y: known canvas keyboard limitations", () => {
   /**
    * The slide canvas keyboard model now covers the R1–R3 requirements of
    * ADR 0002: keyboard move (nudge) and resize, deterministic traversal with
@@ -480,9 +552,9 @@ describe("a11y: known canvas keyboard limitations (#462, ADR 0002)", () => {
    *  - Connector create (between two selected elements) + endpoint reattach
    *
    * Tracked backlog (accepted limitations, ADR 0002 A1/A2):
-   *  - #930 Free-draw connector authoring via keyboard (default-endpoint
+   *  - Free-draw connector authoring via keyboard (default-endpoint
    *    insertion + reattach ships; free arbitrary routing remains pointer-only)
-   *  - #931 Keyboard rotation (decorative, pointer-only)
+   *  - Keyboard rotation (decorative, pointer-only)
    */
   test("limitation documentation: deferred canvas keyboard coverage is linked", () => {
     const backlogIssues = [930, 931];

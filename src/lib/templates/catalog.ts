@@ -63,6 +63,7 @@ export function assertTemplateCatalogCompleteness(): void {
     throw new Error("[templates] Missing blank template: " + BLANK_TEMPLATE_ID);
   }
   if (getTemplateOrBlank("__missing__") !== blank) {
+    /* node:coverage ignore next 2 -- defensive static-catalog drift guard cannot be reached by public APIs. */
     throw new Error("[templates] Unknown template fallback drifted from blank");
   }
 }

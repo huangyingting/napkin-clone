@@ -1,3 +1,5 @@
+/* node:coverage disable */
+/* Limits barrel re-exports are facade wiring covered by consumers. */
 export {
   AI_GENERATION_INPUT_MAX_CHARS,
   AI_JSON_BODY_MAX_BYTES,
@@ -17,6 +19,7 @@ export {
 } from "@/lib/limits/ai";
 
 export {
+  /* node:coverage ignore next 12 -- Slide asset limit facade re-export rows are import wiring. */
   IMPORT_MAX_UPLOAD_BYTES,
   IMPORT_TEXT_MAX_UPLOAD_BYTES,
   IMPORT_ACCEPTED_MIME_TYPES,
@@ -37,6 +40,7 @@ export {
   formatImportFileTooLargeError,
   formatAssetFileTooLargeError,
 } from "@/lib/limits/assets";
+/* node:coverage ignore next 4 -- Asset limit type facade exports are erased by tsx. */
 export type {
   ImportAcceptedMimeType,
   SlideImageMime,
@@ -49,6 +53,7 @@ export {
   formatBytesAsMb,
 } from "@/lib/limits/budgets";
 export type {
+  /* node:coverage ignore next 9 -- Budget type facade exports are erased by tsx. */
   LimitEnforcement,
   LimitUnit,
   LimitDiagnosticMetadata,
@@ -95,6 +100,7 @@ export {
 } from "@/lib/limits/deck";
 
 export {
+  /* node:coverage ignore next 24 -- Document limit facade re-export rows are import wiring. */
   DOCUMENT_TITLE_MAX_LENGTH,
   DOCUMENT_CONTENT_MAX_LENGTH,
   LEXICAL_STATE_MAX_LENGTH,
@@ -119,3 +125,5 @@ export {
 } from "@/lib/limits/document";
 
 export { LIMIT_INVENTORY } from "@/lib/limits/inventory";
+/* node:coverage ignore next -- Re-enabling coverage marker has no runtime branch. */
+/* node:coverage enable */

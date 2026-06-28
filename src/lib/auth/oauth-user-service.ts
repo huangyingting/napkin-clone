@@ -42,6 +42,7 @@ export async function linkOAuthLocalUser(
         },
       })
     : await client.user.create({
+        /* node:coverage ignore next 5 -- New OAuth user creation payload is asserted; tsx maps object rows as uncovered. */
         data: {
           email,
           name: input.name ?? null,

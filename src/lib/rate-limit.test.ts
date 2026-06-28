@@ -9,6 +9,7 @@ import {
 } from "@/lib/ai/quota";
 import {
   getClientIp,
+  createPrismaRateLimitStore,
   hashIdentifier,
   rateLimitSubject,
   retryAfterSeconds,
@@ -316,6 +317,144 @@ describe("prismaRateLimitStore shape (#482)", () => {
       typeof (store as RateLimitStore & { atomicIncrement?: unknown })
         .atomicIncrement,
       "function",
+    );
+  });
+});
+
+function createFakeRateLimitClient() {
+  type Row = { subject: string; count: number; resetAt: Date };
+  const rows = new Map<string, Row>();
+  return {
+    rows,
+    rateLimitHit: {
+      async findUnique({ where }: { where: { subject: string } }) {
+        return rows.get(where.subject) ?? null;
+      },
+      async upsert({
+        where,
+        create,
+        update,
+      }: {
+        where: { subject: string };
+        create: Row;
+        update: Partial<Row>;
+      }) {
+        const current = rows.get(where.subject);
+        if (current) {
+          Object.assign(current, update);
+          return current;
+        }
+        rows.set(where.subject, { ...create });
+        return rows.get(where.subject)!;
+      },
+      async updateMany({
+        where,
+        data,
+      }: {
+        where: {
+          subject: string;
+          count: { lt: number };
+          resetAt: { gt: Date };
+        };
+        data: { count: { increment: number } };
+      }) {
+        const current = rows.get(where.subject);
+        if (
+          !current ||
+          current.count >= where.count.lt ||
+          current.resetAt.getTime() <= where.resetAt.gt.getTime()
+        ) {
+          return { count: 0 };
+        }
+        current.count += data.count.increment;
+        return { count: 1 };
+      },
+    },
+  };
+}
+
+describe("createPrismaRateLimitStore", () => {
+  it("gets and sets persisted windows", async () => {
+    const client = createFakeRateLimitClient();
+    const store = createPrismaRateLimitStore(client as never);
+
+    assert.equal(await store.get("anonymous:hash"), undefined);
+    await store.set("anonymous:hash", { count: 2, resetAt: 1_000 });
+
+    assert.deepEqual(await store.get("anonymous:hash"), {
+      count: 2,
+      resetAt: 1_000,
+    });
+  });
+
+  it("atomically increments a live window and reports remaining capacity", async () => {
+    const client = createFakeRateLimitClient();
+    client.rows.set("anonymous:hash", {
+      subject: "anonymous:hash",
+      count: 1,
+      resetAt: new Date(1_000),
+    });
+    const store = createPrismaRateLimitStore(client as never);
+
+    const result = await store.atomicIncrement!("anonymous:hash", {
+      limit: 3,
+      windowMs: 1_000,
+      now: 500,
+    });
+
+    assert.deepEqual(result, {
+      allowed: true,
+      remaining: 1,
+      limit: 3,
+      resetAt: 1_000,
+    });
+    assert.equal(client.rows.get("anonymous:hash")?.count, 2);
+  });
+
+  it("starts a new window when no row exists or the old window expired", async () => {
+    const client = createFakeRateLimitClient();
+    const store = createPrismaRateLimitStore(client as never);
+
+    assert.deepEqual(
+      await store.atomicIncrement!("anonymous:hash", {
+        limit: 2,
+        windowMs: 1_000,
+        now: 5_000,
+      }),
+      { allowed: true, remaining: 1, limit: 2, resetAt: 6_000 },
+    );
+
+    client.rows.set("anonymous:hash", {
+      subject: "anonymous:hash",
+      count: 2,
+      resetAt: new Date(5_500),
+    });
+    assert.deepEqual(
+      await store.atomicIncrement!("anonymous:hash", {
+        limit: 2,
+        windowMs: 1_000,
+        now: 6_000,
+      }),
+      { allowed: true, remaining: 1, limit: 2, resetAt: 7_000 },
+    );
+  });
+
+  it("blocks when a live window is already at the limit", async () => {
+    const client = createFakeRateLimitClient();
+    client.rows.set("anonymous:hash", {
+      subject: "anonymous:hash",
+      count: 2,
+      resetAt: new Date(10_000),
+    });
+    const store = createPrismaRateLimitStore(client as never);
+
+    assert.deepEqual(
+      await store.atomicIncrement!("anonymous:hash", {
+        limit: 2,
+        windowMs: 1_000,
+        now: 5_000,
+      }),
+      { allowed: false, remaining: 0, limit: 2, resetAt: 10_000 },
     );
   });
 });

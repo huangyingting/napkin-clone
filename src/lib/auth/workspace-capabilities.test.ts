@@ -1,5 +1,5 @@
 /**
- * Unit tests for the workspace capability helper (issue #483).
+ * Unit tests for the workspace capability helper.
  *
  * Mirrors the document-permissions.test.ts pattern: DB-free, pure-function
  * tests covering every (role, capability) combination and all canonical actors.
@@ -212,6 +212,42 @@ test("assertWorkspaceCapability: no-access error says 'Workspace not found.' wit
     assert.equal(error.accessDecision?.status, 404);
     assert.equal(error.accessDecision?.concealResource, true);
   }
+});
+
+test("WorkspacePermissionError preserves capability and access decision fields", () => {
+  const accessDecision = workspaceCapabilityAccessDecision(
+    capabilitiesForWorkspaceRole("editor"),
+    "manage",
+  );
+  if (accessDecision.allow) {
+    throw new Error("Expected manage decision to be denied for editor.");
+  }
+  const error = new WorkspacePermissionError(
+    "Only the workspace owner may perform this action.",
+    "manage",
+    accessDecision,
+  );
+
+  assert.equal(error.name, "WorkspacePermissionError");
+  assert.equal(error.capability, "manage");
+  assert.equal(error.accessDecision, accessDecision);
+});
+
+test("workspaceCapabilities combines role derivation with capability flags", () => {
+  const caps = workspaceCapabilities(
+    {
+      ownerId: OWNER,
+      members: [{ userId: "user-admin", role: "OWNER" as any }],
+    },
+    "user-admin",
+  );
+
+  assert.deepEqual(caps, {
+    role: "owner",
+    canView: true,
+    canMutate: true,
+    canManage: true,
+  });
 });
 
 test("assertWorkspaceCapability: viewer mutate denial carries a clear message", () => {

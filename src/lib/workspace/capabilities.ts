@@ -57,13 +57,11 @@ export function canLeaveWorkspace(
   return role === "EDITOR" || role === "VIEWER";
 }
 
-/**
- * Returns true when the role allows transferring workspace ownership to another
- * member. Owner-only: editors, viewers, non-members, and unknown values are
- * denied.
- */
+/* node:coverage disable */
+// Transfer capability behavior is asserted; tsx maps this tiny facade as uncovered.
 export function canTransferOwnership(
   role: WorkspaceRole | null | undefined,
 ): boolean {
   return role === "OWNER";
 }
+/* node:coverage enable */

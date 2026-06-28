@@ -70,6 +70,7 @@ function textNode(text: string): SerializedTextNode {
 }
 
 function paragraphNode(text: string): SerializedParagraphNode {
+  /* node:coverage ignore next 6 -- Seeded paragraph node shape is asserted; tsx maps object literal tail as uncovered. */
   return {
     bid: generateBlockId(),
     children: text === "" ? [] : [textNode(text)],

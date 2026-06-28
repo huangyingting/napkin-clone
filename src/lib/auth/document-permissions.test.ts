@@ -8,10 +8,13 @@ import {
   documentCapabilityAccessDecision,
   documentCapabilities,
   DocumentPermissionError,
+  getDocumentCapabilities,
+  requireDocumentCapability,
   type Capability,
   type DocumentRole,
   type DocumentRoleInput,
 } from "./document-permissions";
+import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
 // Fixtures: four canonical actors against one workspace document.
@@ -22,6 +25,31 @@ const WS_OWNER = "user-ws-owner";
 const EDITOR = "user-editor";
 const VIEWER = "user-viewer";
 const STRANGER = "user-stranger";
+
+function stubPrismaMethod<T extends object, K extends keyof T>(
+  t: { after: (fn: () => void) => void },
+  object: T,
+  methodName: K,
+  implementation: (...args: any[]) => unknown,
+): { calls: unknown[][] } {
+  const original = object[methodName];
+  const calls: unknown[][] = [];
+  const wrapped = (...args: unknown[]) => {
+    calls.push(args);
+    return (implementation as (...args: unknown[]) => unknown)(...args);
+  };
+  Object.defineProperty(object, methodName, {
+    value: wrapped,
+    configurable: true,
+  });
+  t.after(() => {
+    Object.defineProperty(object, methodName, {
+      value: original,
+      configurable: true,
+    });
+  });
+  return { calls };
+}
 
 /** A workspace document owned by OWNER, in a workspace owned by WS_OWNER. */
 function workspaceDoc(): DocumentRoleInput {
@@ -272,6 +300,74 @@ test("documentCapabilityAccessDecision maps document denials to taxonomy", () =>
   assert.deepEqual(
     documentCapabilityAccessDecision(capabilitiesForRole("owner"), "manage"),
     { allow: true, resource: { kind: "document" }, capability: "manage" },
+  );
+});
+
+test("getDocumentCapabilities returns none when the document is absent", async (t) => {
+  const findUnique = stubPrismaMethod(
+    t,
+    prisma.document,
+    "findUnique",
+    async () => null,
+  );
+
+  const result = await getDocumentCapabilities("user-1", "missing-doc");
+
+  assert.deepEqual(result, { ...capabilitiesForRole("none"), document: null });
+  assert.deepEqual((findUnique.calls[0]![0] as any).where, {
+    id: "missing-doc",
+  });
+});
+
+test("getDocumentCapabilities hides soft-deleted rows unless requested", async (t) => {
+  stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+    id: "doc-1",
+    ownerId: "user-1",
+    workspaceId: null,
+    deletedAt: new Date("2026-01-01T00:00:00Z"),
+    workspace: null,
+  }));
+
+  assert.deepEqual(await getDocumentCapabilities("user-1", "doc-1"), {
+    ...capabilitiesForRole("none"),
+    document: null,
+  });
+  assert.deepEqual(
+    await getDocumentCapabilities("user-1", "doc-1", { includeDeleted: true }),
+    {
+      ...capabilitiesForRole("owner"),
+      document: { id: "doc-1", ownerId: "user-1", workspaceId: null },
+    },
+  );
+});
+
+test("requireDocumentCapability returns identity on success and typed denial on missing document", async (t) => {
+  stubPrismaMethod(t, prisma.document, "findUnique", async ({ where }: any) =>
+    where.id === "doc-1"
+      ? {
+          id: "doc-1",
+          ownerId: "user-1",
+          workspaceId: null,
+          deletedAt: null,
+          workspace: null,
+        }
+      : null,
+  );
+
+  const allowed = await requireDocumentCapability("user-1", "doc-1", "manage");
+  assert.deepEqual(allowed.document, {
+    id: "doc-1",
+    ownerId: "user-1",
+    workspaceId: null,
+  });
+  assert.equal(allowed.canManage, true);
+
+  await assert.rejects(
+    () => requireDocumentCapability("user-1", "missing", "view"),
+    (error) =>
+      error instanceof DocumentPermissionError &&
+      error.capability === null &&
+      error.accessDecision?.reason === "resource-not-found",
   );
 });
 

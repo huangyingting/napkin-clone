@@ -8,7 +8,14 @@ import {
   classifyPageRoute,
   pageRouteAccessManifest,
 } from "@/lib/auth/page-route-access-manifest";
-import { isProxyRouteMatched } from "@/lib/auth/route-protection-policy";
+import {
+  authorizeRouteAccess,
+  isAuthPageRoute,
+  isProtectedRoute,
+  isProxyRouteMatched,
+  isPublicRoute,
+  routeProtectionPolicy,
+} from "@/lib/auth/route-protection-policy";
 
 const REPO_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -88,4 +95,23 @@ test("#986: page access manifest proxy flags stay in sync with proxy policy", ()
       `${entry.pattern} proxy flag drifted`,
     );
   }
+});
+
+test("route protection policy classifies pages and redirects authenticated auth pages", () => {
+  assert.equal(
+    routeProtectionPolicy.proxy.excludedPaths.includes("/favicon.ico"),
+    true,
+  );
+  assert.equal(isProtectedRoute("/app/documents"), true);
+  assert.equal(isAuthPageRoute("/login"), true);
+  assert.equal(isPublicRoute("/"), true);
+  assert.equal(isProxyRouteMatched("/api/auth/session"), false);
+
+  const result = authorizeRouteAccess({
+    isLoggedIn: true,
+    nextUrl: new URL("https://textiq.example/login"),
+  });
+  assert.ok(result instanceof Response);
+  assert.equal(result.status, 302);
+  assert.equal(result.headers.get("location"), "https://textiq.example/app");
 });

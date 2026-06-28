@@ -1,7 +1,9 @@
+/* node:coverage ignore start -- Route pattern type is erased and only appears in source-map coverage. */
 type RoutePattern = {
   path: string;
   match: "exact" | "prefix";
 };
+/* node:coverage ignore stop */
 
 export const routeProtectionPolicy = {
   authenticatedHome: "/app",

@@ -84,6 +84,13 @@ test("buildErrorLog normalizes non-Error values", () => {
   assert.equal(buildErrorLog("s", "x").errorName, "Error");
 });
 
+test("buildErrorLog stringifies unserializable non-Error values safely", () => {
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+
+  assert.equal(buildErrorLog("s", circular).message, "[object Object]");
+});
+
 test("isSensitiveKey matches secrets and raw-input keys, not safe ones", () => {
   for (const key of [
     "text",
@@ -134,6 +141,18 @@ test("logError emits a single JSON line with no raw newline", () => {
   assert.equal(parsed.scope, "api.generate");
   assert.equal(parsed.requestId, "abc");
   assert.equal(parsed.apiKey, REDACTED);
+});
+
+test("logError swallows console serialization failures", () => {
+  const original = console.error;
+  console.error = () => {
+    throw new Error("stderr unavailable");
+  };
+  try {
+    assert.doesNotThrow(() => logError("api.generate", new Error("boom")));
+  } finally {
+    console.error = original;
+  }
 });
 
 test("buildInfoLog redacts sensitive context keys and keeps counts", () => {
@@ -194,4 +213,16 @@ test("logInfo emits a single JSON line with no raw newline", () => {
   assert.equal(parsed.requestId, "abc");
   assert.equal(parsed.slideCount, 5);
   assert.equal(parsed.apiKey, REDACTED);
+});
+
+test("logInfo swallows console serialization failures", () => {
+  const original = console.info;
+  console.info = () => {
+    throw new Error("stdout unavailable");
+  };
+  try {
+    assert.doesNotThrow(() => logInfo("api.generate-deck", "deck-generated"));
+  } finally {
+    console.info = original;
+  }
 });

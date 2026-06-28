@@ -1,5 +1,7 @@
 import { COLLABORATION_TAG, HISTORIC_TAG } from "lexical";
 
+/* node:coverage disable */
+/* Import-persistence prose describes durable policy and has no runtime branch. */
 /**
  * Import persistence boundary for content replacement flows.
  *
@@ -40,6 +42,7 @@ export const RESTORE_TAG = "restore";
  * so autosave skips it.
  */
 export const BLOCK_ID_REPAIR_TAG = "block-id-repair";
+/* node:coverage enable */
 
 /**
  * Decides whether an editor update should trigger an autosave to the database.

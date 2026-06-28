@@ -18,11 +18,8 @@ import {
   type Orientation,
 } from "@/lib/ai/prompt";
 import { formatVisualInputTooLongError } from "@/lib/limits";
-import {
-  VISUAL_KINDS,
-  isVisualKind,
-  type VisualKind,
-} from "@/lib/visual/schema";
+import { VISUAL_KINDS, isVisualKind } from "@/lib/visual/schema";
+import type { VisualKind } from "@/lib/visual/schema";
 
 export interface GeneratePayload {
   text: string;

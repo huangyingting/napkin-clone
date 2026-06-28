@@ -44,6 +44,7 @@ import { PERSONAL_DATA_EXPORT_SECTIONS } from "@/lib/privacy/personal-data-inven
 
 export const ACCOUNT_EXPORT_VERSION = 3;
 
+/* node:coverage ignore next 46 -- Export snapshot interfaces are TypeScript-only payload contracts. */
 export interface ExportUserInput {
   id: string;
   email: string;
@@ -221,6 +222,7 @@ export interface AccountExport {
     };
     createdAt: string;
     updatedAt: string;
+    /* node:coverage ignore next 9 -- Nested export payload interface rows are TypeScript-only. */
     visuals: Array<{
       id: string;
       type: string;

@@ -119,6 +119,7 @@ import {
   isPlan,
   PLAN_ENTITLEMENTS,
 } from "@/lib/billing/catalog";
+import { MockBillingProvider } from "@/lib/billing/mock-provider";
 
 function makeMockProvider(db: ReturnType<typeof makeFakeDb>) {
   return {
@@ -211,6 +212,116 @@ describe("MockBillingProvider", () => {
       plan: "free",
       creditBalance: 500,
       creditPeriodStart: null,
+    });
+  });
+
+  describe("MockBillingProvider production safeguards", () => {
+    it("rejects unknown plans before touching billing state", async () => {
+      const provider = new MockBillingProvider();
+
+      const result = await provider.changePlan(
+        "user-mock",
+        "enterprise" as Plan,
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.plan, "free");
+      assert.match(result.message, /Unknown plan/);
+    });
+
+    it("does not grant paid plans in production", async () => {
+      const env = process.env as Record<string, string | undefined>;
+      const previousNodeEnv = process.env.NODE_ENV;
+      env.NODE_ENV = "production";
+      try {
+        const provider = new MockBillingProvider();
+        const result = await provider.changePlan("user-mock", "plus");
+
+        assert.strictEqual(result.success, false);
+        assert.strictEqual(result.plan, "free");
+        assert.match(result.message, /Mock billing cannot grant paid plans/);
+      } finally {
+        if (previousNodeEnv === undefined) {
+          delete env.NODE_ENV;
+        } else {
+          env.NODE_ENV = previousNodeEnv;
+        }
+      }
+    });
+
+    it("cancelSubscriptionImmediately is a no-op for the mock provider", async () => {
+      const provider = new MockBillingProvider();
+
+      await assert.doesNotReject(() =>
+        provider.cancelSubscriptionImmediately("user-mock"),
+      );
+    });
+
+    it("applies a paid plan through injected local billing dependencies", async () => {
+      const calls: Array<{ userId: string; plan: Plan }> = [];
+      const provider = new MockBillingProvider({
+        applyLocalPlanChange: async (userId, plan) => {
+          calls.push({ userId, plan });
+        },
+      });
+
+      const result = await provider.changePlan("user-mock", "plus");
+
+      assert.deepEqual(calls, [{ userId: "user-mock", plan: "plus" }]);
+      assert.deepEqual(result, {
+        success: true,
+        plan: "plus",
+        message: "Plan updated to plus.",
+      });
+    });
+
+    it("returns free when cancelling without an active subscription", async () => {
+      let markedUserId: string | null = null;
+      const provider = new MockBillingProvider({
+        getBillingSubscription: async () => null,
+        markSubscriptionCancelAtPeriodEnd: async (userId) => {
+          markedUserId = userId;
+        },
+      });
+
+      const result = await provider.cancelSubscription("user-no-subscription");
+
+      assert.equal(markedUserId, null);
+      assert.deepEqual(result, {
+        success: true,
+        plan: "free",
+        message: "No active subscription to cancel.",
+      });
+    });
+
+    it("marks an existing subscription for period-end cancellation", async () => {
+      let markedUserId: string | null = null;
+      const provider = new MockBillingProvider({
+        getBillingSubscription: async () => ({
+          plan: "pro",
+          status: "active",
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          currentPeriodStart: new Date("2026-06-01T00:00:00Z"),
+          currentPeriodEnd: new Date("2026-07-01T00:00:00Z"),
+          cancelAtPeriodEnd: false,
+        }),
+        markSubscriptionCancelAtPeriodEnd: async (userId) => {
+          markedUserId = userId;
+        },
+      });
+
+      const result = await provider.cancelSubscription(
+        "user-with-subscription",
+      );
+
+      assert.equal(markedUserId, "user-with-subscription");
+      assert.deepEqual(result, {
+        success: true,
+        plan: "pro",
+        message:
+          "Subscription will be cancelled at the end of the current period.",
+      });
     });
   });
 

@@ -47,11 +47,12 @@ export function hashVerificationToken(rawToken: string): string {
   return hashSingleUseToken(rawToken);
 }
 
+/* @preserve node:coverage ignore next 6 -- Verification-token aliases are TypeScript-only facade exports. */
 /** Why a token can't be used, when {@link evaluateVerificationToken} rejects. */
 export type VerificationTokenRejection = SingleUseTokenRejection;
 
 export type VerificationTokenEvaluation = SingleUseTokenEvaluation;
-
+/* node:coverage ignore next 7 -- Verification-token evaluator documentation is a source-map-only row; behavior is asserted. */
 /**
  * Decides whether a verification token may be used *now*, given the facts about
  * the looked-up row. A token is valid only when it exists, has not already been

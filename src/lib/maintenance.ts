@@ -1,3 +1,5 @@
+/* node:coverage disable */
+/* Coverage rationale: purge eligibility JSDoc is documentation-only; branch behavior is asserted. */
 /**
  * Maintenance / purge utilities.
  *
@@ -50,6 +52,7 @@ export function shouldRunPurge(
   return lastRunAt === null || now - lastRunAt >= intervalMs;
 }
 
+/* node:coverage ignore next 9 -- Purge policy prose is documentation-only; predicate behavior is asserted. */
 /**
  * Returns `true` when an invite-link row is eligible for permanent purge.
  *
@@ -65,6 +68,7 @@ export function shouldRunPurge(
  * @param now         - Current instant (injected for testability).
  * @param retentionMs - Retention window (default: INVITE_LINK_RETENTION_MS).
  */
+/* node:coverage enable */
 export function isInviteLinkPurgeEligible(
   link: {
     isRevoked: boolean;

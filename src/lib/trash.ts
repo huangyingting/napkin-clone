@@ -1,3 +1,5 @@
+/* node:coverage ignore start */
+/* Coverage rationale: trash module prose and type contract are documentation/type-only. */
 /**
  * Trash / recovery-window utilities.
  *
@@ -23,6 +25,7 @@ export type TrashStatus = {
   /** True when the recovery window has elapsed — document is purgeable. */
   purgeEligible: boolean;
 };
+/* node:coverage ignore stop */
 
 /**
  * Returns the trash status for a document given its `deletedAt` timestamp.

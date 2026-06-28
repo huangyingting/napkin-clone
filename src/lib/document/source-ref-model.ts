@@ -118,12 +118,15 @@ export function enumerateDeckDependencies(
 // Dependency health check
 // ---------------------------------------------------------------------------
 
+/* node:coverage disable */
+/* Dependency health DTO type is erased at runtime. */
 /** Health status of a single dependency. */
 export type DependencyHealth = {
   dependency: DocumentDeckDependency;
   /** Resolution result from the anchor resolver. */
   resolution: AnchorResolution<DocumentBlock>;
 };
+/* node:coverage enable */
 
 /**
  * Classifies every deck→document dependency against the current document

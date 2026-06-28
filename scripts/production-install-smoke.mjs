@@ -23,7 +23,7 @@ const requiredRuntimeModules = [
   "react-dom",
 ];
 
-function resolveModule(name) {
+export function resolveModule(name) {
   try {
     return require.resolve(name, { paths: [repoRoot] });
   } catch (error) {
@@ -83,16 +83,19 @@ export function checkProductionInstall({
   return { generatedClient, resolvedModules };
 }
 
-function main() {
-  const result = checkProductionInstall();
-  console.log(
+export function runProductionInstallSmoke({
+  check = checkProductionInstall,
+  stdout = console.log,
+} = {}) {
+  const result = check();
+  stdout(
     `Production install smoke passed (${result.resolvedModules.length} runtime modules resolved; Prisma client present).`,
   );
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   try {
-    main();
+    runProductionInstallSmoke();
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

@@ -154,7 +154,9 @@ export function resolveSlideElementRef(
       };
 }
 
+/* node:coverage ignore next 4 -- Comment-anchor states are asserted; tsx maps this signature as uncovered. */
 export function resolveCommentAnchor(
+  /* node:coverage ignore next -- Signature parameter row is a source-map artifact. */
   anchor: SlideCommentAnchor,
   deck: Deck | null | undefined,
 ): AnchorResolution<SlideCommentAnchor> {

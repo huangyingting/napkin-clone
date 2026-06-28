@@ -680,6 +680,7 @@ export const _testOnly = {
   allowUpgradeAttempt,
   messageListener,
   setupConnection,
+  send,
   rawSocketClosed,
   scheduleEviction,
   cancelEviction,

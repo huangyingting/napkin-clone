@@ -105,7 +105,11 @@ function matchesWhere(comment: FakeComment, where: FakeWhere): boolean {
     ) {
       return false;
     }
-    if (typeof where.slideId === "object" && comment.slideId === null) {
+    if (
+      where.slideId !== null &&
+      typeof where.slideId === "object" &&
+      comment.slideId === null
+    ) {
       return false;
     }
   }
@@ -278,6 +282,32 @@ test("comment service lists canonical threads after injected view context", asyn
   assert.equal(threads[0].replies[0].body, "Reply");
 });
 
+test("comment service filters list results by anchor scope and slide", async () => {
+  const db = new FakeDb([
+    rootComment({ id: "text-thread", anchorType: "text", anchorText: "Text" }),
+    rootComment({ id: "slide-1-thread", slideId: "slide-1" }),
+    rootComment({ id: "slide-2-thread", slideId: "slide-2" }),
+  ]);
+  const { service } = makeService(db);
+
+  const textThreads = await service.listComments("doc-1", {
+    anchorScope: "text",
+  });
+  const slideThreads = await service.listComments("doc-1", {
+    anchorScope: "slide",
+    slideId: "slide-1",
+  });
+
+  assert.deepEqual(
+    textThreads.map((thread) => thread.id),
+    ["text-thread"],
+  );
+  assert.deepEqual(
+    slideThreads.map((thread) => thread.id),
+    ["slide-1-thread"],
+  );
+});
+
 test("comment service creates replies and rejects missing parent comments", async () => {
   const db = new FakeDb([rootComment({ id: "thread-1" })]);
   const { service } = makeService(db, "author-2");
@@ -298,6 +328,76 @@ test("comment service creates replies and rejects missing parent comments", asyn
         body: "Nope",
       }),
     /Parent comment not found/,
+  );
+});
+
+test("comment service creates trimmed text and visual root comments", async () => {
+  const db = new FakeDb();
+  const { service } = makeService(db, "author-1");
+
+  await service.createComment("doc-1", {
+    body: "  Text anchor  ",
+    anchorType: "text",
+    anchorText: "  Selected paragraph  ",
+  });
+  await service.createComment("doc-1", {
+    body: "Visual anchor",
+    anchorType: "visual",
+    anchorNodeId: "visual-node-1",
+  });
+
+  assert.equal(db.comments[0].body, "Text anchor");
+  assert.equal(db.comments[0].anchorType, "text");
+  assert.equal(db.comments[0].anchorText, "Selected paragraph");
+  assert.equal(db.comments[0].anchorNodeId, null);
+  assert.equal(db.comments[1].anchorType, "visual");
+  assert.equal(db.comments[1].anchorNodeId, "visual-node-1");
+});
+
+test("comment service creates slide root comments with geometry", async () => {
+  const db = new FakeDb();
+  const { service } = makeService(db, "author-1");
+
+  await service.createComment("doc-1", {
+    body: "Slide anchor",
+    slideId: "slide-1",
+    elementId: "element-1",
+    anchorGeometry: { x: 1, y: 2, width: 3, height: 4 } as any,
+  });
+
+  assert.equal(db.comments[0].slideId, "slide-1");
+  assert.equal(db.comments[0].elementId, "element-1");
+  assert.deepEqual(db.comments[0].anchorGeometry, { x: 1, y: 2 });
+});
+
+test("comment service rejects empty created and edited comments", async () => {
+  const db = new FakeDb([
+    rootComment({ id: "thread-1", authorId: "author-1" }),
+  ]);
+  const { service } = makeService(db, "author-1");
+
+  await assert.rejects(
+    () => service.createComment("doc-1", { body: "   " }),
+    /Comment cannot be empty/,
+  );
+  await assert.rejects(
+    () => service.editComment("thread-1", "   "),
+    /Comment cannot be empty/,
+  );
+});
+
+test("comment service reports missing comments for mutation helpers", async () => {
+  const db = new FakeDb();
+  const { service } = makeService(db, "viewer");
+
+  await assert.rejects(
+    () => service.editComment("missing", "Updated"),
+    /not found/,
+  );
+  await assert.rejects(() => service.deleteComment("missing"), /not found/);
+  await assert.rejects(
+    () => service.setCommentResolved("missing", true),
+    /not found/,
   );
 });
 
@@ -350,6 +450,38 @@ test("comment service owns lifecycle float helpers", async () => {
   await service.floatCommentsOnSlideDelete("doc-1", "sl-1");
   assert.equal(db.comments[0].slideId, null);
   assert.equal(db.comments[0].anchorGeometry, null);
+});
+
+test("comment service finds and floats orphaned slide comments after restore", async () => {
+  const db = new FakeDb([
+    rootComment({
+      id: "attached",
+      slideId: "slide-1",
+      elementId: "element-1",
+    }),
+    rootComment({
+      id: "orphaned",
+      slideId: "missing-slide",
+      elementId: "element-2",
+      anchorGeometry: { x: 12, y: 34 },
+    }),
+  ]);
+  const { service } = makeService(db);
+  const deck = {
+    slides: [{ id: "slide-1", elements: [{ id: "element-1" }] }],
+  } as never;
+
+  assert.deepEqual(await service.getOrphanedCommentIds("doc-1", deck), [
+    "orphaned",
+  ]);
+
+  const result = await service.floatOrphanedCommentsAfterRestore("doc-1", deck);
+  assert.deepEqual(result, { floatedCount: 1 });
+  const orphaned = db.comments.find((comment) => comment.id === "orphaned");
+  assert.ok(orphaned);
+  assert.equal(orphaned.slideId, null);
+  assert.equal(orphaned.elementId, null);
+  assert.equal(orphaned.anchorGeometry, null);
 });
 
 test("comment service counts unread and marks document comments read", async () => {

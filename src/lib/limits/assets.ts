@@ -39,6 +39,7 @@ export const BRAND_FONT_ACCEPTED_TYPES = [
   "application/x-font-ttf",
   "application/x-font-otf",
   "application/octet-stream",
+  /* node:coverage ignore next -- Accepted-type tuple is asserted; tsx maps the closing row as uncovered. */
 ] as const;
 
 export const BRAND_LOGO_ACCEPTED_TYPES = [

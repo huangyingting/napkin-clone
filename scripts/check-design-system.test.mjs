@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
-import { scanText } from "./check-design-system.mjs";
+import { scanDesignSystem, scanText } from "./check-design-system.mjs";
 
 test("design-system check: flags raw numeric z-index classes", () => {
   const findings = scanText(
@@ -83,4 +86,109 @@ test("design-system check: flags non-DS neutral utility classes", () => {
   assert.equal(findings.length, 2);
   assert.equal(findings[0].rule, "non-ds-neutral-class");
   assert.equal(findings[1].match, "text-gray-900");
+});
+
+test("design-system check: skips token-owned chrome files but still scans z-index", () => {
+  assert.deepEqual(
+    scanText(
+      "src/app/globals.css",
+      ".x { @apply bg-[#fff] rounded-[4px] shadow-[0_0_1px_black] z-50; }",
+    ),
+    [
+      {
+        filePath: "src/app/globals.css",
+        lineNumber: 1,
+        columnNumber: 60,
+        rule: "raw-z-index",
+        match: "z-50",
+      },
+    ],
+  );
+  assert.deepEqual(
+    scanText(
+      "src/components/ui/button.tsx",
+      '<button className="bg-[#fff] rounded-[4px] shadow-[0_0_1px_black]" />',
+    ),
+    [],
+  );
+});
+
+test("design-system check: scans repository roots and skips unsupported files", (t) => {
+  const repoRoot = join(process.cwd(), ".squad", "design-system-scan-test");
+  t.after(() => rmSync(repoRoot, { recursive: true, force: true }));
+  mkdirSync(join(repoRoot, "src", "app", "nested"), { recursive: true });
+  mkdirSync(join(repoRoot, "src", "app", ".next"), { recursive: true });
+  mkdirSync(join(repoRoot, "src", "components"), { recursive: true });
+  mkdirSync(join(repoRoot, "src", "components", "node_modules", "package"), {
+    recursive: true,
+  });
+  writeFileSync(
+    join(repoRoot, "src", "app", "nested", "bad.tsx"),
+    '<div className="z-50 bg-[#abcdef]" />\n',
+  );
+  writeFileSync(
+    join(repoRoot, "src", "components", "bad.css"),
+    ".x { @apply rounded-[2px]; }\n",
+  );
+  writeFileSync(
+    join(repoRoot, "src", "components", "notes.md"),
+    '<div className="z-50" />\n',
+  );
+  writeFileSync(
+    join(repoRoot, "src", "app", ".next", "ignored.tsx"),
+    '<div className="z-50" />\n',
+  );
+  writeFileSync(
+    join(
+      repoRoot,
+      "src",
+      "components",
+      "node_modules",
+      "package",
+      "ignored.tsx",
+    ),
+    '<div className="z-50" />\n',
+  );
+
+  const findings = scanDesignSystem(repoRoot);
+
+  assert.deepEqual(
+    findings.map((finding) => finding.rule),
+    ["raw-z-index", "raw-hex-class", "raw-radius-class"],
+  );
+});
+
+test("design-system CLI reports pass and failure results", (t) => {
+  const scriptPath = join(process.cwd(), "scripts", "check-design-system.mjs");
+  const passRoot = join(process.cwd(), ".squad", "design-system-cli-pass");
+  const failRoot = join(process.cwd(), ".squad", "design-system-cli-fail");
+  t.after(() => {
+    rmSync(passRoot, { recursive: true, force: true });
+    rmSync(failRoot, { recursive: true, force: true });
+  });
+  mkdirSync(join(passRoot, "src", "app"), { recursive: true });
+  mkdirSync(join(failRoot, "src", "app"), { recursive: true });
+  writeFileSync(
+    join(passRoot, "src", "app", "ok.tsx"),
+    '<div className="z-modal bg-surface" />\n',
+  );
+  writeFileSync(
+    join(failRoot, "src", "app", "bad.tsx"),
+    '<div className="z-50 shadow-[0_0_1px_black]" />\n',
+  );
+
+  const passed = spawnSync(process.execPath, [scriptPath], {
+    cwd: passRoot,
+    encoding: "utf8",
+  });
+  assert.equal(passed.status, 0);
+  assert.match(passed.stdout, /passed/);
+
+  const failed = spawnSync(process.execPath, [scriptPath], {
+    cwd: failRoot,
+    encoding: "utf8",
+  });
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /raw-z-index/);
+  assert.match(failed.stderr, /raw-shadow-class/);
 });

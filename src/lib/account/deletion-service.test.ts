@@ -96,6 +96,21 @@ test("deleteAccountForUser validates confirmation before deleting", async () => 
   assert.deepEqual(client._deleted, []);
 });
 
+test("deleteAccountForUser fails closed when the user row is unavailable", async () => {
+  const client = makeClient(null);
+
+  const result = await deleteAccountForUser(
+    { userId: "missing-user", confirmation: "DELETE" },
+    { client },
+  );
+
+  assert.deepEqual(result, {
+    ok: false,
+    error: "Could not delete your account. Please try again.",
+  });
+  assert.deepEqual(client._deleted, []);
+});
+
 test("deleteAccountForUser attempts billing cancellation and still deletes if cancellation fails", async () => {
   const client = makeClient("ada@example.com");
   const cancelCalls: string[] = [];
@@ -186,4 +201,24 @@ test("deleteAccountForUser fails closed when erasure verification finds residual
     audits.at(-1)?.event,
     "account.deletion.erasure_verification_failed",
   );
+});
+
+test("deleteAccountForUser fails closed when deletion dependencies throw", async () => {
+  const client = makeClient("ada@example.com");
+
+  const result = await deleteAccountForUser(
+    { userId: "u1", confirmation: "DELETE" },
+    {
+      client,
+      getCancellationState: async () => {
+        throw new Error("subscription lookup unavailable");
+      },
+    },
+  );
+
+  assert.deepEqual(result, {
+    ok: false,
+    error: "Could not delete your account. Please try again.",
+  });
+  assert.deepEqual(client._deleted, []);
 });

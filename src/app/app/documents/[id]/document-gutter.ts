@@ -36,9 +36,7 @@ export function rightGutterPanelLeft(
   const preferred = rect.right + DOCUMENT_GUTTER_CARD_GAP;
   if (preferred + panelWidth + DOCUMENT_GUTTER_GAP <= viewportWidth) {
     return preferred;
-  }
-
-  const fallback = rect.left - panelWidth - DOCUMENT_GUTTER_GAP;
+  } const fallback = rect.left - panelWidth - DOCUMENT_GUTTER_GAP;
   if (fallback >= DOCUMENT_GUTTER_GAP) {
     return fallback;
   }

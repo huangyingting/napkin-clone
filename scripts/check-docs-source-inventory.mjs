@@ -81,8 +81,8 @@ export function scanEnvReadsInText(filePath, text) {
     /\bprocess\.env\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]/g,
     /(?<!process\.)\benv\.([A-Z][A-Z0-9_]*)/g,
     /\b(?:readOptional|readRequired|readPositiveIntEnv)\(\s*["']([A-Z][A-Z0-9_]*)["']/g,
-    /\b(?:limitEnv|windowEnv):\s*["']([A-Z][A-Z0-9_]*)["']/g,
-    /\benvKey:\s*["']([A-Z][A-Z0-9_]*)["']/g,
+    /\b(?:limitEnv|windowEnv):\s*["']([A-Za-z_][A-Za-z0-9_]*)["']/g,
+    /\benvKey:\s*["']([A-Za-z_][A-Za-z0-9_]*)["']/g,
   ];
 
   for (const pattern of literalPatterns) {

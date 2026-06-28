@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -8,10 +11,35 @@ import {
   findTestFileNameProblems,
   findUnclassifiedTestFiles,
   findWeakTestTitleProblems,
+  listTestFiles,
   listSubsystems,
+  main,
   runTestCoverageAudit,
   scanTestText,
 } from "./test-subsystem.mjs";
+
+function fixtureRoot(name) {
+  const root = join(process.cwd(), ".squad", "test-fixtures", name);
+  rmSync(root, { recursive: true, force: true });
+  mkdirSync(root, { recursive: true });
+  return root;
+}
+
+function captureConsole(callback) {
+  const originalLog = console.log;
+  const originalError = console.error;
+  const logs = [];
+  const errors = [];
+  console.log = (...args) => logs.push(args.join(" "));
+  console.error = (...args) => errors.push(args.join(" "));
+  try {
+    const result = callback();
+    return { result, logs, errors };
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+  }
+}
 
 const SAMPLE_TEST_FILES = [
   "e2e/present-export.spec.ts",
@@ -143,6 +171,27 @@ test("test naming audit flags weak test case names", () => {
   );
 });
 
+test("test naming audit handles js-like files, property calls, and nonliteral titles", () => {
+  assert.deepEqual(
+    scanTestText(
+      "scripts/example.test.mjs",
+      [
+        'test.only("save", () => {});',
+        "test(dynamicTitle, () => {});",
+        'it("ok", () => {});',
+      ].join("\n"),
+    ).map((item) => item.match),
+    ["save", "ok"],
+  );
+  assert.deepEqual(
+    scanTestText(
+      "src/lib/example.test.jsx",
+      'it("renders clearly", () => {});',
+    ),
+    [],
+  );
+});
+
 test("test coverage audit combines coverage and naming checks", () => {
   const audit = runTestCoverageAudit(["src/lib/unowned/example.test.ts"], {
     readText: () => 'test("works", () => {});',
@@ -161,4 +210,165 @@ test("test naming audit reads supplied test file text", () => {
   );
 
   assert.equal(findings[0].rule, "weak-test-title");
+});
+
+test("test naming audit sorts weak titles by file before line number", () => {
+  const findings = findWeakTestTitleProblems(
+    ["src/lib/auth/z.test.ts", "src/lib/auth/a.test.ts"],
+    {
+      readText: () => 'test("works", () => {});',
+    },
+  );
+
+  assert.deepEqual(
+    findings.map((finding) => finding.filePath),
+    ["src/lib/auth/a.test.ts", "src/lib/auth/z.test.ts"],
+  );
+});
+
+test("test subsystem file lister finds unit, script, and e2e tests", () => {
+  const root = fixtureRoot("test-subsystem-list-files");
+  mkdirSync(join(root, "src", "lib", "auth"), { recursive: true });
+  mkdirSync(join(root, "scripts"), { recursive: true });
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  mkdirSync(join(root, "node_modules", "ignored"), { recursive: true });
+  writeFileSync(join(root, "src", "lib", "auth", "password.test.ts"), "");
+  writeFileSync(join(root, "scripts", "collab-auth.test.mjs"), "");
+  writeFileSync(join(root, "e2e", "present-export.spec.ts"), "");
+  writeFileSync(join(root, "node_modules", "ignored", "fake.test.ts"), "");
+
+  assert.deepEqual(listTestFiles(root), [
+    "e2e/present-export.spec.ts",
+    "scripts/collab-auth.test.mjs",
+    "src/lib/auth/password.test.ts",
+  ]);
+});
+
+test("test subsystem main handles help, list, check failure, and bad input", () => {
+  const root = fixtureRoot("test-subsystem-main-controls");
+  mkdirSync(join(root, "src", "lib", "unowned"), { recursive: true });
+  writeFileSync(
+    join(root, "src", "lib", "unowned", "example.test.ts"),
+    'test("works", () => {});',
+  );
+
+  assert.equal(captureConsole(() => main(["--help"], root)).result, 0);
+  assert.equal(captureConsole(() => main(["--list"], root)).result, 0);
+
+  const check = captureConsole(() => main(["--check"], root));
+  assert.equal(check.result, 1);
+  assert.ok(
+    check.errors.some((line) => line.includes("Unclassified test files")),
+  );
+
+  const badSubsystem = captureConsole(() => main(["not-a-subsystem"], root));
+  assert.equal(badSubsystem.result, 1);
+  assert.ok(
+    badSubsystem.errors.some((line) => line.includes("Unknown subsystem")),
+  );
+
+  const noSubsystem = captureConsole(() => main([], root));
+  assert.equal(noSubsystem.result, 1);
+  assert.ok(
+    noSubsystem.errors.some((line) => line.includes("Choose at least one")),
+  );
+});
+
+test("test subsystem main prints all audit problem groups and success", () => {
+  const badRoot = fixtureRoot("test-subsystem-main-audit-groups");
+  mkdirSync(join(badRoot, "scripts"), { recursive: true });
+  writeFileSync(
+    join(badRoot, "scripts", "collab-auth.spec.mjs"),
+    'import test from "node:test";\ntest("works", () => {});\n',
+  );
+
+  const audit = captureConsole(() => main(["--check"], badRoot));
+  assert.equal(audit.result, 1);
+  assert.ok(
+    audit.errors.some((line) => line.includes("Unclear test file names")),
+  );
+  assert.ok(audit.errors.some((line) => line.includes("Weak test case names")));
+
+  const currentRepo = captureConsole(() => main(["--check"], process.cwd()));
+  assert.equal(currentRepo.result, 0);
+  assert.ok(currentRepo.logs.some((line) => line.includes("audit passed")));
+});
+
+test("test subsystem main supports dry runs, skipped e2e notices, and empty selections", () => {
+  const root = fixtureRoot("test-subsystem-main-dry-run");
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(join(root, "e2e", "present-export.spec.ts"), "");
+
+  const dryRun = captureConsole(() =>
+    main(["presentation", "--dry-run"], root),
+  );
+  assert.equal(dryRun.result, 0);
+  assert.ok(dryRun.logs.some((line) => line.includes("skipped")));
+  assert.ok(
+    dryRun.logs.some((line) =>
+      line.includes("No unit/script commands selected"),
+    ),
+  );
+
+  const noCommands = captureConsole(() => main(["presentation"], root));
+  assert.equal(noCommands.result, 1);
+  assert.ok(
+    noCommands.errors.some((line) =>
+      line.includes("No unit/script tests selected"),
+    ),
+  );
+
+  const noFiles = captureConsole(() => main(["auth"], root));
+  assert.equal(noFiles.result, 1);
+  assert.ok(
+    noFiles.errors.some((line) => line.includes("No test files matched")),
+  );
+});
+
+test("test subsystem main runs selected script commands", () => {
+  const root = fixtureRoot("test-subsystem-main-run-scripts");
+  mkdirSync(join(root, "scripts"), { recursive: true });
+  writeFileSync(
+    join(root, "scripts", "collab-auth.test.mjs"),
+    [
+      'import test from "node:test";',
+      'import assert from "node:assert/strict";',
+      'test("collaboration auth fixture passes", () => assert.equal(1, 1));',
+    ].join("\n"),
+  );
+
+  const result = captureConsole(() => main(["collaboration"], root)).result;
+
+  assert.equal(result, 0);
+});
+
+test("test subsystem main returns failing command status", () => {
+  const root = fixtureRoot("test-subsystem-main-failing-script");
+  mkdirSync(join(root, "scripts"), { recursive: true });
+  writeFileSync(
+    join(root, "scripts", "collab-auth.test.mjs"),
+    'import test from "node:test";\ntest("collaboration auth fixture fails", () => { throw new Error("nope"); });\n',
+  );
+
+  const originalPath = process.env.PATH;
+  let result;
+  try {
+    process.env.PATH = "";
+    result = captureConsole(() => main(["collaboration"], root)).result;
+  } finally {
+    process.env.PATH = originalPath;
+  }
+
+  assert.equal(result, 1);
+});
+
+test("test subsystem CLI supports help mode", () => {
+  const result = spawnSync(
+    process.execPath,
+    [join(process.cwd(), "scripts", "test-subsystem.mjs"), "--help"],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Usage:/);
 });

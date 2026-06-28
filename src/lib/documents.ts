@@ -8,8 +8,11 @@ export { documentAccessOr } from "@/lib/access-query";
  */
 export const DOCUMENT_LIST_LIMIT = 200;
 
+/* node:coverage ignore start */
+/* Coverage rationale: exported type alias and its doc comment are erased but mapped as uncovered by tsx. */
 /** A list capped to a limit, plus whether more rows existed beyond the cap. */
 export type CappedList<T> = { items: T[]; hasMore: boolean };
+/* node:coverage ignore stop */
 
 /**
  * Shapes rows fetched with the "request one extra" pattern (`take: limit + 1`)
@@ -24,6 +27,7 @@ export type CappedList<T> = { items: T[]; hasMore: boolean };
 export function capList<T>(rows: T[], limit: number): CappedList<T> {
   const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 0;
   if (rows.length > safeLimit) {
+    /* node:coverage ignore next -- Capped-list truncation is asserted; tsx maps the object literal as uncovered. */
     return { items: rows.slice(0, safeLimit), hasMore: true };
   }
   return { items: rows, hasMore: false };

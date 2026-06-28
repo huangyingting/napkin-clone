@@ -10,7 +10,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildFontFaceCss } from "@/lib/brand/font-face";
+import { buildFontFaceCss, injectBrandFontFace } from "@/lib/brand/font-face";
 import { validateBrandInput } from "@/lib/brand/schema";
 import { validateFontUpload, FONT_MAX_BYTES } from "@/lib/brand/upload";
 
@@ -21,6 +21,83 @@ import { validateFontUpload, FONT_MAX_BYTES } from "@/lib/brand/upload";
 describe("buildFontFaceCss", () => {
   it("returns empty string when fontFamily is null", () => {
     assert.equal(buildFontFaceCss(null, "data:font/woff2;base64,abc"), "");
+  });
+
+  describe("injectBrandFontFace", () => {
+    it("no-ops when document is not available", () => {
+      assert.doesNotThrow(() =>
+        injectBrandFontFace("brand-1", "'Acme'", "/fonts/acme.woff2"),
+      );
+    });
+
+    it("injects one keyed style element for a custom brand font", () => {
+      const appended: Array<{ id: string; textContent: string }> = [];
+      const elements = new Map<string, { id: string; textContent: string }>();
+      const fakeDocument = {
+        getElementById: (id: string) => elements.get(id) ?? null,
+        createElement: (_tag: string) => ({ id: "", textContent: "" }),
+        head: {
+          appendChild: (style: { id: string; textContent: string }) => {
+            appended.push(style);
+            elements.set(style.id, style);
+          },
+        },
+      };
+      const previousDocument = globalThis.document;
+      Object.defineProperty(globalThis, "document", {
+        value: fakeDocument,
+        configurable: true,
+      });
+
+      try {
+        injectBrandFontFace(
+          "brand-1",
+          "'Acme', sans-serif",
+          "/fonts/acme.woff2",
+        );
+        injectBrandFontFace(
+          "brand-1",
+          "'Acme', sans-serif",
+          "/fonts/acme.woff2",
+        );
+      } finally {
+        Object.defineProperty(globalThis, "document", {
+          value: previousDocument,
+          configurable: true,
+        });
+      }
+
+      assert.equal(appended.length, 1);
+      assert.equal(appended[0].id, "brand-font-brand-1");
+      assert.match(appended[0].textContent, /font-family: 'Acme'/);
+      assert.match(appended[0].textContent, /\/fonts\/acme\.woff2/);
+    });
+
+    it("does not inject when font CSS cannot be built", () => {
+      const fakeDocument = {
+        getElementById: (_id: string) => null,
+        createElement: (_tag: string) => ({ id: "", textContent: "" }),
+        head: {
+          appendChild: () => {
+            throw new Error("appendChild should not be called");
+          },
+        },
+      };
+      const previousDocument = globalThis.document;
+      Object.defineProperty(globalThis, "document", {
+        value: fakeDocument,
+        configurable: true,
+      });
+
+      try {
+        injectBrandFontFace("brand-2", null, "/fonts/acme.woff2");
+      } finally {
+        Object.defineProperty(globalThis, "document", {
+          value: previousDocument,
+          configurable: true,
+        });
+      }
+    });
   });
 
   it("returns empty string when fontAssetUrl is null", () => {

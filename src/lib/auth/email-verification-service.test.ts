@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { consumeEmailVerificationToken } from "@/lib/auth/email-verification-service";
+import { configureAuthEmailDeliveryPort } from "@/lib/auth/email";
+import {
+  consumeEmailVerificationToken,
+  requestEmailVerificationForUser,
+} from "@/lib/auth/email-verification-service";
 import {
   VERIFICATION_TOKEN_REJECTION_MESSAGE,
   hashVerificationToken,
@@ -100,4 +104,239 @@ test("consumeEmailVerificationToken allows exactly one concurrent consumer", asy
     1,
   );
   assert.equal(client._verifiedAt.length, 1);
+});
+
+test("consumeEmailVerificationToken verifies a valid token and revokes sibling tokens", async () => {
+  const client = makeVerificationClient("raw-verification-token");
+  const originalInfo = console.info;
+  console.info = () => {};
+
+  try {
+    const result = await consumeEmailVerificationToken(
+      "raw-verification-token",
+      client,
+    );
+    assert.deepEqual(result, { status: "verified" });
+    assert.equal(client._verifiedAt.length, 1);
+  } finally {
+    console.info = originalInfo;
+  }
+});
+
+test("consumeEmailVerificationToken rejects when the atomic consume loses the race", async () => {
+  const rawToken = "race-loser-token";
+  const client = {
+    emailVerificationToken: {
+      findUnique: async () => ({
+        id: "evt_1",
+        userId: "u1",
+        expiresAt: new Date(Date.now() + 60_000),
+        usedAt: null,
+      }),
+    },
+    $transaction: async () => false,
+  } as unknown as typeof prisma;
+  const originalInfo = console.info;
+  console.info = () => {};
+
+  try {
+    assert.deepEqual(await consumeEmailVerificationToken(rawToken, client), {
+      status: "error",
+      message: VERIFICATION_TOKEN_REJECTION_MESSAGE.used,
+    });
+  } finally {
+    console.info = originalInfo;
+  }
+});
+
+test("requestEmailVerificationForUser handles missing and already-verified users", async () => {
+  const originalInfo = console.info;
+  console.info = () => {};
+  try {
+    const missingClient = {
+      user: {
+        findUnique: async () => null,
+      },
+    } as unknown as typeof prisma;
+    assert.deepEqual(
+      await requestEmailVerificationForUser("missing-user", missingClient),
+      {
+        ok: false,
+        error: "Could not send a verification email. Please try again.",
+      },
+    );
+
+    const verifiedClient = {
+      user: {
+        findUnique: async () => ({
+          email: "verified@example.com",
+          emailVerified: new Date("2026-01-01T00:00:00Z"),
+        }),
+      },
+    } as unknown as typeof prisma;
+    const result = await requestEmailVerificationForUser(
+      "verified-user",
+      verifiedClient,
+    );
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.data, { status: "already_verified" });
+  } finally {
+    console.info = originalInfo;
+  }
+});
+
+test("requestEmailVerificationForUser returns a generic error when storage fails", async () => {
+  const client = {
+    user: {
+      findUnique: async () => ({
+        email: "person@example.com",
+        emailVerified: null,
+      }),
+    },
+    emailVerificationToken: {
+      updateMany: () => Promise.resolve({ count: 1 }),
+      create: () => Promise.resolve({ id: "evt_new" }),
+    },
+    $transaction: async () => {
+      throw new Error("database unavailable");
+    },
+  } as unknown as typeof prisma;
+  const originalError = console.error;
+  console.error = () => {};
+
+  try {
+    assert.deepEqual(await requestEmailVerificationForUser("user_1", client), {
+      ok: false,
+      error: "Could not send a verification email. Please try again.",
+    });
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("requestEmailVerificationForUser revokes old tokens, creates a new token, and sends email", async () => {
+  const sentMessages: unknown[] = [];
+  const transactionOps: unknown[] = [];
+  configureAuthEmailDeliveryPort({
+    async send(message) {
+      sentMessages.push(message);
+    },
+  });
+  const client = {
+    user: {
+      findUnique: async () => ({
+        email: "person@example.com",
+        emailVerified: null,
+      }),
+    },
+    emailVerificationToken: {
+      updateMany: (args: unknown) => {
+        transactionOps.push(args);
+        return Promise.resolve({ count: 1 });
+      },
+      create: (args: unknown) => {
+        transactionOps.push(args);
+        return Promise.resolve({ id: "evt_new" });
+      },
+    },
+    $transaction: async (ops: Array<Promise<unknown>>) => Promise.all(ops),
+  } as unknown as typeof prisma;
+
+  const originalInfo = console.info;
+  console.info = () => {};
+  try {
+    const result = await requestEmailVerificationForUser("user_1", client);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.data, { status: "sent" });
+    assert.equal(transactionOps.length, 2);
+    assert.equal(sentMessages.length, 1);
+    assert.match(JSON.stringify(sentMessages[0]), /person@example\.com/);
+  } finally {
+    console.info = originalInfo;
+    configureAuthEmailDeliveryPort(null);
+  }
+});
+
+test("consumeEmailVerificationToken rejects empty, missing, expired, and used tokens", async () => {
+  assert.deepEqual(
+    await consumeEmailVerificationToken("", {} as typeof prisma),
+    {
+      status: "error",
+      message: VERIFICATION_TOKEN_REJECTION_MESSAGE.not_found,
+    },
+  );
+
+  const rawToken = "rejected-token";
+  const clientForRecord = (
+    record: {
+      id: string;
+      userId: string;
+      expiresAt: Date;
+      usedAt: Date | null;
+    } | null,
+  ) =>
+    ({
+      emailVerificationToken: {
+        findUnique: async () => record,
+      },
+    }) as unknown as typeof prisma;
+
+  assert.deepEqual(
+    await consumeEmailVerificationToken(rawToken, clientForRecord(null)),
+    {
+      status: "error",
+      message: VERIFICATION_TOKEN_REJECTION_MESSAGE.not_found,
+    },
+  );
+  assert.deepEqual(
+    await consumeEmailVerificationToken(
+      rawToken,
+      clientForRecord({
+        id: "evt_expired",
+        userId: "user_1",
+        expiresAt: new Date(Date.now() - 1_000),
+        usedAt: null,
+      }),
+    ),
+    {
+      status: "error",
+      message: VERIFICATION_TOKEN_REJECTION_MESSAGE.expired,
+    },
+  );
+  assert.deepEqual(
+    await consumeEmailVerificationToken(
+      rawToken,
+      clientForRecord({
+        id: "evt_used",
+        userId: "user_1",
+        expiresAt: new Date(Date.now() + 60_000),
+        usedAt: new Date(),
+      }),
+    ),
+    {
+      status: "error",
+      message: VERIFICATION_TOKEN_REJECTION_MESSAGE.used,
+    },
+  );
+});
+
+test("consumeEmailVerificationToken returns a retryable error when storage throws", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  const client = {
+    emailVerificationToken: {
+      findUnique: async () => {
+        throw new Error("database unavailable");
+      },
+    },
+  } as unknown as typeof prisma;
+
+  try {
+    assert.deepEqual(await consumeEmailVerificationToken("raw-token", client), {
+      status: "error",
+      message: "Could not verify your email. Please try again.",
+    });
+  } finally {
+    console.error = originalError;
+  }
 });

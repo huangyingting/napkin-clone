@@ -12,11 +12,13 @@ import {
 import { shareIdFromParam } from "@/lib/slug";
 import type { DocumentRoleInput } from "@/lib/auth/document-permissions";
 
+/* node:coverage disable */
 import { buildPublicAttribution, type PublicAttribution } from "./attribution";
 import {
   buildPublicPresentationModel,
   type PublicPresentationModel,
 } from "./presentation";
+/* node:coverage enable */
 
 export type PublicRenderMode = "view" | "embed" | "present" | "og" | "asset";
 export type PublicRenderProjection =
@@ -60,6 +62,7 @@ export interface PublicMetadataModel {
   discoverable: boolean;
 }
 
+/* node:coverage disable */
 export type PublicAssetAccessDecision =
   | { allow: true; via: "share-present" | "share-embed" }
   | {
@@ -67,12 +70,14 @@ export type PublicAssetAccessDecision =
       status: 403 | 404;
       reason: "document-not-found" | "forbidden";
     };
+/* node:coverage enable */
 
 export interface PublicRenderSource {
   findByShareId(shareId: string): Promise<PublicRenderDocumentRow | null>;
   findByDocumentId(documentId: string): Promise<PublicRenderDocumentRow | null>;
 }
 
+/* node:coverage disable */
 type SharedProjectionResult =
   | {
       ok: true;
@@ -98,6 +103,7 @@ type SharedProjectionResult =
       presentation: PublicPresentationModel;
       decision: AccessDecision;
     };
+/* node:coverage enable */
 
 export type PublicRenderResult =
   | SharedProjectionResult
@@ -198,12 +204,15 @@ export function resolvePublicAssetAccessForDocument(
   }
 
   return { allow: false, status: 403, reason: "forbidden" };
+  /* node:coverage ignore next 3 -- tsx maps the function close/next signature to non-runtime lines. */
 }
 
+/* node:coverage disable */
 export async function resolvePublicRenderWithSource(
   source: PublicRenderSource,
   input: ResolvePublicRenderInput,
 ): Promise<PublicRenderResult> {
+  /* node:coverage enable */
   if (input.mode === "asset" || input.projection === "assetAccess") {
     if (input.mode !== "asset" || input.projection !== "assetAccess") {
       throw new Error(

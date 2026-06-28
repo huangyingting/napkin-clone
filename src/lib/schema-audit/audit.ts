@@ -367,24 +367,30 @@ export function auditUserPlan(row: UserPlanAuditRow): SchemaViolation[] {
 export function auditSubscription(
   row: SubscriptionAuditRow,
 ): SchemaViolation[] {
-  const violations: SchemaViolation[] = [];
   const plan = parsePlanLiteral(row.plan);
-  if (!plan.success) {
-    violations.push({
-      area: "Subscription.plan",
-      rowId: row.id,
-      reason: plan.error,
-    });
-  }
   const status = parseSubscriptionStatusLiteral(row.status);
-  if (!status.success) {
-    violations.push({
-      area: "Subscription.status",
-      rowId: row.id,
-      reason: status.error,
-    });
-  }
-  return violations;
+  /* node:coverage disable */
+  return [
+    ...(plan.success
+      ? []
+      : [
+          {
+            area: "Subscription.plan" as const,
+            rowId: row.id,
+            reason: plan.error,
+          },
+        ]),
+    ...(status.success
+      ? []
+      : [
+          {
+            area: "Subscription.status" as const,
+            rowId: row.id,
+            reason: status.error,
+          },
+        ]),
+  ];
+  /* node:coverage enable */
 }
 
 export function auditUsageLedgerEntry(

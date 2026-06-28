@@ -150,10 +150,13 @@ const DETAIL_GUIDANCE: Record<DetailLevel, string> = {
     "Keep the visual compact: use the minimum nodes that capture the core idea, and keep labels to 1–3 words each.",
 };
 
+/* node:coverage ignore next 5 -- Message-builder JSDoc is documentation-only; output shape is asserted. */
+/* node:coverage disable -- Message-builder JSDoc is documentation-only; output shape is asserted. */
 /**
  * Builds the chat messages for a generation request. The output JSON object must
  * be `{ "visuals": [ ...at least `count` visuals... ] }`.
  */
+/* node:coverage enable */
 export function buildGenerationMessages(
   options: BuildMessagesOptions,
 ): ChatMessage[] {

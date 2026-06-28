@@ -1,5 +1,5 @@
 /**
- * Unit tests for the Brand Studio entitlement guard (issue #94).
+ * Unit tests for the Brand Studio entitlement guard.
  *
  * Pure — no DB, no network. Covers the free / Plus / Pro decision matrix and the
  * throw/allow behavior of the assert guards.
@@ -52,6 +52,18 @@ describe("brandEntitlementDecision", () => {
 });
 
 describe("assertCanBrand", () => {
+  it("constructs a typed 403 entitlement error", () => {
+    const error = new BrandEntitlementError(
+      "brandStyles",
+      BRAND_STYLES_UPGRADE_MESSAGE,
+    );
+
+    assert.strictEqual(error.name, "BrandEntitlementError");
+    assert.strictEqual(error.feature, "brandStyles");
+    assert.strictEqual(error.status, 403);
+    assert.strictEqual(error.message, BRAND_STYLES_UPGRADE_MESSAGE);
+  });
+
   it("throws a 403 BrandEntitlementError for free", () => {
     assert.throws(
       () => assertCanBrand(brandEntitlementDecision("free")),
@@ -68,6 +80,12 @@ describe("assertCanBrand", () => {
   it("allows Plus and Pro", () => {
     assert.doesNotThrow(() => assertCanBrand(brandEntitlementDecision("plus")));
     assert.doesNotThrow(() => assertCanBrand(brandEntitlementDecision("pro")));
+  });
+
+  it("allows an explicit canBrand decision", () => {
+    assert.doesNotThrow(() =>
+      assertCanBrand({ canBrand: true, canFontUpload: false }),
+    );
   });
 });
 
@@ -91,6 +109,12 @@ describe("assertCanFontUpload", () => {
   it("allows Pro only", () => {
     assert.doesNotThrow(() =>
       assertCanFontUpload(brandEntitlementDecision("pro")),
+    );
+  });
+
+  it("allows an explicit canFontUpload decision", () => {
+    assert.doesNotThrow(() =>
+      assertCanFontUpload({ canBrand: false, canFontUpload: true }),
     );
   });
 });

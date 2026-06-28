@@ -6,6 +6,8 @@ import {
   buildPasswordResetUrl,
   configureAuthEmailDeliveryPort,
   deliverAuthEmail,
+  deliverPasswordResetEmail,
+  deliverVerificationEmail,
   type AuthEmailMessage,
 } from "@/lib/auth/email";
 
@@ -67,6 +69,70 @@ test("auth email delivery port receives concrete reset and verification messages
     sent.map((message) => message.kind),
     ["password-reset", "email-verification"],
   );
+});
+
+test("auth email wrappers send concrete reset and verification messages", async () => {
+  const sent: AuthEmailMessage[] = [];
+  configureAuthEmailDeliveryPort({
+    async send(message) {
+      sent.push(message);
+    },
+  });
+
+  try {
+    await deliverPasswordResetEmail({
+      to: "ada@example.com",
+      resetUrl: "https://textiq.example/reset-password?token=reset",
+    });
+    await deliverVerificationEmail({
+      to: "ada@example.com",
+      verifyUrl: "https://textiq.example/verify-email/verify",
+    });
+  } finally {
+    configureAuthEmailDeliveryPort(null);
+  }
+
+  assert.deepEqual(
+    sent.map((message) => message.kind),
+    ["password-reset", "email-verification"],
+  );
+});
+
+test("development fallback logs reset and verification links", async () => {
+  configureAuthEmailDeliveryPort(null);
+  const previousNodeEnv = process.env.NODE_ENV;
+  const originalInfo = console.info;
+  const lines: string[] = [];
+  const env = process.env as Record<string, string | undefined>;
+
+  env.NODE_ENV = "development";
+  console.info = (line?: unknown) => {
+    lines.push(String(line));
+  };
+
+  try {
+    await deliverAuthEmail({
+      kind: "password-reset",
+      to: "ada@example.com",
+      resetUrl: "https://textiq.example/reset-password?token=reset",
+    });
+    await deliverAuthEmail({
+      kind: "email-verification",
+      to: "ada@example.com",
+      verifyUrl: "https://textiq.example/verify-email/verify",
+    });
+  } finally {
+    console.info = originalInfo;
+    if (previousNodeEnv === undefined) {
+      delete env.NODE_ENV;
+    } else {
+      env.NODE_ENV = previousNodeEnv;
+    }
+  }
+
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /\[password-reset\]/);
+  assert.match(lines[1], /\[email-verification\]/);
 });
 
 test("production fallback never logs live auth links", async () => {

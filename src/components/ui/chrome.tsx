@@ -1,4 +1,5 @@
 import {
+  createElement,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type LabelHTMLAttributes,
@@ -21,19 +22,9 @@ export type CardProps = HTMLAttributes<HTMLDivElement> & {
   padding?: "none" | "sm" | "md" | "lg";
 };
 
-const CARD_PADDING: Record<NonNullable<CardProps["padding"]>, string> = {
-  none: "",
-  sm: "p-3",
-  md: "p-5",
-  lg: "p-6",
-};
-
-export function Card({
-  elevation = "raised",
-  padding = "md",
-  className,
-  ...rest
-}: CardProps) {
+const CARD_PADDING: Record<NonNullable<CardProps["padding"]>, string> = { none: "", sm: "p-3", md: "p-5", lg: "p-6" };
+export function Card(props: CardProps) {
+  const { elevation = "raised", padding = "md", className, ...rest } = props;
   return (
     <div
       className={cx(
@@ -227,21 +218,24 @@ export function ToolbarButton({
   children,
   ...rest
 }: ToolbarButtonProps) {
+  const widthClass = iconOnly ? TOOLBAR_ICON_WIDTH[size] : TOOLBAR_TEXT_PADDING[size];
+  const chromeClass =
+    active === true ? TOOLBAR_BUTTON_CHROME.active : TOOLBAR_BUTTON_CHROME[tone];
+  const buttonClassName = cx(
+    "inline-flex items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-50",
+    TOOLBAR_SIZE[size],
+    widthClass,
+    TOOLBAR_SHAPE[shape],
+    chromeClass,
+    FOCUS_RING,
+    className,
+  );
+
   return (
     <button
       type={type ?? "button"}
       aria-pressed={active === undefined ? undefined : active}
-      className={cx(
-        "inline-flex items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-50",
-        TOOLBAR_SIZE[size],
-        iconOnly ? TOOLBAR_ICON_WIDTH[size] : TOOLBAR_TEXT_PADDING[size],
-        TOOLBAR_SHAPE[shape],
-        active === true
-          ? TOOLBAR_BUTTON_CHROME.active
-          : TOOLBAR_BUTTON_CHROME[tone],
-        FOCUS_RING,
-        className,
-      )}
+      className={buttonClassName}
       {...rest}
     >
       {children}
@@ -322,6 +316,10 @@ export type FieldRowProps = HTMLAttributes<HTMLDivElement> & {
   error?: ReactNode;
 };
 
+export type IconActionClusterProps = HTMLAttributes<HTMLDivElement> & {
+  bordered?: boolean;
+};
+
 export function FieldRow({
   label,
   htmlFor,
@@ -332,30 +330,23 @@ export function FieldRow({
   ...rest
 }: FieldRowProps) {
   const labelClass = "text-xs font-medium text-ds-text-secondary";
-  return (
-    <div className={cx("flex flex-col gap-1.5", className)} {...rest}>
-      {htmlFor ? (
-        <label className={labelClass} htmlFor={htmlFor}>
-          {label}
-        </label>
-      ) : (
-        <span className={labelClass}>{label}</span>
-      )}
-      {children}
-      {hint ? <p className="text-xs text-ds-text-muted">{hint}</p> : null}
-      {error ? (
-        <p role="alert" className="text-xs text-ds-danger">
-          {error}
-        </p>
-      ) : null}
-    </div>
+  const labelNode = htmlFor ? (
+    <label className={labelClass} htmlFor={htmlFor}>
+      {label}
+    </label>
+  ) : (
+    <span className={labelClass}>{label}</span>
   );
-}
+  const hintNode = hint ? (
+    <p className="text-xs text-ds-text-muted">{hint}</p>
+  ) : null;
+  const errorNode = error ? (
+    <p role="alert" className="text-xs text-ds-danger">
+      {error}
+    </p>
+  ) : null;
 
-export type IconActionClusterProps = HTMLAttributes<HTMLDivElement> & {
-  bordered?: boolean;
-};
-
+  return createElement("div", { className: cx("flex flex-col gap-1.5", className), ...rest }, labelNode, children, hintNode, errorNode); }
 export function IconActionCluster({
   bordered = true,
   className,

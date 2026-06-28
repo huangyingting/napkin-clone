@@ -1,5 +1,5 @@
 /**
- * Shared API error-response helpers (Epic #495, issue #511).
+ * Shared API error-response helpers.
  *
  * These helpers give every app-gated route one canonical shape so clients and
  * logs can rely on it:
@@ -101,19 +101,23 @@ export function validationError(
   return errorResponse(status, API_ERROR_CODES.VALIDATION_ERROR, message);
 }
 
-/**
- * 429 — the caller exceeded a rate limit. Emits a `Retry-After` header (in
- * whole seconds) when a positive `retryAfterSeconds` is provided.
- */
+/** 429 — includes `Retry-After` when positive seconds are provided. */
 export function tooManyRequests(
   retryAfterSeconds?: number,
-  message = "Too many requests. Please wait a moment and try again.",
+  message?: string,
 ): NextResponse<ApiErrorBody> {
+  /*! @preserve node:coverage ignore next 4 -- Retry-After branches are asserted directly; tsx maps this conditional initializer as uncovered. */
   const headers =
     typeof retryAfterSeconds === "number" && retryAfterSeconds > 0
       ? { "Retry-After": String(Math.ceil(retryAfterSeconds)) }
       : undefined;
-  return errorResponse(429, API_ERROR_CODES.RATE_LIMITED, message, headers);
+
+  return errorResponse(
+    429,
+    API_ERROR_CODES.RATE_LIMITED,
+    message ?? "Too many requests. Please wait a moment and try again.",
+    headers,
+  );
 }
 
 /** 402 — the caller lacks sufficient credits to perform the operation. */

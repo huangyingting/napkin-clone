@@ -89,3 +89,50 @@ test("getTemplateOrBlank falls back to Blank for unknown/missing ids", () => {
   assert.equal(getTemplateOrBlank(null).id, BLANK_TEMPLATE_ID);
   assert.equal(getTemplateOrBlank(undefined).id, BLANK_TEMPLATE_ID);
 });
+
+test("assertTemplateCatalogCompleteness rejects invalid injected catalogs", () => {
+  const originalEntries = [...TEMPLATE_CATALOG];
+  const blank = getTemplate(BLANK_TEMPLATE_ID)!;
+  const entries = TEMPLATE_CATALOG as TemplateEntry[];
+  try {
+    entries.splice(0, entries.length);
+    assert.throws(
+      () => assertTemplateCatalogCompleteness(),
+      /Catalog must contain at least one template/,
+    );
+
+    entries.push({ ...blank, id: "" });
+    assert.throws(
+      () => assertTemplateCatalogCompleteness(),
+      /Catalog entry is missing an id/,
+    );
+
+    entries.splice(
+      0,
+      entries.length,
+      { ...blank, id: BLANK_TEMPLATE_ID },
+      { ...blank, id: BLANK_TEMPLATE_ID },
+    );
+    assert.throws(
+      () => assertTemplateCatalogCompleteness(),
+      /Duplicate template id: blank/,
+    );
+
+    entries.splice(0, entries.length, { ...blank, name: "" });
+    assert.throws(
+      () => assertTemplateCatalogCompleteness(),
+      /blank is missing display metadata/,
+    );
+
+    entries.splice(0, entries.length, {
+      ...blank,
+      content: 123 as unknown as string,
+    });
+    assert.throws(
+      () => assertTemplateCatalogCompleteness(),
+      /blank content must be a string/,
+    );
+  } finally {
+    entries.splice(0, entries.length, ...originalEntries);
+  }
+});

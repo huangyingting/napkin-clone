@@ -1,3 +1,5 @@
+/* node:coverage disable */
+/* Redaction policy prose is documentation-only. */
 /**
  * Persisted-schema parse-failure telemetry (#504).
  *
@@ -25,6 +27,7 @@
  * These categories intentionally remain domain telemetry categories rather than
  * first-class `ERROR_CODES`; see `docs/diagnostics/`.
  */
+/* node:coverage enable */
 
 import { logError } from "@/lib/log";
 import redaction from "@/lib/log-redaction-core.cjs";
@@ -46,6 +49,8 @@ export const SCHEMA_FAILURE_CATEGORIES = [
 
 export type SchemaFailureCategory = (typeof SCHEMA_FAILURE_CATEGORIES)[number];
 
+/* node:coverage disable */
+/* Redaction policy prose is documentation-only. */
 /**
  * Context keys that are explicitly disallowed because they may carry raw
  * document content. These are dropped from any diagnostic context regardless of
@@ -54,6 +59,7 @@ export type SchemaFailureCategory = (typeof SCHEMA_FAILURE_CATEGORIES)[number];
  * `DeckJSON` all match.
  */
 /** True when a context key may hold raw document content and must be dropped. */
+/* node:coverage enable */
 export const isContentKey = redaction.isContentKey;
 
 /** Safe identifiers a caller may attach to a schema diagnostic. */

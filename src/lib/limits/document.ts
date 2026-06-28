@@ -49,6 +49,8 @@ export const LEXICAL_STATE_LIMIT: LimitDefinition = {
   enforcement: "enforced",
   warnAt: LEXICAL_STATE_WARN_BYTES,
   diagnostic: { scope: "document.lexical.save", metric: "lexicalStateBytes" },
+  /* Coverage rationale: static limit metadata is asserted through inventory tests; tsx maps object tail as uncovered. */
+  /* node:coverage ignore next */
   source: "src/app/app/documents/[id]/lexical-actions.ts",
 };
 

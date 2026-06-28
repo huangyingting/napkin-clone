@@ -48,31 +48,43 @@ export function setupCommands({ skipDb = false } = {}) {
   ];
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const skipDb = process.argv.includes("--no-db");
-  const envResult = ensureLocalEnv();
-  console.log(
+export function runDevSetup({
+  argv = process.argv,
+  processEnv = process.env,
+  ensureEnv = ensureLocalEnv,
+  runCommand = run,
+  stdout = console.log,
+  exit = process.exit,
+} = {}) {
+  const skipDb = argv.includes("--no-db");
+  const envResult = ensureEnv();
+  stdout(
     envResult.created
       ? "Created .env with SQLite defaults and a redacted local AUTH_SECRET."
       : ".env already exists; leaving it unchanged.",
   );
-  console.log("Repair hint: npm run dev:doctor checks the resulting setup.");
+  stdout("Repair hint: npm run dev:doctor checks the resulting setup.");
 
   const env = {
-    ...process.env,
-    DB_PROVIDER: process.env.DB_PROVIDER || "sqlite",
-    DATABASE_URL: process.env.DATABASE_URL || "file:./prisma/dev.db",
+    ...processEnv,
+    DB_PROVIDER: processEnv.DB_PROVIDER || "sqlite",
+    DATABASE_URL: processEnv.DATABASE_URL || "file:./prisma/dev.db",
   };
   for (const [command, args] of setupCommands({ skipDb })) {
-    const result = run(command, args, env);
+    const result = runCommand(command, args, env);
     if (result.status !== 0) {
-      process.exit(result.status ?? 1);
+      exit(result.status ?? 1);
+      return;
     }
   }
 
   if (skipDb) {
-    console.log(
+    stdout(
       "Skipped database setup (--no-db). Smallest repair: npm run db:push.",
     );
   }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runDevSetup();
 }

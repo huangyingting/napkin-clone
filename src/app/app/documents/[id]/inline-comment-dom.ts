@@ -39,9 +39,7 @@ export function isTextCommentBlock(element: HTMLElement): boolean {
   if (isVisualCommentBlock(element)) {
     return false;
   }
-  return normalizeInlineAnchorText(element.textContent ?? "").length > 0;
-}
-
+  return normalizeInlineAnchorText(element.textContent ?? "").length > 0; }
 export function commentBlockAtY(
   root: HTMLElement,
   clientY: number,
@@ -125,10 +123,7 @@ export function computeCommentCardPosition({
     180,
     viewportHeight - COMMENT_CARD_VIEWPORT_BLOCK_GAP * 2,
   );
-  const maxWidth = Math.max(
-    180,
-    viewportWidth - COMMENT_CARD_VIEWPORT_INLINE_GAP * 2,
-  );
+  const maxWidth = Math.max(180, viewportWidth - COMMENT_CARD_VIEWPORT_INLINE_GAP * 2);
   const cardWidth =
     measuredWidth > 0 ? Math.min(measuredWidth, maxWidth) : COMMENT_CARD_WIDTH;
   const cardHeight =

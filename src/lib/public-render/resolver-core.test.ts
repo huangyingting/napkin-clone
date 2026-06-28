@@ -7,6 +7,13 @@ import {
   type PublicRenderDocumentRow,
   type PublicRenderSource,
 } from "./resolver-core";
+import {
+  PUBLIC_RENDER_ASSET_ACCESS_SELECT,
+  PUBLIC_RENDER_DOCUMENT_SELECT,
+  PUBLIC_RENDER_METADATA_SELECT,
+  PUBLIC_RENDER_PRESENTATION_SELECT,
+  selectForPublicRenderProjection,
+} from "./resolver-selects";
 
 const NOW = new Date("2026-06-25T00:00:00Z");
 
@@ -122,6 +129,89 @@ test("resolvePublicRenderWithSource applies embed mode policy centrally", async 
   assert.equal(result.decision.concealResource, true);
 });
 
+test("resolvePublicRenderWithSource returns a concealed miss for absent shares", async () => {
+  const result = await resolvePublicRenderWithSource(source(null), {
+    params: { shareId: "missing-share" },
+    mode: "og",
+    projection: "metadata",
+    now: NOW,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.mode, "og");
+  assert.equal(result.projection, "metadata");
+  assert.equal(result.decision.allow, false);
+  if (result.decision.allow) {
+    throw new Error("Expected a denied access decision.");
+  }
+  assert.equal(result.decision.status, 404);
+  assert.equal(result.decision.safeMessage, "Shared document not found.");
+});
+
+test("resolvePublicRenderWithSource denies document projection when content is missing", async () => {
+  const result = await resolvePublicRenderWithSource(
+    source(document({ contentJson: null })),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "view",
+      projection: "document",
+      now: NOW,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.projection, "document");
+  assert.equal(result.decision.allow, false);
+});
+
+test("resolvePublicRenderWithSource returns metadata defaults for older shared rows", async () => {
+  const result = await resolvePublicRenderWithSource(
+    source(
+      document({
+        shareMetadataMode: null,
+        shareDiscoverable: null,
+        slug: null,
+      } as any),
+    ),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "og",
+      projection: "metadata",
+      now: NOW,
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok || result.projection !== "metadata") {
+    throw new Error("Expected metadata projection.");
+  }
+  assert.deepEqual(result.metadata, {
+    title: "Shared Doc",
+    contentJson: { root: { children: [] } },
+    slug: null,
+    shareId: "share123",
+    metadataMode: "generic",
+    discoverable: false,
+  });
+});
+
+test("resolvePublicRenderWithSource builds presentation projections for present mode", async () => {
+  const result = await resolvePublicRenderWithSource(source(document()), {
+    params: { shareId: "shared-doc-share123" },
+    mode: "present",
+    projection: "presentation",
+    now: NOW,
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok || result.projection !== "presentation") {
+    throw new Error("Expected presentation projection.");
+  }
+  assert.equal(result.mode, "present");
+  assert.equal(result.presentation.title, "Shared Doc");
+  assert.equal(result.presentation.attribution.ownerName, "Document owner");
+});
+
 test("resolvePublicAssetAccessForDocument preserves present-first then embed public asset access", () => {
   assert.deepEqual(resolvePublicAssetAccessForDocument(document(), NOW), {
     allow: true,
@@ -153,6 +243,51 @@ test("resolvePublicRenderWithSource resolves asset mode and projection for route
   assert.equal(result.document?.id, "doc-1");
 });
 
+test("resolvePublicRenderWithSource rejects mismatched asset mode and projection", async () => {
+  await assert.rejects(
+    resolvePublicRenderWithSource(source(document()), {
+      params: { documentId: "doc-1" },
+      mode: "asset",
+      projection: "document",
+      now: NOW,
+    }),
+    /assetAccess projection/,
+  );
+});
+
+test("resolvePublicRenderWithSource returns not-found asset decisions for missing or deleted documents", async () => {
+  const missing = await resolvePublicRenderWithSource(source(null), {
+    params: { documentId: "doc-missing" },
+    mode: "asset",
+    projection: "assetAccess",
+    now: NOW,
+  });
+  assert.equal(missing.ok, false);
+  if (missing.ok || missing.projection !== "assetAccess") {
+    throw new Error("Expected missing asset access projection.");
+  }
+  assert.deepEqual(missing.publicAccess, {
+    allow: false,
+    status: 404,
+    reason: "document-not-found",
+  });
+  assert.equal(missing.decision.allow, false);
+  if (missing.decision.allow) {
+    throw new Error("Expected a denied access decision.");
+  }
+  assert.equal(missing.decision.status, 404);
+
+  const deleted = resolvePublicAssetAccessForDocument(
+    document({ deletedAt: new Date("2026-06-24T00:00:00Z") }),
+    NOW,
+  );
+  assert.deepEqual(deleted, {
+    allow: false,
+    status: 404,
+    reason: "document-not-found",
+  });
+});
+
 test("resolvePublicAssetAccessForDocument keeps private live documents forbidden, not not-found", () => {
   assert.deepEqual(
     resolvePublicAssetAccessForDocument(
@@ -160,5 +295,24 @@ test("resolvePublicAssetAccessForDocument keeps private live documents forbidden
       NOW,
     ),
     { allow: false, status: 403, reason: "forbidden" },
+  );
+});
+
+test("selectForPublicRenderProjection returns the matching Prisma select", () => {
+  assert.equal(
+    selectForPublicRenderProjection("metadata"),
+    PUBLIC_RENDER_METADATA_SELECT,
+  );
+  assert.equal(
+    selectForPublicRenderProjection("document"),
+    PUBLIC_RENDER_DOCUMENT_SELECT,
+  );
+  assert.equal(
+    selectForPublicRenderProjection("presentation"),
+    PUBLIC_RENDER_PRESENTATION_SELECT,
+  );
+  assert.equal(
+    selectForPublicRenderProjection("assetAccess"),
+    PUBLIC_RENDER_ASSET_ACCESS_SELECT,
   );
 });

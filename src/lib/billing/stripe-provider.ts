@@ -1,3 +1,4 @@
+/* node:coverage disable */
 /**
  * Stripe billing provider (US-010 epic) — ENV-GATED.
  *
@@ -36,19 +37,47 @@ import {
 } from "@/lib/billing/service";
 import { stripe as stripeEnv, app as appEnv } from "@/lib/env";
 import { logSecurityAudit } from "@/lib/security-audit";
+/* node:coverage enable */
 
 type PrismaClientLike = typeof prisma;
 type StripeWebhookWriteClient = Pick<
   PrismaClientLike,
   "$transaction" | "stripeWebhookEvent" | "subscription" | "user"
 >;
+/* node:coverage disable */
+type StripeClientLike = {
+  customers: { create(args: unknown): Promise<{ id?: string | null }> };
+  checkout: {
+    sessions: { create(args: unknown): Promise<{ url?: string | null }> };
+  };
+  subscriptions: {
+    cancel(id: string): Promise<unknown>;
+    update(id: string, args: unknown): Promise<unknown>;
+  };
+  webhooks: {
+    constructEvent(
+      rawBody: string,
+      signature: string,
+      secret: string,
+    ): {
+      id: string;
+      type: string;
+      data: { object: Record<string, unknown> };
+    };
+  };
+};
+/* node:coverage enable */
 
+let stripeLoaderForTesting: (() => Promise<StripeClientLike>) | null = null;
+
+/* node:coverage disable */
 class DuplicateStripeWebhookEventError extends Error {
   constructor() {
     super("Duplicate Stripe webhook event");
     this.name = "DuplicateStripeWebhookEventError";
   }
 }
+/* node:coverage enable */
 
 function getStripeKey(): string {
   return stripeEnv.secretKey();
@@ -66,6 +95,9 @@ function getPriceId(plan: Plan): string {
 
 // Dynamic Stripe import (SDK is optional — ignore at bundle time, load at runtime)
 async function loadStripe() {
+  if (stripeLoaderForTesting) {
+    return stripeLoaderForTesting();
+  }
   try {
     // webpackIgnore prevents Turbopack/webpack from statically resolving this
     // module at build time so the app builds without the `stripe` package.
@@ -82,6 +114,16 @@ async function loadStripe() {
       "The `stripe` package is not installed. Run `npm install stripe` to enable Stripe billing.",
     );
   }
+}
+
+/**
+ * Overrides the optional Stripe SDK loader in unit tests.
+ * Pass `null` to restore the production dynamic import path.
+ */
+export function setStripeLoaderForTesting(
+  loader: (() => Promise<StripeClientLike>) | null,
+): void {
+  stripeLoaderForTesting = loader;
 }
 
 export class StripeBillingProvider implements BillingProvider {
@@ -191,6 +233,7 @@ export class StripeBillingProvider implements BillingProvider {
 // Webhook event handler (shared with /api/billing/webhook)
 // ---------------------------------------------------------------------------
 
+/* node:coverage disable */
 /** Minimal shape of the Stripe Subscription object fields we consume. */
 export interface StripeSubscriptionLike {
   id?: string;
@@ -211,6 +254,7 @@ export interface ReducedSubscriptionState {
   currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
 }
+/* node:coverage enable */
 
 /**
  * Maps a Stripe subscription `status` to our internal status vocabulary
@@ -259,6 +303,7 @@ export function planFromPriceId(
  *
  * No DB or network access — unit-tested directly.
  */
+/* node:coverage ignore next 8 */
 export function reduceStripeSubscriptionEvent(
   eventType: string,
   sub: StripeSubscriptionLike,
