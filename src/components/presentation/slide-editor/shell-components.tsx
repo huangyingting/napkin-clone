@@ -127,20 +127,20 @@ import {
 
 const EMPTY_VISUALS: ReadonlyMap<string, Visual> = new Map<string, Visual>();
 
-/**
- * Icons for the toolbar `...` panel menu, keyed by panel (plus a `line`
- * variant for connector appearance).
- */
-const PANEL_MENU_ICONS: Record<RightPanelTab | "line", ReactNode> = {
+/** Icons for the toolbar `...` panel menu, keyed by panel. */
+const PANEL_MENU_ICONS: Record<RightPanelTab, ReactNode> = {
   slide: <LayoutPanelLeft size={14} aria-hidden="true" />,
   arrange: <Grid3x3 size={14} aria-hidden="true" />,
   text: <Type size={14} aria-hidden="true" />,
-  appearance: <ImageIcon size={14} aria-hidden="true" />,
+  label: <Tag size={14} aria-hidden="true" />,
+  shape: <Square size={14} aria-hidden="true" />,
+  image: <ImageIcon size={14} aria-hidden="true" />,
+  adjust: <Crop size={14} aria-hidden="true" />,
+  line: <Minus size={14} aria-hidden="true" />,
   effects: <Sparkles size={14} aria-hidden="true" />,
   source: <FileText size={14} aria-hidden="true" />,
   notes: <Captions size={14} aria-hidden="true" />,
   layers: <LayoutPanelLeft size={14} aria-hidden="true" />,
-  line: <Minus size={14} aria-hidden="true" />,
 };
 
 const STAGE_FLOATING_TOOLBAR_GAP = 12;
@@ -1563,11 +1563,7 @@ export function SlideSelectionToolbar({
       (selectedElement as { source?: unknown } | null)?.source !== undefined,
   });
   const morePanels: RightPanelTab[] = [
-    ...panels.filter(
-      (panel) =>
-        panel !== "layers" &&
-        !(selectedElement?.kind === "visual" && panel === "appearance"),
-    ),
+    ...panels.filter((panel) => panel !== "layers"),
     "layers",
   ];
   const hasMultiSelection = selectedIds.length >= 2;
@@ -1724,6 +1720,16 @@ export function SlideSelectionToolbar({
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
       ) : null}
+      {showRich && selectedElement?.kind === "image" ? (
+        <>
+          {iconButton(
+            "Replace image",
+            <Replace size={14} aria-hidden="true" />,
+            () => onReplaceImage(selectedElement.id),
+          )}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
       {showRich && selectedElement && selectedElement.kind !== "visual" ? (
         <ElementToolbarContent
           element={selectedElement}
@@ -1738,16 +1744,6 @@ export function SlideSelectionToolbar({
           )}
           hideObjectActions={isEditingText}
         />
-      ) : null}
-      {showRich && selectedElement?.kind === "image" ? (
-        <>
-          {iconButton(
-            "Replace image",
-            <Replace size={14} aria-hidden="true" />,
-            () => onReplaceImage(selectedElement.id),
-          )}
-          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-        </>
       ) : null}
       {showRich && selectedVisualElement ? (
         <>
@@ -1939,24 +1935,9 @@ export function SlideSelectionToolbar({
         }
       >
         <div className="flex min-w-max flex-col">
-          {showRich && selectedElement?.kind === "image"
-            ? menuItem(
-                "Crop image",
-                <Crop size={14} aria-hidden="true" />,
-                () => onOpenPanel("appearance"),
-              )
-            : null}
           {morePanels.map((panel) => {
-            const connectorAppearance =
-              panel === "appearance" && selectedElement?.kind === "connector";
-            const label = connectorAppearance
-              ? "Line"
-              : panel === "layers"
-                ? "Layers"
-                : PANEL_LABELS[panel];
-            const icon = connectorAppearance
-              ? PANEL_MENU_ICONS.line
-              : PANEL_MENU_ICONS[panel];
+            const label = PANEL_LABELS[panel];
+            const icon = PANEL_MENU_ICONS[panel];
             return (
               <Fragment key={panel}>
                 {menuItem(label, icon, () => onOpenPanel(panel))}

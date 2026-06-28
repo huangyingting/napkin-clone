@@ -65,14 +65,14 @@ group, or a multiset is selected, those surfaces target that selection.
 
 The desktop editor is a current-object workflow:
 
-| Surface        | Responsibility                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------- |
-| Top toolbar    | Deck/session menus: Add, Insert, Design, Source, View, plus undo/redo, save, and close.                   |
-| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.          |
-| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                           |
-| Inspector      | One active task panel (Slide/Arrange/Text/Appearance/Effects/Source/Notes/Layers) for the current object. |
-| Bottom dock    | Zoom, notes, rail toggle, and status.                                                                     |
-| Slide rail     | Select, duplicate, remove, and reorder slides.                                                            |
+| Surface        | Responsibility                                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Top toolbar    | Deck/session menus: Add, Insert, Design, Source, View, plus undo/redo, save, and close.                                      |
+| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.                             |
+| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                                              |
+| Inspector      | One active task panel (Slide/Text/Label/Shape/Image/Adjust/Line/Arrange/Effects/Source/Notes/Layers) for the current object. |
+| Bottom dock    | Zoom, notes, rail toggle, and status.                                                                                        |
+| Slide rail     | Select, duplicate, remove, and reorder slides.                                                                               |
 
 On smaller surfaces, the inspector can render as a sheet while the stage remains
 the same controlled editor surface.
@@ -106,9 +106,9 @@ Slide kit | Add slide | Insert | Source | View       Undo Redo | Save status | S
   keyboard shortcut dialog. Zoom remains in the bottom dock.
 
 Fine-grained selected-element formatting stays out of the top toolbar. The
-canvas popover and inspector continue to own text style, arrangement,
-appearance, effects, notes, layers, and detailed source review for the current
-object.
+canvas popover and inspector continue to own text style, object-specific
+editing, arrangement, effects, notes, layers, and detailed source review for the
+current object.
 
 ## Stage Runtime
 
@@ -177,7 +177,7 @@ only; it does not make `SlideCanvas` mutate state.
 
 `SlideInspector` owns editing controls, not deck state. It is a task-panel
 router that renders exactly one active panel at a time —
-`Slide / Arrange / Text / Appearance / Effects / Source / Notes / Layers` — with
+`Slide / Text / Label / Shape / Image / Adjust / Line / Arrange / Effects / Source / Notes / Layers` — with
 a compact in-panel switcher for moving between the panels available to the
 current selection. The panel open state is persisted in local storage; wide
 screens default open when no preference exists, while narrow screens use a
@@ -187,10 +187,11 @@ The available panel set is computed from the selection by `availablePanels`
 (`slide-panel-ui.ts`), which also powers the canvas toolbar `...` menu so the two
 never drift. With no element selected the current object is the slide
 (`Slide / Notes / Layers`); a single element exposes its kind-specific panels
-plus `Arrange`, `Effects`, and `Layers`, with `Source` only when the element has
-a `source`; a multi-selection exposes `Arrange / Effects / Layers`. There is
-no fallback routing: when the selection changes so the active panel no longer
-applies, `SlideEditor` closes the right panel instead of guessing a replacement.
+(`Text`, `Label` + `Shape`, `Image` + `Adjust`, or `Line`) plus `Arrange`,
+`Effects`, and `Layers`, with `Source` only when the element has a `source`; a
+multi-selection exposes `Arrange / Effects / Layers`. There is no fallback
+routing: when the selection changes so the active panel no longer applies,
+`SlideEditor` closes the right panel instead of guessing a replacement.
 The object-identity header names the current object but no longer exposes a
 permanent `Name` input — element naming lives in `Layers`.
 

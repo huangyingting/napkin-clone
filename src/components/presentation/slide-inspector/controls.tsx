@@ -152,10 +152,12 @@ const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
 export function RichTextBox({
   label,
   html,
+  placeholder,
   onChange,
 }: {
   label: string;
   html: string;
+  placeholder?: string;
   onChange: (
     value: { text: string; runs: TextRun[] },
     coalesceKey?: string,
@@ -230,7 +232,9 @@ export function RichTextBox({
         ref={ref}
         role="textbox"
         aria-label={label}
+        aria-placeholder={placeholder}
         aria-multiline="true"
+        data-placeholder={placeholder}
         contentEditable
         suppressContentEditableWarning
         onInput={emitChange}
@@ -240,7 +244,7 @@ export function RichTextBox({
           onSessionEnd();
         }}
         onKeyDown={(event) => event.stopPropagation()}
-        className={`min-h-24 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
+        className={`min-h-24 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none empty:before:pointer-events-none empty:before:text-ds-text-muted empty:before:content-[attr(data-placeholder)] ${FOCUS_RING}`}
       />
     </div>
   );
@@ -263,14 +267,12 @@ export function RichTextBox({
 export function ImageElementEditor({
   element,
   deck,
-  showAdvanced,
   onUpdateElement,
   documentId,
   slideAssetPort,
 }: {
   element: ImageElement;
   deck: Deck;
-  showAdvanced: boolean;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
   documentId?: string;
   slideAssetPort?: SlideAssetActionPort;
@@ -278,7 +280,6 @@ export function ImageElementEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const content = imageContent(element);
-  const design = imageDesign(element);
 
   const { handleFile } = useImageUpload({
     deck,
@@ -369,6 +370,24 @@ export function ImageElementEditor({
           />
         </label>
       </PanelSection>
+    </>
+  );
+}
+
+export function ImageAdjustPanel({
+  element,
+  showAdvanced,
+  onUpdateElement,
+}: {
+  element: ImageElement;
+  showAdvanced: boolean;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const content = imageContent(element);
+  const design = imageDesign(element);
+
+  return (
+    <>
       <PanelSection title="Adjust">
         <ImageFitModeControl
           fitMode={design.fitMode}
@@ -1269,35 +1288,30 @@ export function TextPanel({
     return (
       <PanelSection>
         <p className="text-xs text-ds-text-muted">
-          Select a text-bearing element to edit typography.
+          Select a text element to edit it.
         </p>
       </PanelSection>
     );
   }
 
-  if (
-    element.kind !== "text" &&
-    !(element.kind === "shape" && shapeContent(element).shape !== "line")
-  ) {
+  if (element.kind !== "text") {
     return (
       <PanelSection>
         <p className="text-xs text-ds-text-muted">
-          Text settings are available for text, bullets, and labeled shapes.
+          Text settings are available for text elements.
         </p>
       </PanelSection>
     );
   }
 
-  const style =
-    element.kind === "shape"
-      ? { ...DEFAULT_SHAPE_TEXT_STYLE, ...shapeTextDesign(element) }
-      : {
-          fontSize: SLIDE_TEXT_FONT_SIZE.text,
-          bold: false,
-          italic: false,
-          align: "left" as const,
-          ...textDesign(element),
-        };
+  const currentText = textContent(element);
+  const style = {
+    fontSize: SLIDE_TEXT_FONT_SIZE.text,
+    bold: false,
+    italic: false,
+    align: "left" as const,
+    ...textDesign(element),
+  };
   const updateStyle = (next: TextElementStyle) => {
     onUpdateElement(element.id, {
       designOverrides: {
@@ -1317,14 +1331,40 @@ export function TextPanel({
     matchSlideFont(roleToken.fontFamily ?? tokenSet.typography.fontFamily)
       ?.label ?? "theme font";
 
-  const hasList =
-    element.kind === "text" &&
-    textContent(element).paragraphs.some(
-      (paragraph) => paragraph.listType !== undefined,
-    );
+  const hasList = currentText.paragraphs.some(
+    (paragraph) => paragraph.listType !== undefined,
+  );
 
   return (
     <>
+      <PanelSection title="Text">
+        <RichTextBox
+          label="Text"
+          placeholder="Add text"
+          html={runsToHtml(currentText.runs, currentText.text)}
+          onChange={({ text, runs }, coalesceKey) =>
+            onUpdateElement(
+              element.id,
+              {
+                content: {
+                  ...currentText,
+                  kind: "text",
+                  text,
+                  runs: shouldStoreRuns(runs) ? runs : undefined,
+                  paragraphs: [
+                    {
+                      text,
+                      ...(shouldStoreRuns(runs) ? { runs } : {}),
+                    },
+                  ],
+                },
+              } as ElementPatch,
+              coalesceKey,
+            )
+          }
+        />
+      </PanelSection>
+
       <PanelSection title="Font">
         <RoleSelectControl
           element={element}
@@ -1349,25 +1389,21 @@ export function TextPanel({
       </PanelSection>
 
       <PanelSection title="Paragraph">
-        {element.kind === "text" || element.kind === "shape" ? (
-          <ParagraphSpacingControl style={style} onChange={updateStyle} />
-        ) : null}
+        <ParagraphSpacingControl style={style} onChange={updateStyle} />
         <VerticalAlignControl style={style} onChange={updateStyle} />
-        {element.kind === "text" ? (
-          <FitModeControl
-            fitMode={textContent(element).fitMode}
-            onChange={(fitMode) =>
-              onUpdateElement(element.id, {
-                content: {
-                  ...textContent(element),
-                  kind: "text",
-                  fitMode,
-                },
-              } as ElementPatch)
-            }
-          />
-        ) : null}
-        {hasList && element.kind === "text" ? (
+        <FitModeControl
+          fitMode={currentText.fitMode}
+          onChange={(fitMode) =>
+            onUpdateElement(element.id, {
+              content: {
+                ...currentText,
+                kind: "text",
+                fitMode,
+              },
+            } as ElementPatch)
+          }
+        />
+        {hasList ? (
           <>
             <ListTypeControl
               element={element}
@@ -1383,6 +1419,114 @@ export function TextPanel({
             />
           </>
         ) : null}
+      </PanelSection>
+    </>
+  );
+}
+
+export function ShapeLabelPanel({
+  element,
+  deck,
+  slide,
+  onUpdateElement,
+}: {
+  element: SlideElement | null;
+  deck: Deck;
+  slide: Slide;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  if (!element) {
+    return (
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          Select a shape to edit its label.
+        </p>
+      </PanelSection>
+    );
+  }
+
+  if (element.kind !== "shape" || shapeContent(element).shape === "line") {
+    return (
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          Labels are available for filled shapes.
+        </p>
+      </PanelSection>
+    );
+  }
+
+  const currentShape = shapeContent(element);
+  const style = { ...DEFAULT_SHAPE_TEXT_STYLE, ...shapeTextDesign(element) };
+  const updateStyle = (next: TextElementStyle) => {
+    onUpdateElement(element.id, {
+      designOverrides: {
+        ...elementDesignOverrides(element),
+        textStyle: next,
+      },
+    } as ElementPatch);
+  };
+
+  const role = defaultPresentationRole(element);
+  const tokenSet = resolveSlideTokenSet(deck, slide);
+  const roleToken = resolveRoleToken(tokenSet, role);
+  const inheritedColor = roleToken.color;
+  const inheritedFontLabel =
+    matchSlideFont(roleToken.fontFamily ?? tokenSet.typography.fontFamily)
+      ?.label ?? "theme font";
+
+  return (
+    <>
+      <PanelSection title="Label">
+        <RichTextBox
+          label="Label"
+          placeholder="Add label"
+          html={runsToHtml(currentShape.textRuns, currentShape.text ?? "")}
+          onChange={({ text, runs }, coalesceKey) =>
+            onUpdateElement(
+              element.id,
+              {
+                content: {
+                  ...currentShape,
+                  kind: "shape",
+                  text: text.trim().length > 0 ? text : undefined,
+                  textRuns:
+                    shouldStoreRuns(runs) && text.trim().length > 0
+                      ? runs
+                      : undefined,
+                },
+              } as ElementPatch,
+              coalesceKey,
+            )
+          }
+        />
+      </PanelSection>
+
+      <PanelSection title="Font">
+        <RoleSelectControl
+          element={element}
+          onChange={(role) =>
+            onUpdateElement(element.id, {
+              role: presentationRoleValue(role),
+            } as ElementPatch)
+          }
+        />
+        <InheritedColorControl
+          style={style}
+          inheritedColor={inheritedColor}
+          onChange={updateStyle}
+        />
+        <InheritedFontControl
+          style={style}
+          inheritedLabel={inheritedFontLabel}
+          onChange={updateStyle}
+        />
+        <FontSizeControl style={style} onChange={updateStyle} />
+        <LineHeightControl style={style} onChange={updateStyle} />
+      </PanelSection>
+
+      <PanelSection title="Paragraph">
+        <ParagraphSpacingControl style={style} onChange={updateStyle} />
+        <VerticalAlignControl style={style} onChange={updateStyle} />
       </PanelSection>
     </>
   );
@@ -1437,100 +1581,12 @@ export function ElementEditor({
 }) {
   switch (element.kind) {
     case "text":
-      const currentText = textContent(element);
-      const currentTextStyle = {
-        fontSize: SLIDE_TEXT_FONT_SIZE.text,
-        bold: false,
-        italic: false,
-        align: "left" as const,
-        ...textDesign(element),
-      };
-      return (
-        <PanelSection title="Text">
-          <RichTextBox
-            label="Text"
-            html={runsToHtml(currentText.runs, currentText.text)}
-            onChange={({ text, runs }, coalesceKey) =>
-              onUpdateElement(
-                element.id,
-                {
-                  content: {
-                    ...currentText,
-                    kind: "text",
-                    text,
-                    runs: shouldStoreRuns(runs) ? runs : undefined,
-                    paragraphs: [
-                      {
-                        text,
-                        ...(shouldStoreRuns(runs) ? { runs } : {}),
-                      },
-                    ],
-                  },
-                } as ElementPatch,
-                coalesceKey,
-              )
-            }
-          />
-          <FontFamilyControl
-            style={currentTextStyle}
-            onChange={(style) =>
-              onUpdateElement(element.id, {
-                designOverrides: {
-                  ...elementDesignOverrides(element),
-                  textStyle: style,
-                },
-              } as ElementPatch)
-            }
-          />
-          <FitModeControl
-            fitMode={currentText.fitMode}
-            onChange={(fitMode) =>
-              onUpdateElement(element.id, {
-                content: { ...currentText, kind: "text", fitMode },
-              } as ElementPatch)
-            }
-          />
-          <VerticalAlignControl
-            style={currentTextStyle}
-            onChange={(style) =>
-              onUpdateElement(element.id, {
-                designOverrides: {
-                  ...elementDesignOverrides(element),
-                  textStyle: style,
-                },
-              } as ElementPatch)
-            }
-          />
-          <LineHeightControl
-            style={currentTextStyle}
-            onChange={(style) =>
-              onUpdateElement(element.id, {
-                designOverrides: {
-                  ...elementDesignOverrides(element),
-                  textStyle: style,
-                },
-              } as ElementPatch)
-            }
-          />
-          <ParagraphSpacingControl
-            style={currentTextStyle}
-            onChange={(style) =>
-              onUpdateElement(element.id, {
-                designOverrides: {
-                  ...elementDesignOverrides(element),
-                  textStyle: style,
-                },
-              } as ElementPatch)
-            }
-          />
-        </PanelSection>
-      );
+      return null;
     case "image":
       return (
         <ImageElementEditor
           element={element}
           deck={deck}
-          showAdvanced={showAdvanced}
           onUpdateElement={onUpdateElement}
           documentId={documentId}
           slideAssetPort={slideAssetPort}
@@ -1548,143 +1604,131 @@ export function ElementEditor({
           ? (currentShapeDesign.fill as { value: string }).value
           : "#6366f1";
       return (
-        <>
+        <PanelSection title={currentShape.shape === "line" ? "Line" : "Shape"}>
+          <PropRow label="Kind">
+            <SelectField
+              value={currentShape.shape}
+              ariaLabel="Shape kind"
+              onChange={(value) =>
+                onUpdateElement(element.id, {
+                  content: {
+                    ...currentShape,
+                    kind: "shape",
+                    shape: value as ShapeKind,
+                  },
+                } as ElementPatch)
+              }
+              options={SHAPE_OPTIONS.map((shape) => ({
+                value: shape,
+                label: shape,
+              }))}
+            />
+          </PropRow>
           {currentShape.shape !== "line" ? (
-            <PanelSection title="Label">
-              <RichTextBox
-                label="Text"
-                html={runsToHtml(
-                  currentShape.textRuns,
-                  currentShape.text ?? "",
-                )}
-                onChange={({ text, runs }, coalesceKey) =>
-                  onUpdateElement(
-                    element.id,
-                    {
-                      content: {
-                        ...currentShape,
-                        kind: "shape",
-                        text: text.trim().length > 0 ? text : undefined,
-                        textRuns:
-                          shouldStoreRuns(runs) && text.trim().length > 0
-                            ? runs
-                            : undefined,
-                      },
-                    } as ElementPatch,
-                    coalesceKey,
-                  )
-                }
-              />
-            </PanelSection>
-          ) : null}
-          <PanelSection title="Shape">
-            <PropRow label="Kind">
-              <SelectField
-                value={currentShape.shape}
-                ariaLabel="Shape kind"
-                onChange={(value) =>
+            <PropRow label="Fill">
+              <input
+                type="color"
+                value={currentFill}
+                onChange={(event) =>
                   onUpdateElement(element.id, {
-                    content: {
-                      ...currentShape,
-                      kind: "shape",
-                      shape: value as ShapeKind,
+                    designOverrides: {
+                      ...currentShapeDesign,
+                      fill: { value: event.target.value },
                     },
                   } as ElementPatch)
                 }
-                options={SHAPE_OPTIONS.map((shape) => ({
-                  value: shape,
-                  label: shape,
-                }))}
+                className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                aria-label="Fill color"
               />
             </PropRow>
-            {currentShape.shape !== "triangle" ? (
-              <PropRow
-                label={currentShape.shape === "line" ? "Thickness" : "Border"}
-              >
-                {currentShape.shape !== "line" ? (
-                  <input
-                    type="color"
-                    value={currentStroke?.color ?? "#000000"}
-                    onChange={(event) =>
-                      onUpdateElement(element.id, {
-                        designOverrides: {
-                          ...currentShapeDesign,
-                          stroke: {
-                            color: event.target.value,
-                            width: currentStroke?.width ?? 0.4,
-                          },
+          ) : null}
+          {currentShape.shape !== "triangle" ? (
+            <PropRow
+              label={currentShape.shape === "line" ? "Thickness" : "Border"}
+            >
+              {currentShape.shape !== "line" ? (
+                <input
+                  type="color"
+                  value={currentStroke?.color ?? "#000000"}
+                  onChange={(event) =>
+                    onUpdateElement(element.id, {
+                      designOverrides: {
+                        ...currentShapeDesign,
+                        stroke: {
+                          color: event.target.value,
+                          width: currentStroke?.width ?? 0.4,
                         },
-                      } as ElementPatch)
-                    }
-                    className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                    aria-label="Border color"
-                  />
-                ) : null}
-                <input
-                  type="range"
-                  min={0}
-                  max={3}
-                  step={0.25}
-                  value={
-                    currentStroke?.width ??
-                    (currentShape.shape === "line" ? 0.4 : 0)
-                  }
-                  onChange={(event) => {
-                    const width = Number(event.target.value);
-                    onUpdateElement(element.id, {
-                      designOverrides: {
-                        ...currentShapeDesign,
-                        stroke:
-                          width <= 0
-                            ? undefined
-                            : {
-                                color:
-                                  currentStroke?.color ??
-                                  (currentShape.shape === "line"
-                                    ? currentFill
-                                    : "#000000"),
-                                width,
-                              },
                       },
-                    } as ElementPatch);
-                  }}
-                  className="min-w-0 flex-1 accent-ds-accent"
-                  aria-label={
-                    currentShape.shape === "line"
-                      ? "Line thickness"
-                      : "Border width"
+                    } as ElementPatch)
                   }
+                  className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                  aria-label="Border color"
                 />
-              </PropRow>
-            ) : null}
-            {currentShape.shape === "rect" && showAdvanced ? (
-              <PropRow label="Radius">
-                <input
-                  type="range"
-                  min={0}
-                  max={50}
-                  step={1}
-                  value={
-                    typeof currentShapeDesign.radius === "number"
-                      ? currentShapeDesign.radius
-                      : 0
-                  }
-                  onChange={(event) => {
-                    const radius = Number(event.target.value);
-                    onUpdateElement(element.id, {
-                      designOverrides: {
-                        ...currentShapeDesign,
-                        radius: radius <= 0 ? undefined : radius,
-                      },
-                    } as ElementPatch);
-                  }}
-                  className="min-w-0 flex-1 accent-ds-accent"
-                  aria-label="Corner radius"
-                />
-              </PropRow>
-            ) : null}
-          </PanelSection>
-        </>
+              ) : null}
+              <input
+                type="range"
+                min={0}
+                max={3}
+                step={0.25}
+                value={
+                  currentStroke?.width ??
+                  (currentShape.shape === "line" ? 0.4 : 0)
+                }
+                onChange={(event) => {
+                  const width = Number(event.target.value);
+                  onUpdateElement(element.id, {
+                    designOverrides: {
+                      ...currentShapeDesign,
+                      stroke:
+                        width <= 0
+                          ? undefined
+                          : {
+                              color:
+                                currentStroke?.color ??
+                                (currentShape.shape === "line"
+                                  ? currentFill
+                                  : "#000000"),
+                              width,
+                            },
+                    },
+                  } as ElementPatch);
+                }}
+                className="min-w-0 flex-1 accent-ds-accent"
+                aria-label={
+                  currentShape.shape === "line"
+                    ? "Line thickness"
+                    : "Border width"
+                }
+              />
+            </PropRow>
+          ) : null}
+          {currentShape.shape === "rect" && showAdvanced ? (
+            <PropRow label="Radius">
+              <input
+                type="range"
+                min={0}
+                max={50}
+                step={1}
+                value={
+                  typeof currentShapeDesign.radius === "number"
+                    ? currentShapeDesign.radius
+                    : 0
+                }
+                onChange={(event) => {
+                  const radius = Number(event.target.value);
+                  onUpdateElement(element.id, {
+                    designOverrides: {
+                      ...currentShapeDesign,
+                      radius: radius <= 0 ? undefined : radius,
+                    },
+                  } as ElementPatch);
+                }}
+                className="min-w-0 flex-1 accent-ds-accent"
+                aria-label="Corner radius"
+              />
+            </PropRow>
+          ) : null}
+        </PanelSection>
       );
     case "visual":
       return null;

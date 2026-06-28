@@ -4,8 +4,8 @@
  * Right-side task-panel router for the slide editor.
  *
  * The inspector renders exactly one active panel at a time. Each panel owns one
- * broad property category — Slide, Arrange, Text, Appearance, Effects, Source,
- * Notes, or Layers — and the available set is computed from the current selection by
+ * broad property category — Slide, object-specific editing, Arrange, Effects,
+ * Source, Notes, or Layers — and the available set is computed from the current selection by
  * {@link availablePanels}. A compact in-panel switcher moves between the
  * available panels; it mirrors the toolbar `...` menu and never offers a panel
  * that cannot render.
@@ -41,7 +41,9 @@ import {
   EffectsPanel,
   ElementArrangeControl,
   ElementEditor,
+  ImageAdjustPanel,
   MultiSelectTools,
+  ShapeLabelPanel,
   SourceSummary,
   TextPanel,
 } from "@/components/presentation/slide-inspector/controls";
@@ -451,7 +453,27 @@ export function SlideInspector({
           />
         ) : null}
 
-        {activeTab === "appearance" && selectedElement ? (
+        {activeTab === "label" && selectedElement ? (
+          <ShapeLabelPanel
+            element={selectedElement}
+            deck={deck}
+            slide={slide}
+            onUpdateElement={onUpdateElement}
+          />
+        ) : null}
+
+        {activeTab === "adjust" && selectedElement?.kind === "image" ? (
+          <ImageAdjustPanel
+            element={selectedElement}
+            showAdvanced={showAdvanced}
+            onUpdateElement={onUpdateElement}
+          />
+        ) : null}
+
+        {(activeTab === "shape" ||
+          activeTab === "image" ||
+          activeTab === "line") &&
+        selectedElement ? (
           <ElementEditor
             element={selectedElement}
             deck={deck}

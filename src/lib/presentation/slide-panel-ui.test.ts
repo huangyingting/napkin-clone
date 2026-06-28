@@ -141,31 +141,39 @@ test("availablePanels: single text element", () => {
   );
 });
 
-test("availablePanels: non-line shape exposes Text + Appearance", () => {
+test("availablePanels: non-line shape exposes Label + Shape", () => {
   assert.deepEqual(
     availablePanels({ kind: "shape", hasSourceRef: false, selectedCount: 1 }),
-    ["text", "appearance", "arrange", "effects", "layers"],
+    ["label", "shape", "arrange", "effects", "layers"],
   );
 });
 
-test("availablePanels: line shape has Appearance but no Text", () => {
+test("availablePanels: line shape exposes Line but no Label", () => {
   assert.deepEqual(
     availablePanels({ kind: "line", hasSourceRef: false, selectedCount: 1 }),
-    ["appearance", "arrange", "effects", "layers"],
+    ["line", "arrange", "effects", "layers"],
   );
 });
 
-test("availablePanels: image/connector expose Appearance", () => {
-  for (const kind of ["image", "connector"] as const) {
-    assert.deepEqual(
-      availablePanels({ kind, hasSourceRef: false, selectedCount: 1 }),
-      ["appearance", "arrange", "effects", "layers"],
-      kind,
-    );
-  }
+test("availablePanels: image exposes Image + Adjust", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "image", hasSourceRef: false, selectedCount: 1 }),
+    ["image", "adjust", "arrange", "effects", "layers"],
+  );
 });
 
-test("availablePanels: visual excludes Appearance", () => {
+test("availablePanels: connector exposes Line", () => {
+  assert.deepEqual(
+    availablePanels({
+      kind: "connector",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    ["line", "arrange", "effects", "layers"],
+  );
+});
+
+test("availablePanels: visual excludes object-specific panels", () => {
   assert.deepEqual(
     availablePanels({ kind: "visual", hasSourceRef: false, selectedCount: 1 }),
     ["arrange", "effects", "layers"],
@@ -199,7 +207,10 @@ test("isPanelAvailable: empty selection excludes element panels", () => {
   for (const panel of [
     "arrange",
     "text",
-    "appearance",
+    "label",
+    "shape",
+    "image",
+    "line",
     "effects",
     "source",
   ] as const) {

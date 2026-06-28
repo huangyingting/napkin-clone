@@ -7,8 +7,8 @@
  * current-object layout: a top toolbar for global actions, a slide rail
  * (reorder via HTML5 drag-and-drop, add / duplicate / delete), a large live
  * stage that renders the selected slide with the shared {@link SlideCanvas}, a
- * selected-object context toolbar, a right task panel (Slide / Arrange / Text /
- * Appearance / Effects / Source / Notes / Layers), and a bottom dock (zoom /
+ * selected-object context toolbar, a right task panel (Slide / Text / Label /
+ * Shape / Image / Adjust / Line / Arrange / Effects / Source / Notes / Layers), and a bottom dock (zoom /
  * notes / status). A theme picker lives in the top bar; arrow keys page between
  * slides (unless a field is focused), Escape closes.
  *
@@ -1299,7 +1299,6 @@ export function SlideEditor({
       );
       if (!visual || visual.kind !== "visual") return;
       if (visualRefs.length < 2) {
-        openRightPanel("appearance");
         return;
       }
       const content = visualContent(visual);
@@ -1314,7 +1313,7 @@ export function SlideEditor({
         },
       } as ElementPatch);
     },
-    [deck.slides, handleUpdateElement, openRightPanel, safeSelected, visuals],
+    [deck.slides, handleUpdateElement, safeSelected, visuals],
   );
 
   const handleRestyleSelectedVisual = useCallback(

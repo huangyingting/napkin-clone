@@ -10,14 +10,19 @@
 /**
  * Task panels available in the right supplemental panel. Each panel owns one
  * broad property category and exactly one is rendered at a time. `Layers` is a
- * normal panel, not a separate inspector mode; `appearance` replaces the older
- * `media` id and `arrange` replaces `position`.
+ * normal panel, not a separate inspector mode; object panels use concrete ids
+ * (`text`, `label`, `shape`, `image`, `adjust`, `line`) instead of a generic
+ * appearance bucket.
  */
 export type RightPanelTab =
   | "slide"
   | "arrange"
   | "text"
-  | "appearance"
+  | "label"
+  | "shape"
+  | "image"
+  | "adjust"
+  | "line"
   | "effects"
   | "source"
   | "notes"
@@ -28,7 +33,11 @@ export const PANEL_LABELS: Record<RightPanelTab, string> = {
   slide: "Slide",
   arrange: "Arrange",
   text: "Text",
-  appearance: "Appearance",
+  label: "Label",
+  shape: "Shape",
+  image: "Image",
+  adjust: "Adjust",
+  line: "Line",
   effects: "Effects",
   source: "Source",
   notes: "Notes",
@@ -43,7 +52,11 @@ const PANEL_ORDER: readonly RightPanelTab[] = [
   "slide",
   "notes",
   "text",
-  "appearance",
+  "label",
+  "shape",
+  "image",
+  "adjust",
+  "line",
   "arrange",
   "effects",
   "source",
@@ -179,9 +192,9 @@ export interface PanelAvailabilityContext {
  *
  * - Empty selection (slide is the current object): `slide`, `notes`, `layers`.
  * - Multi-selection: `arrange`, `effects`, `layers`.
- * - Single element: `arrange`, `effects`, `layers`, plus `text` for text
- *   elements and non-line shapes, `appearance` for shapes/lines/images/
- *   connectors, and `source` only when the element already has a `sourceRef`.
+ * - Single element: `arrange`, `effects`, `layers`, plus the matching object
+ *   panel (`text`, `label` + `shape`, `image` + `adjust`, or `line`), and
+ *   `source` only when the element already has a `sourceRef`.
  */
 export function availablePanels(
   context: PanelAvailabilityContext,
@@ -203,16 +216,19 @@ export function availablePanels(
     set.add("arrange");
     set.add("effects");
     set.add("layers");
-    if (context.kind === "text" || context.kind === "shape") {
+    if (context.kind === "text") {
       set.add("text");
     }
-    if (
-      context.kind === "shape" ||
-      context.kind === "line" ||
-      context.kind === "image" ||
-      context.kind === "connector"
-    ) {
-      set.add("appearance");
+    if (context.kind === "shape") {
+      set.add("label");
+      set.add("shape");
+    }
+    if (context.kind === "image") {
+      set.add("image");
+      set.add("adjust");
+    }
+    if (context.kind === "line" || context.kind === "connector") {
+      set.add("line");
     }
     if (context.hasSourceRef) {
       set.add("source");
