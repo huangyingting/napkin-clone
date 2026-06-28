@@ -525,7 +525,7 @@ export function PresentationThemePanel({
             ) : null}
           </span>
           <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
-            Theme
+            Slide kit
           </span>
           <span className="flex flex-1 justify-end">
             <button
@@ -533,7 +533,7 @@ export function PresentationThemePanel({
               onClick={() => setView("customize")}
               className={LINK_BTN}
             >
-              Customize
+              Customize style
             </button>
           </span>
         </div>
@@ -541,7 +541,7 @@ export function PresentationThemePanel({
         <div className="flex max-h-[52vh] flex-col gap-3 overflow-y-auto pr-0.5">
           <div className="flex flex-col gap-2">
             <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ds-text-muted">
-              Theme packages
+              Slide kits
             </span>
             <div className="grid grid-cols-2 gap-2">
               {PACKAGE_PRESETS.map((themePackage) => (
@@ -559,7 +559,7 @@ export function PresentationThemePanel({
           {presets.length > 0 ? (
             <div className="flex flex-col gap-2">
               <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ds-text-muted">
-                Your presets
+                Style presets
               </span>
               <div className="grid grid-cols-2 gap-2">
                 {presets.map((preset) => (
@@ -601,7 +601,7 @@ export function PresentationThemePanel({
           </button>
         </span>
         <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
-          Customize
+          Customize style
         </span>
         <span className="flex flex-1 justify-end">
           <button
@@ -610,7 +610,7 @@ export function PresentationThemePanel({
             disabled={!isCustom}
             className={LINK_BTN}
           >
-            Reset
+            Reset style
           </button>
         </span>
       </div>

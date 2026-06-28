@@ -96,6 +96,7 @@ import {
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
 import {
+  getThemePackage,
   isThemePackageTemplateId,
   themePackageTemplatesForDeck,
 } from "@/lib/presentation/theme-packages";
@@ -989,6 +990,9 @@ export function SlideTemplatePicker({
     : customTemplates.filter((template) =>
         isThemePackageTemplateId(template.id),
       );
+  const kitName = deck?.design?.themeId
+    ? (getThemePackage(deck.design.themeId)?.name ?? "Slide kit")
+    : "Slide kit";
   const userTemplates = customTemplates.filter(
     (template) => !isThemePackageTemplateId(template.id),
   );
@@ -1012,7 +1016,7 @@ export function SlideTemplatePicker({
         {packageTemplates.length > 0 ? (
           <>
             <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
-              Theme
+              {kitName} templates
             </p>
             {packageTemplates.map((template) => (
               <button
@@ -1029,7 +1033,7 @@ export function SlideTemplatePicker({
                     {template.name}
                   </span>
                   <span className="truncate text-[10px] leading-tight text-ds-text-muted">
-                    Theme template
+                    Slide kit template
                   </span>
                 </span>
               </button>

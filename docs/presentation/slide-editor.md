@@ -83,20 +83,23 @@ The top toolbar is a compact deck/session command surface. It uses stable
 first-level text controls:
 
 ```text
-Add | Insert | Design | Source | View                    Undo Redo | Save status | Save | Close
+Slide kit | Add slide | Insert | Source | View       Undo Redo | Save status | Save | Close
 ```
 
-- **Add** opens the slide template picker and creates a new slide from the
-  active theme package templates, deck-local custom templates, or fallback
-  built-in templates.
+- **Slide kit** selects the active theme package: theme tokens, package
+  templates, and the deck chrome baseline. The visible label includes the
+  current kit name.
+- **Add slide** opens the slide template picker and creates a new slide from the
+  active slide kit templates, deck-local custom templates, or fallback built-in
+  templates. The picker updates automatically after the slide kit changes.
 - **Insert** creates new current-slide objects through slide commands: text,
   image, shape, visual, connector when two connectable objects are selected, and
   document text/visuals when insertable source content exists. Newly inserted
   objects become selected so the canvas popover and inspector take over editing.
-- **Design** owns deck canvas size, theme package selection, presentation theme
-  tokens, current-slide background, current-slide accent, clearing current-slide
-  background/accent overrides, and applying the selected solid/gradient
-  background or accent across the deck.
+- **Design/style controls** own deck canvas size, slide kit style
+  customization, presentation theme tokens, current-slide background,
+  current-slide accent, clearing current-slide background/accent overrides, and
+  applying the selected solid/gradient background or accent across the deck.
 - **Source** owns document sync status, sync from document, stale-link review,
   and source-link actions that apply to the selected linked element.
 - **View** owns view toggles and shortcuts: thumbnails, snap to grid, and the
@@ -205,7 +208,7 @@ permanent `Name` input — element naming lives in `Layers`.
 - image upload through the slide asset action when `documentId` is available.
 
 Deck-level master chrome is not edited in the right inspector. The top toolbar
-`Masters` popover owns global logo, footer, page number, and watermark
+`Deck chrome` popover owns global logo, footer, page number, and watermark
 configuration. Those controls update locked `Deck.masters[].elements[]` records
 identified by `masterChromeKind`. The slide stage renders those elements but
 normal slide editing hit-testing, selection, clipboard, z-order, and layer-list

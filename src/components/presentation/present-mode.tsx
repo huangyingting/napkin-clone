@@ -462,9 +462,9 @@ export function PresentMode({
         ref={slideAreaRef}
         className={`relative min-h-0 flex-1 overflow-hidden ${notesVisible ? "basis-[65%]" : ""}`}
       >
-        <div className="flex h-full w-full items-center justify-center p-4">
+        <div className="flex h-full w-full items-center justify-center">
           <div
-            className="overflow-hidden shadow-ds-overlay"
+            className="overflow-hidden"
             style={{
               width: fittedSlideSize.width,
               height: fittedSlideSize.height,
