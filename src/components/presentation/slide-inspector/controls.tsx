@@ -2552,10 +2552,9 @@ export function SourceSummary({
 }
 
 /**
- * Per-slide color override. The presentation-theme preset swatches are the primary
- * interaction; the raw `<input type=color>` is hidden behind a "Custom…"
- * progressive-disclosure toggle so the token-driven theme colors stay
- * front-and-centre. "Theme" clears the override entirely.
+ * Per-slide color override. Keeps the common palette inline and routes "more"
+ * choices through the compact swatches-only color picker; no large custom color
+ * editor is mounted inside the inspector.
  */
 export function ColorOverride({
   label,
@@ -2574,22 +2573,18 @@ export function ColorOverride({
   onChange: (color: string | undefined) => void;
 }) {
   const normalized = value?.toLowerCase();
-  const matchesPreset =
-    normalized !== undefined &&
-    presets.some((preset) => preset.toLowerCase() === normalized);
-  const [showCustom, setShowCustom] = useState(
-    value !== undefined && !matchesPreset,
-  );
+  const currentColor = value ?? fallback;
+  const inlinePresets = presets.slice(0, 6);
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-ds-text-secondary">
+        <span className="text-xs font-semibold text-ds-text-primary">
           {label}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {value === undefined && hint ? (
-            <span className="text-[10px] uppercase tracking-wide text-ds-text-muted">
+            <span className="rounded-full bg-ds-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted ring-1 ring-ds-border-subtle">
               {hint}
             </span>
           ) : null}
@@ -2597,46 +2592,37 @@ export function ColorOverride({
             <button
               type="button"
               onClick={() => onChange(undefined)}
-              className={`text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
+              className={`rounded-full bg-ds-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted ring-1 ring-ds-border-subtle transition-colors hover:text-ds-text-primary ${FOCUS_RING}`}
             >
               Theme
             </button>
           ) : null}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {presets.map((preset) => (
+      <div className="flex items-center gap-1.5">
+        {inlinePresets.map((preset) => (
           <Swatch
             key={preset}
             color={preset}
             size="md"
             selected={normalized === preset.toLowerCase()}
             aria-label={`${label} ${preset}`}
+            className="rounded-full transition-transform hover:scale-110"
             onClick={() => onChange(preset)}
           />
         ))}
-        <button
-          type="button"
-          onClick={() => setShowCustom((open) => !open)}
-          aria-expanded={showCustom}
-          className={`ml-0.5 text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          Custom…
-        </button>
+        <ColorPicker
+          color={currentColor}
+          fallback={fallback}
+          presets={presets}
+          aria-label={`${label} more colors`}
+          size="md"
+          icon={<Plus size={13} aria-hidden="true" />}
+          active={value !== undefined}
+          allowCustom={false}
+          onChange={(hex) => onChange(hex)}
+        />
       </div>
-      {showCustom ? (
-        <div className="flex items-center gap-2">
-          <ColorPicker
-            color={value ?? fallback}
-            fallback={fallback}
-            aria-label={`${label} custom color`}
-            onChange={(hex) => onChange(hex)}
-          />
-          <span className="font-mono text-xs tabular-nums text-ds-text-secondary">
-            {(value ?? fallback).toLowerCase()}
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }

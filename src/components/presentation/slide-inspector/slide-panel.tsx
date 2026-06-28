@@ -1,6 +1,6 @@
 "use client";
 
-import { Palette, Upload } from "lucide-react";
+import { Check, Palette, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -10,14 +10,20 @@ import {
   slideSolidBackgroundValue,
 } from "@/components/presentation/v6-deck-ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
-import { ColorPicker } from "@/components/ui";
+import { ColorPicker, Swatch } from "@/components/ui";
 import { assertNever } from "@/lib/assert-never";
 import { ColorOverride } from "@/components/presentation/slide-inspector/controls";
 import {
   FIELD_CLASS,
   PanelSection,
-  PropRow,
 } from "@/components/presentation/slide-inspector/primitives";
+import {
+  GRADIENT_BACKGROUND_OPTIONS,
+  SOLID_BACKGROUND_OPTIONS,
+  gradientCss,
+  sameGradient,
+  type BackgroundGradient,
+} from "@/components/presentation/slide-editor/use-slide-background-commands";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 import {
   inspectSlideDesignOrigins,
@@ -35,14 +41,20 @@ import {
 } from "@/lib/presentation/text-style";
 
 const BUILT_IN_THEME_TOKEN_SETS = allThemeTokenSets();
-const THEME_BACKGROUND_SWATCHES = tokenSetSwatchColors(
-  BUILT_IN_THEME_TOKEN_SETS,
-  "slideBg",
-);
 const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
   BUILT_IN_THEME_TOKEN_SETS,
   "accent",
 );
+const INSPECTOR_SOLID_BACKGROUND_OPTIONS = SOLID_BACKGROUND_OPTIONS.slice(
+  0,
+  14,
+);
+const INSPECTOR_GRADIENT_BACKGROUND_OPTIONS = GRADIENT_BACKGROUND_OPTIONS.slice(
+  0,
+  14,
+);
+type SlideStyleTab = "background" | "accent" | "image";
+type BackgroundCustomizeMode = "solid" | "gradient";
 
 function designOriginTag(layer: SlideDesignOriginLayer): string {
   switch (layer) {
@@ -59,11 +71,432 @@ function designOriginTag(layer: SlideDesignOriginLayer): string {
   }
 }
 
+function sameHex(a: string | undefined, b: string): boolean {
+  return a?.toLowerCase() === b.toLowerCase();
+}
+
+function BackgroundChoiceHeader({ title }: { title: string }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+      {title}
+    </p>
+  );
+}
+
+function SlideStyleTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: SlideStyleTab;
+  onChange: (tab: SlideStyleTab) => void;
+}) {
+  const tabs: ReadonlyArray<{ id: SlideStyleTab; label: string }> = [
+    { id: "background", label: "Background" },
+    { id: "accent", label: "Accent" },
+    { id: "image", label: "Image" },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="Slide style panel"
+      className="grid grid-cols-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5"
+    >
+      {tabs.map((tab) => {
+        const active = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.id)}
+            className={`rounded-ds-sm px-2 py-1.5 text-xs font-semibold transition-colors ${
+              active
+                ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
+                : "text-ds-text-muted hover:bg-ds-state-hover hover:text-ds-text-primary"
+            } ${FOCUS_RING}`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function GradientPresetButton({
+  label,
+  gradient,
+  active,
+  onClick,
+}: {
+  label: string;
+  gradient: BackgroundGradient;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`${label} gradient background`}
+      aria-pressed={active}
+      title={label}
+      onClick={onClick}
+      className={`relative h-7 w-7 rounded-full border transition-transform hover:scale-110 ${
+        active
+          ? "border-transparent ring-2 ring-ds-accent ring-offset-1 ring-offset-ds-surface-base"
+          : "border-ds-border-subtle"
+      } ${FOCUS_RING}`}
+      style={{ background: gradientCss(gradient) }}
+    >
+      {active ? (
+        <Check
+          size={14}
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]"
+        />
+      ) : null}
+    </button>
+  );
+}
+
+function SlideBackgroundControl({
+  backgroundColor,
+  backgroundGradient,
+  backgroundImage,
+  fallbackColor,
+  originHint,
+  onBackgroundChange,
+  onBackgroundGradientChange,
+}: {
+  backgroundColor: string | undefined;
+  backgroundGradient: BackgroundGradient | undefined;
+  backgroundImage: string | undefined;
+  fallbackColor: string;
+  originHint: string;
+  onBackgroundChange: SlideInspectorProps["onBackgroundChange"];
+  onBackgroundGradientChange: SlideInspectorProps["onBackgroundGradientChange"];
+}) {
+  const [customMode, setCustomMode] = useState<BackgroundCustomizeMode>(
+    backgroundGradient ? "gradient" : "solid",
+  );
+  const [customSolid, setCustomSolid] = useState(
+    backgroundColor ?? fallbackColor,
+  );
+  const [customGradientFrom, setCustomGradientFrom] = useState(
+    backgroundGradient?.from ?? "#6366f1",
+  );
+  const [customGradientTo, setCustomGradientTo] = useState(
+    backgroundGradient?.to ?? "#ec4899",
+  );
+  const [customGradientAngle, setCustomGradientAngle] = useState(
+    backgroundGradient?.angle ?? 135,
+  );
+  const activeSolid = !backgroundImage && !backgroundGradient;
+  const activeSolidPreset = activeSolid
+    ? SOLID_BACKGROUND_OPTIONS.find((option) =>
+        sameHex(backgroundColor, option.color),
+      )
+    : undefined;
+  const activeGradientPreset =
+    !backgroundImage && backgroundGradient
+      ? GRADIENT_BACKGROUND_OPTIONS.find((option) =>
+          sameGradient(backgroundGradient, option.gradient),
+        )
+      : undefined;
+  const status = backgroundImage
+    ? "Image"
+    : backgroundGradient
+      ? activeGradientPreset
+        ? "Preset gradient"
+        : "Custom gradient"
+      : backgroundColor
+        ? activeSolidPreset
+          ? "Preset solid"
+          : "Custom solid"
+        : originHint;
+  const previewStyle = backgroundImage
+    ? {
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : backgroundGradient
+      ? { background: gradientCss(backgroundGradient) }
+      : { backgroundColor: backgroundColor ?? fallbackColor };
+
+  function resetBackground() {
+    if (backgroundGradient) {
+      onBackgroundGradientChange(undefined);
+      return;
+    }
+    onBackgroundChange(undefined);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="h-8 w-10 shrink-0 rounded-ds-md border border-ds-border-subtle"
+          style={previewStyle}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-end gap-2">
+            <span className="flex shrink-0 items-center gap-1.5">
+              <span className="rounded-full bg-ds-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted ring-1 ring-ds-border-subtle">
+                {status}
+              </span>
+              {backgroundImage || backgroundGradient || backgroundColor ? (
+                <button
+                  type="button"
+                  onClick={resetBackground}
+                  className={`rounded-full bg-ds-accent-surface px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ds-accent-text ring-1 ring-ds-accent-border transition-colors hover:bg-ds-accent hover:text-ds-text-on-accent ${FOCUS_RING}`}
+                >
+                  Reset
+                </button>
+              ) : null}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <BackgroundChoiceHeader title="Solid presets" />
+        <div className="grid grid-cols-7 gap-1.5">
+          {INSPECTOR_SOLID_BACKGROUND_OPTIONS.map((option) => (
+            <Swatch
+              key={option.id}
+              color={option.color}
+              size="lg"
+              selected={activeSolid && sameHex(backgroundColor, option.color)}
+              aria-label={`${option.label} solid background`}
+              className="rounded-full transition-transform hover:scale-110"
+              onClick={() => onBackgroundChange(option.color)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <BackgroundChoiceHeader title="Gradient presets" />
+        <div className="grid grid-cols-7 gap-1.5">
+          {INSPECTOR_GRADIENT_BACKGROUND_OPTIONS.map((option) => (
+            <GradientPresetButton
+              key={option.id}
+              label={option.label}
+              gradient={option.gradient}
+              active={
+                !backgroundImage &&
+                backgroundGradient !== undefined &&
+                sameGradient(backgroundGradient, option.gradient)
+              }
+              onClick={() => onBackgroundGradientChange(option.gradient)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <BackgroundChoiceHeader title="Customize" />
+          <div
+            role="tablist"
+            aria-label="Custom background type"
+            className="grid grid-cols-2 rounded-ds-sm bg-ds-surface p-0.5 ring-1 ring-ds-border-subtle"
+          >
+            {(["solid", "gradient"] as const).map((mode) => {
+              const active = customMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setCustomMode(mode)}
+                  className={`rounded-ds-sm px-2 py-1 text-[11px] font-semibold capitalize transition-colors ${
+                    active
+                      ? "bg-ds-surface-base text-ds-text-primary shadow-ds-raised"
+                      : "text-ds-text-muted hover:text-ds-text-primary"
+                  } ${FOCUS_RING}`}
+                >
+                  {mode}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {customMode === "solid" ? (
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+            <ColorPicker
+              color={customSolid}
+              fallback={fallbackColor}
+              aria-label="Custom solid background color"
+              onChange={setCustomSolid}
+            />
+            <span className="truncate font-mono text-xs tabular-nums text-ds-text-secondary">
+              {customSolid.toLowerCase()}
+            </span>
+            <button
+              type="button"
+              onClick={() => onBackgroundChange(customSolid)}
+              className={`h-7 rounded-ds-md bg-ds-accent px-2.5 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
+            >
+              Apply
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <span
+              aria-hidden="true"
+              className="block h-8 rounded-ds-md border border-ds-border-subtle"
+              style={{
+                background: gradientCss({
+                  from: customGradientFrom,
+                  to: customGradientTo,
+                  angle: customGradientAngle,
+                }),
+              }}
+            />
+            <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5">
+              <ColorPicker
+                color={customGradientFrom}
+                fallback="#6366f1"
+                aria-label="Custom gradient start color"
+                onChange={setCustomGradientFrom}
+              />
+              <ColorPicker
+                color={customGradientTo}
+                fallback="#ec4899"
+                aria-label="Custom gradient end color"
+                onChange={setCustomGradientTo}
+              />
+              <input
+                type="range"
+                min={0}
+                max={360}
+                step={5}
+                value={customGradientAngle}
+                onChange={(event) =>
+                  setCustomGradientAngle(Number(event.target.value))
+                }
+                className="min-w-0 accent-ds-accent"
+                aria-label="Custom gradient angle"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  onBackgroundGradientChange({
+                    from: customGradientFrom,
+                    to: customGradientTo,
+                    angle: customGradientAngle,
+                  })
+                }
+                className={`h-7 rounded-ds-md bg-ds-accent px-2.5 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SlideImageControl({
+  backgroundImage,
+  bgImageError,
+  fileInputRef,
+  onPickFile,
+  onBackgroundImageChange,
+  onBackgroundAssetChange,
+}: {
+  backgroundImage: string | undefined;
+  bgImageError: string | null;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onPickFile: (file: File | undefined) => void;
+  onBackgroundImageChange: SlideInspectorProps["onBackgroundImageChange"];
+  onBackgroundAssetChange?: SlideInspectorProps["onBackgroundAssetChange"];
+}) {
+  function resetImage() {
+    onBackgroundAssetChange?.(undefined);
+    onBackgroundImageChange(undefined);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-ds-md bg-ds-surface-raised/60 p-2 ring-1 ring-ds-border-subtle">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-ds-text-primary">
+          Image background
+        </span>
+        {backgroundImage ? (
+          <button
+            type="button"
+            onClick={resetImage}
+            className={`rounded-full bg-ds-accent-surface px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ds-accent-text ring-1 ring-ds-accent-border transition-colors hover:bg-ds-accent hover:text-ds-text-on-accent ${FOCUS_RING}`}
+          >
+            Reset
+          </button>
+        ) : (
+          <span className="rounded-full bg-ds-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted ring-1 ring-ds-border-subtle">
+            Empty
+          </span>
+        )}
+      </div>
+      {backgroundImage ? (
+        <span
+          aria-hidden="true"
+          className="block aspect-video w-full rounded-ds-md border border-ds-border-subtle bg-cover bg-center"
+          style={{ backgroundImage: `url(${backgroundImage})` }}
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface-raised/60 px-2 py-2.5 text-[13px] font-medium text-ds-text-secondary transition-colors hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      >
+        <Upload size={14} aria-hidden="true" />
+        {backgroundImage ? "Replace image" : "Upload image"}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          onPickFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <input
+        type="text"
+        value={backgroundImage ?? ""}
+        onChange={(event) =>
+          onBackgroundImageChange(
+            event.target.value.trim() === ""
+              ? undefined
+              : event.target.value.trim(),
+          )
+        }
+        placeholder="https://… or data:image/…"
+        className={`${FIELD_CLASS} bg-ds-surface-raised/60 py-2 placeholder:text-ds-text-muted ${FOCUS_RING}`}
+        aria-label="Background image URL"
+      />
+      {bgImageError ? (
+        <p role="alert" className="text-xs text-ds-danger-text">
+          {bgImageError}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function SlidePanelBody({
   slide,
   deck,
   brandSwatches,
-  showAdvanced,
   documentId,
   slideAssetPort,
   onBackgroundChange,
@@ -85,6 +518,7 @@ export function SlidePanelBody({
   onAccentChange: SlideInspectorProps["onAccentChange"];
 }) {
   const [bgImageError, setBgImageError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<SlideStyleTab>("background");
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   const backgroundImage = slideBackgroundImageValue(slide);
   const backgroundGradient = slideBackgroundGradientValue(slide);
@@ -137,125 +571,38 @@ export function SlidePanelBody({
         title="Background"
         icon={<Palette size={12} aria-hidden="true" />}
       >
-        <ColorOverride
-          label="Background"
-          value={backgroundColor}
-          fallback={themeColors.bgColor}
-          presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
-          hint={designOriginTag(designOrigins.background.layer)}
-          onChange={onBackgroundChange}
-        />
-        <ColorOverride
-          label="Accent"
-          value={accentColor}
-          fallback={themeColors.accentColor}
-          presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
-          hint={designOriginTag(designOrigins.accent.layer)}
-          onChange={onAccentChange}
-        />
-        {showAdvanced ? (
-          <>
-            <PropRow label="Gradient">
-              <input
-                type="checkbox"
-                checked={backgroundGradient !== undefined}
-                onChange={(event) =>
-                  onBackgroundGradientChange(
-                    event.target.checked
-                      ? {
-                          from: backgroundGradient?.from ?? "#6366f1",
-                          to: backgroundGradient?.to ?? "#ec4899",
-                          angle: backgroundGradient?.angle ?? 135,
-                        }
-                      : undefined,
-                  )
-                }
-                className="h-4 w-4 accent-ds-accent"
-                aria-label="Enable gradient background"
-              />
-            </PropRow>
-            {backgroundGradient ? (
-              <PropRow label="Stops" align="center">
-                <ColorPicker
-                  color={backgroundGradient.from}
-                  fallback="#6366f1"
-                  aria-label="Gradient start color"
-                  onChange={(hex) =>
-                    onBackgroundGradientChange({
-                      ...backgroundGradient,
-                      from: hex,
-                    })
-                  }
-                />
-                <ColorPicker
-                  color={backgroundGradient.to}
-                  fallback="#ec4899"
-                  aria-label="Gradient end color"
-                  onChange={(hex) =>
-                    onBackgroundGradientChange({
-                      ...backgroundGradient,
-                      to: hex,
-                    })
-                  }
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={360}
-                  step={5}
-                  value={backgroundGradient.angle ?? 135}
-                  onChange={(event) =>
-                    onBackgroundGradientChange({
-                      ...backgroundGradient,
-                      angle: Number(event.target.value),
-                    })
-                  }
-                  className="min-w-0 flex-1 accent-ds-accent"
-                  aria-label="Gradient angle"
-                />
-              </PropRow>
-            ) : null}
-          </>
+        <SlideStyleTabs activeTab={activeTab} onChange={setActiveTab} />
+        {activeTab === "background" ? (
+          <SlideBackgroundControl
+            backgroundColor={backgroundColor}
+            backgroundGradient={backgroundGradient}
+            backgroundImage={backgroundImage}
+            fallbackColor={themeColors.bgColor}
+            originHint={designOriginTag(designOrigins.background.layer)}
+            onBackgroundChange={onBackgroundChange}
+            onBackgroundGradientChange={onBackgroundGradientChange}
+          />
         ) : null}
-        <div className="flex flex-col gap-1.5">
-          <button
-            type="button"
-            onClick={() => bgFileInputRef.current?.click()}
-            className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
-          >
-            <Upload size={14} aria-hidden="true" />
-            {backgroundImage ? "Replace image" : "Upload image"}
-          </button>
-          <input
-            ref={bgFileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(event) => {
-              handleBgImageFile(event.target.files?.[0]);
-              event.target.value = "";
-            }}
+        {activeTab === "accent" ? (
+          <ColorOverride
+            label="Accent"
+            value={accentColor}
+            fallback={themeColors.accentColor}
+            presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
+            hint={designOriginTag(designOrigins.accent.layer)}
+            onChange={onAccentChange}
           />
-          <input
-            type="text"
-            value={backgroundImage ?? ""}
-            onChange={(event) =>
-              handleBackgroundImageChange(
-                event.target.value.trim() === ""
-                  ? undefined
-                  : event.target.value.trim(),
-              )
-            }
-            placeholder="https://… or data:image/…"
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            aria-label="Background image URL"
+        ) : null}
+        {activeTab === "image" ? (
+          <SlideImageControl
+            backgroundImage={backgroundImage}
+            bgImageError={bgImageError}
+            fileInputRef={bgFileInputRef}
+            onPickFile={handleBgImageFile}
+            onBackgroundImageChange={handleBackgroundImageChange}
+            onBackgroundAssetChange={onBackgroundAssetChange}
           />
-          {bgImageError ? (
-            <p role="alert" className="text-xs text-ds-danger-text">
-              {bgImageError}
-            </p>
-          ) : null}
-        </div>
+        ) : null}
       </PanelSection>
     </>
   );
