@@ -31,7 +31,6 @@ workflow and are not runtime payload readers.
 | [data-model/](data-model/README.md)       | Deck JSON and visual mirror contracts.                    |
 | [documents/](documents/README.md)         | Document creation, listing, search, tags, and trash.      |
 | [editor/](editor/README.md)               | Lexical editor and slide theme/layout architecture.       |
-| [feedback/](feedback/README.md)           | QA findings, product feedback, and follow-up tracking.    |
 | [import/](import/README.md)               | Document import parsing, validation, and abuse controls.  |
 | [localization/](localization/README.md)   | Typed catalogs, locale resolution, and activation gate.   |
 | [presentation/](presentation/README.md)   | Slide editor runtime, present mode, and export pipeline.  |
