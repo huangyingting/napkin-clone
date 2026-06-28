@@ -11,6 +11,7 @@ import {
   ShellLanguageSwitcherSlot,
   ShellUserMenuSlot,
 } from "@/components/shell-utility-slots";
+import { ThemeModeButton } from "@/components/theme-mode-button";
 import type { ShellAction } from "@/lib/app-shell/chrome";
 import type { AppShellViewModel } from "@/lib/app-shell/view-model";
 
@@ -74,11 +75,13 @@ export function SiteHeaderView({
               variant="desktop"
             />
             {shortcutAction.slot}
+            <ThemeModeButton variant="desktop" />
             {languageAction.slot}
             {userAction.slot}
           </>
         ) : (
           <>
+            <ThemeModeButton variant="desktop" />
             {languageAction.slot}
             <ShellNavLinks items={navItems} variant="desktop" />
           </>
@@ -101,6 +104,7 @@ export function SiteHeaderView({
               <div className="my-2 border-t border-ds-border-strong" />
 
               <MobileNavNonClosing className="flex flex-col gap-0.5">
+                <ThemeModeButton variant="mobileDrawer" />
                 {languageAction.slot}
                 {shortcutAction.slot}
               </MobileNavNonClosing>
@@ -108,6 +112,7 @@ export function SiteHeaderView({
           </>
         ) : (
           <>
+            <ThemeModeButton variant="mobileInline" />
             {languageAction.slot}
             <ShellNavLinks items={navItems} variant="mobileInline" />
           </>

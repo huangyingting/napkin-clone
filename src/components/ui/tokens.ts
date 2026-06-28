@@ -16,10 +16,10 @@ export const FOCUS_RING =
 
 /** Radii scale (`--ds-radius-*`). */
 export const RADIUS = {
-  sm: "rounded-[var(--ds-radius-sm,8px)]",
-  md: "rounded-[var(--ds-radius-md,10px)]",
-  lg: "rounded-[var(--ds-radius-lg,14px)]",
-  xl: "rounded-[var(--ds-radius-xl,18px)]",
+  sm: "rounded-[var(--ds-radius-sm,6px)]",
+  md: "rounded-[var(--ds-radius-md,8px)]",
+  lg: "rounded-[var(--ds-radius-lg,10px)]",
+  xl: "rounded-[var(--ds-radius-xl,12px)]",
   pill: "rounded-[var(--ds-radius-pill,9999px)]",
 } as const;
 
@@ -28,21 +28,23 @@ export type Radius = keyof typeof RADIUS;
 /** Elevation scale (`--ds-shadow-*`). */
 export const ELEVATION = {
   flat: "shadow-[var(--ds-shadow-flat,none)]",
-  raised: "shadow-[var(--ds-shadow-raised,0_1px_2px_rgba(0,0,0,0.08))]",
-  overlay: "shadow-[var(--ds-shadow-overlay,0_8px_24px_rgba(0,0,0,0.12))]",
-  popover: "shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]",
+  raised: "shadow-[var(--ds-shadow-raised,0_1px_2px_rgba(15,23,42,0.06))]",
+  overlay:
+    "shadow-[var(--ds-shadow-overlay,0_18px_40px_-28px_rgba(15,23,42,0.45))]",
+  popover:
+    "shadow-[var(--ds-shadow-popover,0_24px_60px_-34px_rgba(15,23,42,0.5))]",
 } as const;
 
 export type Elevation = keyof typeof ELEVATION;
 
 /** Base surface fill, border color, and text color. */
 export const SURFACE_BASE =
-  "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-primary,#15171a)] border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]";
+  "bg-[var(--ds-surface-base,#f8fafc)] text-[var(--ds-text-primary,#172033)] border-[var(--ds-border-subtle,rgba(23,32,51,0.10))]";
 
 /** Shared form field chrome for inputs, selects, and textareas. */
 export const FIELD_CONTROL = cx(
   "border border-ds-border-subtle bg-ds-surface-raised text-sm text-ds-text-primary placeholder:text-ds-text-muted",
-  "focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10",
+  "focus:border-ds-accent focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/20",
   RADIUS.md,
 );
 

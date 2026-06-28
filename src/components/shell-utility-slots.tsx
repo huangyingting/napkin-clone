@@ -3,8 +3,12 @@ import Link from "next/link";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SignOutButton } from "@/components/sign-out-button";
-import { MENU_ITEM, Tooltip } from "@/components/ui";
-import { UserMenu } from "@/components/user-menu";
+import { Tooltip } from "@/components/ui";
+import {
+  UserMenu,
+  UserMenuItemIcon,
+  USER_MENU_ITEM_CLASS,
+} from "@/components/user-menu";
 import type {
   ShellDisplayIdentity,
   ShellPlanCreditSummary,
@@ -65,10 +69,19 @@ export function ShellUserMenuSlot({
 
   return (
     <UserMenu name={identity.name} email={identity.email}>
-      <Link href="/app/settings/billing" role="menuitem" className={MENU_ITEM}>
+      <Link
+        href="/app/settings/billing"
+        role="menuitem"
+        className={USER_MENU_ITEM_CLASS}
+      >
+        <UserMenuItemIcon type="billing" />
         Billing &amp; Plan
       </Link>
-      <SignOutButton role="menuitem" className={MENU_ITEM} />
+      <SignOutButton
+        role="menuitem"
+        className={USER_MENU_ITEM_CLASS}
+        leadingIcon={<UserMenuItemIcon type="sign-out" />}
+      />
     </UserMenu>
   );
 }

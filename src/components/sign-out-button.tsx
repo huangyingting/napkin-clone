@@ -1,4 +1,5 @@
 import { signOut } from "@/auth";
+import type { ReactNode } from "react";
 
 const defaultClass =
   "flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary";
@@ -10,9 +11,11 @@ const defaultClass =
  */
 export function SignOutButton({
   className = defaultClass,
+  leadingIcon,
   role,
 }: {
   className?: string;
+  leadingIcon?: ReactNode;
   role?: string;
 }) {
   return (
@@ -23,6 +26,7 @@ export function SignOutButton({
       }}
     >
       <button type="submit" role={role} className={className}>
+        {leadingIcon}
         Sign out
       </button>
     </form>

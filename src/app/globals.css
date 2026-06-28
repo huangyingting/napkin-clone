@@ -8,8 +8,9 @@
    content themes remain separate in src/lib/visual/themes.ts.
    ========================================================================== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #172033;
 
   /*
    * Design-system chrome tokens (`--ds-*`) — light mode.
@@ -17,34 +18,36 @@
    * One semantic layer for app chrome AND editor controls (floating toolbar,
    * insert menu, gutter buttons, visual-card surfaces). These are intentionally
    * SEPARATE from visual-content theming (src/lib/visual/themes.ts) and from the
-   * reading typography (.ds-prose stays serif on the same ds material tokens).
-   * Dark values live in the prefers-color-scheme block below; anything that uses
-   * these tokens flips automatically without mode-specific utilities.
+  * reading typography (.ds-prose uses the same app font and material tokens).
+  * Theme values live in data-theme overrides below; anything that uses these
+  * tokens flips automatically without mode-specific utilities.
    */
 
   /* Surfaces */
   --ds-surface-base: var(--background);
+  --ds-surface: #ffffff;
   --ds-surface-raised: #ffffff;
   --ds-surface-overlay: #ffffff;
-  --ds-surface-sunken: #f4f8fb;
-  --ds-surface-chrome: rgba(255, 255, 255, 0.8);
-  --ds-surface-glass: rgba(255, 255, 255, 0.9);
+  --ds-surface-sunken: #eef3f8;
+  --ds-surface-chrome: rgba(255, 255, 255, 0.82);
+  --ds-surface-glass: rgba(255, 255, 255, 0.88);
 
   /* Text (all ≥4.5:1 on their intended surface) */
-  --ds-text-primary: #15171a;
-  --ds-text-secondary: #54666d;
-  --ds-text-muted: #6f7d83;
+  --ds-text-primary: #172033;
+  --ds-text-secondary: #4d5b6a;
+  --ds-text-muted: #738091;
   --ds-text-on-accent: #ffffff;
 
   /* Borders */
-  --ds-border-subtle: rgba(0, 0, 0, 0.08);
-  --ds-border-strong: #dde1e5;
+  --ds-border-subtle: rgba(23, 32, 51, 0.1);
+  --ds-border-strong: rgba(23, 32, 51, 0.18);
 
   /* Accent — defaults to the app's existing indigo brand */
   --ds-accent: #4f46e5;
   --ds-accent-hover: #4338ca;
   --ds-accent-contrast: #ffffff;
   --ds-accent-surface: #eef2ff;
+  --ds-accent-subtle: #f5f3ff;
   --ds-accent-border: rgba(79, 70, 229, 0.24);
   --ds-accent-text: #4338ca;
 
@@ -62,6 +65,8 @@
   --ds-danger-surface: #fef2f2;
   --ds-danger-border: rgba(220, 38, 38, 0.28);
   --ds-danger-text: #b91c1c;
+  --ds-error-surface: var(--ds-danger-surface);
+  --ds-error-text: var(--ds-danger-text);
 
   /* Backdrops, inverse overlays, and fullscreen presentation stage chrome */
   --ds-backdrop: rgba(0, 0, 0, 0.4);
@@ -84,15 +89,15 @@
   --ds-stage-muted: #71717a;
   --ds-present-loading: #0f1117;
 
-  /* Solid control (the pressed/active toggle: dark chip on light, inverted in dark) */
-  --ds-control: #18181b;
-  --ds-control-hover: #27272a;
-  --ds-control-text: #ffffff;
+  /* Solid controls use the product accent, not black chrome. */
+  --ds-control: var(--ds-accent);
+  --ds-control-hover: var(--ds-accent-hover);
+  --ds-control-text: var(--ds-text-on-accent);
 
   /* Interaction-state overlays */
-  --ds-state-hover: rgba(0, 0, 0, 0.06);
-  --ds-state-active: rgba(0, 0, 0, 0.12);
-  --ds-state-selected: rgba(0, 0, 0, 0.08);
+  --ds-state-hover: rgba(23, 32, 51, 0.06);
+  --ds-state-active: rgba(23, 32, 51, 0.1);
+  --ds-state-selected: rgba(79, 70, 229, 0.11);
 
   /* SegmentedControl: recessed track + raised active thumb (used by the
      ContextPopover type switcher and theme-first restyle controls) */
@@ -100,24 +105,26 @@
   --ds-segment-thumb: var(--ds-surface-raised);
 
   /* Focus ring */
-  --ds-focus-ring: var(--ds-text-primary);
-  --ds-focus-offset: var(--ds-surface-raised);
+  --ds-focus-ring: var(--ds-accent);
+  --ds-focus-offset: var(--ds-surface-base);
 
   /* Radii scale */
-  --ds-radius-sm: 0.5rem; /* 8px  */
-  --ds-radius-md: 0.625rem; /* 10px */
-  --ds-radius-lg: 0.875rem; /* 14px */
-  --ds-radius-xl: 1.125rem; /* 18px */
+  --ds-radius-sm: 0.375rem; /* 6px */
+  --ds-radius-md: 0.5rem; /* 8px */
+  --ds-radius-lg: 0.625rem; /* 10px */
+  --ds-radius-xl: 0.75rem; /* 12px */
   --ds-radius-pill: 9999px;
 
   /* Elevation (transient → anchored) */
   --ds-shadow-flat: none;
   --ds-shadow-raised:
-    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    0 1px 2px rgb(15 23 42 / 0.06), 0 1px 1px rgb(15 23 42 / 0.04);
   --ds-shadow-overlay:
-    0 10px 30px -12px rgb(0 0 0 / 0.25), 0 2px 8px -2px rgb(0 0 0 / 0.12);
+    0 18px 40px -28px rgb(15 23 42 / 0.45),
+    0 8px 18px -14px rgb(15 23 42 / 0.18);
   --ds-shadow-popover:
-    0 16px 48px -16px rgb(0 0 0 / 0.3), 0 4px 12px -4px rgb(0 0 0 / 0.15);
+    0 24px 60px -34px rgb(15 23 42 / 0.5),
+    0 10px 22px -16px rgb(15 23 42 / 0.22);
   /* Laser-pointer glow rings used in present-mode */
   --ds-shadow-laser-indicator: 0 0 0 4px rgba(248, 113, 113, 0.25);
   --ds-shadow-laser-cursor: 0 0 0 6px rgba(239, 68, 68, 0.25);
@@ -167,6 +174,7 @@
   --font-mono: Menlo, "Courier New", Courier, monospace;
 
   /* Design-system chrome tokens exposed as Tailwind utilities (ds-*) */
+  --color-ds-surface: var(--ds-surface);
   --color-ds-surface-base: var(--ds-surface-base);
   --color-ds-surface-raised: var(--ds-surface-raised);
   --color-ds-surface-overlay: var(--ds-surface-overlay);
@@ -186,6 +194,7 @@
   --color-ds-accent-hover: var(--ds-accent-hover);
   --color-ds-accent-contrast: var(--ds-accent-contrast);
   --color-ds-accent-surface: var(--ds-accent-surface);
+  --color-ds-accent-subtle: var(--ds-accent-subtle);
   --color-ds-accent-border: var(--ds-accent-border);
   --color-ds-accent-text: var(--ds-accent-text);
 
@@ -202,6 +211,9 @@
   --color-ds-danger-surface: var(--ds-danger-surface);
   --color-ds-danger-border: var(--ds-danger-border);
   --color-ds-danger-text: var(--ds-danger-text);
+  --color-ds-error: var(--ds-danger);
+  --color-ds-error-surface: var(--ds-error-surface);
+  --color-ds-error-text: var(--ds-error-text);
 
   --color-ds-backdrop: var(--ds-backdrop);
   --color-ds-backdrop-strong: var(--ds-backdrop-strong);
@@ -234,6 +246,7 @@
   --color-ds-segment-track: var(--ds-segment-track);
   --color-ds-segment-thumb: var(--ds-segment-thumb);
 
+  --color-ds-focus: var(--ds-focus-ring);
   --color-ds-focus-ring: var(--ds-focus-ring);
   --color-ds-focus-offset: var(--ds-focus-offset);
 
@@ -269,34 +282,214 @@
 }
 
 /* =============================================================================
-   Dark-mode overrides
+   Theme overrides
    ---------------------------------------------------------------------------
    Override token values only; component classes continue to consume the same
-   semantic `ds-*` utilities in both color schemes.
+   semantic `ds-*` utilities in every theme.
    ========================================================================== */
+:root[data-theme="ocean"] {
+  color-scheme: light;
+  --background: #f4fbfc;
+  --foreground: #102a36;
+
+  --ds-surface: #ffffff;
+  --ds-surface-raised: #ffffff;
+  --ds-surface-overlay: #ffffff;
+  --ds-surface-sunken: #eaf5f7;
+  --ds-surface-chrome: rgba(255, 255, 255, 0.84);
+  --ds-surface-glass: rgba(255, 255, 255, 0.9);
+
+  --ds-text-primary: #102a36;
+  --ds-text-secondary: #48626e;
+  --ds-text-muted: #718391;
+  --ds-border-subtle: rgba(16, 42, 54, 0.1);
+  --ds-border-strong: rgba(16, 42, 54, 0.18);
+
+  --ds-accent: #0891b2;
+  --ds-accent-hover: #0e7490;
+  --ds-accent-surface: #e6f7fb;
+  --ds-accent-subtle: #f0fbfd;
+  --ds-accent-border: rgba(8, 145, 178, 0.26);
+  --ds-accent-text: #0e7490;
+
+  --ds-control: var(--ds-accent);
+  --ds-control-hover: var(--ds-accent-hover);
+  --ds-state-hover: rgba(16, 42, 54, 0.06);
+  --ds-state-active: rgba(16, 42, 54, 0.11);
+  --ds-state-selected: rgba(8, 145, 178, 0.13);
+  --ds-focus-ring: var(--ds-accent);
+}
+
+:root[data-theme="mint"] {
+  color-scheme: light;
+  --background: #f6fbf7;
+  --foreground: #12261f;
+
+  --ds-surface: #ffffff;
+  --ds-surface-raised: #ffffff;
+  --ds-surface-overlay: #ffffff;
+  --ds-surface-sunken: #edf7f0;
+  --ds-surface-chrome: rgba(255, 255, 255, 0.84);
+  --ds-surface-glass: rgba(255, 255, 255, 0.9);
+
+  --ds-text-primary: #12261f;
+  --ds-text-secondary: #4c6259;
+  --ds-text-muted: #74857d;
+  --ds-border-subtle: rgba(18, 38, 31, 0.1);
+  --ds-border-strong: rgba(18, 38, 31, 0.18);
+
+  --ds-accent: #059669;
+  --ds-accent-hover: #047857;
+  --ds-accent-surface: #e6f7ef;
+  --ds-accent-subtle: #f0fbf6;
+  --ds-accent-border: rgba(5, 150, 105, 0.26);
+  --ds-accent-text: #047857;
+
+  --ds-control: var(--ds-accent);
+  --ds-control-hover: var(--ds-accent-hover);
+  --ds-state-hover: rgba(18, 38, 31, 0.06);
+  --ds-state-active: rgba(18, 38, 31, 0.11);
+  --ds-state-selected: rgba(5, 150, 105, 0.13);
+  --ds-focus-ring: var(--ds-accent);
+}
+
+:root[data-theme="rose"] {
+  color-scheme: light;
+  --background: #fff7f8;
+  --foreground: #33202a;
+
+  --ds-surface: #ffffff;
+  --ds-surface-raised: #ffffff;
+  --ds-surface-overlay: #ffffff;
+  --ds-surface-sunken: #faedf1;
+  --ds-surface-chrome: rgba(255, 255, 255, 0.84);
+  --ds-surface-glass: rgba(255, 255, 255, 0.9);
+
+  --ds-text-primary: #33202a;
+  --ds-text-secondary: #684f5b;
+  --ds-text-muted: #8b7480;
+  --ds-border-subtle: rgba(51, 32, 42, 0.1);
+  --ds-border-strong: rgba(51, 32, 42, 0.18);
+
+  --ds-accent: #e11d48;
+  --ds-accent-hover: #be123c;
+  --ds-accent-surface: #fff1f2;
+  --ds-accent-subtle: #fff7f8;
+  --ds-accent-border: rgba(225, 29, 72, 0.24);
+  --ds-accent-text: #be123c;
+
+  --ds-control: var(--ds-accent);
+  --ds-control-hover: var(--ds-accent-hover);
+  --ds-state-hover: rgba(51, 32, 42, 0.06);
+  --ds-state-active: rgba(51, 32, 42, 0.11);
+  --ds-state-selected: rgba(225, 29, 72, 0.12);
+  --ds-focus-ring: var(--ds-accent);
+}
+
+:root[data-theme="amber"] {
+  color-scheme: light;
+  --background: #fffaf0;
+  --foreground: #302411;
+
+  --ds-surface: #ffffff;
+  --ds-surface-raised: #ffffff;
+  --ds-surface-overlay: #ffffff;
+  --ds-surface-sunken: #f7efde;
+  --ds-surface-chrome: rgba(255, 255, 255, 0.84);
+  --ds-surface-glass: rgba(255, 255, 255, 0.9);
+
+  --ds-text-primary: #302411;
+  --ds-text-secondary: #695a42;
+  --ds-text-muted: #8b7b63;
+  --ds-border-subtle: rgba(48, 36, 17, 0.1);
+  --ds-border-strong: rgba(48, 36, 17, 0.18);
+
+  --ds-accent: #d97706;
+  --ds-accent-hover: #b45309;
+  --ds-accent-surface: #fff4db;
+  --ds-accent-subtle: #fff9eb;
+  --ds-accent-border: rgba(217, 119, 6, 0.26);
+  --ds-accent-text: #92400e;
+
+  --ds-control: var(--ds-accent);
+  --ds-control-hover: var(--ds-accent-hover);
+  --ds-state-hover: rgba(48, 36, 17, 0.06);
+  --ds-state-active: rgba(48, 36, 17, 0.11);
+  --ds-state-selected: rgba(217, 119, 6, 0.13);
+  --ds-focus-ring: var(--ds-accent);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #111318;
+  --foreground: #f3f5f7;
+
+  /* Design-system chrome tokens — dark mode overrides */
+  --ds-surface: #171a21;
+  --ds-surface-raised: #191d24;
+  --ds-surface-overlay: #1f242d;
+  --ds-surface-sunken: #0d1016;
+  --ds-surface-chrome: rgba(17, 19, 24, 0.72);
+  --ds-surface-glass: rgba(31, 36, 45, 0.82);
+
+  --ds-text-primary: #f3f5f7;
+  --ds-text-secondary: #c2cad5;
+  --ds-text-muted: #8d98a8;
+
+  --ds-border-subtle: rgba(255, 255, 255, 0.12);
+  --ds-border-strong: rgba(255, 255, 255, 0.2);
+
+  --ds-accent-hover: #6366f1;
+  --ds-accent-surface: rgba(99, 102, 241, 0.16);
+  --ds-accent-subtle: rgba(99, 102, 241, 0.12);
+  --ds-accent-border: rgba(129, 140, 248, 0.35);
+  --ds-accent-text: #c7d2fe;
+
+  --ds-success-surface: rgba(111, 159, 29, 0.2);
+  --ds-success-border: rgba(132, 204, 22, 0.35);
+  --ds-success-text: #bef264;
+  --ds-warning-surface: rgba(183, 121, 31, 0.2);
+  --ds-warning-border: rgba(251, 191, 36, 0.35);
+  --ds-warning-text: #fbbf24;
+  --ds-danger-surface: rgba(220, 38, 38, 0.18);
+  --ds-danger-border: rgba(248, 113, 113, 0.35);
+  --ds-danger-text: #f87171;
+
+  --ds-control: var(--ds-accent);
+  --ds-control-hover: var(--ds-accent-hover);
+  --ds-control-text: var(--ds-text-on-accent);
+
+  --ds-state-hover: rgba(255, 255, 255, 0.08);
+  --ds-state-active: rgba(255, 255, 255, 0.14);
+  --ds-state-selected: rgba(129, 140, 248, 0.18);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --background: #111318;
+    --foreground: #f3f5f7;
 
     /* Design-system chrome tokens — dark mode overrides */
-    --ds-surface-raised: #18181b;
-    --ds-surface-overlay: #18181b;
-    --ds-surface-sunken: #16181c;
-    --ds-surface-chrome: rgba(0, 0, 0, 0.4);
-    --ds-surface-glass: rgba(24, 24, 27, 0.9);
+    --ds-surface: #171a21;
+    --ds-surface-raised: #191d24;
+    --ds-surface-overlay: #1f242d;
+    --ds-surface-sunken: #0d1016;
+    --ds-surface-chrome: rgba(17, 19, 24, 0.72);
+    --ds-surface-glass: rgba(31, 36, 45, 0.82);
 
-    --ds-text-primary: #f5f6f6;
-    --ds-text-secondary: #98a0a6;
-    --ds-text-muted: #828b91;
+    --ds-text-primary: #f3f5f7;
+    --ds-text-secondary: #c2cad5;
+    --ds-text-muted: #8d98a8;
 
     --ds-border-subtle: rgba(255, 255, 255, 0.12);
-    --ds-border-strong: #2a2d31;
+    --ds-border-strong: rgba(255, 255, 255, 0.2);
 
     --ds-accent-hover: #6366f1;
-    --ds-accent-surface: rgba(79, 70, 229, 0.22);
+    --ds-accent-surface: rgba(99, 102, 241, 0.16);
+    --ds-accent-subtle: rgba(99, 102, 241, 0.12);
     --ds-accent-border: rgba(129, 140, 248, 0.35);
-    --ds-accent-text: #a5b4fc;
+    --ds-accent-text: #c7d2fe;
 
     --ds-success-surface: rgba(111, 159, 29, 0.2);
     --ds-success-border: rgba(132, 204, 22, 0.35);
@@ -308,13 +501,13 @@
     --ds-danger-border: rgba(248, 113, 113, 0.35);
     --ds-danger-text: #f87171;
 
-    --ds-control: #ffffff;
-    --ds-control-hover: #e4e4e7;
-    --ds-control-text: #18181b;
+    --ds-control: var(--ds-accent);
+    --ds-control-hover: var(--ds-accent-hover);
+    --ds-control-text: var(--ds-text-on-accent);
 
-    --ds-state-hover: rgba(255, 255, 255, 0.09);
-    --ds-state-active: rgba(255, 255, 255, 0.16);
-    --ds-state-selected: rgba(255, 255, 255, 0.12);
+    --ds-state-hover: rgba(255, 255, 255, 0.08);
+    --ds-state-active: rgba(255, 255, 255, 0.14);
+    --ds-state-selected: rgba(129, 140, 248, 0.18);
   }
 }
 
@@ -383,49 +576,32 @@ body {
   /* Centered ~720px reading measure. */
   max-width: 45rem;
   margin-inline: auto;
-  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
-  font-size: 1.125rem;
-  line-height: 1.7;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.68;
   color: var(--ds-text-primary);
 }
 
-.ds-prose p {
-  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
-  color: var(--ds-text-primary);
-  line-height: 1.7;
-  margin-bottom: 1.2em;
-}
-
+.ds-prose p,
 .ds-prose ul,
 .ds-prose ol {
-  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
   color: var(--ds-text-primary);
-  line-height: 1.7;
-  margin-bottom: 1.2em;
+  line-height: 1.68;
+  margin-bottom: 1.1em;
 }
 
 .ds-prose li {
   margin-bottom: 0.4em;
-  line-height: 1.7;
+  line-height: 1.68;
 }
 
 .ds-prose h1,
 .ds-prose h2,
 .ds-prose h3 {
-  font-family: var(
-    --font-sans,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif
-  );
+  font-family: inherit;
   color: var(--ds-text-primary);
   font-weight: 700;
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 
@@ -448,7 +624,6 @@ body {
 }
 
 .ds-prose blockquote {
-  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
   border-left: 3px solid var(--ds-accent);
   padding-left: 1.2em;
   margin: 1.2em 0;

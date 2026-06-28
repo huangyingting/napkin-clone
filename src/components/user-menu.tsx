@@ -1,9 +1,27 @@
 "use client";
 
+import { CreditCard, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { MENU_CHROME, MENU_ITEM, cx } from "@/components/ui";
+import { FOCUS_RING, MENU_CHROME, cx } from "@/components/ui";
+
+export const USER_MENU_ITEM_CLASS = cx(
+  "flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-sm font-medium transition-colors",
+  "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
+  FOCUS_RING,
+);
+
+export function UserMenuItemIcon({
+  type,
+}: {
+  type: "settings" | "billing" | "sign-out";
+}) {
+  const Icon =
+    type === "settings" ? Settings : type === "billing" ? CreditCard : LogOut;
+
+  return <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />;
+}
 
 /**
  * The header user menu: a dropdown showing the current user's name + email with
@@ -66,25 +84,20 @@ export function UserMenu({
         <div
           role="menu"
           className={cx(
-            "absolute right-0 top-full z-dropdown mt-2 w-56",
+            "absolute right-0 top-full z-dropdown mt-2 w-44 p-1",
             MENU_CHROME,
           )}
         >
-          <div className="border-b border-ds-border-strong px-3 py-2">
-            <p className="truncate text-sm font-medium text-ds-text-primary">
-              {trimmedName || "Your account"}
-            </p>
-            <p className="truncate text-xs text-ds-text-secondary">{email}</p>
-          </div>
           <Link
             href="/app/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className={MENU_ITEM}
+            className={USER_MENU_ITEM_CLASS}
           >
+            <UserMenuItemIcon type="settings" />
             Settings
           </Link>
-          <div className="border-t border-ds-border-strong">{children}</div>
+          {children}
         </div>
       ) : null}
     </div>

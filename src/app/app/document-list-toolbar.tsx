@@ -1,10 +1,15 @@
 import type { AvailableTag } from "@/lib/document/list";
+import { SelectMenu } from "@/components/ui";
 
 import {
   SORT_OPTIONS,
   type SortKey,
   type ViewKey,
 } from "./document-list-url-state";
+
+function isSortKey(value: string): value is SortKey {
+  return SORT_OPTIONS.some((option) => option.value === value);
+}
 
 export function DocumentListToolbar({
   availableTags,
@@ -30,6 +35,10 @@ export function DocumentListToolbar({
   setView: (view: ViewKey) => void;
 }) {
   const viewFavorites = view === "favorites";
+  const tagOptions = [
+    { value: "", label: "All tags" },
+    ...availableTags.map((tag) => ({ value: tag.slug, label: tag.name })),
+  ];
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -80,20 +89,16 @@ export function DocumentListToolbar({
             >
               Tag
             </label>
-            <select
-              id="filter-tag"
+            <SelectMenu
               value={selectedTag ?? ""}
-              onChange={(event) => setTag(event.target.value || null)}
+              options={tagOptions}
+              onChange={(value) => setTag(value || null)}
               aria-label="Filter by tag"
-              className="h-10 rounded-full border border-ds-border-strong bg-ds-surface-base px-4 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
-            >
-              <option value="">All tags</option>
-              {availableTags.map((tag) => (
-                <option key={tag.slug} value={tag.slug}>
-                  {tag.name}
-                </option>
-              ))}
-            </select>
+              buttonClassName="h-10 max-w-none rounded-full border border-ds-border-strong bg-ds-surface-base px-4 text-ds-text-primary hover:bg-ds-surface-sunken"
+              menuClassName="w-44"
+              scrollable={false}
+              textSize="sm"
+            />
           </>
         )}
         <button
@@ -127,19 +132,18 @@ export function DocumentListToolbar({
         >
           Sort
         </label>
-        <select
-          id="sort-documents"
+        <SelectMenu
           value={sort}
-          onChange={(event) => setSort(event.target.value as SortKey)}
+          options={SORT_OPTIONS}
+          onChange={(value) => {
+            if (isSortKey(value)) setSort(value);
+          }}
           aria-label="Sort documents"
-          className="h-10 rounded-full border border-ds-border-strong bg-ds-surface-base px-4 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          buttonClassName="h-10 max-w-none rounded-full border border-ds-border-strong bg-ds-surface-base px-4 text-ds-text-primary hover:bg-ds-surface-sunken"
+          menuClassName="w-44"
+          scrollable={false}
+          textSize="sm"
+        />
       </div>
     </div>
   );

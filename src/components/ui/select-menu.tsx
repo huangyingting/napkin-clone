@@ -37,6 +37,8 @@ export type SelectMenuProps = {
   showSelectedLabel?: boolean;
   showChevron?: boolean;
   showCheck?: boolean;
+  scrollable?: boolean;
+  textSize?: "xs" | "sm";
   align?: "start" | "center" | "end";
   anchor?: "trigger" | "toolbar";
   /**
@@ -61,6 +63,8 @@ export function SelectMenu({
   showSelectedLabel = true,
   showChevron = true,
   showCheck = true,
+  scrollable = true,
+  textSize = "xs",
   align = "start",
   anchor = "trigger",
   variant = "ghost",
@@ -85,6 +89,10 @@ export function SelectMenu({
   const active = options[activeIndex];
   const activeId = active ? `${listboxId}-${active.value}` : undefined;
   const displayIcon = triggerIcon ?? selected?.icon;
+  const triggerTextClass = textSize === "sm" ? "text-sm" : "text-xs";
+  const optionTextClass = textSize === "sm" ? "text-sm" : "text-xs";
+  const descriptionTextClass = textSize === "sm" ? "text-xs" : "text-[11px]";
+  const menuPosition = anchor === "toolbar" ? "fixed" : "absolute";
   const [coords, setCoords] = useState({ top: -1000, left: -1000, width: 0 });
 
   useEffect(() => {
@@ -145,23 +153,34 @@ export function SelectMenu({
       VIEWPORT_INSET,
       window.innerWidth - menuWidth - VIEWPORT_INSET,
     );
+    const viewportLeft = Math.min(
+      Math.max(preferredLeft, VIEWPORT_INSET),
+      maxLeft,
+    );
     setCoords({
-      top: anchorRect.bottom + MENU_GAP,
-      left: Math.min(Math.max(preferredLeft, VIEWPORT_INSET), maxLeft),
+      top:
+        anchorRect.bottom +
+        MENU_GAP +
+        (menuPosition === "absolute" ? window.scrollY : 0),
+      left: viewportLeft + (menuPosition === "absolute" ? window.scrollX : 0),
       width: buttonRect.width,
     });
-  }, [align, anchor]);
+  }, [align, anchor, menuPosition]);
 
   useLayoutEffect(() => {
     if (!open) return;
     reposition();
     window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
+    if (menuPosition === "fixed") {
+      window.addEventListener("scroll", reposition, true);
+    }
     return () => {
       window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
+      if (menuPosition === "fixed") {
+        window.removeEventListener("scroll", reposition, true);
+      }
     };
-  }, [enabledIndexFrom, open, reposition, selectedIndex]);
+  }, [enabledIndexFrom, menuPosition, open, reposition, selectedIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -238,7 +257,10 @@ export function SelectMenu({
       className={cx(
         variant === "field"
           ? "flex h-auto w-full items-center justify-between gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-[13px] font-normal text-ds-text-primary transition-colors hover:bg-ds-state-hover"
-          : "inline-flex h-7 max-w-40 items-center gap-1.5 rounded-ds-sm px-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+          : cx(
+              "inline-flex h-7 max-w-40 items-center gap-1.5 rounded-ds-sm px-1.5 font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+              triggerTextClass,
+            ),
         FOCUS_RING,
         buttonClassName,
       )}
@@ -290,7 +312,9 @@ export function SelectMenu({
                 minWidth: coords.width,
               }}
               className={cx(
-                "fixed z-tooltip max-h-72 overflow-y-auto p-1",
+                menuPosition === "fixed" ? "fixed" : "absolute",
+                "z-tooltip p-1",
+                scrollable ? "max-h-72 overflow-y-auto" : "overflow-visible",
                 MENU_CHROME,
                 menuClassName,
               )}
@@ -311,7 +335,8 @@ export function SelectMenu({
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={() => selectIndex(index)}
                       className={cx(
-                        "flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-40",
+                        "flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left transition-colors disabled:pointer-events-none disabled:opacity-40",
+                        optionTextClass,
                         activeOption
                           ? "bg-ds-state-hover text-ds-text-primary"
                           : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
@@ -327,7 +352,12 @@ export function SelectMenu({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{option.label}</span>
                         {option.description ? (
-                          <span className="block truncate text-[11px] font-normal text-ds-text-muted">
+                          <span
+                            className={cx(
+                              "block truncate font-normal text-ds-text-muted",
+                              descriptionTextClass,
+                            )}
+                          >
                             {option.description}
                           </span>
                         ) : null}
