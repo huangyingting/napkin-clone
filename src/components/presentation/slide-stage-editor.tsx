@@ -227,6 +227,21 @@ function samePreselection(
   return false;
 }
 
+function resolvePreselectedStageTarget(
+  preselection: StagePreselection | null,
+  elements: readonly SlideElement[],
+  groupEditingId: string | null,
+): StageInteractionTarget | null {
+  if (!preselection || preselection.kind === "slide") return null;
+  const element =
+    preselection.kind === "element"
+      ? elements.find((item) => item.id === preselection.elementId)
+      : elements.find((item) => item.id === preselection.elementIds[0]);
+  return element
+    ? resolveStageElementTarget(element, elements, { groupEditingId })
+    : null;
+}
+
 interface SlideStageEditorProps {
   slide: Slide;
   /** Deck context for full cascade resolution (theme override token set / masters). */
@@ -1580,10 +1595,19 @@ export function SlideStageEditor({
               onPointerDown={(event) => {
                 const hits = hitTestAtClientPoint(event.clientX, event.clientY);
                 const hit = hits[0];
-                if (!hit) {
+                const preselectedStageTarget = resolvePreselectedStageTarget(
+                  preselectedTarget,
+                  elementsRef.current,
+                  groupEditingId,
+                );
+                if (!hit && !preselectedStageTarget) {
                   return;
                 }
-                if (event.altKey && hits.length > 1) {
+                if (
+                  !preselectedStageTarget &&
+                  event.altKey &&
+                  hits.length > 1
+                ) {
                   event.preventDefault();
                   event.stopPropagation();
                   const target = nextSelectUnderTarget(
@@ -1596,9 +1620,11 @@ export function SlideStageEditor({
                   }
                   return;
                 }
-                const target = resolveStageHitTarget(hit, elementsRef.current, {
-                  groupEditingId,
-                });
+                const target =
+                  preselectedStageTarget ??
+                  resolveStageHitTarget(hit, elementsRef.current, {
+                    groupEditingId,
+                  });
                 if (!target) {
                   return;
                 }
@@ -1624,7 +1650,9 @@ export function SlideStageEditor({
                 // Unselected plain pointer-down still begins drag tracking:
                 // pointer-up without movement selects only, while movement past
                 // the click threshold moves immediately.
-                beginDrag(event, targetElement.id, "move", hit.box);
+                const targetBox =
+                  fittedBoxes.get(targetElement.id) ?? targetElement.box;
+                beginDrag(event, targetElement.id, "move", targetBox);
               }}
               onDoubleClick={(event) => {
                 const hit = hitTestAtClientPoint(

@@ -55,6 +55,20 @@ function visual(
   };
 }
 
+function image(
+  id: string,
+  zIndex: number,
+  elementBox: ElementBox,
+): SlideElement {
+  return {
+    id,
+    kind: "image",
+    content: { kind: "image", src: `image-${id}` },
+    zIndex,
+    box: elementBox,
+  } as unknown as SlideElement;
+}
+
 test("hitTestSlideElements returns the top visible element by zIndex", () => {
   const elements = [
     rect("bottom", 0, box(10, 10, 40, 40)),
@@ -207,13 +221,13 @@ test("hitTestSlideElements skips hidden and locked elements by default", () => {
   );
 });
 
-test("hitTestSlideElements uses media geometry regions for visual/image hits", () => {
+test("hitTestSlideElements uses media geometry regions for image hits", () => {
   const elements = [
     rect("bottom", 0, box(0, 0, 100, 100)),
-    visual("sparse-visual", 10, box(0, 0, 100, 100)),
+    image("sparse-image", 10, box(0, 0, 100, 100)),
   ];
   const mediaHitGeometry = new Map([
-    ["sparse-visual", { regions: [box(20, 20, 10, 10)] }],
+    ["sparse-image", { regions: [box(20, 20, 10, 10)] }],
   ]);
 
   const emptyRegionHits = hitTestSlideElements({ x: 80, y: 80 }, elements, {
@@ -224,7 +238,23 @@ test("hitTestSlideElements uses media geometry regions for visual/image hits", (
   const regionHits = hitTestSlideElements({ x: 25, y: 25 }, elements, {
     mediaHitGeometry,
   });
-  assert.equal(regionHits[0]?.element.id, "sparse-visual");
+  assert.equal(regionHits[0]?.element.id, "sparse-image");
+});
+
+test("hitTestSlideElements uses the full visual box even with sparse media geometry", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    visual("sparse-visual", 10, box(0, 0, 100, 100)),
+  ];
+  const mediaHitGeometry = new Map([
+    ["sparse-visual", { regions: [box(20, 20, 10, 10)] }],
+  ]);
+
+  const hits = hitTestSlideElements({ x: 80, y: 80 }, elements, {
+    mediaHitGeometry,
+  });
+
+  assert.equal(hits[0]?.element.id, "sparse-visual");
 });
 
 test("hitTestSlideElements falls back to fitted media box without media geometry", () => {

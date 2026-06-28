@@ -377,8 +377,7 @@ function hitTestElement(
         reason: "connector-stroke",
       };
     }
-    case "image":
-    case "visual": {
+    case "image": {
       const mediaGeometry = mediaHitGeometry?.get(element.id);
       if (mediaGeometry) {
         if (
@@ -389,6 +388,15 @@ function hitTestElement(
           return null;
         }
       } else if (!pointInElementBox(point, element, box, stageAspect)) {
+        return null;
+      }
+      return {
+        score: withBonuses(SCORE.boxInterior, element, selectedElementIds),
+        reason: "box-interior",
+      };
+    }
+    case "visual": {
+      if (!pointInElementBox(point, element, box, stageAspect)) {
         return null;
       }
       return {
