@@ -2026,7 +2026,7 @@ export function SlideEditor({
               width: dragPreview.width,
             }}
           >
-            <div className="rounded-ds-md border border-ds-accent-border bg-ds-surface-base p-1 shadow-[0_0_30px_-14px_rgba(15,23,42,0.28)] ring-1 ring-ds-accent-border">
+            <div className="rounded-ds-md border border-ds-accent-border bg-ds-surface-base p-1 shadow-ds-overlay ring-1 ring-ds-accent-border">
               <div
                 className="relative overflow-hidden rounded-ds-sm border border-ds-border-subtle"
                 style={{ aspectRatio: activeSlideAspectRatio }}
@@ -2124,7 +2124,7 @@ export function SlideEditor({
                 key={`panel-${rightPanelTab}`}
                 initialTab={rightPanelTab}
                 onClose={closeRightPanel}
-                className="absolute right-4 z-panel box-border hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg bg-ds-surface-overlay shadow-[0_0_30px_-14px_rgba(15,23,42,0.28)] lg:flex"
+                className="absolute right-4 z-panel box-border hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg bg-ds-surface-overlay shadow-ds-overlay lg:flex"
                 style={{
                   top: stageLayout.inspectorPanel.top,
                   height: stageLayout.inspectorPanel.height,
@@ -2165,13 +2165,13 @@ export function SlideEditor({
                     {showInsertBefore ? (
                       <span
                         aria-hidden="true"
-                        className="pointer-events-none absolute -left-1.5 top-1 bottom-1 z-10 w-1 rounded-full bg-ds-accent shadow-[0_0_16px_-6px_rgba(15,23,42,0.35)]"
+                        className="pointer-events-none absolute -left-1.5 top-1 bottom-1 z-raised w-1 rounded-full bg-ds-accent shadow-ds-raised"
                       />
                     ) : null}
                     {showInsertAfter ? (
                       <span
                         aria-hidden="true"
-                        className="pointer-events-none absolute -right-1.5 top-1 bottom-1 z-10 w-1 rounded-full bg-ds-accent shadow-[0_0_16px_-6px_rgba(15,23,42,0.35)]"
+                        className="pointer-events-none absolute -right-1.5 top-1 bottom-1 z-raised w-1 rounded-full bg-ds-accent shadow-ds-raised"
                       />
                     ) : null}
                     <button

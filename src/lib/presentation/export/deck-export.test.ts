@@ -11,6 +11,7 @@
  *
  * No PptxGenJS binary or DOM is required — `buildDeckSpecs` is pure.
  */
+// e2e-governance-allow oversized-test: broad export transform matrix stays together until shared export fixtures are extracted.
 
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";

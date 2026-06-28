@@ -39,7 +39,8 @@ export function VisualPanel({
       <PanelSection>
         <p className="text-sm font-medium text-ds-text-primary">Standalone</p>
         <p className="text-xs text-ds-text-muted">
-          Not linked to a document. Use the toolbar's Add menu to link content.
+          Not linked to a document. Use the Add menu in the toolbar to link
+          content.
         </p>
       </PanelSection>
     );

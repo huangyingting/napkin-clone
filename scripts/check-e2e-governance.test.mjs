@@ -49,6 +49,18 @@ test("e2e governance: flags oversized tests outside the allowlist", () => {
   assert.equal(findings[0].rule, "oversized-test");
 });
 
+test("e2e governance: accepts file-level oversized test allow comments", () => {
+  const findings = scanText(
+    "src/lib/example.test.ts",
+    [
+      "// e2e-governance-allow oversized-test: broad export matrix stays together until shared fixtures are extracted.",
+      ...Array.from({ length: 1_501 }, (_, index) => `// ${index}`),
+    ].join("\n"),
+  );
+
+  assert.deepEqual(findings, []);
+});
+
 test("e2e governance: accepts profile-gated skips and legacy allowlisted issues", () => {
   assert.deepEqual(
     scanText(

@@ -51,7 +51,7 @@ export function VisualNodeRendererProvider({
   children,
 }: {
   renderVisualNode: RenderVisualNode;
-  children: ReactNode;
+  children?: ReactNode;
 }): JSX.Element {
   return (
     <VisualNodeRendererContext.Provider value={renderVisualNode}>

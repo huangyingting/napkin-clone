@@ -133,7 +133,7 @@ function GradientPresetButton({
         <Check
           size={14}
           aria-hidden="true"
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow-sm"
         />
       ) : null}
     </button>

@@ -194,15 +194,22 @@ test("visual DOM import skips unrelated, missing, malformed, and invalid payload
 test("visual node renderer provider supplies custom markup and defaults when absent", () => {
   const visual = buildVisual({ title: "Rendered visual" });
   const custom = renderToStaticMarkup(
-    createElement(VisualNodeRendererProvider, {
-      renderVisualNode: ({ visualId }) =>
-        createElement("span", { "data-custom-visual-id": visualId }, "custom"),
-      children: VisualNode.prototype.decorate.call({
+    createElement(
+      VisualNodeRendererProvider,
+      {
+        renderVisualNode: ({ visualId }) =>
+          createElement(
+            "span",
+            { "data-custom-visual-id": visualId },
+            "custom",
+          ),
+      },
+      VisualNode.prototype.decorate.call({
         getKey: () => "node-key",
         __visual: visual,
         __visualId: "visual-provider",
       }),
-    }),
+    ),
   );
   assert.match(custom, /data-custom-visual-id="visual-provider"/);
 

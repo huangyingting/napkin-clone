@@ -101,6 +101,12 @@ function hasAllowComment(lines, lineNumber, rule) {
   );
 }
 
+function hasFileAllowComment(lines, rule) {
+  return lines.some(
+    (line) => line.includes(ALLOW_MARKER) && line.includes(rule),
+  );
+}
+
 function isApprovedFinding(filePath, lines, item) {
   if (hasAllowComment(lines, item.lineNumber, item.rule)) {
     return true;
@@ -163,7 +169,10 @@ export function scanText(filePath, text) {
     !OVERSIZED_TEST_ALLOWLIST.has(normalized)
   ) {
     const lineCount = lines.length;
-    if (lineCount > TEST_SIZE_LIMIT) {
+    if (
+      lineCount > TEST_SIZE_LIMIT &&
+      !hasFileAllowComment(lines, "oversized-test")
+    ) {
       findings.push({
         filePath: normalized,
         lineNumber: TEST_SIZE_LIMIT + 1,
