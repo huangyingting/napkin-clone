@@ -18,6 +18,7 @@ export {
   PopoverSection,
   StatusPill,
   ToolbarButton,
+  ToolbarMenuItem,
 } from "./chrome";
 export type {
   CardProps,
@@ -34,9 +35,13 @@ export type {
   ToolbarButtonShape,
   ToolbarButtonSize,
   ToolbarButtonTone,
+  ToolbarMenuItemProps,
 } from "./chrome";
 
 export { ColorPicker, DEFAULT_SWATCH_PRESETS } from "./color-picker";
+
+export { ChoiceGroup } from "./choice-group";
+export type { ChoiceGroupOption } from "./choice-group";
 
 export { Divider } from "./divider";
 

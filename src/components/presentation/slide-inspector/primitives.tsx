@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 
-import { FOCUS_RING, TOOLBAR_BUTTON_CHROME } from "@/components/ui/tokens";
+import { ChoiceGroup } from "@/components/ui/choice-group";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { SelectMenu, type SelectMenuOption } from "@/components/ui/select-menu";
 import type {
   BulletItem,
@@ -186,35 +187,15 @@ export function FitModeControl({
   return (
     <div className="flex items-center justify-between gap-2">
       <span className={LABEL_CLASS + " mb-0"}>Text fit</span>
-      <div
-        role="radiogroup"
+      <ChoiceGroup
         aria-label="Text fit mode"
-        className="flex gap-0.5"
-      >
-        {FIT_MODE_OPTIONS.map(({ value, label, title }) => {
-          const isActive = active === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={isActive}
-              title={title}
-              onClick={() =>
-                // Selecting the default "auto-height" clears the field
-                onChange(value === "auto-height" ? undefined : value)
-              }
-              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
-                isActive
-                  ? TOOLBAR_BUTTON_CHROME.active
-                  : TOOLBAR_BUTTON_CHROME.subtle
-              } ${FOCUS_RING}`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+        value={active}
+        options={FIT_MODE_OPTIONS}
+        onChange={(value) =>
+          // Selecting the default "auto-height" clears the field
+          onChange(value === "auto-height" ? undefined : value)
+        }
+      />
     </div>
   );
 }
@@ -246,40 +227,20 @@ export function VerticalAlignControl({
   return (
     <div className="flex items-center justify-between gap-2">
       <span className={LABEL_CLASS + " mb-0"}>V-align</span>
-      <div
-        role="radiogroup"
+      <ChoiceGroup
         aria-label="Vertical text alignment"
-        className="flex gap-0.5"
-      >
-        {VERTICAL_ALIGN_OPTIONS.map(({ value, label, title }) => {
-          const isActive = active === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={isActive}
-              title={title}
-              onClick={() =>
-                onChange({
-                  ...style,
-                  // "middle" is the default — clear the field to keep the model lean
-                  ...(value === "middle"
-                    ? { verticalAlign: undefined }
-                    : { verticalAlign: value }),
-                })
-              }
-              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
-                isActive
-                  ? TOOLBAR_BUTTON_CHROME.active
-                  : TOOLBAR_BUTTON_CHROME.subtle
-              } ${FOCUS_RING}`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+        value={active}
+        options={VERTICAL_ALIGN_OPTIONS}
+        onChange={(value) =>
+          onChange({
+            ...style,
+            // "middle" is the default — clear the field to keep the model lean
+            ...(value === "middle"
+              ? { verticalAlign: undefined }
+              : { verticalAlign: value }),
+          })
+        }
+      />
     </div>
   );
 }
@@ -306,36 +267,23 @@ export function LineHeightControl({
   return (
     <div className="flex items-center justify-between gap-2">
       <span className={LABEL_CLASS + " mb-0"}>Line height</span>
-      <div role="radiogroup" aria-label="Line height" className="flex gap-0.5">
-        {LINE_HEIGHT_OPTIONS.map(({ value, label }) => {
-          const isActive = Math.abs(active - value) < 0.001;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={isActive}
-              title={`Line height ${label}`}
-              onClick={() =>
-                onChange({
-                  ...style,
-                  // 1.2 is the default — clear to keep model lean
-                  ...(Math.abs(value - 1.2) < 0.001
-                    ? { lineHeight: undefined }
-                    : { lineHeight: value }),
-                })
-              }
-              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
-                isActive
-                  ? TOOLBAR_BUTTON_CHROME.active
-                  : TOOLBAR_BUTTON_CHROME.subtle
-              } ${FOCUS_RING}`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      <ChoiceGroup
+        aria-label="Line height"
+        value={active}
+        options={LINE_HEIGHT_OPTIONS.map((option) => ({
+          ...option,
+          title: `Line height ${option.label}`,
+        }))}
+        onChange={(value) =>
+          onChange({
+            ...style,
+            // 1.2 is the default — clear to keep model lean
+            ...(Math.abs(value - 1.2) < 0.001
+              ? { lineHeight: undefined }
+              : { lineHeight: value }),
+          })
+        }
+      />
     </div>
   );
 }
@@ -459,6 +407,7 @@ export function ListTypeControl({
     (it: BulletItem) => it.listType === "number",
   ).length;
   const isNumbered = items.length > 0 && numberedCount > items.length / 2;
+  const activeType: "bullet" | "number" = isNumbered ? "number" : "bullet";
 
   function toggle() {
     const targetType = isNumbered ? "bullet" : "number";
@@ -472,34 +421,17 @@ export function ListTypeControl({
   return (
     <div className="flex items-center justify-between gap-2">
       <span className={LABEL_CLASS + " mb-0"}>List type</span>
-      <div className="flex gap-1">
-        <button
-          type="button"
-          onClick={() => !isNumbered || toggle()}
-          className={`rounded-ds-md border px-2 py-1 text-xs transition-colors ${
-            !isNumbered
-              ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover"
-          } ${FOCUS_RING}`}
-          aria-pressed={!isNumbered}
-          title="Bullet list"
-        >
-          • Bullet
-        </button>
-        <button
-          type="button"
-          onClick={() => isNumbered || toggle()}
-          className={`rounded-ds-md border px-2 py-1 text-xs transition-colors ${
-            isNumbered
-              ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover"
-          } ${FOCUS_RING}`}
-          aria-pressed={isNumbered}
-          title="Numbered list"
-        >
-          1. Number
-        </button>
-      </div>
+      <ChoiceGroup
+        aria-label="List type"
+        value={activeType}
+        options={[
+          { value: "bullet", label: "• Bullet", title: "Bullet list" },
+          { value: "number", label: "1. Number", title: "Numbered list" },
+        ]}
+        onChange={(value) => {
+          if (value !== activeType) toggle();
+        }}
+      />
     </div>
   );
 }

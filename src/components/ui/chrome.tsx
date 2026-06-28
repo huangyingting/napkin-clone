@@ -109,6 +109,33 @@ export function MenuItem({ inset, className, type, ...rest }: MenuItemProps) {
   );
 }
 
+export type ToolbarMenuItemProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  icon?: ReactNode;
+};
+
+export function ToolbarMenuItem({
+  icon,
+  type,
+  className,
+  children,
+  ...rest
+}: ToolbarMenuItemProps) {
+  return (
+    <button
+      type={type ?? "button"}
+      className={cx(
+        "flex w-full items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+        FOCUS_RING,
+        className,
+      )}
+      {...rest}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
 export type FormFieldProps = HTMLAttributes<HTMLDivElement> & {
   label: ReactNode;
   htmlFor?: string;
