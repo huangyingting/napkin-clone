@@ -1555,7 +1555,11 @@ export function SlideSelectionToolbar({
       (selectedElement as { source?: unknown } | null)?.source !== undefined,
   });
   const morePanels: RightPanelTab[] = [
-    ...panels.filter((panel) => panel !== "layers"),
+    ...panels.filter(
+      (panel) =>
+        panel !== "layers" &&
+        !(selectedElement?.kind === "visual" && panel === "appearance"),
+    ),
     "layers",
   ];
   const hasMultiSelection = selectedIds.length >= 2;
@@ -1569,14 +1573,15 @@ export function SlideSelectionToolbar({
     onClick: () => void,
     disabled = false,
   ) => (
-    <ToolbarButton
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={withToolbarPanelsClosed(onClick)}
-    >
-      {icon}
-    </ToolbarButton>
+    <Tooltip label={label} side="bottom">
+      <ToolbarButton
+        aria-label={label}
+        disabled={disabled}
+        onClick={withToolbarPanelsClosed(onClick)}
+      >
+        {icon}
+      </ToolbarButton>
+    </Tooltip>
   );
   const menuItem = (label: string, icon: ReactNode, onClick: () => void) => (
     <button
@@ -1586,7 +1591,7 @@ export function SlideSelectionToolbar({
         onClick();
         setMoreOpen(false);
       }}
-      className={`flex w-max items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      className={`flex w-full items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
       {icon}
       {label}
@@ -1729,17 +1734,19 @@ export function SlideSelectionToolbar({
         layer="tooltip"
         className="w-max p-1"
         trigger={
-          <ToolbarButton
-            aria-label="More actions"
-            aria-haspopup="dialog"
-            aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((open) => !open)}
-          >
-            <MoreHorizontal size={14} aria-hidden="true" />
-          </ToolbarButton>
+          <Tooltip label="More actions" side="bottom">
+            <ToolbarButton
+              aria-label="More actions"
+              aria-haspopup="dialog"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+            >
+              <MoreHorizontal size={14} aria-hidden="true" />
+            </ToolbarButton>
+          </Tooltip>
         }
       >
-        <div className="flex flex-col">
+        <div className="flex min-w-max flex-col">
           {showRich && selectedElement?.kind === "image"
             ? menuItem(
                 "Crop image",
@@ -1865,7 +1872,7 @@ export function SlideToolbar({
         onClick();
         setMoreOpen(false);
       }}
-      className={`flex w-max items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      className={`flex w-full items-center gap-2 whitespace-nowrap rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
       {icon}
       {label}
@@ -2171,21 +2178,23 @@ export function SlideToolbar({
         layer="tooltip"
         className="w-max p-1"
         trigger={
-          <ToolbarButton
-            aria-label="More actions"
-            aria-haspopup="dialog"
-            aria-expanded={moreOpen}
-            onClick={() => {
-              const nextOpen = !moreOpen;
-              closeToolbarPanels();
-              setMoreOpen(nextOpen);
-            }}
-          >
-            <MoreHorizontal size={14} aria-hidden="true" />
-          </ToolbarButton>
+          <Tooltip label="More actions" side="bottom">
+            <ToolbarButton
+              aria-label="More actions"
+              aria-haspopup="dialog"
+              aria-expanded={moreOpen}
+              onClick={() => {
+                const nextOpen = !moreOpen;
+                closeToolbarPanels();
+                setMoreOpen(nextOpen);
+              }}
+            >
+              <MoreHorizontal size={14} aria-hidden="true" />
+            </ToolbarButton>
+          </Tooltip>
         }
       >
-        <div className="flex flex-col">
+        <div className="flex min-w-max flex-col">
           {moreMenuItem(
             "Slide",
             <LayoutPanelLeft size={14} aria-hidden="true" />,
@@ -2389,11 +2398,10 @@ export function ThumbnailAction({
   onClick: () => void;
   disabled?: boolean;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       aria-label={label}
-      title={label}
       disabled={disabled}
       onClick={(event) => {
         event.stopPropagation();
@@ -2403,6 +2411,12 @@ export function ThumbnailAction({
     >
       {icon}
     </button>
+  );
+
+  return (
+    <Tooltip label={label} side="bottom">
+      {button}
+    </Tooltip>
   );
 }
 

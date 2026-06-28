@@ -33,6 +33,7 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import {
   ColorPicker,
   DEFAULT_SWATCH_PRESETS,
+  Tooltip,
   ToolbarButton as StageToolbarButton,
 } from "@/components/ui";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
@@ -89,9 +90,11 @@ function ElementToolbarButton({
   onClick: () => void;
 }) {
   return (
-    <StageToolbarButton aria-label={label} title={label} onClick={onClick}>
-      <Icon size={14} aria-hidden="true" />
-    </StageToolbarButton>
+    <Tooltip label={label} side="bottom">
+      <StageToolbarButton aria-label={label} onClick={onClick}>
+        <Icon size={14} aria-hidden="true" />
+      </StageToolbarButton>
+    </Tooltip>
   );
 }
 
@@ -105,9 +108,11 @@ function ElementToolbarButtonWithText({
   onClick: () => void;
 }) {
   return (
-    <StageToolbarButton aria-label={label} title={label} onClick={onClick}>
-      <Icon size={14} aria-hidden="true" />
-    </StageToolbarButton>
+    <Tooltip label={label} side="bottom">
+      <StageToolbarButton aria-label={label} onClick={onClick}>
+        <Icon size={14} aria-hidden="true" />
+      </StageToolbarButton>
+    </Tooltip>
   );
 }
 

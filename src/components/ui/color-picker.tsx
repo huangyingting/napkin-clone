@@ -401,7 +401,6 @@ export function ColorPicker({
       <button
         ref={triggerRef}
         type="button"
-        title={ariaLabel}
         aria-pressed={active}
         aria-label={ariaLabel}
         aria-haspopup="dialog"

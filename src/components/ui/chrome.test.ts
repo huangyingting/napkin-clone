@@ -28,6 +28,16 @@ test("ToolbarButton: composes shared toolbar chrome", () => {
   assert.equal(element.props["aria-pressed"], true);
 });
 
+test("ToolbarButton: strips native title tooltips", () => {
+  const element = ToolbarButton({
+    "aria-label": "Bold",
+    title: "Bold",
+    children: "B",
+  });
+
+  assert.equal(element.props.title, undefined);
+});
+
 test("PopoverSection: renders a labelled section shell", () => {
   const element = PopoverSection({
     title: "Text",

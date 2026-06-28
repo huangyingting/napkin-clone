@@ -21,6 +21,18 @@ function shapeElement(id: string, zIndex: number): SlideElement {
   } as unknown as SlideElement;
 }
 
+function visualElement(id: string, zIndex: number): SlideElement {
+  return {
+    id,
+    kind: "visual",
+    role: "visual",
+    box: { x: 0, y: 0, w: 40, h: 40 },
+    zIndex,
+    content: { kind: "visual", visualId: "visual-1" },
+    designOverrides: { styleThemeId: "ocean" },
+  } as unknown as SlideElement;
+}
+
 function masterTextElement(
   id: string,
   masterChromeKind: "footer" | "watermark",
@@ -146,5 +158,20 @@ test("resolveSlideRenderModel renders master chrome placeholders per slide", () 
   if (page?.kind === "text") {
     assert.equal(page.content.text, "2 / 2");
     assert.equal(page.content.paragraphs?.[0]?.text, "2 / 2");
+  }
+});
+
+test("resolveSlideRenderModel applies visual style overrides", () => {
+  const d = deck();
+  d.slides[0] = {
+    ...d.slides[0]!,
+    elements: [visualElement("visual-el", 0)],
+  };
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.elementDesigns["visual-el"]?.kind, "visual");
+  if (model.elementDesigns["visual-el"]?.kind === "visual") {
+    assert.equal(model.elementDesigns["visual-el"].styleThemeId, "ocean");
   }
 });

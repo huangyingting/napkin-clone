@@ -110,7 +110,11 @@ function resolveElementDesign(
       };
     case "visual": {
       const styleThemeId =
-        element.content.styleThemeId ?? tokenSet.visual?.styleThemeId;
+        (typeof design?.styleThemeId === "string"
+          ? design.styleThemeId
+          : undefined) ??
+        element.content.styleThemeId ??
+        tokenSet.visual?.styleThemeId;
       return {
         kind: "visual",
         ...(role ? { role } : {}),

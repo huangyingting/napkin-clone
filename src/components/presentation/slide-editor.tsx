@@ -981,6 +981,27 @@ export function SlideEditor({
     closeRightPanel();
   }, [closeRightPanel, setSelectedElementId, setSelectedElementIds]);
 
+  const syncSelectionPanelForIds = useCallback(
+    (ids: Set<string>) => {
+      if (ids.size === 0) {
+        closeRightPanel();
+        return;
+      }
+      if (ids.size === 1) {
+        const [id] = ids;
+        const element = selectedSlide?.elements?.find(
+          (candidate) => candidate.id === id,
+        );
+        if (element?.kind === "visual") {
+          closeRightPanel();
+          return;
+        }
+      }
+      openSelectionPanel();
+    },
+    [closeRightPanel, openSelectionPanel, selectedSlide?.elements],
+  );
+
   const handleSelectSlide = useCallback(() => {
     setSelectedSlideFrameId(selectedSlide?.id ?? null);
     setSelectedElementId(null);
@@ -1016,33 +1037,30 @@ export function SlideEditor({
           setSelectedElementId(id);
         }
         setSelectedElementIds(next);
-        if (next.size > 0) {
-          openSelectionPanel();
-        } else {
-          closeRightPanel();
-        }
+        syncSelectionPanelForIds(next);
       } else if (mode === "keep") {
         // Make `id` the primary without disturbing an existing multi-selection
         // (used when starting a drag on an already-selected element).
+        const next = selectedElementIds.has(id)
+          ? selectedElementIds
+          : new Set([id]);
         setSelectedElementId(id);
-        setSelectedElementIds((current) =>
-          current.has(id) ? current : new Set([id]),
-        );
-        openSelectionPanel();
+        setSelectedElementIds(next);
+        syncSelectionPanelForIds(next);
       } else {
         // "replace": plain single selection.
+        const next = new Set([id]);
         setSelectedElementId(id);
-        setSelectedElementIds(new Set([id]));
-        openSelectionPanel();
+        setSelectedElementIds(next);
+        syncSelectionPanelForIds(next);
       }
     },
     [
-      closeRightPanel,
       handleClearSelection,
-      openSelectionPanel,
       selectedElementIds,
       setSelectedElementId,
       setSelectedElementIds,
+      syncSelectionPanelForIds,
     ],
   );
 
@@ -1114,18 +1132,13 @@ export function SlideEditor({
       setSelectedElementId((primary) =>
         primary && next.has(primary) ? primary : ([...next][0] ?? null),
       );
-      if (next.size > 0) {
-        openSelectionPanel();
-      } else {
-        closeRightPanel();
-      }
+      syncSelectionPanelForIds(next);
     },
     [
-      closeRightPanel,
-      openSelectionPanel,
       selectedElementIds,
       setSelectedElementId,
       setSelectedElementIds,
+      syncSelectionPanelForIds,
     ],
   );
 
@@ -1281,11 +1294,14 @@ export function SlideEditor({
   const handleReplaceSelectedVisual = useCallback(
     (elementId: string) => {
       const visualRefs = [...visuals.keys()];
-      if (visualRefs.length < 2) return;
       const visual = (deck.slides[safeSelected]?.elements ?? []).find(
         (element) => element.id === elementId && element.kind === "visual",
       );
       if (!visual || visual.kind !== "visual") return;
+      if (visualRefs.length < 2) {
+        openRightPanel("appearance");
+        return;
+      }
       const content = visualContent(visual);
       const currentIndex = Math.max(0, visualRefs.indexOf(content.visualId));
       const nextVisualId = visualRefs[(currentIndex + 1) % visualRefs.length];
@@ -1298,7 +1314,7 @@ export function SlideEditor({
         },
       } as ElementPatch);
     },
-    [deck.slides, handleUpdateElement, safeSelected, visuals],
+    [deck.slides, handleUpdateElement, openRightPanel, safeSelected, visuals],
   );
 
   const handleRestyleSelectedVisual = useCallback(

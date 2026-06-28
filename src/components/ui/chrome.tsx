@@ -195,6 +195,7 @@ export function ToolbarButton({
   tone = "subtle",
   shape = "sm",
   type,
+  title: _title,
   className,
   children,
   ...rest
