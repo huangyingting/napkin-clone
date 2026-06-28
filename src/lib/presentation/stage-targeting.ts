@@ -79,6 +79,7 @@ export function isStageTargetSelected(
  * live element references across renders.
  */
 export type StagePreselection =
+  | { kind: "slide" }
   | { kind: "element"; elementId: string }
   | { kind: "group"; groupId: string; elementIds: string[] };
 
@@ -101,6 +102,9 @@ export function samePreselection(
   if (a === b) return true;
   if (!a || !b) return false;
   if (a.kind !== b.kind) return false;
+  if (a.kind === "slide" && b.kind === "slide") {
+    return true;
+  }
   if (a.kind === "element" && b.kind === "element") {
     return a.elementId === b.elementId;
   }

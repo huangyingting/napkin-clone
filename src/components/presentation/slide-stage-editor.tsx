@@ -28,6 +28,7 @@ import {
 import { RotateCw } from "lucide-react";
 
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
+import { contrastTextColor } from "@/components/presentation/slide-canvas/primitives";
 import type {
   ConnectorAnchor,
   ConnectorEndpoint,
@@ -93,8 +94,11 @@ import {
 } from "@/lib/presentation/stage-interaction";
 import {
   isStageTargetSelected,
+  preselectionFromStageTarget,
   resolveStageElementTarget,
   resolveStageHitTarget,
+  samePreselection,
+  type StagePreselection,
   type StageInteractionTarget,
 } from "@/lib/presentation/stage-targeting";
 import {
@@ -165,23 +169,6 @@ function resolveTextColor(
   return textStyle?.color ?? contrastTextColor(fillColor);
 }
 
-function contrastTextColor(hex: string): string {
-  const raw = hex.replace("#", "");
-  const expanded =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((part) => `${part}${part}`)
-          .join("")
-      : raw;
-  if (expanded.length < 6) return "#ffffff";
-  const r = Number.parseInt(expanded.slice(0, 2), 16) / 255;
-  const g = Number.parseInt(expanded.slice(2, 4), 16) / 255;
-  const b = Number.parseInt(expanded.slice(4, 6), 16) / 255;
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.58 ? "#18181b" : "#ffffff";
-}
-
 /**
  * How a selection request should fold into the current selection. `"replace"`
  * (the default, plain click) selects just the one element; `"toggle"`
@@ -190,46 +177,6 @@ function contrastTextColor(hex: string): string {
  * starting a drag on an already-selected element). Issue #237.
  */
 export type SelectionMode = "replace" | "toggle" | "keep";
-
-type StagePreselection =
-  | { kind: "slide" }
-  | { kind: "element"; elementId: string }
-  | { kind: "group"; groupId: string; elementIds: string[] };
-
-function preselectionFromStageTarget(
-  target: StageInteractionTarget,
-): StagePreselection {
-  return target.kind === "group"
-    ? {
-        kind: "group",
-        groupId: target.groupId,
-        elementIds: target.elementIds,
-      }
-    : { kind: "element", elementId: target.element.id };
-}
-
-function samePreselection(
-  a: StagePreselection | null,
-  b: StagePreselection | null,
-): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  if (a.kind !== b.kind) return false;
-  if (a.kind === "slide" && b.kind === "slide") {
-    return true;
-  }
-  if (a.kind === "element" && b.kind === "element") {
-    return a.elementId === b.elementId;
-  }
-  if (a.kind === "group" && b.kind === "group") {
-    return (
-      a.groupId === b.groupId &&
-      a.elementIds.length === b.elementIds.length &&
-      a.elementIds.every((id, index) => id === b.elementIds[index])
-    );
-  }
-  return false;
-}
 
 function resolvePreselectedStageTarget(
   preselection: StagePreselection | null,

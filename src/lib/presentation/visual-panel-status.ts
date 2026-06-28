@@ -1,29 +1,29 @@
 /**
- * Pure decision logic for the per-element Source panel (#644).
+ * Pure decision logic for the per-element Visual panel (#644).
  *
  * The inspector renders a status label + a set of command-backed actions
- * (update / unlink / relink) for the selected element's source link. Keeping
+ * (update / unlink / relink) for the selected element's document link. Keeping
  * the decision here — separate from the React component — makes the behaviour
  * unit-testable without a DOM and keeps the panel a thin view.
  */
 
 import type { StaleReason } from "./source-link-staleness";
 
-/** Coarse provenance state surfaced in the Source panel. */
-export type SourcePanelStatus =
+/** Coarse provenance state surfaced in the Visual panel. */
+export type VisualPanelStatus =
   /** No `sourceRef` at all — the element was never linked. */
   | "standalone"
   /** Had a link that was intentionally unlinked (`sourceRef.unlinked`). */
   | "unlinked"
   /** Linked, but the source block can no longer be found. */
-  | "source_missing"
+  | "visual_missing"
   /** Linked, but the source block content changed since last sync. */
   | "stale"
   /** Linked and matching the source block. */
   | "linked";
 
-/** Inputs describing the selected element's source link. */
-export interface SourceLinkState {
+/** Inputs describing the selected element's document link. */
+export interface VisualLinkState {
   /** Whether the element carries a `sourceRef` at all. */
   hasSourceRef: boolean;
   /** Whether that ref is marked `unlinked`. */
@@ -32,20 +32,20 @@ export interface SourceLinkState {
   staleReason?: StaleReason;
 }
 
-/** Resolves the coarse {@link SourcePanelStatus} from a link state. */
-export function resolveSourcePanelStatus(
-  state: SourceLinkState,
-): SourcePanelStatus {
+/** Resolves the coarse {@link VisualPanelStatus} from a link state. */
+export function resolveVisualPanelStatus(
+  state: VisualLinkState,
+): VisualPanelStatus {
   if (!state.hasSourceRef) return "standalone";
   if (state.unlinked) return "unlinked";
-  if (state.staleReason === "block_missing") return "source_missing";
+  if (state.staleReason === "block_missing") return "visual_missing";
   if (state.staleReason === "content_changed") return "stale";
   return "linked";
 }
 
-/** Which Source-panel actions are valid for a given status. */
-export interface SourcePanelActions {
-  /** Pull fresh content from the source block (only when content drifted). */
+/** Which Visual-panel actions are valid for a given status. */
+export interface VisualPanelActions {
+  /** Pull fresh content from the linked block (only when content drifted). */
   canUpdate: boolean;
   /** Detach a live link, keeping the element as standalone content. */
   canUnlink: boolean;
@@ -54,19 +54,19 @@ export interface SourcePanelActions {
 }
 
 /**
- * Maps a status to its allowed actions. A "source_missing" (orphaned) link
+ * Maps a status to its allowed actions. A "visual_missing" (orphaned) link
  * deliberately offers unlink rather than a dead "update" action; an unlinked
  * ref offers relink rather than unlink.
  */
-export function resolveSourcePanelActions(
-  status: SourcePanelStatus,
-): SourcePanelActions {
+export function resolveVisualPanelActions(
+  status: VisualPanelStatus,
+): VisualPanelActions {
   switch (status) {
     case "standalone":
       return { canUpdate: false, canUnlink: false, canRelink: false };
     case "unlinked":
       return { canUpdate: false, canUnlink: false, canRelink: true };
-    case "source_missing":
+    case "visual_missing":
       return { canUpdate: false, canUnlink: true, canRelink: false };
     case "stale":
       return { canUpdate: true, canUnlink: true, canRelink: false };

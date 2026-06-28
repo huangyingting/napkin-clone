@@ -5,7 +5,7 @@
  *
  * The inspector renders exactly one active panel at a time. Each panel owns one
  * broad property category — Slide, object-specific editing, Arrange, Effects,
- * Source, Notes, or Layers — and the available set is computed from the current selection by
+ * Visual, Notes, or Layers — and the available set is computed from the current selection by
  * {@link availablePanels}. A compact in-panel switcher moves between the
  * available panels; it mirrors the toolbar `...` menu and never offers a panel
  * that cannot render.
@@ -50,16 +50,14 @@ import {
   type PanelAvailabilityContext,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
-import {
-  EffectsPanel,
-  ElementArrangeControl,
-  ElementEditor,
-  ImagePanel,
-  MultiSelectTools,
-  ShapePanel,
-  SourceSummary,
-  TextPanel,
-} from "@/components/presentation/slide-inspector/controls";
+import { ElementArrangeControl } from "@/components/presentation/slide-inspector/controls";
+import { EffectsPanel } from "@/components/presentation/slide-inspector/effects-panel";
+import { ElementEditor } from "@/components/presentation/slide-inspector/element-editor";
+import { ImagePanel } from "@/components/presentation/slide-inspector/image-panel";
+import { MultiSelectTools } from "@/components/presentation/slide-inspector/multi-select-tools";
+import { ShapePanel } from "@/components/presentation/slide-inspector/shape-panel";
+import { TextPanel } from "@/components/presentation/slide-inspector/text-panel";
+import { VisualPanel } from "@/components/presentation/slide-inspector/visual-panel";
 import { SlidePanelBody } from "@/components/presentation/slide-inspector/slide-panel";
 import {
   scaleElementsInBoundingBox,
@@ -597,7 +595,7 @@ export function SlideInspector({
 
         {(activeTab === "source" || activeTab === "visual") &&
         selectedElement ? (
-          <SourceSummary
+          <VisualPanel
             element={selectedElement}
             staleReason={sourceStaleReasonById?.get(selectedElement.id)}
             onUpdateFromSource={onUpdateElementFromSource}

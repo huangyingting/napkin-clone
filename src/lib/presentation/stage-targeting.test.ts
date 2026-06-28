@@ -5,8 +5,10 @@ import type { ElementBox, SlideElement } from "./deck";
 import {
   groupedElementIds,
   isStageTargetSelected,
+  preselectionFromStageTarget,
   resolveStageElementTarget,
   resolveStageHitTarget,
+  samePreselection,
 } from "./stage-targeting";
 
 function box(x: number, y: number, w: number, h: number): ElementBox {
@@ -85,4 +87,39 @@ test("isStageTargetSelected requires every group member to be selected", () => {
 
   assert.equal(isStageTargetSelected(target, new Set(["a"])), false);
   assert.equal(isStageTargetSelected(target, new Set(["a", "b"])), true);
+});
+
+test("preselectionFromStageTarget snapshots element and group targets", () => {
+  const elements = [rect("a", "g1"), rect("b", "g1"), rect("c")];
+
+  assert.deepEqual(
+    preselectionFromStageTarget(
+      resolveStageElementTarget(elements[2], elements),
+    ),
+    { kind: "element", elementId: "c" },
+  );
+  assert.deepEqual(
+    preselectionFromStageTarget(
+      resolveStageElementTarget(elements[1], elements),
+    ),
+    { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+  );
+});
+
+test("samePreselection compares slide, element, and group snapshots", () => {
+  assert.equal(samePreselection({ kind: "slide" }, { kind: "slide" }), true);
+  assert.equal(
+    samePreselection(
+      { kind: "element", elementId: "a" },
+      { kind: "element", elementId: "a" },
+    ),
+    true,
+  );
+  assert.equal(
+    samePreselection(
+      { kind: "group", groupId: "g1", elementIds: ["a", "b"] },
+      { kind: "group", groupId: "g1", elementIds: ["b", "a"] },
+    ),
+    false,
+  );
 });

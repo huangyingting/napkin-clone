@@ -1821,7 +1821,7 @@ export function SlideEditor({
                       ) : null}
                       <TopToolbarMenuAction
                         icon={<FileText size={15} aria-hidden="true" />}
-                        label="Open source panel"
+                        label="Open visual panel"
                         onClick={() => {
                           openRightPanel(
                             selectedSource.blockKind === "visual"

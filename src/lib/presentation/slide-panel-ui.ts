@@ -37,7 +37,7 @@ export const PANEL_LABELS: Record<RightPanelTab, string> = {
   visual: "Visual",
   line: "Line",
   effects: "Effects",
-  source: "Source",
+  source: "Visual",
   notes: "Notes",
   layers: "Layers",
 };
