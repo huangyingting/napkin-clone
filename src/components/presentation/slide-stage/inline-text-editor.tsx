@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 
 import type {
   Paragraph,
@@ -29,6 +37,7 @@ import {
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import { useSlideFontsReady } from "@/lib/presentation/slide-font-loading";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 import {
   elementDesignOverrides,
@@ -59,6 +68,108 @@ function defaultShapeTextStyle(): TextElementStyle {
     italic: false,
     align: "center" as const,
   };
+}
+
+type InlineListMeta = { indent: number; listType: "bullet" | "number" };
+
+function bulletMarker(indent: number): string {
+  if (indent === 0) return "";
+  if (indent === 1) return "◦";
+  return "–";
+}
+
+function listNumbers(meta: readonly InlineListMeta[]): (number | null)[] {
+  const counters = new Array(6).fill(0) as number[];
+  return meta.map((entry) => {
+    const indent = Math.max(0, Math.min(5, entry.indent));
+    if (entry.listType !== "number") {
+      for (let depth = indent; depth < counters.length; depth++) {
+        counters[depth] = 0;
+      }
+      return null;
+    }
+    for (let depth = indent + 1; depth < counters.length; depth++) {
+      counters[depth] = 0;
+    }
+    counters[indent]++;
+    return counters[indent];
+  });
+}
+
+function syncInlineListMarkers(
+  node: HTMLElement,
+  meta: InlineListMeta[],
+): InlineListMeta[] {
+  const lines = Array.from(node.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  );
+  const next = lines.map((line, index) => {
+    const entry = meta[index] ??
+      meta[index - 1] ?? {
+        indent: 0,
+        listType: "bullet" as const,
+      };
+    const normalized = {
+      indent: Math.max(0, Math.min(5, entry.indent ?? 0)),
+      listType: entry.listType ?? "bullet",
+    };
+    const marker = bulletMarker(normalized.indent);
+    line.dataset.listType = normalized.listType;
+    if (marker) {
+      line.dataset.listMarker = marker;
+    } else {
+      delete line.dataset.listMarker;
+    }
+    line.style.marginLeft =
+      normalized.indent > 0 ? `${normalized.indent * 1.5}em` : "";
+    return normalized;
+  });
+  const numbers = listNumbers(next);
+  lines.forEach((line, index) => {
+    const number = numbers[index];
+    if (number !== null) {
+      line.dataset.listNumber = String(number);
+    } else {
+      delete line.dataset.listNumber;
+    }
+  });
+  return next;
+}
+
+function useInlineShrinkScale(
+  contentRef: RefObject<HTMLElement | null>,
+  boundsRef: RefObject<HTMLElement | null>,
+  baseFontSize: number,
+  fitMode: string | undefined,
+): number {
+  const enabled = fitMode === "shrink-to-fit";
+  const fontsReady = useSlideFontsReady();
+  const configKey = `${baseFontSize}:${fitMode ?? ""}:${fontsReady ? 1 : 0}`;
+  const [sizing, setSizing] = useState({ key: configKey, scale: 1 });
+  const scale = sizing.key === configKey ? sizing.scale : 1;
+
+  if (sizing.key !== configKey) {
+    setSizing({ key: configKey, scale: 1 });
+  }
+
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const contentNode = contentRef.current;
+    const boundsNode = boundsRef.current;
+    if (!contentNode || !boundsNode) return;
+    const overflows =
+      contentNode.scrollHeight > boundsNode.clientHeight + 1 ||
+      contentNode.scrollWidth > boundsNode.clientWidth + 1;
+    if (!overflows || scale <= 0.55) return;
+    const nextScale = Math.max(0.55, scale * 0.88);
+    setSizing((current) =>
+      current.key === configKey && Math.abs(current.scale - nextScale) > 0.001
+        ? { ...current, scale: nextScale }
+        : current,
+    );
+  }, [boundsRef, configKey, contentRef, enabled, scale]);
+
+  return enabled ? scale : 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +222,7 @@ export function InlineTextEditor({
   onCommit: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const boundsRef = useRef<HTMLDivElement>(null);
   // Snapshot the element kind once so the live keystroke handler never depends
   // on the (changing) element prop — the DOM is the source of truth while the
   // overlay is mounted and its innerHTML is set exactly once below.
@@ -127,9 +239,7 @@ export function InlineTextEditor({
 
   // Per-item indent / listType metadata for bullets (#335).
   // Seeded from the element on mount, updated via Tab/Shift+Tab.
-  const itemMetaRef = useRef<
-    Array<{ indent: number; listType: "bullet" | "number" }>
-  >([]);
+  const itemMetaRef = useRef<InlineListMeta[]>([]);
   const dirtyRef = useRef(false);
 
   const currentLineIndex = useCallback(() => {
@@ -193,6 +303,9 @@ export function InlineTextEditor({
           ),
         })
       : element.box;
+    if (isListText) {
+      itemMetaRef.current = syncInlineListMarkers(node, itemMetaRef.current);
+    }
     const { text, runs } = serializeRichText(node);
     if (kind === "text") {
       if (isListText) {
@@ -382,6 +495,7 @@ export function InlineTextEditor({
               .map((item) => `<div>${runsToHtml(item.runs, item.text)}</div>`)
               .join("")
           : "<div><br></div>";
+      itemMetaRef.current = syncInlineListMarkers(node, itemMetaRef.current);
     }
     node.focus();
     const selection = window.getSelection();
@@ -419,7 +533,17 @@ export function InlineTextEditor({
           ...textDesign(element as Extract<SlideElement, { kind: "text" }>),
         };
   const resolvedFontSize = resolvedTextStyle?.fontSize ?? style.fontSize;
-  const fontSizePx = (resolvedFontSize / 100) * stageHeight;
+  const fitMode =
+    kind === "text"
+      ? textContent(element as Extract<SlideElement, { kind: "text" }>).fitMode
+      : undefined;
+  const shrinkScale = useInlineShrinkScale(
+    ref,
+    boundsRef,
+    resolvedFontSize,
+    fitMode,
+  );
+  const fontSizePx = ((resolvedFontSize * shrinkScale) / 100) * stageHeight;
   const verticalAlign =
     kind === "text"
       ? textDesign(element as Extract<SlideElement, { kind: "text" }>)
@@ -460,6 +584,7 @@ export function InlineTextEditor({
 
   return (
     <div
+      ref={boundsRef}
       className="absolute inset-0 flex flex-col justify-center overflow-hidden"
       style={{
         justifyContent:

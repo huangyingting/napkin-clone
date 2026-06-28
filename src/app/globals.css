@@ -650,14 +650,18 @@ body {
    App/layout utilities
    ========================================================================== */
 /*
- * Inline bullets editor (slide stage). Renders the accent dot + spacing of the
- * static BulletsElementView via pseudo-elements so the markers never interfere
- * with the contentEditable caret or run serialization. Each child line is a
- * block element seeded as a <div>; `--ds-bullet-accent` carries the slide accent.
+ * Inline list editor (slide stage). Renders accent bullets / numbers with
+ * pseudo-elements so markers never interfere with the contentEditable caret or
+ * run serialization. Each child line is a block element seeded as a <div>;
+ * `--ds-bullet-accent` carries the slide accent.
  */
 .ds-inline-bullets > * {
   position: relative;
   padding-left: 0.85em;
+}
+
+.ds-inline-bullets > *[data-list-type="number"] {
+  padding-left: 1.7em;
 }
 
 .ds-inline-bullets > * + * {
@@ -674,4 +678,26 @@ body {
   flex-shrink: 0;
   border-radius: 9999px;
   background-color: var(--ds-bullet-accent, currentColor);
+}
+
+.ds-inline-bullets > *[data-list-marker]::before {
+  content: attr(data-list-marker);
+  top: 0;
+  height: auto;
+  width: 0.8em;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--ds-bullet-accent, currentColor);
+  line-height: 1;
+}
+
+.ds-inline-bullets > *[data-list-type="number"]::before {
+  content: attr(data-list-number) ".";
+  top: 0;
+  height: auto;
+  width: 1.2em;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--ds-bullet-accent, currentColor);
+  font-variant-numeric: tabular-nums;
 }
