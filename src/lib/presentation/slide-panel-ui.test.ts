@@ -7,6 +7,7 @@ import {
   isPanelAvailable,
   isSelectionToolbarVisible,
   isSlideToolbarVisible,
+  resolvePanelTab,
   shouldCollapseToolbar,
   shouldShowRichToolbarControls,
   TOOLBAR_COMPACT_WIDTH,
@@ -216,6 +217,63 @@ test("isPanelAvailable: empty selection excludes element panels", () => {
   ] as const) {
     assert.equal(isPanelAvailable(panel, ctx), false, panel);
   }
+});
+
+test("resolvePanelTab keeps the requested panel when available", () => {
+  assert.equal(
+    resolvePanelTab("effects", {
+      kind: "image",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    "effects",
+  );
+});
+
+test("resolvePanelTab falls back to the first panel for the current element", () => {
+  assert.equal(
+    resolvePanelTab("text", {
+      kind: "image",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    "image",
+  );
+  assert.equal(
+    resolvePanelTab("image", {
+      kind: "shape",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    "label",
+  );
+  assert.equal(
+    resolvePanelTab("shape", {
+      kind: "line",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    "line",
+  );
+});
+
+test("resolvePanelTab falls back to slide or arrange when there is no object panel", () => {
+  assert.equal(
+    resolvePanelTab("text", {
+      kind: null,
+      hasSourceRef: false,
+      selectedCount: 0,
+    }),
+    "slide",
+  );
+  assert.equal(
+    resolvePanelTab("text", {
+      kind: "visual",
+      hasSourceRef: false,
+      selectedCount: 1,
+    }),
+    "arrange",
+  );
 });
 
 test("shouldCollapseToolbar collapses below the compact width", () => {

@@ -247,6 +247,20 @@ export function isPanelAvailable(
 }
 
 /**
+ * Keeps a requested panel when it applies to the current selection; otherwise
+ * routes to the first available panel for that selection.
+ */
+export function resolvePanelTab(
+  requestedPanel: RightPanelTab,
+  context: PanelAvailabilityContext,
+): RightPanelTab {
+  const panels = availablePanels(context);
+  return panels.includes(requestedPanel)
+    ? requestedPanel
+    : (panels[0] ?? defaultPanelTab(context.selectedCount > 0));
+}
+
+/**
  * Below this stage width (px) the selected-object context toolbar collapses its
  * lower-priority z-order actions (bring-to-front / send-to-back) into a "More"
  * menu so it never overflows incoherently on narrow stages (#631, #647).

@@ -104,9 +104,8 @@ import {
 } from "@/lib/presentation/canvas-a11y";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import {
-  defaultPanelTab,
-  isPanelAvailable,
   isSlideToolbarVisible,
+  resolvePanelTab,
   toToolbarSelectionKind,
 } from "@/lib/presentation/slide-panel-ui";
 import { slideReorderKeyDirection } from "@/lib/presentation/slide-reorder";
@@ -671,7 +670,7 @@ export function SlideEditor({
 
   // The right-panel open state is user controlled: selection changes never open
   // or close it. When it is already open, keep it open and route an invalid tab
-  // to the default panel for the current selection.
+  // to the first available panel for the current selection.
   useEffect(() => {
     if (!inspectorOpen && !inspectorSheetOpen) return;
     const elements = selectedSlide?.elements ?? [];
@@ -693,16 +692,14 @@ export function SlideEditor({
               ? shapeContent(selectedElement).shape
               : undefined,
           );
-    if (
-      !isPanelAvailable(rightPanelTab, {
-        kind,
-        selectedCount,
-        hasSourceRef:
-          (selectedElement as { source?: unknown } | null)?.source !==
-          undefined,
-      })
-    ) {
-      setRightPanelTab(defaultPanelTab(selectedCount > 0));
+    const nextPanelTab = resolvePanelTab(rightPanelTab, {
+      kind,
+      selectedCount,
+      hasSourceRef:
+        (selectedElement as { source?: unknown } | null)?.source !== undefined,
+    });
+    if (nextPanelTab !== rightPanelTab) {
+      setRightPanelTab(nextPanelTab);
     }
   }, [
     inspectorOpen,
@@ -999,16 +996,15 @@ export function SlideEditor({
                 ? shapeContent(selectedElement).shape
                 : undefined,
             );
-      if (
-        !isPanelAvailable(rightPanelTab, {
-          kind,
-          selectedCount,
-          hasSourceRef:
-            (selectedElement as { source?: unknown } | null)?.source !==
-            undefined,
-        })
-      ) {
-        setRightPanelTab(defaultPanelTab(selectedCount > 0));
+      const nextPanelTab = resolvePanelTab(rightPanelTab, {
+        kind,
+        selectedCount,
+        hasSourceRef:
+          (selectedElement as { source?: unknown } | null)?.source !==
+          undefined,
+      });
+      if (nextPanelTab !== rightPanelTab) {
+        setRightPanelTab(nextPanelTab);
       }
     },
     [

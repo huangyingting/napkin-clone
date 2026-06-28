@@ -44,8 +44,8 @@ import { assertNever } from "@/lib/assert-never";
 import {
   availablePanels,
   defaultPanelTab,
-  isPanelAvailable,
   PANEL_LABELS,
+  resolvePanelTab,
   toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
@@ -369,11 +369,7 @@ export function SlideInspector({
   const panels = availablePanels(availability);
 
   const requestedTab = initialTab ?? defaultPanelTab(selectedCount > 0);
-  // No fallback routing: when the requested panel is unavailable the shell
-  // closes the right panel. Render nothing until that effect runs.
-  const activeTab = isPanelAvailable(requestedTab, availability)
-    ? requestedTab
-    : null;
+  const activeTab = resolvePanelTab(requestedTab, availability);
 
   const objectLabel = selectedGroupId
     ? "Group"
