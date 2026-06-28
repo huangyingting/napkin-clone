@@ -305,7 +305,7 @@ test("toolbarMorePanelLabel returns panel labels", () => {
       hasSourceRef: true,
       selectedCount: 1,
     }),
-    "Source",
+    "Visual",
   );
 });
 
