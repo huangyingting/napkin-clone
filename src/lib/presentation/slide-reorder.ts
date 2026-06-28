@@ -15,6 +15,8 @@ export interface RailItemExtent {
   end: number;
 }
 
+export const RAIL_REORDER_CROSS_AXIS_TOLERANCE_PX = 48;
+
 /**
  * Given a pointer coordinate along the rail's main axis and the ordered extents
  * of each thumbnail, returns the index the dragged slide should drop onto.
@@ -38,6 +40,54 @@ export function reorderTargetIndex(
     if (pointer < midpoint) return i;
   }
   return items.length - 1;
+}
+
+/**
+ * Drag-specific target resolution. The cursor may start anywhere inside the
+ * thumbnail, so using the raw pointer makes a drag that returns to the original
+ * spot still flip when the pointer is on the far side of the thumbnail. Resolve
+ * from the dragged thumbnail's centre instead. If the pointer is far off the
+ * rail's cross-axis, return `null` so dropping outside the rail cancels instead
+ * of clamping to the first/last slide.
+ */
+export function reorderTargetIndexForDraggedItem({
+  fromIndex,
+  pointerMain,
+  pointerCross,
+  itemMainOffset,
+  itemMainSize,
+  items,
+  crossStart,
+  crossEnd,
+  crossTolerance = RAIL_REORDER_CROSS_AXIS_TOLERANCE_PX,
+}: {
+  fromIndex: number;
+  pointerMain: number;
+  pointerCross: number;
+  itemMainOffset: number;
+  itemMainSize: number;
+  items: readonly RailItemExtent[];
+  crossStart: number;
+  crossEnd: number;
+  crossTolerance?: number;
+}): number | null {
+  if (items.length === 0) return null;
+  if (
+    pointerCross < crossStart - crossTolerance ||
+    pointerCross > crossEnd + crossTolerance
+  ) {
+    return null;
+  }
+  const draggedCenter = pointerMain - itemMainOffset + itemMainSize / 2;
+  let target = 0;
+  for (let i = 0; i < items.length; i += 1) {
+    if (i === fromIndex) continue;
+    const item = items[i];
+    const midpoint = (item.start + item.end) / 2;
+    if (draggedCenter <= midpoint) return target;
+    target++;
+  }
+  return target;
 }
 
 /**

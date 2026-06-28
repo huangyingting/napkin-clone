@@ -24,7 +24,6 @@
  */
 
 import {
-  ChevronUp,
   ChevronDown,
   Copy,
   Edit3,
@@ -2020,14 +2019,14 @@ export function SlideEditor({
         {dragPreview && deck.slides[dragPreview.index] ? (
           <div
             aria-hidden="true"
-            className="pointer-events-none fixed z-dropdown rotate-1 opacity-95"
+            className="pointer-events-none fixed z-dropdown rotate-1 opacity-95 transition-transform duration-150 ease-out"
             style={{
               left: dragPreview.x,
               top: dragPreview.y,
               width: dragPreview.width,
             }}
           >
-            <div className="rounded-ds-md border border-ds-accent-border bg-ds-surface-base p-1 shadow-ds-overlay ring-2 ring-ds-accent-border">
+            <div className="rounded-ds-md border border-ds-accent-border bg-ds-surface-base p-1 shadow-[0_0_30px_-14px_rgba(15,23,42,0.28)] ring-1 ring-ds-accent-border">
               <div
                 className="relative overflow-hidden rounded-ds-sm border border-ds-border-subtle"
                 style={{ aspectRatio: activeSlideAspectRatio }}
@@ -2038,7 +2037,7 @@ export function SlideEditor({
                   visuals={visuals}
                   preview
                 />
-                <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
+                <span className="absolute bottom-1.5 left-1/2 flex h-7 min-w-7 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-2 text-sm font-bold tabular-nums text-ds-text-on-accent shadow-sm">
                   {dragPreview.index + 1}
                 </span>
               </div>
@@ -2125,7 +2124,7 @@ export function SlideEditor({
                 key={`panel-${rightPanelTab}`}
                 initialTab={rightPanelTab}
                 onClose={closeRightPanel}
-                className="absolute right-4 z-panel box-border hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
+                className="absolute right-4 z-panel box-border hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg bg-ds-surface-overlay shadow-[0_0_30px_-14px_rgba(15,23,42,0.28)] lg:flex"
                 style={{
                   top: stageLayout.inspectorPanel.top,
                   height: stageLayout.inspectorPanel.height,
@@ -2142,8 +2141,16 @@ export function SlideEditor({
             <ul ref={railListRef} className="flex flex-row gap-1.5">
               {deck.slides.map((slide, index) => {
                 const selected = index === safeSelected;
-                const dropTarget =
-                  dragOverIndex === index && dragIndex !== index;
+                const showInsertBefore =
+                  dragIndex !== null &&
+                  dragOverIndex !== null &&
+                  dragOverIndex < dragIndex &&
+                  dragOverIndex === index;
+                const showInsertAfter =
+                  dragIndex !== null &&
+                  dragOverIndex !== null &&
+                  dragOverIndex > dragIndex &&
+                  dragOverIndex === index;
                 const dragging = dragIndex === index && dragPreview !== null;
                 const title = deriveSlideTitle(slide, index);
                 const canDelete = deck.slides.length > 1;
@@ -2151,10 +2158,22 @@ export function SlideEditor({
                   <li
                     key={slide.id}
                     data-slide-thumb
-                    className={`group relative w-28 shrink-0 transition-transform sm:w-32 ${
+                    className={`group relative w-28 shrink-0 transition-[opacity,transform] duration-150 ease-out sm:w-32 ${
                       dragging ? "scale-[0.98] opacity-30" : ""
                     }`}
                   >
+                    {showInsertBefore ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -left-1.5 top-1 bottom-1 z-10 w-1 rounded-full bg-ds-accent shadow-[0_0_16px_-6px_rgba(15,23,42,0.35)]"
+                      />
+                    ) : null}
+                    {showInsertAfter ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -right-1.5 top-1 bottom-1 z-10 w-1 rounded-full bg-ds-accent shadow-[0_0_16px_-6px_rgba(15,23,42,0.35)]"
+                      />
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => {
@@ -2192,14 +2211,10 @@ export function SlideEditor({
                       aria-current={selected}
                       aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
                       title={title}
-                      className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
+                      className={`flex w-full rounded-ds-md border p-1 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out ${
                         selected
                           ? "border-ds-accent-border bg-ds-accent-surface"
                           : "border-transparent hover:bg-ds-state-hover"
-                      } ${
-                        dropTarget
-                          ? "border-ds-accent-border bg-ds-accent-surface shadow-ds-overlay ring-2 ring-ds-accent-border"
-                          : ""
                       } ${dragging ? "cursor-grabbing" : "cursor-grab"} ${FOCUS_RING}`}
                     >
                       <span
@@ -2212,25 +2227,13 @@ export function SlideEditor({
                           visuals={visuals}
                           preview
                         />
-                        <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
+                        <span className="absolute bottom-1.5 left-1/2 flex h-7 min-w-7 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-2 text-sm font-bold tabular-nums text-ds-text-on-accent shadow-sm">
                           {index + 1}
                         </span>
                       </span>
                     </button>
 
                     <div className="tiq-coarse-actions absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                      <ThumbnailAction
-                        icon={<ChevronUp size={13} aria-hidden="true" />}
-                        label={`Move slide ${index + 1} up`}
-                        disabled={index === 0}
-                        onClick={() => handleMove(index, -1)}
-                      />
-                      <ThumbnailAction
-                        icon={<ChevronDown size={13} aria-hidden="true" />}
-                        label={`Move slide ${index + 1} down`}
-                        disabled={index === deck.slides.length - 1}
-                        onClick={() => handleMove(index, 1)}
-                      />
                       <ThumbnailAction
                         icon={<Copy size={13} aria-hidden="true" />}
                         label={`Duplicate slide ${index + 1}`}

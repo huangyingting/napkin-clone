@@ -7,7 +7,7 @@ import {
   commitCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
-import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
+import { reorderTargetIndexForDraggedItem } from "@/lib/presentation/slide-reorder";
 import { appendPendingPatches } from "@/components/presentation/slide-editor/use-slide-editor-commit";
 
 interface SlideRailControllerOptions {
@@ -45,7 +45,7 @@ export function useSlideRailController({
   const railListRef = useRef<HTMLUListElement>(null);
   const reorderRef = useRef<{
     fromIndex: number;
-    overIndex: number;
+    overIndex: number | null;
     capturedPointerId: number;
     cachedRects: DOMRect[];
     startClientX: number;
@@ -108,13 +108,30 @@ export function useSlideRailController({
       rects.length < 2 ||
       Math.abs(rects[1].top - rects[0].top) >=
         Math.abs(rects[1].left - rects[0].left);
-    const pointer = vertical ? event.clientY : event.clientX;
+    const pointerMain = vertical ? event.clientY : event.clientX;
+    const pointerCross = vertical ? event.clientX : event.clientY;
     const extents = rects.map((rect) =>
       vertical
         ? { start: rect.top, end: rect.bottom }
         : { start: rect.left, end: rect.right },
     );
-    const target = reorderTargetIndex(pointer, extents);
+    const crossStarts = rects.map((rect) => (vertical ? rect.left : rect.top));
+    const crossEnds = rects.map((rect) =>
+      vertical ? rect.right : rect.bottom,
+    );
+    const sourceRect = rects[drag.fromIndex];
+    const target = sourceRect
+      ? reorderTargetIndexForDraggedItem({
+          fromIndex: drag.fromIndex,
+          pointerMain,
+          pointerCross,
+          itemMainOffset: vertical ? drag.offsetY : drag.offsetX,
+          itemMainSize: vertical ? sourceRect.height : sourceRect.width,
+          items: extents,
+          crossStart: Math.min(...crossStarts),
+          crossEnd: Math.max(...crossEnds),
+        })
+      : null;
     drag.overIndex = target;
     setDragOverIndex(target);
     setDragPreview((preview) =>
@@ -149,7 +166,7 @@ export function useSlideRailController({
       } else if (!drag.moved) {
         setVisualPickerOpen(false);
         setSelectedIndex(drag.fromIndex);
-      } else if (drag.overIndex !== drag.fromIndex) {
+      } else if (drag.overIndex !== null && drag.overIndex !== drag.fromIndex) {
         const slideId = deck.slides[drag.fromIndex]?.id;
         if (slideId) {
           const { result, commitOptions, patches } = commitCommand(deck, {

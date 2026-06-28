@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   reorderTargetIndex,
+  reorderTargetIndexForDraggedItem,
   slideReorderKeyDirection,
   type RailItemExtent,
 } from "./slide-reorder";
@@ -60,6 +61,79 @@ test("reorderTargetIndex: single item always targets index 0", () => {
   const one: RailItemExtent[] = [{ start: 0, end: 100 }];
   assert.equal(reorderTargetIndex(-10, one), 0);
   assert.equal(reorderTargetIndex(500, one), 0);
+});
+
+test("reorderTargetIndexForDraggedItem resolves from the dragged item's center", () => {
+  assert.equal(
+    reorderTargetIndexForDraggedItem({
+      fromIndex: 1,
+      pointerMain: 190,
+      pointerCross: 20,
+      itemMainOffset: 90,
+      itemMainSize: 100,
+      items: VERTICAL,
+      crossStart: 0,
+      crossEnd: 120,
+    }),
+    1,
+  );
+});
+
+test("reorderTargetIndexForDraggedItem moves forward and then back across remaining siblings", () => {
+  const base = {
+    fromIndex: 1,
+    pointerCross: 20,
+    itemMainOffset: 50,
+    itemMainSize: 100,
+    items: VERTICAL,
+    crossStart: 0,
+    crossEnd: 120,
+  };
+  assert.equal(
+    reorderTargetIndexForDraggedItem({ ...base, pointerMain: 260 }),
+    2,
+  );
+  assert.equal(
+    reorderTargetIndexForDraggedItem({ ...base, pointerMain: 160 }),
+    1,
+  );
+});
+
+test("reorderTargetIndexForDraggedItem moves backward and then back across remaining siblings", () => {
+  const base = {
+    fromIndex: 1,
+    pointerCross: 20,
+    itemMainOffset: 50,
+    itemMainSize: 100,
+    items: VERTICAL,
+    crossStart: 0,
+    crossEnd: 120,
+  };
+  assert.equal(
+    reorderTargetIndexForDraggedItem({ ...base, pointerMain: 40 }),
+    0,
+  );
+  assert.equal(
+    reorderTargetIndexForDraggedItem({ ...base, pointerMain: 160 }),
+    1,
+  );
+});
+
+test("reorderTargetIndexForDraggedItem cancels when pointer leaves the rail cross-axis", () => {
+  assert.equal(
+    reorderTargetIndexForDraggedItem({
+      fromIndex: 1,
+      pointerMain: 260,
+      pointerCross: 500,
+      itemMainOffset: 50,
+      itemMainSize: 100,
+      items: VERTICAL,
+      crossStart: 0,
+      crossEnd: 120,
+      crossTolerance: 48,
+    }),
+    null,
+  );
 });
 
 test("slideReorderKeyDirection: Alt+Arrow nudges, plain arrows do not", () => {
