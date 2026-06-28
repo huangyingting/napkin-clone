@@ -2263,7 +2263,16 @@ export function SlideEditor({
               zoomMenuOpen={zoomMenuOpen}
               slideLabel={`Slide ${safeSelected + 1} of ${deck.slides.length}`}
               onToggleRail={handleToggleRail}
-              onOpenNotes={() => openRightPanel("notes")}
+              onOpenNotes={() => {
+                if (
+                  rightPanelTab === "notes" &&
+                  (inspectorOpen || inspectorSheetOpen)
+                ) {
+                  closeRightPanel();
+                } else {
+                  openRightPanel("notes");
+                }
+              }}
               onZoomChange={handleZoomChange}
               onZoomMenuOpenChange={setZoomMenuOpen}
             />
