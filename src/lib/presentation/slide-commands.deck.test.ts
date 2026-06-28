@@ -4,6 +4,7 @@ import { test } from "node:test";
 import type { Deck, Slide, SlideElement } from "./deck";
 import { applyPatch, executeCommand } from "./slide-commands";
 import { safeParseDeck } from "./deck-schema";
+import { applyGlobalMasterChromeUpdate } from "./global-master-chrome";
 import { resolveThemeTokens } from "./presentation-theme";
 import {
   DEFAULT_THEME_PACKAGE_ID,
@@ -168,6 +169,38 @@ test("UPDATE_MASTER updates deck-owned master chrome", () => {
   assert.equal(result.patches[0]!.op, "master.update");
   assert.equal((result.deck as any).masters[0].name, "Updated");
   assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("master chrome footer edits preserve package text styling", () => {
+  const applied = executeCommand(buildCommandDeck(["s1"]), {
+    type: "APPLY_THEME_PACKAGE",
+    packageId: "terra",
+  });
+  assert.equal(applied.ok, true);
+  const master = applied.deck.masters![0]!;
+  const originalFooter = master.elements.find(
+    (element) => element.masterChromeKind === "footer",
+  )!;
+  const originalTextStyle = (originalFooter as any).designOverrides.textStyle;
+
+  const elements = applyGlobalMasterChromeUpdate(master.elements, {
+    kind: "footer",
+    state: {
+      enabled: true,
+      text: "Quarterly update",
+      align: "right",
+    },
+  });
+  const nextFooter = elements.find(
+    (element) => element.masterChromeKind === "footer",
+  )!;
+
+  assert.equal((nextFooter as any).content.text, "Quarterly update");
+  assert.deepEqual((nextFooter as any).box, (originalFooter as any).box);
+  assert.deepEqual((nextFooter as any).designOverrides.textStyle, {
+    ...originalTextStyle,
+    align: "right",
+  });
 });
 
 test("SET_DEFAULT_MASTER and SET_SLIDE_MASTER update master assignments", () => {

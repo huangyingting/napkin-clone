@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Hash,
-  Image as ImageIcon,
-  PanelBottom,
-  Stamp,
-  Upload,
-  X,
-} from "lucide-react";
+import { PanelBottom, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
@@ -215,22 +208,19 @@ export function GlobalMasterChromePanel({
   });
 
   return (
-    <div className="flex max-h-[70vh] w-[460px] flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-2.5">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm bg-ds-accent-surface text-ds-accent-text">
-          <PanelBottom size={16} aria-hidden="true" />
+    <div className="flex max-h-[70vh] w-[320px] flex-col overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm bg-ds-accent-surface text-ds-accent-text">
+          <PanelBottom size={14} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[13px] font-semibold text-ds-text-primary">
-            Masters
+          <h3 className="truncate text-xs font-semibold text-ds-text-primary">
+            Customize deck chrome
           </h3>
-          <p className="truncate text-[11px] text-ds-text-muted">
-            Previewing current slide · Applies to all slides
-          </p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 overflow-y-auto p-3">
+      <div className="flex flex-col gap-2.5 overflow-y-auto p-2.5">
         <SegmentedControl
           aria-label="Master chrome"
           value={activeTab}
@@ -240,7 +230,7 @@ export function GlobalMasterChromePanel({
           stretch
         />
 
-        <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-sunken p-2">
+        <div className="mx-auto w-full max-w-[240px] rounded-ds-md border border-ds-border-subtle bg-ds-surface-sunken p-1.5">
           <div
             className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface shadow-ds-flat"
             style={{ aspectRatio: slideAspectRatio(deck.canvas?.format) }}
@@ -421,25 +411,6 @@ export function GlobalMasterChromePanel({
             </Field>
           </div>
         ) : null}
-
-        <div className="flex items-center justify-between rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-[11px] text-ds-text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            {activeTab === "logo" ? (
-              <ImageIcon size={13} aria-hidden="true" />
-            ) : null}
-            {activeTab === "footer" ? (
-              <PanelBottom size={13} aria-hidden="true" />
-            ) : null}
-            {activeTab === "pageNumber" ? (
-              <Hash size={13} aria-hidden="true" />
-            ) : null}
-            {activeTab === "watermark" ? (
-              <Stamp size={13} aria-hidden="true" />
-            ) : null}
-            Global chrome
-          </span>
-          <span>All slides</span>
-        </div>
       </div>
     </div>
   );

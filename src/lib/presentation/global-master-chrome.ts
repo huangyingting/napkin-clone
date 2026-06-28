@@ -182,12 +182,13 @@ export function updateGlobalMasterChromeElements(
     | GlobalMasterPageNumberState
     | GlobalMasterWatermarkState,
 ): MasterElement[] {
+  const existing = findChromeElement(elements, kind);
   const next = elements.filter(
     (element) => chromeElementKind(element) !== kind,
   );
   const zIndex =
     next.reduce((max, element) => Math.max(max, element.zIndex), -1) + 1;
-  const element = buildChromeElement(kind, state, zIndex);
+  const element = buildChromeElement(kind, state, existing, zIndex);
   return element ? [...next, element] : next;
 }
 
@@ -292,6 +293,7 @@ function buildChromeElement(
     | GlobalMasterFooterState
     | GlobalMasterPageNumberState
     | GlobalMasterWatermarkState,
+  existing: MasterElement | undefined,
   zIndex: number,
 ): MasterElement | null {
   switch (kind) {
@@ -302,9 +304,11 @@ function buildChromeElement(
         role: "footer",
         text: (state as GlobalMasterFooterState).text,
         enabled: (state as GlobalMasterFooterState).enabled,
-        box: { x: 6, y: 91, w: 88, h: 5 },
+        box: existing?.box ?? { x: 6, y: 91, w: 88, h: 5 },
         zIndex,
-        textStyle: { align: (state as GlobalMasterFooterState).align },
+        textStyle: mergeTextStyle(existing, {
+          align: (state as GlobalMasterFooterState).align,
+        }),
       });
     case "pageNumber":
       return buildTextElement({
@@ -314,13 +318,16 @@ function buildChromeElement(
             ? "{{pageNumber}} / {{pageCount}}"
             : "{{pageNumber}}",
         enabled: (state as GlobalMasterPageNumberState).enabled,
-        box: pageNumberBox((state as GlobalMasterPageNumberState).placement),
+        box: pageNumberBox(
+          (state as GlobalMasterPageNumberState).placement,
+          existing,
+        ),
         zIndex,
-        textStyle: {
+        textStyle: mergeTextStyle(existing, {
           align: pageNumberAlign(
             (state as GlobalMasterPageNumberState).placement,
           ),
-        },
+        }),
       });
     case "watermark":
       return buildWatermarkElement(state as GlobalMasterWatermarkState, zIndex);
@@ -396,7 +403,7 @@ function buildTextElement({
   enabled: boolean;
   box: ElementBox;
   zIndex: number;
-  textStyle: { align: ElementAlign };
+  textStyle: Record<string, unknown> & { align: ElementAlign };
 }): MasterElement {
   return {
     id: makeElementId(),
@@ -412,6 +419,18 @@ function buildTextElement({
     content: textContent(text),
     designOverrides: { textStyle },
   } as MasterElement;
+}
+
+function mergeTextStyle(
+  existing: MasterElement | undefined,
+  patch: { align: ElementAlign },
+): Record<string, unknown> & { align: ElementAlign } {
+  const existingTextStyle =
+    existing?.kind === "text"
+      ? ((existing as unknown as { designOverrides?: { textStyle?: unknown } })
+          .designOverrides?.textStyle as Record<string, unknown> | undefined)
+      : undefined;
+  return { ...(existingTextStyle ?? {}), ...patch };
 }
 
 function textContent(text: string) {
@@ -443,7 +462,22 @@ function logoBox(placement: LogoPlacement, size: LogoSize): ElementBox {
   return { x, y, w: box.w, h: box.h };
 }
 
-function pageNumberBox(placement: PageNumberPlacement): ElementBox {
+function pageNumberBox(
+  placement: PageNumberPlacement,
+  existing?: MasterElement,
+): ElementBox {
+  if (existing?.box) {
+    const width = existing.box.w;
+    return {
+      ...existing.box,
+      x:
+        placement === "bottom-left"
+          ? 5
+          : placement === "bottom-center"
+            ? (100 - width) / 2
+            : 95 - width,
+    };
+  }
   switch (placement) {
     case "bottom-left":
       return { x: 6, y: 91, w: 18, h: 5 };
