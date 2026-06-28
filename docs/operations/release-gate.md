@@ -115,7 +115,7 @@ release; drift is remediated with the [repair playbook](./persisted-schema-repai
 
 - `scripts/check-line-coverage.mjs` to run the source and script unit tests
   under Node's built-in line coverage gate. The default minimums are the current
-  loaded-source baseline floors: `91%` for `src/**/*.ts[x]` and `70%` for
+  loaded-source baseline floors: `98%` for `src/**/*.ts[x]` and `99%` for
   `scripts/**/*.mjs`. Raise both with `LINE_COVERAGE_MIN=100`, or override one
   gate with `SOURCE_LINE_COVERAGE_MIN` / `SCRIPT_LINE_COVERAGE_MIN`.
 - `scripts/test-subsystem.mjs --check` to ensure every source, script, and E2E

@@ -25,7 +25,7 @@ test("line coverage stages cover source and script unit gates", () => {
 });
 
 test("line coverage minimum uses global and stage-specific overrides", () => {
-  assert.equal(coverageMinimum(LINE_COVERAGE_STAGES[0], {}), 91);
+  assert.equal(coverageMinimum(LINE_COVERAGE_STAGES[0], {}), 98);
   assert.equal(
     coverageMinimum(LINE_COVERAGE_STAGES[0], { LINE_COVERAGE_MIN: "100" }),
     100,
