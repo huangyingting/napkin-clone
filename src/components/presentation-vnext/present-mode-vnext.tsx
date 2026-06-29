@@ -57,6 +57,16 @@ export interface PresentModeVNextProps {
   deck: DeckV7;
   /** Theme package to use for rendering. Defaults to the neutral package. */
   themePackage?: ThemePackageV1 | null;
+  /**
+   * Diagnostic message when the theme package was not found in the registry.
+   * The component may surface this in a HUD banner.
+   */
+  themePackageDiagnostic?: string;
+  /**
+   * Diagnostic message when the deck JSON existed but could not be parsed as
+   * v7. The component may surface this in a HUD banner.
+   */
+  openError?: string;
   /** Called when the user exits presentation mode. */
   onClose: () => void;
 }
@@ -74,6 +84,8 @@ export interface PresentModeVNextProps {
 export function PresentModeVNext({
   deck,
   themePackage,
+  themePackageDiagnostic,
+  openError,
   onClose,
 }: PresentModeVNextProps): JSX.Element {
   const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
@@ -307,6 +319,28 @@ export function PresentModeVNext({
       onTouchStart={swipeHandlers.onTouchStart}
       onTouchEnd={swipeHandlers.onTouchEnd}
     >
+      {/* Open error / theme diagnostic banners */}
+      {(openError ?? themePackageDiagnostic) ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-raised flex flex-col items-center gap-1 px-4">
+          {openError ? (
+            <div
+              role="alert"
+              className="pointer-events-auto rounded-md border border-amber-400/40 bg-ds-inverse-surface-muted px-3 py-1.5 text-xs text-amber-300 backdrop-blur-sm"
+            >
+              Deck parse error — presenting blank fallback: {openError}
+            </div>
+          ) : null}
+          {themePackageDiagnostic ? (
+            <div
+              role="status"
+              className="pointer-events-auto rounded-md bg-ds-inverse-surface-muted px-3 py-1.5 text-xs text-ds-inverse-muted backdrop-blur-sm"
+            >
+              {themePackageDiagnostic}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Top HUD */}
       <div
         aria-label="Presentation controls"

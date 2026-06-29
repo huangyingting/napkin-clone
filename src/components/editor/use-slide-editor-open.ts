@@ -71,6 +71,7 @@ export function useSlideEditorOpen({
   const [emptyDocument, setEmptyDocument] = useState(false);
   const [aiPreviewV7, setAiPreviewV7] = useState<AiPreviewStateV7 | null>(null);
   const [deckV7, setDeckV7] = useState<DeckV7 | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const [conflictStateV7, setConflictStateV7] = useState<{
     localDeck: DeckV7;
     serverRevisionToken: string | null;
@@ -107,7 +108,10 @@ export function useSlideEditorOpen({
     [onOpenRightSurface],
   );
 
-  const prepareOpenV7 = useCallback(async (): Promise<DeckV7> => {
+  const prepareOpenV7 = useCallback(async (): Promise<{
+    deck: DeckV7;
+    error?: string;
+  }> => {
     let fetchedRaw: unknown = null;
     try {
       const fetched = await deckPort.fetchDeckJson(documentId);
@@ -118,17 +122,25 @@ export function useSlideEditorOpen({
     }
 
     const rawCandidate = fetchedRaw ?? lastSavedRef.current;
-    if (rawCandidate) {
+    if (rawCandidate != null) {
       const openResult = openDeckFromJson(rawCandidate);
-      if (openResult.ok) return openResult.deck;
+      if (openResult.ok) return { deck: openResult.deck };
+      // Non-null but invalid/legacy data: surface the error, do not silently open blank.
+      return {
+        deck: fallbackDeck(),
+        error: openResult.error,
+      };
     }
 
-    return fallbackDeck();
+    // No data at all (first time): blank deck is the right default.
+    return { deck: fallbackDeck() };
   }, [deckPort, documentId, fallbackDeck]);
 
   const openDerivedV7 = useCallback(async () => {
     aiAppliedDeckRef.current = null;
-    finishOpenV7(await prepareOpenV7());
+    const { deck, error } = await prepareOpenV7();
+    setOpenError(error ?? null);
+    finishOpenV7(deck);
   }, [finishOpenV7, prepareOpenV7]);
 
   const openWithAiDeckV7 = useCallback(
@@ -150,7 +162,7 @@ export function useSlideEditorOpen({
       options: DeckGenerationOptions,
       json: string,
     ) => {
-      const baselineDeck = await prepareOpenV7();
+      const { deck: baselineDeck } = await prepareOpenV7();
       setPendingJson(null);
       setAiPreviewV7({
         proposedDeck,
@@ -194,6 +206,7 @@ export function useSlideEditorOpen({
   const handleClose = useCallback(() => {
     setOpen(false);
     setDeckV7(null);
+    setOpenError(null);
     setPendingJson(null);
     setPendingThemePackageId(DEFAULT_THEME_PACKAGE_ID);
     setEmptyDocument(false);
@@ -341,7 +354,13 @@ export function useSlideEditorOpen({
         revisionTokenRef.current = fetched.revisionToken;
         lastSavedRef.current = fetched.deckJson;
         const openResult = openDeckFromJson(fetched.deckJson);
-        setDeckV7(openResult.ok ? openResult.deck : fallbackDeck());
+        if (openResult.ok) {
+          setDeckV7(openResult.deck);
+          setOpenError(null);
+        } else {
+          setDeckV7(fallbackDeck());
+          setOpenError(openResult.error);
+        }
       } catch {
         // Best-effort: keep the user's local deck if fetch fails.
       }
@@ -356,6 +375,7 @@ export function useSlideEditorOpen({
     open,
     deckV7,
     setDeckV7,
+    openError,
     handleDeckV7Change,
     handleSaveV7,
     handleOpen,

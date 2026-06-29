@@ -21,7 +21,7 @@ import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
 import {
   exportDeckV7AsPPTX,
-  NEUTRAL_THEME_PACKAGE,
+  resolveThemePackage,
 } from "@/lib/presentation-vnext";
 import { downloadBlob } from "@/lib/visual/export";
 
@@ -86,6 +86,7 @@ export function SlideEditorButton({
     handleConflictKeepMineV7,
     handleConflictUseTheirsV7,
     handleConflictDismissV7,
+    openError,
   } = useSlideEditorOpen({
     documentId,
     initialDeckJson,
@@ -95,12 +96,16 @@ export function SlideEditorButton({
     onCloseRightSurface,
   });
 
+  const resolvedTheme = deckV7
+    ? resolveThemePackage(deckV7.theme.packageId)
+    : null;
+
   const handleExportV7Pptx = useCallback(async () => {
-    if (!deckV7) return;
-    const blob = await exportDeckV7AsPPTX(deckV7, NEUTRAL_THEME_PACKAGE);
+    if (!deckV7 || !resolvedTheme) return;
+    const blob = await exportDeckV7AsPPTX(deckV7, resolvedTheme.pkg);
     if (!blob) throw new Error("PPTX export returned empty result");
     downloadBlob(blob, "presentation.pptx");
-  }, [deckV7]);
+  }, [deckV7, resolvedTheme]);
 
   return (
     <>
@@ -141,6 +146,9 @@ export function SlideEditorButton({
         <SlideEditorOverlay>
           <SlideEditorVNext
             deck={deckV7}
+            themePackage={resolvedTheme?.pkg}
+            themePackageDiagnostic={resolvedTheme?.diagnostic}
+            openError={openError ?? undefined}
             onDeckChange={handleDeckV7Change}
             onSave={handleSaveV7}
             onClose={handleClose}

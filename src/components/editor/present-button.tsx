@@ -18,7 +18,9 @@ import type { DeckFetchPort } from "@/lib/action-ports";
 import {
   createBlankDeckV7,
   openDeckFromJson,
+  resolveThemePackage,
   type DeckV7,
+  type ThemeResolutionResult,
 } from "@/lib/presentation-vnext";
 
 interface PresentButtonProps {
@@ -31,6 +33,9 @@ interface PresentButtonProps {
 
 type PresentData = {
   deck: DeckV7;
+  themeResolution: ThemeResolutionResult;
+  /** Non-null when the deck JSON was present but could not be parsed as v7. */
+  openError?: string;
 };
 
 /**
@@ -61,12 +66,25 @@ export function PresentButton({
     }
 
     const candidate = fetchedRaw ?? initialDeckJson;
-    const opened = openDeckFromJson(candidate);
-    setPresentData({
-      deck: opened.ok
-        ? opened.deck
-        : createBlankDeckV7({ documentId, title: documentTitle }),
-    });
+    let deck: DeckV7;
+    let openError: string | undefined;
+
+    if (candidate != null) {
+      const opened = openDeckFromJson(candidate);
+      if (opened.ok) {
+        deck = opened.deck;
+      } else {
+        // Non-null but invalid/legacy: surface the error, use blank fallback.
+        deck = createBlankDeckV7({ documentId, title: documentTitle });
+        openError = opened.error;
+      }
+    } else {
+      // No data at all: blank deck is the right default.
+      deck = createBlankDeckV7({ documentId, title: documentTitle });
+    }
+
+    const themeResolution = resolveThemePackage(deck.theme.packageId);
+    setPresentData({ deck, themeResolution, openError });
   }, [deckPort, documentId, documentTitle, initialDeckJson]);
 
   const handleClose = useCallback(() => {
@@ -86,7 +104,13 @@ export function PresentButton({
       />
 
       {presentData ? (
-        <PresentModeVNext deck={presentData.deck} onClose={handleClose} />
+        <PresentModeVNext
+          deck={presentData.deck}
+          themePackage={presentData.themeResolution.pkg}
+          openError={presentData.openError}
+          themePackageDiagnostic={presentData.themeResolution.diagnostic}
+          onClose={handleClose}
+        />
       ) : null}
     </>
   );

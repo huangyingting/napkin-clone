@@ -29,8 +29,15 @@
  * `@/lib/presentation-vnext`).
  */
 
-import { useCallback, useMemo, useState, type JSX } from "react";
-import { FileDown, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+} from "react";
+import { FileDown, X, Save, CheckCircle2, AlertCircle } from "lucide-react";
 
 import type { ActionResult } from "@/lib/action-result";
 import type {
@@ -86,6 +93,17 @@ export interface SlideEditorVNextProps {
   deck: DeckV7;
   /** Theme package to use for rendering. Falls back to the neutral package. */
   themePackage?: ThemePackageV1 | null;
+  /**
+   * Diagnostic message when the theme package was not found in the registry and
+   * the neutral fallback is being used. Surfaced as a banner in the editor.
+   */
+  themePackageDiagnostic?: string;
+  /**
+   * Diagnostic message when the deck JSON existed but could not be parsed as a
+   * valid v7 deck. Surfaced as a banner so users know they are editing a blank
+   * fallback rather than their saved work.
+   */
+  openError?: string;
   /**
    * Called on every structural change. Receives the updated deck with the
    * command result applied. The parent is responsible for persistence.
@@ -143,6 +161,8 @@ function findNodeById(
 export function SlideEditorVNext({
   deck,
   themePackage,
+  themePackageDiagnostic,
+  openError,
   onDeckChange,
   onSave,
   onClose,
@@ -153,6 +173,17 @@ export function SlideEditorVNext({
   // Export error surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Save status: idle | saving | saved | error
+  type SaveStatus = "idle" | "saving" | "saved" | "error";
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    };
+  }, []);
+
   const handleExportPptx = useCallback(async () => {
     if (!onExportPptx) return;
     setExportError(null);
@@ -162,6 +193,34 @@ export function SlideEditorVNext({
       setExportError("PPTX export failed. Please try again.");
     }
   }, [onExportPptx]);
+
+  const handleSaveClick = useCallback(async () => {
+    if (!onSave) return;
+    setSaveStatus("saving");
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    try {
+      const result = await onSave(deck);
+      if (result.ok) {
+        setSaveStatus("saved");
+        saveStatusTimerRef.current = setTimeout(
+          () => setSaveStatus("idle"),
+          2000,
+        );
+      } else {
+        setSaveStatus("error");
+        saveStatusTimerRef.current = setTimeout(
+          () => setSaveStatus("idle"),
+          4000,
+        );
+      }
+    } catch {
+      setSaveStatus("error");
+      saveStatusTimerRef.current = setTimeout(
+        () => setSaveStatus("idle"),
+        4000,
+      );
+    }
+  }, [deck, onSave]);
 
   // ---------------------------------------------------------------------------
   // Slide navigation
@@ -333,6 +392,16 @@ export function SlideEditorVNext({
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Stage sizing: aspect-ratio locked stage derived from renderTree.canvas
+  // ---------------------------------------------------------------------------
+
+  const canvas = renderTree?.canvas;
+  const stageAspectRatio =
+    canvas && canvas.width > 0 && canvas.height > 0
+      ? canvas.width / canvas.height
+      : 16 / 9;
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -344,12 +413,47 @@ export function SlideEditorVNext({
       {/* ------------------------------------------------------------------ */}
       {/* Top Toolbar                                                         */}
       {/* ------------------------------------------------------------------ */}
-      {(onClose ?? onExportPptx) ? (
+      {(onClose ?? onExportPptx ?? onSave) ? (
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-ds-border-subtle px-3">
           <span className="text-xs font-medium text-ds-text-primary">
             Slides
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {/* Save status indicator */}
+            {onSave ? (
+              <div className="flex items-center gap-1">
+                {saveStatus === "saving" ? (
+                  <span className="flex items-center gap-1 text-[11px] text-ds-text-muted">
+                    <Save
+                      size={12}
+                      aria-hidden="true"
+                      className="animate-pulse"
+                    />
+                    Saving…
+                  </span>
+                ) : saveStatus === "saved" ? (
+                  <span className="flex items-center gap-1 text-[11px] text-ds-success-text">
+                    <CheckCircle2 size={12} aria-hidden="true" />
+                    Saved
+                  </span>
+                ) : saveStatus === "error" ? (
+                  <span className="flex items-center gap-1 text-[11px] text-ds-danger-text">
+                    <AlertCircle size={12} aria-hidden="true" />
+                    Save failed
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleSaveClick()}
+                  disabled={saveStatus === "saving"}
+                  aria-label="Save deck"
+                  className="flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover disabled:opacity-50"
+                >
+                  <Save size={13} aria-hidden="true" />
+                  Save
+                </button>
+              </div>
+            ) : null}
             {onExportPptx ? (
               <button
                 type="button"
@@ -372,6 +476,27 @@ export function SlideEditorVNext({
               </button>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {/* Open error banner — deck JSON existed but could not be parsed */}
+      {openError ? (
+        <div
+          role="alert"
+          className="shrink-0 border-b border-ds-warning-border bg-ds-warning-surface px-3 py-2 text-xs text-ds-warning-text"
+        >
+          <strong>Could not open saved deck:</strong> {openError} — editing a
+          blank deck instead.
+        </div>
+      ) : null}
+
+      {/* Theme package diagnostic banner */}
+      {themePackageDiagnostic ? (
+        <div
+          role="status"
+          className="shrink-0 border-b border-ds-border-subtle bg-ds-surface-raised px-3 py-1.5 text-[11px] text-ds-text-muted"
+        >
+          {themePackageDiagnostic}
         </div>
       ) : null}
 
@@ -422,18 +547,30 @@ export function SlideEditorVNext({
         </nav>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Main Stage                                                          */}
+        {/* Main Stage — aspect-ratio locked                                    */}
         {/* ------------------------------------------------------------------ */}
         <div
           className="relative min-w-0 flex-1 overflow-hidden bg-ds-surface-recessed"
           onClick={handleStageClick}
         >
           {activeSlideTree ? (
-            <div className="flex h-full items-center justify-center p-6">
-              <div className="w-full max-w-4xl">
+            <div className="flex h-full w-full items-center justify-center p-6">
+              {/*
+               * Outer box: fills available space, then the inner box constrains
+               * to the exact canvas aspect ratio by using CSS aspect-ratio
+               * together with max-height to prevent vertical overflow.
+               */}
+              <div
+                className="w-full"
+                style={{
+                  aspectRatio: `${stageAspectRatio}`,
+                  maxHeight: "100%",
+                  maxWidth: `calc(100% - 3rem)`,
+                }}
+              >
                 <SlideCanvasVNext
                   slide={activeSlideTree}
-                  canvas={renderTree?.canvas}
+                  canvas={canvas}
                   selection={selection}
                   onNodeClick={handleNodeClick}
                   className="shadow-ds-xl"
@@ -522,22 +659,6 @@ export function SlideEditorVNext({
                   Detach from theme
                 </button>
               </section>
-            </>
-          )}
-
-          {/* Save button — shown when an explicit save handler is provided */}
-          {onSave && (
-            <>
-              <div className="mx-3 h-px bg-ds-border-subtle" />
-              <div className="px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => void onSave(deck)}
-                  className="w-full rounded-ds-sm border border-ds-accent-border bg-ds-accent-surface px-3 py-1.5 text-xs font-medium text-ds-accent-text transition-colors hover:bg-ds-accent-surface-raised"
-                >
-                  Save
-                </button>
-              </div>
             </>
           )}
 

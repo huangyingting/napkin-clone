@@ -19,7 +19,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
-import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
+import { resolveThemePackage } from "@/lib/presentation-vnext/theme-package-registry";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import {
   initialPublicHashSlideIndex,
@@ -65,7 +65,17 @@ export function PublicPresentViewerVNext({
   embed = false,
   showAttribution = false,
 }: PublicPresentViewerVNextProps): JSX.Element {
-  const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
+  // Resolve the theme package from the registry when no explicit package is
+  // provided.  This surfaces a diagnostic for unknown package ids rather than
+  // silently using neutral.
+  const resolved = resolveThemePackage(deck.theme.packageId);
+  const pkg = themePackage ?? resolved.pkg;
+  const diagnostic = !themePackage ? resolved.diagnostic : undefined;
+  useEffect(() => {
+    if (diagnostic) {
+      console.warn("[PublicPresentViewerVNext]", diagnostic);
+    }
+  }, [diagnostic]);
   const renderTree = useDeckV7RenderTree(deck, pkg);
 
   const total = renderTree?.slides.length ?? 0;
