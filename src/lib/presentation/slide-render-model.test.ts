@@ -339,9 +339,37 @@ test("resolveSlideRenderModel resolves rich fill stops, radii, glow, and text fi
     },
     effect: { kind: "glow", color: "#f5b301", blur: 24, opacity: 0.2 },
   };
-  d.slides[0] = { ...d.slides[0]!, elements: [text, shape] };
+  d.slides[0] = {
+    ...d.slides[0]!,
+    designOverrides: {
+      background: {
+        type: "radialGradient",
+        inner: { value: "#1b1f4d" },
+        outer: { value: "#07080f" },
+        cx: 80,
+        cy: 0,
+        rx: 100,
+        ry: 90,
+        stops: [
+          { color: { value: "#1b1f4d" } },
+          { color: { value: "#07080f" }, offset: 55 },
+        ],
+      },
+    },
+    elements: [text, shape],
+  };
 
   const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.background.type, "radialGradient");
+  if (model.background.type === "radialGradient") {
+    assert.equal(model.background.rx, 100);
+    assert.equal(model.background.ry, 90);
+    assert.deepEqual(model.background.stops, [
+      { color: "#1b1f4d" },
+      { color: "#07080f", offset: 55 },
+    ]);
+  }
 
   assert.equal(model.elementDesigns["text-gradient"]?.kind, "text");
   if (model.elementDesigns["text-gradient"]?.kind === "text") {

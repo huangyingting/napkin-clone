@@ -381,6 +381,9 @@ export function validateBackgroundDesign(
       ...(typeof input.angle === "number" && Number.isFinite(input.angle)
         ? { angle: input.angle }
         : {}),
+      ...(input.stops !== undefined
+        ? { stops: validateGradientStops(input.stops, `${context}.stops`) }
+        : {}),
     };
   }
   if (input.type === "radialGradient") {

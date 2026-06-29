@@ -385,6 +385,13 @@
           "id": "s-1",
           "kind": "shape",
           "opacity": 0.1,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#f5b301",
+            "opacity": 0.2
+          },
           "box": {
             "x": 55,
             "y": -25,
@@ -394,7 +401,37 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#f5b301"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#f5b301"
+              },
+              "outer": {
+                "value": "#0d0f14"
+              },
+              "cx": 50,
+              "cy": 50,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#f5b301"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#0d0f14"
+                  },
+                  "offset": 72
+                }
+              ]
+            },
+            "effect": {
+              "kind": "glow",
+              "color": "#f5b301",
+              "blur": 24,
+              "opacity": 0.2
             }
           },
           "locked": true,

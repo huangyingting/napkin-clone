@@ -2198,8 +2198,22 @@ const noir: ThemeSpec = {
           zIndex: 1,
           shape: "ellipse",
           box: { x: 55, y: -25, w: 70, h: 90 },
-          fill: p.accent,
+          fill: {
+            type: "radialGradient",
+            inner: { value: p.accent },
+            outer: { value: p.slideBg },
+            cx: 50,
+            cy: 50,
+            rx: 120,
+            ry: 90,
+            stops: [
+              { color: { value: p.accent }, offset: 0 },
+              { color: { value: p.slideBg }, offset: 72 },
+            ],
+          },
+          effect: { kind: "glow", color: p.accent, blur: 24, opacity: 0.2 },
           opacity: 0.1,
+          shadow: { x: 0, y: 0, blur: 2.4, color: p.accent, opacity: 0.2 },
           locked: true,
           name: "Glow",
         }),
@@ -2568,12 +2582,22 @@ const terra: ThemeSpec = {
   buildSlides: (s) => {
     const p = s.palette;
     const f = s.fonts;
-    const leaf = (z: number, box: Box, color: string, rot: number, op = 0.5) =>
+    const leaf = (
+      z: number,
+      box: Box,
+      color: string,
+      rot: number,
+      op = 0.5,
+      flip = false,
+    ) =>
       shape({
         zIndex: z,
-        shape: "ellipse",
+        shape: "rect",
         box,
         fill: color,
+        radius: flip
+          ? { topLeft: 50, topRight: 8, bottomRight: 50, bottomLeft: 50 }
+          : { topLeft: 50, topRight: 50, bottomRight: 50, bottomLeft: 8 },
         opacity: op,
         rotation: rot,
         locked: true,
@@ -2583,7 +2607,7 @@ const terra: ThemeSpec = {
       // Cover
       slide("terra-cover", "Terra", "title", [
         leaf(1, { x: 62, y: -20, w: 60, h: 70 }, p.deco[2], 12, 0.9),
-        leaf(2, { x: 74, y: 14, w: 42, h: 52 }, p.deco[0], -8, 0.25),
+        leaf(2, { x: 74, y: 14, w: 42, h: 52 }, p.deco[0], -8, 0.25, true),
         shape({
           zIndex: 3,
           shape: "ellipse",
@@ -2962,9 +2986,14 @@ const pulse: ThemeSpec = {
       slide("pulse-cover", "Pulse", "title", [
         shape({
           zIndex: 1,
-          shape: "triangle",
+          shape: "rect",
           box: { x: 60, y: -10, w: 55, h: 80 },
-          fill: p.deco[1],
+          fill: linearFill(p.deco[1], p.deco[2], 135, [
+            { color: { value: p.deco[1] } },
+            { color: { value: p.accent }, offset: 60 },
+            { color: { value: p.deco[2] } },
+          ]),
+          radius: 8,
           opacity: 0.9,
           rotation: 12,
           locked: true,

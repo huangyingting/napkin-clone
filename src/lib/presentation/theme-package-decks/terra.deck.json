@@ -405,13 +405,19 @@
           "designOverrides": {
             "fill": {
               "value": "#cdd9c4"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -429,13 +435,19 @@
           "designOverrides": {
             "fill": {
               "value": "#3f6b4a"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 8,
+              "bottomRight": 50,
+              "bottomLeft": 50
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -1321,13 +1333,19 @@
           "designOverrides": {
             "fill": {
               "value": "#ffffff"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -1344,13 +1362,19 @@
           "designOverrides": {
             "fill": {
               "value": "#c2683f"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -2502,13 +2526,19 @@
           "designOverrides": {
             "fill": {
               "value": "#cdd9c4"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -2525,13 +2555,19 @@
           "designOverrides": {
             "fill": {
               "value": "#c2683f"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -2651,13 +2687,19 @@
           "designOverrides": {
             "fill": {
               "value": "#cdd9c4"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -2674,13 +2716,19 @@
           "designOverrides": {
             "fill": {
               "value": "#c2683f"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
@@ -12225,13 +12273,19 @@
           "designOverrides": {
             "fill": {
               "value": "#c2683f"
+            },
+            "radius": {
+              "topLeft": 50,
+              "topRight": 50,
+              "bottomRight": 50,
+              "bottomLeft": 8
             }
           },
           "locked": true,
           "name": "Leaf",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {

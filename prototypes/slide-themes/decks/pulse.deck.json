@@ -409,14 +409,40 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#ff7a18"
-            }
+              "type": "linearGradient",
+              "from": {
+                "value": "#ff7a18"
+              },
+              "to": {
+                "value": "#7b2ff7"
+              },
+              "angle": 135,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#ff7a18"
+                  }
+                },
+                {
+                  "color": {
+                    "value": "#ec2d6f"
+                  },
+                  "offset": 60
+                },
+                {
+                  "color": {
+                    "value": "#7b2ff7"
+                  }
+                }
+              ]
+            },
+            "radius": 8
           },
           "locked": true,
           "name": "Wedge",
           "content": {
             "kind": "shape",
-            "shape": "triangle"
+            "shape": "rect"
           }
         },
         {

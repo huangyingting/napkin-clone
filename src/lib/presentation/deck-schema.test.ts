@@ -314,6 +314,19 @@ test("safeParseDeck round-trips rich visual style primitives", () => {
           id: "slide-1",
           index: 0,
           title: "Hello",
+          designOverrides: {
+            background: {
+              type: "gradient",
+              from: { value: "#ffffff" },
+              to: { token: "accent" },
+              angle: 100,
+              stops: [
+                { color: { value: "#ffffff" } },
+                { color: { value: "#b9c0ff" }, offset: 40 },
+                { color: { token: "accent" } },
+              ],
+            },
+          },
           elements: [
             textElement({
               designOverrides: {
@@ -382,6 +395,8 @@ test("safeParseDeck round-trips rich visual style primitives", () => {
 
   assert.equal(result.success, true, result.success ? undefined : result.error);
   if (!result.success) return;
+  const slide = result.data.slides[0] as any;
+  assert.equal(slide.designOverrides.background.stops.length, 3);
   const text = result.data.slides[0]?.elements?.[0] as any;
   assert.equal(text.designOverrides.textStyle.letterSpacing, 0.24);
   assert.equal(text.designOverrides.textStyle.textTransform, "uppercase");

@@ -366,6 +366,51 @@ test("resolveSlideStyle provides correct backgroundCss for gradient", () => {
   assert.equal(resolved.backgroundCss, "linear-gradient(90deg, #111, #222)");
 });
 
+test("resolveSlideStyle provides rich backgroundCss for gradient stops and radial radii", () => {
+  const deck = makeDeck({ design: { themeId: "default" } });
+  const gradientSlide = makeSlide({
+    designOverrides: {
+      background: {
+        type: "gradient",
+        from: { value: "#ffffff" },
+        to: { value: "#000000" },
+        angle: 100,
+        stops: [
+          { color: { value: "#ffffff" } },
+          { color: { value: "#b9c0ff" }, offset: 40 },
+          { color: { value: "#22d3ee" } },
+        ],
+      },
+    },
+  });
+  assert.equal(
+    resolveSlideStyle(deck, gradientSlide).backgroundCss,
+    "linear-gradient(100deg, #ffffff, #b9c0ff 40%, #22d3ee)",
+  );
+
+  const radialSlide = makeSlide({
+    designOverrides: {
+      background: {
+        type: "radialGradient",
+        inner: { value: "#1b1f4d" },
+        outer: { value: "#07080f" },
+        cx: 80,
+        cy: 0,
+        rx: 100,
+        ry: 90,
+        stops: [
+          { color: { value: "#1b1f4d" } },
+          { color: { value: "#07080f" }, offset: 55 },
+        ],
+      },
+    },
+  });
+  assert.equal(
+    resolveSlideStyle(deck, radialSlide).backgroundCss,
+    "radial-gradient(100% 90% at 80% 0%, #1b1f4d, #07080f 55%)",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // resolved text / bullet / shape-label styles (#602)
 // ---------------------------------------------------------------------------
