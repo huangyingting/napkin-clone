@@ -113,7 +113,7 @@ test("repairElement preserves current-schema radial glass shape elements", () =>
     {
       kind: "shape",
       role: "unknown-role",
-      content: { kind: "shape", shape: "triangle", text: "Signal" },
+      content: { kind: "shape", shape: "diamond", text: "Signal" },
       designOverrides: {
         fill: {
           type: "radialGradient",
@@ -134,7 +134,7 @@ test("repairElement preserves current-schema radial glass shape elements", () =>
   assert.equal((shape as any).role, "background");
   assert.deepEqual((shape as any).content, {
     kind: "shape",
-    shape: "triangle",
+    shape: "diamond",
     text: "Signal",
   });
   assert.deepEqual((shape as any).designOverrides.fill, {

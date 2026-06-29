@@ -53,6 +53,7 @@ const SHAPE_KINDS: readonly ShapeKind[] = [
   "ellipse",
   "line",
   "triangle",
+  "diamond",
 ];
 const GLASS_INTENSITIES = ["light", "medium", "strong"] as const;
 const GENERATED_TABLE_MIN_COLUMNS = 2;

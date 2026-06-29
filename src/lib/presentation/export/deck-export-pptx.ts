@@ -51,6 +51,7 @@ const SHAPES: Record<ShapeKind | "roundRect", ShapeName> = {
   ellipse: "ellipse",
   line: "line",
   triangle: "triangle",
+  diamond: "diamond",
   roundRect: "roundRect",
 };
 
@@ -163,6 +164,8 @@ function shapeClipCss(op: DeckShapeOp, height: number): string {
       return "clip-path:ellipse(50% 50% at 50% 50%);";
     case "triangle":
       return "clip-path:polygon(50% 0%, 0% 100%, 100% 100%);";
+    case "diamond":
+      return "clip-path:polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);";
     case "rect":
       return op.radius ? `border-radius:${Math.round(op.radius * 192)}px;` : "";
     case "line":
@@ -502,8 +505,8 @@ export function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
     applyShapeTextOp(slide, op);
     return;
   }
-  if (op.shape === "triangle") {
-    slide.addShape(SHAPES.triangle, {
+  if (op.shape === "triangle" || op.shape === "diamond") {
+    slide.addShape(SHAPES[op.shape], {
       x: op.x,
       y: op.y,
       w: op.w,

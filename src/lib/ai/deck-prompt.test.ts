@@ -98,12 +98,11 @@ test("system message describes the schema-v6 deck shape", () => {
   assert.match(content, /masterChromeKind/);
   assert.match(content, /"templateId"/);
   assert.match(content, /"content": \{ "kind": "text"/);
-  assert.match(content, /"kind": "image"/);
-  assert.match(content, /"maskShape"/);
-  assert.match(content, /"kind": "shape"/);
-  assert.match(content, /"radialGradient"/);
-  assert.match(content, /"kind": "glass"/);
+  assert.match(content, /theme-package templates own decorative shapes/);
   assert.match(content, /"designOverrides"/);
+  assert.doesNotMatch(content, /"maskShape"/);
+  assert.doesNotMatch(content, /"radialGradient"/);
+  assert.doesNotMatch(content, /"kind": "glass"/);
   assert.doesNotMatch(content, /^\s+"themeId":/m);
   assert.doesNotMatch(content, /^\s+"layout":/m);
   assert.doesNotMatch(content, /^\s+"bullets":/m);

@@ -1331,7 +1331,7 @@ test("PPTX bullets applier handles plain and rich numbered items", () => {
   assert.equal((rich.textCalls[0]?.text as any[])[1].text, "");
 });
 
-test("PPTX shape applier covers line, triangle, ellipse, and rounded rectangle variants", () => {
+test("PPTX shape applier covers line, triangle, diamond, ellipse, and rounded rectangle variants", () => {
   const { slide, shapeCalls, textCalls } = recordingSlide();
 
   deckExportTestHelpers.applyShapeOp(slide, {
@@ -1355,6 +1355,15 @@ test("PPTX shape applier covers line, triangle, ellipse, and rounded rectangle v
     color: "333333",
     opacity: 0.25,
     shadow: true,
+  });
+  deckExportTestHelpers.applyShapeOp(slide, {
+    kind: "shape",
+    shape: "diamond",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 1,
+    color: "333333",
   });
   deckExportTestHelpers.applyShapeOp(slide, {
     kind: "shape",
@@ -1387,11 +1396,11 @@ test("PPTX shape applier covers line, triangle, ellipse, and rounded rectangle v
 
   assert.deepEqual(
     shapeCalls.map((call) => call.shape),
-    ["line", "triangle", "ellipse", "roundRect"],
+    ["line", "triangle", "diamond", "ellipse", "roundRect"],
   );
   assert.equal(shapeCalls[0]?.options.line?.dashType, "dash");
   assert.equal(shapeCalls[1]?.options.fill?.transparency, 75);
-  assert.equal(shapeCalls[3]?.options.rectRadius, 0.2);
+  assert.equal(shapeCalls[4]?.options.rectRadius, 0.2);
   assert.equal(textCalls.length, 1);
 });
 

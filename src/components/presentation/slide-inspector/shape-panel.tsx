@@ -40,7 +40,13 @@ import { runsToHtml, shouldStoreRuns } from "@/lib/presentation/rich-text-html";
 import { matchSlideFont } from "@/lib/presentation/slide-fonts";
 import { resolveSlideTokenSet } from "@/lib/presentation/style-cascade";
 
-const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
+const SHAPE_OPTIONS: ShapeKind[] = [
+  "rect",
+  "ellipse",
+  "line",
+  "triangle",
+  "diamond",
+];
 
 const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
   fontSize: 4,

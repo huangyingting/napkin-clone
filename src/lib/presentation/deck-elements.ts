@@ -107,7 +107,7 @@ export interface TextElementStyle {
   fontId?: string;
 }
 
-export type ShapeKind = "rect" | "ellipse" | "line" | "triangle";
+export type ShapeKind = "rect" | "ellipse" | "line" | "triangle" | "diamond";
 
 export type ColorRef = { token: string } | { value: string };
 

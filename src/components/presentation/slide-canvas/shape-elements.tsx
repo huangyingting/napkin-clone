@@ -160,6 +160,31 @@ export function ShapeElementView({
       </div>
     );
   }
+  if (content.shape === "diamond") {
+    return (
+      <div
+        style={{
+          ...boxStyle(element),
+          overflow: "hidden",
+        }}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            ...fillStyle,
+            clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+          }}
+        />
+        <ShapeText
+          element={element}
+          fillColor={fillColor}
+          resolvedDesign={resolvedDesign}
+        />
+      </div>
+    );
+  }
   return (
     <div
       style={{

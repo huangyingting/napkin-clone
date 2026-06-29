@@ -345,6 +345,8 @@ function glassClipCss(op: DeckShapeOp, pxPerIn: number): string {
       return "clip-path:ellipse(50% 50% at 50% 50%);";
     case "triangle":
       return "clip-path:polygon(50% 0%, 0% 100%, 100% 100%);";
+    case "diamond":
+      return "clip-path:polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);";
     case "rect":
       return op.radius ? `border-radius:${op.radius * pxPerIn}px;` : "";
     case "line":
@@ -418,6 +420,9 @@ function renderShapeSvg(
       break;
     case "triangle":
       shapeSvg = `<polygon points="${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}" ${common} />`;
+      break;
+    case "diamond":
+      shapeSvg = `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" ${common} />`;
       break;
     case "line":
       shapeSvg = `<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth || 1}" stroke-opacity="${fillOpacity}"${dash} />`;

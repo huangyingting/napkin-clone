@@ -76,6 +76,7 @@ export const SHAPE_KINDS: readonly ShapeKind[] = [
   "ellipse",
   "line",
   "triangle",
+  "diamond",
 ];
 export const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
   "center",
