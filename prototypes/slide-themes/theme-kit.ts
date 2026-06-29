@@ -9,7 +9,7 @@ import {
 import { familySlide } from "./render-family-layouts";
 
 /**
- * Shared authoring kit for the six professional slide themes.
+ * Shared authoring kit for the eight professional slide themes.
  *
  * Pure data builders that emit v6 deck JSON. Geometry is expressed in slide
  * percentages (0–100); text `fontSize` is a percent of slide height, matching
@@ -45,7 +45,103 @@ export interface ThemeFonts {
 
 export type Box = { x: number; y: number; w: number; h: number };
 
-export type ShapeKind = "rect" | "ellipse" | "line" | "triangle";
+export type ShapeKind =
+  | "rect"
+  | "square"
+  | "circle"
+  | "ellipse"
+  | "line"
+  | "triangle"
+  | "diamond";
+
+export type ColorToken =
+  | "slideBg"
+  | "surface"
+  | "accent"
+  | "onBg"
+  | "onSurface"
+  | "onAccent"
+  | "muted";
+
+export type ColorRef = { token: ColorToken } | { value: Hex };
+
+export type Fill =
+  | ColorRef
+  | {
+      type: "radialGradient";
+      inner: ColorRef;
+      outer: ColorRef;
+      cx?: number;
+      cy?: number;
+      r?: number;
+    };
+
+export type ShapeEffect = {
+  kind: "glass";
+  intensity: "light" | "medium" | "strong";
+};
+
+export type BackgroundTreatment =
+  | { type: "solid"; color: Hex | ColorRef }
+  | {
+      type: "gradient";
+      from: Hex | ColorRef;
+      to: Hex | ColorRef;
+      angle?: number;
+    }
+  | {
+      type: "radialGradient";
+      inner: Hex | ColorRef;
+      outer: Hex | ColorRef;
+      cx?: number;
+      cy?: number;
+      r?: number;
+    };
+
+export interface ThemeVisualLanguage {
+  surface: "flat" | "glass" | "paper" | "ink";
+  backgroundMode: "quiet" | "radial" | "field" | "split";
+  motifShapes: {
+    primary: ShapeKind;
+    secondary: ShapeKind;
+    accent: ShapeKind;
+  };
+  card: {
+    fill: "surface" | "glass" | "slideBg";
+    radius: number;
+    stroke?: boolean;
+  };
+  image: {
+    maskShape:
+      | "rect"
+      | "rounded"
+      | "circle"
+      | "ellipse"
+      | "diamond"
+      | "triangle";
+    radius?: number;
+  };
+}
+
+export const token = (value: ColorToken): ColorRef => ({ token: value });
+export const value = (hex: Hex): ColorRef => ({ value: hex });
+
+function colorRef(input: Hex | ColorRef): ColorRef {
+  return typeof input === "string" ? { value: input } : input;
+}
+
+export function radialFill(
+  inner: Hex | ColorRef,
+  outer: Hex | ColorRef,
+  options: { cx?: number; cy?: number; r?: number } = {},
+): Fill {
+  return {
+    type: "radialGradient",
+    inner: colorRef(inner),
+    outer: colorRef(outer),
+    ...options,
+  };
+}
 
 let elementSeq = 0;
 export function resetSeq(): void {
@@ -127,9 +223,10 @@ export function shape(opts: {
   zIndex: number;
   shape: ShapeKind;
   box: Box;
-  fill?: Hex;
+  fill?: Hex | Fill;
   stroke?: { color: Hex; width: number };
   radius?: number;
+  effect?: ShapeEffect;
   opacity?: number;
   rotation?: number;
   dash?: boolean;
@@ -137,9 +234,16 @@ export function shape(opts: {
   locked?: boolean;
 }): Record<string, unknown> {
   const design: Record<string, unknown> = {};
-  if (opts.fill) design.fill = { value: opts.fill };
+  if (opts.fill)
+    design.fill =
+      typeof opts.fill === "string" ? { value: opts.fill } : opts.fill;
   if (opts.stroke) design.stroke = opts.stroke;
-  if (opts.radius !== undefined) design.radius = opts.radius;
+  if (opts.radius !== undefined) {
+    design.radius = opts.radius;
+  } else if (opts.shape === "rect" || opts.shape === "square") {
+    design.radius = 0;
+  }
+  if (opts.effect) design.effect = opts.effect;
   if (opts.dash) design.dash = true;
   return {
     id: nextId("s"),
@@ -153,6 +257,193 @@ export function shape(opts: {
     content: { kind: "shape", shape: opts.shape },
     ...(Object.keys(design).length > 0 ? { designOverrides: design } : {}),
   };
+}
+
+export function radialOrb(opts: {
+  zIndex: number;
+  box: Box;
+  inner: Hex | ColorRef;
+  outer: Hex | ColorRef;
+  opacity?: number;
+  shape?: "circle" | "ellipse";
+  locked?: boolean;
+  name?: string;
+}): Record<string, unknown> {
+  return shape({
+    zIndex: opts.zIndex,
+    shape: opts.shape ?? "circle",
+    box: opts.box,
+    fill: radialFill(opts.inner, opts.outer, { cx: 42, cy: 38, r: 72 }),
+    opacity: opts.opacity ?? 0.22,
+    locked: opts.locked ?? true,
+    name: opts.name ?? "Radial orb",
+  });
+}
+
+export function glassPanel(opts: {
+  zIndex: number;
+  box: Box;
+  fill?: Hex | Fill;
+  intensity?: ShapeEffect["intensity"];
+  radius?: number;
+  stroke?: { color: Hex; width: number };
+  locked?: boolean;
+  name?: string;
+}): Record<string, unknown> {
+  return shape({
+    zIndex: opts.zIndex,
+    shape: "rect",
+    box: opts.box,
+    fill: opts.fill ?? token("surface"),
+    radius: opts.radius ?? 10,
+    stroke: opts.stroke,
+    effect: { kind: "glass", intensity: opts.intensity ?? "medium" },
+    locked: opts.locked ?? true,
+    name: opts.name ?? "Glass panel",
+  });
+}
+
+export function motif(opts: {
+  zIndex: number;
+  shape: ShapeKind;
+  box: Box;
+  fill: Hex | Fill;
+  opacity?: number;
+  rotation?: number;
+  radius?: number;
+  locked?: boolean;
+  name?: string;
+}): Record<string, unknown> {
+  return shape({
+    zIndex: opts.zIndex,
+    shape: opts.shape,
+    box: opts.box,
+    fill: opts.fill,
+    opacity: opts.opacity,
+    rotation: opts.rotation,
+    radius: opts.radius,
+    locked: opts.locked ?? true,
+    name: opts.name ?? "Motif",
+  });
+}
+
+export function visualLanguage(spec: ThemeSpec): ThemeVisualLanguage {
+  if (spec.visualLanguage) return spec.visualLanguage;
+  const radius = spec.cornerRadiusPt + 6;
+  switch (spec.id) {
+    case "clarity":
+      return {
+        surface: "glass",
+        backgroundMode: "quiet",
+        motifShapes: {
+          primary: "square",
+          secondary: "circle",
+          accent: "diamond",
+        },
+        card: { fill: "glass", radius: spec.cornerRadiusPt, stroke: false },
+        image: { maskShape: "rounded", radius: spec.cornerRadiusPt },
+      };
+    case "ocean":
+      return {
+        surface: "glass",
+        backgroundMode: "radial",
+        motifShapes: {
+          primary: "circle",
+          secondary: "ellipse",
+          accent: "diamond",
+        },
+        card: { fill: "glass", radius, stroke: true },
+        image: { maskShape: "rounded", radius },
+      };
+    case "aurora":
+      return {
+        surface: "glass",
+        backgroundMode: "radial",
+        motifShapes: {
+          primary: "circle",
+          secondary: "diamond",
+          accent: "triangle",
+        },
+        card: { fill: "glass", radius, stroke: false },
+        image: { maskShape: "rounded", radius },
+      };
+    case "monolith":
+      return {
+        surface: "ink",
+        backgroundMode: "field",
+        motifShapes: {
+          primary: "square",
+          secondary: "diamond",
+          accent: "rect",
+        },
+        card: {
+          fill: "glass",
+          radius: Math.max(0, spec.cornerRadiusPt),
+          stroke: true,
+        },
+        image: { maskShape: "rect", radius: spec.cornerRadiusPt },
+      };
+    case "editorial":
+      return {
+        surface: "paper",
+        backgroundMode: "split",
+        motifShapes: {
+          primary: "square",
+          secondary: "diamond",
+          accent: "circle",
+        },
+        card: { fill: "glass", radius: spec.cornerRadiusPt, stroke: true },
+        image: { maskShape: "rect", radius: spec.cornerRadiusPt },
+      };
+    case "noir":
+      return {
+        surface: "glass",
+        backgroundMode: "radial",
+        motifShapes: {
+          primary: "diamond",
+          secondary: "circle",
+          accent: "triangle",
+        },
+        card: { fill: "glass", radius, stroke: true },
+        image: { maskShape: "diamond", radius },
+      };
+    case "terra":
+      return {
+        surface: "paper",
+        backgroundMode: "radial",
+        motifShapes: {
+          primary: "circle",
+          secondary: "ellipse",
+          accent: "diamond",
+        },
+        card: { fill: "glass", radius: radius + 4, stroke: false },
+        image: { maskShape: "circle", radius },
+      };
+    case "pulse":
+      return {
+        surface: "glass",
+        backgroundMode: "field",
+        motifShapes: {
+          primary: "triangle",
+          secondary: "diamond",
+          accent: "circle",
+        },
+        card: { fill: "glass", radius, stroke: true },
+        image: { maskShape: "triangle", radius },
+      };
+    default:
+      return {
+        surface: "flat",
+        backgroundMode: "quiet",
+        motifShapes: {
+          primary: "square",
+          secondary: "circle",
+          accent: "diamond",
+        },
+        card: { fill: "glass", radius, stroke: false },
+        image: { maskShape: "rounded", radius },
+      };
+  }
 }
 
 /** A short uppercase "kicker" label often used above titles. */
@@ -223,13 +514,10 @@ export interface ThemeSpec {
   fonts: ThemeFonts;
   cornerRadiusPt: number;
   shadowCss: string;
-  defaultBackground:
-    | { type: "solid"; color: Hex }
-    | { type: "gradient"; from: Hex; to: Hex; angle?: number };
+  visualLanguage?: ThemeVisualLanguage;
+  defaultBackground: BackgroundTreatment;
   /** Master background treatment. */
-  masterBackground:
-    | { type: "solid"; color: Hex }
-    | { type: "gradient"; from: Hex; to: Hex; angle?: number };
+  masterBackground: BackgroundTreatment;
   /** Builds the ordered slide list for the demo deck. */
   buildSlides: (spec: ThemeSpec) => Record<string, unknown>[];
 }
@@ -520,16 +808,22 @@ export function buildDeck(spec: ThemeSpec): Record<string, unknown> {
   };
 }
 
-function bg(
-  t:
-    | { type: "solid"; color: Hex }
-    | { type: "gradient"; from: Hex; to: Hex; angle?: number },
-): Record<string, unknown> {
-  if (t.type === "solid") return { type: "solid", color: { value: t.color } };
+function bg(t: BackgroundTreatment): Record<string, unknown> {
+  if (t.type === "solid") return { type: "solid", color: colorRef(t.color) };
+  if (t.type === "radialGradient") {
+    return {
+      type: "radialGradient",
+      inner: colorRef(t.inner),
+      outer: colorRef(t.outer),
+      ...(t.cx !== undefined ? { cx: t.cx } : {}),
+      ...(t.cy !== undefined ? { cy: t.cy } : {}),
+      ...(t.r !== undefined ? { r: t.r } : {}),
+    };
+  }
   return {
     type: "gradient",
-    from: { value: t.from },
-    to: { value: t.to },
+    from: colorRef(t.from),
+    to: colorRef(t.to),
     ...(t.angle !== undefined ? { angle: t.angle } : {}),
   };
 }
@@ -540,9 +834,7 @@ export function slide(
   title: string,
   templateId: string,
   elements: Record<string, unknown>[],
-  background?:
-    | { type: "solid"; color: Hex }
-    | { type: "gradient"; from: Hex; to: Hex; angle?: number },
+  background?: BackgroundTreatment,
 ): Record<string, unknown> {
   return {
     id,

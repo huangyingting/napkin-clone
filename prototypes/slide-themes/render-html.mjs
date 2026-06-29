@@ -54,10 +54,63 @@ function backgroundCss(treatment, colors) {
     const to = resolveColor(treatment.to, colors);
     return `background:linear-gradient(${treatment.angle ?? 135}deg, ${from}, ${to});`;
   }
+  if (treatment.type === "radialGradient") {
+    const inner = resolveColor(treatment.inner, colors);
+    const outer = resolveColor(treatment.outer, colors);
+    return `background:radial-gradient(circle ${treatment.r ?? 70}% at ${treatment.cx ?? 50}% ${treatment.cy ?? 50}%, ${inner}, ${outer});`;
+  }
   if (treatment.type === "image") {
     return `background:#e9e9ee url(${treatment.url}) center/cover;`;
   }
   return "";
+}
+
+function rgba(hex, alpha) {
+  const raw = String(hex ?? "#71717a").replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  if (expanded.length < 6) return `rgba(113,113,122,${alpha})`;
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function fillCss(fill, colors, effect) {
+  const alpha =
+    effect?.intensity === "strong"
+      ? 0.4
+      : effect?.intensity === "light"
+        ? 0.22
+        : 0.3;
+  if (fill?.type === "radialGradient") {
+    const inner = resolveColor(fill.inner, colors);
+    const outer = resolveColor(fill.outer, colors);
+    return effect
+      ? `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgba(inner, alpha + 0.08)}, ${rgba(outer, alpha)})`
+      : `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${inner}, ${outer})`;
+  }
+  const color = resolveColor(fill, colors) ?? SHAPE_DEFAULT_FILL;
+  return effect ? rgba(color, alpha) : color;
+}
+
+function inscribedBox(box) {
+  const actualW = box.w * 16;
+  const actualH = box.h * 9;
+  const side = Math.min(actualW, actualH);
+  const w = side / 16;
+  const h = side / 9;
+  return {
+    x: ((box.w - w) / 2 / box.w) * 100,
+    y: ((box.h - h) / 2 / box.h) * 100,
+    w: (w / box.w) * 100,
+    h: (h / box.h) * 100,
+  };
 }
 
 function boxCss(el) {
@@ -127,16 +180,35 @@ function renderText(el, colors, accent) {
   return `<div style="${css}">${blocks}</div>`;
 }
 
-function renderShape(el) {
+function renderShape(el, colors = {}) {
   const d = el.designOverrides ?? {};
-  const fill = d.fill?.value ?? SHAPE_DEFAULT_FILL;
+  const fill = fillCss(d.fill, colors, d.effect);
   const stroke = d.stroke;
   const shape = el.content?.shape;
+  const effect = d.effect
+    ? `backdrop-filter:blur(${d.effect.intensity === "strong" ? 22 : d.effect.intensity === "light" ? 8 : 14}px) saturate(1.3);-webkit-backdrop-filter:blur(${d.effect.intensity === "strong" ? 22 : d.effect.intensity === "light" ? 8 : 14}px) saturate(1.3);border:1px solid ${rgba("#ffffff", 0.45)};box-shadow:0 8px 24px rgba(15,23,42,.18);`
+    : "";
   if (shape === "line") {
     return `<div style="${boxCss(el)}display:flex;align-items:center;"><div style="height:${stroke?.width ?? 0.4}cqmin;width:100%;background:${stroke?.color ?? fill};"></div></div>`;
   }
   if (shape === "triangle") {
-    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,0% 100%,100% 100%);"></div></div>`;
+    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,0% 100%,100% 100%);${effect}"></div></div>`;
+  }
+  if (shape === "diamond") {
+    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);${effect}"></div></div>`;
+  }
+  if (shape === "circle" || shape === "square") {
+    const inner = inscribedBox(el.box);
+    const radius =
+      shape === "circle"
+        ? "9999px"
+        : d.radius !== undefined
+          ? `${d.radius}%`
+          : "0.25rem";
+    const border = stroke
+      ? `border:${stroke.width}cqmin solid ${stroke.color};`
+      : "";
+    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;left:${inner.x}%;top:${inner.y}%;width:${inner.w}%;height:${inner.h}%;background:${fill};border-radius:${radius};${border}${effect}"></div></div>`;
   }
   const radius =
     shape === "ellipse"
@@ -147,7 +219,7 @@ function renderShape(el) {
   const border = stroke
     ? `border:${stroke.width}cqmin solid ${stroke.color};`
     : "";
-  return `<div style="${boxCss(el)}overflow:hidden;background:${fill};border-radius:${radius};${border}"></div>`;
+  return `<div style="${boxCss(el)}overflow:hidden;background:${fill};border-radius:${radius};${border}${effect}"></div>`;
 }
 
 function renderImage(el) {
@@ -157,8 +229,12 @@ function renderImage(el) {
   let radius = d.radius !== undefined ? `${d.radius}%` : "0";
   let clip = "";
   if (d.maskShape === "circle") clip = "clip-path:circle(50% at 50% 50%);";
+  if (d.maskShape === "ellipse")
+    clip = "clip-path:ellipse(50% 50% at 50% 50%);";
   if (d.maskShape === "diamond")
     clip = "clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);";
+  if (d.maskShape === "triangle")
+    clip = "clip-path:polygon(50% 0%,0% 100%,100% 100%);";
   return `<div style="${boxCss(el)}background:#e9e9ee url('${src}') center/${fit} no-repeat;border-radius:${radius};${clip}"></div>`;
 }
 
@@ -167,7 +243,7 @@ function renderElement(el, colors, accent) {
     case "text":
       return renderText(el, colors, accent);
     case "shape":
-      return renderShape(el);
+      return renderShape(el, colors);
     case "image":
       return renderImage(el);
     default:

@@ -11,26 +11,52 @@
  */
 
 import {
+  type BackgroundTreatment,
   type Box,
   type ThemeSpec,
+  glassPanel,
   image,
   kicker,
+  motif,
+  radialFill,
+  radialOrb,
   shape,
   slide,
   text,
+  token,
+  visualLanguage,
 } from "./theme-kit";
 import type { ThemePackageRenderFamily } from "@/lib/presentation/theme-template-taxonomy";
 
-type Bg =
-  | { type: "solid"; color: string }
-  | { type: "gradient"; from: string; to: string; angle?: number };
+type Bg = BackgroundTreatment;
 
 function bullets(items: string[]) {
   return items.map((t) => ({ text: t, listType: "bullet" as const }));
 }
 
+let activeSpec: ThemeSpec | null = null;
+
 /** Soft accent gradient over the slide bg — the "lit" treatment. */
 function tint(spec: ThemeSpec): Bg {
+  const lang = visualLanguage(spec);
+  if (lang.backgroundMode === "radial") {
+    return {
+      type: "radialGradient",
+      inner: token("surface"),
+      outer: token("slideBg"),
+      cx: 72,
+      cy: 18,
+      r: 78,
+    };
+  }
+  if (lang.backgroundMode === "field") {
+    return {
+      type: "gradient",
+      from: spec.palette.slideBg,
+      to: spec.palette.deco[1] ?? spec.palette.surface,
+      angle: 135,
+    };
+  }
   return {
     type: "gradient",
     from: spec.palette.slideBg,
@@ -49,6 +75,16 @@ function accentField(spec: ThemeSpec): Bg {
 
 /** Bold accent-into-dark gradient for hero covers. */
 function hero(spec: ThemeSpec): Bg {
+  if (visualLanguage(spec).backgroundMode === "radial") {
+    return {
+      type: "radialGradient",
+      inner: spec.palette.deco[0] ?? spec.palette.accent,
+      outer: spec.palette.onBg,
+      cx: 70,
+      cy: 28,
+      r: 88,
+    };
+  }
   return {
     type: "gradient",
     from: spec.palette.deco[0] ?? spec.palette.accent,
@@ -59,11 +95,11 @@ function hero(spec: ThemeSpec): Bg {
 
 /** A decorative organic/geometric orb whose form follows the theme radius. */
 function orb(z: number, box: Box, color: string, opacity = 0.16) {
-  return shape({
+  return radialOrb({
     zIndex: z,
-    shape: "ellipse",
     box,
-    fill: color,
+    inner: color,
+    outer: token("slideBg"),
     opacity,
     locked: true,
     name: "Orb",
@@ -96,15 +132,34 @@ function bar(z: number, box: Box, color: string) {
 }
 
 function panel(z: number, box: Box, color: string, radius: number) {
-  return shape({
-    zIndex: z,
-    shape: "rect",
-    box,
-    fill: color,
-    radius,
-    locked: true,
-    name: "Panel",
-  });
+  const lang = activeSpec ? visualLanguage(activeSpec) : null;
+  const panelRadius = lang?.card.radius ?? radius;
+  return lang?.card.fill === "glass"
+    ? glassPanel({
+        zIndex: z,
+        box,
+        fill: radialFill({ value: color }, token("slideBg"), {
+          cx: 35,
+          cy: 20,
+          r: 78,
+        }),
+        radius: panelRadius,
+        stroke: lang.card.stroke
+          ? { color: lang.surface === "glass" ? "#ffffff" : color, width: 0.18 }
+          : undefined,
+        intensity: lang.surface === "glass" ? "medium" : "light",
+        locked: true,
+        name: "Panel",
+      })
+    : shape({
+        zIndex: z,
+        shape: "rect",
+        box,
+        fill: color,
+        radius: panelRadius,
+        locked: true,
+        name: "Panel",
+      });
 }
 
 function H(spec: ThemeSpec, box: Box, txt: string, size = 6, color?: string) {
@@ -221,6 +276,128 @@ const T = (spec: ThemeSpec, kind: string) => `theme:${spec.id}:${kind}`;
 
 type Builder = (spec: ThemeSpec) => { els: Record<string, unknown>[]; bg?: Bg };
 
+function variantIndex(kind: string): number {
+  return [...kind].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 4;
+}
+
+function familyChrome(
+  spec: ThemeSpec,
+  family: ThemePackageRenderFamily,
+  kind: string,
+): Record<string, unknown>[] {
+  const lang = visualLanguage(spec);
+  const p = spec.palette;
+  const variant = variantIndex(kind);
+  const primary = p.deco[0] ?? p.accent;
+  const secondary = p.deco[1] ?? p.surface;
+  const quiet = p.deco[2] ?? p.muted;
+
+  const corner = variant % 2 === 0 ? -18 : 72;
+  const heroOrb = radialOrb({
+    zIndex: 1,
+    box: { x: corner, y: variant < 2 ? -24 : 58, w: 52, h: 76 },
+    inner: secondary,
+    outer: token("slideBg"),
+    opacity: lang.surface === "glass" ? 0.28 : 0.14,
+    shape: lang.motifShapes.secondary === "ellipse" ? "ellipse" : "circle",
+    name: `${family} glow`,
+  });
+  const accentMotif = motif({
+    zIndex: 2,
+    shape: lang.motifShapes.accent,
+    box: {
+      x: variant % 2 === 0 ? 84 : 5,
+      y: variant < 2 ? 12 : 72,
+      w: 8,
+      h: 14,
+    },
+    fill: radialFill(primary, token("slideBg"), { cx: 42, cy: 34, r: 72 }),
+    opacity: 0.42,
+    rotation: variant * 18 - 18,
+    name: `${family} motif`,
+  });
+  const secondaryMotif = motif({
+    zIndex: 2,
+    shape: lang.motifShapes.secondary,
+    box: {
+      x: variant % 2 === 0 ? 4 : 88,
+      y: variant < 2 ? 78 : 8,
+      w: 6,
+      h: 11,
+    },
+    fill: secondary,
+    opacity: 0.22,
+    rotation: variant * -14,
+    name: `${family} secondary motif`,
+  });
+
+  if (
+    ["cover", "section-divider", "quote-hero", "stat-hero", "closing"].includes(
+      family,
+    )
+  ) {
+    return [heroOrb, accentMotif, secondaryMotif];
+  }
+
+  if (
+    [
+      "two-column",
+      "before-after",
+      "problem-solution",
+      "pros-cons",
+      "matrix-2x2",
+    ].includes(family)
+  ) {
+    return [
+      heroOrb,
+      secondaryMotif,
+      motif({
+        zIndex: 2,
+        shape: lang.motifShapes.primary,
+        box: { x: 46, y: 43, w: 8, h: 14 },
+        fill: primary,
+        opacity: 0.18,
+        rotation: 45,
+        name: `${family} center motif`,
+      }),
+    ];
+  }
+
+  if (
+    ["cards-3", "cards-4", "team-grid", "pricing-cards", "metric-row"].includes(
+      family,
+    )
+  ) {
+    return [heroOrb, accentMotif, secondaryMotif];
+  }
+
+  if (
+    [
+      "process-steps",
+      "timeline",
+      "roadmap",
+      "framework-diagram",
+      "architecture-diagram",
+    ].includes(family)
+  ) {
+    return [
+      shape({
+        zIndex: 1,
+        shape: "rect",
+        box: { x: 8, y: 86, w: 84, h: 0.35 },
+        fill: quiet,
+        opacity: 0.35,
+        locked: true,
+        name: `${family} baseline`,
+      }),
+      accentMotif,
+      secondaryMotif,
+    ];
+  }
+
+  return [heroOrb, secondaryMotif];
+}
+
 const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
   cover: (s) => ({
     bg: hero(s),
@@ -245,7 +422,13 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
         "#ffffff",
         s.fonts.heading,
       ),
-      H(s, { x: 10.5, y: 33, w: 78, h: 30 }, "A clear, confident\nopening", 11, "#ffffff"),
+      H(
+        s,
+        { x: 10.5, y: 33, w: 78, h: 30 },
+        "A clear, confident\nopening",
+        11,
+        "#ffffff",
+      ),
       Sub(
         s,
         { x: 11, y: 66, w: 56, h: 10 },
@@ -677,7 +860,7 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
       ...[0, 1, 2, 3].flatMap((i) => [
         shape({
           zIndex: 8,
-          shape: "ellipse",
+          shape: "circle",
           box: { x: 8 + i * 22, y: 40, w: 9, h: 16 },
           fill: i === 0 ? s.palette.accent : s.palette.surface,
           locked: true,
@@ -840,7 +1023,7 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
     els: [0, 1, 2, 3].flatMap((i) => [
       shape({
         zIndex: 8,
-        shape: "ellipse",
+        shape: "circle",
         box: { x: 10 + i * 21, y: 30, w: 14, h: 25 },
         fill: s.palette.surface,
         locked: true,
@@ -896,6 +1079,17 @@ export function familySlide(
 ): Record<string, unknown> | null {
   const build = L[family];
   if (!build) return null;
-  const { els, bg } = build(spec);
-  return slide(`${spec.id}-${kind}`, label, T(spec, kind), els, bg);
+  activeSpec = spec;
+  try {
+    const { els, bg } = build(spec);
+    return slide(
+      `${spec.id}-${kind}`,
+      label,
+      T(spec, kind),
+      [...familyChrome(spec, family, kind), ...els],
+      bg,
+    );
+  } finally {
+    activeSpec = null;
+  }
 }
