@@ -229,3 +229,66 @@ export function TextSizeColorControl({
     </div>
   );
 }
+
+export function TextAdvancedStyleControl({
+  style,
+  onChange,
+}: {
+  style: TextElementStyle;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  const letterSpacing = style.letterSpacing ?? 0;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="block">
+        <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
+          Tracking
+        </span>
+        <div className="flex h-8 items-center gap-2 rounded-ds-md bg-ds-surface px-2 ring-1 ring-ds-border-subtle">
+          <input
+            type="range"
+            min={-0.08}
+            max={0.5}
+            step={0.01}
+            value={letterSpacing}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              onChange({
+                ...style,
+                letterSpacing: Math.abs(next) < 0.005 ? undefined : next,
+              });
+            }}
+            className="min-w-0 flex-1 accent-ds-accent"
+            aria-label="Letter spacing"
+          />
+          <span className="w-10 text-right text-[11px] tabular-nums text-ds-text-secondary">
+            {letterSpacing.toFixed(2)}
+          </span>
+        </div>
+      </div>
+      <div className="block">
+        <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
+          Case
+        </span>
+        <button
+          type="button"
+          aria-pressed={style.textTransform === "uppercase"}
+          onClick={() =>
+            onChange({
+              ...style,
+              textTransform:
+                style.textTransform === "uppercase" ? undefined : "uppercase",
+            })
+          }
+          className={`h-8 w-full rounded-ds-md bg-ds-surface px-2 text-xs font-semibold uppercase tracking-wide text-ds-text-secondary ring-1 ring-ds-border-subtle transition-colors hover:bg-ds-state-hover ${
+            style.textTransform === "uppercase"
+              ? "bg-ds-surface-base text-ds-accent-text shadow-ds-raised"
+              : ""
+          } ${FOCUS_RING}`}
+        >
+          Uppercase
+        </button>
+      </div>
+    </div>
+  );
+}

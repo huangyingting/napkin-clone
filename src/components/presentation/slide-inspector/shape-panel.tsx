@@ -17,6 +17,7 @@ import { PanelSection, PropRow, SelectField } from "./primitives";
 import {
   HorizontalAlignControl,
   TextEmphasisControl,
+  TextAdvancedStyleControl,
   TextPanelCardHeader,
   TextSizeColorControl,
 } from "./text-style-controls";
@@ -29,6 +30,9 @@ import {
 } from "@/components/presentation/slide-canvas/v6-model";
 import type {
   Deck,
+  ElementEffect,
+  ElementRadius,
+  ElementRadiusCorners,
   ShapeKind,
   Slide,
   SlideElement,
@@ -172,6 +176,7 @@ function ShapeLabelStyleControls({
         inheritedColor={inheritedColor}
         onChange={updateStyle}
       />
+      <TextAdvancedStyleControl style={style} onChange={updateStyle} />
       <InheritedFontControl
         style={style}
         inheritedLabel={inheritedFontLabel}
@@ -179,6 +184,213 @@ function ShapeLabelStyleControls({
         onChange={updateStyle}
       />
     </>
+  );
+}
+
+function radiusNumber(radius: unknown): number {
+  return typeof radius === "number" ? radius : 0;
+}
+
+function radiusCorners(radius: unknown): ElementRadiusCorners {
+  if (radius && typeof radius === "object") {
+    return radius as ElementRadiusCorners;
+  }
+  const value = radiusNumber(radius);
+  return {
+    topLeft: value,
+    topRight: value,
+    bottomRight: value,
+    bottomLeft: value,
+  };
+}
+
+function radiusIsEmpty(radius: ElementRadius): boolean {
+  if (typeof radius === "number") return radius <= 0;
+  return (
+    radius.topLeft <= 0 &&
+    radius.topRight <= 0 &&
+    radius.bottomRight <= 0 &&
+    radius.bottomLeft <= 0
+  );
+}
+
+function ShapeRadiusControl({
+  radius,
+  onChange,
+}: {
+  radius: unknown;
+  onChange: (radius: ElementRadius | undefined) => void;
+}) {
+  const corners = radiusCorners(radius);
+  const uniform =
+    corners.topLeft === corners.topRight &&
+    corners.topRight === corners.bottomRight &&
+    corners.bottomRight === corners.bottomLeft;
+  const setCorner = (key: keyof ElementRadiusCorners, value: number) => {
+    const next = { ...corners, [key]: value };
+    onChange(radiusIsEmpty(next) ? undefined : next);
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <PropRow label="Radius">
+        <input
+          type="range"
+          min={0}
+          max={50}
+          step={1}
+          value={uniform ? corners.topLeft : 0}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            onChange(next <= 0 ? undefined : next);
+          }}
+          className="min-w-0 flex-1 accent-ds-accent"
+          aria-label="Uniform corner radius"
+        />
+        <span className="w-8 text-right text-xs tabular-nums text-ds-text-muted">
+          {uniform ? corners.topLeft : "mix"}
+        </span>
+      </PropRow>
+      <div className="grid grid-cols-2 gap-2 pl-[80px]">
+        {(
+          [
+            ["topLeft", "TL"],
+            ["topRight", "TR"],
+            ["bottomLeft", "BL"],
+            ["bottomRight", "BR"],
+          ] as const
+        ).map(([key, label]) => (
+          <label
+            key={key}
+            className="flex items-center gap-1 text-[11px] text-ds-text-secondary"
+          >
+            <span className="w-5">{label}</span>
+            <input
+              type="number"
+              min={0}
+              max={50}
+              value={corners[key]}
+              onChange={(event) => setCorner(key, Number(event.target.value))}
+              className="w-full rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1 py-0.5 text-right text-[11px] text-ds-text-primary outline-none"
+              aria-label={`${label} corner radius`}
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ShapeEffectControl({
+  effect,
+  onChange,
+}: {
+  effect: ElementEffect | undefined;
+  onChange: (effect: ElementEffect | undefined) => void;
+}) {
+  const kind = effect?.kind ?? "none";
+  return (
+    <div className="flex flex-col gap-2">
+      <PropRow label="Effect">
+        <SelectField
+          value={kind}
+          ariaLabel="Shape effect"
+          onChange={(value) => {
+            if (value === "none") onChange(undefined);
+            else if (value === "glass")
+              onChange({ kind: "glass", intensity: "medium" });
+            else if (value === "blur") onChange({ kind: "blur", radius: 8 });
+            else
+              onChange({
+                kind: "glow",
+                color: "#6366f1",
+                blur: 8,
+                opacity: 0.35,
+              });
+          }}
+          options={[
+            { value: "none", label: "None" },
+            { value: "glass", label: "Glass" },
+            { value: "blur", label: "Blur" },
+            { value: "glow", label: "Glow" },
+          ]}
+        />
+      </PropRow>
+      {effect?.kind === "glass" ? (
+        <PropRow label="Glass">
+          <SelectField
+            value={effect.intensity}
+            ariaLabel="Glass intensity"
+            onChange={(value) =>
+              onChange({
+                kind: "glass",
+                intensity: value as "light" | "medium" | "strong",
+              })
+            }
+            options={[
+              { value: "light", label: "Light" },
+              { value: "medium", label: "Medium" },
+              { value: "strong", label: "Strong" },
+            ]}
+          />
+        </PropRow>
+      ) : null}
+      {effect?.kind === "blur" ? (
+        <PropRow label="Blur">
+          <input
+            type="range"
+            min={0}
+            max={32}
+            step={0.5}
+            value={effect.radius}
+            onChange={(event) =>
+              onChange({ kind: "blur", radius: Number(event.target.value) })
+            }
+            className="min-w-0 flex-1 accent-ds-accent"
+            aria-label="Blur radius"
+          />
+        </PropRow>
+      ) : null}
+      {effect?.kind === "glow" ? (
+        <>
+          <PropRow label="Glow">
+            <ColorPicker
+              color={effect.color}
+              fallback="#6366f1"
+              aria-label="Glow color"
+              onChange={(hex) => onChange({ ...effect, color: hex })}
+            />
+            <input
+              type="range"
+              min={0}
+              max={32}
+              step={0.5}
+              value={effect.blur}
+              onChange={(event) =>
+                onChange({ ...effect, blur: Number(event.target.value) })
+              }
+              className="min-w-0 flex-1 accent-ds-accent"
+              aria-label="Glow blur"
+            />
+          </PropRow>
+          <PropRow label="Glow alpha">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round((effect.opacity ?? 1) * 100)}
+              onChange={(event) =>
+                onChange({
+                  ...effect,
+                  opacity: Number(event.target.value) / 100,
+                })
+              }
+              className="min-w-0 flex-1 accent-ds-accent"
+              aria-label="Glow opacity"
+            />
+          </PropRow>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -466,30 +678,30 @@ export function ShapeAppearanceControls({
         </PropRow>
       ) : null}
       {currentShape.shape === "rect" && showAdvanced ? (
-        <PropRow label="Radius">
-          <input
-            type="range"
-            min={0}
-            max={50}
-            step={1}
-            value={
-              typeof currentShapeDesign.radius === "number"
-                ? currentShapeDesign.radius
-                : 0
-            }
-            onChange={(event) => {
-              const radius = Number(event.target.value);
-              onUpdateElement(element.id, {
-                designOverrides: {
-                  ...currentShapeDesign,
-                  radius: radius <= 0 ? undefined : radius,
-                },
-              } as ElementPatch);
-            }}
-            className="min-w-0 flex-1 accent-ds-accent"
-            aria-label="Corner radius"
-          />
-        </PropRow>
+        <ShapeRadiusControl
+          radius={currentShapeDesign.radius}
+          onChange={(radius) =>
+            onUpdateElement(element.id, {
+              designOverrides: {
+                ...currentShapeDesign,
+                radius,
+              },
+            } as ElementPatch)
+          }
+        />
+      ) : null}
+      {showAdvanced && currentShape.shape !== "line" ? (
+        <ShapeEffectControl
+          effect={currentShapeDesign.effect as ElementEffect | undefined}
+          onChange={(effect) =>
+            onUpdateElement(element.id, {
+              designOverrides: {
+                ...currentShapeDesign,
+                effect,
+              },
+            } as ElementPatch)
+          }
+        />
       ) : null}
     </>
   );

@@ -19,6 +19,7 @@ import {
 import { PanelSection } from "./primitives";
 import {
   HorizontalAlignControl,
+  TextAdvancedStyleControl,
   TextEmphasisControl,
   TextInspectorTabs,
   TextPanelCardHeader,
@@ -279,6 +280,7 @@ export function TextPanel({
             inheritedColor={inheritedColor}
             onChange={updateStyle}
           />
+          <TextAdvancedStyleControl style={style} onChange={updateStyle} />
           <InheritedFontControl
             style={style}
             inheritedLabel={inheritedFontLabel}
