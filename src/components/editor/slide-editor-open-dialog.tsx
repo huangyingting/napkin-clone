@@ -103,7 +103,6 @@ export function SlideEditorOpenDialog({
   const handleGenerate = async () => {
     const opts: DeckGenerationOptions = { length, tone, audience };
     const result = await generate(contentJson, opts, {
-      generationMode: "package-template",
       themePackageId,
     });
     // On success hand the proposal (plus truncation + options) to the parent,

@@ -10,22 +10,22 @@ validate/normalize output, and charge only successful generations.
 
 ## Source Files
 
-| Area                   | Source                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------ |
-| Visual route           | [`src/app/api/generate/route.ts`](../../src/app/api/generate/route.ts)                           |
-| Deck route             | [`src/app/api/generate-deck/route.ts`](../../src/app/api/generate-deck/route.ts)                 |
-| Azure client           | [`src/lib/ai/azure.ts`](../../src/lib/ai/azure.ts)                                               |
-| Deadline wrapper       | [`src/lib/ai/deadline.ts`](../../src/lib/ai/deadline.ts)                                         |
-| Visual generation core | [`src/lib/ai/generate.ts`](../../src/lib/ai/generate.ts)                                         |
-| Deck generation core   | [`src/lib/ai/generate-deck.ts`](../../src/lib/ai/generate-deck.ts)                               |
-| Deck source extraction | [`src/lib/ai/deck-source.ts`](../../src/lib/ai/deck-source.ts)                                   |
-| Deck orchestration     | [`src/lib/ai/run-deck-generation.ts`](../../src/lib/ai/run-deck-generation.ts)                   |
-| Deck prompt            | [`src/lib/ai/deck-prompt.ts`](../../src/lib/ai/deck-prompt.ts)                                   |
-| Deck normalization     | [`src/lib/presentation/deck-layout-assign.ts`](../../src/lib/presentation/deck-layout-assign.ts) |
-| Deck schema validation | [`src/lib/presentation/deck-schema.ts`](../../src/lib/presentation/deck-schema.ts)               |
-| Quota                  | [`src/lib/ai/quota.ts`](../../src/lib/ai/quota.ts)                                               |
-| Credits                | [`src/lib/billing/credits.ts`](../../src/lib/billing/credits.ts)                                 |
-| Usage ledger           | [`src/lib/billing/usage-ledger.ts`](../../src/lib/billing/usage-ledger.ts)                       |
+| Area                   | Source                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Visual route           | [`src/app/api/generate/route.ts`](../../src/app/api/generate/route.ts)                                                 |
+| Deck route             | [`src/app/api/generate-deck/route.ts`](../../src/app/api/generate-deck/route.ts)                                       |
+| Azure client           | [`src/lib/ai/azure.ts`](../../src/lib/ai/azure.ts)                                                                     |
+| Deadline wrapper       | [`src/lib/ai/deadline.ts`](../../src/lib/ai/deadline.ts)                                                               |
+| Visual generation core | [`src/lib/ai/generate.ts`](../../src/lib/ai/generate.ts)                                                               |
+| Deck source extraction | [`src/lib/ai/deck-source.ts`](../../src/lib/ai/deck-source.ts)                                                         |
+| Deck orchestration     | [`src/lib/ai/run-package-template-deck-generation.ts`](../../src/lib/ai/run-package-template-deck-generation.ts)       |
+| Deck prompt            | [`src/lib/ai/package-template-deck-prompt.ts`](../../src/lib/ai/package-template-deck-prompt.ts)                       |
+| Deck plan repair       | [`src/lib/ai/package-template-deck-plan.ts`](../../src/lib/ai/package-template-deck-plan.ts)                           |
+| Deck materialization   | [`src/lib/presentation/package-template-materializer.ts`](../../src/lib/presentation/package-template-materializer.ts) |
+| Deck schema validation | [`src/lib/presentation/deck-schema.ts`](../../src/lib/presentation/deck-schema.ts)                                     |
+| Quota                  | [`src/lib/ai/quota.ts`](../../src/lib/ai/quota.ts)                                                                     |
+| Credits                | [`src/lib/billing/credits.ts`](../../src/lib/billing/credits.ts)                                                       |
+| Usage ledger           | [`src/lib/billing/usage-ledger.ts`](../../src/lib/billing/usage-ledger.ts)                                             |
 
 ## Shared Route Flow
 
@@ -100,16 +100,17 @@ The pure core is:
 contentJson + visuals
   -> buildDeckSource
   -> { outline, visualInventory, truncated }
-  -> generateDeck
-  -> normalizeGeneratedDeck
+  -> runPackageTemplateDeckGeneration
+  -> repairPackageDeckPlan
+  -> materializePackageTemplateDeck
   -> safeParseDeck
   -> { deck, truncated }
 ```
 
-The model may return sparse or noisy JSON. `generateDeck` repairs ids, themes,
-layouts, boxes, bullet items, and visual references, then
-`normalizeGeneratedDeck` assigns current elements and layout/theme defaults. The
-final deck must pass `safeParseDeck`.
+The model returns a package-template slide plan: semantic `templateKind` values
+plus slot content. The repair step normalizes that plan, and the materializer
+fills installed theme-package templates into editable slide elements. The final
+deck must pass `safeParseDeck`.
 
 Generated decks are treated as hand-authored (`elementsDerived: false`) so
 document sync does not overwrite their layout.
@@ -125,7 +126,8 @@ The slide editor open button controls deck generation UI:
 4. Present a preview/diff surface comparing generated deck vs baseline.
 5. Applying the generated deck opens the editor through the same fresh-deck path
    used by deterministic derivation.
-6. Generation failure falls back to deterministic derivation.
+6. Generation failure is surfaced to the caller; deterministic derivation is a
+   separate user action.
 
 ## Quota And Credits
 
@@ -150,10 +152,9 @@ entitlements/configuration.
 ## Primary Tests
 
 - [`src/lib/ai/generate.test.ts`](../../src/lib/ai/generate.test.ts)
-- [`src/lib/ai/generate-deck.test.ts`](../../src/lib/ai/generate-deck.test.ts)
-- [`src/lib/ai/run-deck-generation.test.ts`](../../src/lib/ai/run-deck-generation.test.ts)
 - [`src/lib/ai/deck-source.test.ts`](../../src/lib/ai/deck-source.test.ts)
-- [`src/lib/ai/deck-prompt.test.ts`](../../src/lib/ai/deck-prompt.test.ts)
+- [`src/lib/ai/package-template-deck-plan.test.ts`](../../src/lib/ai/package-template-deck-plan.test.ts)
+- [`src/lib/ai/package-template-acceptance.test.ts`](../../src/lib/ai/package-template-acceptance.test.ts)
 - [`src/lib/ai/deck-generation-request.test.ts`](../../src/lib/ai/deck-generation-request.test.ts)
 - [`src/lib/ai/quota.test.ts`](../../src/lib/ai/quota.test.ts)
 - [`src/lib/billing/credits.test.ts`](../../src/lib/billing/credits.test.ts)

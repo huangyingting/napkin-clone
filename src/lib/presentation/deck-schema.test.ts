@@ -202,6 +202,13 @@ test("safeParseDeck preserves optional design, slide, master, and custom templat
           id: "template-report",
           name: "Report",
           category: "content",
+          source: "custom",
+          semanticKind: "detail",
+          layoutFamily: "title-body",
+          styleMode: "fixed",
+          accepts: ["title", "body"],
+          capacity: { body: { paragraphs: 4, chars: 900 } },
+          bindings: [{ slot: "title", target: "title", elementRole: "title" }],
           defaultMasterId: "master-default",
           slideDesignDefaults: {
             background: {
@@ -253,6 +260,14 @@ test("safeParseDeck preserves optional design, slide, master, and custom templat
     result.data.customTemplates?.[0]?.defaultMasterId,
     "master-default",
   );
+  assert.equal(result.data.customTemplates?.[0]?.source, "custom");
+  assert.equal(result.data.customTemplates?.[0]?.semanticKind, "detail");
+  assert.equal(result.data.customTemplates?.[0]?.layoutFamily, "title-body");
+  assert.equal(result.data.customTemplates?.[0]?.styleMode, "fixed");
+  assert.deepEqual(result.data.customTemplates?.[0]?.accepts, [
+    "title",
+    "body",
+  ]);
 });
 
 test("safeParseDeck round-trips radial backgrounds, radial fills, and glass effects", () => {

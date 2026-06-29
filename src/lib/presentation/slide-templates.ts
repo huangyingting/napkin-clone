@@ -17,6 +17,10 @@ import type {
 import { makeElementId, makeSlideId } from "./deck-ids";
 import { isMasterChromeTemplateElement } from "./global-master-chrome";
 import type { SlideFormat } from "./slide-format";
+import type {
+  ThemePackageRenderFamily,
+  ThemePackageTemplateKind,
+} from "./theme-template-taxonomy";
 
 /** The set of templates the "+ Add slide" picker can insert. */
 export type SlideTemplateKind =
@@ -86,6 +90,24 @@ const TEMPLATE_CATEGORY_BY_KIND: Record<
   visual: "media",
   "two-column": "comparison",
   blank: "blank",
+};
+
+const TEMPLATE_SEMANTIC_KIND_BY_KIND: Partial<
+  Record<SlideTemplateKind, ThemePackageTemplateKind>
+> = {
+  title: "cover",
+  content: "content",
+  visual: "visual-focus",
+  "two-column": "comparison",
+};
+
+const TEMPLATE_LAYOUT_FAMILY_BY_KIND: Partial<
+  Record<SlideTemplateKind, ThemePackageRenderFamily>
+> = {
+  title: "cover",
+  content: "title-bullets",
+  visual: "visual-focus",
+  "two-column": "two-column",
 };
 
 const BOX = {
@@ -171,10 +193,16 @@ function builtInTemplate(
   name: string,
   elements: SlideTemplateElement[],
 ): SlideTemplate {
+  const semanticKind = TEMPLATE_SEMANTIC_KIND_BY_KIND[kind];
+  const layoutFamily = TEMPLATE_LAYOUT_FAMILY_BY_KIND[kind];
   return {
     id: kind,
     name,
     category: TEMPLATE_CATEGORY_BY_KIND[kind],
+    source: "system",
+    ...(semanticKind ? { semanticKind } : {}),
+    ...(layoutFamily ? { layoutFamily } : {}),
+    styleMode: "fixed",
     elements,
   };
 }

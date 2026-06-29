@@ -361,7 +361,7 @@ test("APPLY_THEME_PACKAGE installs package assets and preserves user templates",
     ],
     customTemplates: [
       customTemplate("custom-keep"),
-      customTemplate("theme:terra:cover"),
+      { ...customTemplate("theme:terra:cover"), source: "theme" as const },
     ],
   });
 
@@ -393,7 +393,7 @@ test("APPLY_THEME_PACKAGE installs package assets and preserves user templates",
   );
   assert.equal(
     themePackageTemplatesForDeck(result.deck).length,
-    THEME_PACKAGE_TEMPLATE_KINDS.length + 1,
+    THEME_PACKAGE_TEMPLATE_KINDS.length,
   );
   assert.equal(result.patches[0]!.op, "presentation.apply_theme_package");
   assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
@@ -419,7 +419,7 @@ test("theme package catalog applies as schema-valid decks", () => {
     assert.equal(safeParseDeck(result.deck).success, true, themePackage.id);
     assert.equal(
       themePackageTemplatesForDeck(result.deck).length,
-      THEME_PACKAGE_TEMPLATE_KINDS.length + 1,
+      THEME_PACKAGE_TEMPLATE_KINDS.length,
     );
   }
 });
@@ -434,7 +434,7 @@ test("APPLY_THEME_PACKAGE maps default to the default package target", () => {
   assert.equal((result.deck as any).design.themeId, DEFAULT_THEME_PACKAGE_ID);
   assert.equal(
     themePackageTemplatesForDeck(result.deck).length,
-    THEME_PACKAGE_TEMPLATE_KINDS.length + 1,
+    THEME_PACKAGE_TEMPLATE_KINDS.length,
   );
   assert.equal(safeParseDeck(result.deck).success, true);
 });
@@ -452,6 +452,16 @@ test("theme package semantic metadata covers every package template kind", () =>
     for (const kind of THEME_PACKAGE_TEMPLATE_KINDS) {
       const metadata = getThemePackageTemplateMetadata(themePackage.id, kind);
       assert.ok(metadata, `${themePackage.id}:${kind}`);
+      const template = themePackage.templates.find(
+        (entry) => entry.id === `theme:${themePackage.id}:${kind}`,
+      );
+      assert.ok(template, `${themePackage.id}:${kind}`);
+      assert.equal(template.source, "theme");
+      assert.equal(template.semanticKind, kind);
+      assert.equal(template.layoutFamily, metadata.renderFamily);
+      assert.equal(template.styleMode, "theme-aware");
+      assert.deepEqual(template.accepts, metadata.accepts);
+      assert.deepEqual(template.capacity, metadata.capacity);
       assert.equal(metadata.kind, kind);
       assert.ok(metadata.label.length > 0);
       assert.ok(metadata.bestFor.length > 0);
@@ -463,10 +473,10 @@ test("theme package semantic metadata covers every package template kind", () =>
       );
     }
   }
-  assert.equal(isThemePackageTemplateId("theme:clarity:two-column"), true);
+  assert.equal(isThemePackageTemplateId("theme:clarity:two-column"), false);
   assert.equal(
-    getThemePackageTemplateMetadata("clarity", "two-column")?.kind,
-    "comparison",
+    getThemePackageTemplateMetadata("clarity", "two-column"),
+    undefined,
   );
 });
 
@@ -634,16 +644,19 @@ test("custom template CRUD updates deck.customTemplates and replays patches", ()
     template: customTemplate(),
   });
   assert.equal(create.ok, true);
+  assert.equal((create.deck as any).customTemplates[0].source, "custom");
+  assert.equal((create.deck as any).customTemplates[0].styleMode, "fixed");
   assert.equal(create.patches[0]!.op, "template.create_custom");
   assert.deepEqual(applyPatch(deck, create.patches[0]!), create.deck);
 
   const update = executeCommand(create.deck, {
     type: "UPDATE_CUSTOM_TEMPLATE",
     templateId: "template-custom",
-    patch: { name: "Renamed" },
+    patch: { name: "Renamed", source: "theme" },
   });
   assert.equal(update.ok, true);
   assert.equal((update.deck as any).customTemplates[0].name, "Renamed");
+  assert.equal((update.deck as any).customTemplates[0].source, "custom");
   assert.equal(update.patches[0]!.op, "template.update_custom");
 
   const remove = executeCommand(update.deck, {

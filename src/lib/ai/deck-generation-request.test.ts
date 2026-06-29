@@ -91,12 +91,11 @@ test("buildDeckGenerationBody includes package-template request fields", () => {
   const body = buildDeckGenerationBody(
     CONTENT_JSON,
     { length: "medium" },
-    { generationMode: "package-template", themePackageId: "noir" },
+    { themePackageId: "noir" },
   );
   assert.deepEqual(body, {
     contentJson: CONTENT_JSON,
     options: { length: "medium" },
-    generationMode: "package-template",
     themePackageId: "noir",
   });
 });
@@ -118,8 +117,8 @@ test("parseDeckResponse returns package-template response metadata", () => {
     truncated: false,
     metadata: {
       requestedGenerationMode: "package-template",
-      generationMode: "legacy",
-      fallback: true,
+      generationMode: "package-template",
+      fallback: false,
       tableSlideCount: 2,
       schemaValid: true,
       themePackageId: "noir",
@@ -130,8 +129,8 @@ test("parseDeckResponse returns package-template response metadata", () => {
   assert.ok(parsed);
   assert.deepEqual(parsed.metadata, {
     requestedGenerationMode: "package-template",
-    generationMode: "legacy",
-    fallback: true,
+    generationMode: "package-template",
+    fallback: false,
     tableSlideCount: 2,
     schemaValid: true,
     themePackageId: "noir",

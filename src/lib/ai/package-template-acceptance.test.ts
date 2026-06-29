@@ -31,8 +31,11 @@ const fixtures = [
       },
       {
         title: "Context",
-        templateKind: "context",
-        slots: { title: "Context", body: "System context" },
+        templateKind: "detail",
+        slots: {
+          title: "Context",
+          body: "System context with enough background, constraints, and rationale to need a paragraph-oriented slide.",
+        },
       },
       {
         title: "Architecture",
@@ -41,7 +44,7 @@ const fixtures = [
       },
       {
         title: "Next",
-        templateKind: "next-steps",
+        templateKind: "recommendation",
         slots: { title: "Next", bullets: ["Ship", "Measure"] },
       },
     ],
@@ -52,7 +55,7 @@ const fixtures = [
       { title: "Summary", templateKind: "cover", slots: { title: "Summary" } },
       {
         title: "Market",
-        templateKind: "market-landscape",
+        templateKind: "matrix",
         slots: { title: "Market", bullets: ["Segment", "Motion"] },
       },
       {
@@ -76,7 +79,7 @@ const fixtures = [
       },
       {
         title: "Next",
-        templateKind: "next-steps",
+        templateKind: "recommendation",
         slots: { title: "Next", bullets: ["Decide"] },
       },
     ],

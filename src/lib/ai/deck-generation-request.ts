@@ -9,7 +9,7 @@
  * `@/lib/ai/use-deck-generation`.
  */
 
-import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
+import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Deck } from "@/lib/presentation/deck";
@@ -18,7 +18,7 @@ import {
   type ThemePackageId,
 } from "@/lib/presentation/theme-packages";
 
-export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
+export type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 
 /**
  * Classifies a failed deck-generation request:
@@ -48,8 +48,8 @@ export interface DeckGenerateError {
 
 /** Result of a deck-generation request: a usable deck or a classified error. */
 export interface DeckGenerationResponseMetadata {
-  requestedGenerationMode?: "legacy" | "package-template";
-  generationMode?: "legacy" | "package-template";
+  requestedGenerationMode?: "package-template";
+  generationMode?: "package-template";
   fallback?: boolean;
   tableSlideCount?: number;
   schemaValid?: boolean;
@@ -106,7 +106,6 @@ export function buildDeckGenerationBody(
   options: DeckGenerationOptions = {},
   request?: {
     themePackageId?: ThemePackageId;
-    generationMode?: "legacy" | "package-template";
   },
 ): Record<string, unknown> {
   const opts: Record<string, unknown> = {};
@@ -127,9 +126,6 @@ export function buildDeckGenerationBody(
   if (request?.themePackageId !== undefined) {
     body.themePackageId = request.themePackageId;
   }
-  if (request?.generationMode !== undefined) {
-    body.generationMode = request.generationMode;
-  }
   return body;
 }
 
@@ -142,10 +138,8 @@ export function buildDeckGenerationBody(
  * same contract the open path expects) is ever surfaced.
  */
 /* node:coverage ignore stop */
-function parseGenerationMode(
-  value: unknown,
-): "legacy" | "package-template" | undefined {
-  return value === "legacy" || value === "package-template" ? value : undefined;
+function parseGenerationMode(value: unknown): "package-template" | undefined {
+  return value === "package-template" ? value : undefined;
 }
 
 function parseKindCounts(value: unknown): Record<string, number> | undefined {
@@ -241,7 +235,6 @@ export async function requestDeckGeneration(
   signal?: AbortSignal,
   request?: {
     themePackageId?: ThemePackageId;
-    generationMode?: "legacy" | "package-template";
   },
 ): Promise<DeckGenerateResult> {
   let response: Response;

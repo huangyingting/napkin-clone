@@ -29,7 +29,7 @@ function makeDeck(withTable = false): Deck {
         id: "slide-1",
         index: 0,
         title: "Roadmap",
-        templateId: withTable ? "theme:terra:table" : "content",
+        templateId: withTable ? "theme:terra:table" : "theme:terra:content",
         notes: "",
         elements: withTable
           ? [
@@ -66,9 +66,7 @@ function makeDeck(withTable = false): Deck {
   };
 }
 
-function makePayload(
-  generationMode: GenerateDeckPayload["generationMode"] = "legacy",
-): GenerateDeckPayload {
+function makePayload(): GenerateDeckPayload {
   return {
     contentJson: CONTENT_JSON,
     options: {},
@@ -76,32 +74,23 @@ function makePayload(
     visuals: new Map(),
     outline: "Roadmap\nLaunch plan",
     truncated: false,
-    preferredTheme: "indigo",
-    generationMode,
-    ...(generationMode === "package-template"
-      ? { themePackageId: "noir" }
-      : {}),
+    generationMode: "package-template",
+    themePackageId: "noir",
   };
 }
 
 const complete = async () => "{}";
 
-test("generateDeckForRoute runs package-template pipeline only when flag is enabled", async () => {
-  let legacyCalls = 0;
+test("generateDeckForRoute runs only the package-template pipeline", async () => {
   let packageCalls = 0;
   let baseDeckCalls = 0;
 
   const result = await generateDeckForRoute(
-    { payload: makePayload("package-template"), complete },
+    { payload: makePayload(), complete },
     {
-      isPackageTemplatesEnabled: () => true,
       buildBaseDeck: () => {
         baseDeckCalls += 1;
         return makeDeck();
-      },
-      runLegacy: async () => {
-        legacyCalls += 1;
-        return { deck: makeDeck(), truncated: false };
       },
       runPackageTemplate: async (input) => {
         packageCalls += 1;
@@ -116,7 +105,6 @@ test("generateDeckForRoute runs package-template pipeline only when flag is enab
   );
 
   assert.equal(packageCalls, 1);
-  assert.equal(legacyCalls, 0);
   assert.equal(baseDeckCalls, 1);
   assert.equal(result.requestedGenerationMode, "package-template");
   assert.equal(result.generationMode, "package-template");
@@ -125,66 +113,21 @@ test("generateDeckForRoute runs package-template pipeline only when flag is enab
   assert.equal(result.truncated, true);
 });
 
-test("generateDeckForRoute uses legacy generation when package-template flag is disabled", async () => {
-  let legacyCalls = 0;
-  let packageCalls = 0;
-
-  const result = await generateDeckForRoute(
-    { payload: makePayload("package-template"), complete },
-    {
-      isPackageTemplatesEnabled: () => false,
-      runLegacy: async () => {
-        legacyCalls += 1;
-        return { deck: makeDeck(), truncated: false };
+test("generateDeckForRoute propagates package-template failures", async () => {
+  await assert.rejects(
+    generateDeckForRoute(
+      { payload: makePayload(), complete, requestId: "req-1" },
+      {
+        runPackageTemplate: async () => {
+          throw new Error("repair failed");
+        },
       },
-      runPackageTemplate: async () => {
-        packageCalls += 1;
-        throw new Error("should not run");
-      },
-    },
+    ),
+    /repair failed/,
   );
-
-  assert.equal(packageCalls, 0);
-  assert.equal(legacyCalls, 1);
-  assert.equal(result.requestedGenerationMode, "package-template");
-  assert.equal(result.generationMode, "legacy");
-  assert.equal(result.fallbackReason, undefined);
 });
 
-test("generateDeckForRoute falls back to legacy generation when package-template fails", async () => {
-  const logs: Array<{ message: string; context?: Record<string, unknown> }> =
-    [];
-  let legacyCalls = 0;
-
-  const result = await generateDeckForRoute(
-    { payload: makePayload("package-template"), complete, requestId: "req-1" },
-    {
-      isPackageTemplatesEnabled: () => true,
-      runLegacy: async () => {
-        legacyCalls += 1;
-        return { deck: makeDeck(), truncated: false };
-      },
-      runPackageTemplate: async () => {
-        throw new Error("repair failed");
-      },
-      logInfo: (_scope, message, context) => {
-        logs.push({ message, context });
-      },
-    },
-  );
-
-  assert.equal(legacyCalls, 1);
-  assert.equal(result.requestedGenerationMode, "package-template");
-  assert.equal(result.generationMode, "legacy");
-  assert.equal(result.fallbackReason, "repair failed");
-  assert.equal(logs.length, 1);
-  assert.equal(logs[0].message, "package-template-fallback");
-  assert.equal(logs[0].context?.requestId, "req-1");
-  assert.equal(logs[0].context?.packageId, "noir");
-  assert.equal(logs[0].context?.reason, "repair failed");
-});
-
-test("buildGenerateDeckSuccessResponse includes content-safe package-template metadata", () => {
+test("buildGenerateDeckSuccessResponse includes package-template metadata", () => {
   const response = buildGenerateDeckSuccessResponse({
     deck: makeDeck(true),
     truncated: false,
@@ -210,13 +153,12 @@ test("buildGenerateDeckSuccessLogFields includes package-template telemetry", ()
       deck: makeDeck(true),
       truncated: true,
       requestedGenerationMode: "package-template",
-      generationMode: "legacy",
+      generationMode: "package-template",
       themePackageId: "noir",
       selectedKindCounts: { table: 1 },
-      fallbackReason: "repair failed",
     },
     {
-      payload: makePayload("package-template"),
+      payload: makePayload(),
       requestId: "req-2",
       latencyMs: 24,
     },
@@ -226,9 +168,8 @@ test("buildGenerateDeckSuccessLogFields includes package-template telemetry", ()
   assert.equal(fields.latencyMs, 24);
   assert.equal(fields.packageId, "noir");
   assert.equal(fields.requestedGenerationMode, "package-template");
-  assert.equal(fields.generationMode, "legacy");
-  assert.equal(fields.fallback, true);
-  assert.equal(fields.fallbackReason, "repair failed");
+  assert.equal(fields.generationMode, "package-template");
+  assert.equal(fields.fallback, false);
   assert.equal(fields.tableSlideCount, 1);
   assert.equal(fields.schemaValid, true);
   assert.deepEqual(fields.selectedKindCounts, { table: 1 });

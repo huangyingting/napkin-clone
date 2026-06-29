@@ -18,7 +18,7 @@ import {
   TOTAL_IMAGE_BUDGET_BYTES,
 } from "@/lib/limits";
 import { MAX_INPUT_CHARS } from "@/lib/ai/generate";
-import { MAX_DECK_SLIDES } from "@/lib/ai/generate-deck";
+import { MAX_DECK_SLIDES } from "@/lib/ai/deck-generation-options";
 import { FONT_MAX_BYTES, LOGO_MAX_BYTES } from "@/lib/brand/upload";
 import { MAX_DECK_JSON_BYTES } from "@/lib/limits";
 import {

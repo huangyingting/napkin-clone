@@ -1,11 +1,5 @@
 import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
 import type { CompleteFn } from "@/lib/ai/generate";
-import { isAiDeckGenPackageTemplatesEnabled } from "@/lib/ai/config";
-import {
-  runDeckGeneration,
-  type RunDeckGenerationInput,
-  type RunDeckGenerationResult,
-} from "@/lib/ai/run-deck-generation";
 import {
   runPackageTemplateDeckGeneration,
   type RunPackageTemplateDeckGenerationInput,
@@ -27,7 +21,7 @@ import type { GenerateDeckPayload } from "./parser";
 
 export const GENERATE_DECK_LOG_SCOPE = "api.generate-deck";
 
-export type GenerateDeckMode = "legacy" | "package-template";
+export type GenerateDeckMode = "package-template";
 
 export interface GenerateDeckRouteResult {
   deck: Deck;
@@ -36,7 +30,6 @@ export interface GenerateDeckRouteResult {
   generationMode: GenerateDeckMode;
   themePackageId?: ThemePackageId;
   selectedKindCounts?: Record<string, number>;
-  fallbackReason?: string;
 }
 
 export interface GenerateDeckResponseMetadata {
@@ -50,8 +43,6 @@ export interface GenerateDeckResponseMetadata {
 }
 
 export interface GenerateDeckRouteDeps {
-  isPackageTemplatesEnabled(): boolean;
-  runLegacy(input: RunDeckGenerationInput): Promise<RunDeckGenerationResult>;
   runPackageTemplate(
     input: RunPackageTemplateDeckGenerationInput,
   ): Promise<RunPackageTemplateDeckGenerationResult>;
@@ -64,8 +55,6 @@ export interface GenerateDeckRouteDeps {
 }
 
 const defaultDeps: GenerateDeckRouteDeps = {
-  isPackageTemplatesEnabled: isAiDeckGenPackageTemplatesEnabled,
-  runLegacy: runDeckGeneration,
   runPackageTemplate: runPackageTemplateDeckGeneration,
   buildBaseDeck: (payload) => {
     const baseline = buildDeckFromBlocks([...payload.blocks], "indigo");
@@ -73,13 +62,6 @@ const defaultDeps: GenerateDeckRouteDeps = {
   },
   logInfo,
 };
-
-function fallbackReason(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-}
 
 export async function generateDeckForRoute(
   input: {
@@ -90,65 +72,24 @@ export async function generateDeckForRoute(
   overrides: Partial<GenerateDeckRouteDeps> = {},
 ): Promise<GenerateDeckRouteResult> {
   const deps = { ...defaultDeps, ...overrides };
-  const { payload, complete, requestId } = input;
+  const { payload, complete } = input;
   const requestedMode = payload.generationMode;
-
-  const runLegacy = async (
-    reason?: string,
-  ): Promise<GenerateDeckRouteResult> => {
-    const result = await deps.runLegacy({
-      contentJson: payload.contentJson,
-      visuals: payload.visuals,
-      complete,
-      options: payload.options,
-      preferredTheme: payload.preferredTheme,
-    });
-    return {
-      deck: result.deck,
-      truncated: result.truncated,
-      requestedGenerationMode: requestedMode,
-      generationMode: "legacy",
-      ...(payload.themePackageId
-        ? { themePackageId: payload.themePackageId }
-        : {}),
-      ...(reason ? { fallbackReason: reason } : {}),
-    };
+  const result = await deps.runPackageTemplate({
+    contentJson: payload.contentJson,
+    visuals: payload.visuals,
+    baseDeck: deps.buildBaseDeck(payload),
+    packageId: payload.themePackageId,
+    complete,
+    options: payload.options,
+  });
+  return {
+    deck: result.deck,
+    truncated: result.truncated,
+    requestedGenerationMode: requestedMode,
+    generationMode: "package-template",
+    themePackageId: payload.themePackageId,
+    selectedKindCounts: result.selectedKindCounts,
   };
-
-  if (
-    payload.generationMode === "package-template" &&
-    payload.themePackageId &&
-    deps.isPackageTemplatesEnabled()
-  ) {
-    try {
-      const result = await deps.runPackageTemplate({
-        contentJson: payload.contentJson,
-        visuals: payload.visuals,
-        baseDeck: deps.buildBaseDeck(payload),
-        packageId: payload.themePackageId,
-        complete,
-        options: payload.options,
-      });
-      return {
-        deck: result.deck,
-        truncated: result.truncated,
-        requestedGenerationMode: requestedMode,
-        generationMode: "package-template",
-        themePackageId: payload.themePackageId,
-        selectedKindCounts: result.selectedKindCounts,
-      };
-    } catch (error) {
-      const reason = fallbackReason(error);
-      deps.logInfo(GENERATE_DECK_LOG_SCOPE, "package-template-fallback", {
-        requestId,
-        reason,
-        packageId: payload.themePackageId,
-      });
-      return runLegacy(reason);
-    }
-  }
-
-  return runLegacy();
 }
 
 function countTableSlides(deck: Deck): number {
@@ -169,7 +110,7 @@ function buildGenerateDeckResponseMetadata(
   return {
     requestedGenerationMode: result.requestedGenerationMode,
     generationMode: result.generationMode,
-    fallback: result.fallbackReason !== undefined,
+    fallback: false,
     tableSlideCount: countTableSlides(result.deck),
     schemaValid,
     ...(result.themePackageId ? { themePackageId: result.themePackageId } : {}),
@@ -218,12 +159,11 @@ export function buildGenerateDeckSuccessLogFields(
     requestedGenerationMode: result.requestedGenerationMode,
     generationMode: result.generationMode,
     tableSlideCount: countTableSlides(result.deck),
-    fallback: result.fallbackReason !== undefined,
+    fallback: false,
     ...(result.themePackageId ? { packageId: result.themePackageId } : {}),
     ...(result.selectedKindCounts
       ? { selectedKindCounts: result.selectedKindCounts }
       : {}),
-    ...(result.fallbackReason ? { fallbackReason: result.fallbackReason } : {}),
   };
 }
 

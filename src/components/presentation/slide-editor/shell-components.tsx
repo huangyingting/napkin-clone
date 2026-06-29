@@ -102,7 +102,6 @@ import {
 import {
   getThemePackage,
   getThemePackageTemplateMetadata,
-  isThemePackageTemplateId,
   previewDeckForThemePackage,
   slideFromThemePackageTemplate,
   themePackageTemplateGroupsForUi,
@@ -569,7 +568,7 @@ function SlideTemplatePreview({
     typeof deck?.design?.themeId === "string" ? deck.design.themeId : undefined;
   const themePackage = packageId ? getThemePackage(packageId) : undefined;
   const packagePreview =
-    template && themePackage && isThemePackageTemplateId(template.id)
+    template && themePackage && template.source === "theme"
       ? {
           slide: slideFromThemePackageTemplate(template),
           deck: previewDeckForThemePackage(themePackage),
@@ -1015,14 +1014,12 @@ export function SlideTemplatePicker({
   const [page, setPage] = useState(0);
   const packageTemplates = deck
     ? themePackageTemplatesForDeck(deck)
-    : customTemplates.filter((template) =>
-        isThemePackageTemplateId(template.id),
-      );
+    : customTemplates.filter((template) => template.source === "theme");
   const kitName = deck?.design?.themeId
     ? (getThemePackage(deck.design.themeId)?.name ?? "Theme")
     : "Theme";
   const userTemplates = customTemplates.filter(
-    (template) => !isThemePackageTemplateId(template.id),
+    (template) => template.source === "custom",
   );
   const packageId = deck?.design?.themeId;
   const metadataGroups = packageId

@@ -56,10 +56,20 @@ const CUSTOM_TEMPLATE_KEYS = [
   "id",
   "name",
   "category",
+  "source",
+  "semanticKind",
+  "layoutFamily",
+  "styleMode",
+  "accepts",
+  "capacity",
+  "bindings",
   "defaultMasterId",
   "slideDesignDefaults",
   "elements",
 ] as const;
+
+const TEMPLATE_SOURCES = ["system", "theme", "custom"] as const;
+const TEMPLATE_STYLE_MODES = ["fixed", "theme-aware"] as const;
 
 const TEMPLATE_ELEMENT_KEYS = [
   "id",
@@ -262,10 +272,94 @@ function validateCustomTemplate(
   if (!Array.isArray(input.elements)) {
     throw new DeckValidationError(`${context}.elements must be an array`);
   }
+  if (
+    input.source !== undefined &&
+    (typeof input.source !== "string" ||
+      !(TEMPLATE_SOURCES as readonly string[]).includes(input.source))
+  ) {
+    throw new DeckValidationError(
+      `${context}.source must be one of: system, theme, custom`,
+    );
+  }
+  if (
+    input.semanticKind !== undefined &&
+    (typeof input.semanticKind !== "string" || input.semanticKind.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.semanticKind must be a non-empty string`,
+    );
+  }
+  if (
+    input.layoutFamily !== undefined &&
+    (typeof input.layoutFamily !== "string" || input.layoutFamily.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.layoutFamily must be a non-empty string`,
+    );
+  }
+  if (
+    input.styleMode !== undefined &&
+    (typeof input.styleMode !== "string" ||
+      !(TEMPLATE_STYLE_MODES as readonly string[]).includes(input.styleMode))
+  ) {
+    throw new DeckValidationError(
+      `${context}.styleMode must be one of: fixed, theme-aware`,
+    );
+  }
+  if (
+    input.accepts !== undefined &&
+    (!Array.isArray(input.accepts) ||
+      input.accepts.some(
+        (slot) => typeof slot !== "string" || slot.length === 0,
+      ))
+  ) {
+    throw new DeckValidationError(
+      `${context}.accepts must be an array of non-empty strings`,
+    );
+  }
+  if (input.capacity !== undefined) {
+    validateUnknownObject(input.capacity, `${context}.capacity`);
+  }
+  if (
+    input.bindings !== undefined &&
+    (!Array.isArray(input.bindings) ||
+      input.bindings.some((binding) => !isPlainObject(binding)))
+  ) {
+    throw new DeckValidationError(
+      `${context}.bindings must be an array of objects`,
+    );
+  }
   return {
     id: input.id,
     name: input.name,
     category: input.category,
+    ...(input.source !== undefined ? { source: input.source } : {}),
+    ...(input.semanticKind !== undefined
+      ? { semanticKind: input.semanticKind }
+      : {}),
+    ...(input.layoutFamily !== undefined
+      ? { layoutFamily: input.layoutFamily }
+      : {}),
+    ...(input.styleMode !== undefined ? { styleMode: input.styleMode } : {}),
+    ...(input.accepts !== undefined ? { accepts: [...input.accepts] } : {}),
+    ...(input.capacity !== undefined
+      ? {
+          capacity: validateUnknownObject(
+            input.capacity,
+            `${context}.capacity`,
+          ),
+        }
+      : {}),
+    ...(input.bindings !== undefined
+      ? {
+          bindings: input.bindings.map((binding, bindingIndex) =>
+            validateUnknownObject(
+              binding,
+              `${context}.bindings[${bindingIndex}]`,
+            ),
+          ),
+        }
+      : {}),
     ...(typeof input.defaultMasterId === "string" &&
     input.defaultMasterId.length > 0
       ? { defaultMasterId: input.defaultMasterId }

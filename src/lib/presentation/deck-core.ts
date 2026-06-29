@@ -101,10 +101,27 @@ export interface SlideTemplateElement {
   [key: string]: unknown;
 }
 
+export type SlideTemplateSource = "system" | "theme" | "custom";
+export type SlideTemplateStyleMode = "fixed" | "theme-aware";
+
+export interface SlideTemplateSlotBinding {
+  slot: string;
+  target: string;
+  elementRole?: string;
+  elementIndex?: number;
+}
+
 export interface SlideTemplate {
   id: string;
   name: string;
   category: "title" | "section" | "content" | "media" | "comparison" | "blank";
+  source?: SlideTemplateSource;
+  semanticKind?: string;
+  layoutFamily?: string;
+  styleMode?: SlideTemplateStyleMode;
+  accepts?: string[];
+  capacity?: object;
+  bindings?: SlideTemplateSlotBinding[];
   defaultMasterId?: string;
   slideDesignDefaults?: SlideDesignOverrides;
   elements: SlideTemplateElement[];

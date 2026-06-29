@@ -31,8 +31,16 @@ test("materializePackageTemplateDeck creates schema-valid semantic package slide
           },
         },
         {
+          title: "Detail",
+          templateKind: "detail",
+          slots: {
+            title: "Detail",
+            body: "This is a dense explanatory paragraph with background, constraints, and rationale that should populate a body text region instead of being forced into bullets.",
+          },
+        },
+        {
           title: "Next",
-          templateKind: "next-steps",
+          templateKind: "recommendation",
           slots: { title: "Next", bullets: ["Ship", "Measure"] },
         },
       ],
@@ -41,11 +49,17 @@ test("materializePackageTemplateDeck creates schema-valid semantic package slide
 
   assert.ok(deck);
   assert.equal(safeParseDeck(deck).success, true);
-  assert.equal(deck.slides.length, 2);
+  assert.equal(deck.slides.length, 3);
   assert.equal(deck.slides[0].templateId, "theme:clarity:evidence");
   assert.equal(deck.slides[0].masterId, "master-clarity");
   assert.ok(
     deck.slides[0].elements?.some((element) => element.kind === "table"),
   );
-  assert.equal(deck.slides[1].templateId, "theme:clarity:next-steps");
+  assert.equal(deck.slides[1].templateId, "theme:clarity:detail");
+  assert.ok(
+    deck.slides[1].elements?.some(
+      (element) => element.kind === "text" && element.role === "body",
+    ),
+  );
+  assert.equal(deck.slides[2].templateId, "theme:clarity:recommendation");
 });

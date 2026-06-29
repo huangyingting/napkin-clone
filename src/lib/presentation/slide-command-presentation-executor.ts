@@ -467,7 +467,12 @@ export function executePresentationThemeFamilyCommand(
       ) {
         return failure(deck, `Template already exists: ${cmd.template.id}`);
       }
-      const customTemplates = [...(deck.customTemplates ?? []), cmd.template];
+      const template = {
+        ...cmd.template,
+        source: "custom" as const,
+        styleMode: cmd.template.styleMode ?? "fixed",
+      };
+      const customTemplates = [...(deck.customTemplates ?? []), template];
       const next = { ...deck, customTemplates } as Deck;
       return success(next, [], [], undefined, [
         makePatch("template.create_custom", [], [], {
@@ -489,7 +494,7 @@ export function executePresentationThemeFamilyCommand(
       }
       const customTemplates = templates.map((entry) =>
         entry.id === cmd.templateId
-          ? { ...entry, ...cmd.patch, id: entry.id }
+          ? { ...entry, ...cmd.patch, id: entry.id, source: "custom" as const }
           : entry,
       );
       const next = { ...deck, customTemplates } as Deck;

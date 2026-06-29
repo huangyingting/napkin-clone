@@ -105,7 +105,8 @@ test("parseGenerateDeckPayload builds a payload with outline and options", () =>
   assert.equal(result.ok, true);
   assert.equal(result.payload.options.length, "medium");
   assert.equal(result.payload.options.tone, "direct");
-  assert.equal(result.payload.generationMode, "legacy");
+  assert.equal(result.payload.generationMode, "package-template");
+  assert.equal(result.payload.themePackageId, "clarity");
   assert.match(result.payload.outline, /Roadmap/);
 });
 
@@ -144,7 +145,7 @@ test("parseGenerateDeckPayload rejects invalid package-template request fields",
     {
       ok: false,
       status: 400,
-      message: '`generationMode` must be "legacy" or "package-template".',
+      message: '`generationMode` must be "package-template".',
     },
   );
   assert.deepEqual(

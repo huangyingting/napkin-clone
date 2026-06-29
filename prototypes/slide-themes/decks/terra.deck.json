@@ -1077,213 +1077,8 @@
       ]
     },
     {
-      "id": "terra-context",
-      "index": 2,
-      "title": "Context",
-      "notes": "",
-      "templateId": "theme:terra:context",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-1i",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "title-body glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-1k",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -14,
-          "box": {
-            "x": 88,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "title-body secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-1e",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 16,
-            "w": 78,
-            "h": 12
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.6,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Definition & context",
-            "paragraphs": [
-              {
-                "text": "Definition & context"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1f",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 14,
-            "h": 0.8
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1g",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 8,
-            "y": 35,
-            "w": 60,
-            "h": 44
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "A focused statement of what this is, why it matters now, and the single outcome it changes. Kept calm and readable so the idea lands first.",
-            "paragraphs": [
-              {
-                "text": "A focused statement of what this is, why it matters now, and the single outcome it changes. Kept calm and readable so the idea lands first."
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1h",
-          "kind": "shape",
-          "opacity": 0.12,
-          "box": {
-            "x": 70,
-            "y": 40,
-            "w": 40,
-            "h": 56
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        }
-      ]
-    },
-    {
       "id": "terra-section",
-      "index": 3,
+      "index": 2,
       "title": "Section",
       "notes": "",
       "templateId": "theme:terra:section",
@@ -1443,7 +1238,7 @@
     },
     {
       "id": "terra-executive-summary",
-      "index": 4,
+      "index": 3,
       "title": "Executive Summary",
       "notes": "",
       "templateId": "theme:terra:executive-summary",
@@ -1463,7 +1258,7 @@
       },
       "elements": [
         {
-          "id": "s-1o",
+          "id": "s-1h",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -1495,7 +1290,7 @@
           }
         },
         {
-          "id": "s-1q",
+          "id": "s-1j",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1519,7 +1314,7 @@
           }
         },
         {
-          "id": "t-1l",
+          "id": "t-1e",
           "kind": "text",
           "role": "label",
           "box": {
@@ -1552,7 +1347,7 @@
           }
         },
         {
-          "id": "t-1m",
+          "id": "t-1f",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1584,7 +1379,7 @@
           }
         },
         {
-          "id": "t-1n",
+          "id": "t-1g",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -1632,11 +1427,11 @@
       ]
     },
     {
-      "id": "terra-definition",
-      "index": 5,
-      "title": "Definition",
+      "id": "terra-content",
+      "index": 4,
+      "title": "Content",
       "notes": "",
-      "templateId": "theme:terra:definition",
+      "templateId": "theme:terra:content",
       "designOverrides": {
         "background": {
           "type": "radialGradient",
@@ -1653,12 +1448,252 @@
       },
       "elements": [
         {
-          "id": "s-1v",
+          "id": "s-1p",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
             "x": 72,
-            "y": -24,
+            "y": 58,
+            "w": 52,
+            "h": 76
+          },
+          "zIndex": 1,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#c2683f"
+              },
+              "outer": {
+                "value": "#c2683f"
+              },
+              "cx": 42,
+              "cy": 38,
+              "r": 72
+            }
+          },
+          "locked": true,
+          "name": "title-bullets glow",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "s-1r",
+          "kind": "shape",
+          "opacity": 0.22,
+          "rotation": -42,
+          "box": {
+            "x": 88,
+            "y": 8,
+            "w": 6,
+            "h": 11
+          },
+          "zIndex": 2,
+          "designOverrides": {
+            "fill": {
+              "value": "#c2683f"
+            }
+          },
+          "locked": true,
+          "name": "title-bullets secondary motif",
+          "content": {
+            "kind": "shape",
+            "shape": "ellipse"
+          }
+        },
+        {
+          "id": "s-1k",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 17,
+            "w": 1.4,
+            "h": 12
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "type": "linearGradient",
+              "from": {
+                "value": "#c2683f"
+              },
+              "to": {
+                "value": "#3f6b4a"
+              },
+              "angle": 90
+            },
+            "radius": 50
+          },
+          "locked": true,
+          "name": "Accent bar",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-1l",
+          "kind": "text",
+          "role": "title",
+          "box": {
+            "x": 11,
+            "y": 16,
+            "w": 60,
+            "h": 12
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 5.6,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.04,
+              "color": "#1f2a22",
+              "fontId": "manrope"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Three forces converging",
+            "paragraphs": [
+              {
+                "text": "Three forces converging"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-1m",
+          "kind": "text",
+          "role": "bullet",
+          "box": {
+            "x": 11,
+            "y": 33,
+            "w": 46,
+            "h": 50
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.1,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.55,
+              "paragraphSpacing": 1.7,
+              "color": "#37463a",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Cost has dropped enough to be ambient.\nTeams expect tooling that adapts to them.\nThe winning interface disappears.",
+            "paragraphs": [
+              {
+                "text": "Cost has dropped enough to be ambient.",
+                "listType": "bullet"
+              },
+              {
+                "text": "Teams expect tooling that adapts to them.",
+                "listType": "bullet"
+              },
+              {
+                "text": "The winning interface disappears.",
+                "listType": "bullet"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-1n",
+          "kind": "shape",
+          "box": {
+            "x": 58,
+            "y": 30,
+            "w": 34,
+            "h": 52
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#e4ece0"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "radius": 26,
+            "effect": {
+              "kind": "glass",
+              "intensity": "light"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "img-1o",
+          "kind": "image",
+          "role": "image",
+          "box": {
+            "x": 61,
+            "y": 34,
+            "w": 28,
+            "h": 44
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "radius": 18,
+            "fitMode": "cover"
+          },
+          "content": {
+            "kind": "image",
+            "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22%23e9e9ee%22%2F%3E%3Cpath%20d%3D%22M300%20270l70-70%2055%2055%2040-40%2075%2075%22%20fill%3D%22none%22%20stroke%3D%22%2394949f%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22165%22%20r%3D%2226%22%20fill%3D%22%2394949f%22%2F%3E%3C%2Fsvg%3E",
+            "alt": "Image placeholder"
+          }
+        }
+      ]
+    },
+    {
+      "id": "terra-detail",
+      "index": 5,
+      "title": "Detail",
+      "notes": "",
+      "templateId": "theme:terra:detail",
+      "designOverrides": {
+        "background": {
+          "type": "radialGradient",
+          "inner": {
+            "token": "surface"
+          },
+          "outer": {
+            "token": "slideBg"
+          },
+          "cx": 72,
+          "cy": 18,
+          "r": 78
+        }
+      },
+      "elements": [
+        {
+          "id": "s-1x",
+          "kind": "shape",
+          "opacity": 0.2,
+          "box": {
+            "x": 72,
+            "y": 58,
             "w": 52,
             "h": 76
           },
@@ -1685,13 +1720,13 @@
           }
         },
         {
-          "id": "s-1x",
+          "id": "s-1z",
           "kind": "shape",
           "opacity": 0.22,
-          "rotation": -14,
+          "rotation": -42,
           "box": {
             "x": 88,
-            "y": 78,
+            "y": 8,
             "w": 6,
             "h": 11
           },
@@ -1709,12 +1744,12 @@
           }
         },
         {
-          "id": "t-1r",
+          "id": "t-1s",
           "kind": "text",
           "role": "title",
           "box": {
             "x": 8,
-            "y": 16,
+            "y": 13,
             "w": 78,
             "h": 12
           },
@@ -1732,21 +1767,121 @@
           },
           "content": {
             "kind": "text",
-            "text": "Definition & context",
+            "text": "Detailed context",
             "paragraphs": [
               {
-                "text": "Definition & context"
+                "text": "Detailed context"
               }
             ]
           }
         },
         {
-          "id": "s-1s",
-          "kind": "shape",
+          "id": "t-1t",
+          "kind": "text",
+          "role": "subtitle",
           "box": {
             "x": 8,
-            "y": 30,
-            "w": 14,
+            "y": 27,
+            "w": 68,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.35,
+              "color": "#6f7d6c",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "A dense narrative slide for the explanation that needs room.",
+            "paragraphs": [
+              {
+                "text": "A dense narrative slide for the explanation that needs room."
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-1u",
+          "kind": "shape",
+          "box": {
+            "x": 7,
+            "y": 38,
+            "w": 86,
+            "h": 44
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#e4ece0"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "radius": 26,
+            "effect": {
+              "kind": "glass",
+              "intensity": "light"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-1v",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 11,
+            "y": 43,
+            "w": 78,
+            "h": 32
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#37463a",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Use this layout when the deck needs a real explanatory paragraph: background, requirements, analysis, caveats, or a compact narrative that should not be forced into bullets. The text area is intentionally broad and calm so dense content remains readable.",
+            "paragraphs": [
+              {
+                "text": "Use this layout when the deck needs a real explanatory paragraph: background, requirements, analysis, caveats, or a compact narrative that should not be forced into bullets. The text area is intentionally broad and calm so dense content remains readable."
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-1w",
+          "kind": "shape",
+          "box": {
+            "x": 11,
+            "y": 80,
+            "w": 18,
             "h": 0.8
           },
           "zIndex": 9,
@@ -1769,745 +1904,12 @@
             "kind": "shape",
             "shape": "rect"
           }
-        },
-        {
-          "id": "t-1t",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 8,
-            "y": 35,
-            "w": 60,
-            "h": 44
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "A focused statement of what this is, why it matters now, and the single outcome it changes. Kept calm and readable so the idea lands first.",
-            "paragraphs": [
-              {
-                "text": "A focused statement of what this is, why it matters now, and the single outcome it changes. Kept calm and readable so the idea lands first."
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1u",
-          "kind": "shape",
-          "opacity": 0.12,
-          "box": {
-            "x": 70,
-            "y": 40,
-            "w": 40,
-            "h": 56
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-principle",
-      "index": 6,
-      "title": "Principle",
-      "notes": "",
-      "templateId": "theme:terra:principle",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-23",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "title-bullets glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-25",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "title-bullets secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-1y",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 17,
-            "w": 1.4,
-            "h": 12
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1z",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 11,
-            "y": 16,
-            "w": 60,
-            "h": 12
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.6,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Three forces converging",
-            "paragraphs": [
-              {
-                "text": "Three forces converging"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-20",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 11,
-            "y": 33,
-            "w": 46,
-            "h": 50
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Cost has dropped enough to be ambient.\nTeams expect tooling that adapts to them.\nThe winning interface disappears.",
-            "paragraphs": [
-              {
-                "text": "Cost has dropped enough to be ambient.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Teams expect tooling that adapts to them.",
-                "listType": "bullet"
-              },
-              {
-                "text": "The winning interface disappears.",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-21",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 30,
-            "w": 34,
-            "h": 52
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "img-22",
-          "kind": "image",
-          "role": "image",
-          "box": {
-            "x": 61,
-            "y": 34,
-            "w": 28,
-            "h": 44
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "radius": 18,
-            "fitMode": "cover"
-          },
-          "content": {
-            "kind": "image",
-            "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22%23e9e9ee%22%2F%3E%3Cpath%20d%3D%22M300%20270l70-70%2055%2055%2040-40%2075%2075%22%20fill%3D%22none%22%20stroke%3D%22%2394949f%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22165%22%20r%3D%2226%22%20fill%3D%22%2394949f%22%2F%3E%3C%2Fsvg%3E",
-            "alt": "Image placeholder"
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-content",
-      "index": 7,
-      "title": "Content",
-      "notes": "",
-      "templateId": "theme:terra:content",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-2b",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "title-bullets glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-2d",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "title-bullets secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-26",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 17,
-            "w": 1.4,
-            "h": 12
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-27",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 11,
-            "y": 16,
-            "w": 60,
-            "h": 12
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.6,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Three forces converging",
-            "paragraphs": [
-              {
-                "text": "Three forces converging"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-28",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 11,
-            "y": 33,
-            "w": 46,
-            "h": 50
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Cost has dropped enough to be ambient.\nTeams expect tooling that adapts to them.\nThe winning interface disappears.",
-            "paragraphs": [
-              {
-                "text": "Cost has dropped enough to be ambient.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Teams expect tooling that adapts to them.",
-                "listType": "bullet"
-              },
-              {
-                "text": "The winning interface disappears.",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-29",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 30,
-            "w": 34,
-            "h": 52
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "img-2a",
-          "kind": "image",
-          "role": "image",
-          "box": {
-            "x": 61,
-            "y": 34,
-            "w": 28,
-            "h": 44
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "radius": 18,
-            "fitMode": "cover"
-          },
-          "content": {
-            "kind": "image",
-            "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22%23e9e9ee%22%2F%3E%3Cpath%20d%3D%22M300%20270l70-70%2055%2055%2040-40%2075%2075%22%20fill%3D%22none%22%20stroke%3D%22%2394949f%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22165%22%20r%3D%2226%22%20fill%3D%22%2394949f%22%2F%3E%3C%2Fsvg%3E",
-            "alt": "Image placeholder"
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-key-takeaways",
-      "index": 8,
-      "title": "Key Takeaways",
-      "notes": "",
-      "templateId": "theme:terra:key-takeaways",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-2h",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "summary-list glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-2j",
-          "kind": "shape",
-          "opacity": 0.22,
-          "box": {
-            "x": 4,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "summary-list secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-2e",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 40,
-            "h": 5
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.2,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "verticalAlign": "middle",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "name": "Kicker",
-          "content": {
-            "kind": "text",
-            "text": "EXECUTIVE SUMMARY",
-            "paragraphs": [
-              {
-                "text": "EXECUTIVE SUMMARY"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-2f",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 18,
-            "w": 80,
-            "h": 9
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.6,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "The bottom line",
-            "paragraphs": [
-              {
-                "text": "The bottom line"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-2g",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 8,
-            "y": 32,
-            "w": 84,
-            "h": 52
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Demand is strong; focus is the constraint.\nTwo levers recover most of the upside.\nShip the core path now, defer exploration.\nDecision needed: scope and owner model.",
-            "paragraphs": [
-              {
-                "text": "Demand is strong; focus is the constraint.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Two levers recover most of the upside.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Ship the core path now, defer exploration.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Decision needed: scope and owner model.",
-                "listType": "bullet"
-              }
-            ]
-          }
         }
       ]
     },
     {
       "id": "terra-quote",
-      "index": 9,
+      "index": 6,
       "title": "Quote",
       "notes": "",
       "templateId": "theme:terra:quote",
@@ -2668,7 +2070,7 @@
     },
     {
       "id": "terra-big-stat",
-      "index": 10,
+      "index": 7,
       "title": "Big Stat",
       "notes": "",
       "templateId": "theme:terra:big-stat",
@@ -2829,7 +2231,7 @@
     },
     {
       "id": "terra-metric-row",
-      "index": 11,
+      "index": 8,
       "title": "Metric Row",
       "notes": "",
       "templateId": "theme:terra:metric-row",
@@ -2849,7 +2251,7 @@
       },
       "elements": [
         {
-          "id": "s-2u",
+          "id": "s-2a",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -2881,7 +2283,7 @@
           }
         },
         {
-          "id": "s-2v",
+          "id": "s-2b",
           "kind": "shape",
           "opacity": 0.42,
           "box": {
@@ -2913,7 +2315,7 @@
           }
         },
         {
-          "id": "s-2w",
+          "id": "s-2c",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -2937,7 +2339,7 @@
           }
         },
         {
-          "id": "t-2k",
+          "id": "t-20",
           "kind": "text",
           "role": "title",
           "box": {
@@ -2969,7 +2371,7 @@
           }
         },
         {
-          "id": "s-2l",
+          "id": "s-21",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3005,7 +2407,7 @@
           }
         },
         {
-          "id": "t-2m",
+          "id": "t-22",
           "kind": "text",
           "box": {
             "x": 10,
@@ -3035,7 +2437,7 @@
           }
         },
         {
-          "id": "t-2n",
+          "id": "t-23",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3067,7 +2469,7 @@
           }
         },
         {
-          "id": "s-2o",
+          "id": "s-24",
           "kind": "shape",
           "box": {
             "x": 37,
@@ -3103,7 +2505,7 @@
           }
         },
         {
-          "id": "t-2p",
+          "id": "t-25",
           "kind": "text",
           "box": {
             "x": 39,
@@ -3133,7 +2535,7 @@
           }
         },
         {
-          "id": "t-2q",
+          "id": "t-26",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3165,7 +2567,7 @@
           }
         },
         {
-          "id": "s-2r",
+          "id": "s-27",
           "kind": "shape",
           "box": {
             "x": 66,
@@ -3201,7 +2603,7 @@
           }
         },
         {
-          "id": "t-2s",
+          "id": "t-28",
           "kind": "text",
           "box": {
             "x": 68,
@@ -3231,7 +2633,7 @@
           }
         },
         {
-          "id": "t-2t",
+          "id": "t-29",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3265,11 +2667,11 @@
       ]
     },
     {
-      "id": "terra-data-insight",
-      "index": 12,
-      "title": "Data Insight",
+      "id": "terra-insight",
+      "index": 9,
+      "title": "Insight",
       "notes": "",
-      "templateId": "theme:terra:data-insight",
+      "templateId": "theme:terra:insight",
       "designOverrides": {
         "background": {
           "type": "radialGradient",
@@ -3286,12 +2688,12 @@
       },
       "elements": [
         {
-          "id": "s-33",
+          "id": "s-2j",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
-            "x": 72,
-            "y": -24,
+            "x": -18,
+            "y": 58,
             "w": 52,
             "h": 76
           },
@@ -3318,13 +2720,13 @@
           }
         },
         {
-          "id": "s-35",
+          "id": "s-2l",
           "kind": "shape",
           "opacity": 0.22,
-          "rotation": -14,
+          "rotation": -28,
           "box": {
-            "x": 88,
-            "y": 78,
+            "x": 4,
+            "y": 8,
             "w": 6,
             "h": 11
           },
@@ -3342,7 +2744,7 @@
           }
         },
         {
-          "id": "t-2x",
+          "id": "t-2d",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3374,7 +2776,7 @@
           }
         },
         {
-          "id": "t-2y",
+          "id": "t-2e",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -3416,7 +2818,7 @@
           }
         },
         {
-          "id": "s-2z",
+          "id": "s-2f",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -3452,7 +2854,7 @@
           }
         },
         {
-          "id": "s-30",
+          "id": "s-2g",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -3482,7 +2884,7 @@
           }
         },
         {
-          "id": "s-31",
+          "id": "s-2h",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -3512,7 +2914,7 @@
           }
         },
         {
-          "id": "s-32",
+          "id": "s-2i",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -3545,7 +2947,7 @@
     },
     {
       "id": "terra-evidence",
-      "index": 13,
+      "index": 10,
       "title": "Evidence",
       "notes": "",
       "templateId": "theme:terra:evidence",
@@ -3565,7 +2967,7 @@
       },
       "elements": [
         {
-          "id": "s-3d",
+          "id": "s-2t",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -3597,7 +2999,7 @@
           }
         },
         {
-          "id": "s-3f",
+          "id": "s-2v",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -3621,7 +3023,7 @@
           }
         },
         {
-          "id": "t-36",
+          "id": "t-2m",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3653,7 +3055,7 @@
           }
         },
         {
-          "id": "s-37",
+          "id": "s-2n",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3689,7 +3091,7 @@
           }
         },
         {
-          "id": "s-38",
+          "id": "s-2o",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3725,7 +3127,7 @@
           }
         },
         {
-          "id": "s-39",
+          "id": "s-2p",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3761,7 +3163,7 @@
           }
         },
         {
-          "id": "s-3a",
+          "id": "s-2q",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3797,7 +3199,7 @@
           }
         },
         {
-          "id": "t-3b",
+          "id": "t-2r",
           "kind": "text",
           "role": "label",
           "box": {
@@ -3828,7 +3230,7 @@
           }
         },
         {
-          "id": "t-3c",
+          "id": "t-2s",
           "kind": "text",
           "role": "label",
           "box": {
@@ -3862,7 +3264,7 @@
     },
     {
       "id": "terra-table",
-      "index": 14,
+      "index": 11,
       "title": "Table",
       "notes": "",
       "templateId": "theme:terra:table",
@@ -3882,7 +3284,7 @@
       },
       "elements": [
         {
-          "id": "s-3n",
+          "id": "s-33",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -3914,7 +3316,7 @@
           }
         },
         {
-          "id": "s-3p",
+          "id": "s-35",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -3937,7 +3339,7 @@
           }
         },
         {
-          "id": "t-3g",
+          "id": "t-2w",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3969,7 +3371,7 @@
           }
         },
         {
-          "id": "s-3h",
+          "id": "s-2x",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4005,7 +3407,7 @@
           }
         },
         {
-          "id": "s-3i",
+          "id": "s-2y",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4041,7 +3443,7 @@
           }
         },
         {
-          "id": "s-3j",
+          "id": "s-2z",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4077,7 +3479,7 @@
           }
         },
         {
-          "id": "s-3k",
+          "id": "s-30",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4113,7 +3515,7 @@
           }
         },
         {
-          "id": "t-3l",
+          "id": "t-31",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4144,7 +3546,7 @@
           }
         },
         {
-          "id": "t-3m",
+          "id": "t-32",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4177,752 +3579,8 @@
       ]
     },
     {
-      "id": "terra-problem-solution",
-      "index": 15,
-      "title": "Problem Solution",
-      "notes": "",
-      "templateId": "theme:terra:problem-solution",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-3x",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "problem-solution glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-3z",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "problem-solution secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-40",
-          "kind": "shape",
-          "opacity": 0.18,
-          "rotation": 45,
-          "box": {
-            "x": 46,
-            "y": 43,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#3f6b4a"
-            }
-          },
-          "locked": true,
-          "name": "problem-solution center motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-3q",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-3r",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 10.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "PROBLEM",
-            "paragraphs": [
-              {
-                "text": "PROBLEM"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-3s",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 10.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Costly\nFragmented\nOpaque",
-            "paragraphs": [
-              {
-                "text": "Costly",
-                "listType": "bullet"
-              },
-              {
-                "text": "Fragmented",
-                "listType": "bullet"
-              },
-              {
-                "text": "Opaque",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-3w",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 1.4
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            },
-            "radius": 0
-          },
-          "locked": true,
-          "name": "Edge",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-3t",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-3u",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 54.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "SOLUTION",
-            "paragraphs": [
-              {
-                "text": "SOLUTION"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-3v",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 54.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Unified API\nBuilt-in audit\nOwn cloud",
-            "paragraphs": [
-              {
-                "text": "Unified API",
-                "listType": "bullet"
-              },
-              {
-                "text": "Built-in audit",
-                "listType": "bullet"
-              },
-              {
-                "text": "Own cloud",
-                "listType": "bullet"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-before-after",
-      "index": 16,
-      "title": "Before After",
-      "notes": "",
-      "templateId": "theme:terra:before-after",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-4a",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "before-after glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-4c",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "before-after secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-4d",
-          "kind": "shape",
-          "opacity": 0.18,
-          "rotation": 45,
-          "box": {
-            "x": 46,
-            "y": 43,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#3f6b4a"
-            }
-          },
-          "locked": true,
-          "name": "before-after center motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-41",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 80,
-            "h": 8
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "From friction to flow",
-            "paragraphs": [
-              {
-                "text": "From friction to flow"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-42",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-43",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 10.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "TODAY",
-            "paragraphs": [
-              {
-                "text": "TODAY"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-44",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 10.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Manual hand-offs\nLost context\nSlow loops",
-            "paragraphs": [
-              {
-                "text": "Manual hand-offs",
-                "listType": "bullet"
-              },
-              {
-                "text": "Lost context",
-                "listType": "bullet"
-              },
-              {
-                "text": "Slow loops",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-45",
-          "kind": "shape",
-          "opacity": 1,
-          "rotation": 90,
-          "box": {
-            "x": 47,
-            "y": 44,
-            "w": 6,
-            "h": 10
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "Wedge",
-          "content": {
-            "kind": "shape",
-            "shape": "triangle"
-          }
-        },
-        {
-          "id": "s-49",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 1.4
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            },
-            "radius": 0
-          },
-          "locked": true,
-          "name": "Edge",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-46",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-47",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 54.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "WITH US",
-            "paragraphs": [
-              {
-                "text": "WITH US"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-48",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 54.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "One surface\nLiving context\nSeconds, not days",
-            "paragraphs": [
-              {
-                "text": "One surface",
-                "listType": "bullet"
-              },
-              {
-                "text": "Living context",
-                "listType": "bullet"
-              },
-              {
-                "text": "Seconds, not days",
-                "listType": "bullet"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
       "id": "terra-comparison",
-      "index": 17,
+      "index": 12,
       "title": "Comparison",
       "notes": "",
       "templateId": "theme:terra:comparison",
@@ -4942,7 +3600,7 @@
       },
       "elements": [
         {
-          "id": "s-4m",
+          "id": "s-3e",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -4974,7 +3632,7 @@
           }
         },
         {
-          "id": "s-4o",
+          "id": "s-3g",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -4998,7 +3656,7 @@
           }
         },
         {
-          "id": "s-4p",
+          "id": "s-3h",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5022,7 +3680,7 @@
           }
         },
         {
-          "id": "t-4e",
+          "id": "t-36",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5054,7 +3712,7 @@
           }
         },
         {
-          "id": "s-4f",
+          "id": "s-37",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -5090,7 +3748,7 @@
           }
         },
         {
-          "id": "t-4g",
+          "id": "t-38",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5121,7 +3779,7 @@
           }
         },
         {
-          "id": "t-4h",
+          "id": "t-39",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5163,7 +3821,7 @@
           }
         },
         {
-          "id": "s-4l",
+          "id": "s-3d",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5186,7 +3844,7 @@
           }
         },
         {
-          "id": "s-4i",
+          "id": "s-3a",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5222,7 +3880,7 @@
           }
         },
         {
-          "id": "t-4j",
+          "id": "t-3b",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5253,758 +3911,7 @@
           }
         },
         {
-          "id": "t-4k",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 54.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Higher upside\nClear ownership\nNeeds sequencing",
-            "paragraphs": [
-              {
-                "text": "Higher upside",
-                "listType": "bullet"
-              },
-              {
-                "text": "Clear ownership",
-                "listType": "bullet"
-              },
-              {
-                "text": "Needs sequencing",
-                "listType": "bullet"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-pros-cons",
-      "index": 18,
-      "title": "Pros Cons",
-      "notes": "",
-      "templateId": "theme:terra:pros-cons",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-4y",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "pros-cons glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-50",
-          "kind": "shape",
-          "opacity": 0.22,
-          "box": {
-            "x": 4,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "pros-cons secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-51",
-          "kind": "shape",
-          "opacity": 0.18,
-          "rotation": 45,
-          "box": {
-            "x": 46,
-            "y": 43,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#3f6b4a"
-            }
-          },
-          "locked": true,
-          "name": "pros-cons center motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-4q",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 80,
-            "h": 8
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Trade-offs",
-            "paragraphs": [
-              {
-                "text": "Trade-offs"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-4r",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-4s",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 10.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "PROS",
-            "paragraphs": [
-              {
-                "text": "PROS"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-4t",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 10.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Speed\nFocus\nLower cost",
-            "paragraphs": [
-              {
-                "text": "Speed",
-                "listType": "bullet"
-              },
-              {
-                "text": "Focus",
-                "listType": "bullet"
-              },
-              {
-                "text": "Lower cost",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-4x",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 1.4
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            },
-            "radius": 0
-          },
-          "locked": true,
-          "name": "Edge",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-4u",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-4v",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 54.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "CONS",
-            "paragraphs": [
-              {
-                "text": "CONS"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-4w",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 54.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Less coverage\nMore change\nSequencing",
-            "paragraphs": [
-              {
-                "text": "Less coverage",
-                "listType": "bullet"
-              },
-              {
-                "text": "More change",
-                "listType": "bullet"
-              },
-              {
-                "text": "Sequencing",
-                "listType": "bullet"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-tradeoff",
-      "index": 19,
-      "title": "Tradeoff",
-      "notes": "",
-      "templateId": "theme:terra:tradeoff",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-5a",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "two-column glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-5c",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "two-column secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-5d",
-          "kind": "shape",
-          "opacity": 0.18,
-          "rotation": 45,
-          "box": {
-            "x": 46,
-            "y": 43,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#3f6b4a"
-            }
-          },
-          "locked": true,
-          "name": "two-column center motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-52",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 80,
-            "h": 8
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Side by side",
-            "paragraphs": [
-              {
-                "text": "Side by side"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-53",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-54",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 10.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "OPTION A",
-            "paragraphs": [
-              {
-                "text": "OPTION A"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-55",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 10.5,
-            "y": 41,
-            "w": 35,
-            "h": 36
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Lower risk\nFaster approval\nLimited upside",
-            "paragraphs": [
-              {
-                "text": "Lower risk",
-                "listType": "bullet"
-              },
-              {
-                "text": "Faster approval",
-                "listType": "bullet"
-              },
-              {
-                "text": "Limited upside",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-59",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 1.4
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            },
-            "radius": 0
-          },
-          "locked": true,
-          "name": "Edge",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-56",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-57",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 54.5,
-            "y": 34,
-            "w": 35,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "OPTION B",
-            "paragraphs": [
-              {
-                "text": "OPTION B"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-58",
+          "id": "t-3c",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -6049,7 +3956,7 @@
     },
     {
       "id": "terra-matrix",
-      "index": 20,
+      "index": 13,
       "title": "Matrix",
       "notes": "",
       "templateId": "theme:terra:matrix",
@@ -6069,7 +3976,7 @@
       },
       "elements": [
         {
-          "id": "s-5j",
+          "id": "s-3n",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -6101,7 +4008,7 @@
           }
         },
         {
-          "id": "s-5l",
+          "id": "s-3p",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -6125,7 +4032,7 @@
           }
         },
         {
-          "id": "s-5m",
+          "id": "s-3q",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -6149,7 +4056,7 @@
           }
         },
         {
-          "id": "t-5e",
+          "id": "t-3i",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6181,7 +4088,7 @@
           }
         },
         {
-          "id": "s-5f",
+          "id": "s-3j",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -6217,7 +4124,7 @@
           }
         },
         {
-          "id": "s-5g",
+          "id": "s-3k",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -6253,7 +4160,7 @@
           }
         },
         {
-          "id": "s-5h",
+          "id": "s-3l",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -6289,7 +4196,7 @@
           }
         },
         {
-          "id": "s-5i",
+          "id": "s-3m",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -6328,7 +4235,7 @@
     },
     {
       "id": "terra-framework",
-      "index": 21,
+      "index": 14,
       "title": "Framework",
       "notes": "",
       "templateId": "theme:terra:framework",
@@ -6348,7 +4255,7 @@
       },
       "elements": [
         {
-          "id": "s-5t",
+          "id": "s-3x",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -6372,7 +4279,7 @@
           }
         },
         {
-          "id": "s-5r",
+          "id": "s-3v",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 18,
@@ -6405,7 +4312,7 @@
           }
         },
         {
-          "id": "s-5s",
+          "id": "s-3w",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -6429,7 +4336,7 @@
           }
         },
         {
-          "id": "s-5n",
+          "id": "s-3r",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -6461,7 +4368,7 @@
           }
         },
         {
-          "id": "s-5o",
+          "id": "s-3s",
           "kind": "shape",
           "box": {
             "x": 35,
@@ -6497,7 +4404,7 @@
           }
         },
         {
-          "id": "t-5p",
+          "id": "t-3t",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6532,7 +4439,7 @@
     },
     {
       "id": "terra-process",
-      "index": 22,
+      "index": 15,
       "title": "Process",
       "notes": "",
       "templateId": "theme:terra:process",
@@ -6552,7 +4459,7 @@
       },
       "elements": [
         {
-          "id": "s-66",
+          "id": "s-4a",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -6576,7 +4483,7 @@
           }
         },
         {
-          "id": "s-64",
+          "id": "s-48",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -6609,7 +4516,7 @@
           }
         },
         {
-          "id": "s-65",
+          "id": "s-49",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -6633,7 +4540,7 @@
           }
         },
         {
-          "id": "t-5u",
+          "id": "t-3y",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6665,7 +4572,7 @@
           }
         },
         {
-          "id": "s-5v",
+          "id": "s-3z",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -6687,7 +4594,7 @@
           }
         },
         {
-          "id": "t-5w",
+          "id": "t-40",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6719,7 +4626,7 @@
           }
         },
         {
-          "id": "s-5x",
+          "id": "s-41",
           "kind": "shape",
           "box": {
             "x": 30,
@@ -6741,7 +4648,7 @@
           }
         },
         {
-          "id": "t-5y",
+          "id": "t-42",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6773,7 +4680,7 @@
           }
         },
         {
-          "id": "s-5z",
+          "id": "s-43",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6795,7 +4702,7 @@
           }
         },
         {
-          "id": "t-60",
+          "id": "t-44",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6827,7 +4734,7 @@
           }
         },
         {
-          "id": "s-61",
+          "id": "s-45",
           "kind": "shape",
           "box": {
             "x": 74,
@@ -6849,359 +4756,7 @@
           }
         },
         {
-          "id": "t-62",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 73,
-            "y": 58,
-            "w": 18,
-            "h": 12
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Ship",
-            "paragraphs": [
-              {
-                "text": "Ship"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-workflow",
-      "index": 23,
-      "title": "Workflow",
-      "notes": "",
-      "templateId": "theme:terra:workflow",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-6j",
-          "kind": "shape",
-          "opacity": 0.35,
-          "box": {
-            "x": 8,
-            "y": 86,
-            "w": 84,
-            "h": 0.35
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "value": "#cdd9c4"
-            },
-            "radius": 0
-          },
-          "locked": true,
-          "name": "process-steps baseline",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-6h",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
-          "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#3f6b4a"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "process-steps motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-6i",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "process-steps secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-67",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 70,
-            "h": 9
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "How it flows",
-            "paragraphs": [
-              {
-                "text": "How it flows"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-68",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 40,
-            "w": 9,
-            "h": 16
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "Step",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-69",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 7,
-            "y": 58,
-            "w": 18,
-            "h": 12
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Scope",
-            "paragraphs": [
-              {
-                "text": "Scope"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-6a",
-          "kind": "shape",
-          "box": {
-            "x": 30,
-            "y": 40,
-            "w": 9,
-            "h": 16
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#e4ece0"
-            }
-          },
-          "locked": true,
-          "name": "Step",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-6b",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 29,
-            "y": 58,
-            "w": 18,
-            "h": 12
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Build",
-            "paragraphs": [
-              {
-                "text": "Build"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-6c",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 40,
-            "w": 9,
-            "h": 16
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#e4ece0"
-            }
-          },
-          "locked": true,
-          "name": "Step",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-6d",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 51,
-            "y": 58,
-            "w": 18,
-            "h": 12
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Verify",
-            "paragraphs": [
-              {
-                "text": "Verify"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-6e",
-          "kind": "shape",
-          "box": {
-            "x": 74,
-            "y": 40,
-            "w": 9,
-            "h": 16
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#e4ece0"
-            }
-          },
-          "locked": true,
-          "name": "Step",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-6f",
+          "id": "t-46",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7236,7 +4791,7 @@
     },
     {
       "id": "terra-timeline",
-      "index": 24,
+      "index": 16,
       "title": "Timeline",
       "notes": "",
       "templateId": "theme:terra:timeline",
@@ -7256,7 +4811,7 @@
       },
       "elements": [
         {
-          "id": "s-6x",
+          "id": "s-4o",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7280,7 +4835,7 @@
           }
         },
         {
-          "id": "s-6v",
+          "id": "s-4m",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -7313,7 +4868,7 @@
           }
         },
         {
-          "id": "s-6w",
+          "id": "s-4n",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -7337,7 +4892,7 @@
           }
         },
         {
-          "id": "t-6k",
+          "id": "t-4b",
           "kind": "text",
           "role": "title",
           "box": {
@@ -7369,7 +4924,7 @@
           }
         },
         {
-          "id": "s-6l",
+          "id": "s-4c",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7392,7 +4947,7 @@
           }
         },
         {
-          "id": "s-6m",
+          "id": "s-4d",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -7422,7 +4977,7 @@
           }
         },
         {
-          "id": "t-6n",
+          "id": "t-4e",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7454,7 +5009,7 @@
           }
         },
         {
-          "id": "s-6o",
+          "id": "s-4f",
           "kind": "shape",
           "box": {
             "x": 32,
@@ -7484,7 +5039,7 @@
           }
         },
         {
-          "id": "t-6p",
+          "id": "t-4g",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7516,7 +5071,7 @@
           }
         },
         {
-          "id": "s-6q",
+          "id": "s-4h",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -7546,7 +5101,7 @@
           }
         },
         {
-          "id": "t-6r",
+          "id": "t-4i",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7578,7 +5133,7 @@
           }
         },
         {
-          "id": "s-6s",
+          "id": "s-4j",
           "kind": "shape",
           "box": {
             "x": 76,
@@ -7608,7 +5163,7 @@
           }
         },
         {
-          "id": "t-6t",
+          "id": "t-4k",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7643,7 +5198,7 @@
     },
     {
       "id": "terra-roadmap",
-      "index": 25,
+      "index": 17,
       "title": "Roadmap",
       "notes": "",
       "templateId": "theme:terra:roadmap",
@@ -7663,7 +5218,7 @@
       },
       "elements": [
         {
-          "id": "s-77",
+          "id": "s-4y",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7687,7 +5242,7 @@
           }
         },
         {
-          "id": "s-75",
+          "id": "s-4w",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -7720,7 +5275,7 @@
           }
         },
         {
-          "id": "s-76",
+          "id": "s-4x",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -7743,7 +5298,7 @@
           }
         },
         {
-          "id": "s-6y",
+          "id": "s-4p",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7779,7 +5334,7 @@
           }
         },
         {
-          "id": "t-6z",
+          "id": "t-4q",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7811,7 +5366,7 @@
           }
         },
         {
-          "id": "s-70",
+          "id": "s-4r",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7847,7 +5402,7 @@
           }
         },
         {
-          "id": "t-71",
+          "id": "t-4s",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7879,7 +5434,7 @@
           }
         },
         {
-          "id": "s-72",
+          "id": "s-4t",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7915,7 +5470,7 @@
           }
         },
         {
-          "id": "t-73",
+          "id": "t-4u",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7950,7 +5505,7 @@
     },
     {
       "id": "terra-architecture",
-      "index": 26,
+      "index": 18,
       "title": "Architecture",
       "notes": "",
       "templateId": "theme:terra:architecture",
@@ -7970,7 +5525,7 @@
       },
       "elements": [
         {
-          "id": "s-7h",
+          "id": "s-58",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7994,7 +5549,7 @@
           }
         },
         {
-          "id": "s-7f",
+          "id": "s-56",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -8027,7 +5582,7 @@
           }
         },
         {
-          "id": "s-7g",
+          "id": "s-57",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -8051,7 +5606,7 @@
           }
         },
         {
-          "id": "s-78",
+          "id": "s-4z",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -8087,7 +5642,7 @@
           }
         },
         {
-          "id": "t-79",
+          "id": "t-50",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8119,7 +5674,7 @@
           }
         },
         {
-          "id": "s-7a",
+          "id": "s-51",
           "kind": "shape",
           "box": {
             "x": 38,
@@ -8155,7 +5710,7 @@
           }
         },
         {
-          "id": "t-7b",
+          "id": "t-52",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8187,7 +5742,7 @@
           }
         },
         {
-          "id": "s-7c",
+          "id": "s-53",
           "kind": "shape",
           "box": {
             "x": 66,
@@ -8223,7 +5778,7 @@
           }
         },
         {
-          "id": "t-7d",
+          "id": "t-54",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8258,7 +5813,7 @@
     },
     {
       "id": "terra-case-study",
-      "index": 27,
+      "index": 19,
       "title": "Case Study",
       "notes": "",
       "templateId": "theme:terra:case-study",
@@ -8278,7 +5833,7 @@
       },
       "elements": [
         {
-          "id": "s-7m",
+          "id": "s-5d",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -8310,7 +5865,7 @@
           }
         },
         {
-          "id": "s-7o",
+          "id": "s-5f",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -8334,7 +5889,7 @@
           }
         },
         {
-          "id": "s-7i",
+          "id": "s-59",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -8370,7 +5925,7 @@
           }
         },
         {
-          "id": "img-7j",
+          "id": "img-5a",
           "kind": "image",
           "role": "image",
           "box": {
@@ -8391,7 +5946,7 @@
           }
         },
         {
-          "id": "t-7k",
+          "id": "t-5b",
           "kind": "text",
           "role": "title",
           "box": {
@@ -8423,7 +5978,7 @@
           }
         },
         {
-          "id": "t-7l",
+          "id": "t-5c",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -8462,1566 +6017,13 @@
                 "listType": "bullet"
               }
             ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-customer-story",
-      "index": 28,
-      "title": "Customer Story",
-      "notes": "",
-      "templateId": "theme:terra:customer-story",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-7t",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "case-study glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-7v",
-          "kind": "shape",
-          "opacity": 0.22,
-          "box": {
-            "x": 4,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "case-study secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-7p",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 12,
-            "w": 40,
-            "h": 76
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "img-7q",
-          "kind": "image",
-          "role": "image",
-          "box": {
-            "x": 55,
-            "y": 16,
-            "w": 34,
-            "h": 40
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "radius": 16,
-            "fitMode": "cover"
-          },
-          "content": {
-            "kind": "image",
-            "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22%23e9e9ee%22%2F%3E%3Cpath%20d%3D%22M300%20270l70-70%2055%2055%2040-40%2075%2075%22%20fill%3D%22none%22%20stroke%3D%22%2394949f%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22165%22%20r%3D%2226%22%20fill%3D%22%2394949f%22%2F%3E%3C%2Fsvg%3E",
-            "alt": "Image placeholder"
-          }
-        },
-        {
-          "id": "t-7r",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 16,
-            "w": 40,
-            "h": 12
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Customer story",
-            "paragraphs": [
-              {
-                "text": "Customer story"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-7s",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 8,
-            "y": 34,
-            "w": 40,
-            "h": 46
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Context\nAction\nResult",
-            "paragraphs": [
-              {
-                "text": "Context",
-                "listType": "bullet"
-              },
-              {
-                "text": "Action",
-                "listType": "bullet"
-              },
-              {
-                "text": "Result",
-                "listType": "bullet"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-market-landscape",
-      "index": 29,
-      "title": "Market Landscape",
-      "notes": "",
-      "templateId": "theme:terra:market-landscape",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-88",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cards-4 glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-89",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": -18,
-          "box": {
-            "x": 84,
-            "y": 12,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#3f6b4a"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cards-4 motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-8a",
-          "kind": "shape",
-          "opacity": 0.22,
-          "box": {
-            "x": 4,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "cards-4 secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-7w",
-          "kind": "shape",
-          "box": {
-            "x": 7,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-7x",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 9,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "A",
-            "paragraphs": [
-              {
-                "text": "A"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-7y",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 9,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Segment",
-            "paragraphs": [
-              {
-                "text": "Segment"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-7z",
-          "kind": "shape",
-          "box": {
-            "x": 29,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-80",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 31,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "B",
-            "paragraphs": [
-              {
-                "text": "B"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-81",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 31,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Channel",
-            "paragraphs": [
-              {
-                "text": "Channel"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-82",
-          "kind": "shape",
-          "box": {
-            "x": 51,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-83",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 53,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "C",
-            "paragraphs": [
-              {
-                "text": "C"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-84",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 53,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Cost",
-            "paragraphs": [
-              {
-                "text": "Cost"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-85",
-          "kind": "shape",
-          "box": {
-            "x": 73,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-86",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 75,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "D",
-            "paragraphs": [
-              {
-                "text": "D"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-87",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 75,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Edge",
-            "paragraphs": [
-              {
-                "text": "Edge"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-competitive-landscape",
-      "index": 30,
-      "title": "Competitive Landscape",
-      "notes": "",
-      "templateId": "theme:terra:competitive-landscape",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-8g",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "matrix-2x2 glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-8i",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -14,
-          "box": {
-            "x": 88,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "matrix-2x2 secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-8j",
-          "kind": "shape",
-          "opacity": 0.18,
-          "rotation": 45,
-          "box": {
-            "x": 46,
-            "y": 43,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#3f6b4a"
-            }
-          },
-          "locked": true,
-          "name": "matrix-2x2 center motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-8b",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 10,
-            "w": 70,
-            "h": 8
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.2,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Positioning",
-            "paragraphs": [
-              {
-                "text": "Positioning"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-8c",
-          "kind": "shape",
-          "box": {
-            "x": 22,
-            "y": 24,
-            "w": 34,
-            "h": 30
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8d",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 24,
-            "w": 34,
-            "h": 30
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8e",
-          "kind": "shape",
-          "box": {
-            "x": 22,
-            "y": 56,
-            "w": 34,
-            "h": 30
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8f",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 56,
-            "w": 34,
-            "h": 30
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-experiment",
-      "index": 31,
-      "title": "Experiment",
-      "notes": "",
-      "templateId": "theme:terra:experiment",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-8q",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": -24,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "data-insight glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-8s",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -14,
-          "box": {
-            "x": 88,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "data-insight secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-8k",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 56,
-            "h": 9
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "The signal",
-            "paragraphs": [
-              {
-                "text": "The signal"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-8l",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Activation recovered after onboarding.\nEnterprise cycles longer, higher confidence.\nEarly support lifts retention most.",
-            "paragraphs": [
-              {
-                "text": "Activation recovered after onboarding.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Enterprise cycles longer, higher confidence.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Early support lifts retention most.",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-8m",
-          "kind": "shape",
-          "box": {
-            "x": 54,
-            "y": 24,
-            "w": 38,
-            "h": 56
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8n",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 70,
-            "w": 8,
-            "h": 26
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8o",
-          "kind": "shape",
-          "box": {
-            "x": 68,
-            "y": 56,
-            "w": 8,
-            "h": 40
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8p",
-          "kind": "shape",
-          "box": {
-            "x": 78,
-            "y": 44,
-            "w": 8,
-            "h": 52
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-results",
-      "index": 32,
-      "title": "Results",
-      "notes": "",
-      "templateId": "theme:terra:results",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-8z",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "data-insight glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-91",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "data-insight secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-8t",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 56,
-            "h": 9
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#1f2a22",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "The signal",
-            "paragraphs": [
-              {
-                "text": "The signal"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-8u",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 8,
-            "y": 30,
-            "w": 40,
-            "h": 50
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Activation recovered after onboarding.\nEnterprise cycles longer, higher confidence.\nEarly support lifts retention most.",
-            "paragraphs": [
-              {
-                "text": "Activation recovered after onboarding.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Enterprise cycles longer, higher confidence.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Early support lifts retention most.",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-8v",
-          "kind": "shape",
-          "box": {
-            "x": 54,
-            "y": 24,
-            "w": 38,
-            "h": 56
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8w",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 70,
-            "w": 8,
-            "h": 26
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8x",
-          "kind": "shape",
-          "box": {
-            "x": 68,
-            "y": 56,
-            "w": 8,
-            "h": 40
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8y",
-          "kind": "shape",
-          "box": {
-            "x": 78,
-            "y": 44,
-            "w": 8,
-            "h": 52
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
           }
         }
       ]
     },
     {
       "id": "terra-risks",
-      "index": 33,
+      "index": 20,
       "title": "Risks",
       "notes": "",
       "templateId": "theme:terra:risks",
@@ -10041,7 +6043,7 @@
       },
       "elements": [
         {
-          "id": "s-9c",
+          "id": "s-5q",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -10073,7 +6075,7 @@
           }
         },
         {
-          "id": "s-9e",
+          "id": "s-5s",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -10096,7 +6098,7 @@
           }
         },
         {
-          "id": "t-92",
+          "id": "t-5g",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10128,7 +6130,7 @@
           }
         },
         {
-          "id": "s-93",
+          "id": "s-5h",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10164,7 +6166,7 @@
           }
         },
         {
-          "id": "s-94",
+          "id": "s-5i",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10194,7 +6196,7 @@
           }
         },
         {
-          "id": "t-95",
+          "id": "t-5j",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10226,7 +6228,7 @@
           }
         },
         {
-          "id": "s-96",
+          "id": "s-5k",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10262,7 +6264,7 @@
           }
         },
         {
-          "id": "s-97",
+          "id": "s-5l",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10292,7 +6294,7 @@
           }
         },
         {
-          "id": "t-98",
+          "id": "t-5m",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10324,7 +6326,7 @@
           }
         },
         {
-          "id": "s-99",
+          "id": "s-5n",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10360,7 +6362,7 @@
           }
         },
         {
-          "id": "s-9a",
+          "id": "s-5o",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10390,7 +6392,7 @@
           }
         },
         {
-          "id": "t-9b",
+          "id": "t-5p",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10424,144 +6426,8 @@
       ]
     },
     {
-      "id": "terra-decision",
-      "index": 34,
-      "title": "Decision",
-      "notes": "",
-      "templateId": "theme:terra:decision",
-      "designOverrides": {
-        "background": {
-          "type": "solid",
-          "color": {
-            "value": "#c2683f"
-          }
-        }
-      },
-      "elements": [
-        {
-          "id": "s-9h",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "recommendation glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-9j",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "recommendation secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-9f",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 9,
-            "y": 36,
-            "w": 70,
-            "h": 16
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 7.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#ffffff",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "We recommend B",
-            "paragraphs": [
-              {
-                "text": "We recommend B"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-9g",
-          "kind": "text",
-          "role": "subtitle",
-          "box": {
-            "x": 9,
-            "y": 56,
-            "w": 60,
-            "h": 8
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.35,
-              "color": "#ffffff",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Highest upside with manageable risk.",
-            "paragraphs": [
-              {
-                "text": "Highest upside with manageable risk."
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
       "id": "terra-recommendation",
-      "index": 35,
+      "index": 21,
       "title": "Recommendation",
       "notes": "",
       "templateId": "theme:terra:recommendation",
@@ -10575,7 +6441,7 @@
       },
       "elements": [
         {
-          "id": "s-9m",
+          "id": "s-5v",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -10607,7 +6473,7 @@
           }
         },
         {
-          "id": "s-9o",
+          "id": "s-5x",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -10631,7 +6497,7 @@
           }
         },
         {
-          "id": "t-9k",
+          "id": "t-5t",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10662,7 +6528,7 @@
           }
         },
         {
-          "id": "t-9l",
+          "id": "t-5u",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -10696,693 +6562,8 @@
       ]
     },
     {
-      "id": "terra-next-steps",
-      "index": 36,
-      "title": "Next Steps",
-      "notes": "",
-      "templateId": "theme:terra:next-steps",
-      "designOverrides": {
-        "background": {
-          "type": "solid",
-          "color": {
-            "value": "#f4f6f0"
-          }
-        }
-      },
-      "elements": [
-        {
-          "id": "s-9s",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "next-steps glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-9u",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "next-steps secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-9p",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 43,
-            "w": 12,
-            "h": 0.7
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "linearGradient",
-              "from": {
-                "value": "#c2683f"
-              },
-              "to": {
-                "value": "#3f6b4a"
-              },
-              "angle": 90
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-9q",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 47,
-            "w": 68,
-            "h": 13
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 7.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.04,
-              "color": "#ffffff",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Next steps",
-            "paragraphs": [
-              {
-                "text": "Next steps"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-9r",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 8,
-            "y": 62,
-            "w": 70,
-            "h": 20
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.7,
-              "color": "#cbd5e1",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Confirm scope\nAssign owners\nReview in 2 weeks",
-            "paragraphs": [
-              {
-                "text": "Confirm scope",
-                "listType": "bullet"
-              },
-              {
-                "text": "Assign owners",
-                "listType": "bullet"
-              },
-              {
-                "text": "Review in 2 weeks",
-                "listType": "bullet"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "terra-business-model",
-      "index": 37,
-      "title": "Business Model",
-      "notes": "",
-      "templateId": "theme:terra:business-model",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
-      "elements": [
-        {
-          "id": "s-a7",
-          "kind": "shape",
-          "opacity": 0.2,
-          "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#c2683f"
-              },
-              "outer": {
-                "value": "#c2683f"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cards-4 glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-a8",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 18,
-          "box": {
-            "x": 84,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#3f6b4a"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cards-4 motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-a9",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#c2683f"
-            }
-          },
-          "locked": true,
-          "name": "cards-4 secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-9v",
-          "kind": "shape",
-          "box": {
-            "x": 7,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-9w",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 9,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "A",
-            "paragraphs": [
-              {
-                "text": "A"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-9x",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 9,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Segment",
-            "paragraphs": [
-              {
-                "text": "Segment"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-9y",
-          "kind": "shape",
-          "box": {
-            "x": 29,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-9z",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 31,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "B",
-            "paragraphs": [
-              {
-                "text": "B"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-a0",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 31,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Channel",
-            "paragraphs": [
-              {
-                "text": "Channel"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-a1",
-          "kind": "shape",
-          "box": {
-            "x": 51,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-a2",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 53,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "C",
-            "paragraphs": [
-              {
-                "text": "C"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-a3",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 53,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Cost",
-            "paragraphs": [
-              {
-                "text": "Cost"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-a4",
-          "kind": "shape",
-          "box": {
-            "x": 73,
-            "y": 30,
-            "w": 20,
-            "h": 50
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e4ece0"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "radius": 26,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-a5",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 75,
-            "y": 34,
-            "w": 16,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#c2683f",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "D",
-            "paragraphs": [
-              {
-                "text": "D"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-a6",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 75,
-            "y": 42,
-            "w": 16,
-            "h": 32
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#37463a",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Edge",
-            "paragraphs": [
-              {
-                "text": "Edge"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
       "id": "terra-pricing",
-      "index": 38,
+      "index": 22,
       "title": "Pricing",
       "notes": "",
       "templateId": "theme:terra:pricing",
@@ -11402,7 +6583,7 @@
       },
       "elements": [
         {
-          "id": "s-ah",
+          "id": "s-65",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -11434,7 +6615,7 @@
           }
         },
         {
-          "id": "s-ai",
+          "id": "s-66",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -11467,7 +6648,7 @@
           }
         },
         {
-          "id": "s-aj",
+          "id": "s-67",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -11490,7 +6671,7 @@
           }
         },
         {
-          "id": "s-aa",
+          "id": "s-5y",
           "kind": "shape",
           "box": {
             "x": 12,
@@ -11526,7 +6707,7 @@
           }
         },
         {
-          "id": "t-ab",
+          "id": "t-5z",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11557,7 +6738,7 @@
           }
         },
         {
-          "id": "t-ac",
+          "id": "t-60",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11599,7 +6780,7 @@
           }
         },
         {
-          "id": "s-ag",
+          "id": "s-64",
           "kind": "shape",
           "box": {
             "x": 56,
@@ -11622,7 +6803,7 @@
           }
         },
         {
-          "id": "s-ad",
+          "id": "s-61",
           "kind": "shape",
           "box": {
             "x": 56,
@@ -11658,7 +6839,7 @@
           }
         },
         {
-          "id": "t-ae",
+          "id": "t-62",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11689,7 +6870,7 @@
           }
         },
         {
-          "id": "t-af",
+          "id": "t-63",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11734,7 +6915,7 @@
     },
     {
       "id": "terra-team",
-      "index": 39,
+      "index": 23,
       "title": "Team",
       "notes": "",
       "templateId": "theme:terra:team",
@@ -11754,7 +6935,7 @@
       },
       "elements": [
         {
-          "id": "s-as",
+          "id": "s-6g",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -11786,7 +6967,7 @@
           }
         },
         {
-          "id": "s-at",
+          "id": "s-6h",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -11819,7 +7000,7 @@
           }
         },
         {
-          "id": "s-au",
+          "id": "s-6i",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -11843,7 +7024,7 @@
           }
         },
         {
-          "id": "s-ak",
+          "id": "s-68",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -11865,7 +7046,7 @@
           }
         },
         {
-          "id": "t-al",
+          "id": "t-69",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11897,7 +7078,7 @@
           }
         },
         {
-          "id": "s-am",
+          "id": "s-6a",
           "kind": "shape",
           "box": {
             "x": 31,
@@ -11919,7 +7100,7 @@
           }
         },
         {
-          "id": "t-an",
+          "id": "t-6b",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11951,7 +7132,7 @@
           }
         },
         {
-          "id": "s-ao",
+          "id": "s-6c",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -11973,7 +7154,7 @@
           }
         },
         {
-          "id": "t-ap",
+          "id": "t-6d",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12005,7 +7186,7 @@
           }
         },
         {
-          "id": "s-aq",
+          "id": "s-6e",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -12027,7 +7208,7 @@
           }
         },
         {
-          "id": "t-ar",
+          "id": "t-6f",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12062,7 +7243,7 @@
     },
     {
       "id": "terra-visual-focus",
-      "index": 40,
+      "index": 24,
       "title": "Visual Focus",
       "notes": "",
       "templateId": "theme:terra:visual-focus",
@@ -12076,7 +7257,7 @@
       },
       "elements": [
         {
-          "id": "s-ay",
+          "id": "s-6m",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -12108,7 +7289,7 @@
           }
         },
         {
-          "id": "s-b0",
+          "id": "s-6o",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -12132,7 +7313,7 @@
           }
         },
         {
-          "id": "img-av",
+          "id": "img-6j",
           "kind": "image",
           "role": "image",
           "box": {
@@ -12152,7 +7333,7 @@
           }
         },
         {
-          "id": "s-aw",
+          "id": "s-6k",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -12188,7 +7369,7 @@
           }
         },
         {
-          "id": "t-ax",
+          "id": "t-6l",
           "kind": "text",
           "role": "title",
           "box": {
@@ -12223,7 +7404,7 @@
     },
     {
       "id": "terra-closing",
-      "index": 41,
+      "index": 25,
       "title": "Closing",
       "notes": "",
       "templateId": "theme:terra:closing",
@@ -12354,7 +7535,7 @@
     },
     {
       "id": "terra-appendix",
-      "index": 42,
+      "index": 26,
       "title": "Appendix",
       "notes": "",
       "templateId": "theme:terra:appendix",
@@ -12374,7 +7555,7 @@
       },
       "elements": [
         {
-          "id": "s-b3",
+          "id": "s-6r",
           "kind": "shape",
           "opacity": 0.2,
           "box": {
@@ -12406,7 +7587,7 @@
           }
         },
         {
-          "id": "s-b5",
+          "id": "s-6t",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -12430,7 +7611,7 @@
           }
         },
         {
-          "id": "t-b1",
+          "id": "t-6p",
           "kind": "text",
           "role": "title",
           "box": {
@@ -12462,7 +7643,7 @@
           }
         },
         {
-          "id": "t-b2",
+          "id": "t-6q",
           "kind": "text",
           "role": "bullet",
           "box": {

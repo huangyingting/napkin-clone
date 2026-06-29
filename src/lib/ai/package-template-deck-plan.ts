@@ -1,5 +1,7 @@
-import { REPAIRED_DECK_MAX_SLIDES } from "@/lib/ai/deck-repair";
-import type { DeckVisualInventoryItem } from "@/lib/ai/deck-prompt";
+import {
+  MAX_DECK_SLIDES,
+  type DeckVisualInventoryItem,
+} from "@/lib/ai/deck-generation-options";
 import {
   THEME_PACKAGE_TEMPLATE_KINDS,
   resolveThemePackageTemplateKind,
@@ -195,7 +197,7 @@ export function repairPackageDeckPlan(
   const slides: GeneratedPackageSlidePlan[] = [];
   const selectedKindCounts: Record<string, number> = {};
 
-  for (const rawSlide of parsed.slides.slice(0, REPAIRED_DECK_MAX_SLIDES)) {
+  for (const rawSlide of parsed.slides.slice(0, MAX_DECK_SLIDES)) {
     if (!isPlainObject(rawSlide)) continue;
     const title = stringValue(rawSlide.title) || "Untitled";
     const templateKind =

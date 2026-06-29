@@ -15,7 +15,7 @@ import {
   buildDeckGenerationSource,
   type DeckGenerationSource,
 } from "@/lib/ai/deck-source";
-import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
+import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Deck } from "@/lib/presentation/deck";
 import { materializePackageTemplateDeck } from "@/lib/presentation/package-template-materializer";

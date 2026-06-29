@@ -5,7 +5,7 @@ import {
   InputTooLongError,
   MAX_INPUT_CHARS,
 } from "@/lib/ai/generate";
-import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
+import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 import {
   isPlainObject,
@@ -18,7 +18,6 @@ import {
   formatDeckInputTooLongError,
 } from "@/lib/limits";
 import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
-import { inferPresentationTheme } from "@/lib/presentation/infer-theme";
 import {
   DEFAULT_THEME_PACKAGE_ID,
   isThemePackageId,
@@ -39,9 +38,8 @@ export interface GenerateDeckPayload {
   visuals: Map<string, Visual>;
   outline: string;
   truncated: boolean;
-  preferredTheme: ReturnType<typeof inferPresentationTheme>;
-  themePackageId?: ThemePackageId;
-  generationMode: "legacy" | "package-template";
+  themePackageId: ThemePackageId;
+  generationMode: "package-template";
 }
 
 export function visualsFromContent(
@@ -137,19 +135,16 @@ export function parseGenerateDeckPayload(
       message: formatDeckInputTooLongError(outline.length),
     };
   }
-  const preferredTheme = inferPresentationTheme(blocks);
   const generationModeRaw = body.generationMode;
-  const generationMode =
-    generationModeRaw === "package-template"
-      ? "package-template"
-      : generationModeRaw === "legacy" || generationModeRaw === undefined
-        ? "legacy"
-        : null;
-  if (generationMode === null) {
+  if (
+    generationModeRaw !== undefined &&
+    generationModeRaw !== null &&
+    generationModeRaw !== "package-template"
+  ) {
     return {
       ok: false,
       status: 400,
-      message: '`generationMode` must be "legacy" or "package-template".',
+      message: '`generationMode` must be "package-template".',
     };
   }
   let themePackageId: ThemePackageId | undefined;
@@ -162,7 +157,7 @@ export function parseGenerateDeckPayload(
       };
     }
     themePackageId = body.themePackageId;
-  } else if (generationMode === "package-template") {
+  } else {
     themePackageId = DEFAULT_THEME_PACKAGE_ID;
   }
 
@@ -175,9 +170,8 @@ export function parseGenerateDeckPayload(
       visuals,
       outline,
       truncated,
-      preferredTheme,
-      ...(themePackageId ? { themePackageId } : {}),
-      generationMode,
+      themePackageId,
+      generationMode: "package-template",
     },
   };
 }

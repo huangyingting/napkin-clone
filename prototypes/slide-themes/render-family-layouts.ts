@@ -1,7 +1,7 @@
 /**
  * Per-render-family layout builders.
  *
- * Each of the 33 render families gets its own distinct, theme-parameterized
+ * Each render family gets its own distinct, theme-parameterized
  * layout: varied background treatments (gradients vs. fields vs. framed),
  * different decorative shape signatures, mixed heading/body font pairing, and
  * purpose-fit content geometry. The themes differ by palette, fonts, corner
@@ -105,19 +105,6 @@ function orb(z: number, box: Box, color: string, opacity = 0.16) {
     shape: "ellipse",
     locked: true,
     name: "Orb",
-  });
-}
-
-function wedge(z: number, box: Box, color: string, rot = 12, opacity = 0.9) {
-  return shape({
-    zIndex: z,
-    shape: "triangle",
-    box,
-    fill: color,
-    opacity,
-    rotation: rot,
-    locked: true,
-    name: "Wedge",
   });
 }
 
@@ -344,15 +331,7 @@ function familyChrome(
     return [heroOrb, accentMotif, secondaryMotif];
   }
 
-  if (
-    [
-      "two-column",
-      "before-after",
-      "problem-solution",
-      "pros-cons",
-      "matrix-2x2",
-    ].includes(family)
-  ) {
+  if (["two-column", "matrix-2x2"].includes(family)) {
     return [
       heroOrb,
       secondaryMotif,
@@ -368,11 +347,7 @@ function familyChrome(
     ];
   }
 
-  if (
-    ["cards-3", "cards-4", "team-grid", "pricing-cards", "metric-row"].includes(
-      family,
-    )
-  ) {
+  if (["team-grid", "pricing-cards", "metric-row"].includes(family)) {
     return [heroOrb, accentMotif, secondaryMotif];
   }
 
@@ -544,42 +519,24 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
   "title-body": (s) => ({
     bg: tint(s),
     els: [
-      H(s, { x: 8, y: 16, w: 78, h: 12 }, "Definition & context", 5.6),
-      bar(9, { x: 8, y: 30, w: 14, h: 0.8 }, s.palette.accent),
-      Body(
+      H(s, { x: 8, y: 13, w: 78, h: 12 }, "Detailed context", 5.6),
+      Sub(
         s,
-        { x: 8, y: 35, w: 60, h: 44 },
-        "A focused statement of what this is, why it matters now, and the single outcome it changes. Kept calm and readable so the idea lands first.",
+        { x: 8, y: 27, w: 68, h: 7 },
+        "A dense narrative slide for the explanation that needs room.",
       ),
-      orb(
-        1,
-        { x: 70, y: 40, w: 40, h: 56 },
-        s.palette.deco[1] ?? s.palette.accent,
-        0.12,
-      ),
-    ],
-  }),
-  "text-visual-split": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 14, w: 44, h: 12 }, "Show, then tell", 5.4),
-      List(s, { x: 8, y: 32, w: 40, h: 50 }, [
-        "A picture anchors the claim.",
-        "Words carry the nuance.",
-        "Together they persuade.",
-      ]),
       panel(
         8,
-        { x: 52, y: 10, w: 42, h: 80 },
+        { x: 7, y: 38, w: 86, h: 44 },
         s.palette.surface,
-        s.cornerRadiusPt + 4,
+        s.cornerRadiusPt + 5,
       ),
-      image({
-        zIndex: 9,
-        box: { x: 55, y: 14, w: 36, h: 72 },
-        radius: s.cornerRadiusPt + 2,
-        fitMode: "cover",
-      }),
+      Body(
+        s,
+        { x: 11, y: 43, w: 78, h: 32 },
+        "Use this layout when the deck needs a real explanatory paragraph: background, requirements, analysis, caveats, or a compact narrative that should not be forced into bullets. The text area is intentionally broad and calm so dense content remains readable.",
+      ),
+      bar(9, { x: 11, y: 80, w: 18, h: 0.8 }, s.palette.accent),
     ],
   }),
   "visual-focus": (s) => ({
@@ -771,89 +728,6 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
       ),
     ],
   }),
-  "before-after": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 80, h: 8 }, "From friction to flow", 5.4),
-      ...card(
-        s,
-        8,
-        "TODAY",
-        ["Manual hand-offs", "Lost context", "Slow loops"],
-        40,
-      ),
-      wedge(9, { x: 47, y: 44, w: 6, h: 10 }, s.palette.accent, 90, 1),
-      ...card(
-        s,
-        52,
-        "WITH US",
-        ["One surface", "Living context", "Seconds, not days"],
-        40,
-        true,
-      ),
-    ],
-  }),
-  "problem-solution": (s) => ({
-    bg: tint(s),
-    els: [
-      ...card(s, 8, "PROBLEM", ["Costly", "Fragmented", "Opaque"], 40),
-      ...card(
-        s,
-        52,
-        "SOLUTION",
-        ["Unified API", "Built-in audit", "Own cloud"],
-        40,
-        true,
-      ),
-    ],
-  }),
-  "pros-cons": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 80, h: 8 }, "Trade-offs", 5.4),
-      ...card(s, 8, "PROS", ["Speed", "Focus", "Lower cost"], 40),
-      ...card(
-        s,
-        52,
-        "CONS",
-        ["Less coverage", "More change", "Sequencing"],
-        40,
-        true,
-      ),
-    ],
-  }),
-  "cards-3": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 70, h: 9 }, "Three pillars", 5.4),
-      ...[0, 1, 2].flatMap((i) =>
-        card(
-          s,
-          8 + i * 29,
-          ["FOCUS", "TRUST", "SPEED"][i],
-          ["A clear bet", "Earned daily", "Compounds"],
-          26,
-        ),
-      ),
-    ],
-  }),
-  "cards-4": (s) => ({
-    bg: tint(s),
-    els: [0, 1, 2, 3].flatMap((i) => [
-      panel(
-        8,
-        { x: 7 + i * 22, y: 30, w: 20, h: 50 },
-        s.palette.surface,
-        s.cornerRadiusPt + 4,
-      ),
-      Label(s, { x: 9 + i * 22, y: 34, w: 16, h: 6 }, ["A", "B", "C", "D"][i]),
-      Body(
-        s,
-        { x: 9 + i * 22, y: 42, w: 16, h: 32 },
-        ["Segment", "Channel", "Cost", "Edge"][i],
-      ),
-    ]),
-  }),
   "matrix-2x2": (s) => ({
     bg: tint(s),
     els: [
@@ -1022,19 +896,6 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
         { x: 9, y: 56, w: 60, h: 8 },
         "Highest upside with manageable risk.",
         "#ffffff",
-      ),
-    ],
-  }),
-  "next-steps": (s) => ({
-    bg: darkField(s),
-    els: [
-      bar(2, { x: 8, y: 43, w: 12, h: 0.7 }, s.palette.accent),
-      H(s, { x: 8, y: 47, w: 68, h: 13 }, "Next steps", 7.5, "#ffffff"),
-      List(
-        s,
-        { x: 8, y: 62, w: 70, h: 20 },
-        ["Confirm scope", "Assign owners", "Review in 2 weeks"],
-        "#cbd5e1",
       ),
     ],
   }),

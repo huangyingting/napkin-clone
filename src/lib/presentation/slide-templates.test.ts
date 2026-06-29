@@ -70,7 +70,13 @@ test("SLIDE_TEMPLATES exposes the five expected kinds in order", () => {
 });
 
 test("built-in template lookup returns authored records and rejects unknown kinds", () => {
-  assert.equal(getBuiltInSlideTemplate("content").category, "content");
+  const content = getBuiltInSlideTemplate("content");
+  assert.equal(content.category, "content");
+  assert.equal(content.source, "system");
+  assert.equal(content.semanticKind, "content");
+  assert.equal(content.layoutFamily, "title-bullets");
+  assert.equal(content.styleMode, "fixed");
+  assert.equal(getBuiltInSlideTemplate("blank").source, "system");
   assert.throws(
     () => getBuiltInSlideTemplate("missing" as SlideTemplateKind),
     /Missing built-in slide template/,

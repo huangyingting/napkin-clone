@@ -49,7 +49,6 @@ export interface UseDeckGenerationResult {
     options?: DeckGenerationOptions,
     request?: {
       themePackageId?: ThemePackageId;
-      generationMode?: "legacy" | "package-template";
     },
   ) => Promise<DeckGenerateResult>;
   /** Current lifecycle status. */
@@ -102,7 +101,6 @@ export function useDeckGeneration(): UseDeckGenerationResult {
       options: DeckGenerationOptions = {},
       request?: {
         themePackageId?: ThemePackageId;
-        generationMode?: "legacy" | "package-template";
       },
     ): Promise<DeckGenerateResult> => {
       abortRef.current?.abort();

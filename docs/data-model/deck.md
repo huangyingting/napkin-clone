@@ -55,17 +55,17 @@ schema v6.
 
 ## v6 Vocabulary
 
-| Term                 | Current meaning                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                   |
-| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                      |
-| `SlideMaster`        | Deck-owned global shared chrome: background treatment and locked background/foreground master elements.            |
-| `SlideTemplate`      | Creation or explicit-reapply blueprint. Templates materialize elements and are not normal render dependencies.     |
-| `Slide`              | Authored page instance with metadata, optional template provenance, optional slide design overrides, and elements. |
-| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.           |
-| `MasterElement`      | Locked shared chrome element from a master, identified by `masterChromeKind` and rendered by its layer band.       |
-| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.            |
-| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                         |
+| Term                 | Current meaning                                                                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                                                       |
+| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                                                          |
+| `SlideMaster`        | Deck-owned global shared chrome: background treatment and locked background/foreground master elements.                                                |
+| `SlideTemplate`      | Creation or explicit-reapply blueprint for system, theme, and custom templates. Templates materialize elements and are not normal render dependencies. |
+| `Slide`              | Authored page instance with metadata, optional template provenance, optional slide design overrides, and elements.                                     |
+| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.                                               |
+| `MasterElement`      | Locked shared chrome element from a master, identified by `masterChromeKind` and rendered by its layer band.                                           |
+| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.                                                |
+| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                                                             |
 
 The current schema uses presentation-native vocabulary. Superseded names such
 as top-level `themeId`, `customTokenSet`, `slideFormat`, `layouts`, slide
@@ -95,10 +95,42 @@ type PresentationDesign = {
 ```
 
 `canvas` owns geometry. `design` owns global visual language. `masters` own live
-shared chrome. `customTemplates` stores deck-local template blueprints,
-including installed theme package templates (`theme:*:*`) and user-created
-custom templates (`custom-*`). Older generic built-in templates live in code.
-`slides[]` owns authored page content.
+shared chrome. `customTemplates` stores deck-local `SlideTemplate` blueprints,
+including installed theme package templates (`source: "theme"`) and user-created
+custom templates (`source: "custom"`). Older generic built-in templates live in
+code as `source: "system"`. `slides[]` owns authored page content.
+
+`SlideTemplate` is the common template model across system, theme-package, and
+custom sources:
+
+```ts
+type SlideTemplate = {
+  id: string;
+  name: string;
+  category: "title" | "section" | "content" | "media" | "comparison" | "blank";
+  source?: "system" | "theme" | "custom";
+  semanticKind?: string;
+  layoutFamily?: string;
+  styleMode?: "fixed" | "theme-aware";
+  accepts?: string[];
+  capacity?: object;
+  bindings?: Array<{
+    slot: string;
+    target: string;
+    elementRole?: string;
+    elementIndex?: number;
+  }>;
+  defaultMasterId?: string;
+  slideDesignDefaults?: SlideDesignOverrides;
+  elements: SlideTemplateElement[];
+};
+```
+
+`source` is the template origin. `semanticKind` labels the presentation intent
+(`detail`, `comparison`, `timeline`, etc.) when known. `layoutFamily`,
+`accepts`, `capacity`, and `bindings` describe the template's fillable content
+contract. `styleMode` says whether a template is fixed (`custom` and legacy
+system templates by default) or theme-aware (`theme` package templates).
 
 ## Slide Content Model
 
@@ -411,7 +443,7 @@ They do not synthesize elements from flat slide fields at render time.
 
 - `src/lib/presentation/deck-schema.test.ts`
 - `src/lib/presentation/deck.test.ts`
-- `src/lib/presentation/deck-layout-assign.test.ts`
+- `src/lib/presentation/package-template-materializer.test.ts`
 - `src/lib/presentation/deck-merge.test.ts`
 - `src/lib/presentation/source-link-staleness.test.ts`
 - `src/lib/presentation/save-conflict.test.ts`

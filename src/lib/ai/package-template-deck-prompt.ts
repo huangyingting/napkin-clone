@@ -1,6 +1,8 @@
 import type { ChatMessage } from "@/lib/ai/prompt";
-import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
-import type { DeckVisualInventoryItem } from "@/lib/ai/deck-prompt";
+import type {
+  DeckGenerationOptions,
+  DeckVisualInventoryItem,
+} from "@/lib/ai/deck-generation-options";
 import {
   themePackageTemplateCatalogForAi,
   type ThemePackageId,
@@ -27,11 +29,13 @@ function renderCatalog(packageId: ThemePackageId): string {
   return themePackageTemplateCatalogForAi(packageId)
     .map((entry) =>
       [
-        `- ${entry.kind} (${entry.group}, ${entry.renderFamily})`,
+        `- ${entry.kind} (intent: ${entry.intent}, medium: ${entry.contentMedium}, layout: ${entry.renderFamily})`,
+        entry.artifactRole ? `  artifactRole: ${entry.artifactRole}` : null,
         `  bestFor: ${entry.bestFor}`,
         entry.avoidFor ? `  avoidFor: ${entry.avoidFor}` : null,
         `  accepts: ${entry.accepts.join(", ")}`,
-        `  signals: ${entry.signals.slice(0, 6).join(", ")}`,
+        `  capacity: ${JSON.stringify(entry.capacity)}`,
+        `  signals: ${entry.signals.slice(0, 8).join(", ")}`,
       ]
         .filter((line): line is string => line !== null)
         .join("\n"),
@@ -65,7 +69,7 @@ const SYSTEM_PROMPT = [
   '      "title": "short title",',
   '      "templateKind": "one catalog kind",',
   '      "selectionReason": "brief optional debug reason",',
-  '      "slots": { "title": "required", "bullets": ["..."], "table": { "columns": ["..."], "rows": [["..."]] } },',
+  '      "slots": { "title": "required", "body": "paragraph text", "bullets": ["..."], "table": { "columns": ["..."], "rows": [["..."]] } },',
   '      "notes": "optional overflow or speaker notes"',
   "    }",
   "  ]",
@@ -73,7 +77,10 @@ const SYSTEM_PROMPT = [
   "Rules:",
   "- Use templateKind values from the catalog only.",
   "- First slide should usually be cover.",
-  "- Last slide should usually be closing or next-steps.",
+  "- Last slide should usually be closing or recommendation.",
+  "- Choose by narrative intent first, content medium second, and layout/render family last.",
+  "- Use detail for dense explanatory paragraphs, background, requirements, analysis, or content-heavy narrative slides.",
+  "- Do not use industry names as template categories; use the cross-industry catalog kinds.",
   "- Keep visible slot text concise; put overflow in notes.",
   "- Use table slots only for naturally structured data, evidence, or comparisons.",
   "- Use visualId only when it exactly matches the visual inventory.",

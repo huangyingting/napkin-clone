@@ -3,42 +3,26 @@ import type { SlideTemplate } from "./deck-core";
 export const THEME_PACKAGE_TEMPLATE_KINDS = [
   "cover",
   "agenda",
-  "context",
   "section",
   "executive-summary",
-  "definition",
-  "principle",
   "content",
-  "key-takeaways",
+  "detail",
   "quote",
   "big-stat",
   "metric-row",
-  "data-insight",
+  "insight",
   "evidence",
   "table",
-  "problem-solution",
-  "before-after",
   "comparison",
-  "pros-cons",
-  "tradeoff",
   "matrix",
   "framework",
   "process",
-  "workflow",
   "timeline",
   "roadmap",
   "architecture",
   "case-study",
-  "customer-story",
-  "market-landscape",
-  "competitive-landscape",
-  "experiment",
-  "results",
   "risks",
-  "decision",
   "recommendation",
-  "next-steps",
-  "business-model",
   "pricing",
   "team",
   "visual-focus",
@@ -49,10 +33,6 @@ export const THEME_PACKAGE_TEMPLATE_KINDS = [
 export type ThemePackageTemplateKind =
   (typeof THEME_PACKAGE_TEMPLATE_KINDS)[number];
 
-export const LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES = ["two-column"] as const;
-export type LegacyThemePackageTemplateAlias =
-  (typeof LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES)[number];
-
 export const THEME_PACKAGE_RENDER_FAMILIES = [
   "cover",
   "section-divider",
@@ -60,7 +40,6 @@ export const THEME_PACKAGE_RENDER_FAMILIES = [
   "summary-list",
   "title-bullets",
   "title-body",
-  "text-visual-split",
   "visual-focus",
   "quote-hero",
   "stat-hero",
@@ -68,11 +47,6 @@ export const THEME_PACKAGE_RENDER_FAMILIES = [
   "data-insight",
   "table",
   "two-column",
-  "before-after",
-  "problem-solution",
-  "pros-cons",
-  "cards-3",
-  "cards-4",
   "matrix-2x2",
   "process-steps",
   "timeline",
@@ -82,7 +56,6 @@ export const THEME_PACKAGE_RENDER_FAMILIES = [
   "case-study",
   "risk-register",
   "recommendation",
-  "next-steps",
   "team-grid",
   "pricing-cards",
   "closing",
@@ -93,18 +66,66 @@ export type ThemePackageRenderFamily =
   (typeof THEME_PACKAGE_RENDER_FAMILIES)[number];
 
 export const THEME_PACKAGE_TEMPLATE_GROUPS = [
-  "opening",
-  "core",
+  "orient",
+  "explain",
   "compare",
-  "proof",
-  "flow",
+  "prove",
+  "sequence",
   "decision",
-  "business",
+  "commercial",
   "closing",
 ] as const;
 
 export type ThemePackageTemplateGroup =
   (typeof THEME_PACKAGE_TEMPLATE_GROUPS)[number];
+
+export const THEME_PACKAGE_TEMPLATE_INTENTS = THEME_PACKAGE_TEMPLATE_GROUPS;
+export type ThemePackageTemplateIntent =
+  (typeof THEME_PACKAGE_TEMPLATE_INTENTS)[number];
+
+export const THEME_PACKAGE_TEMPLATE_CONTENT_MEDIA = [
+  "text",
+  "bullets",
+  "table",
+  "metric",
+  "chart",
+  "quote",
+  "image",
+  "diagram",
+  "document",
+  "cards",
+  "steps",
+  "two-sided",
+] as const;
+
+export type ThemePackageTemplateContentMedium =
+  (typeof THEME_PACKAGE_TEMPLATE_CONTENT_MEDIA)[number];
+
+export const THEME_PACKAGE_TEMPLATE_ARTIFACT_ROLES = [
+  "agenda",
+  "analysis",
+  "appendix-detail",
+  "conceptual-model",
+  "detail",
+  "hero",
+  "market-landscape",
+  "narrative-proof",
+  "paired-analysis",
+  "pricing",
+  "recommendation",
+  "risk-register",
+  "section-marker",
+  "source-support",
+  "structural-map",
+  "summary",
+  "team",
+  "timeline",
+  "visual-story",
+  "workflow",
+] as const;
+
+export type ThemePackageTemplateArtifactRole =
+  (typeof THEME_PACKAGE_TEMPLATE_ARTIFACT_ROLES)[number];
 
 export type TemplateSlotKey =
   | "kicker"
@@ -132,6 +153,7 @@ export type TemplateSlotKey =
 
 export interface TemplateCapacity {
   bullets?: number;
+  body?: { paragraphs: number; chars: number };
   cards?: number;
   steps?: number;
   metrics?: number;
@@ -156,6 +178,9 @@ export interface ThemePackageTemplateMetadata {
   kind: ThemePackageTemplateKind;
   label: string;
   group: ThemePackageTemplateGroup;
+  intent: ThemePackageTemplateIntent;
+  contentMedium: ThemePackageTemplateContentMedium;
+  artifactRole?: ThemePackageTemplateArtifactRole;
   priority: number;
   renderFamily: ThemePackageRenderFamily;
   bestFor: string;
@@ -167,49 +192,29 @@ export interface ThemePackageTemplateMetadata {
   bindings: TemplateSlotBinding[];
 }
 
-export type ThemePackageTemplateIdKind =
-  | ThemePackageTemplateKind
-  | LegacyThemePackageTemplateAlias;
-
 export const SEMANTIC_TO_RENDER_FAMILY = {
   cover: "cover",
   agenda: "agenda",
-  context: "title-body",
   section: "section-divider",
   "executive-summary": "summary-list",
-  definition: "title-body",
-  principle: "title-bullets",
   content: "title-bullets",
-  "key-takeaways": "summary-list",
+  detail: "title-body",
   quote: "quote-hero",
   "big-stat": "stat-hero",
   "metric-row": "metric-row",
-  "data-insight": "data-insight",
+  insight: "data-insight",
   evidence: "table",
   table: "table",
-  "problem-solution": "problem-solution",
-  "before-after": "before-after",
   comparison: "two-column",
-  "pros-cons": "pros-cons",
-  tradeoff: "two-column",
   matrix: "matrix-2x2",
   framework: "framework-diagram",
   process: "process-steps",
-  workflow: "process-steps",
   timeline: "timeline",
   roadmap: "roadmap",
   architecture: "architecture-diagram",
   "case-study": "case-study",
-  "customer-story": "case-study",
-  "market-landscape": "cards-4",
-  "competitive-landscape": "matrix-2x2",
-  experiment: "data-insight",
-  results: "data-insight",
   risks: "risk-register",
-  decision: "recommendation",
   recommendation: "recommendation",
-  "next-steps": "next-steps",
-  "business-model": "cards-4",
   pricing: "pricing-cards",
   team: "team-grid",
   "visual-focus": "visual-focus",
@@ -218,7 +223,6 @@ export const SEMANTIC_TO_RENDER_FAMILY = {
 } as const satisfies Record<ThemePackageTemplateKind, ThemePackageRenderFamily>;
 
 const KIND_SET = new Set<string>(THEME_PACKAGE_TEMPLATE_KINDS);
-const LEGACY_ALIAS_SET = new Set<string>(LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES);
 
 export function isThemePackageTemplateKind(
   value: unknown,
@@ -226,17 +230,10 @@ export function isThemePackageTemplateKind(
   return typeof value === "string" && KIND_SET.has(value);
 }
 
-export function isLegacyThemePackageTemplateAlias(
-  value: unknown,
-): value is LegacyThemePackageTemplateAlias {
-  return typeof value === "string" && LEGACY_ALIAS_SET.has(value);
-}
-
 export function resolveThemePackageTemplateKind(
   value: unknown,
 ): ThemePackageTemplateKind | undefined {
   if (isThemePackageTemplateKind(value)) return value;
-  if (value === "two-column") return "comparison";
   return undefined;
 }
 
@@ -250,52 +247,103 @@ function titleCase(kind: string): string {
 function groupForKind(
   kind: ThemePackageTemplateKind,
 ): ThemePackageTemplateGroup {
-  if (["cover", "agenda", "context", "section"].includes(kind))
-    return "opening";
+  if (["cover", "agenda", "section", "executive-summary"].includes(kind))
+    return "orient";
+  if (["comparison", "matrix"].includes(kind)) return "compare";
   if (
     [
-      "comparison",
-      "pros-cons",
-      "tradeoff",
-      "before-after",
-      "problem-solution",
-      "matrix",
-      "competitive-landscape",
-    ].includes(kind)
-  )
-    return "compare";
-  if (
-    ["evidence", "table", "data-insight", "experiment", "results"].includes(
-      kind,
-    )
-  )
-    return "proof";
-  if (
-    [
-      "process",
-      "workflow",
-      "timeline",
-      "roadmap",
-      "architecture",
-      "framework",
-    ].includes(kind)
-  )
-    return "flow";
-  if (["risks", "decision", "recommendation", "next-steps"].includes(kind))
-    return "decision";
-  if (
-    [
-      "business-model",
-      "pricing",
-      "team",
-      "market-landscape",
+      "big-stat",
+      "metric-row",
+      "insight",
+      "evidence",
+      "table",
       "case-study",
-      "customer-story",
     ].includes(kind)
   )
-    return "business";
+    return "prove";
+  if (["process", "timeline", "roadmap"].includes(kind)) return "sequence";
+  if (["risks", "recommendation"].includes(kind)) return "decision";
+  if (["pricing", "team"].includes(kind)) return "commercial";
   if (["closing", "appendix"].includes(kind)) return "closing";
-  return "core";
+  return "explain";
+}
+
+function contentMediumForKind(
+  kind: ThemePackageTemplateKind,
+): ThemePackageTemplateContentMedium {
+  switch (kind) {
+    case "cover":
+    case "visual-focus":
+      return "image";
+    case "agenda":
+    case "executive-summary":
+    case "content":
+    case "recommendation":
+      return "bullets";
+    case "detail":
+      return "text";
+    case "quote":
+      return "quote";
+    case "big-stat":
+    case "metric-row":
+      return "metric";
+    case "insight":
+      return "chart";
+    case "evidence":
+    case "appendix":
+      return "document";
+    case "table":
+    case "risks":
+      return "table";
+    case "comparison":
+      return "two-sided";
+    case "matrix":
+    case "framework":
+    case "architecture":
+      return "diagram";
+    case "process":
+    case "timeline":
+    case "roadmap":
+      return "steps";
+    case "case-study":
+    case "pricing":
+    case "team":
+      return "cards";
+    default:
+      return "text";
+  }
+}
+
+const ARTIFACT_ROLE_BY_KIND: Partial<
+  Record<ThemePackageTemplateKind, ThemePackageTemplateArtifactRole>
+> = {
+  cover: "hero",
+  agenda: "agenda",
+  section: "section-marker",
+  "executive-summary": "summary",
+  detail: "detail",
+  insight: "analysis",
+  evidence: "source-support",
+  comparison: "paired-analysis",
+  matrix: "market-landscape",
+  framework: "conceptual-model",
+  process: "workflow",
+  timeline: "timeline",
+  roadmap: "timeline",
+  architecture: "structural-map",
+  "case-study": "narrative-proof",
+  risks: "risk-register",
+  recommendation: "recommendation",
+  pricing: "pricing",
+  team: "team",
+  "visual-focus": "visual-story",
+  appendix: "appendix-detail",
+};
+
+function artifactRoleForKind(
+  kind: ThemePackageTemplateKind,
+): ThemePackageTemplateArtifactRole | undefined {
+  return ARTIFACT_ROLE_BY_KIND[kind];
 }
 
 function acceptsForFamily(family: ThemePackageRenderFamily): TemplateSlotKey[] {
@@ -310,14 +358,13 @@ function acceptsForFamily(family: ThemePackageRenderFamily): TemplateSlotKey[] {
       return ["title", "stat", "statLabel", "caption"];
     case "metric-row":
       return ["title", "metrics", "caption"];
+    case "title-body":
+      return ["title", "subtitle", "body", "bullets", "caption"];
     case "table":
     case "data-insight":
     case "risk-register":
       return ["title", "subtitle", "table", "caption"];
     case "two-column":
-    case "before-after":
-    case "problem-solution":
-    case "pros-cons":
       return [
         "title",
         "leftTitle",
@@ -328,8 +375,6 @@ function acceptsForFamily(family: ThemePackageRenderFamily): TemplateSlotKey[] {
         "rightBullets",
         "caption",
       ];
-    case "cards-3":
-    case "cards-4":
     case "team-grid":
     case "pricing-cards":
       return ["title", "cards", "caption"];
@@ -338,7 +383,6 @@ function acceptsForFamily(family: ThemePackageRenderFamily): TemplateSlotKey[] {
     case "roadmap":
       return ["title", "steps", "caption"];
     case "visual-focus":
-    case "text-visual-split":
     case "architecture-diagram":
     case "framework-diagram":
       return ["title", "body", "bullets", "visualId", "imagePrompt", "caption"];
@@ -378,14 +422,9 @@ function capacityForFamily(family: ThemePackageRenderFamily): TemplateCapacity {
   ) {
     return { table: { columns: 4, rows: 6 } };
   }
-  if (family === "cards-4") return { cards: 4 };
-  if (
-    family === "cards-3" ||
-    family === "team-grid" ||
-    family === "pricing-cards"
-  )
-    return { cards: 3 };
+  if (family === "team-grid" || family === "pricing-cards") return { cards: 3 };
   if (family === "metric-row") return { metrics: 4 };
+  if (family === "title-body") return { body: { paragraphs: 4, chars: 900 } };
   if (
     family === "process-steps" ||
     family === "timeline" ||
@@ -399,6 +438,8 @@ function bestFor(
   kind: ThemePackageTemplateKind,
   family: ThemePackageRenderFamily,
 ): string {
+  if (kind === "detail")
+    return "Dense explanatory narrative, background, requirements, analysis, and content-heavy slides with paragraphs.";
   if (kind === "evidence")
     return "Proof, evidence, source-to-claim, legal, audit, and factual support slides.";
   if (kind === "table")
@@ -418,19 +459,35 @@ export const THEME_PACKAGE_TEMPLATE_METADATA = Object.fromEntries(
   THEME_PACKAGE_TEMPLATE_KINDS.map((kind, index) => {
     const renderFamily = SEMANTIC_TO_RENDER_FAMILY[kind];
     const accepts = acceptsForFamily(renderFamily);
+    const intent = groupForKind(kind);
+    const contentMedium = contentMediumForKind(kind);
+    const artifactRole = artifactRoleForKind(kind);
+    const signals = Array.from(
+      new Set([
+        kind,
+        renderFamily,
+        intent,
+        contentMedium,
+        ...(artifactRole ? [artifactRole] : []),
+        ...kind.split("-"),
+      ]),
+    );
     return [
       kind,
       {
         kind,
         label: titleCase(kind),
-        group: groupForKind(kind),
+        group: intent,
+        intent,
+        contentMedium,
+        ...(artifactRole ? { artifactRole } : {}),
         priority: index + 1,
         renderFamily,
         bestFor: bestFor(kind, renderFamily),
         ...(kind === "table"
           ? { avoidFor: "Proof-heavy source support; prefer evidence." }
           : {}),
-        signals: [kind, renderFamily, ...kind.split("-")],
+        signals,
         accepts,
         required: accepts.includes("title") ? ["title"] : undefined,
         capacity: capacityForFamily(renderFamily),
@@ -445,17 +502,7 @@ export function templateCategoryForFamily(
 ): SlideTemplate["category"] {
   if (family === "cover" || family === "closing") return "title";
   if (family === "section-divider") return "section";
-  if (family === "text-visual-split" || family === "visual-focus")
-    return "media";
-  if (
-    [
-      "two-column",
-      "before-after",
-      "problem-solution",
-      "pros-cons",
-      "matrix-2x2",
-    ].includes(family)
-  )
-    return "comparison";
+  if (family === "visual-focus") return "media";
+  if (["two-column", "matrix-2x2"].includes(family)) return "comparison";
   return "content";
 }

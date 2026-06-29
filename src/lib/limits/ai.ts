@@ -27,7 +27,7 @@ export const AI_DECK_INPUT_LIMIT: LimitDefinition = {
   unit: "chars",
   enforcement: "enforced",
   diagnostic: { scope: "api.generate-deck", metric: "aiDeckInputChars" },
-  source: "src/lib/ai/generate-deck.ts",
+  source: "src/lib/ai/run-package-template-deck-generation.ts",
 };
 
 export const GENERATED_DECK_SLIDE_LIMIT: LimitDefinition = {
@@ -37,7 +37,7 @@ export const GENERATED_DECK_SLIDE_LIMIT: LimitDefinition = {
   unit: "count",
   enforcement: "enforced",
   diagnostic: { scope: "ai.generate-deck", metric: "generatedDeckSlides" },
-  source: "src/lib/ai/generate-deck.ts",
+  source: "src/lib/ai/deck-generation-options.ts",
 };
 
 export const DECK_OUTPUT_TOKEN_LIMIT: LimitDefinition = {
@@ -47,7 +47,7 @@ export const DECK_OUTPUT_TOKEN_LIMIT: LimitDefinition = {
   unit: "count",
   enforcement: "warning",
   diagnostic: { scope: "api.generate-deck", metric: "deckOutputTokens" },
-  source: "src/lib/ai/generate-deck.ts",
+  source: "src/lib/ai/package-template-deck-prompt.ts",
 };
 
 export function formatVisualInputTooLongError(length: number): string {

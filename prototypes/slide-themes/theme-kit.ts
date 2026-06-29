@@ -627,9 +627,6 @@ function baseSlideIndexForRenderFamily(
     case "section-divider":
       return 1;
     case "two-column":
-    case "before-after":
-    case "problem-solution":
-    case "pros-cons":
     case "matrix-2x2":
       return 3;
     case "quote-hero":
@@ -691,7 +688,7 @@ function auroraFirstThreeBaseIndex(
       return 0;
     case "agenda":
       return 4;
-    case "context":
+    case "content":
       return 2;
     default:
       return undefined;
