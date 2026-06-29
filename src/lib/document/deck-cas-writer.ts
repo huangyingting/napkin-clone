@@ -5,6 +5,7 @@ import { MAX_DECK_JSON_BYTES, formatDeckTooLargeError } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 
 export type DeckCasDb = {
   document: {
@@ -33,17 +34,41 @@ export async function writeDeckWithCas({
   db = prisma,
   onSuccess,
 }: DeckCasWriteOptions): Promise<SaveDeckResult> {
-  const result = safeParseDeck(deckJson);
-  if (!result.success) {
-    reportSchemaFailure("deck-parse-failed", {
-      area: telemetryArea,
-      documentId,
-      reason: result.error,
-    });
-    return { ok: false, error: `Invalid deck: ${result.error}` };
+  // Detect schemaVersion to pick the right validator. v7 decks must not be
+  // passed through the v6 safeParseDeck (which rejects them by design).
+  const isV7 =
+    typeof deckJson === "object" &&
+    deckJson !== null &&
+    !Array.isArray(deckJson) &&
+    (deckJson as Record<string, unknown>).schemaVersion === 7;
+
+  let parsedData: unknown;
+  if (isV7) {
+    const v7Result = safeParseDeckV7(deckJson);
+    if (!v7Result.success) {
+      const reason = v7Result.errors.join("; ");
+      reportSchemaFailure("deck-parse-failed", {
+        area: telemetryArea,
+        documentId,
+        reason,
+      });
+      return { ok: false, error: `Invalid deck: ${reason}` };
+    }
+    parsedData = v7Result.data;
+  } else {
+    const result = safeParseDeck(deckJson);
+    if (!result.success) {
+      reportSchemaFailure("deck-parse-failed", {
+        area: telemetryArea,
+        documentId,
+        reason: result.error,
+      });
+      return { ok: false, error: `Invalid deck: ${result.error}` };
+    }
+    parsedData = result.data;
   }
 
-  const serialized = JSON.stringify(result.data);
+  const serialized = JSON.stringify(parsedData);
   if (serialized.length > MAX_DECK_JSON_BYTES) {
     return { ok: false, error: formatDeckTooLargeError() };
   }
@@ -57,7 +82,7 @@ export async function writeDeckWithCas({
         ? { id: documentId, deckRevisionToken: clientToken }
         : { id: documentId },
     data: {
-      deckJson: result.data as unknown as Prisma.InputJsonValue,
+      deckJson: parsedData as unknown as Prisma.InputJsonValue,
       deckRevisionToken: newToken,
     },
   });

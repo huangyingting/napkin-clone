@@ -138,6 +138,12 @@ export function DeckGenerationPreview({
     const result = await generate(contentJson, options);
     if (result.ok) {
       // Swap the proposal in only now that the replacement is ready.
+      // result.deck may be absent for v7-only responses — no-op to keep
+      // the prior proposal visible and surface a non-blocking error instead.
+      if (!result.deck) {
+        setRegenError(true);
+        return;
+      }
       setProposal(result.deck);
       setIsTruncated(result.truncated);
     } else {

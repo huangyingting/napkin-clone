@@ -1,19 +1,19 @@
 # Semantic Slide Design System
 
-**Status:** Proposed full refactor  
+**Status:** Implemented (vNext semantic schema; v6 migration utility in development)
 **Last updated:** 2026-06-29
 
-This document defines the implementation target for a complete presentation
-model refactor. It intentionally does not preserve the current v6 deck schema as
-the runtime boundary. The new system is a semantic slide document model with
-first-class style packages, semantic templates, AI slot generation, direct
-rendering, and direct export from the new tree.
+This document describes the implemented semantic slide design system that replaces
+the v6 presentation model. The vNext semantic slide schema is now the runtime
+boundary, implemented across the core model layer, React components, API
+generation, public render, and editor v7 path. The system features first-class
+style packages, semantic templates, AI slot generation, direct rendering, and
+direct export from the new tree.
 
-The current v6 model remains useful as source context during the refactor, but
-it is not a compatibility target for this design. After cutover, the runtime
-should accept the new schema only. Existing v6 documents should be migrated
-through a one-time migration path rather than supported by long-lived runtime
-compatibility layers.
+The current v6 model is being migrated through a one-time v6-to-v7 migration
+utility. After cutover, the runtime accepts the new schema only. Existing v6
+documents should be migrated through this path rather than supported by long-lived
+runtime compatibility layers.
 
 ## Target Outcome
 

@@ -108,6 +108,7 @@ test("parseDeckResponse returns the deck and truncated flag", () => {
   const parsed = parseDeckResponse({ deck: VALID_DECK, truncated: true });
   assert.ok(parsed);
   assert.equal(parsed.truncated, true);
+  assert.ok(parsed.deck, "deck should be present in v6 response");
   assert.equal(parsed.deck.slides[0].title, "Current");
 });
 
@@ -173,7 +174,8 @@ test("requestDeckGeneration returns the parsed deck on success", async () => {
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.truncated, true);
-    assert.equal(result.deck.slides[0].title, "Current");
+    assert.ok(result.deck, "deck should be populated for a v6 response");
+    assert.equal(result.deck?.slides[0].title, "Current");
   }
 });
 
@@ -314,5 +316,85 @@ test("requestDeckGeneration classifies an unparseable success payload as other",
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.errorKind, "other");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// parseDeckResponse — v7 typed extension point
+// ---------------------------------------------------------------------------
+
+const VALID_DECK_V7 = {
+  schemaVersion: 7,
+  canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+  theme: { packageId: "neutral" },
+  assets: { images: {} },
+  slides: [
+    {
+      id: "slide-0001",
+      type: "slide",
+      template: { kind: "cover" },
+      style: { ref: "slide.cover" },
+      children: [],
+    },
+  ],
+};
+
+test("parseDeckResponse returns deckV7 for a v7-only response even when v6 parse fails", () => {
+  const parsed = parseDeckResponse({ deck: VALID_DECK_V7, truncated: false });
+  assert.ok(parsed, "v7-only response should parse successfully");
+  assert.ok(parsed.deckV7, "deckV7 should be populated for a v7 deck");
+  assert.equal(
+    parsed.deck,
+    undefined,
+    "deck should be absent for a v7-only response",
+  );
+  assert.equal(parsed.truncated, false);
+});
+
+test("parseDeckResponse returns deckV7 === undefined for v6 response", () => {
+  const parsed = parseDeckResponse({ deck: VALID_DECK, truncated: false });
+  assert.ok(parsed, "v6 response should parse successfully");
+  assert.equal(
+    parsed.deckV7,
+    undefined,
+    "deckV7 should be absent for v6 responses",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// DeckGenerateResult — deckV7 extension point (type-level check)
+// ---------------------------------------------------------------------------
+
+test("DeckGenerateResult.deckV7 is exposed as optional on success", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse({
+      deck: VALID_DECK,
+      truncated: false,
+    })) as unknown as typeof fetch;
+  const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
+  assert.ok(result.ok);
+  if (result.ok) {
+    // deckV7 is undefined for v6 responses — structural presence in the type
+    // is verified by TypeScript; here we confirm the runtime value.
+    assert.equal(result.deckV7, undefined);
+  }
+});
+
+test("requestDeckGeneration succeeds for a v7 API response and populates deckV7", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse({
+      deck: VALID_DECK_V7,
+      truncated: false,
+    })) as unknown as typeof fetch;
+  const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
+  assert.equal(result.ok, true, "v7 API response should succeed");
+  if (result.ok) {
+    assert.ok(result.deckV7, "deckV7 should be populated for a v7 response");
+    assert.equal(
+      result.deck,
+      undefined,
+      "deck should be absent for a v7-only response",
+    );
+    assert.equal(result.truncated, false);
   }
 });

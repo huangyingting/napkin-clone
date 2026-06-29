@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
+import { PublicPresentViewerVNext } from "@/components/presentation-vnext/public-present-viewer-vnext";
 import { publicShareBudgetExceeded } from "@/app/public-abuse";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
 
@@ -39,6 +40,18 @@ export default async function PresentEmbedPage({
     notFound();
   }
   const { presentation } = result;
+
+  // Route v7 decks to the vNext render surface
+  if (presentation.deckV7) {
+    return (
+      <PublicPresentViewerVNext
+        deck={presentation.deckV7}
+        title={presentation.title}
+        embed
+        showAttribution={presentation.attribution.showAttribution}
+      />
+    );
+  }
 
   return (
     <PublicPresentViewer
