@@ -4,6 +4,12 @@ import {
   type Deck,
   type ElementAlign,
   type ElementBox,
+  IMAGE_FIT_MODES,
+  IMAGE_MASK_SHAPES,
+  type ImageCrop,
+  type ImageFitMode,
+  type ImageMaskShape,
+  type ShapeKind,
   type SlideElement,
   type TableElement,
   type TableElementStyle,
@@ -33,6 +39,22 @@ const SLIDE_TEMPLATE_IDS = [
 type SlideTemplateId = (typeof SLIDE_TEMPLATE_IDS)[number];
 const DEFAULT_TEMPLATE: SlideTemplateId = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
+const COLOR_REF_TOKENS = [
+  "slideBg",
+  "surface",
+  "accent",
+  "onBg",
+  "onSurface",
+  "onAccent",
+  "muted",
+] as const;
+const SHAPE_KINDS: readonly ShapeKind[] = [
+  "rect",
+  "ellipse",
+  "line",
+  "triangle",
+];
+const GLASS_INTENSITIES = ["light", "medium", "strong"] as const;
 const GENERATED_TABLE_MIN_COLUMNS = 2;
 const GENERATED_TABLE_MAX_COLUMNS = 4;
 const GENERATED_TABLE_MIN_ROWS = 2;
@@ -151,6 +173,132 @@ function repairTableStyle(input: unknown): TableElementStyle | undefined {
     style.headerTextStyle = repairTextStyle(input.headerTextStyle);
   }
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function repairColorRef(
+  input: unknown,
+): { token: string } | { value: string } | undefined {
+  if (!isPlainObject(input)) return undefined;
+  if (
+    typeof input.token === "string" &&
+    (COLOR_REF_TOKENS as readonly string[]).includes(input.token)
+  ) {
+    return { token: input.token };
+  }
+  if (isHexColor(input.value)) return { value: input.value };
+  return undefined;
+}
+
+function repairPercent(value: unknown): number | undefined {
+  return isFiniteNumber(value) ? clamp(value, 0, 100) : undefined;
+}
+
+function repairFill(input: unknown) {
+  if (!isPlainObject(input)) return undefined;
+  if (input.type === "radialGradient") {
+    const inner = repairColorRef(input.inner);
+    const outer = repairColorRef(input.outer);
+    if (!inner || !outer) return undefined;
+    const cx = repairPercent(input.cx);
+    const cy = repairPercent(input.cy);
+    const r = repairPercent(input.r);
+    return {
+      type: "radialGradient" as const,
+      inner,
+      outer,
+      ...(cx !== undefined ? { cx } : {}),
+      ...(cy !== undefined ? { cy } : {}),
+      ...(r !== undefined ? { r } : {}),
+    };
+  }
+  return repairColorRef(input);
+}
+
+function repairShapeEffect(input: unknown, shape: ShapeKind) {
+  if (shape === "line" || !isPlainObject(input)) return undefined;
+  if (input.kind !== "glass") return undefined;
+  if (
+    !(GLASS_INTENSITIES as readonly string[]).includes(
+      input.intensity as string,
+    )
+  ) {
+    return undefined;
+  }
+  return {
+    kind: "glass" as const,
+    intensity: input.intensity as (typeof GLASS_INTENSITIES)[number],
+  };
+}
+
+function repairStroke(input: unknown) {
+  if (!isPlainObject(input) || !isHexColor(input.color)) return undefined;
+  return {
+    color: input.color,
+    width: isFiniteNumber(input.width) ? Math.max(0, input.width) : 0.4,
+  };
+}
+
+function repairShapeDesign(
+  input: Record<string, unknown>,
+  shape: ShapeKind,
+): Record<string, unknown> | undefined {
+  const fill = repairFill(input.fill);
+  const effect = repairShapeEffect(input.effect, shape);
+  const stroke = repairStroke(input.stroke);
+  const textStyle = isPlainObject(input.textStyle)
+    ? repairTextStyle(input.textStyle)
+    : undefined;
+  const radius = isFiniteNumber(input.radius)
+    ? clamp(input.radius, 0, 50)
+    : undefined;
+  const design = {
+    ...(fill ? { fill } : {}),
+    ...(effect ? { effect } : {}),
+    ...(stroke ? { stroke } : {}),
+    ...(radius !== undefined ? { radius } : {}),
+    ...(textStyle ? { textStyle } : {}),
+  };
+  return Object.keys(design).length > 0 ? design : undefined;
+}
+
+function repairImageCrop(input: unknown): ImageCrop | undefined {
+  if (!isPlainObject(input)) return undefined;
+  if (
+    !isFiniteNumber(input.top) ||
+    !isFiniteNumber(input.right) ||
+    !isFiniteNumber(input.bottom) ||
+    !isFiniteNumber(input.left)
+  ) {
+    return undefined;
+  }
+  return {
+    top: clamp(input.top, 0, 1),
+    right: clamp(input.right, 0, 1),
+    bottom: clamp(input.bottom, 0, 1),
+    left: clamp(input.left, 0, 1),
+  };
+}
+
+function repairImageDesign(
+  input: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const fitMode = IMAGE_FIT_MODES.includes(input.fitMode as ImageFitMode)
+    ? (input.fitMode as ImageFitMode)
+    : undefined;
+  const maskShape = IMAGE_MASK_SHAPES.includes(
+    input.maskShape as ImageMaskShape,
+  )
+    ? (input.maskShape as ImageMaskShape)
+    : undefined;
+  const radius = isFiniteNumber(input.radius)
+    ? clamp(input.radius, 0, 50)
+    : undefined;
+  const design = {
+    ...(fitMode ? { fitMode } : {}),
+    ...(maskShape ? { maskShape } : {}),
+    ...(radius !== undefined ? { radius } : {}),
+  };
+  return Object.keys(design).length > 0 ? design : undefined;
 }
 
 function truncateCellText(
@@ -405,6 +553,47 @@ export function repairElement(
             ? { alt: content.alt }
             : {}),
         },
+      } as unknown as SlideElement;
+    }
+    case "image": {
+      const src = typeof content.src === "string" ? content.src.trim() : "";
+      const assetId =
+        typeof content.assetId === "string" ? content.assetId.trim() : "";
+      if (src.length === 0 && assetId.length === 0) return undefined;
+      const imageDesign = repairImageDesign(designOverrides);
+      const crop = repairImageCrop(content.crop);
+      return {
+        ...base,
+        kind: "image",
+        role: "image",
+        content: {
+          kind: "image",
+          ...(src.length > 0 ? { src } : {}),
+          ...(assetId.length > 0 ? { assetId } : {}),
+          ...(typeof content.alt === "string" ? { alt: content.alt } : {}),
+          ...(crop ? { crop } : {}),
+        },
+        ...(imageDesign ? { designOverrides: imageDesign } : {}),
+      } as unknown as SlideElement;
+    }
+    case "shape": {
+      const shape = SHAPE_KINDS.includes(content.shape as ShapeKind)
+        ? (content.shape as ShapeKind)
+        : "rect";
+      const shapeDesign = repairShapeDesign(designOverrides, shape);
+      return {
+        ...base,
+        kind: "shape",
+        role:
+          input.role === "label" || input.role === "background"
+            ? input.role
+            : "background",
+        content: {
+          kind: "shape",
+          shape,
+          ...(typeof content.text === "string" ? { text: content.text } : {}),
+        },
+        ...(shapeDesign ? { designOverrides: shapeDesign } : {}),
       } as unknown as SlideElement;
     }
     case "table":

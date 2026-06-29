@@ -108,6 +108,84 @@ test("repairElement assigns fallback ids and default text roles", () => {
   assert.equal((text as any).designOverrides.textStyle.color, undefined);
 });
 
+test("repairElement preserves current-schema radial glass shape elements", () => {
+  const shape = repairElement(
+    {
+      kind: "shape",
+      role: "unknown-role",
+      content: { kind: "shape", shape: "triangle", text: "Signal" },
+      designOverrides: {
+        fill: {
+          type: "radialGradient",
+          inner: { value: "#ffffff" },
+          outer: { token: "accent" },
+          cx: -10,
+          cy: 45,
+          r: 120,
+        },
+        effect: { kind: "glass", intensity: "strong" },
+        radius: 80,
+      },
+    },
+    0,
+  );
+
+  assert.equal(shape?.kind, "shape");
+  assert.equal((shape as any).role, "background");
+  assert.deepEqual((shape as any).content, {
+    kind: "shape",
+    shape: "triangle",
+    text: "Signal",
+  });
+  assert.deepEqual((shape as any).designOverrides.fill, {
+    type: "radialGradient",
+    inner: { value: "#ffffff" },
+    outer: { token: "accent" },
+    cx: 0,
+    cy: 45,
+    r: 100,
+  });
+  assert.deepEqual((shape as any).designOverrides.effect, {
+    kind: "glass",
+    intensity: "strong",
+  });
+  assert.equal((shape as any).designOverrides.radius, 50);
+});
+
+test("repairElement preserves current-schema image elements and drops empty images", () => {
+  const image = repairElement(
+    {
+      kind: "image",
+      content: {
+        kind: "image",
+        src: " https://example.test/hero.png ",
+        alt: "Hero image",
+        crop: { top: -0.2, right: 0.2, bottom: 1.4, left: 0 },
+      },
+      designOverrides: { fitMode: "cover", maskShape: "triangle", radius: 75 },
+    },
+    0,
+  );
+
+  assert.equal(image?.kind, "image");
+  assert.deepEqual((image as any).content, {
+    kind: "image",
+    src: "https://example.test/hero.png",
+    alt: "Hero image",
+    crop: { top: 0, right: 0.2, bottom: 1, left: 0 },
+  });
+  assert.deepEqual((image as any).designOverrides, {
+    fitMode: "cover",
+    maskShape: "triangle",
+    radius: 50,
+  });
+
+  assert.equal(
+    repairElement({ kind: "image", content: { kind: "image" } }, 1),
+    undefined,
+  );
+});
+
 test("repairElement normalizes generated table elements with strict slide limits", () => {
   const table = repairElement(
     {
@@ -196,6 +274,60 @@ test("repairDeck repairs malformed model output into a schema-valid deck candida
   assert.equal(repaired.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
   assert.equal(repaired.slides.length, 1);
   assert.equal(safeParseDeck(repaired).success, true);
+});
+
+test("repairDeck preserves generated shape and image elements through normalization", () => {
+  const deck = repairDeck({
+    design: { themeId: "indigo" },
+    slides: [
+      {
+        id: "slide-1",
+        title: "Visual primitives",
+        templateId: "blank",
+        elements: [
+          {
+            id: "shape-1",
+            kind: "shape",
+            role: "background",
+            box: { x: 8, y: 10, w: 84, h: 34 },
+            content: { kind: "shape", shape: "ellipse" },
+            designOverrides: {
+              fill: {
+                type: "radialGradient",
+                inner: { value: "#ffffff" },
+                outer: { value: "#1e293b" },
+              },
+              effect: { kind: "glass", intensity: "light" },
+            },
+          },
+          {
+            id: "image-1",
+            kind: "image",
+            box: { x: 20, y: 50, w: 60, h: 35 },
+            content: {
+              kind: "image",
+              src: "https://example.test/photo.png",
+              alt: "Photo",
+            },
+            designOverrides: { fitMode: "cover", maskShape: "ellipse" },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.ok(deck);
+  const parsed = safeParseDeck(deck);
+  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
+  if (!parsed.success) return;
+  assert.deepEqual(
+    parsed.data.slides[0].elements?.map((element) => element.kind),
+    ["shape", "image"],
+  );
+  const [shape, image] = parsed.data.slides[0].elements ?? [];
+  assert.equal((shape as any).designOverrides.fill.type, "radialGradient");
+  assert.equal((shape as any).designOverrides.effect.kind, "glass");
+  assert.equal((image as any).designOverrides.maskShape, "ellipse");
 });
 
 test("repairDeck rejects non-deck payloads and caps slide count", () => {
