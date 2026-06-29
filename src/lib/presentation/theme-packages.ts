@@ -17,6 +17,36 @@ import type {
 import type { SlideElement } from "./deck-elements";
 import type { PresentationTheme } from "./presentation-theme-types";
 import { resolveThemeTokens } from "./presentation-theme-resolvers";
+import {
+  LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES,
+  SEMANTIC_TO_RENDER_FAMILY,
+  THEME_PACKAGE_TEMPLATE_KINDS,
+  THEME_PACKAGE_TEMPLATE_METADATA,
+  resolveThemePackageTemplateKind,
+  templateCategoryForFamily,
+  type LegacyThemePackageTemplateAlias,
+  type ThemePackageTemplateGroup,
+  type ThemePackageTemplateKind,
+  type ThemePackageTemplateMetadata,
+} from "./theme-template-taxonomy";
+
+export {
+  LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES,
+  SEMANTIC_TO_RENDER_FAMILY,
+  THEME_PACKAGE_RENDER_FAMILIES,
+  THEME_PACKAGE_TEMPLATE_GROUPS,
+  THEME_PACKAGE_TEMPLATE_KINDS,
+  THEME_PACKAGE_TEMPLATE_METADATA,
+  isThemePackageTemplateKind,
+  resolveThemePackageTemplateKind,
+  type TemplateCapacity,
+  type TemplateSlotBinding,
+  type TemplateSlotKey,
+  type ThemePackageRenderFamily,
+  type ThemePackageTemplateGroup,
+  type ThemePackageTemplateKind,
+  type ThemePackageTemplateMetadata,
+} from "./theme-template-taxonomy";
 
 export const THEME_PACKAGE_IDS = [
   "clarity",
@@ -33,18 +63,6 @@ export type ThemePackageId = (typeof THEME_PACKAGE_IDS)[number];
 
 export const DEFAULT_THEME_PACKAGE_ID: ThemePackageId = "clarity";
 
-export const THEME_PACKAGE_TEMPLATE_KINDS = [
-  "cover",
-  "section",
-  "content",
-  "two-column",
-  "quote",
-  "closing",
-] as const;
-
-export type ThemePackageTemplateKind =
-  (typeof THEME_PACKAGE_TEMPLATE_KINDS)[number];
-
 export interface PresentationThemePackage {
   id: ThemePackageId;
   name: string;
@@ -54,6 +72,7 @@ export interface PresentationThemePackage {
   masters: SlideMaster[];
   defaultMasterId: string;
   templates: SlideTemplate[];
+  templateMetadata: ThemePackageTemplateMetadata[];
 }
 
 type PackageDeckSource = {
@@ -64,22 +83,43 @@ type PackageDeckSource = {
 };
 
 const PACKAGE_ID_SET = new Set<string>(THEME_PACKAGE_IDS);
-const TEMPLATE_KIND_SET = new Set<string>(THEME_PACKAGE_TEMPLATE_KINDS);
+const TEMPLATE_ID_KIND_SET = new Set<string>([
+  ...THEME_PACKAGE_TEMPLATE_KINDS,
+  ...LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES,
+]);
 const PACKAGE_ALIASES: Record<string, ThemePackageId> = {
   default: DEFAULT_THEME_PACKAGE_ID,
 };
 
-const TEMPLATE_META: Record<
-  ThemePackageTemplateKind,
-  { name: string; category: SlideTemplate["category"] }
+const LEGACY_TEMPLATE_KIND_TO_BASE_INDEX: Record<
+  LegacyThemePackageTemplateAlias,
+  number
 > = {
-  cover: { name: "Cover", category: "title" },
-  section: { name: "Section divider", category: "section" },
-  content: { name: "Content", category: "content" },
-  "two-column": { name: "Two-column", category: "comparison" },
-  quote: { name: "Quote / stat", category: "content" },
-  closing: { name: "Closing", category: "title" },
+  "two-column": 3,
 };
+
+function baseTemplateIndex(kind: ThemePackageTemplateKind): number {
+  const family = SEMANTIC_TO_RENDER_FAMILY[kind];
+  switch (family) {
+    case "cover":
+      return 0;
+    case "section-divider":
+      return 1;
+    case "two-column":
+    case "before-after":
+    case "problem-solution":
+    case "pros-cons":
+    case "matrix-2x2":
+      return 3;
+    case "quote-hero":
+    case "stat-hero":
+      return 4;
+    case "closing":
+      return 5;
+    default:
+      return 2;
+  }
+}
 
 const PACKAGE_DECK_SOURCES: PackageDeckSource[] = [
   {
@@ -136,9 +176,9 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function packageTemplateId(
+export function resolveThemePackageTemplateId(
   packageId: ThemePackageId,
-  kind: ThemePackageTemplateKind,
+  kind: ThemePackageTemplateKind | LegacyThemePackageTemplateAlias,
 ): string {
   return `theme:${packageId}:${kind}`;
 }
@@ -178,17 +218,18 @@ function templateElementFromSlideElement(
 function templateFromSlide(
   packageId: ThemePackageId,
   masterId: string,
-  kind: ThemePackageTemplateKind,
+  kind: ThemePackageTemplateKind | LegacyThemePackageTemplateAlias,
   slide: Slide,
 ): SlideTemplate {
-  const meta = TEMPLATE_META[kind];
+  const semanticKind = resolveThemePackageTemplateKind(kind) ?? "content";
+  const metadata = THEME_PACKAGE_TEMPLATE_METADATA[semanticKind];
   const elements = [...(slide.elements ?? [])]
     .sort((a, b) => ((a as any).zIndex ?? 0) - ((b as any).zIndex ?? 0))
     .map(templateElementFromSlideElement);
   return {
-    id: packageTemplateId(packageId, kind),
-    name: meta.name,
-    category: meta.category,
+    id: resolveThemePackageTemplateId(packageId, kind),
+    name: kind === "two-column" ? "Two-column" : metadata.label,
+    category: templateCategoryForFamily(metadata.renderFamily),
     defaultMasterId: masterId,
     ...(slide.designOverrides
       ? { slideDesignDefaults: clone(slide.designOverrides) }
@@ -215,8 +256,28 @@ function buildThemePackage(
     tokenSet: { ...tokenSet, id: source.id, name: source.name },
     masters,
     defaultMasterId,
-    templates: THEME_PACKAGE_TEMPLATE_KINDS.map((kind, index) =>
-      templateFromSlide(source.id, defaultMasterId, kind, slides[index]!),
+    templates: [
+      ...THEME_PACKAGE_TEMPLATE_KINDS.map((kind) =>
+        templateFromSlide(
+          source.id,
+          defaultMasterId,
+          kind,
+          slides[baseTemplateIndex(kind)] ?? slides[2] ?? slides[0]!,
+        ),
+      ),
+      ...LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES.map((kind) =>
+        templateFromSlide(
+          source.id,
+          defaultMasterId,
+          kind,
+          slides[LEGACY_TEMPLATE_KIND_TO_BASE_INDEX[kind]] ??
+            slides[2] ??
+            slides[0]!,
+        ),
+      ),
+    ],
+    templateMetadata: THEME_PACKAGE_TEMPLATE_KINDS.map((kind) =>
+      clone(THEME_PACKAGE_TEMPLATE_METADATA[kind]),
     ),
   };
 }
@@ -252,8 +313,64 @@ export function isThemePackageTemplateId(value: unknown): value is string {
   return (
     prefix === "theme" &&
     !!resolveThemePackageId(packageId ?? "") &&
-    TEMPLATE_KIND_SET.has(kind ?? "")
+    TEMPLATE_ID_KIND_SET.has(kind ?? "")
   );
+}
+
+export function getThemePackageTemplateMetadata(
+  _packageId: string,
+  kind: unknown,
+): ThemePackageTemplateMetadata | undefined {
+  const resolvedKind = resolveThemePackageTemplateKind(kind);
+  return resolvedKind
+    ? clone(THEME_PACKAGE_TEMPLATE_METADATA[resolvedKind])
+    : undefined;
+}
+
+export function themePackageTemplateCatalogForAi(
+  packageId: string,
+): Array<
+  Pick<
+    ThemePackageTemplateMetadata,
+    | "kind"
+    | "label"
+    | "group"
+    | "priority"
+    | "renderFamily"
+    | "bestFor"
+    | "avoidFor"
+    | "signals"
+    | "accepts"
+    | "required"
+    | "capacity"
+  >
+> {
+  const themePackage = getThemePackage(packageId);
+  if (!themePackage) return [];
+  return themePackage.templateMetadata.map(
+    ({ bindings: _bindings, ...metadata }) => clone(metadata),
+  );
+}
+
+export function themePackageTemplateGroupsForUi(packageId: string): Array<{
+  group: ThemePackageTemplateGroup;
+  templates: ThemePackageTemplateMetadata[];
+}> {
+  const themePackage = getThemePackage(packageId);
+  if (!themePackage) return [];
+  const groups = new Map<
+    ThemePackageTemplateGroup,
+    ThemePackageTemplateMetadata[]
+  >();
+  for (const metadata of themePackage.templateMetadata) {
+    const bucket = groups.get(metadata.group) ?? [];
+    bucket.push(clone(metadata));
+    groups.set(metadata.group, bucket);
+  }
+  return [...groups.entries()].map(([group, templates]) => ({
+    group,
+    templates: templates.sort((a, b) => a.priority - b.priority),
+  }));
 }
 
 export function themePackageTemplatesForDeck(deck: Deck): SlideTemplate[] {

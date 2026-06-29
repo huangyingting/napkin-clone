@@ -13,6 +13,7 @@ import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Deck } from "@/lib/presentation/deck";
+import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 
 export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 
@@ -85,6 +86,10 @@ function isEmptyOutline400(payload: unknown): boolean {
 export function buildDeckGenerationBody(
   contentJson: unknown,
   options: DeckGenerationOptions = {},
+  request?: {
+    themePackageId?: ThemePackageId;
+    generationMode?: "legacy" | "package-template";
+  },
 ): Record<string, unknown> {
   const opts: Record<string, unknown> = {};
   if (options.length) opts.length = options.length;
@@ -100,6 +105,12 @@ export function buildDeckGenerationBody(
   const body: Record<string, unknown> = { contentJson };
   if (Object.keys(opts).length > 0) {
     body.options = opts;
+  }
+  if (request?.themePackageId !== undefined) {
+    body.themePackageId = request.themePackageId;
+  }
+  if (request?.generationMode !== undefined) {
+    body.generationMode = request.generationMode;
   }
   return body;
 }
@@ -148,13 +159,19 @@ export async function requestDeckGeneration(
   options: DeckGenerationOptions = {},
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
+  request?: {
+    themePackageId?: ThemePackageId;
+    generationMode?: "legacy" | "package-template";
+  },
 ): Promise<DeckGenerateResult> {
   let response: Response;
   try {
     response = await fetchImpl("/api/generate-deck", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildDeckGenerationBody(contentJson, options)),
+      body: JSON.stringify(
+        buildDeckGenerationBody(contentJson, options, request),
+      ),
       signal,
     });
   } catch (error) {

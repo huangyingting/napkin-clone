@@ -37,14 +37,21 @@ or callers that still ask for the default package.
 | `terra`     | Sustainability, research, and strategy decks.                      |
 | `pulse`     | Launch, startup, and marketing decks with high-contrast geometry.  |
 
-Each package provides six templates:
+Each package exposes the canonical semantic template catalog defined by
+`THEME_PACKAGE_TEMPLATE_KINDS`. The catalog includes opening, core, compare,
+proof, flow, decision, business, and closing templates such as `cover`,
+`executive-summary`, `evidence`, `table`, `roadmap`, `recommendation`, and
+`appendix`.
 
-- Cover
-- Section divider
-- Content
-- Two-column
-- Quote or stat
-- Closing
+Several semantic kinds may reuse the same render family. For example,
+`comparison` and `tradeoff` may share a two-column physical layout, while
+`evidence` and `table` share table rendering. The semantic id is still the
+runtime template id so AI plans and editor UI can reason in content terms.
+
+The legacy `two-column` package template id remains accepted as an alias for
+older decks and commands. New AI/catalog flows prefer semantic kinds such as
+`comparison`, `pros-cons`, `tradeoff`, `before-after`, and
+`problem-solution`.
 
 Six packages (`aurora`, `monolith`, `editorial`, `noir`, `terra`, and `pulse`)
 are derived from the validated prototype decks under `prototypes/slide-themes`.
@@ -80,17 +87,15 @@ Package templates use string ids in this form:
 theme:<package-id>:<template-kind>
 ```
 
-The supported template kinds are:
-
-```text
-cover | section | content | two-column | quote | closing
-```
+The supported template kinds are the canonical semantic kinds exported from
+`src/lib/presentation/theme-template-taxonomy.ts`. `two-column` remains a
+legacy alias, not a preferred new catalog kind.
 
 Examples:
 
 ```text
 theme:terra:cover
-theme:pulse:two-column
+theme:pulse:tradeoff
 theme:clarity:closing
 ```
 
@@ -105,10 +110,17 @@ The theme picker presents packages as the primary theme choices. Selecting a
 theme package replaces the deck's theme tokens, master catalog, default master,
 and installed package templates.
 
-The Add slide picker prioritizes the currently installed package templates. When
-package templates are present, they form the main template family. User-created
-templates stay in the Custom group. Generic built-in templates are fallback
-options for decks that do not yet have package templates.
+The Add slide picker prioritizes the currently installed package templates and
+groups them by metadata group: Opening, Core, Compare, Proof, Flow, Decision,
+Business, and Closing. User-created templates stay separate. Generic built-in
+templates are fallback options for decks that do not yet have package
+templates.
+
+Package metadata is catalog-only. It includes labels, group, priority,
+render-family, best-use guidance, slot acceptance, capacity, and bindings for
+AI and UI consumers. It is not persisted in `Document.deckJson`; applying a
+package still persists only the deck fields listed above plus materialized
+`customTemplates` and slide `templateId` provenance.
 
 The current slide's template apply and reapply commands can use either package
 template ids or user custom template ids. Reapplying a package template replaces

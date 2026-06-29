@@ -37,7 +37,16 @@ import { DECK_OUTPUT_TOKEN_BUDGET } from "@/lib/limits";
 import { createGenerationRouteHandler } from "@/lib/ai/generation-route";
 import { notFound } from "@/lib/api/errors";
 import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
-import { isAiDeckGenEnabled } from "@/lib/ai/config";
+import {
+  isAiDeckGenEnabled,
+  isAiDeckGenPackageTemplatesEnabled,
+} from "@/lib/ai/config";
+import { runPackageTemplateDeckGeneration } from "@/lib/ai/run-package-template-deck-generation";
+import { buildDeckFromBlocks } from "@/lib/presentation/deck";
+import {
+  computeDeckContentHash,
+  stampDeckContentHash,
+} from "@/lib/presentation/deck-hash";
 import { logInfo } from "@/lib/log";
 
 import {
@@ -70,14 +79,44 @@ const handleGenerateDeck = createGenerationRouteHandler<
   azureMaxOutputTokens: DECK_OUTPUT_TOKEN_BUDGET,
   parsePayload: parseGenerateDeckPayload,
   creditText: (payload) => payload.outline,
-  generate: ({ payload, complete }) =>
-    runDeckGeneration({
-      contentJson: payload.contentJson,
-      visuals: payload.visuals,
-      complete,
-      options: payload.options,
-      preferredTheme: payload.preferredTheme,
-    }),
+  generate: async ({ payload, complete }) => {
+    const runLegacy = () =>
+      runDeckGeneration({
+        contentJson: payload.contentJson,
+        visuals: payload.visuals,
+        complete,
+        options: payload.options,
+        preferredTheme: payload.preferredTheme,
+      });
+    if (
+      payload.generationMode === "package-template" &&
+      payload.themePackageId &&
+      isAiDeckGenPackageTemplatesEnabled()
+    ) {
+      try {
+        const baseline = buildDeckFromBlocks(payload.blocks as any, "indigo");
+        const baseDeck = stampDeckContentHash(
+          baseline,
+          computeDeckContentHash(baseline),
+        );
+        return await runPackageTemplateDeckGeneration({
+          contentJson: payload.contentJson,
+          visuals: payload.visuals,
+          baseDeck,
+          packageId: payload.themePackageId,
+          complete,
+          options: payload.options,
+        });
+      } catch (error) {
+        logInfo(LOG_SCOPE, "package-template-fallback", {
+          reason: error instanceof Error ? error.message : String(error),
+          packageId: payload.themePackageId,
+        });
+        return runLegacy();
+      }
+    }
+    return runLegacy();
+  },
   successResponse: ({ deck }, { payload }) =>
     NextResponse.json({ deck, truncated: payload.truncated }),
   mapGenerationError: mapGenerateDeckError,

@@ -101,9 +101,11 @@ import {
 } from "@/lib/presentation/slide-templates";
 import {
   getThemePackage,
+  getThemePackageTemplateMetadata,
   isThemePackageTemplateId,
   previewDeckForThemePackage,
   slideFromThemePackageTemplate,
+  themePackageTemplateGroupsForUi,
   themePackageTemplatesForDeck,
 } from "@/lib/presentation/theme-packages";
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
@@ -1022,32 +1024,98 @@ export function SlideTemplatePicker({
   const userTemplates = customTemplates.filter(
     (template) => !isThemePackageTemplateId(template.id),
   );
+  const packageId = deck?.design?.themeId;
+  const metadataGroups = packageId
+    ? themePackageTemplateGroupsForUi(packageId)
+    : [];
+  const packageTemplateById = new Map(
+    packageTemplates.map((template) => [template.id, template]),
+  );
+  const groupedPackageItems = metadataGroups
+    .map((group) => ({
+      group: group.group,
+      items: group.templates
+        .map((metadata) => {
+          const template = packageTemplateById.get(
+            `theme:${packageId}:${metadata.kind}`,
+          );
+          return template
+            ? {
+                source: "deck" as const,
+                id: template.id,
+                label: metadata.label,
+                title: metadata.bestFor,
+                template,
+              }
+            : null;
+        })
+        .filter(
+          (item): item is Extract<TemplatePickerItem, { source: "deck" }> =>
+            item !== null,
+        ),
+    }))
+    .filter((group) => group.items.length > 0);
   const showBasicTemplates = packageTemplates.length === 0;
-  const templateItems: TemplatePickerItem[] = [
-    ...packageTemplates.map((template) => ({
-      source: "deck" as const,
-      id: template.id,
-      label: template.name,
-      title: template.name,
-      template,
-    })),
-    ...(showBasicTemplates
-      ? SLIDE_TEMPLATES.map((template) => ({
-          source: "built-in" as const,
-          id: template.kind,
-          label: template.label,
-          title: template.description,
-          templateKind: template.kind,
+  const templateSections: Array<{
+    label: string;
+    items: TemplatePickerItem[];
+  }> = [
+    ...(groupedPackageItems.length > 0
+      ? groupedPackageItems.map((group) => ({
+          label: group.group,
+          items: group.items,
         }))
+      : packageTemplates.length > 0
+        ? [
+            {
+              label: `${kitName} templates`,
+              items: packageTemplates.map((template) => {
+                const kind = template.id.split(":")[2];
+                const metadata = getThemePackageTemplateMetadata(
+                  String(packageId ?? ""),
+                  kind,
+                );
+                return {
+                  source: "deck" as const,
+                  id: template.id,
+                  label: metadata?.label ?? template.name,
+                  title: metadata?.bestFor ?? template.name,
+                  template,
+                };
+              }),
+            },
+          ]
+        : []),
+    ...(showBasicTemplates
+      ? [
+          {
+            label: "Templates",
+            items: SLIDE_TEMPLATES.map((template) => ({
+              source: "built-in" as const,
+              id: template.kind,
+              label: template.label,
+              title: template.description,
+              templateKind: template.kind,
+            })),
+          },
+        ]
       : []),
-    ...userTemplates.map((template) => ({
-      source: "deck" as const,
-      id: template.id,
-      label: template.name,
-      title: template.name,
-      template,
-    })),
+    ...(userTemplates.length > 0
+      ? [
+          {
+            label: "Custom templates",
+            items: userTemplates.map((template) => ({
+              source: "deck" as const,
+              id: template.id,
+              label: template.name,
+              title: template.name,
+              template,
+            })),
+          },
+        ]
+      : []),
   ];
+  const templateItems = templateSections.flatMap((section) => section.items);
   const pageSize = 6;
   const pageCount = Math.max(1, Math.ceil(templateItems.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
@@ -1065,33 +1133,48 @@ export function SlideTemplatePicker({
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
           {packageTemplates.length > 0 ? `${kitName} templates` : "Templates"}
         </p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {pageItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              onClick={() => onPick(item.id)}
-              title={item.title}
-              className={`group flex min-w-0 flex-col gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-            >
-              {item.source === "deck" ? (
-                <SlideTemplatePreview
-                  template={item.template}
-                  deck={deck}
-                  className="aspect-video h-auto w-full"
-                />
-              ) : (
-                <SlideTemplatePreview
-                  templateKind={item.templateKind}
-                  className="aspect-video h-auto w-full"
-                />
-              )}
-              <span className="truncate px-0.5 text-xs font-semibold leading-tight text-ds-text-primary">
-                {item.label}
-              </span>
-            </button>
-          ))}
+        <div className="flex flex-col gap-2">
+          {templateSections
+            .map((section) => ({
+              ...section,
+              items: section.items.filter((item) => pageItems.includes(item)),
+            }))
+            .filter((section) => section.items.length > 0)
+            .map((section) => (
+              <div key={section.label} className="flex flex-col gap-1.5">
+                <span className="px-1 text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+                  {section.label}
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {section.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => onPick(item.id)}
+                      title={item.title}
+                      className={`group flex min-w-0 flex-col gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
+                    >
+                      {item.source === "deck" ? (
+                        <SlideTemplatePreview
+                          template={item.template}
+                          deck={deck}
+                          className="aspect-video h-auto w-full"
+                        />
+                      ) : (
+                        <SlideTemplatePreview
+                          templateKind={item.templateKind}
+                          className="aspect-video h-auto w-full"
+                        />
+                      )}
+                      <span className="truncate px-0.5 text-xs font-semibold leading-tight text-ds-text-primary">
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
         </div>
         <div className="flex items-center justify-between border-t border-ds-border-subtle pt-1.5">
           <button

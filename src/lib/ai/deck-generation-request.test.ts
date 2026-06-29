@@ -87,6 +87,20 @@ test("buildDeckGenerationBody drops blank tone/audience strings", () => {
   });
 });
 
+test("buildDeckGenerationBody includes package-template request fields", () => {
+  const body = buildDeckGenerationBody(
+    CONTENT_JSON,
+    { length: "medium" },
+    { generationMode: "package-template", themePackageId: "noir" },
+  );
+  assert.deepEqual(body, {
+    contentJson: CONTENT_JSON,
+    options: { length: "medium" },
+    generationMode: "package-template",
+    themePackageId: "noir",
+  });
+});
+
 // ---------------------------------------------------------------------------
 // parseDeckResponse — validate { deck, truncated } payloads.
 // ---------------------------------------------------------------------------

@@ -8,10 +8,15 @@ import { applyGlobalMasterChromeUpdate } from "./global-master-chrome";
 import { resolveThemeTokens } from "./presentation-theme";
 import {
   DEFAULT_THEME_PACKAGE_ID,
+  THEME_PACKAGE_TEMPLATE_KINDS,
   THEME_PACKAGES,
+  getThemePackageTemplateMetadata,
   getThemePackage,
   isThemePackageTemplateId,
   resolveThemePackageId,
+  resolveThemePackageTemplateId,
+  themePackageTemplateCatalogForAi,
+  themePackageTemplateGroupsForUi,
   themePackageTemplatesForDeck,
 } from "./theme-packages";
 import { buildDeck, buildSlide } from "@/test/builders/deck";
@@ -386,7 +391,10 @@ test("APPLY_THEME_PACKAGE installs package assets and preserves user templates",
     ),
     false,
   );
-  assert.equal(themePackageTemplatesForDeck(result.deck).length, 6);
+  assert.equal(
+    themePackageTemplatesForDeck(result.deck).length,
+    THEME_PACKAGE_TEMPLATE_KINDS.length + 1,
+  );
   assert.equal(result.patches[0]!.op, "presentation.apply_theme_package");
   assert.deepEqual(applyPatch(deck, result.patches[0]!), result.deck);
   assert.equal(safeParseDeck(result.deck).success, true);
@@ -409,7 +417,10 @@ test("theme package catalog applies as schema-valid decks", () => {
     });
     assert.equal(result.ok, true, themePackage.id);
     assert.equal(safeParseDeck(result.deck).success, true, themePackage.id);
-    assert.equal(themePackageTemplatesForDeck(result.deck).length, 6);
+    assert.equal(
+      themePackageTemplatesForDeck(result.deck).length,
+      THEME_PACKAGE_TEMPLATE_KINDS.length + 1,
+    );
   }
 });
 
@@ -421,8 +432,42 @@ test("APPLY_THEME_PACKAGE maps default to the default package target", () => {
 
   assert.equal(result.ok, true);
   assert.equal((result.deck as any).design.themeId, DEFAULT_THEME_PACKAGE_ID);
-  assert.equal(themePackageTemplatesForDeck(result.deck).length, 6);
+  assert.equal(
+    themePackageTemplatesForDeck(result.deck).length,
+    THEME_PACKAGE_TEMPLATE_KINDS.length + 1,
+  );
   assert.equal(safeParseDeck(result.deck).success, true);
+});
+
+test("theme package semantic metadata covers every package template kind", () => {
+  for (const themePackage of THEME_PACKAGES) {
+    assert.equal(
+      themePackage.templateMetadata.length,
+      THEME_PACKAGE_TEMPLATE_KINDS.length,
+    );
+    const catalog = themePackageTemplateCatalogForAi(themePackage.id);
+    assert.equal(catalog.length, THEME_PACKAGE_TEMPLATE_KINDS.length);
+    const groups = themePackageTemplateGroupsForUi(themePackage.id);
+    assert.ok(groups.length > 1);
+    for (const kind of THEME_PACKAGE_TEMPLATE_KINDS) {
+      const metadata = getThemePackageTemplateMetadata(themePackage.id, kind);
+      assert.ok(metadata, `${themePackage.id}:${kind}`);
+      assert.equal(metadata.kind, kind);
+      assert.ok(metadata.label.length > 0);
+      assert.ok(metadata.bestFor.length > 0);
+      assert.ok(metadata.accepts.length > 0);
+      assert.ok(metadata.bindings.length >= 0);
+      assert.equal(
+        resolveThemePackageTemplateId(themePackage.id, kind),
+        `theme:${themePackage.id}:${kind}`,
+      );
+    }
+  }
+  assert.equal(isThemePackageTemplateId("theme:clarity:two-column"), true);
+  assert.equal(
+    getThemePackageTemplateMetadata("clarity", "two-column")?.kind,
+    "comparison",
+  );
 });
 
 test("UPDATE_THEME_OVERRIDES reset restores package token set", () => {

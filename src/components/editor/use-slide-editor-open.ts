@@ -44,6 +44,11 @@ import {
 } from "@/lib/presentation/deck-hash";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { inferPresentationTheme } from "@/lib/presentation/infer-theme";
+import {
+  DEFAULT_THEME_PACKAGE_ID,
+  resolveThemePackageId,
+  type ThemePackageId,
+} from "@/lib/presentation/theme-packages";
 import { attemptPatchAutosave } from "@/lib/presentation/patch-autosave";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
@@ -107,6 +112,8 @@ export function useSlideEditorOpen({
   // holds the document content captured at chooser-open time so the choice
   // (generate vs derive) operates on a consistent snapshot.
   const [pendingJson, setPendingJson] = useState<string | null>(null);
+  const [pendingThemePackageId, setPendingThemePackageId] =
+    useState<ThemePackageId>(DEFAULT_THEME_PACKAGE_ID);
   // True when the document is genuinely empty (both the live editor state and
   // the DB-persisted initial content are effectively empty). Gates the AI
   // generate option off and surfaces a friendly "add content first" message in
@@ -406,12 +413,17 @@ export function useSlideEditorOpen({
         effectiveJson = initialContentJson;
       }
       setEmptyDocument(isEffectivelyEmptyEditorState(effectiveJson));
+      const { startDeck } = await prepareOpen(effectiveJson);
+      const themeId = String((startDeck as any).design?.themeId ?? "");
+      setPendingThemePackageId(
+        resolveThemePackageId(themeId) ?? DEFAULT_THEME_PACKAGE_ID,
+      );
       // Defer the heavy open work until the user picks generate vs derive.
       setPendingJson(effectiveJson);
       return;
     }
     await openDerived(liveJson);
-  }, [editor, aiEnabled, openDerived, initialContentJson]);
+  }, [editor, aiEnabled, openDerived, initialContentJson, prepareOpen]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -421,6 +433,7 @@ export function useSlideEditorOpen({
     setDocumentTextBlocks([]);
     setStale(false);
     setPendingJson(null);
+    setPendingThemePackageId(DEFAULT_THEME_PACKAGE_ID);
     setEmptyDocument(false);
     setAiPreview(null);
     aiAppliedDeckRef.current = null;
@@ -560,6 +573,7 @@ export function useSlideEditorOpen({
 
   const handleOpenDialogClose = useCallback(() => {
     setPendingJson(null);
+    setPendingThemePackageId(DEFAULT_THEME_PACKAGE_ID);
     setEmptyDocument(false);
   }, []);
 
@@ -603,6 +617,7 @@ export function useSlideEditorOpen({
     // AI chooser dialog
     aiEnabled,
     pendingJson,
+    pendingThemePackageId,
     emptyDocument,
     handleOpenDialogApply,
     handleOpenDialogDerive,

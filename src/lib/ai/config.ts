@@ -7,9 +7,17 @@ import { parseBooleanFlag } from "@/lib/config/flags";
  * operator explicitly enables it.
  */
 export const AI_DECK_GEN_ENABLED_ENV = "AI_DECK_GEN_ENABLED";
+export const AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED_ENV =
+  "AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED";
 
 export function isAiDeckGenEnabled(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   return parseBooleanFlag(env[AI_DECK_GEN_ENABLED_ENV]);
+}
+
+export function isAiDeckGenPackageTemplatesEnabled(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return parseBooleanFlag(env[AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED_ENV]);
 }

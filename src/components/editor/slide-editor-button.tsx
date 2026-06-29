@@ -65,6 +65,7 @@ export function SlideEditorButton({
     handleSave,
     aiEnabled,
     pendingJson,
+    pendingThemePackageId,
     emptyDocument,
     handleOpenDialogApply,
     handleOpenDialogDerive,
@@ -101,6 +102,7 @@ export function SlideEditorButton({
       {aiEnabled && pendingJson && !open ? (
         <SlideEditorOpenDialog
           contentJson={pendingJson}
+          themePackageId={pendingThemePackageId}
           isEmptyDocument={emptyDocument}
           onApply={handleOpenDialogApply}
           onDerive={handleOpenDialogDerive}

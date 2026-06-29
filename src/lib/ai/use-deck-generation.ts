@@ -23,6 +23,7 @@ import {
   type DeckGenerateResult,
   type DeckGenerationOptions,
 } from "@/lib/ai/deck-generation-request";
+import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 import { useGenerationStatus } from "@/lib/ai/use-generation-status";
 import type { Deck } from "@/lib/presentation/deck";
 import {
@@ -46,6 +47,10 @@ export interface UseDeckGenerationResult {
   generate: (
     contentJson: unknown,
     options?: DeckGenerationOptions,
+    request?: {
+      themePackageId?: ThemePackageId;
+      generationMode?: "legacy" | "package-template";
+    },
   ) => Promise<DeckGenerateResult>;
   /** Current lifecycle status. */
   status: DeckGenerationStatus;
@@ -95,6 +100,10 @@ export function useDeckGeneration(): UseDeckGenerationResult {
     async (
       contentJson: unknown,
       options: DeckGenerationOptions = {},
+      request?: {
+        themePackageId?: ThemePackageId;
+        generationMode?: "legacy" | "package-template";
+      },
     ): Promise<DeckGenerateResult> => {
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -121,6 +130,7 @@ export function useDeckGeneration(): UseDeckGenerationResult {
         options,
         fetch,
         controller.signal,
+        request,
       );
 
       // A newer request (or a reset) superseded this one — ignore the result.
