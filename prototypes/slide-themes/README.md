@@ -18,19 +18,11 @@ output always matches the live schema.
   custom `tokenSet`, and the deck wrapper. Geometry is in slide percentages;
   text `fontSize` is a percent of slide height (same convention as
   `slide-templates.ts`). Self-hosted `fontId`s come from `slide-fonts.ts`.
-- `style-dsl.ts` — authoring-only CSS-like value helpers. Whitelisted style
-  values such as `radial-gradient(...)`, `var(--surface)`, `border`,
-  `borderRadius`, and `glass(...)` compile back to normal v6
-  `designOverrides`; CSS strings are not persisted in the deck schema.
-- `layout-dsl.ts` — authoring-only Yoga flex adapter. Flex trees are evaluated
-  during theme build on a fixed logical slide canvas and emitted as absolute
-  percentage `box` values, so renderers and export still consume plain v6
-  elements.
 - `themes.ts` — the eight `ThemeSpec`s (palette, fonts, signature shapes, copy).
 - `render-family-layouts.ts` — render-family grammar (shared family chrome,
-  panel/card/image treatments, gradients, shapes, font pairing, and selected
-  flex-authored layout families) so each of the 43 semantic templates looks
-  bespoke while templates in the same family stay visually related.
+  panel/card/image treatments, gradients, shapes, font pairing) so each of the
+  43 semantic templates looks bespoke while templates in the same family stay
+  visually related.
 - `build-themes.ts` — builds each deck, validates it with the real
   **`safeParseDeck`** validator, and writes `decks/<id>.deck.json` + `manifest.json`.
 - `render-html.mjs` — renders the validated decks into static **HTML previews**
