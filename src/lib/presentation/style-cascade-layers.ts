@@ -95,17 +95,10 @@ function backgroundFromDesign(
     const inner = colorRefValue(background.inner, tokenSet);
     const outer = colorRefValue(background.outer, tokenSet);
     if (!inner || !outer) return undefined;
-    const stops = Array.isArray(background.stops)
-      ? background.stops.flatMap((stop) => {
-          const color = colorRefValue(stop.color, tokenSet);
-          return color ? [{ color, offset: stop.offset }] : [];
-        })
-      : undefined;
     return {
       type: "radialGradient",
       inner,
       outer,
-      ...(stops && stops.length > 0 ? { stops } : {}),
       ...(typeof background.cx === "number" ? { cx: background.cx } : {}),
       ...(typeof background.cy === "number" ? { cy: background.cy } : {}),
       ...(typeof background.r === "number" ? { r: background.r } : {}),

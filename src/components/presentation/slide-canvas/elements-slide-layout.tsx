@@ -18,6 +18,17 @@ import { TableElementView } from "./table-elements";
 import { TextElementView } from "./text-elements";
 import { VisualElementView } from "./visual-elements";
 
+function radialBackgroundImage(
+  background: Extract<
+    ResolvedSlideRenderModel["background"],
+    { type: "radialGradient" }
+  >,
+): string {
+  const radius = background.r ?? 70;
+  const stops = `${background.inner}, ${background.outer}`;
+  return `radial-gradient(${radius}% ${radius}% at ${background.cx ?? 50}% ${background.cy ?? 50}%, ${stops})`;
+}
+
 function SlideElementView({
   element,
   elements,
@@ -127,7 +138,7 @@ export function ElementsSlideLayout({
           }
         : background.type === "radialGradient"
           ? {
-              backgroundImage: `radial-gradient(circle ${background.r ?? 70}% at ${background.cx ?? 50}% ${background.cy ?? 50}%, ${background.inner}, ${background.outer})`,
+              backgroundImage: radialBackgroundImage(background),
             }
           : { backgroundColor: background.color };
   const ordered = slideElements

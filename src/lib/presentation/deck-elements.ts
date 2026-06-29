@@ -118,16 +118,10 @@ export type ShapeKind =
 
 export type ColorRef = { token: string } | { value: string };
 
-export interface GradientStop {
-  color: ColorRef;
-  offset: number;
-}
-
 export interface RadialGradientFill {
   type: "radialGradient";
   inner: ColorRef;
   outer: ColorRef;
-  stops?: GradientStop[];
   cx?: number;
   cy?: number;
   r?: number;
@@ -148,7 +142,12 @@ export interface GlassEffect {
   intensity: GlassEffectIntensity;
 }
 
-export type ElementEffect = GlassEffect;
+export interface BlurEffect {
+  kind: "blur";
+  radius: number;
+}
+
+export type ElementEffect = GlassEffect | BlurEffect;
 
 export type ConnectorAnchor = "center" | "top" | "bottom" | "left" | "right";
 

@@ -35,7 +35,6 @@ export interface ResolvedRadialGradientFill {
   type: "radialGradient";
   inner: string;
   outer: string;
-  stops?: Array<{ color: string; offset: number }>;
   cx?: number;
   cy?: number;
   r?: number;
@@ -58,13 +57,7 @@ export function resolvedFillToCss(fill: ResolvedElementFill): string {
   if (fill.type === "linearGradient") {
     return `linear-gradient(${fill.angle ?? 90}deg, ${fill.from}, ${fill.to})`;
   }
-  if (fill.stops && fill.stops.length > 0) {
-    const stops = fill.stops
-      .map((stop) => `${stop.color} ${stop.offset}%`)
-      .join(", ");
-    return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
-  }
-  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.inner}, ${fill.outer})`;
+  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.inner}, ${fill.outer})`;
 }
 
 export function resolvedFillRepresentativeColor(
@@ -72,7 +65,7 @@ export function resolvedFillRepresentativeColor(
 ): string {
   if (typeof fill === "string") return fill;
   if (fill.type === "linearGradient") return fill.from;
-  return fill.stops && fill.stops.length > 0 ? fill.inner : fill.outer;
+  return fill.outer;
 }
 
 /* node:coverage disable */
@@ -183,21 +176,10 @@ function resolveElementFill(
   const inner = colorRefValue(fill.inner, tokenSet);
   const outer = colorRefValue(fill.outer, tokenSet);
   if (!inner || !outer) return undefined;
-  const stops = Array.isArray(fill.stops)
-    ? fill.stops.flatMap((stop) => {
-        if (!stop || typeof stop !== "object") return [];
-        const inputStop = stop as Record<string, unknown>;
-        const color = colorRefValue(inputStop.color, tokenSet);
-        return color && typeof inputStop.offset === "number"
-          ? [{ color, offset: inputStop.offset }]
-          : [];
-      })
-    : undefined;
   return {
     type: "radialGradient",
     inner,
     outer,
-    ...(stops && stops.length > 0 ? { stops } : {}),
     ...(typeof fill.cx === "number" ? { cx: fill.cx } : {}),
     ...(typeof fill.cy === "number" ? { cy: fill.cy } : {}),
     ...(typeof fill.r === "number" ? { r: fill.r } : {}),
@@ -208,6 +190,9 @@ function resolveElementEffect(input: unknown): ElementEffect | undefined {
   if (!input || typeof input !== "object") return undefined;
   const effect = input as Record<string, unknown>;
   if (effect.kind === "glass" && typeof effect.intensity === "string") {
+    return effect as unknown as ElementEffect;
+  }
+  if (effect.kind === "blur" && typeof effect.radius === "number") {
     return effect as unknown as ElementEffect;
   }
   return undefined;

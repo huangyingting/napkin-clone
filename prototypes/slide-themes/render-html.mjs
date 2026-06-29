@@ -57,7 +57,7 @@ function backgroundCss(treatment, colors) {
   if (treatment.type === "radialGradient") {
     const inner = resolveColor(treatment.inner, colors);
     const outer = resolveColor(treatment.outer, colors);
-    return `background:radial-gradient(circle ${treatment.r ?? 70}% at ${treatment.cx ?? 50}% ${treatment.cy ?? 50}%, ${inner}, ${outer});`;
+    return `background:radial-gradient(${treatment.r ?? 70}% ${treatment.r ?? 70}% at ${treatment.cx ?? 50}% ${treatment.cy ?? 50}%, ${inner}, ${outer});`;
   }
   if (treatment.type === "image") {
     return `background:#e9e9ee url(${treatment.url}) center/cover;`;
@@ -92,15 +92,9 @@ function fillCss(fill, colors, effect) {
   if (fill?.type === "radialGradient") {
     const inner = resolveColor(fill.inner, colors);
     const outer = resolveColor(fill.outer, colors);
-    if (fill.stops?.length) {
-      const stops = fill.stops
-        .map((stop) => `${resolveColor(stop.color, colors)} ${stop.offset}%`)
-        .join(", ");
-      return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
-    }
     return isGlass
-      ? `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgba(inner, alpha + 0.08)}, ${rgba(outer, alpha)})`
-      : `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${inner}, ${outer})`;
+      ? `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgba(inner, alpha + 0.08)}, ${rgba(outer, alpha)})`
+      : `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${inner}, ${outer})`;
   }
   if (fill?.type === "linearGradient") {
     const from = resolveColor(fill.from, colors);
@@ -115,6 +109,7 @@ function fillCss(fill, colors, effect) {
 
 function effectCss(effect) {
   if (!effect) return "";
+  if (effect.kind === "blur") return `filter:blur(${effect.radius}cqmin);`;
   const blur =
     effect.intensity === "strong" ? 22 : effect.intensity === "light" ? 8 : 14;
   return `backdrop-filter:blur(${blur}px) saturate(1.3);-webkit-backdrop-filter:blur(${blur}px) saturate(1.3);border:1px solid ${rgba("#ffffff", 0.45)};box-shadow:0 8px 24px rgba(15,23,42,.18);`;
@@ -210,6 +205,9 @@ function renderShape(el, colors = {}) {
   const overflow = "hidden";
   if (shape === "line") {
     return `<div style="${boxCss(el)}display:flex;align-items:center;"><div style="height:${stroke?.width ?? 0.4}cqmin;width:100%;background:${stroke?.color ?? fill};"></div></div>`;
+  }
+  if (shape === "ellipse" && d.effect?.kind === "blur") {
+    return `<div style="${boxCss(el)}background:${fill};border-radius:50%;${effect}"></div>`;
   }
   if (shape === "triangle") {
     return `<div style="${boxCss(el)}overflow:${overflow};"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,0% 100%,100% 100%);${effect}"></div></div>`;

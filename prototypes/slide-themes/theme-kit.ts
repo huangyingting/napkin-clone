@@ -65,15 +65,12 @@ export type ColorToken =
 
 export type ColorRef = { token: ColorToken } | { value: Hex };
 
-export type GradientStop = { color: ColorRef; offset: number };
-
 export type Fill =
   | ColorRef
   | {
       type: "radialGradient";
       inner: ColorRef;
       outer: ColorRef;
-      stops?: GradientStop[];
       cx?: number;
       cy?: number;
       r?: number;
@@ -85,10 +82,15 @@ export type Fill =
       angle?: number;
     };
 
-export type ShapeEffect = {
-  kind: "glass";
-  intensity: "light" | "medium" | "strong";
-};
+export type ShapeEffect =
+  | {
+      kind: "glass";
+      intensity: "light" | "medium" | "strong";
+    }
+  | {
+      kind: "blur";
+      radius: number;
+    };
 
 export type BackgroundTreatment =
   | { type: "solid"; color: Hex | ColorRef }
@@ -142,12 +144,7 @@ function colorRef(input: Hex | ColorRef): ColorRef {
 export function radialFill(
   inner: Hex | ColorRef,
   outer: Hex | ColorRef,
-  options: {
-    cx?: number;
-    cy?: number;
-    r?: number;
-    stops?: GradientStop[];
-  } = {},
+  options: { cx?: number; cy?: number; r?: number } = {},
 ): Fill {
   return {
     type: "radialGradient",
@@ -155,37 +152,6 @@ export function radialFill(
     outer: colorRef(outer),
     ...options,
   };
-}
-
-export function softRadialFill(
-  color: Hex,
-  options: { cx?: number; cy?: number; r?: number } = {},
-): Fill {
-  const raw = color.replace("#", "");
-  const expanded =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((part) => `${part}${part}`)
-          .join("")
-      : raw;
-  const red = Number.parseInt(expanded.slice(0, 2), 16);
-  const green = Number.parseInt(expanded.slice(2, 4), 16);
-  const blue = Number.parseInt(expanded.slice(4, 6), 16);
-  const rgba = (alpha: number) =>
-    value(`rgba(${red}, ${green}, ${blue}, ${alpha})`);
-  return radialFill(color, value("transparent"), {
-    cx: 50,
-    cy: 50,
-    r: 92,
-    ...options,
-    stops: [
-      { color: rgba(0.78), offset: 0 },
-      { color: rgba(0.48), offset: 32 },
-      { color: rgba(0.16), offset: 58 },
-      { color: rgba(0), offset: 78 },
-    ],
-  });
 }
 
 export function linearFill(
@@ -342,7 +308,7 @@ export function glassPanel(opts: {
   zIndex: number;
   box: Box;
   fill?: Hex | Fill;
-  intensity?: ShapeEffect["intensity"];
+  intensity?: Extract<ShapeEffect, { kind: "glass" }>["intensity"];
   radius?: number;
   stroke?: { color: Hex; width: number };
   locked?: boolean;
@@ -638,6 +604,42 @@ function semanticSlideFromBase(
   };
 }
 
+function semanticSlideFromBaseIndex(
+  packageId: string,
+  kind: ThemePackageTemplateKind,
+  baseSlides: readonly Record<string, unknown>[],
+  baseIndex: number,
+): Record<string, unknown> {
+  const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
+  const base = clone(
+    baseSlides[baseIndex] ??
+      baseSlides[2] ??
+      baseSlides[0] ??
+      slide(`${packageId}-empty`, metadata.label, "blank", []),
+  );
+  return {
+    ...base,
+    id: `${packageId}-${kind}`,
+    title: metadata.label,
+    templateId: `theme:${packageId}:${kind}`,
+  };
+}
+
+function auroraFirstThreeBaseIndex(
+  kind: ThemePackageTemplateKind,
+): number | undefined {
+  switch (kind) {
+    case "cover":
+      return 0;
+    case "agenda":
+      return 4;
+    case "context":
+      return 2;
+    default:
+      return undefined;
+  }
+}
+
 function shouldUseThemeBaseSlide(family: ThemePackageRenderFamily): boolean {
   return [
     "cover",
@@ -676,6 +678,16 @@ export function buildSemanticSlides(
   const baseSlides = spec.buildSlides(spec);
   return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
     const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
+    const auroraBaseIndex =
+      spec.id === "aurora" ? auroraFirstThreeBaseIndex(kind) : undefined;
+    if (auroraBaseIndex !== undefined) {
+      return semanticSlideFromBaseIndex(
+        spec.id,
+        kind,
+        baseSlides,
+        auroraBaseIndex,
+      );
+    }
     if (shouldUseThemeBaseSlide(metadata.renderFamily)) {
       return semanticSlideFromBase(spec.id, kind, baseSlides);
     }
@@ -820,58 +832,61 @@ export function buildDeck(spec: ThemeSpec): Record<string, unknown> {
         id: `master-${spec.id}`,
         name: `${spec.name} Master`,
         background: bg(spec.masterBackground),
-        elements: [
-          {
-            id: "footer",
-            kind: "text",
-            role: "footer",
-            masterChromeKind: "footer",
-            layer: "foreground",
-            locked: true,
-            zIndex: 0,
-            box: { x: 5, y: 93.5, w: 60, h: 4 },
-            content: {
-              kind: "text",
-              text: spec.name.toUpperCase(),
-              paragraphs: [{ text: spec.name.toUpperCase() }],
-            },
-            designOverrides: {
-              textStyle: {
-                fontSize: 1.7,
-                bold: true,
-                italic: false,
-                align: "left",
-                color: spec.palette.muted,
-                fontId: spec.fonts.heading,
-              },
-            },
-          },
-          {
-            id: "page-number",
-            kind: "text",
-            role: "pageNumber",
-            masterChromeKind: "pageNumber",
-            layer: "foreground",
-            locked: true,
-            zIndex: 0,
-            box: { x: 88, y: 93.5, w: 7, h: 4 },
-            content: {
-              kind: "text",
-              text: "{{pageNumber}}",
-              paragraphs: [{ text: "{{pageNumber}}" }],
-            },
-            designOverrides: {
-              textStyle: {
-                fontSize: 1.7,
-                bold: true,
-                italic: false,
-                align: "right",
-                color: spec.palette.muted,
-                fontId: spec.fonts.body,
-              },
-            },
-          },
-        ],
+        elements:
+          spec.id === "aurora"
+            ? []
+            : [
+                {
+                  id: "footer",
+                  kind: "text",
+                  role: "footer",
+                  masterChromeKind: "footer",
+                  layer: "foreground",
+                  locked: true,
+                  zIndex: 0,
+                  box: { x: 5, y: 93.5, w: 60, h: 4 },
+                  content: {
+                    kind: "text",
+                    text: spec.name.toUpperCase(),
+                    paragraphs: [{ text: spec.name.toUpperCase() }],
+                  },
+                  designOverrides: {
+                    textStyle: {
+                      fontSize: 1.7,
+                      bold: true,
+                      italic: false,
+                      align: "left",
+                      color: spec.palette.muted,
+                      fontId: spec.fonts.heading,
+                    },
+                  },
+                },
+                {
+                  id: "page-number",
+                  kind: "text",
+                  role: "pageNumber",
+                  masterChromeKind: "pageNumber",
+                  layer: "foreground",
+                  locked: true,
+                  zIndex: 0,
+                  box: { x: 88, y: 93.5, w: 7, h: 4 },
+                  content: {
+                    kind: "text",
+                    text: "{{pageNumber}}",
+                    paragraphs: [{ text: "{{pageNumber}}" }],
+                  },
+                  designOverrides: {
+                    textStyle: {
+                      fontSize: 1.7,
+                      bold: true,
+                      italic: false,
+                      align: "right",
+                      color: spec.palette.muted,
+                      fontId: spec.fonts.body,
+                    },
+                  },
+                },
+              ],
       },
     ],
     defaultMasterId: `master-${spec.id}`,

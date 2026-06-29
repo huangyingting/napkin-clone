@@ -42,7 +42,7 @@ export type {
   ColorRef,
   ElementEffect,
   ElementFill,
-  GradientStop,
+  BlurEffect,
   GlassEffect,
   TextRun,
   TextFitMode,

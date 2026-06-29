@@ -244,7 +244,6 @@ export type BackgroundTreatment =
       type: "radialGradient";
       inner: string;
       outer: string;
-      stops?: Array<{ color: string; offset: number }>;
       cx?: number;
       cy?: number;
       r?: number;

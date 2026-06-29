@@ -10,9 +10,9 @@ import {
   glassPanel,
   image,
   kicker,
+  linearFill,
   shape,
   slide,
-  softRadialFill,
   text,
 } from "./theme-kit";
 
@@ -446,7 +446,8 @@ const ocean: ThemeSpec = {
         zIndex,
         shape: "ellipse",
         box,
-        fill: softRadialFill(color),
+        fill: color,
+        effect: { kind: "blur", radius: 8 },
         opacity,
         locked: true,
         name: "Current",
@@ -825,12 +826,19 @@ const aurora: ThemeSpec = {
   buildSlides: (s) => {
     const p = s.palette;
     const f = s.fonts;
-    const glow = (z: number, box: Box, color: string, opacity = 0.55) =>
+    const glow = (
+      z: number,
+      box: Box,
+      color: string,
+      opacity = 0.55,
+      options: { cx?: number; cy?: number; r?: number } = {},
+    ) =>
       shape({
         zIndex: z,
         shape: "ellipse",
         box,
-        fill: softRadialFill(color),
+        fill: color,
+        effect: { kind: "blur", radius: options.r ?? 8 },
         opacity,
         locked: true,
         name: "Glow",
@@ -842,8 +850,12 @@ const aurora: ThemeSpec = {
         "Aurora",
         "title",
         [
-          glow(1, { x: 42, y: -24, w: 82, h: 94 }, p.deco[1], 1),
-          glow(2, { x: 46, y: 26, w: 82, h: 82 }, p.deco[0], 0.92),
+          glow(1, { x: 58, y: -18, w: 60, h: 106 }, p.deco[1], 0.55, {
+            r: 8,
+          }),
+          glow(2, { x: 60, y: 30, w: 46, h: 82 }, p.deco[0], 0.55, {
+            r: 8,
+          }),
           kicker(
             10,
             { x: 8, y: 9, w: 48, h: 6 },
@@ -853,16 +865,44 @@ const aurora: ThemeSpec = {
           ),
           text({
             zIndex: 11,
-            box: { x: 8, y: 17, w: 48, h: 22 },
+            box: { x: 8, y: 17, w: 44, h: 9.5 },
             role: "title",
-            text: "Build the\nnext frontier",
+            text: "Build the",
             style: {
-              fontSize: 10.5,
+              fontSize: 11,
               color: p.onBg,
               fontId: f.heading,
               bold: true,
               align: "left",
-              lineHeight: 1.02,
+              lineHeight: 0.98,
+            },
+          }),
+          text({
+            zIndex: 11,
+            box: { x: 8, y: 27.5, w: 18, h: 9.5 },
+            role: "title",
+            text: "next",
+            style: {
+              fontSize: 11,
+              color: "#e9ebff",
+              fontId: f.heading,
+              bold: true,
+              align: "left",
+              lineHeight: 0.98,
+            },
+          }),
+          text({
+            zIndex: 11,
+            box: { x: 24.2, y: 27.5, w: 27, h: 9.5 },
+            role: "title",
+            text: "frontier",
+            style: {
+              fontSize: 11,
+              color: p.deco[0],
+              fontId: f.heading,
+              bold: true,
+              align: "left",
+              lineHeight: 0.98,
             },
           }),
           text({
@@ -912,11 +952,11 @@ const aurora: ThemeSpec = {
         ],
         {
           type: "radialGradient",
-          inner: "#6d3bc4",
+          inner: "#1b1f4d",
           outer: "#07080f",
-          cx: 88,
-          cy: 5,
-          r: 92,
+          cx: 80,
+          cy: 0,
+          r: 100,
         },
       ),
       // Section divider
@@ -966,66 +1006,95 @@ const aurora: ThemeSpec = {
         ],
         { type: "solid", color: "#6366f1" },
       ),
-      // Content
-      slide("aurora-content", "Why now", "content", [
-        shape({
-          zIndex: 1,
-          shape: "rect",
-          box: { x: 6, y: 17, w: 1.4, h: 12 },
-          fill: p.accent,
-          radius: 50,
-          locked: true,
-          name: "Title bar",
-        }),
-        kicker(9, { x: 8, y: 12, w: 40, h: 5 }, "WHY NOW", p.accent, f.heading),
-        text({
-          zIndex: 10,
-          box: { x: 8, y: 17, w: 54, h: 12 },
-          role: "title",
-          text: "Three forces converging",
-          style: {
-            fontSize: 5.6,
-            color: p.onBg,
-            fontId: f.heading,
-            bold: true,
-            align: "left",
-            lineHeight: 1.05,
-          },
-        }),
-        text({
-          zIndex: 11,
-          box: { x: 8, y: 32, w: 44, h: 50 },
-          role: "bullet",
-          paragraphs: bullets([
-            "Compute is finally cheap enough to be ambient.",
-            "Teams expect tooling that adapts to them, not the reverse.",
-            "The winning interface is the one that disappears.",
+      // Cards
+      slide(
+        "aurora-content",
+        "Three forces",
+        "content",
+        [
+          glow(1, { x: 62, y: -16, w: 42, h: 75 }, p.deco[1], 0.35, {
+            r: 8,
+          }),
+          shape({
+            zIndex: 3,
+            shape: "rect",
+            box: { x: 8, y: 14, w: 20, h: 1.2 },
+            fill: linearFill(p.accent, p.deco[0], 90),
+            radius: 50,
+            locked: true,
+            name: "Accent bar",
+          }),
+          text({
+            zIndex: 10,
+            box: { x: 8, y: 21, w: 58, h: 10 },
+            role: "title",
+            text: "Three forces converging",
+            style: {
+              fontSize: 6.4,
+              color: p.onBg,
+              fontId: f.heading,
+              bold: true,
+              align: "left",
+              lineHeight: 1.02,
+            },
+          }),
+          ...[
+            {
+              title: "Ambient compute",
+              body: "cheap enough to disappear.",
+              x: 8,
+            },
+            {
+              title: "Adaptive tools",
+              body: "fit the team, not the reverse.",
+              x: 36,
+            },
+            {
+              title: "Invisible UI",
+              body: "the best interface vanishes.",
+              x: 64,
+            },
+          ].flatMap((card, index) => [
+            glassPanel({
+              zIndex: 8,
+              box: { x: card.x, y: 42, w: 24, h: 25 },
+              fill: p.surface,
+              radius: 14,
+              intensity: "light",
+              stroke: { color: "#ffffff", width: 0.14 },
+              locked: true,
+              name: `Card ${index + 1}`,
+            }),
+            text({
+              zIndex: 10,
+              box: { x: card.x + 2.2, y: 47, w: 19.5, h: 5.5 },
+              role: "title",
+              text: card.title,
+              style: {
+                fontSize: 3.4,
+                color: p.onBg,
+                fontId: f.heading,
+                bold: true,
+                align: "left",
+              },
+            }),
+            text({
+              zIndex: 10,
+              box: { x: card.x + 2.2, y: 55, w: 19.5, h: 7 },
+              role: "body",
+              text: card.body,
+              style: {
+                fontSize: 2.4,
+                color: p.muted,
+                fontId: f.body,
+                align: "left",
+                lineHeight: 1.3,
+              },
+            }),
           ]),
-          style: {
-            fontSize: 3.3,
-            color: p.onSurface,
-            fontId: f.body,
-            align: "left",
-            lineHeight: 1.55,
-            paragraphSpacing: 1.6,
-          },
-        }),
-        shape({
-          zIndex: 9,
-          shape: "rect",
-          box: { x: 56, y: 30, w: 38, h: 52 },
-          fill: p.surface,
-          radius: 14,
-          locked: true,
-          name: "Card",
-        }),
-        image({
-          zIndex: 10,
-          box: { x: 59, y: 34, w: 32, h: 44 },
-          radius: 10,
-          fitMode: "cover",
-        }),
-      ]),
+        ],
+        { type: "solid", color: p.slideBg },
+      ),
       // Two-column
       slide("aurora-twocol", "Before / After", "two-column", [
         kicker(
@@ -1129,59 +1198,57 @@ const aurora: ThemeSpec = {
         }),
       ]),
       // Stat
-      slide("aurora-stat", "Impact", "title", [
-        shape({
-          zIndex: 1,
-          shape: "ellipse",
-          box: { x: -8, y: 40, w: 44, h: 60 },
-          fill: p.deco[0],
-          opacity: 0.14,
-          locked: true,
-          name: "Glow",
-        }),
-        shape({
-          zIndex: 1,
-          shape: "ellipse",
-          box: { x: 66, y: -16, w: 48, h: 64 },
-          fill: p.deco[1],
-          opacity: 0.14,
-          locked: true,
-          name: "Glow",
-        }),
-        kicker(
-          9,
-          { x: 9, y: 22, w: 40, h: 5 },
-          "MEASURED IMPACT",
-          p.accent,
-          f.heading,
-        ),
-        text({
-          zIndex: 10,
-          box: { x: 8.5, y: 28, w: 50, h: 24 },
-          text: "4.8×",
-          style: {
-            fontSize: 18,
-            color: p.accent,
-            fontId: f.heading,
-            bold: true,
-            align: "left",
-            lineHeight: 1,
-          },
-        }),
-        text({
-          zIndex: 11,
-          box: { x: 9, y: 56, w: 60, h: 12 },
-          role: "subtitle",
-          text: "faster from idea to shipped feature across pilot teams.",
-          style: {
-            fontSize: 3.6,
-            color: p.onSurface,
-            fontId: f.body,
-            align: "left",
-            lineHeight: 1.35,
-          },
-        }),
-      ]),
+      slide(
+        "aurora-stat",
+        "Impact",
+        "title",
+        [
+          glow(1, { x: -12, y: 48, w: 50, h: 89 }, p.accent, 0.55, {
+            r: 8,
+          }),
+          kicker(
+            9,
+            { x: 8, y: 9, w: 44, h: 6 },
+            "MEASURED IMPACT",
+            p.deco[0],
+            f.heading,
+          ),
+          text({
+            zIndex: 10,
+            box: { x: 8, y: 17, w: 64, h: 31 },
+            text: "4.8×",
+            style: {
+              fontSize: 26,
+              color: p.deco[0],
+              fontId: f.heading,
+              bold: true,
+              align: "left",
+              lineHeight: 0.95,
+            },
+          }),
+          text({
+            zIndex: 11,
+            box: { x: 8, y: 53, w: 56, h: 9 },
+            role: "subtitle",
+            text: "faster from idea to shipped across pilot teams.",
+            style: {
+              fontSize: 3,
+              color: p.muted,
+              fontId: f.body,
+              align: "left",
+              lineHeight: 1.35,
+            },
+          }),
+        ],
+        {
+          type: "radialGradient",
+          inner: "#14224d",
+          outer: "#07080f",
+          cx: 10,
+          cy: 110,
+          r: 100,
+        },
+      ),
       // Closing
       slide(
         "aurora-closing",

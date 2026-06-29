@@ -205,19 +205,10 @@ function repairFill(input: unknown) {
     const cx = repairPercent(input.cx);
     const cy = repairPercent(input.cy);
     const r = repairPercent(input.r);
-    const stops = Array.isArray(input.stops)
-      ? input.stops.flatMap((stop) => {
-          if (!isPlainObject(stop)) return [];
-          const color = repairColorRef(stop.color);
-          const offset = repairPercent(stop.offset);
-          return color && offset !== undefined ? [{ color, offset }] : [];
-        })
-      : undefined;
     return {
       type: "radialGradient" as const,
       inner,
       outer,
-      ...(stops && stops.length > 0 ? { stops } : {}),
       ...(cx !== undefined ? { cx } : {}),
       ...(cy !== undefined ? { cy } : {}),
       ...(r !== undefined ? { r } : {}),
@@ -239,6 +230,9 @@ function repairFill(input: unknown) {
 
 function repairShapeEffect(input: unknown, shape: ShapeKind) {
   if (shape === "line" || !isPlainObject(input)) return undefined;
+  if (input.kind === "blur" && isFiniteNumber(input.radius)) {
+    return { kind: "blur" as const, radius: clamp(input.radius, 0, 32) };
+  }
   if (input.kind !== "glass") return undefined;
   if (
     !(GLASS_INTENSITIES as readonly string[]).includes(

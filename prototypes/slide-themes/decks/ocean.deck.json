@@ -229,42 +229,11 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#38bdf8"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#38bdf8"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,
@@ -287,42 +256,11 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#99f6e4"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,
@@ -1209,42 +1147,11 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#38bdf8"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#38bdf8"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,
@@ -1267,42 +1174,11 @@
           "zIndex": 3,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(153, 246, 228, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#99f6e4"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,
@@ -2468,42 +2344,11 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#38bdf8"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#38bdf8"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,
@@ -2630,42 +2475,11 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#38bdf8"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#38bdf8"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,
@@ -12437,42 +12251,11 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#38bdf8"
-              },
-              "outer": {
-                "value": "transparent"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.78)"
-                  },
-                  "offset": 0
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.48)"
-                  },
-                  "offset": 32
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0.16)"
-                  },
-                  "offset": 58
-                },
-                {
-                  "color": {
-                    "value": "rgba(56, 189, 248, 0)"
-                  },
-                  "offset": 78
-                }
-              ],
-              "cx": 50,
-              "cy": 50,
-              "r": 92
+              "value": "#38bdf8"
+            },
+            "effect": {
+              "kind": "blur",
+              "radius": 8
             }
           },
           "locked": true,

@@ -145,13 +145,7 @@ export function backgroundTreatmentToCss(bg: BackgroundTreatment): string {
       const cx = bg.cx ?? 50;
       const cy = bg.cy ?? 50;
       const r = bg.r ?? 70;
-      if (bg.stops && bg.stops.length > 0) {
-        const stops = bg.stops
-          .map((stop) => `${stop.color} ${stop.offset}%`)
-          .join(", ");
-        return `radial-gradient(circle ${r}% at ${cx}% ${cy}%, ${stops})`;
-      }
-      return `radial-gradient(circle ${r}% at ${cx}% ${cy}%, ${bg.inner}, ${bg.outer})`;
+      return `radial-gradient(${r}% ${r}% at ${cx}% ${cy}%, ${bg.inner}, ${bg.outer})`;
     }
     case "image":
       return `url(${JSON.stringify(bg.url)}) center / cover no-repeat`;

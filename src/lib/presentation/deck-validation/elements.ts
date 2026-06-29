@@ -188,36 +188,10 @@ function validateRadialGradientFill(
   const cx = validatePercentGeometry(input.cx, `${context}.cx`);
   const cy = validatePercentGeometry(input.cy, `${context}.cy`);
   const r = validatePercentGeometry(input.r, `${context}.r`);
-  const stops = Array.isArray(input.stops)
-    ? input.stops.map((stop, index) => {
-        if (!isPlainObject(stop)) {
-          throw new DeckValidationError(
-            `${context}.stops[${index}] must be an object`,
-          );
-        }
-        const offset = validatePercentGeometry(
-          stop.offset,
-          `${context}.stops[${index}].offset`,
-        );
-        if (offset === undefined) {
-          throw new DeckValidationError(
-            `${context}.stops[${index}].offset must be a number`,
-          );
-        }
-        return {
-          color: validateColorRef(
-            stop.color,
-            `${context}.stops[${index}].color`,
-          ),
-          offset,
-        };
-      })
-    : undefined;
   return {
     type: "radialGradient" as const,
     inner: validateColorRef(input.inner, `${context}.inner`),
     outer: validateColorRef(input.outer, `${context}.outer`),
-    ...(stops !== undefined ? { stops } : {}),
     ...(cx !== undefined ? { cx } : {}),
     ...(cy !== undefined ? { cy } : {}),
     ...(r !== undefined ? { r } : {}),
@@ -248,8 +222,17 @@ function validateElementEffect(input: unknown, context: string): ElementEffect {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
+  if (input.kind === "blur") {
+    return {
+      kind: "blur",
+      radius: Math.max(
+        0,
+        Math.min(32, validateFiniteNumber(input.radius, `${context}.radius`)),
+      ),
+    };
+  }
   if (input.kind !== "glass") {
-    throw new DeckValidationError(`${context}.kind must be "glass"`);
+    throw new DeckValidationError(`${context}.kind must be "glass" or "blur"`);
   }
   if (
     !GLASS_EFFECT_INTENSITIES.includes(
@@ -264,7 +247,10 @@ function validateElementEffect(input: unknown, context: string): ElementEffect {
   }
   return {
     kind: "glass",
-    intensity: input.intensity as ElementEffect["intensity"],
+    intensity: input.intensity as Extract<
+      ElementEffect,
+      { kind: "glass" }
+    >["intensity"],
   };
 }
 

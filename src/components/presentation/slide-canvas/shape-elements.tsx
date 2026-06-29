@@ -39,7 +39,7 @@ function glassFillCss(fill: ResolvedElementFill, alpha: number): string {
       alpha + 0.08,
     )}, ${hexToRgba(fill.to, alpha)})`;
   }
-  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hexToRgba(
+  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hexToRgba(
     fill.inner,
     alpha + 0.08,
   )}, ${hexToRgba(fill.outer, alpha)})`;
@@ -50,6 +50,12 @@ function fillBoxStyle(
   effect: ResolvedShapeDesign["effect"],
 ): React.CSSProperties {
   if (!effect) return { background: resolvedFillToCss(fill) };
+  if (effect.kind === "blur") {
+    return {
+      background: resolvedFillToCss(fill),
+      filter: `blur(${effect.radius}cqmin)`,
+    };
+  }
   const preset = GLASS_PRESETS[effect.intensity];
   return {
     background: glassFillCss(fill, preset.alpha),
@@ -190,6 +196,18 @@ export function ShapeElementView({
           }}
         />
       </div>
+    );
+  }
+  if (content.shape === "ellipse" && resolvedDesign?.effect?.kind === "blur") {
+    return (
+      <div
+        style={{
+          ...boxStyle(element),
+          background: resolvedFillToCss(fill),
+          borderRadius: "50%",
+          filter: `blur(${resolvedDesign.effect.radius}cqmin)`,
+        }}
+      />
     );
   }
   if (content.shape === "triangle") {

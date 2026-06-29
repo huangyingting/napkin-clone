@@ -33,7 +33,6 @@ export type SlideBackgroundDesign =
       type: "radialGradient";
       inner: ColorRef;
       outer: ColorRef;
-      stops?: Array<{ color: ColorRef; offset: number }>;
       cx?: number;
       cy?: number;
       r?: number;

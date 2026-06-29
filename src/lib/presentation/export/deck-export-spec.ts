@@ -417,7 +417,6 @@ export interface DeckShapeOp extends InchBox {
         type: "radialGradient";
         inner: string;
         outer: string;
-        stops?: Array<{ color: string; offset: number }>;
         cx?: number;
         cy?: number;
         r?: number;
@@ -604,14 +603,6 @@ function exportResolvedFill(
     type: "radialGradient",
     inner: toHex(fill.inner),
     outer: toHex(fill.outer),
-    ...(fill.stops && fill.stops.length > 0
-      ? {
-          stops: fill.stops.map((stop) => ({
-            color: stop.color,
-            offset: stop.offset,
-          })),
-        }
-      : {}),
     ...(fill.cx !== undefined ? { cx: fill.cx } : {}),
     ...(fill.cy !== undefined ? { cy: fill.cy } : {}),
     ...(fill.r !== undefined ? { r: fill.r } : {}),

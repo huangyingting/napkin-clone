@@ -194,7 +194,7 @@ function shapeFillCss(
   fill: NonNullable<DeckShapeOp["fill"]>,
   effect: DeckShapeOp["effect"],
 ): string {
-  if (effect) {
+  if (effect?.kind === "glass") {
     const preset = GLASS_PRESETS[effect.intensity];
     if (typeof fill === "string") return rgbaColor(fill, preset.alpha);
     if (fill.type === "linearGradient") {
@@ -203,7 +203,7 @@ function shapeFillCss(
         preset.alpha + 0.08,
       )}, ${rgbaColor(fill.to, preset.alpha)})`;
     }
-    return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
+    return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
       fill.inner,
       preset.alpha + 0.08,
     )}, ${rgbaColor(fill.outer, preset.alpha)})`;
@@ -212,13 +212,7 @@ function shapeFillCss(
   if (fill.type === "linearGradient") {
     return `linear-gradient(${fill.angle ?? 90}deg, ${hashColor(fill.from)}, ${hashColor(fill.to)})`;
   }
-  if (fill.stops && fill.stops.length > 0) {
-    const stops = fill.stops
-      .map((stop) => `${hashColor(stop.color)} ${stop.offset}%`)
-      .join(", ");
-    return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
-  }
-  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hashColor(
+  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hashColor(
     fill.inner,
   )}, ${hashColor(fill.outer)})`;
 }
@@ -232,7 +226,10 @@ function renderStyledShapeSvg(
   const height = Math.max(1, Math.round(op.h * pxPerIn));
   const box = shapeRenderBox(op.shape, { x: 0, y: 0, w: width, h: height });
   const fill = op.fill ?? op.color;
-  const preset = op.effect ? GLASS_PRESETS[op.effect.intensity] : undefined;
+  const preset =
+    op.effect?.kind === "glass"
+      ? GLASS_PRESETS[op.effect.intensity]
+      : undefined;
   const outerStyle = "position:relative;width:100%;height:100%;";
   const shapeStyle = [
     "position:absolute;box-sizing:border-box;overflow:hidden;",
@@ -240,7 +237,9 @@ function renderStyledShapeSvg(
     `background:${shapeFillCss(fill, op.effect)};`,
     preset
       ? `backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});-webkit-backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});`
-      : "",
+      : op.effect?.kind === "blur"
+        ? `filter:blur(${Math.round(op.effect.radius * 16)}px);`
+        : "",
     preset
       ? `border:1px solid ${rgbaColor("ffffff", preset?.borderAlpha ?? 0.5)};box-shadow:0 8px 24px rgba(15,23,42,0.18);`
       : op.stroke

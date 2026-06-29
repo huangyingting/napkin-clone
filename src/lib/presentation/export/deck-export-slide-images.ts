@@ -154,7 +154,7 @@ function glassFillCss(
       alpha + 0.08,
     )}, ${rgbaColor(fill.to, alpha)})`;
   }
-  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
+  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
     fill.inner,
     alpha + 0.08,
   )}, ${rgbaColor(fill.outer, alpha)})`;
@@ -359,18 +359,9 @@ function shapeFillAttr(
     };
   }
   const gradientId = `${id}-radial-fill`;
-  const stops =
-    fill.stops && fill.stops.length > 0
-      ? fill.stops
-          .map(
-            (stop) =>
-              `<stop offset="${stop.offset}%" stop-color="${hashColor(stop.color)}" />`,
-          )
-          .join("")
-      : `<stop offset="0%" stop-color="${hashColor(fill.inner)}" /><stop offset="100%" stop-color="${hashColor(fill.outer)}" />`;
   return {
     defs: [
-      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? 70}%">${stops}</radialGradient>`,
+      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? 70}%"><stop offset="0%" stop-color="${hashColor(fill.inner)}" /><stop offset="100%" stop-color="${hashColor(fill.outer)}" /></radialGradient>`,
     ],
     attr: `url(#${gradientId})`,
   };
@@ -413,13 +404,16 @@ function renderEffectShapeSvg(
     drawOp.rotation,
   );
   const effect = drawOp.effect;
-  const preset = effect ? GLASS_PRESETS[effect.intensity] : undefined;
+  const preset =
+    effect?.kind === "glass" ? GLASS_PRESETS[effect.intensity] : undefined;
   const style = [
     "width:100%;height:100%;box-sizing:border-box;",
     `background:${preset ? glassFillCss(fill, preset.alpha) : typeof fill === "string" ? hashColor(fill) : shapeFillAttr(fill, "effect-fill").attr};`,
     preset
       ? `backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`
-      : "",
+      : effect?.kind === "blur"
+        ? `filter:blur(${effect.radius * pxPerIn * 0.08}px);`
+        : "",
     preset
       ? `-webkit-backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`
       : "",
