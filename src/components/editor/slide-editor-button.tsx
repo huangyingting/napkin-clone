@@ -8,6 +8,7 @@
  */
 
 import { useCallback } from "react";
+import { createPortal } from "react-dom";
 
 import { LayoutPanelLeft } from "lucide-react";
 
@@ -23,6 +24,21 @@ import {
   NEUTRAL_THEME_PACKAGE,
 } from "@/lib/presentation-vnext";
 import { downloadBlob } from "@/lib/visual/export";
+
+function SlideEditorOverlay({ children }: { children: React.ReactNode }) {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-label="Slide editor"
+      className="fixed inset-0 z-panel bg-ds-surface"
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
 
 interface SlideEditorButtonProps {
   documentId: string;
@@ -122,13 +138,15 @@ export function SlideEditorButton({
       ) : null}
 
       {open && deckV7 ? (
-        <SlideEditorVNext
-          deck={deckV7}
-          onDeckChange={handleDeckV7Change}
-          onSave={handleSaveV7}
-          onClose={handleClose}
-          onExportPptx={handleExportV7Pptx}
-        />
+        <SlideEditorOverlay>
+          <SlideEditorVNext
+            deck={deckV7}
+            onDeckChange={handleDeckV7Change}
+            onSave={handleSaveV7}
+            onClose={handleClose}
+            onExportPptx={handleExportV7Pptx}
+          />
+        </SlideEditorOverlay>
       ) : null}
 
       {conflictStateV7 ? (
