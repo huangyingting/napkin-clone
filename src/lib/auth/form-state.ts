@@ -29,11 +29,3 @@ export const initialForgotPasswordState: ForgotPasswordState = {
 export const initialResetPasswordState: ResetPasswordState = {
   status: "idle",
 };
-
-export const initialActionResultState = null;
-
-export function actionErrorMessage<T>(
-  state: ActionResult<T> | null,
-): string | null {
-  return state && !state.ok ? state.error : null;
-}

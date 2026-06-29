@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-export { formatElapsedTime } from "@/components/presentation/present-mode/format-elapsed-time";
-
 export function usePresenterTimer(): {
   elapsedSeconds: number;
   startedAtRef: RefObject<number | null>;

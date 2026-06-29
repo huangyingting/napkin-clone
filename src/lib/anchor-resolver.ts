@@ -67,7 +67,7 @@ export function resolveVisualRef(
     : { status: "missing", reason: `Visual ${visualId} was not found.` };
 }
 
-export function resolveTableRef(
+function resolveTableRef(
   blockId: string,
   blocks: readonly DocumentBlock[],
 ): AnchorResolution<DocumentBlock> {

@@ -13,8 +13,8 @@ import { PDFParse } from "pdf-parse";
 
 import { ImportBudgetError } from "./archive-budget";
 
-export const PDF_MAX_PAGES = 250;
-export const PDF_MAX_TEXT_CHARS = 500_000;
+const PDF_MAX_PAGES = 250;
+const PDF_MAX_TEXT_CHARS = 500_000;
 
 /**
  * Extracts text from a PDF `Buffer` and returns it as a plain text string.

@@ -5,11 +5,11 @@ import { PrismaClient } from "../src/generated/prisma/client";
 
 // Seed and maintenance scripts run through tsx/Prisma CLI entry points, so keep
 // this helper on relative imports instead of app-only TS path aliases.
-export function resolveScriptPrismaProvider(): "postgres" | "sqlite" {
+function resolveScriptPrismaProvider(): "postgres" | "sqlite" {
   return process.env.DB_PROVIDER === "postgres" ? "postgres" : "sqlite";
 }
 
-export function resolveScriptPrismaUrl(): string | undefined {
+function resolveScriptPrismaUrl(): string | undefined {
   const explicit = process.env.DATABASE_URL;
   if (explicit !== undefined) return explicit;
   return resolveScriptPrismaProvider() === "sqlite"

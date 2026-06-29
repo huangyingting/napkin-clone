@@ -3,15 +3,13 @@
  *
  * Asserts that:
  *  - `fnv1aHash32` is deterministic, 8-char hex.
- *  - Both former call sites (`deck.ts` via computeSectionId and `deck-hash.ts`
- *    via `fnv1aHex`) produce byte-for-byte identical output for the same input.
+ *  - `deck.ts` source IDs use the same shared hash output.
  */
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { fnv1aHash32 } from "./fnv-hash";
-import { fnv1aHex } from "./deck-hash";
 import { buildDeckFromBlocks } from "./deck";
 import type { DocumentBlock } from "@/lib/content";
 
@@ -38,28 +36,6 @@ test("fnv1aHash32: differs for different inputs", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Identical output from both former call sites (byte-for-byte guarantee #487)
-// ---------------------------------------------------------------------------
-
-const PROBE_STRINGS = [
-  "intro",
-  "hello world",
-  "The Quick Brown Fox",
-  "section title with spaces",
-  "",
-  "a",
-  "0123456789",
-  "special !@#$%^&*()",
-];
-
-for (const input of PROBE_STRINGS) {
-  const label = input === "" ? "(empty string)" : `"${input}"`;
-  test(`fnv1aHash32 and fnv1aHex produce identical output for ${label}`, () => {
-    assert.equal(fnv1aHash32(input), fnv1aHex(input));
-  });
-}
-
-// ---------------------------------------------------------------------------
 // deck.ts call site: source.sectionId uses fnv1aHash32 via computeSectionId
 // ---------------------------------------------------------------------------
 
@@ -67,7 +43,7 @@ function sectionId(slide: unknown): string | undefined {
   return (slide as any).source?.sectionId;
 }
 
-test("buildDeckFromBlocks derives source.sectionId using shared hash (matches fnv1aHex of normalized title)", () => {
+test("buildDeckFromBlocks derives source.sectionId using shared hash", () => {
   const title = "Introduction";
   const blocks: DocumentBlock[] = [
     { kind: "text", blockType: "heading", level: 1, text: title },
@@ -76,8 +52,6 @@ test("buildDeckFromBlocks derives source.sectionId using shared hash (matches fn
   const slide = deck.slides[0];
   const expectedId = fnv1aHash32(title.trim().toLowerCase());
   assert.equal(sectionId(slide), expectedId);
-  // Must also match the deck-hash.ts call site (fnv1aHex)
-  assert.equal(sectionId(slide), fnv1aHex(title.trim().toLowerCase()));
 });
 
 test("buildDeckFromBlocks source.sectionId is stable across calls", () => {

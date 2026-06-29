@@ -3,7 +3,7 @@ import { slugify } from "@/lib/slug";
 
 export { TAG_NAME_MAX_LENGTH };
 
-export const TAG_SLUG_FALLBACK = "tag";
+const TAG_SLUG_FALLBACK = "tag";
 export const MAX_TAG_SLUG_COLLISION_ATTEMPTS = 25;
 
 export function normalizeTagName(raw: string): string {

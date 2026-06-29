@@ -1,8 +1,8 @@
 import JSZip from "jszip";
 
 export const IMPORT_ZIP_MAX_ENTRIES = 2_000;
-export const IMPORT_ZIP_MAX_UNCOMPRESSED_BYTES = 80 * 1024 * 1024;
-export const IMPORT_ZIP_MAX_ENTRY_BYTES = 20 * 1024 * 1024;
+const IMPORT_ZIP_MAX_UNCOMPRESSED_BYTES = 80 * 1024 * 1024;
+const IMPORT_ZIP_MAX_ENTRY_BYTES = 20 * 1024 * 1024;
 
 export class ImportBudgetError extends Error {
   constructor(message: string) {

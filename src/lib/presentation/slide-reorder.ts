@@ -15,7 +15,7 @@ export interface RailItemExtent {
   end: number;
 }
 
-export const RAIL_REORDER_CROSS_AXIS_TOLERANCE_PX = 48;
+const RAIL_REORDER_CROSS_AXIS_TOLERANCE_PX = 48;
 
 /**
  * Given a pointer coordinate along the rail's main axis and the ordered extents

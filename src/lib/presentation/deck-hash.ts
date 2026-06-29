@@ -25,15 +25,6 @@
 import type { Deck, Slide } from "./deck-core";
 import { fnv1aHash32 } from "./fnv-hash";
 
-/**
- * FNV-1a 32-bit string hash, returned as an 8-char zero-padded hex string.
- * Delegates to the shared {@link fnv1aHash32} utility (issue #487) so both
- * former call sites produce byte-for-byte identical output.
- */
-export function fnv1aHex(input: string): string {
-  return fnv1aHash32(input);
-}
-
 /** Normalizes a title for matching/hashing: trimmed and lower-cased. */
 export function normalizeTitle(title: string): string {
   return title.trim().toLowerCase();
@@ -132,7 +123,7 @@ export function deckContentSignature(deck: Deck): string {
  * (`buildDeckFromBlocks`) to obtain the *current* document hash.
  */
 export function computeDeckContentHash(deck: Deck): string {
-  return fnv1aHex(deckContentSignature(deck));
+  return fnv1aHash32(deckContentSignature(deck));
 }
 
 /**

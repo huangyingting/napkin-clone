@@ -8,8 +8,8 @@
  * full deck re-derive.
  *
  * Design decisions:
- *  - Uses the same FNV-1a 32-bit implementation already exported by
- *    `deck-hash.ts` — identical in Node and the browser, zero extra deps.
+ *  - Uses the shared FNV-1a 32-bit implementation — identical in Node and the
+ *    browser, zero extra deps.
  *  - The signature encodes the block type, text, and (where present) the
  *    heading level with ASCII record-separator characters so distinct fields
  *    can never accidentally produce the same string.
@@ -19,7 +19,7 @@
  */
 
 import type { DocumentBlock } from "@/lib/content";
-import { fnv1aHex } from "./deck-hash";
+import { fnv1aHash32 } from "./fnv-hash";
 
 /**
  * Returns the canonical string representation of a document block that is
@@ -68,5 +68,5 @@ export function documentBlockSignature(block: DocumentBlock): string {
  * additional normalisation.
  */
 export function hashDocumentBlock(block: DocumentBlock): string {
-  return fnv1aHex(documentBlockSignature(block));
+  return fnv1aHash32(documentBlockSignature(block));
 }

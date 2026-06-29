@@ -105,6 +105,7 @@ test("parseGenerateDeckPayload builds a payload with outline and options", () =>
   assert.equal(result.ok, true);
   assert.equal(result.payload.options.length, "medium");
   assert.equal(result.payload.options.tone, "direct");
+  assert.equal(result.payload.generationMode, "legacy");
   assert.match(result.payload.outline, /Roadmap/);
 });
 

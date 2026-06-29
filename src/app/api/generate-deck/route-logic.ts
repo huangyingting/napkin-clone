@@ -81,12 +81,6 @@ function fallbackReason(error: unknown): string {
   return String(error);
 }
 
-function requestedGenerationMode(
-  payload: GenerateDeckPayload,
-): GenerateDeckMode {
-  return payload.generationMode ?? "legacy";
-}
-
 export async function generateDeckForRoute(
   input: {
     payload: GenerateDeckPayload;
@@ -97,7 +91,7 @@ export async function generateDeckForRoute(
 ): Promise<GenerateDeckRouteResult> {
   const deps = { ...defaultDeps, ...overrides };
   const { payload, complete, requestId } = input;
-  const requestedMode = requestedGenerationMode(payload);
+  const requestedMode = payload.generationMode;
 
   const runLegacy = async (
     reason?: string,
@@ -157,7 +151,7 @@ export async function generateDeckForRoute(
   return runLegacy();
 }
 
-export function countTableSlides(deck: Deck): number {
+function countTableSlides(deck: Deck): number {
   let count = 0;
   for (const slide of deck.slides) {
     const elements = Array.isArray(slide.elements) ? slide.elements : [];
@@ -168,7 +162,7 @@ export function countTableSlides(deck: Deck): number {
   return count;
 }
 
-export function buildGenerateDeckResponseMetadata(
+function buildGenerateDeckResponseMetadata(
   result: GenerateDeckRouteResult,
   schemaValid: boolean,
 ): GenerateDeckResponseMetadata {

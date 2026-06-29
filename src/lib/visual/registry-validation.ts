@@ -8,7 +8,7 @@ import { KIND_PROMPT_CONSTRAINTS } from "./registry-prompt";
 import { KIND_RUNTIME_DESCRIPTORS } from "./registry-runtime";
 import type { VisualRegistry } from "./registry-types";
 
-export function assertCompleteKindMap<T>(
+function assertCompleteKindMap<T>(
   label: string,
   record: Record<string, T>,
 ): void {

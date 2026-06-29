@@ -234,16 +234,12 @@ export function abuseBudgetOptions(
   };
 }
 
-export function opaqueSubject(subject: string, secret: string): string {
-  return hashIdentifier(subject, secret);
-}
-
 export function abuseBudgetSubject(
   namespace: AbuseBudgetNamespaceId,
   subject: string,
   secret: string,
 ): { subjectHash: string; key: string } {
-  const subjectHash = opaqueSubject(subject, secret);
+  const subjectHash = hashIdentifier(subject, secret);
   /* node:coverage ignore next 6 -- abuseBudgetSubject tests assert both returned fields; tsx maps the object tail/closure as uncovered. */
   return {
     subjectHash,

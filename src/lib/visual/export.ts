@@ -20,7 +20,7 @@ import {
 // Re-export ExportOptions so callers can import from one place.
 export type { ExportOptions };
 export { DEFAULT_EXPORT_OPTIONS };
-export { sanitizeFilename } from "@/lib/visual/export-filename"; /* node:coverage disable */
+/* node:coverage disable */
 function sizeSvgForRasterization(
   svgString: string,
   width: number,
@@ -218,7 +218,8 @@ export async function exportPPTX(
   svgElement: SVGSVGElement,
   visual?: Visual,
   options?: ExportOptions,
-): Promise<Blob | null> { // node:coverage enable
+): Promise<Blob | null> {
+  // node:coverage enable
   try {
     const [
       { default: PptxGenJS },

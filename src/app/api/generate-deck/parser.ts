@@ -41,7 +41,7 @@ export interface GenerateDeckPayload {
   truncated: boolean;
   preferredTheme: ReturnType<typeof inferPresentationTheme>;
   themePackageId?: ThemePackageId;
-  generationMode?: "legacy" | "package-template";
+  generationMode: "legacy" | "package-template";
 }
 
 export function visualsFromContent(

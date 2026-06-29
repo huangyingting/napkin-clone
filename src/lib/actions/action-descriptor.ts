@@ -1,8 +1,4 @@
-import {
-  shortcutById,
-  shortcutDisplayLabel,
-  type ShortcutId,
-} from "@/lib/shortcuts/catalog";
+import { shortcutById, type ShortcutId } from "@/lib/shortcuts/catalog";
 
 export type ActionDescriptor<TContext = void> = {
   id: string;
@@ -25,14 +21,5 @@ export function actionAriaKeyShortcuts(
 ): string | undefined {
   return descriptor.shortcutId
     ? shortcutById(descriptor.shortcutId).canonical
-    : undefined;
-}
-
-export function actionShortcutLabel(
-  descriptor: Pick<ActionDescriptor, "shortcutId">,
-  opts: { isMac?: boolean } = {},
-): string | undefined {
-  return descriptor.shortcutId
-    ? shortcutDisplayLabel(shortcutById(descriptor.shortcutId), opts)
     : undefined;
 }

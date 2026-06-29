@@ -10,7 +10,6 @@ import { buildDeckFromBlocks, type Deck, type Slide } from "./deck";
 import {
   computeDeckContentHash,
   deckContentSignature,
-  fnv1aHex,
   isDeckStale,
   normalizeTitle,
   stampDeckContentHash,
@@ -127,14 +126,6 @@ function deck(slides: Slide[], themeId = "default"): Deck {
     slides,
   } as unknown as Deck;
 }
-
-test("fnv1aHex is deterministic and 8-char hex", () => {
-  const a = fnv1aHex("hello world");
-  const b = fnv1aHex("hello world");
-  assert.equal(a, b);
-  assert.match(a, /^[0-9a-f]{8}$/);
-  assert.notEqual(fnv1aHex("hello world"), fnv1aHex("hello worle"));
-});
 
 test("normalizeTitle trims and lower-cases", () => {
   assert.equal(normalizeTitle("  Intro  "), "intro");

@@ -29,7 +29,7 @@ export type RightPanelTab =
   | "layers";
 
 /** Human-readable labels for each panel, shared by the toolbar and switcher. */
-export const PANEL_LABELS: Record<RightPanelTab, string> = {
+const PANEL_LABELS: Record<RightPanelTab, string> = {
   slide: "Slide",
   arrange: "Arrange",
   text: "Text",

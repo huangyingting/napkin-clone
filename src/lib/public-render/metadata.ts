@@ -1,7 +1,7 @@
 import { deriveFromContentJson } from "@/lib/document-stats";
 import { buildShareSegment } from "@/lib/slug";
 
-export const PUBLIC_SITE_NAME = "TextIQ";
+const PUBLIC_SITE_NAME = "TextIQ";
 
 export type PublicMetadataSurface = "share" | "present";
 

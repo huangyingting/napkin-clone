@@ -24,10 +24,7 @@ export type {
   PresentationShortcutIdMap,
   PresentationShortcutRow,
 } from "@/components/presentation/runtime/navigation-constants";
-export {
-  PRESENTATION_NAVIGATION_SHORTCUT_IDS,
-  presentationShortcutRows,
-} from "@/components/presentation/runtime/navigation-constants";
+export { PRESENTATION_NAVIGATION_SHORTCUT_IDS } from "@/components/presentation/runtime/navigation-constants";
 import type {
   PresentationShortcutAction,
   PresentationShortcutIdMap,

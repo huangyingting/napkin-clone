@@ -16,7 +16,7 @@ import {
 
 export const DOCUMENT_IMPORT_ACCEPT = ".md,.html,.htm,.docx,.pptx,.pdf";
 export const DOCUMENT_IMPORT_ACCEPT_LABEL = ".md, .html, .docx, .pptx, .pdf";
-export const DOCUMENT_IMPORT_MAX_BYTES = 20 * 1024 * 1024;
+const DOCUMENT_IMPORT_MAX_BYTES = 20 * 1024 * 1024;
 export const DOCUMENT_IMPORT_MAX_SIZE_LABEL = "20 MB";
 
 export type DocumentImportState =
@@ -24,14 +24,14 @@ export type DocumentImportState =
   | { status: "uploading" }
   | { status: "error"; message: string };
 
-export function deriveImportedDocumentTitle(fileName: string): string {
+function deriveImportedDocumentTitle(fileName: string): string {
   return (
     fileName.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ") ||
     "Imported document"
   );
 }
 
-export const routeDocumentImportPort: DocumentImportActionPort = {
+const routeDocumentImportPort: DocumentImportActionPort = {
   async importFile(file) {
     const formData = new FormData();
     formData.append("file", file);

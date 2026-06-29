@@ -12,7 +12,7 @@ export type SaveResult = {
 
 export type LexicalSaveFn = (json: string) => Promise<SaveResult>;
 
-export const DEFAULT_SAVE_DEBOUNCE_MS = 800;
+const DEFAULT_SAVE_DEBOUNCE_MS = 800;
 
 export type AutosaveController = {
   queue(json: string): void;

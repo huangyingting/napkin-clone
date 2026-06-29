@@ -5,7 +5,7 @@ import {
   fixturePngBuffer,
 } from "@/test/builders/e2e-profile";
 
-export { E2E_PROFILE_FIXTURE, fixtureAssetChecksum, fixturePngBuffer };
+export { E2E_PROFILE_FIXTURE, fixturePngBuffer };
 
 /**
  * Deterministic E2E profile fixture (Epic #517, issue #518).
@@ -49,18 +49,13 @@ export function profileDocPath(): string {
 }
 
 /** Public `<slug>-<shareId>` URL segment for the seeded share links. */
-export function profileShareSegment(): string {
+function profileShareSegment(): string {
   return `${E2E_PROFILE_FIXTURE.slug}-${E2E_PROFILE_FIXTURE.shareId}`;
 }
 
 /** Public present-mode path for the seeded deck. */
 export function profilePresentPath(): string {
   return `/present/${profileShareSegment()}`;
-}
-
-/** Public embed path for the seeded deck. */
-export function profileEmbedPath(): string {
-  return `/embed/${profileShareSegment()}`;
 }
 
 /** Protected slide-asset URL for the seeded image asset (public/shared doc). */

@@ -13,8 +13,8 @@ export interface KeyboardRotationKeyEvent {
   shiftKey: boolean;
 }
 
-export const KEYBOARD_ROTATION_STEP_DEG = 15;
-export const KEYBOARD_ROTATION_FINE_STEP_DEG = 1;
+const KEYBOARD_ROTATION_STEP_DEG = 15;
+const KEYBOARD_ROTATION_FINE_STEP_DEG = 1;
 
 export function keyboardRotationDelta(
   event: KeyboardRotationKeyEvent,

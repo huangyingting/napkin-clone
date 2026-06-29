@@ -203,9 +203,6 @@ const FONT_BY_FAMILY = new Map(
   SLIDE_FONTS.map((font) => [font.cssFamily.toLowerCase(), font]),
 );
 
-/** All registry font ids in picker order. */
-export const SLIDE_FONT_IDS: readonly string[] = SLIDE_FONTS.map((f) => f.id);
-
 /** A single UI picker option for a slide font. `value` is the full CSS stack. */
 export type FontOption = {
   id: string;
@@ -252,7 +249,7 @@ export function resolveElementFontCss(
 /* node:coverage enable */
 
 /** Self-hosted CJK fallback family appended to slide font stacks. */
-export const SLIDE_CJK_FALLBACK = "'Noto Sans SC'";
+const SLIDE_CJK_FALLBACK = "'Noto Sans SC'";
 
 const GENERIC_FAMILY_RE =
   /^(ui-sans-serif|ui-serif|ui-monospace|system-ui|sans-serif|serif|monospace|cursive|fantasy|-apple-system)$/i;
