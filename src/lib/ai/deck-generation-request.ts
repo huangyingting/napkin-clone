@@ -17,6 +17,8 @@ import {
   isThemePackageId,
   type ThemePackageId,
 } from "@/lib/presentation/theme-packages";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 export type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 
@@ -60,7 +62,17 @@ export interface DeckGenerationResponseMetadata {
 export type DeckGenerateResult =
   | {
       ok: true;
-      deck: Deck;
+      /**
+       * Set when the response included a parseable v6 deck. Absent for
+       * v7-only responses — callers should read `deckV7` instead.
+       */
+      deck?: Deck;
+      /**
+       * Set when the generation response included a v7 deck
+       * (`schemaVersion: 7`). Callers that understand the v7 schema should
+       * prefer this over `deck`. When absent the response was v6 only.
+       */
+      deckV7?: DeckV7;
       truncated: boolean;
       metadata?: DeckGenerationResponseMetadata;
     }
@@ -193,24 +205,55 @@ function parseDeckResponseMetadata(
 }
 
 export function parseDeckResponse(payload: unknown): {
-  deck: Deck;
+  /** Set when the response included a parseable v6 deck. */
+  deck?: Deck;
+  /** Set when the API returned a v7 deck. */
+  deckV7?: DeckV7;
   truncated: boolean;
   metadata?: DeckGenerationResponseMetadata;
 } | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
-  const result = safeParseDeck((payload as { deck?: unknown }).deck);
-  if (!result.success) {
-    return null;
-  }
+  const rawDeck = (payload as { deck?: unknown }).deck;
+  const truncated = (payload as { truncated?: unknown }).truncated === true;
   const metadata = parseDeckResponseMetadata(
     (payload as { metadata?: unknown }).metadata,
   );
+  const metaField = metadata ? { metadata } : {};
+
+  // v7 response: parse with safeParseDeckV7 and also attempt v6 parse for
+  // backward-compatible callers that use result.deck.
+  if (
+    rawDeck !== null &&
+    typeof rawDeck === "object" &&
+    !Array.isArray(rawDeck) &&
+    (rawDeck as Record<string, unknown>).schemaVersion === 7
+  ) {
+    const v7Result = safeParseDeckV7(rawDeck);
+    if (!v7Result.success) return null;
+    const v6Compat = safeParseDeck(rawDeck);
+    if (!v6Compat.success) {
+      // v7-only response: return deckV7 without a v6 deck.
+      return { deckV7: v7Result.data, truncated, ...metaField };
+    }
+    return {
+      deck: v6Compat.data,
+      deckV7: v7Result.data,
+      truncated,
+      ...metaField,
+    };
+  }
+
+  // v6 response (current production behavior).
+  const result = safeParseDeck(rawDeck);
+  if (!result.success) {
+    return null;
+  }
   return {
     deck: result.data,
-    truncated: (payload as { truncated?: unknown }).truncated === true,
-    ...(metadata ? { metadata } : {}),
+    truncated,
+    ...metaField,
   };
 }
 
@@ -298,7 +341,8 @@ export async function requestDeckGeneration(
   }
   return {
     ok: true,
-    deck: parsed.deck,
+    ...(parsed.deck ? { deck: parsed.deck } : {}),
+    ...(parsed.deckV7 ? { deckV7: parsed.deckV7 } : {}),
     truncated: parsed.truncated,
     ...(parsed.metadata ? { metadata: parsed.metadata } : {}),
   };

@@ -1,19 +1,12 @@
-import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
+import { countWords } from "@/lib/ai/deck-metrics";
 import type { CompleteFn } from "@/lib/ai/generate";
 import {
-  runPackageTemplateDeckGeneration,
-  type RunPackageTemplateDeckGenerationInput,
-  type RunPackageTemplateDeckGenerationResult,
-} from "@/lib/ai/run-package-template-deck-generation";
-import {
-  buildDeckFromBlocks,
-  type Deck,
-  type SlideElement,
-} from "@/lib/presentation/deck";
-import {
-  computeDeckContentHash,
-  stampDeckContentHash,
-} from "@/lib/presentation/deck-hash";
+  runVnextDeckGeneration,
+  type RunVnextDeckGenerationInput,
+  type RunVnextDeckGenerationResult,
+} from "@/lib/ai/run-vnext-deck-generation";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 import { logInfo } from "@/lib/log";
 
@@ -21,10 +14,10 @@ import type { GenerateDeckPayload } from "./parser";
 
 export const GENERATE_DECK_LOG_SCOPE = "api.generate-deck";
 
-export type GenerateDeckMode = "package-template";
+export type GenerateDeckMode = "package-template" | "vnext";
 
 export interface GenerateDeckRouteResult {
-  deck: Deck;
+  deck: DeckV7;
   truncated: boolean;
   requestedGenerationMode: GenerateDeckMode;
   generationMode: GenerateDeckMode;
@@ -43,10 +36,9 @@ export interface GenerateDeckResponseMetadata {
 }
 
 export interface GenerateDeckRouteDeps {
-  runPackageTemplate(
-    input: RunPackageTemplateDeckGenerationInput,
-  ): Promise<RunPackageTemplateDeckGenerationResult>;
-  buildBaseDeck(payload: GenerateDeckPayload): Deck;
+  runVnext(
+    input: RunVnextDeckGenerationInput,
+  ): Promise<RunVnextDeckGenerationResult>;
   logInfo(
     scope: string,
     message: string,
@@ -55,11 +47,7 @@ export interface GenerateDeckRouteDeps {
 }
 
 const defaultDeps: GenerateDeckRouteDeps = {
-  runPackageTemplate: runPackageTemplateDeckGeneration,
-  buildBaseDeck: (payload) => {
-    const baseline = buildDeckFromBlocks([...payload.blocks], "indigo");
-    return stampDeckContentHash(baseline, computeDeckContentHash(baseline));
-  },
+  runVnext: runVnextDeckGeneration,
   logInfo,
 };
 
@@ -73,34 +61,92 @@ export async function generateDeckForRoute(
 ): Promise<GenerateDeckRouteResult> {
   const deps = { ...defaultDeps, ...overrides };
   const { payload, complete } = input;
-  const requestedMode = payload.generationMode;
-  const result = await deps.runPackageTemplate({
+  const result = await deps.runVnext({
     contentJson: payload.contentJson,
     visuals: payload.visuals,
-    baseDeck: deps.buildBaseDeck(payload),
-    packageId: payload.themePackageId,
+    themePackageId: payload.themePackageId,
     complete,
     options: payload.options,
   });
   return {
     deck: result.deck,
     truncated: result.truncated,
-    requestedGenerationMode: requestedMode,
-    generationMode: "package-template",
+    requestedGenerationMode: payload.generationMode,
+    generationMode: "vnext",
     themePackageId: payload.themePackageId,
     selectedKindCounts: result.selectedKindCounts,
   };
 }
 
-function countTableSlides(deck: Deck): number {
+function countTableSlides(deck: DeckV7): number {
   let count = 0;
   for (const slide of deck.slides) {
-    const elements = Array.isArray(slide.elements) ? slide.elements : [];
-    if (elements.some((element: SlideElement) => element.kind === "table")) {
+    const children = Array.isArray(slide.children) ? slide.children : [];
+    if (children.some((child) => child.type === "table")) {
       count += 1;
     }
   }
   return count;
+}
+
+// ---------------------------------------------------------------------------
+// Minimal v7 route metrics (content-free, safe to log)
+// ---------------------------------------------------------------------------
+
+interface V7RouteMetrics {
+  slideCount: number;
+  wordsPerSlide: number;
+  percentSlidesWithVisual: number;
+  schemaValid: boolean;
+  sourceWordCount?: number;
+}
+
+function computeV7RouteMetrics(
+  deck: DeckV7,
+  options: { sourceWordCount?: number } = {},
+): V7RouteMetrics {
+  const slideCount = deck.slides.length;
+  let totalWords = 0;
+  let slidesWithVisual = 0;
+
+  for (const slide of deck.slides) {
+    const children = Array.isArray(slide.children) ? slide.children : [];
+    let slideHasVisual = false;
+    for (const child of children) {
+      if (child.type === "text") {
+        for (const para of child.content?.paragraphs ?? []) {
+          totalWords += countWords(para.text);
+        }
+      }
+      if (child.type === "image" || child.type === "visual") {
+        slideHasVisual = true;
+      }
+    }
+    if (slideHasVisual) {
+      slidesWithVisual += 1;
+    }
+  }
+
+  const wordsPerSlide = slideCount > 0 ? totalWords / slideCount : 0;
+  const percentSlidesWithVisual =
+    slideCount > 0 ? slidesWithVisual / slideCount : 0;
+  const schemaValid = safeParseDeckV7(deck).success;
+
+  const metrics: V7RouteMetrics = {
+    slideCount,
+    wordsPerSlide,
+    percentSlidesWithVisual,
+    schemaValid,
+  };
+
+  if (
+    typeof options.sourceWordCount === "number" &&
+    options.sourceWordCount > 0
+  ) {
+    metrics.sourceWordCount = options.sourceWordCount;
+  }
+
+  return metrics;
 }
 
 function buildGenerateDeckResponseMetadata(
@@ -123,11 +169,11 @@ function buildGenerateDeckResponseMetadata(
 export function buildGenerateDeckSuccessResponse(
   result: GenerateDeckRouteResult,
 ): {
-  deck: Deck;
+  deck: DeckV7;
   truncated: boolean;
   metadata: GenerateDeckResponseMetadata;
 } {
-  const metrics = computeDeckMetrics(result.deck);
+  const metrics = computeV7RouteMetrics(result.deck);
   return {
     deck: result.deck,
     truncated: result.truncated,
@@ -143,7 +189,7 @@ export function buildGenerateDeckSuccessLogFields(
     latencyMs: number;
   },
 ): Record<string, unknown> {
-  const metrics = computeDeckMetrics(result.deck, {
+  const metrics = computeV7RouteMetrics(result.deck, {
     sourceWordCount: countWords(context.payload.outline),
   });
   return {

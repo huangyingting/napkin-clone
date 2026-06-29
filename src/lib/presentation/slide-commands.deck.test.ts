@@ -183,12 +183,19 @@ test("master chrome footer edits preserve package text styling", () => {
   });
   assert.equal(applied.ok, true);
   const master = applied.deck.masters![0]!;
-  const originalFooter = master.elements.find(
+  // Terra's master has empty elements; chrome elements are lazily created.
+  // Seed the master with a footer chrome element carrying package-like rich
+  // text styling so the merge test is meaningful.
+  const seedElements = [
+    ...master.elements,
+    masterTextElement("footer-pkg"),
+  ] as typeof master.elements;
+  const originalFooter = seedElements.find(
     (element) => element.masterChromeKind === "footer",
   )!;
   const originalTextStyle = (originalFooter as any).designOverrides.textStyle;
 
-  const elements = applyGlobalMasterChromeUpdate(master.elements, {
+  const elements = applyGlobalMasterChromeUpdate(seedElements, {
     kind: "footer",
     state: {
       enabled: true,

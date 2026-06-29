@@ -92,3 +92,53 @@ test("buildPublicPresentationModel falls back to a block-derived deck when persi
   assert.deepEqual(Object.keys(model.visuals), ["vis-1"]);
   assert.equal(model.attribution.ownerName, "Ava");
 });
+
+import { buildPublicPresentationModelAny } from "./presentation";
+import {
+  buildDeckV7,
+  buildCoverSlide,
+  resetBuilderCounter,
+} from "@/test/builders/deck-v7";
+
+test("buildPublicPresentationModelAny returns v7 model for valid v7 deckJson", () => {
+  resetBuilderCounter();
+  const v7Deck = buildDeckV7([buildCoverSlide()]);
+  const model = buildPublicPresentationModelAny({
+    title: "vNext deck",
+    contentJson: { root: { children: [] } },
+    deckJson: v7Deck,
+    owner: { name: "Alex", plan: "pro" },
+  });
+  assert.equal(model.kind, "v7");
+  if (model.kind === "v7") {
+    assert.equal(model.title, "vNext deck");
+    assert.equal(model.deckV7.schemaVersion, 7);
+    assert.equal(model.attribution.ownerName, "Alex");
+  }
+});
+
+test("buildPublicPresentationModelAny falls back to v6 for legacy deckJson", () => {
+  const model = buildPublicPresentationModelAny({
+    title: "Legacy",
+    contentJson: { root: { children: [] } },
+    deckJson: { schemaVersion: 5 },
+    owner: { name: null, plan: "free" },
+  });
+  assert.equal(model.kind, "v6");
+});
+
+test("buildPublicPresentationModel carries deckV7 field for valid v7 deckJson", () => {
+  resetBuilderCounter();
+  const v7Deck = buildDeckV7([buildCoverSlide()]);
+  const model = buildPublicPresentationModel({
+    title: "Hybrid",
+    contentJson: { root: { children: [] } },
+    deckJson: v7Deck,
+    owner: { name: null, plan: "free" },
+  });
+  assert.ok(
+    model.deckV7 !== undefined,
+    "Expected deckV7 field to be populated",
+  );
+  assert.equal(model.deckV7?.schemaVersion, 7);
+});

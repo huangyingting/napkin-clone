@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { DECK_SCHEMA_VERSION_V7 } from "@/lib/presentation-vnext/schema";
+import type { DeckV7, SlideNode } from "@/lib/presentation-vnext/schema";
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
-  type Deck,
-} from "@/lib/presentation/deck";
+  buildDeckV7,
+  buildCoverSlide,
+  buildContentSlide,
+  buildTableSlide,
+  buildVisualSlide,
+  buildSlideV7,
+  buildImageNode,
+  resetBuilderCounter,
+} from "@/test/builders/deck-v7";
+import type { RunVnextDeckGenerationResult } from "@/lib/ai/run-vnext-deck-generation";
 
 import type { GenerateDeckPayload } from "./parser";
 import {
@@ -17,53 +26,12 @@ const CONTENT_JSON = {
   root: { children: [{ type: "paragraph", children: [{ text: "Roadmap" }] }] },
 };
 
-function makeDeck(withTable = false): Deck {
-  return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    canvas: { format: "16:9" },
-    design: { themeId: "default" },
-    masters: [{ id: "master-default", name: "Default", elements: [] }],
-    defaultMasterId: "master-default",
-    slides: [
-      {
-        id: "slide-1",
-        index: 0,
-        title: "Roadmap",
-        templateId: withTable ? "theme:terra:table" : "theme:terra:content",
-        notes: "",
-        elements: withTable
-          ? [
-              {
-                id: "table-1",
-                kind: "table",
-                role: "table",
-                zIndex: 0,
-                box: { x: 10, y: 10, w: 80, h: 50 },
-                content: {
-                  kind: "table",
-                  header: true,
-                  caption: "Metrics",
-                  columns: [
-                    { id: "col-1", label: "Metric" },
-                    { id: "col-2", label: "Value" },
-                  ],
-                  rows: [
-                    {
-                      id: "row-1",
-                      cells: [{ text: "Reach" }, { text: "42" }],
-                    },
-                    {
-                      id: "row-2",
-                      cells: [{ text: "Cost" }, { text: "7" }],
-                    },
-                  ],
-                },
-              },
-            ]
-          : [],
-      },
-    ],
-  };
+function makeDeckV7(withTable = false): DeckV7 {
+  resetBuilderCounter();
+  const slides: SlideNode[] = withTable
+    ? [buildCoverSlide(), buildTableSlide()]
+    : [buildCoverSlide(), buildContentSlide()];
+  return buildDeckV7(slides, { theme: { packageId: "noir" } });
 }
 
 function makePayload(): GenerateDeckPayload {
@@ -81,81 +49,101 @@ function makePayload(): GenerateDeckPayload {
 
 const complete = async () => "{}";
 
-test("generateDeckForRoute runs only the package-template pipeline", async () => {
-  let packageCalls = 0;
-  let baseDeckCalls = 0;
+function makeVnextResult(deck: DeckV7): RunVnextDeckGenerationResult {
+  return {
+    deck,
+    truncated: false,
+    selectedKindCounts: { cover: 1, content: 1 },
+    diagnostics: [],
+  };
+}
+
+test("generateDeckForRoute calls runVnext with correct inputs", async () => {
+  let vnextCalls = 0;
 
   const result = await generateDeckForRoute(
     { payload: makePayload(), complete },
     {
-      buildBaseDeck: () => {
-        baseDeckCalls += 1;
-        return makeDeck();
-      },
-      runPackageTemplate: async (input) => {
-        packageCalls += 1;
-        assert.equal(input.packageId, "noir");
+      runVnext: async (input) => {
+        vnextCalls += 1;
+        assert.equal(input.themePackageId, "noir");
         return {
-          deck: makeDeck(true),
+          deck: makeDeckV7(true),
           truncated: true,
           selectedKindCounts: { cover: 1, table: 1 },
+          diagnostics: [],
         };
       },
     },
   );
 
-  assert.equal(packageCalls, 1);
-  assert.equal(baseDeckCalls, 1);
+  assert.equal(vnextCalls, 1);
   assert.equal(result.requestedGenerationMode, "package-template");
-  assert.equal(result.generationMode, "package-template");
+  assert.equal(result.generationMode, "vnext");
   assert.equal(result.themePackageId, "noir");
   assert.deepEqual(result.selectedKindCounts, { cover: 1, table: 1 });
   assert.equal(result.truncated, true);
 });
 
-test("generateDeckForRoute propagates package-template failures", async () => {
+test("generateDeckForRoute returns a DeckV7 with schemaVersion 7", async () => {
+  const deck = makeDeckV7();
+  const result = await generateDeckForRoute(
+    { payload: makePayload(), complete },
+    { runVnext: async () => makeVnextResult(deck) },
+  );
+  assert.equal(result.deck.schemaVersion, DECK_SCHEMA_VERSION_V7);
+});
+
+test("generateDeckForRoute propagates vnext failures", async () => {
   await assert.rejects(
     generateDeckForRoute(
       { payload: makePayload(), complete, requestId: "req-1" },
       {
-        runPackageTemplate: async () => {
-          throw new Error("repair failed");
+        runVnext: async () => {
+          throw new Error("generation failed");
         },
       },
     ),
-    /repair failed/,
+    /generation failed/,
   );
 });
 
-test("buildGenerateDeckSuccessResponse includes package-template metadata", () => {
+test("buildGenerateDeckSuccessResponse includes vnext metadata", () => {
+  const deck = makeDeckV7(true);
   const response = buildGenerateDeckSuccessResponse({
-    deck: makeDeck(true),
+    deck,
     truncated: false,
     requestedGenerationMode: "package-template",
-    generationMode: "package-template",
+    generationMode: "vnext",
     themePackageId: "terra",
-    selectedKindCounts: { table: 1 },
+    selectedKindCounts: { cover: 1, table: 1 },
   });
 
   assert.equal(response.truncated, false);
   assert.equal(response.metadata.requestedGenerationMode, "package-template");
-  assert.equal(response.metadata.generationMode, "package-template");
+  assert.equal(response.metadata.generationMode, "vnext");
   assert.equal(response.metadata.fallback, false);
   assert.equal(response.metadata.themePackageId, "terra");
   assert.equal(response.metadata.tableSlideCount, 1);
   assert.equal(response.metadata.schemaValid, true);
-  assert.deepEqual(response.metadata.selectedKindCounts, { table: 1 });
+  assert.deepEqual(response.metadata.selectedKindCounts, {
+    cover: 1,
+    table: 1,
+  });
+  // deck in response is DeckV7
+  assert.equal(response.deck.schemaVersion, DECK_SCHEMA_VERSION_V7);
 });
 
-test("buildGenerateDeckSuccessLogFields includes package-template telemetry", () => {
+test("buildGenerateDeckSuccessLogFields includes vnext telemetry", () => {
+  const deck = makeDeckV7(true);
   const fields = buildGenerateDeckSuccessLogFields(
     {
-      deck: makeDeck(true),
+      deck,
       truncated: true,
       requestedGenerationMode: "package-template",
-      generationMode: "package-template",
+      generationMode: "vnext",
       themePackageId: "noir",
-      selectedKindCounts: { table: 1 },
+      selectedKindCounts: { cover: 1, table: 1 },
     },
     {
       payload: makePayload(),
@@ -168,9 +156,51 @@ test("buildGenerateDeckSuccessLogFields includes package-template telemetry", ()
   assert.equal(fields.latencyMs, 24);
   assert.equal(fields.packageId, "noir");
   assert.equal(fields.requestedGenerationMode, "package-template");
-  assert.equal(fields.generationMode, "package-template");
+  assert.equal(fields.generationMode, "vnext");
   assert.equal(fields.fallback, false);
   assert.equal(fields.tableSlideCount, 1);
   assert.equal(fields.schemaValid, true);
-  assert.deepEqual(fields.selectedKindCounts, { table: 1 });
+  assert.deepEqual(fields.selectedKindCounts, { cover: 1, table: 1 });
+});
+
+test("computeV7RouteMetrics: percentSlidesWithVisual never exceeds 1", () => {
+  resetBuilderCounter();
+  // Slide with TWO image nodes — should count as 1, not 2.
+  const twoImageSlide = buildSlideV7("visual-focus", [
+    buildImageNode("img-a"),
+    buildImageNode("img-b"),
+  ]);
+  // One plain content slide (no visuals).
+  const plainSlide = buildContentSlide();
+  const deck = buildDeckV7([twoImageSlide, plainSlide]);
+
+  const fields = buildGenerateDeckSuccessLogFields(
+    {
+      deck,
+      truncated: false,
+      requestedGenerationMode: "package-template",
+      generationMode: "vnext",
+    },
+    { payload: makePayload(), requestId: "req-3", latencyMs: 10 },
+  );
+
+  // 1 out of 2 slides has a visual → exactly 0.5, never > 1.
+  assert.equal(fields.percentSlidesWithVisual, 0.5);
+});
+
+test("computeV7RouteMetrics: visual-only deck percentSlidesWithVisual is 1", () => {
+  resetBuilderCounter();
+  const deck = buildDeckV7([buildVisualSlide(), buildVisualSlide()]);
+
+  const fields = buildGenerateDeckSuccessLogFields(
+    {
+      deck,
+      truncated: false,
+      requestedGenerationMode: "package-template",
+      generationMode: "vnext",
+    },
+    { payload: makePayload(), requestId: "req-4", latencyMs: 5 },
+  );
+
+  assert.equal(fields.percentSlidesWithVisual, 1);
 });

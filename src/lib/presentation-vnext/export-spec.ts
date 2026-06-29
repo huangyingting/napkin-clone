@@ -1,0 +1,327 @@
+/**
+ * Export spec for the v7 presentation system.
+ *
+ * Converts a `ResolvedDeckRenderTree` into a DOM-free `ExportDeckSpec`.
+ * Browser / PPTX adapters apply operations and perform file-generation side
+ * effects; this module is pure.
+ *
+ * Operation order matches resolved render order exactly.
+ * Unsupported effects emit diagnostics with deterministic fallbacks.
+ */
+
+import type { NodeId, CanvasSpec } from "./types";
+import type { TextContent, TableContent } from "./schema";
+import type { StyleObject, FillStyle } from "./style-schema";
+import type {
+  ResolvedDeckRenderTree,
+  ResolvedSlideRenderTree,
+  ResolvedRenderNode,
+} from "./render-tree";
+import { DiagnosticCollector } from "./diagnostics";
+import type { PresentationDiagnostic } from "./diagnostics";
+
+// ---------------------------------------------------------------------------
+// Export operation types
+// ---------------------------------------------------------------------------
+
+export type ExportBackgroundOperation = {
+  type: "background";
+  fill?: FillStyle;
+};
+
+export type ExportTextOperation = {
+  type: "text";
+  id: NodeId;
+  frame: { x: number; y: number; w: number; h: number };
+  content: TextContent;
+  style: StyleObject;
+  rotation?: number;
+  zIndex: number;
+};
+
+export type ExportShapeOperation = {
+  type: "shape";
+  id: NodeId;
+  shape: string;
+  frame: { x: number; y: number; w: number; h: number };
+  style: StyleObject;
+  text?: TextContent;
+  rotation?: number;
+  zIndex: number;
+};
+
+export type ExportImageOperation = {
+  type: "image";
+  id: NodeId;
+  assetId: string;
+  frame: { x: number; y: number; w: number; h: number };
+  style: StyleObject;
+  alt?: string;
+  rotation?: number;
+  zIndex: number;
+};
+
+export type ExportConnectorOperation = {
+  type: "connector";
+  id: NodeId;
+  from: unknown;
+  to: unknown;
+  frame: { x: number; y: number; w: number; h: number };
+  style: StyleObject;
+  zIndex: number;
+};
+
+export type ExportVisualOperation = {
+  type: "visual";
+  id: NodeId;
+  assetId?: string;
+  visualId?: string;
+  frame: { x: number; y: number; w: number; h: number };
+  style: StyleObject;
+  alt?: string;
+  rotation?: number;
+  zIndex: number;
+};
+
+export type ExportTableShapeOperation = {
+  type: "tableShape";
+  id: NodeId;
+  frame: { x: number; y: number; w: number; h: number };
+  style: StyleObject;
+  table: TableContent;
+  zIndex: number;
+};
+
+export type ExportOperation =
+  | ExportTextOperation
+  | ExportShapeOperation
+  | ExportImageOperation
+  | ExportConnectorOperation
+  | ExportVisualOperation
+  | ExportTableShapeOperation;
+
+// ---------------------------------------------------------------------------
+// Slide export spec
+// ---------------------------------------------------------------------------
+
+export type ExportSlideSpec = {
+  id: NodeId;
+  background: ExportBackgroundOperation;
+  operations: ExportOperation[];
+  notes?: string;
+};
+
+// ---------------------------------------------------------------------------
+// Deck export spec
+// ---------------------------------------------------------------------------
+
+export type ExportDeckSpec = {
+  canvas: CanvasSpec;
+  slides: ExportSlideSpec[];
+  diagnostics: PresentationDiagnostic[];
+};
+
+// ---------------------------------------------------------------------------
+// Frame helpers
+// ---------------------------------------------------------------------------
+
+function resolvedFrame(node: ResolvedRenderNode): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  // Prefer pixel frame if available, fall back to percent frame
+  if (node.layout.framePx) return node.layout.framePx;
+  return node.layout.frame;
+}
+
+// ---------------------------------------------------------------------------
+// Node to operation conversion
+// ---------------------------------------------------------------------------
+
+function nodeToOperations(
+  node: ResolvedRenderNode,
+  dc: DiagnosticCollector,
+): ExportOperation[] {
+  const frame = resolvedFrame(node);
+  const { style, layout } = node;
+  const rotation = layout.rotation;
+  const zIndex = layout.zIndex;
+
+  // Check for unsupported effects
+  if (style.effect && style.effect.kind !== "none") {
+    if (style.effect.kind === "glass" || style.effect.kind === "blur") {
+      dc.warning(
+        "unsupported-export-feature",
+        `Node "${node.id}": effect "${style.effect.kind}" uses a deterministic export fallback`,
+        { nodeId: node.id, action: "replace-style-ref" },
+      );
+    }
+  }
+
+  if (node.type === "group") {
+    const ops: ExportOperation[] = [];
+    for (const child of node.children ?? []) {
+      ops.push(...nodeToOperations(child, dc));
+    }
+    return ops;
+  }
+
+  switch (node.content.type) {
+    case "text":
+      return [
+        {
+          type: "text",
+          id: node.id,
+          frame,
+          content: node.content.content,
+          style,
+          ...(rotation !== undefined ? { rotation } : {}),
+          zIndex,
+        },
+      ];
+    case "image":
+      return [
+        {
+          type: "image",
+          id: node.id,
+          assetId: node.content.content.assetId,
+          frame,
+          style,
+          ...(node.content.content.alt
+            ? { alt: node.content.content.alt }
+            : {}),
+          ...(rotation !== undefined ? { rotation } : {}),
+          zIndex,
+        },
+      ];
+    case "shape":
+      return [
+        {
+          type: "shape",
+          id: node.id,
+          shape: node.content.content.shape,
+          frame,
+          style,
+          ...(node.content.content.text
+            ? { text: node.content.content.text }
+            : {}),
+          ...(rotation !== undefined ? { rotation } : {}),
+          zIndex,
+        },
+      ];
+    case "connector":
+      return [
+        {
+          type: "connector",
+          id: node.id,
+          from: node.content.content.from,
+          to: node.content.content.to,
+          frame,
+          style,
+          zIndex,
+        },
+      ];
+    case "visual":
+      return [
+        {
+          type: "visual",
+          id: node.id,
+          ...(node.content.content.assetId
+            ? { assetId: node.content.content.assetId }
+            : {}),
+          ...(node.content.content.visualId
+            ? { visualId: node.content.content.visualId }
+            : {}),
+          frame,
+          style,
+          ...(rotation !== undefined ? { rotation } : {}),
+          zIndex,
+        },
+      ];
+    case "table":
+      // Table compiles into a tableShape operation for export
+      return [
+        {
+          type: "tableShape",
+          id: node.id,
+          frame,
+          style,
+          table: node.content.content,
+          zIndex,
+        },
+      ];
+    case "group":
+      return [];
+    default: {
+      void (node.content as never);
+      dc.warning(
+        "unsupported-export-feature",
+        `Node "${node.id}": unknown content type in export`,
+      );
+      return [];
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Slide export spec builder
+// ---------------------------------------------------------------------------
+
+function buildSlideExportSpec(
+  slide: ResolvedSlideRenderTree,
+  dc: DiagnosticCollector,
+): ExportSlideSpec {
+  const background: ExportBackgroundOperation = {
+    type: "background",
+    fill: slide.background.fill,
+  };
+
+  const operations: ExportOperation[] = [];
+
+  // Decorations first (render order: behind user nodes)
+  for (const decoration of slide.decorations) {
+    operations.push(...nodeToOperations(decoration, dc));
+  }
+
+  // User nodes in resolved order (already sorted by zIndex in render resolver)
+  for (const node of slide.nodes) {
+    operations.push(...nodeToOperations(node, dc));
+  }
+
+  return {
+    id: slide.id,
+    background,
+    operations,
+    ...(slide.notes ? { notes: slide.notes } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Converts a resolved render tree into a DOM-free `ExportDeckSpec`.
+ *
+ * This function is pure. Adapters (browser, PPTX, image) apply the spec.
+ */
+export function buildExportSpec(
+  renderTree: ResolvedDeckRenderTree,
+): ExportDeckSpec {
+  const dc = new DiagnosticCollector();
+  // Carry forward any render-resolve diagnostics
+  for (const d of renderTree.diagnostics) dc.add(d);
+
+  const slides: ExportSlideSpec[] = [];
+  for (const slide of renderTree.slides) {
+    slides.push(buildSlideExportSpec(slide, dc));
+  }
+
+  return {
+    canvas: renderTree.canvas,
+    slides,
+    diagnostics: dc.diagnostics,
+  };
+}

@@ -1,0 +1,241 @@
+"use client";
+
+/**
+ * vNext slide canvas — renders a `ResolvedSlideRenderTree` or a single slide
+ * from a `ResolvedDeckRenderTree` without any v6 materialization.
+ *
+ * Rendering order (spec §Render Tree):
+ *   1. Slide background fill.
+ *   2. Theme decoration nodes (behind user nodes) — not selectable in normal mode.
+ *   3. User nodes ordered by ascending zIndex with stable tree-order ties.
+ *
+ * The canvas is `position: relative` with an aspect ratio driven by the
+ * `canvas` spec.  All children are positioned absolutely in canvas-percent
+ * space so the layout is resolution-independent.
+ */
+
+import { memo, type JSX } from "react";
+
+import type {
+  ResolvedSlideRenderTree,
+  ResolvedDeckRenderTree,
+  ResolvedRenderNode,
+} from "@/lib/presentation-vnext/render-tree";
+import type { CanvasSpec } from "@/lib/presentation-vnext/types";
+import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
+
+import { SlideNodeRenderer } from "./slide-node-renderer";
+import type { SelectionState } from "./selection-model";
+import { isSelected } from "./selection-model";
+
+// ---------------------------------------------------------------------------
+// Background helper
+// ---------------------------------------------------------------------------
+
+function backgroundToCss(
+  fill: FillStyle | undefined,
+  assetResolver?: (id: string) => string | undefined,
+): React.CSSProperties {
+  if (!fill) return {};
+  switch (fill.type) {
+    case "solid":
+      return typeof fill.color === "string"
+        ? { backgroundColor: fill.color }
+        : {};
+    case "linearGradient": {
+      const from = typeof fill.from === "string" ? fill.from : "transparent";
+      const to = typeof fill.to === "string" ? fill.to : "transparent";
+      const angle = fill.angle ?? 90;
+      return { background: `linear-gradient(${angle}deg, ${from}, ${to})` };
+    }
+    case "radialGradient": {
+      const inner = typeof fill.inner === "string" ? fill.inner : "transparent";
+      const outer = typeof fill.outer === "string" ? fill.outer : "transparent";
+      return { background: `radial-gradient(circle, ${inner}, ${outer})` };
+    }
+    case "image": {
+      const src = assetResolver?.(fill.assetId);
+      if (!src) return {};
+      return {
+        backgroundImage: `url(${JSON.stringify(src)})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        opacity: fill.opacity,
+      };
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Canvas aspect ratio
+// ---------------------------------------------------------------------------
+
+function canvasAspectRatio(canvas: CanvasSpec): number {
+  if (canvas.height > 0 && canvas.width > 0) {
+    return canvas.width / canvas.height;
+  }
+  return 16 / 9;
+}
+
+// ---------------------------------------------------------------------------
+// Node flat list (including group children for rendering)
+// ---------------------------------------------------------------------------
+
+function flattenNodes(nodes: ResolvedRenderNode[]): ResolvedRenderNode[] {
+  const result: ResolvedRenderNode[] = [];
+  for (const node of nodes) {
+    result.push(node);
+    if (node.children && node.children.length > 0) {
+      result.push(...flattenNodes(node.children));
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// SlideCanvas — single slide
+// ---------------------------------------------------------------------------
+
+export interface SlideCanvasVNextProps {
+  /** The resolved render tree for the slide to display. */
+  slide: ResolvedSlideRenderTree;
+  /** Canvas spec for aspect ratio.  Defaults to 16:9 when omitted. */
+  canvas?: CanvasSpec;
+  /**
+   * Resolves an asset id to its src URL.  Used for images, visuals, and
+   * image-fill backgrounds.  Safe to omit when no media nodes are present.
+   */
+  assetResolver?: (id: string) => string | undefined;
+  /**
+   * Current selection state. When provided, selected nodes display a focus
+   * ring; clicking nodes calls `onNodeClick`.
+   */
+  selection?: SelectionState;
+  /** Called when the user clicks a node. */
+  onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** True when rendered at reduced size (thumbnail rail, next-slide preview). */
+  preview?: boolean;
+  /** Optional extra CSS class applied to the outer canvas container. */
+  className?: string;
+}
+
+/**
+ * Renders a single resolved slide as a percentage-positioned canvas.
+ *
+ * Decorations are rendered first (behind) and are never selectable unless the
+ * selection is in "layers" mode.
+ *
+ * Wrapped with `React.memo` so unchanged slides skip re-render when a sibling
+ * slide is mutated.
+ */
+export const SlideCanvasVNext = memo(function SlideCanvasVNext({
+  slide,
+  canvas,
+  assetResolver,
+  selection,
+  onNodeClick,
+  preview = false,
+  className,
+}: SlideCanvasVNextProps): JSX.Element {
+  const aspectRatio = canvas ? canvasAspectRatio(canvas) : 16 / 9;
+  const bgStyle = backgroundToCss(slide.background.fill, assetResolver);
+
+  // Flatten groups for rendering (children positioned in slide-relative space)
+  const decorationNodes = flattenNodes(slide.decorations);
+  const userNodes = flattenNodes(slide.nodes);
+
+  const handleNodeClick = onNodeClick
+    ? (nodeId: string, event: React.MouseEvent) => {
+        onNodeClick(nodeId, event);
+      }
+    : undefined;
+
+  return (
+    <div
+      className={`relative overflow-hidden${className ? ` ${className}` : ""}`}
+      style={{
+        aspectRatio: `${aspectRatio}`,
+        width: "100%",
+        ...bgStyle,
+      }}
+    >
+      {/* Decorations — rendered behind user nodes, aria-hidden */}
+      {decorationNodes.map((node) => (
+        <SlideNodeRenderer
+          key={node.id}
+          node={node}
+          assetResolver={assetResolver}
+          preview={preview}
+          // Decorations are never interactive in the normal canvas
+        />
+      ))}
+
+      {/* User nodes */}
+      {userNodes.map((node) => (
+        <SlideNodeRenderer
+          key={node.id}
+          node={node}
+          selected={selection ? isSelected(selection, node.id) : false}
+          onClick={handleNodeClick}
+          assetResolver={assetResolver}
+          preview={preview}
+        />
+      ))}
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// DeckCanvasVNext — renders all slides in a deck tree
+// ---------------------------------------------------------------------------
+
+export interface DeckCanvasVNextProps {
+  /** The fully resolved deck render tree. */
+  deck: ResolvedDeckRenderTree;
+  /** Index of the currently active slide. Defaults to 0. */
+  activeSlideIndex?: number;
+  /** Same semantics as `SlideCanvasVNextProps.assetResolver`. */
+  assetResolver?: (id: string) => string | undefined;
+  /** Same semantics as `SlideCanvasVNextProps.selection`. */
+  selection?: SelectionState;
+  /** Called when the user clicks a node on the active slide. */
+  onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user clicks a slide in the thumbnail rail. */
+  onSlideClick?: (slideIndex: number) => void;
+  /** True when rendered at reduced size. */
+  preview?: boolean;
+  /** Extra CSS class for the outer wrapper. */
+  className?: string;
+}
+
+/**
+ * Renders the active slide from a `ResolvedDeckRenderTree`.
+ *
+ * This component is intentionally minimal: it selects the active slide and
+ * delegates to `SlideCanvasVNext`.  Thumbnail rails and deck-level chrome are
+ * left to the consuming layout so this canvas stays composable.
+ */
+export function DeckCanvasVNext({
+  deck,
+  activeSlideIndex = 0,
+  assetResolver,
+  selection,
+  onNodeClick,
+  preview = false,
+  className,
+}: DeckCanvasVNextProps): JSX.Element | null {
+  const slide = deck.slides[activeSlideIndex];
+  if (!slide) return null;
+
+  return (
+    <SlideCanvasVNext
+      slide={slide}
+      canvas={deck.canvas}
+      assetResolver={assetResolver}
+      selection={selection}
+      onNodeClick={onNodeClick}
+      preview={preview}
+      className={className}
+    />
+  );
+}

@@ -1,0 +1,321 @@
+"use client";
+
+/**
+ * vNext deck generation preview surface.
+ *
+ * Mirrors the v6 `DeckGenerationPreview` but accepts `DeckV7` instead of the
+ * v6 `Deck` type. Thumbnails are rendered via `SlideCanvasVNext` without any
+ * v6 materialisation.
+ *
+ * The AI-generated v7 deck is reviewed in this panel before it is applied to
+ * the editor. A diff summary against the baseline deck (count of added /
+ * changed / unchanged slides) is displayed for each thumbnail.
+ *
+ * Actions:
+ *   - Apply  — hand the proposal to the parent (opens the vNext editor)
+ *   - Regenerate — re-invoke AI generation, replacing the proposal once ready
+ *   - Use derived deck — discard and fall back to the baseline
+ *   - Cancel — dismiss without changes
+ */
+
+import { RefreshCw, Sparkles } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui";
+import { Dialog } from "@/components/ui";
+import { GeneratingIndicator } from "@/components/motion/generation-status";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
+import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
+import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
+import {
+  useDeckGeneration,
+  type DeckGenerationOptions,
+} from "@/lib/ai/use-deck-generation";
+import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { SlideCanvasVNext } from "./slide-canvas";
+
+// ---------------------------------------------------------------------------
+// Diff types (simplified — counts only)
+// ---------------------------------------------------------------------------
+
+type DiffStatus = "added" | "changed" | "unchanged";
+
+interface SlideDiffEntry {
+  index: number;
+  status: DiffStatus;
+}
+
+function diffDecksV7(
+  baseline: DeckV7,
+  proposal: DeckV7,
+): {
+  entries: SlideDiffEntry[];
+  summary: string;
+  added: number;
+  changed: number;
+} {
+  const baseIds = new Set(baseline.slides.map((s) => s.id));
+  let added = 0;
+  let changed = 0;
+  const entries: SlideDiffEntry[] = proposal.slides.map((slide, index) => {
+    if (!baseIds.has(slide.id)) {
+      added++;
+      return { index, status: "added" };
+    }
+    // Simple content-hash comparison via JSON stringify
+    const baseSlide = baseline.slides.find((s) => s.id === slide.id);
+    if (!baseSlide || JSON.stringify(baseSlide) !== JSON.stringify(slide)) {
+      changed++;
+      return { index, status: "changed" };
+    }
+    return { index, status: "unchanged" };
+  });
+
+  const total = proposal.slides.length;
+  const parts: string[] = [];
+  if (added > 0) parts.push(`${added} new`);
+  if (changed > 0) parts.push(`${changed} changed`);
+  const unchanged = total - added - changed;
+  if (unchanged > 0) parts.push(`${unchanged} unchanged`);
+  const summary = `${total} slide${total === 1 ? "" : "s"} — ${parts.join(", ")}`;
+
+  return { entries, summary, added, changed };
+}
+
+// ---------------------------------------------------------------------------
+// Marker styles
+// ---------------------------------------------------------------------------
+
+const MARKER_LABEL: Record<DiffStatus, string> = {
+  added: "New",
+  changed: "Changed",
+  unchanged: "Same",
+};
+
+const MARKER_CLASS: Record<DiffStatus, string> = {
+  added: "bg-ds-success-surface text-ds-success-text",
+  changed: "bg-ds-warning-surface text-ds-warning-text",
+  unchanged: "bg-ds-surface-raised text-ds-text-muted",
+};
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+export interface DeckGenerationPreviewVNextProps {
+  /** The AI-generated v7 deck under review. */
+  proposedDeck: DeckV7;
+  /** The deck the editor would otherwise open — the diff baseline. */
+  baselineDeck: DeckV7;
+  /** Theme package for thumbnail rendering. Defaults to neutral. */
+  themePackage?: ThemePackageV1 | null;
+  /** Whether the source outline was trimmed to fit the input budget. */
+  truncated: boolean;
+  /** Serialised document content — re-sent verbatim on Regenerate. */
+  contentJson: string;
+  /** Generation options — re-sent verbatim on Regenerate. */
+  options: DeckGenerationOptions;
+  /** Apply the current proposal: parent opens the vNext editor with it. */
+  onApply: (deck: DeckV7) => void;
+  /** Discard the proposal and fall back to the baseline. */
+  onDerive: () => void;
+  /** Dismiss without opening anything. */
+  onCancel: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function DeckGenerationPreviewVNext({
+  proposedDeck,
+  baselineDeck,
+  themePackage,
+  truncated,
+  contentJson,
+  options,
+  onApply,
+  onDerive,
+  onCancel,
+}: DeckGenerationPreviewVNextProps) {
+  const titleId = useId();
+  const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
+
+  const [proposal, setProposal] = useState<DeckV7>(proposedDeck);
+  const isTruncated = truncated;
+  const [regenError, setRegenError] = useState(false);
+
+  const { generate, status, reset } = useDeckGeneration();
+  const isRegenerating = status === "loading";
+
+  useEffect(() => reset, [reset]);
+
+  const diff = useMemo(
+    () => diffDecksV7(baselineDeck, proposal),
+    [baselineDeck, proposal],
+  );
+
+  const renderTree = useDeckV7RenderTree(proposal, pkg);
+
+  const handleRegenerate = async () => {
+    setRegenError(false);
+    const result = await generate(contentJson, options);
+    if (result.ok) {
+      // Prefer a v7 deck from the API (the default path).
+      const nextDeckV7 = result.deckV7;
+      if (nextDeckV7) {
+        setProposal(nextDeckV7);
+      } else {
+        // Resilience fallback: API now returns v7 by default; this branch
+        // handles any legacy v6 response by migrating at the boundary.
+        const openResult = openDeckFromJson(result.deck as unknown);
+        if (openResult.ok) {
+          setProposal(openResult.deck);
+        } else {
+          setRegenError(true);
+        }
+      }
+    } else {
+      setRegenError(true);
+    }
+  };
+
+  const canvasAspectRatio =
+    renderTree && renderTree.canvas.width > 0 && renderTree.canvas.height > 0
+      ? renderTree.canvas.width / renderTree.canvas.height
+      : 16 / 9;
+
+  return (
+    <Dialog
+      open
+      onClose={onCancel}
+      aria-labelledby={titleId}
+      aria-busy={isRegenerating}
+      className="flex max-h-[calc(100vh-2rem)] w-[44rem] max-w-[calc(100vw-2rem)] flex-col gap-4 border-ds-border-subtle bg-ds-surface-overlay p-5 shadow-ds-popover"
+    >
+      <div className="flex items-start gap-2">
+        <Sparkles
+          size={18}
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-ds-accent-text"
+        />
+        <div className="flex flex-col gap-1">
+          <h2
+            id={titleId}
+            className="text-base font-semibold text-ds-text-primary"
+          >
+            Review AI slides
+          </h2>
+          <p className="text-sm text-ds-text-secondary" aria-live="polite">
+            {diff.summary}
+          </p>
+        </div>
+      </div>
+
+      {isTruncated ? (
+        <p
+          role="note"
+          className="rounded-ds-md border border-ds-warning-border bg-ds-warning-surface px-3 py-2 text-xs text-ds-warning-text"
+        >
+          Your document was long, so some content was trimmed. The deck covers
+          the most important sections.
+        </p>
+      ) : null}
+
+      {regenError ? (
+        <p
+          role="alert"
+          className="rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
+        >
+          Couldn&apos;t regenerate just now — showing the previous draft. Try
+          again, or use the derived deck instead.
+        </p>
+      ) : null}
+
+      <div className="relative min-h-0 flex-1 overflow-y-auto rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {(renderTree?.slides ?? []).map((slideTree, index) => {
+            const entry = diff.entries[index];
+            const marker = entry?.status ?? "unchanged";
+            return (
+              <li key={slideTree.id} className="flex flex-col gap-1">
+                <span
+                  className="relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                  style={{ aspectRatio: canvasAspectRatio }}
+                >
+                  <SlideCanvasVNext
+                    slide={slideTree}
+                    canvas={renderTree?.canvas}
+                    preview
+                  />
+                  <span
+                    className={`absolute right-1 top-1 rounded-ds-sm px-1.5 py-0.5 text-[0.625rem] font-medium ${MARKER_CLASS[marker]}`}
+                    aria-label={`${MARKER_LABEL[marker]}: Slide ${index + 1}`}
+                  >
+                    {MARKER_LABEL[marker]}
+                  </span>
+                </span>
+                <span className="flex items-baseline gap-1.5 px-0.5">
+                  <span className="text-xs tabular-nums text-ds-text-muted">
+                    {index + 1}
+                  </span>
+                  <span className="truncate text-xs text-ds-text-secondary">
+                    Slide {index + 1}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+
+        {isRegenerating ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ds-surface-overlay/70"
+          >
+            <GeneratingIndicator isLoading className="text-center" />
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="plain"
+          size="md"
+          onClick={onCancel}
+          disabled={isRegenerating}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="subtle"
+          size="md"
+          onClick={onDerive}
+          disabled={isRegenerating}
+        >
+          Use derived deck instead
+        </Button>
+        <Button
+          variant="subtle"
+          size="md"
+          onClick={handleRegenerate}
+          disabled={isRegenerating}
+        >
+          <RefreshCw size={15} aria-hidden="true" />
+          {isRegenerating ? "Regenerating…" : "Regenerate"}
+        </Button>
+        <Button
+          variant="solid"
+          size="md"
+          onClick={() => onApply(proposal)}
+          disabled={isRegenerating}
+        >
+          <Sparkles size={15} aria-hidden="true" />
+          Apply
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
