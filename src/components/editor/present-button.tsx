@@ -3,25 +3,23 @@
 /**
  * Present button rendered in the document editor toolbar.
  *
- * Reads the current Lexical editor state, builds a fallback {@link Deck} via
- * {@link buildDeckFromBlocks}, then prefers the freshest saved `deckJson` so
- * the toolbar presentation matches the Slides editor and public present route.
+ * Fetches the freshest saved DeckV7 and renders it through PresentModeVNext.
+ * Invalid or missing deck JSON falls back to a native blank DeckV7.
  *
- * The present mode is READ-ONLY — it never mutates Lexical/Yjs state.
+ * The present mode is read-only; it never mutates Lexical/Yjs state.
  */
 
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { MonitorPlay } from "lucide-react";
 import { useCallback, useState } from "react";
 
-import { PresentMode } from "@/components/presentation/present-mode";
+import { PresentModeVNext } from "@/components/presentation-vnext/present-mode-vnext";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import type { DeckFetchPort } from "@/lib/action-ports";
-import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
-import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
-import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
-import type { Visual } from "@/lib/visual/schema";
-import { collectDocumentBlocks } from "@/lib/content";
+import {
+  createBlankDeckV7,
+  openDeckFromJson,
+  type DeckV7,
+} from "@/lib/presentation-vnext";
 
 interface PresentButtonProps {
   documentId: string;
@@ -32,16 +30,14 @@ interface PresentButtonProps {
 }
 
 type PresentData = {
-  deck: Deck;
-  visuals: Map<string, Visual>;
+  deck: DeckV7;
 };
 
 /**
  * A toolbar button that opens the in-app Present mode for the current document.
  *
- * Placed in the editor header alongside Export and Share. On click it reads the
- * current Lexical editor state for live visuals and a generated fallback deck,
- * then prefers the saved deck JSON before rendering {@link PresentMode}.
+ * Placed in the editor header alongside Export and Share. On click it prefers
+ * the saved DeckV7 before rendering {@link PresentModeVNext}.
  */
 export function PresentButton({
   documentId,
@@ -50,40 +46,28 @@ export function PresentButton({
   documentTitle,
   iconOnly = false,
 }: PresentButtonProps) {
-  const [editor] = useLexicalComposerContext();
   const [presentData, setPresentData] = useState<PresentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePresent = useCallback(async () => {
-    const json = JSON.stringify(editor.getEditorState().toJSON());
-    const blocks = collectDocumentBlocks(json);
-
-    // Build visual lookup map from the block list so PresentMode never touches Lexical.
-    const visualMap = new Map<string, Visual>();
-    for (const block of blocks) {
-      if (block.kind === "visual") {
-        visualMap.set(block.visualId, block.visual);
-      }
-    }
-
-    const baseDeck = buildDeckFromBlocks(blocks, { documentId });
     let fetchedRaw: unknown = null;
     setIsLoading(true);
     try {
       fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
     } catch {
-      // Network/auth error — fall back to page-load deckJson, then live blocks.
+      // Network/auth error: fall back to page-load deckJson, then blank v7.
     } finally {
       setIsLoading(false);
     }
 
-    const knownVisualIds = new Set(visualMap.keys());
-    const deck = stripOrphanedVisuals(
-      pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck),
-      knownVisualIds,
-    );
-    setPresentData({ deck, visuals: visualMap });
-  }, [deckPort, documentId, editor, initialDeckJson]);
+    const candidate = fetchedRaw ?? initialDeckJson;
+    const opened = openDeckFromJson(candidate);
+    setPresentData({
+      deck: opened.ok
+        ? opened.deck
+        : createBlankDeckV7({ documentId, title: documentTitle }),
+    });
+  }, [deckPort, documentId, documentTitle, initialDeckJson]);
 
   const handleClose = useCallback(() => {
     setPresentData(null);
@@ -102,9 +86,8 @@ export function PresentButton({
       />
 
       {presentData ? (
-        <PresentMode
+        <PresentModeVNext
           deck={presentData.deck}
-          visuals={presentData.visuals}
           onClose={handleClose}
         />
       ) : null}

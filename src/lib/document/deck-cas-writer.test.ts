@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
-
 import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 
-const VALID_DECK = {
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+const LEGACY_DECK = {
+  schemaVersion: 6,
   canvas: { format: "16:9" },
-  design: { themeId: "indigo" },
+  design: { themeId: "default" },
   masters: [{ id: "master-default", name: "Default", elements: [] }],
   defaultMasterId: "master-default",
   slides: [
@@ -67,7 +65,7 @@ describe("writeDeckWithCas", () => {
     const { db, calls } = makeDb({ updateCount: 1 });
     const result = await writeDeckWithCas({
       documentId: "doc-1",
-      deckJson: VALID_DECK,
+      deckJson: VALID_DECK_V7,
       clientToken: "client-token",
       telemetryArea: "test",
       db,
@@ -84,7 +82,7 @@ describe("writeDeckWithCas", () => {
     const { db } = makeDb({ updateCount: 0, serverToken: "new-server-token" });
     const result = await writeDeckWithCas({
       documentId: "doc-1",
-      deckJson: VALID_DECK,
+      deckJson: VALID_DECK_V7,
       clientToken: "stale-token",
       telemetryArea: "test",
       db,
@@ -100,7 +98,7 @@ describe("writeDeckWithCas", () => {
     const { db } = makeDb({ updateCount: 0, exists: false });
     const result = await writeDeckWithCas({
       documentId: "missing",
-      deckJson: VALID_DECK,
+      deckJson: VALID_DECK_V7,
       clientToken: "stale-token",
       telemetryArea: "test",
       db,
@@ -123,9 +121,7 @@ describe("writeDeckWithCas", () => {
     assert.match(result.ok === false ? result.error : "", /Invalid deck:/);
     assert.equal(calls.length, 0);
   });
-});
 
-describe("writeDeckWithCas — v7 deck persistence", () => {
   test("accepts a valid v7 deck and writes it", async () => {
     const { db, calls } = makeDb({ updateCount: 1 });
     const result = await writeDeckWithCas({
@@ -142,6 +138,21 @@ describe("writeDeckWithCas — v7 deck persistence", () => {
       id: "doc-v7",
       deckRevisionToken: "client-token",
     });
+  });
+
+  test("rejects legacy v6 decks before writing", async () => {
+    const { db, calls } = makeDb({ updateCount: 1 });
+    const result = await writeDeckWithCas({
+      documentId: "doc-v6",
+      deckJson: LEGACY_DECK,
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.equal(result.ok, false);
+    assert.match(result.ok === false ? result.error : "", /Invalid deck:/);
+    assert.equal(calls.length, 0);
   });
 
   test("rejects a structurally invalid v7 deck before writing", async () => {

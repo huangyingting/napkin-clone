@@ -387,6 +387,22 @@ const VALID_DECK = {
   ],
 };
 
+const VALID_DECK_V7 = {
+  schemaVersion: 7,
+  canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+  theme: { packageId: "neutral" },
+  assets: { images: {} },
+  slides: [
+    {
+      id: "slide-0001",
+      type: "slide",
+      template: { kind: "cover" },
+      style: { ref: "slide.cover" },
+      children: [],
+    },
+  ],
+};
+
 /** Minimal Lexical state carrying a single visual node with the given visualId. */
 function lexicalStateWithVisual(visualId: string): unknown {
   return {
@@ -587,10 +603,9 @@ describe("deck persistence operations", () => {
     assert.deepEqual(result, { ok: false, error: "Document not found." });
   });
 
-  test("patchDeck reports revision conflicts without writing", async (t) => {
+  test("patchDeck returns fallback for existing documents", async (t) => {
     stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
-      deckJson: VALID_DECK,
-      deckRevisionToken: "server-token",
+      id: "doc-fallback",
     }));
     const updateMany = stubPrismaMethod(
       t,
@@ -599,12 +614,9 @@ describe("deck persistence operations", () => {
       async () => ({ count: 1 }),
     );
 
-    const result = await patchDeck("doc-conflict", [], "client-token");
+    const result = await patchDeck("doc-fallback", [], "client-token");
 
-    assert.deepEqual(result, {
-      ok: "conflict",
-      serverRevisionToken: "server-token",
-    });
+    assert.deepEqual(result, { ok: "fallback" });
     assert.equal(updateMany.calls.length, 0);
   });
 
@@ -629,13 +641,10 @@ describe("deck persistence operations", () => {
     assert.deepEqual(result, { ok: "fallback" });
   });
 
-  test("patchDeck writes replayed patches and snapshots the saved document", async (t) => {
-    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
-      if (args.select?.deckJson && args.select?.deckRevisionToken) {
-        return { deckJson: VALID_DECK, deckRevisionToken: "deck-token" };
-      }
-      return { contentJson: EMPTY_LEXICAL_STATE, deckJson: VALID_DECK };
-    });
+  test("patchDeck does not replay patches or snapshot documents", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      id: "doc-patch",
+    }));
     stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
       count: 1,
     }));
@@ -665,8 +674,8 @@ describe("deck persistence operations", () => {
       userId: "user-editor",
     });
 
-    assert.equal(result.ok, true);
-    assert.equal(createVersion.calls.length, 1);
+    assert.deepEqual(result, { ok: "fallback" });
+    assert.equal(createVersion.calls.length, 0);
     assert.equal(deleteMany.calls.length, 0);
   });
 
@@ -684,7 +693,7 @@ describe("deck persistence operations", () => {
     stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
     stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
       contentJson: EMPTY_LEXICAL_STATE,
-      deckJson: VALID_DECK,
+      deckJson: VALID_DECK_V7,
     }));
     const createVersion = stubPrismaMethod(
       t,
@@ -695,7 +704,7 @@ describe("deck persistence operations", () => {
     stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
     stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
 
-    const result = await persistDeck("doc-save", VALID_DECK, null, {
+    const result = await persistDeck("doc-save", VALID_DECK_V7, null, {
       userId: "user-editor",
     });
 
@@ -703,23 +712,17 @@ describe("deck persistence operations", () => {
     assert.equal(createVersion.calls.length, 1);
   });
 
-  test("patchDeck reports invalid stored deck content", async (t) => {
+  test("patchDeck ignores invalid stored deck content and returns fallback", async (t) => {
     stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
-      deckJson: { not: "a deck" },
-      deckRevisionToken: "deck-token",
+      id: "doc-invalid-stored",
     }));
 
     const result = await patchDeck("doc-invalid-stored", [], "deck-token");
 
-    assert.equal(result.ok, false);
-    assert.match(result.error, /^Stored deck is invalid:/);
+    assert.deepEqual(result, { ok: "fallback" });
   });
 
-  test("persistDeckCommand returns document and execution failures", async (t) => {
-    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
-      deckJson: VALID_DECK,
-    }));
-
+  test("persistDeckCommand is disabled for v7-only slide editing", async () => {
     const envelope = deckCommandEnvelope({
       type: "UPDATE_SLIDE_TITLE",
       slideId: "missing-slide",
@@ -729,35 +732,10 @@ describe("deck persistence operations", () => {
     const result = await persistDeckCommand("doc-command", envelope);
 
     assert.equal(result.ok, false);
-    assert.match(result.error, /Slide not found/i);
-  });
-
-  test("persistDeckCommand reports missing and invalid stored documents", async (t) => {
-    stubPrismaMethod(t, prisma.document, "findUnique", async () => null);
-    const missing = await persistDeckCommand(
-      "doc-missing",
-      deckCommandEnvelope({
-        type: "UPDATE_SLIDE_TITLE",
-        slideId: "s1",
-        title: "Title",
-      }),
+    assert.match(
+      result.error,
+      /Deck command persistence is disabled for v7-only slide editing\./,
     );
-    assert.deepEqual(missing, { ok: false, error: "Document not found." });
-
-    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
-      deckJson: { not: "a deck" },
-    }));
-    const invalid = await persistDeckCommand(
-      "doc-invalid",
-      deckCommandEnvelope({
-        type: "UPDATE_SLIDE_TITLE",
-        slideId: "s1",
-        title: "Title",
-      }),
-    );
-
-    assert.equal(invalid.ok, false);
-    assert.match(invalid.error, /^Stored deck is invalid:/);
   });
 });
 

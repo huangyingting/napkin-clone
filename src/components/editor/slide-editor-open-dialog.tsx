@@ -33,7 +33,6 @@ import {
   useDeckGeneration,
   type DeckGenerationOptions,
 } from "@/lib/ai/use-deck-generation";
-import type { Deck } from "@/lib/presentation/deck";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 
@@ -59,16 +58,11 @@ export interface SlideEditorOpenDialogProps {
    */
   isEmptyDocument?: boolean;
   /**
-   * Hand a successfully generated deck to the parent (it owns how it opens —
+   * Hand a successfully generated DeckV7 to the parent (it owns how it opens —
    * issue #269 routes this through a preview/diff before opening the editor).
-   * Includes the `truncated` flag and the `options` used so the preview can
-   * surface a truncation notice and re-invoke generation on Regenerate.
-   * When the API returns a v7 deck, `deckV7` is populated and `deck` may be
-   * absent; callers should prefer `deckV7` when present.
    */
   onApply: (result: {
-    deck?: Deck;
-    deckV7?: DeckV7;
+    deckV7: DeckV7;
     truncated: boolean;
     options: DeckGenerationOptions;
   }) => void;
@@ -113,8 +107,7 @@ export function SlideEditorOpenDialog({
     // which presents the preview/diff (issue #269).
     if (result.ok) {
       onApply({
-        ...(result.deck ? { deck: result.deck } : {}),
-        ...(result.deckV7 ? { deckV7: result.deckV7 } : {}),
+        deckV7: result.deckV7,
         truncated: result.truncated,
         options: opts,
       });

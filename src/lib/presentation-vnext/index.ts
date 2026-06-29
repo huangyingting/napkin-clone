@@ -247,11 +247,10 @@ export {
 // Neutral fallback theme package
 export { NEUTRAL_THEME_PACKAGE } from "./neutral-theme-package";
 
-// Migration (one-time utility — do NOT use in v7 runtime parse path)
-export type { MigrateV6Result } from "./migration-v6";
-export { migrateV6ToDeckV7 } from "./migration-v6";
+// Native v7 starter decks
+export { createBlankDeckV7 } from "./empty-deck";
 
-// Open-deck boundary helper (migration-at-boundary for editor/present entry points)
+// Open-deck boundary helper (v7-only runtime parse path)
 export type { OpenDeckResult } from "./open-deck";
 export { openDeckFromJson, looksLikeDeckV7 } from "./open-deck";
 

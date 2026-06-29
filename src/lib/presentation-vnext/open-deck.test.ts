@@ -54,11 +54,10 @@ const MINIMAL_V6 = {
 // ---------------------------------------------------------------------------
 
 describe("openDeckFromJson — v7 pass-through", () => {
-  test("accepts a valid v7 deck and returns migrated=false", () => {
+  test("accepts a valid v7 deck", () => {
     const result = openDeckFromJson(MINIMAL_V7);
     assert.ok(result.ok);
     assert.equal(result.deck.schemaVersion, 7);
-    assert.equal(result.migrated, false);
   });
 
   test("returns ok=false with validation errors for a malformed v7 deck", () => {
@@ -76,29 +75,20 @@ describe("openDeckFromJson — v7 pass-through", () => {
 });
 
 // ---------------------------------------------------------------------------
-// openDeckFromJson — v6 migration at boundary
+// openDeckFromJson — legacy schemas
 // ---------------------------------------------------------------------------
 
-describe("openDeckFromJson — v6 migration", () => {
-  test("migrates a valid v6 deck and returns migrated=true", () => {
+describe("openDeckFromJson — legacy schemas", () => {
+  test("rejects a v6 deck", () => {
     const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(result.ok);
-    assert.equal(result.deck.schemaVersion, 7);
-    assert.equal(result.migrated, true);
+    assert.ok(!result.ok);
+    assert.match(result.error, /Expected schemaVersion 7/);
   });
 
-  test("migrated deck has at least one slide", () => {
-    const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(result.ok);
-    assert.ok(result.deck.slides.length > 0);
-  });
-
-  test("migrates a v6 deck with no slides (produces placeholder)", () => {
+  test("rejects a v6 deck with no slides", () => {
     const noSlides = { ...MINIMAL_V6, slides: [] };
     const result = openDeckFromJson(noSlides);
-    assert.ok(result.ok);
-    assert.equal(result.deck.schemaVersion, 7);
-    assert.ok(result.deck.slides.length >= 1);
+    assert.ok(!result.ok);
   });
 });
 

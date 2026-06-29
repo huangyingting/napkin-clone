@@ -25,7 +25,6 @@ import {
 } from "@/lib/ai/deck-generation-request";
 import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 import { useGenerationStatus } from "@/lib/ai/use-generation-status";
-import type { Deck } from "@/lib/presentation/deck";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import {
   bucketBytes,
@@ -60,12 +59,7 @@ export interface UseDeckGenerationResult {
   showEta: boolean;
   /** ETA hint string, e.g. "~10–15 s". */
   etaHint: string;
-  /** The generated v6 deck on success, else `null`. */
-  deck: Deck | null;
-  /**
-   * The generated v7 deck on success when the API returns one, else `null`.
-   * Prefer this over `deck` when wiring v7 editor paths.
-   */
+  /** The generated v7 deck on success, else `null`. */
   deckV7: DeckV7 | null;
   /** Whether the source outline was trimmed to fit the input budget. */
   truncated: boolean;
@@ -83,7 +77,6 @@ export interface UseDeckGenerationResult {
  */
 export function useDeckGeneration(): UseDeckGenerationResult {
   const [status, setStatus] = useState<DeckGenerationStatus>("idle");
-  const [deck, setDeck] = useState<Deck | null>(null);
   const [deckV7, setDeckV7] = useState<DeckV7 | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState<DeckGenerateError | null>(null);
@@ -97,7 +90,6 @@ export function useDeckGeneration(): UseDeckGenerationResult {
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus("idle");
-    setDeck(null);
     setDeckV7(null);
     setTruncated(false);
     setError(null);
@@ -116,7 +108,7 @@ export function useDeckGeneration(): UseDeckGenerationResult {
       abortRef.current = controller;
 
       setStatus("loading");
-      setDeck(null);
+      setDeckV7(null);
       setTruncated(false);
       setError(null);
       const serializedLength =
@@ -150,12 +142,10 @@ export function useDeckGeneration(): UseDeckGenerationResult {
           durationBucket: bucketDurationMs(performance.now() - startedAt),
           inputSizeBucket,
           optionLength: options.length ?? "default",
-          slideCount:
-            result.deck?.slides.length ?? result.deckV7?.slides.length ?? 0,
+          slideCount: result.deckV7.slides.length,
           truncated: result.truncated,
         });
-        setDeck(result.deck ?? null);
-        setDeckV7(result.deckV7 ?? null);
+        setDeckV7(result.deckV7);
         setTruncated(result.truncated);
         setStatus("success");
       } else {
@@ -179,7 +169,6 @@ export function useDeckGeneration(): UseDeckGenerationResult {
     stage: stageLabel,
     showEta,
     etaHint,
-    deck,
     deckV7,
     truncated,
     error,

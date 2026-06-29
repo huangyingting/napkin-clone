@@ -3,22 +3,21 @@
 **Status:** Current  
 **Last updated:** 2026-06-29
 
-Theme packages are the presentation editor's bundled slide-design units. A
-package combines the deck-level theme tokens, the chrome-only master, and the
-slide templates that should be offered after the user selects that theme.
+Theme packages are the v7 presentation editor's bundled visual-style units. A
+package owns theme tokens, named style refs, optional decorations, and package
+assets. Semantic templates are global v7 registry entries, not package-local
+templates.
 
-Theme packages do not change the persisted v6 deck model. Applying a package
-writes existing deck fields:
+Theme packages do not reintroduce v6 deck fields. Applying a package writes the
+v7 theme binding on the deck:
 
-- `Deck.design.themeId`
-- `Deck.design.themeOverrides.tokenSet`
-- `Deck.masters`
-- `Deck.defaultMasterId`
-- `Deck.customTemplates`
-- `Slide.masterId`
+- `DeckV7.theme.packageId`
+- `DeckV7.theme.packageVersion`
+- optional `DeckV7.theme.overrides`
 
-No package id, package version, or template source metadata is persisted outside
-those existing fields.
+Slides keep their `SlideNode.template.kind`, `children`, content, local style,
+and source metadata. Switching a package changes visual resolution, not the
+semantic slide tree.
 
 ## Package Catalog
 
@@ -38,99 +37,68 @@ even when the visible style names are refreshed.
 | `terra`     | Vibrant Pop           | Playful yellow, red, and blue creative brief decks.       |
 | `pulse`     | Tech Terminal Mono    | Neon terminal-style decks with mono typography and grids. |
 
-Each package exposes the canonical semantic template catalog defined by
-`THEME_PACKAGE_TEMPLATE_KINDS`. The catalog includes opening, core, compare,
-proof, flow, decision, business, and closing templates such as `cover`,
-`executive-summary`, `evidence`, `table`, `roadmap`, `recommendation`, and
-`appendix`.
+The canonical semantic template catalog is defined globally by
+`SEMANTIC_TEMPLATE_KINDS` in `src/lib/presentation-vnext/template-registry.ts`.
+It includes opening, core, compare, proof, flow, decision, business, and closing
+templates such as `cover`, `executive-summary`, `evidence`, `table`, `roadmap`,
+`recommendation`, and `appendix`.
 
 Several semantic kinds may reuse the same render family. For example,
 `comparison` and `tradeoff` may share a two-column physical layout, while
 `evidence` and `table` share table rendering. The semantic id is still the
 runtime template id so AI plans and editor UI can reason in content terms.
 
-The legacy `two-column` package template id remains accepted as an alias for
-older decks and commands. New AI/catalog flows prefer semantic kinds such as
-`comparison`, `pros-cons`, `tradeoff`, `before-after`, and
-`problem-solution`.
-
 All eight packages are derived from the validated prototype pipeline under
-`prototypes/slide-themes`. The current visual source is the package JSON set
-under `prototypes/slide-themes/packages/`. The generator validates those package
-files, materializes schema-valid v6 preview decks, copies the same package JSON
-to the runtime source directory, and renders static previews from the package
-templates.
+`prototypes/slide-themes`. The visual source is the native v7
+`ThemePackageV1` manifest in `prototypes/slide-themes/theme-packages-v7.ts`.
+The generator validates those packages, compiles every global semantic template
+kind into schema-valid `DeckV7` preview decks, writes generated v7 package JSON,
+and renders static previews through the shared v7 render tree. Run the full
+pipeline with `npm run slide-themes:generate`; use `npm run slide-themes:build`
+or `npm run slide-themes:html` when only one step is needed.
 
 ## Apply Behavior
 
 Applying a package is deterministic:
 
-- `design.themeId` is set to the package id.
-- `design.themeOverrides.tokenSet` is replaced with the package token set.
-- `masters` is replaced with the package master catalog.
-- `defaultMasterId` is set to the package master id.
-- Existing slides keep their `elements`, `content`, `templateId`, and
-  `designOverrides`.
-- Existing slides have `masterId` updated to the package default master.
-- Old package templates with ids matching `theme:*:*` are removed.
-- User-created custom templates are preserved.
-- The package's templates are added to `Deck.customTemplates`.
+- `theme.packageId` is set to the package id.
+- `theme.packageVersion` is set to the package version when available.
+- Existing slides keep their `template`, `children`, `content`, `source`, and
+  `localStyle`.
+- Deck-level `theme.overrides` are preserved unless the caller explicitly
+  replaces or clears them.
 
-Slide-level overrides are explicit user edits and are not cleared by package
-application. A slide that already has `designOverrides.background` or accent
-continues to use that override until the user clears it.
+Node-level `localStyle` patches are explicit user edits and are resolved above
+package styles until the user clears them.
 
 ## Template Identity
 
-Package templates use string ids in this form:
+V7 slide identity is semantic. A slide stores its template provenance as:
 
-```text
-theme:<package-id>:<template-kind>
+```ts
+SlideNode.template.kind;
+SlideNode.template.layoutId;
 ```
 
-The supported template kinds are the canonical semantic kinds exported from
-`src/lib/presentation/theme-template-taxonomy.ts`. `two-column` remains a
-legacy alias, not a preferred new catalog kind.
-
-Examples:
-
-```text
-theme:terra:cover
-theme:pulse:tradeoff
-theme:clarity:closing
-```
-
-User-created templates keep their existing `custom-*` ids. The id prefix is the
-only distinction needed by v6; the schema already treats template ids as strings.
-Package template ids are reserved and cannot be updated or deleted through the
-user custom-template commands.
+Template kinds are global values such as `cover`, `comparison`, `roadmap`, and
+`closing`; they are not prefixed with the package id. Package ids identify visual
+style packages only.
 
 ## Editor Surfaces
 
 The theme picker presents packages as the primary theme choices. Selecting a
-theme package replaces the deck's theme tokens, master catalog, default master,
-and installed package templates.
+theme package updates the deck's v7 theme binding.
 
-The Add slide picker prioritizes the currently installed package templates and
-groups them by metadata group: Opening, Core, Compare, Proof, Flow, Decision,
-Business, and Closing. User-created templates stay separate. Generic built-in
-templates are fallback options for decks that do not yet have package
-templates.
+The Add slide picker uses the global semantic template registry and groups
+templates by metadata group: Opening, Core, Compare, Proof, Flow, Decision,
+Business, and Closing.
 
-Package metadata is catalog-only. It includes labels, group, priority,
-render-family, best-use guidance, slot acceptance, capacity, and bindings for
-AI and UI consumers. It is not persisted in `Document.deckJson`; applying a
-package still persists only the deck fields listed above plus materialized
-`customTemplates` and slide `templateId` provenance.
-
-The current slide's template apply and reapply commands can use either package
-template ids or user custom template ids. Reapplying a package template replaces
-or preserves content according to the existing template reapply mode; switching
-packages does not reapply templates to existing slides automatically.
+Template metadata is registry-owned. It includes labels, group, priority,
+best-use guidance, slot acceptance, capacity, and layout variants for AI and UI
+consumers. It is not duplicated inside theme packages.
 
 ## Master Boundary
 
-Masters remain chrome-only in v6. Package masters contain global chrome such as
-footer and page number elements. Decorative shapes that define a package's visual
-personality live inside the package templates as locked slide elements, not in
-the master.
+V7 has no slide masters in the active package path. Shared visual personality is
+expressed as package styles and `ThemeDecorationRecipe` entries, then injected by
+`resolveDeckRenderTree` according to slide chrome/decoration props.

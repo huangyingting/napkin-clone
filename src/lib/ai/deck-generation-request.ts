@@ -11,8 +11,6 @@
 
 import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import type { Deck } from "@/lib/presentation/deck";
 import {
   isThemePackageId,
   type ThemePackageId,
@@ -50,8 +48,8 @@ export interface DeckGenerateError {
 
 /** Result of a deck-generation request: a usable deck or a classified error. */
 export interface DeckGenerationResponseMetadata {
-  requestedGenerationMode?: "package-template";
-  generationMode?: "package-template";
+  requestedGenerationMode?: "package-template" | "vnext";
+  generationMode?: "package-template" | "vnext";
   fallback?: boolean;
   tableSlideCount?: number;
   schemaValid?: boolean;
@@ -62,17 +60,7 @@ export interface DeckGenerationResponseMetadata {
 export type DeckGenerateResult =
   | {
       ok: true;
-      /**
-       * Set when the response included a parseable v6 deck. Absent for
-       * v7-only responses — callers should read `deckV7` instead.
-       */
-      deck?: Deck;
-      /**
-       * Set when the generation response included a v7 deck
-       * (`schemaVersion: 7`). Callers that understand the v7 schema should
-       * prefer this over `deck`. When absent the response was v6 only.
-       */
-      deckV7?: DeckV7;
+  deckV7: DeckV7;
       truncated: boolean;
       metadata?: DeckGenerationResponseMetadata;
     }
@@ -144,14 +132,14 @@ export function buildDeckGenerationBody(
 /* node:coverage ignore start */
 /* Coverage rationale: response parser JSDoc is documentation-only; parser branches are asserted. */
 /**
- * Validate a `{ deck, truncated }` response payload. Returns the parsed deck and
- * the `truncated` flag, or `null` when the payload is missing/invalid. The deck
- * is validated through {@link safeParseDeck} so only a schema-valid deck (the
- * same contract the open path expects) is ever surfaced.
+ * Validate a `{ deck, truncated }` response payload. Returns the parsed DeckV7
+ * and the `truncated` flag, or `null` when the payload is missing/invalid.
  */
 /* node:coverage ignore stop */
-function parseGenerationMode(value: unknown): "package-template" | undefined {
-  return value === "package-template" ? value : undefined;
+function parseGenerationMode(
+  value: unknown,
+): "package-template" | "vnext" | undefined {
+  return value === "package-template" || value === "vnext" ? value : undefined;
 }
 
 function parseKindCounts(value: unknown): Record<string, number> | undefined {
@@ -205,10 +193,7 @@ function parseDeckResponseMetadata(
 }
 
 export function parseDeckResponse(payload: unknown): {
-  /** Set when the response included a parseable v6 deck. */
-  deck?: Deck;
-  /** Set when the API returned a v7 deck. */
-  deckV7?: DeckV7;
+  deckV7: DeckV7;
   truncated: boolean;
   metadata?: DeckGenerationResponseMetadata;
 } | null {
@@ -222,8 +207,6 @@ export function parseDeckResponse(payload: unknown): {
   );
   const metaField = metadata ? { metadata } : {};
 
-  // v7 response: parse with safeParseDeckV7 and also attempt v6 parse for
-  // backward-compatible callers that use result.deck.
   if (
     rawDeck !== null &&
     typeof rawDeck === "object" &&
@@ -232,29 +215,10 @@ export function parseDeckResponse(payload: unknown): {
   ) {
     const v7Result = safeParseDeckV7(rawDeck);
     if (!v7Result.success) return null;
-    const v6Compat = safeParseDeck(rawDeck);
-    if (!v6Compat.success) {
-      // v7-only response: return deckV7 without a v6 deck.
-      return { deckV7: v7Result.data, truncated, ...metaField };
-    }
-    return {
-      deck: v6Compat.data,
-      deckV7: v7Result.data,
-      truncated,
-      ...metaField,
-    };
+    return { deckV7: v7Result.data, truncated, ...metaField };
   }
 
-  // v6 response (current production behavior).
-  const result = safeParseDeck(rawDeck);
-  if (!result.success) {
-    return null;
-  }
-  return {
-    deck: result.data,
-    truncated,
-    ...metaField,
-  };
+  return null;
 }
 
 /** True when a thrown fetch error is an abort (client cancel or timeout). */
@@ -341,8 +305,7 @@ export async function requestDeckGeneration(
   }
   return {
     ok: true,
-    ...(parsed.deck ? { deck: parsed.deck } : {}),
-    ...(parsed.deckV7 ? { deckV7: parsed.deckV7 } : {}),
+    deckV7: parsed.deckV7,
     truncated: parsed.truncated,
     ...(parsed.metadata ? { metadata: parsed.metadata } : {}),
   };

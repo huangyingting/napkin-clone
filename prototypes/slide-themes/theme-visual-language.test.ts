@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { THEME_PACKAGE_TEMPLATE_KINDS } from "@/lib/presentation/theme-template-taxonomy";
+import { SEMANTIC_TEMPLATE_KINDS } from "@/lib/presentation-vnext/template-registry";
+import { validateThemePackage } from "@/lib/presentation-vnext/theme-package-schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 
 function readDeck(id: string) {
-  const parsed = safeParseDeck(
+  const parsed = safeParseDeckV7(
     JSON.parse(
       readFileSync(
         join(process.cwd(), `prototypes/slide-themes/decks/${id}.deck.json`),
@@ -15,45 +16,39 @@ function readDeck(id: string) {
       ),
     ),
   );
-  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
+  assert.equal(
+    parsed.success,
+    true,
+    parsed.success ? undefined : parsed.errors.join("; "),
+  );
   assert.ok(parsed.success);
   return parsed.data;
 }
 
 function readPackage(id: string) {
-  return JSON.parse(
-    readFileSync(
-      join(
-        process.cwd(),
-        `prototypes/slide-themes/packages/${id}.package.json`,
+  const parsed = validateThemePackage(
+    JSON.parse(
+      readFileSync(
+        join(
+          process.cwd(),
+          `prototypes/slide-themes/packages/${id}.package.json`,
+        ),
+        "utf8",
       ),
-      "utf8",
     ),
-  );
-}
-
-function assertNativeComponents(slide: any): void {
-  assert.ok(slide.elements?.length > 1, slide.templateId);
-  assert.ok(
-    slide.elements.some((element: any) => element.kind === "text"),
-    `${slide.templateId} has text elements`,
-  );
-  assert.ok(
-    slide.elements.some((element: any) => element.kind === "shape"),
-    `${slide.templateId} has shape elements`,
   );
   assert.equal(
-    slide.elements.some(
-      (element: any) =>
-        element.kind === "image" &&
-        /^data:image\/svg\+xml,/.test(element.content?.src ?? ""),
-    ),
-    false,
-    `${slide.templateId} does not use full-slide SVG image`,
+    parsed.valid,
+    true,
+    parsed.valid
+      ? undefined
+      : parsed.diagnostics.map((diagnostic) => diagnostic.message).join("; "),
   );
+  assert.ok(parsed.valid);
+  return parsed.package;
 }
 
-test("package JSON materializes every semantic template into preview decks", () => {
+test("native v7 packages materialize every semantic template into preview decks", () => {
   for (const id of [
     "clarity",
     "ocean",
@@ -66,65 +61,37 @@ test("package JSON materializes every semantic template into preview decks", () 
   ]) {
     const themePackage = readPackage(id);
     const deck = readDeck(id);
-    assert.equal(
-      themePackage.templates.length,
-      THEME_PACKAGE_TEMPLATE_KINDS.length,
-      id,
-    );
-    assert.equal(deck.slides.length, THEME_PACKAGE_TEMPLATE_KINDS.length, id);
-    assert.equal(deck.masters[0]?.elements?.length, 0, id);
+    assert.equal(themePackage.schemaVersion, 1, id);
+    assert.equal(deck.schemaVersion, 7, id);
+    assert.equal(deck.theme.packageId, id);
+    assert.equal(deck.slides.length, SEMANTIC_TEMPLATE_KINDS.length, id);
 
-    for (const kind of THEME_PACKAGE_TEMPLATE_KINDS) {
-      const template = themePackage.templates.find(
-        (candidate: any) => candidate.id === `theme:${id}:${kind}`,
-      );
+    for (const kind of SEMANTIC_TEMPLATE_KINDS) {
       const slide = deck.slides.find(
-        (candidate) => candidate.templateId === `theme:${id}:${kind}`,
+        (candidate) => candidate.template.kind === kind,
       );
-      assert.ok(template, `${id}:${kind}`);
       assert.ok(slide, `${id}:${kind}`);
-      assert.equal(slide.elements[0]?.id, template.elements[0]?.id);
-      assertNativeComponents(slide);
+      assert.ok(slide.children.length > 0, `${id}:${kind} has children`);
+      assert.equal(
+        slide.children.some((child) => child.type === "text"),
+        true,
+        `${id}:${kind} has text nodes`,
+      );
     }
   }
 });
 
-test("package JSON retains distinctive native component treatments", () => {
-  const editorialCover = readDeck("editorial").slides.find(
-    (slide) => slide.templateId === "theme:editorial:cover",
-  );
-  assert.ok(
-    editorialCover?.elements.some(
-      (element: any) => element.name === "Editorial ring",
-    ),
-  );
-  assert.ok(
-    editorialCover?.elements.some(
-      (element: any) =>
-        element.kind === "text" && element.content?.text.includes("Brand"),
-    ),
-  );
+test("native v7 packages retain distinctive style packages", () => {
+  const clarity = readPackage("clarity");
+  const ocean = readPackage("ocean");
+  const pulse = readPackage("pulse");
 
-  const oceanCover = readDeck("ocean").slides.find(
-    (slide) => slide.templateId === "theme:ocean:cover",
-  );
-  assert.ok(
-    oceanCover?.elements.some(
-      (element: any) => element.name === "Iridescent field",
-    ),
-  );
+  assert.equal(clarity.tokens.colors.accent.fill, "#0042ff");
+  assert.ok(clarity.decorations?.grid);
 
-  const pulseCover = readDeck("pulse").slides.find(
-    (slide) => slide.templateId === "theme:pulse:cover",
-  );
-  assert.ok(
-    pulseCover?.elements.some((element: any) => element.name === "Scan line"),
-  );
-  assert.ok(
-    pulseCover?.elements.some(
-      (element: any) =>
-        element.kind === "text" &&
-        element.content?.text.includes("studio_showe"),
-    ),
-  );
+  assert.equal(ocean.tokens.colors.accent.fill, "#7b5cff");
+  assert.ok(ocean.decorations?.glow);
+
+  assert.equal(pulse.tokens.fonts.heading.includes("JetBrains Mono"), true);
+  assert.ok(pulse.decorations?.scanLine);
 });

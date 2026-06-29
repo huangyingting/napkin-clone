@@ -3,9 +3,8 @@
 /**
  * vNext deck generation preview surface.
  *
- * Mirrors the v6 `DeckGenerationPreview` but accepts `DeckV7` instead of the
- * v6 `Deck` type. Thumbnails are rendered via `SlideCanvasVNext` without any
- * v6 materialisation.
+ * Reviews a generated `DeckV7` proposal. Thumbnails are rendered via
+ * `SlideCanvasVNext` without any v6 materialisation.
  *
  * The AI-generated v7 deck is reviewed in this panel before it is applied to
  * the editor. A diff summary against the baseline deck (count of added /
@@ -27,7 +26,6 @@ import { GeneratingIndicator } from "@/components/motion/generation-status";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
-import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
 import {
   useDeckGeneration,
   type DeckGenerationOptions,
@@ -162,20 +160,7 @@ export function DeckGenerationPreviewVNext({
     setRegenError(false);
     const result = await generate(contentJson, options);
     if (result.ok) {
-      // Prefer a v7 deck from the API (the default path).
-      const nextDeckV7 = result.deckV7;
-      if (nextDeckV7) {
-        setProposal(nextDeckV7);
-      } else {
-        // Resilience fallback: API now returns v7 by default; this branch
-        // handles any legacy v6 response by migrating at the boundary.
-        const openResult = openDeckFromJson(result.deck as unknown);
-        if (openResult.ok) {
-          setProposal(openResult.deck);
-        } else {
-          setRegenError(true);
-        }
-      }
+      setProposal(result.deckV7);
     } else {
       setRegenError(true);
     }
