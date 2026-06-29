@@ -35,22 +35,44 @@ export interface ResolvedRadialGradientFill {
   type: "radialGradient";
   inner: string;
   outer: string;
+  stops?: Array<{ color: string; offset: number }>;
   cx?: number;
   cy?: number;
   r?: number;
 }
 
-export type ResolvedElementFill = string | ResolvedRadialGradientFill;
+export interface ResolvedLinearGradientFill {
+  type: "linearGradient";
+  from: string;
+  to: string;
+  angle?: number;
+}
+
+export type ResolvedElementFill =
+  | string
+  | ResolvedRadialGradientFill
+  | ResolvedLinearGradientFill;
 
 export function resolvedFillToCss(fill: ResolvedElementFill): string {
   if (typeof fill === "string") return fill;
+  if (fill.type === "linearGradient") {
+    return `linear-gradient(${fill.angle ?? 90}deg, ${fill.from}, ${fill.to})`;
+  }
+  if (fill.stops && fill.stops.length > 0) {
+    const stops = fill.stops
+      .map((stop) => `${stop.color} ${stop.offset}%`)
+      .join(", ");
+    return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
+  }
   return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.inner}, ${fill.outer})`;
 }
 
 export function resolvedFillRepresentativeColor(
   fill: ResolvedElementFill,
 ): string {
-  return typeof fill === "string" ? fill : fill.outer;
+  if (typeof fill === "string") return fill;
+  if (fill.type === "linearGradient") return fill.from;
+  return fill.stops && fill.stops.length > 0 ? fill.inner : fill.outer;
 }
 
 /* node:coverage disable */
@@ -146,14 +168,36 @@ function resolveElementFill(
   if (!input || typeof input !== "object")
     return colorRefValue(input, tokenSet);
   const fill = input as Record<string, unknown>;
+  if (fill.type === "linearGradient") {
+    const from = colorRefValue(fill.from, tokenSet);
+    const to = colorRefValue(fill.to, tokenSet);
+    if (!from || !to) return undefined;
+    return {
+      type: "linearGradient",
+      from,
+      to,
+      ...(typeof fill.angle === "number" ? { angle: fill.angle } : {}),
+    };
+  }
   if (fill.type !== "radialGradient") return colorRefValue(input, tokenSet);
   const inner = colorRefValue(fill.inner, tokenSet);
   const outer = colorRefValue(fill.outer, tokenSet);
   if (!inner || !outer) return undefined;
+  const stops = Array.isArray(fill.stops)
+    ? fill.stops.flatMap((stop) => {
+        if (!stop || typeof stop !== "object") return [];
+        const inputStop = stop as Record<string, unknown>;
+        const color = colorRefValue(inputStop.color, tokenSet);
+        return color && typeof inputStop.offset === "number"
+          ? [{ color, offset: inputStop.offset }]
+          : [];
+      })
+    : undefined;
   return {
     type: "radialGradient",
     inner,
     outer,
+    ...(stops && stops.length > 0 ? { stops } : {}),
     ...(typeof fill.cx === "number" ? { cx: fill.cx } : {}),
     ...(typeof fill.cy === "number" ? { cy: fill.cy } : {}),
     ...(typeof fill.r === "number" ? { r: fill.r } : {}),
@@ -163,9 +207,10 @@ function resolveElementFill(
 function resolveElementEffect(input: unknown): ElementEffect | undefined {
   if (!input || typeof input !== "object") return undefined;
   const effect = input as Record<string, unknown>;
-  return effect.kind === "glass" && typeof effect.intensity === "string"
-    ? (effect as unknown as ElementEffect)
-    : undefined;
+  if (effect.kind === "glass" && typeof effect.intensity === "string") {
+    return effect as unknown as ElementEffect;
+  }
+  return undefined;
 }
 
 function resolveTableStyle(

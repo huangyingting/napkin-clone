@@ -259,6 +259,70 @@ test("resolveSlideRenderModel resolves radial fills and shape effects", () => {
   }
 });
 
+test("resolveSlideRenderModel resolves linear gradient element fill", () => {
+  const d = deck();
+  const element = shapeElement("linear-shape", 0) as any;
+  element.designOverrides = {
+    fill: {
+      type: "linearGradient",
+      from: { value: "#6366f1" },
+      to: { value: "#22d3ee" },
+      angle: 120,
+    },
+  };
+  d.slides[0] = { ...d.slides[0]!, elements: [element] };
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.elementDesigns["linear-shape"]?.kind, "shape");
+  if (model.elementDesigns["linear-shape"]?.kind === "shape") {
+    assert.deepEqual(model.elementDesigns["linear-shape"].fill, {
+      type: "linearGradient",
+      from: "#6366f1",
+      to: "#22d3ee",
+      angle: 120,
+    });
+  }
+});
+
+test("resolveSlideRenderModel resolves radial gradient stops", () => {
+  const d = deck();
+  const element = shapeElement("soft-radial-shape", 0) as any;
+  element.designOverrides = {
+    fill: {
+      type: "radialGradient",
+      inner: { value: "#a855f7" },
+      outer: { value: "transparent" },
+      stops: [
+        { color: { value: "rgba(168, 85, 247, 0.78)" }, offset: 0 },
+        { color: { value: "rgba(168, 85, 247, 0)" }, offset: 78 },
+      ],
+      cx: 50,
+      cy: 50,
+      r: 92,
+    },
+  };
+  d.slides[0] = { ...d.slides[0]!, elements: [element] };
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.elementDesigns["soft-radial-shape"]?.kind, "shape");
+  if (model.elementDesigns["soft-radial-shape"]?.kind === "shape") {
+    assert.deepEqual(model.elementDesigns["soft-radial-shape"].fill, {
+      type: "radialGradient",
+      inner: "#a855f7",
+      outer: "transparent",
+      stops: [
+        { color: "rgba(168, 85, 247, 0.78)", offset: 0 },
+        { color: "rgba(168, 85, 247, 0)", offset: 78 },
+      ],
+      cx: 50,
+      cy: 50,
+      r: 92,
+    });
+  }
+});
+
 test("resolveSlideRenderModel resolves table defaults and overrides", () => {
   const d = deck();
   d.slides[0] = {

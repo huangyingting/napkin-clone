@@ -110,6 +110,14 @@ function shadowCss(enabled: boolean | undefined): string {
 }
 
 function hashColor(value: string): string {
+  if (
+    value.startsWith("#") ||
+    value.startsWith("rgb(") ||
+    value.startsWith("rgba(") ||
+    value === "transparent"
+  ) {
+    return value;
+  }
   return value.startsWith("#") ? value : `#${value}`;
 }
 
@@ -140,6 +148,12 @@ function glassFillCss(
   alpha: number,
 ): string {
   if (typeof fill === "string") return rgbaColor(fill, alpha);
+  if (fill.type === "linearGradient") {
+    return `linear-gradient(${fill.angle ?? 90}deg, ${rgbaColor(
+      fill.from,
+      alpha + 0.08,
+    )}, ${rgbaColor(fill.to, alpha)})`;
+  }
   return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
     fill.inner,
     alpha + 0.08,
@@ -331,10 +345,32 @@ function shapeFillAttr(
   id: string,
 ): { defs: string[]; attr: string } {
   if (typeof fill === "string") return { defs: [], attr: hashColor(fill) };
+  if (fill.type === "linearGradient") {
+    const gradientId = `${id}-linear-fill`;
+    const angle = fill.angle ?? 90;
+    const rad = (angle * Math.PI) / 180;
+    const dx = Math.cos(rad);
+    const dy = Math.sin(rad);
+    return {
+      defs: [
+        `<linearGradient id="${gradientId}" x1="${(50 - dx * 50).toFixed(2)}%" y1="${(50 - dy * 50).toFixed(2)}%" x2="${(50 + dx * 50).toFixed(2)}%" y2="${(50 + dy * 50).toFixed(2)}%"><stop offset="0%" stop-color="${hashColor(fill.from)}" /><stop offset="100%" stop-color="${hashColor(fill.to)}" /></linearGradient>`,
+      ],
+      attr: `url(#${gradientId})`,
+    };
+  }
   const gradientId = `${id}-radial-fill`;
+  const stops =
+    fill.stops && fill.stops.length > 0
+      ? fill.stops
+          .map(
+            (stop) =>
+              `<stop offset="${stop.offset}%" stop-color="${hashColor(stop.color)}" />`,
+          )
+          .join("")
+      : `<stop offset="0%" stop-color="${hashColor(fill.inner)}" /><stop offset="100%" stop-color="${hashColor(fill.outer)}" />`;
   return {
     defs: [
-      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? 70}%"><stop offset="0%" stop-color="${hashColor(fill.inner)}" /><stop offset="100%" stop-color="${hashColor(fill.outer)}" /></radialGradient>`,
+      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? 70}%">${stops}</radialGradient>`,
     ],
     attr: `url(#${gradientId})`,
   };
@@ -359,13 +395,12 @@ function glassClipCss(op: DeckShapeOp, pxPerIn: number): string {
   }
 }
 
-function renderGlassShapeSvg(
+function renderEffectShapeSvg(
   op: DeckShapeOp,
   fill: NonNullable<DeckShapeOp["fill"]>,
   pxPerIn: number,
 ): string {
   const drawOp = { ...op, ...shapeRenderBox(op.shape, op) };
-  const preset = GLASS_PRESETS[drawOp.effect?.intensity ?? "medium"];
   const x = px(drawOp.x, pxPerIn);
   const y = px(drawOp.y, pxPerIn);
   const w = px(drawOp.w, pxPerIn);
@@ -377,13 +412,21 @@ function renderGlassShapeSvg(
     drawOp.h * pxPerIn,
     drawOp.rotation,
   );
+  const effect = drawOp.effect;
+  const preset = effect ? GLASS_PRESETS[effect.intensity] : undefined;
   const style = [
     "width:100%;height:100%;box-sizing:border-box;",
-    `background:${glassFillCss(fill, preset.alpha)};`,
-    `backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`,
-    `-webkit-backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`,
-    `border:1px solid ${rgbaColor("ffffff", preset.borderAlpha)};`,
-    "box-shadow:0 8px 24px rgba(15,23,42,0.18);",
+    `background:${preset ? glassFillCss(fill, preset.alpha) : typeof fill === "string" ? hashColor(fill) : shapeFillAttr(fill, "effect-fill").attr};`,
+    preset
+      ? `backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`
+      : "",
+    preset
+      ? `-webkit-backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`
+      : "",
+    preset
+      ? `border:1px solid ${rgbaColor("ffffff", preset.borderAlpha)};`
+      : "",
+    preset ? "box-shadow:0 8px 24px rgba(15,23,42,0.18);" : "",
     drawOp.opacity !== undefined ? `opacity:${drawOp.opacity};` : "",
     glassClipCss(drawOp, pxPerIn),
   ].join("");
@@ -412,7 +455,7 @@ function renderShapeSvg(
     : 0;
   const fill = drawOp.fill ?? drawOp.color;
   if (drawOp.effect && drawOp.shape !== "line") {
-    return { defs: [], body: renderGlassShapeSvg(drawOp, fill, pxPerIn) };
+    return { defs: [], body: renderEffectShapeSvg(drawOp, fill, pxPerIn) };
   }
   const fillValue = shapeFillAttr(fill, id);
   const dash = op.stroke?.dash

@@ -7,10 +7,12 @@
 import {
   type ThemeSpec,
   type Box,
+  glassPanel,
   image,
   kicker,
   shape,
   slide,
+  softRadialFill,
   text,
 } from "./theme-kit";
 
@@ -444,7 +446,7 @@ const ocean: ThemeSpec = {
         zIndex,
         shape: "ellipse",
         box,
-        fill: color,
+        fill: softRadialFill(color),
         opacity,
         locked: true,
         name: "Current",
@@ -791,13 +793,13 @@ const aurora: ThemeSpec = {
   name: "Aurora",
   tagline: "Modern tech & SaaS keynote — luminous gradients, geometric sans.",
   palette: {
-    slideBg: "#ffffff",
-    surface: "#eef1ff",
+    slideBg: "#0a0b14",
+    surface: "#181c39",
     accent: "#6366f1",
-    onBg: "#0b1020",
-    onSurface: "#272a45",
+    onBg: "#e9ebff",
+    onSurface: "#c9cdf2",
     onAccent: "#ffffff",
-    muted: "#6b7190",
+    muted: "#9aa2c8",
     deco: ["#22d3ee", "#a855f7", "#6366f1"],
   },
   fonts: {
@@ -810,78 +812,113 @@ const aurora: ThemeSpec = {
   shadowCss: "0 18px 40px rgba(99,102,241,0.18)",
   defaultBackground: {
     type: "gradient",
-    from: "#ffffff",
-    to: "#f4f5ff",
+    from: "#0a0b14",
+    to: "#10132a",
     angle: 160,
   },
   masterBackground: {
     type: "gradient",
-    from: "#ffffff",
-    to: "#f4f5ff",
+    from: "#0a0b14",
+    to: "#10132a",
     angle: 160,
   },
   buildSlides: (s) => {
     const p = s.palette;
     const f = s.fonts;
-    const glow = (z: number, box: Box, color: string) =>
+    const glow = (z: number, box: Box, color: string, opacity = 0.55) =>
       shape({
         zIndex: z,
         shape: "ellipse",
         box,
-        fill: color,
-        opacity: 0.16,
+        fill: softRadialFill(color),
+        opacity,
         locked: true,
         name: "Glow",
       });
     return [
       // Cover
-      slide("aurora-cover", "Aurora", "title", [
-        glow(1, { x: 58, y: -18, w: 60, h: 70 }, p.deco[1]),
-        glow(2, { x: 70, y: 20, w: 48, h: 56 }, p.deco[0]),
-        shape({
-          zIndex: 3,
-          shape: "rect",
-          box: { x: 8, y: 35, w: 1.6, h: 22 },
-          fill: p.accent,
-          radius: 50,
-          locked: true,
-          name: "Accent bar",
-        }),
-        kicker(
-          10,
-          { x: 11, y: 30, w: 50, h: 6 },
-          "PRODUCT KEYNOTE · 2026",
-          p.accent,
-          f.heading,
-        ),
-        text({
-          zIndex: 11,
-          box: { x: 10.5, y: 36, w: 70, h: 22 },
-          role: "title",
-          text: "Build the\nnext frontier",
-          style: {
-            fontSize: 9.5,
-            color: p.onBg,
-            fontId: f.heading,
-            bold: true,
-            align: "left",
-            lineHeight: 1.02,
-          },
-        }),
-        text({
-          zIndex: 12,
-          box: { x: 11, y: 64, w: 56, h: 10 },
-          role: "subtitle",
-          text: "A platform story told in light, motion, and momentum.",
-          style: {
-            fontSize: 3.4,
-            color: p.muted,
-            fontId: f.body,
-            align: "left",
-            lineHeight: 1.35,
-          },
-        }),
-      ]),
+      slide(
+        "aurora-cover",
+        "Aurora",
+        "title",
+        [
+          glow(1, { x: 42, y: -24, w: 82, h: 94 }, p.deco[1], 1),
+          glow(2, { x: 46, y: 26, w: 82, h: 82 }, p.deco[0], 0.92),
+          kicker(
+            10,
+            { x: 8, y: 9, w: 48, h: 6 },
+            "PRODUCT KEYNOTE · 2026",
+            p.deco[0],
+            f.heading,
+          ),
+          text({
+            zIndex: 11,
+            box: { x: 8, y: 17, w: 48, h: 22 },
+            role: "title",
+            text: "Build the\nnext frontier",
+            style: {
+              fontSize: 10.5,
+              color: p.onBg,
+              fontId: f.heading,
+              bold: true,
+              align: "left",
+              lineHeight: 1.02,
+            },
+          }),
+          text({
+            zIndex: 12,
+            box: { x: 8, y: 40, w: 49, h: 9 },
+            role: "subtitle",
+            text: "A platform story told in light, motion, and momentum.",
+            style: {
+              fontSize: 3.4,
+              color: p.muted,
+              fontId: f.body,
+              align: "left",
+              lineHeight: 1.35,
+            },
+          }),
+          glassPanel({
+            zIndex: 12,
+            box: { x: 8, y: 85, w: 13, h: 5.8 },
+            fill: "#111827",
+            radius: 50,
+            intensity: "light",
+            stroke: { color: "#ffffff", width: 0.14 },
+            locked: true,
+            name: "Studio chip",
+          }),
+          shape({
+            zIndex: 13,
+            shape: "circle",
+            box: { x: 9.2, y: 87.2, w: 1.1, h: 1.9 },
+            fill: p.deco[0],
+            locked: true,
+            name: "Chip dot",
+          }),
+          text({
+            zIndex: 14,
+            box: { x: 10.8, y: 85.7, w: 9.2, h: 4.5 },
+            text: "Aurora Studio",
+            style: {
+              fontSize: 2.1,
+              color: p.onBg,
+              fontId: f.body,
+              bold: true,
+              align: "left",
+              verticalAlign: "middle",
+            },
+          }),
+        ],
+        {
+          type: "radialGradient",
+          inner: "#6d3bc4",
+          outer: "#07080f",
+          cx: 88,
+          cy: 5,
+          r: 92,
+        },
+      ),
       // Section divider
       slide(
         "aurora-section",

@@ -82,21 +82,42 @@ function rgba(hex, alpha) {
 }
 
 function fillCss(fill, colors, effect) {
+  const isGlass = effect?.kind === "glass";
   const alpha =
-    effect?.intensity === "strong"
+    isGlass && effect?.intensity === "strong"
       ? 0.4
-      : effect?.intensity === "light"
+      : isGlass && effect?.intensity === "light"
         ? 0.22
         : 0.3;
   if (fill?.type === "radialGradient") {
     const inner = resolveColor(fill.inner, colors);
     const outer = resolveColor(fill.outer, colors);
-    return effect
+    if (fill.stops?.length) {
+      const stops = fill.stops
+        .map((stop) => `${resolveColor(stop.color, colors)} ${stop.offset}%`)
+        .join(", ");
+      return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
+    }
+    return isGlass
       ? `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgba(inner, alpha + 0.08)}, ${rgba(outer, alpha)})`
       : `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${inner}, ${outer})`;
   }
+  if (fill?.type === "linearGradient") {
+    const from = resolveColor(fill.from, colors);
+    const to = resolveColor(fill.to, colors);
+    return isGlass
+      ? `linear-gradient(${fill.angle ?? 90}deg, ${rgba(from, alpha + 0.08)}, ${rgba(to, alpha)})`
+      : `linear-gradient(${fill.angle ?? 90}deg, ${from}, ${to})`;
+  }
   const color = resolveColor(fill, colors) ?? SHAPE_DEFAULT_FILL;
-  return effect ? rgba(color, alpha) : color;
+  return isGlass ? rgba(color, alpha) : color;
+}
+
+function effectCss(effect) {
+  if (!effect) return "";
+  const blur =
+    effect.intensity === "strong" ? 22 : effect.intensity === "light" ? 8 : 14;
+  return `backdrop-filter:blur(${blur}px) saturate(1.3);-webkit-backdrop-filter:blur(${blur}px) saturate(1.3);border:1px solid ${rgba("#ffffff", 0.45)};box-shadow:0 8px 24px rgba(15,23,42,.18);`;
 }
 
 function inscribedBox(box) {
@@ -185,17 +206,16 @@ function renderShape(el, colors = {}) {
   const fill = fillCss(d.fill, colors, d.effect);
   const stroke = d.stroke;
   const shape = el.content?.shape;
-  const effect = d.effect
-    ? `backdrop-filter:blur(${d.effect.intensity === "strong" ? 22 : d.effect.intensity === "light" ? 8 : 14}px) saturate(1.3);-webkit-backdrop-filter:blur(${d.effect.intensity === "strong" ? 22 : d.effect.intensity === "light" ? 8 : 14}px) saturate(1.3);border:1px solid ${rgba("#ffffff", 0.45)};box-shadow:0 8px 24px rgba(15,23,42,.18);`
-    : "";
+  const effect = effectCss(d.effect);
+  const overflow = "hidden";
   if (shape === "line") {
     return `<div style="${boxCss(el)}display:flex;align-items:center;"><div style="height:${stroke?.width ?? 0.4}cqmin;width:100%;background:${stroke?.color ?? fill};"></div></div>`;
   }
   if (shape === "triangle") {
-    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,0% 100%,100% 100%);${effect}"></div></div>`;
+    return `<div style="${boxCss(el)}overflow:${overflow};"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,0% 100%,100% 100%);${effect}"></div></div>`;
   }
   if (shape === "diamond") {
-    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);${effect}"></div></div>`;
+    return `<div style="${boxCss(el)}overflow:${overflow};"><div style="position:absolute;inset:0;background:${fill};clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);${effect}"></div></div>`;
   }
   if (shape === "circle" || shape === "square") {
     const inner = inscribedBox(el.box);
@@ -208,18 +228,18 @@ function renderShape(el, colors = {}) {
     const border = stroke
       ? `border:${stroke.width}cqmin solid ${stroke.color};`
       : "";
-    return `<div style="${boxCss(el)}overflow:hidden;"><div style="position:absolute;left:${inner.x}%;top:${inner.y}%;width:${inner.w}%;height:${inner.h}%;background:${fill};border-radius:${radius};${border}${effect}"></div></div>`;
+    return `<div style="${boxCss(el)}overflow:${overflow};"><div style="position:absolute;left:${inner.x}%;top:${inner.y}%;width:${inner.w}%;height:${inner.h}%;background:${fill};border-radius:${radius};${border}${effect}"></div></div>`;
   }
   const radius =
     shape === "ellipse"
-      ? "9999px"
+      ? "50%"
       : d.radius !== undefined
         ? `${d.radius}%`
         : "0.25rem";
   const border = stroke
     ? `border:${stroke.width}cqmin solid ${stroke.color};`
     : "";
-  return `<div style="${boxCss(el)}overflow:hidden;background:${fill};border-radius:${radius};${border}${effect}"></div>`;
+  return `<div style="${boxCss(el)}overflow:${overflow};background:${fill};border-radius:${radius};${border}${effect}"></div>`;
 }
 
 function renderImage(el) {

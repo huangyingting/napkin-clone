@@ -17,6 +17,7 @@ import {
   glassPanel,
   image,
   kicker,
+  linearFill,
   motif,
   radialFill,
   radialOrb,
@@ -66,7 +67,7 @@ function tint(spec: ThemeSpec): Bg {
 }
 
 function darkField(spec: ThemeSpec): Bg {
-  return { type: "solid", color: spec.palette.onBg };
+  return { type: "solid", color: spec.palette.slideBg };
 }
 
 function accentField(spec: ThemeSpec): Bg {
@@ -79,7 +80,7 @@ function hero(spec: ThemeSpec): Bg {
     return {
       type: "radialGradient",
       inner: spec.palette.deco[0] ?? spec.palette.accent,
-      outer: spec.palette.onBg,
+      outer: spec.palette.slideBg,
       cx: 70,
       cy: 28,
       r: 88,
@@ -88,7 +89,7 @@ function hero(spec: ThemeSpec): Bg {
   return {
     type: "gradient",
     from: spec.palette.deco[0] ?? spec.palette.accent,
-    to: spec.palette.onBg,
+    to: spec.palette.slideBg,
     angle: 140,
   };
 }
@@ -99,8 +100,9 @@ function orb(z: number, box: Box, color: string, opacity = 0.16) {
     zIndex: z,
     box,
     inner: color,
-    outer: token("slideBg"),
+    outer: color,
     opacity,
+    shape: "ellipse",
     locked: true,
     name: "Orb",
   });
@@ -120,11 +122,15 @@ function wedge(z: number, box: Box, color: string, rot = 12, opacity = 0.9) {
 }
 
 function bar(z: number, box: Box, color: string) {
+  const spec = activeSpec;
+  const grad = spec
+    ? linearFill(spec.palette.accent, spec.palette.deco[0] ?? color, 90)
+    : color;
   return shape({
     zIndex: z,
     shape: "rect",
     box,
-    fill: color,
+    fill: grad,
     radius: 50,
     locked: true,
     name: "Accent bar",
@@ -297,9 +303,9 @@ function familyChrome(
     zIndex: 1,
     box: { x: corner, y: variant < 2 ? -24 : 58, w: 52, h: 76 },
     inner: secondary,
-    outer: token("slideBg"),
-    opacity: lang.surface === "glass" ? 0.28 : 0.14,
-    shape: lang.motifShapes.secondary === "ellipse" ? "ellipse" : "circle",
+    outer: secondary,
+    opacity: lang.surface === "glass" ? 0.45 : 0.2,
+    shape: "ellipse",
     name: `${family} glow`,
   });
   const accentMotif = motif({
@@ -404,15 +410,15 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
     els: [
       orb(
         1,
-        { x: 52, y: -28, w: 72, h: 88 },
+        { x: 38, y: -24, w: 64, h: 92 },
         s.palette.deco[1] ?? s.palette.accent,
-        0.3,
+        0.85,
       ),
       orb(
         2,
-        { x: 70, y: 24, w: 52, h: 64 },
+        { x: 52, y: 18, w: 52, h: 70 },
         s.palette.deco[0] ?? s.palette.accent,
-        0.32,
+        0.8,
       ),
       bar(3, { x: 8, y: 31, w: 2, h: 24 }, s.palette.accent),
       kicker(
@@ -434,6 +440,21 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
         { x: 11, y: 66, w: 56, h: 10 },
         "Set the scene with one strong promise.",
         "#ffffffcc",
+      ),
+      glassPanel({
+        zIndex: 9,
+        box: { x: 11, y: 82, w: 22, h: 9 },
+        fill: { value: "#ffffff" },
+        radius: 50,
+        intensity: "light",
+        name: "CTA chip",
+      }),
+      kicker(
+        10,
+        { x: 14, y: 82.5, w: 18, h: 8 },
+        "STUDIO · 2026",
+        "#ffffff",
+        s.fonts.heading,
       ),
     ],
   }),

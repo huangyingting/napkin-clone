@@ -33,6 +33,12 @@ const GLASS_PRESETS = {
 
 function glassFillCss(fill: ResolvedElementFill, alpha: number): string {
   if (typeof fill === "string") return hexToRgba(fill, alpha);
+  if (fill.type === "linearGradient") {
+    return `linear-gradient(${fill.angle ?? 90}deg, ${hexToRgba(
+      fill.from,
+      alpha + 0.08,
+    )}, ${hexToRgba(fill.to, alpha)})`;
+  }
   return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hexToRgba(
     fill.inner,
     alpha + 0.08,
@@ -244,7 +250,7 @@ export function ShapeElementView({
         ...fillStyle,
         borderRadius:
           content.shape === "ellipse"
-            ? "9999px"
+            ? "50%"
             : radius !== undefined
               ? `${radius}%`
               : "0.25rem",

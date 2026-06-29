@@ -417,9 +417,16 @@ export interface DeckShapeOp extends InchBox {
         type: "radialGradient";
         inner: string;
         outer: string;
+        stops?: Array<{ color: string; offset: number }>;
         cx?: number;
         cy?: number;
         r?: number;
+      }
+    | {
+        type: "linearGradient";
+        from: string;
+        to: string;
+        angle?: number;
       };
   effect?: ElementEffect;
   /** Optional centered label inside the shape. */
@@ -585,10 +592,26 @@ function exportResolvedFill(
   fill: ResolvedElementFill,
 ): NonNullable<DeckShapeOp["fill"]> {
   if (typeof fill === "string") return toHex(fill);
+  if (fill.type === "linearGradient") {
+    return {
+      type: "linearGradient",
+      from: toHex(fill.from),
+      to: toHex(fill.to),
+      ...(fill.angle !== undefined ? { angle: fill.angle } : {}),
+    };
+  }
   return {
     type: "radialGradient",
     inner: toHex(fill.inner),
     outer: toHex(fill.outer),
+    ...(fill.stops && fill.stops.length > 0
+      ? {
+          stops: fill.stops.map((stop) => ({
+            color: stop.color,
+            offset: stop.offset,
+          })),
+        }
+      : {}),
     ...(fill.cx !== undefined ? { cx: fill.cx } : {}),
     ...(fill.cy !== undefined ? { cy: fill.cy } : {}),
     ...(fill.r !== undefined ? { r: fill.r } : {}),

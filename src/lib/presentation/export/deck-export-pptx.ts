@@ -105,6 +105,14 @@ function escapeXml(value: string): string {
 }
 
 function hashColor(value: string): string {
+  if (
+    value.startsWith("#") ||
+    value.startsWith("rgb(") ||
+    value.startsWith("rgba(") ||
+    value === "transparent"
+  ) {
+    return value;
+  }
   return value.startsWith("#") ? value : `#${value}`;
 }
 
@@ -189,12 +197,27 @@ function shapeFillCss(
   if (effect) {
     const preset = GLASS_PRESETS[effect.intensity];
     if (typeof fill === "string") return rgbaColor(fill, preset.alpha);
+    if (fill.type === "linearGradient") {
+      return `linear-gradient(${fill.angle ?? 90}deg, ${rgbaColor(
+        fill.from,
+        preset.alpha + 0.08,
+      )}, ${rgbaColor(fill.to, preset.alpha)})`;
+    }
     return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
       fill.inner,
       preset.alpha + 0.08,
     )}, ${rgbaColor(fill.outer, preset.alpha)})`;
   }
   if (typeof fill === "string") return hashColor(fill);
+  if (fill.type === "linearGradient") {
+    return `linear-gradient(${fill.angle ?? 90}deg, ${hashColor(fill.from)}, ${hashColor(fill.to)})`;
+  }
+  if (fill.stops && fill.stops.length > 0) {
+    const stops = fill.stops
+      .map((stop) => `${hashColor(stop.color)} ${stop.offset}%`)
+      .join(", ");
+    return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
+  }
   return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hashColor(
     fill.inner,
   )}, ${hashColor(fill.outer)})`;
@@ -215,10 +238,10 @@ function renderStyledShapeSvg(
     "position:absolute;box-sizing:border-box;overflow:hidden;",
     `left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px;`,
     `background:${shapeFillCss(fill, op.effect)};`,
-    op.effect
+    preset
       ? `backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});-webkit-backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});`
       : "",
-    op.effect
+    preset
       ? `border:1px solid ${rgbaColor("ffffff", preset?.borderAlpha ?? 0.5)};box-shadow:0 8px 24px rgba(15,23,42,0.18);`
       : op.stroke
         ? `border:${Math.max(1, Math.round(op.stroke.width))}px solid ${hashColor(op.stroke.color)};`

@@ -215,202 +215,41 @@
       "title": "Cover",
       "notes": "",
       "templateId": "theme:editorial:cover",
-      "designOverrides": {
-        "background": {
-          "type": "gradient",
-          "from": {
-            "value": "#e0533b"
-          },
-          "to": {
-            "value": "#211b17"
-          },
-          "angle": 140
-        }
-      },
       "elements": [
         {
-          "id": "s-11",
+          "id": "s-1",
           "kind": "shape",
-          "opacity": 0.14,
           "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
+            "x": 4,
+            "y": 5,
+            "w": 92,
+            "h": 90
           },
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cover glow",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-12",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
-          "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cover motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-13",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#211b17"
-            }
-          },
-          "locked": true,
-          "name": "cover secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-v",
-          "kind": "shape",
-          "opacity": 0.3,
-          "box": {
-            "x": 52,
-            "y": -28,
-            "w": 72,
-            "h": 88
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-w",
-          "kind": "shape",
-          "opacity": 0.32,
-          "box": {
-            "x": 70,
-            "y": 24,
-            "w": 52,
-            "h": 64
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-x",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 31,
-            "w": 2,
-            "h": 24
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#e0533b"
+              "value": "#fbf6ee"
             },
-            "radius": 50
+            "stroke": {
+              "color": "#211b17",
+              "width": 0.4
+            },
+            "radius": 0
           },
           "locked": true,
-          "name": "Accent bar",
+          "name": "Frame",
           "content": {
             "kind": "shape",
             "shape": "rect"
           }
         },
         {
-          "id": "t-y",
+          "id": "t-2",
           "kind": "text",
           "role": "label",
           "box": {
-            "x": 11,
-            "y": 26,
+            "x": 9,
+            "y": 13,
             "w": 50,
             "h": 5
           },
@@ -422,29 +261,29 @@
               "italic": false,
               "align": "left",
               "verticalAlign": "middle",
-              "color": "#ffffff",
-              "fontId": "source-serif-4"
+              "color": "#e0533b",
+              "fontId": "source-sans-3"
             }
           },
           "name": "Kicker",
           "content": {
             "kind": "text",
-            "text": "PRESENTATION · 2026",
+            "text": "ISSUE Nº 04 — THE CRAFT EDITION",
             "paragraphs": [
               {
-                "text": "PRESENTATION · 2026"
+                "text": "ISSUE Nº 04 — THE CRAFT EDITION"
               }
             ]
           }
         },
         {
-          "id": "t-z",
+          "id": "t-3",
           "kind": "text",
           "role": "title",
           "box": {
-            "x": 10.5,
-            "y": 33,
-            "w": 78,
+            "x": 8.5,
+            "y": 30,
+            "w": 80,
             "h": 30
           },
           "zIndex": 10,
@@ -452,51 +291,73 @@
             "textStyle": {
               "fontSize": 11,
               "bold": true,
-              "italic": false,
+              "italic": true,
               "align": "left",
-              "lineHeight": 1.04,
-              "color": "#ffffff",
+              "lineHeight": 1,
+              "color": "#211b17",
               "fontId": "source-serif-4"
             }
           },
           "content": {
             "kind": "text",
-            "text": "A clear, confident\nopening",
+            "text": "Making things\nworth keeping",
             "paragraphs": [
               {
-                "text": "A clear, confident\nopening"
+                "text": "Making things\nworth keeping"
               }
             ]
           }
         },
         {
-          "id": "t-10",
+          "id": "s-4",
+          "kind": "shape",
+          "box": {
+            "x": 9,
+            "y": 60,
+            "w": 22,
+            "h": 0.9
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#e0533b"
+            },
+            "radius": 0
+          },
+          "locked": true,
+          "name": "Underline",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-5",
           "kind": "text",
           "role": "subtitle",
           "box": {
-            "x": 11,
-            "y": 66,
-            "w": 56,
-            "h": 10
+            "x": 9,
+            "y": 64,
+            "w": 60,
+            "h": 8
           },
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3.4,
               "bold": false,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.35,
-              "color": "#ffffffcc",
+              "color": "#8a7a6b",
               "fontId": "source-sans-3"
             }
           },
           "content": {
             "kind": "text",
-            "text": "Set the scene with one strong promise.",
+            "text": "On patience, taste, and the long game of brand.",
             "paragraphs": [
               {
-                "text": "Set the scene with one strong promise."
+                "text": "On patience, taste, and the long game of brand."
               }
             ]
           }
@@ -523,9 +384,9 @@
       },
       "elements": [
         {
-          "id": "s-1h",
+          "id": "s-18",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -540,7 +401,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -551,11 +412,11 @@
           "name": "agenda glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-1j",
+          "id": "s-1a",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -578,7 +439,7 @@
           }
         },
         {
-          "id": "t-14",
+          "id": "t-v",
           "kind": "text",
           "role": "title",
           "box": {
@@ -610,11 +471,320 @@
           }
         },
         {
-          "id": "s-15",
+          "id": "s-w",
           "kind": "shape",
           "box": {
             "x": 8,
             "y": 28,
+            "w": 84,
+            "h": 11
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#f1e7d8"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "stroke": {
+              "color": "#f1e7d8",
+              "width": 0.18
+            },
+            "radius": 2,
+            "effect": {
+              "kind": "glass",
+              "intensity": "light"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-x",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 30.5,
+            "w": 6,
+            "h": 6
+          },
+          "zIndex": 12,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#e0533b",
+              "fontId": "source-serif-4"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "01",
+            "paragraphs": [
+              {
+                "text": "01"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-y",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 18,
+            "y": 30.5,
+            "w": 70,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#4b3f36",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Where we are",
+            "paragraphs": [
+              {
+                "text": "Where we are"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-z",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 43,
+            "w": 84,
+            "h": 11
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#f1e7d8"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "stroke": {
+              "color": "#f1e7d8",
+              "width": 0.18
+            },
+            "radius": 2,
+            "effect": {
+              "kind": "glass",
+              "intensity": "light"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-10",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 45.5,
+            "w": 6,
+            "h": 6
+          },
+          "zIndex": 12,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#e0533b",
+              "fontId": "source-serif-4"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "02",
+            "paragraphs": [
+              {
+                "text": "02"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-11",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 18,
+            "y": 45.5,
+            "w": 70,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#4b3f36",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "What we found",
+            "paragraphs": [
+              {
+                "text": "What we found"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-12",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 58,
+            "w": 84,
+            "h": 11
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#f1e7d8"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "stroke": {
+              "color": "#f1e7d8",
+              "width": 0.18
+            },
+            "radius": 2,
+            "effect": {
+              "kind": "glass",
+              "intensity": "light"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-13",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 60.5,
+            "w": 6,
+            "h": 6
+          },
+          "zIndex": 12,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#e0533b",
+              "fontId": "source-serif-4"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "03",
+            "paragraphs": [
+              {
+                "text": "03"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-14",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 18,
+            "y": 60.5,
+            "w": 70,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#4b3f36",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "What we recommend",
+            "paragraphs": [
+              {
+                "text": "What we recommend"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-15",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 73,
             "w": 84,
             "h": 11
           },
@@ -655,315 +825,6 @@
           "role": "label",
           "box": {
             "x": 11,
-            "y": 30.5,
-            "w": 6,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#e0533b",
-              "fontId": "source-serif-4"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "01",
-            "paragraphs": [
-              {
-                "text": "01"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-17",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 18,
-            "y": 30.5,
-            "w": 70,
-            "h": 7
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#4b3f36",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Where we are",
-            "paragraphs": [
-              {
-                "text": "Where we are"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-18",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 43,
-            "w": 84,
-            "h": 11
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#f1e7d8"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "stroke": {
-              "color": "#f1e7d8",
-              "width": 0.18
-            },
-            "radius": 2,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-19",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
-            "y": 45.5,
-            "w": 6,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#e0533b",
-              "fontId": "source-serif-4"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "02",
-            "paragraphs": [
-              {
-                "text": "02"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-1a",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 18,
-            "y": 45.5,
-            "w": 70,
-            "h": 7
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#4b3f36",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "What we found",
-            "paragraphs": [
-              {
-                "text": "What we found"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1b",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 58,
-            "w": 84,
-            "h": 11
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#f1e7d8"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "stroke": {
-              "color": "#f1e7d8",
-              "width": 0.18
-            },
-            "radius": 2,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1c",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
-            "y": 60.5,
-            "w": 6,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#e0533b",
-              "fontId": "source-serif-4"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "03",
-            "paragraphs": [
-              {
-                "text": "03"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-1d",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 18,
-            "y": 60.5,
-            "w": 70,
-            "h": 7
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#4b3f36",
-              "fontId": "source-sans-3"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "What we recommend",
-            "paragraphs": [
-              {
-                "text": "What we recommend"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1e",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 73,
-            "w": 84,
-            "h": 11
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#f1e7d8"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "stroke": {
-              "color": "#f1e7d8",
-              "width": 0.18
-            },
-            "radius": 2,
-            "effect": {
-              "kind": "glass",
-              "intensity": "light"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1f",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
             "y": 75.5,
             "w": 6,
             "h": 6
@@ -990,7 +851,7 @@
           }
         },
         {
-          "id": "t-1g",
+          "id": "t-17",
           "kind": "text",
           "role": "body",
           "box": {
@@ -1043,9 +904,9 @@
       },
       "elements": [
         {
-          "id": "s-1o",
+          "id": "s-1f",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -1060,7 +921,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -1071,11 +932,11 @@
           "name": "title-body glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-1q",
+          "id": "s-1h",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1099,7 +960,7 @@
           }
         },
         {
-          "id": "t-1k",
+          "id": "t-1b",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1131,7 +992,7 @@
           }
         },
         {
-          "id": "s-1l",
+          "id": "s-1c",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -1142,7 +1003,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -1154,7 +1022,7 @@
           }
         },
         {
-          "id": "t-1m",
+          "id": "t-1d",
           "kind": "text",
           "role": "body",
           "box": {
@@ -1186,7 +1054,7 @@
           }
         },
         {
-          "id": "s-1n",
+          "id": "s-1e",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -1203,7 +1071,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -1214,7 +1082,7 @@
           "name": "Orb",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         }
       ]
@@ -1235,139 +1103,42 @@
       },
       "elements": [
         {
-          "id": "s-1u",
+          "id": "s-6",
           "kind": "shape",
-          "opacity": 0.14,
           "box": {
-            "x": 72,
-            "y": -24,
-            "w": 52,
-            "h": 76
+            "x": 0,
+            "y": 0,
+            "w": 100,
+            "h": 100
           },
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
+              "value": "#e0533b"
+            },
+            "radius": 0
           },
           "locked": true,
-          "name": "section-divider glow",
+          "name": "Field",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "rect"
           }
         },
         {
-          "id": "s-1v",
-          "kind": "shape",
-          "opacity": 0.42,
-          "box": {
-            "x": 5,
-            "y": 12,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "section-divider motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-1w",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -14,
-          "box": {
-            "x": 88,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#211b17"
-            }
-          },
-          "locked": true,
-          "name": "section-divider secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-1r",
-          "kind": "shape",
-          "opacity": 0.12,
-          "box": {
-            "x": -14,
-            "y": 40,
-            "w": 58,
-            "h": 80
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#ffffff"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-1s",
+          "id": "t-7",
           "kind": "text",
-          "opacity": 0.45,
+          "opacity": 0.18,
           "box": {
-            "x": 9,
-            "y": 24,
-            "w": 30,
-            "h": 20
+            "x": 60,
+            "y": -6,
+            "w": 50,
+            "h": 60
           },
-          "zIndex": 10,
+          "zIndex": 9,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 17,
+              "fontSize": 40,
               "bold": true,
               "italic": false,
               "align": "left",
@@ -1377,42 +1148,72 @@
           },
           "content": {
             "kind": "text",
-            "text": "01",
+            "text": "“",
             "paragraphs": [
               {
-                "text": "01"
+                "text": "“"
               }
             ]
           }
         },
         {
-          "id": "t-1t",
+          "id": "t-8",
           "kind": "text",
-          "role": "title",
           "box": {
             "x": 9,
-            "y": 50,
-            "w": 78,
-            "h": 18
+            "y": 26,
+            "w": 30,
+            "h": 10
           },
           "zIndex": 10,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 9,
+              "fontSize": 3.4,
               "bold": true,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.04,
+              "color": "#ffe7df",
+              "fontId": "source-sans-3"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Chapter Two",
+            "paragraphs": [
+              {
+                "text": "Chapter Two"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-9",
+          "kind": "text",
+          "role": "sectionTitle",
+          "box": {
+            "x": 8.5,
+            "y": 34,
+            "w": 74,
+            "h": 30
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 9,
+              "bold": true,
+              "italic": true,
+              "align": "left",
+              "lineHeight": 1,
               "color": "#ffffff",
               "fontId": "source-serif-4"
             }
           },
           "content": {
             "kind": "text",
-            "text": "A new section",
+            "text": "The first ten\nseconds",
             "paragraphs": [
               {
-                "text": "A new section"
+                "text": "The first ten\nseconds"
               }
             ]
           }
@@ -1439,9 +1240,9 @@
       },
       "elements": [
         {
-          "id": "s-20",
+          "id": "s-1l",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -1456,7 +1257,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -1467,11 +1268,11 @@
           "name": "summary-list glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-22",
+          "id": "s-1n",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1495,7 +1296,7 @@
           }
         },
         {
-          "id": "t-1x",
+          "id": "t-1i",
           "kind": "text",
           "role": "label",
           "box": {
@@ -1528,7 +1329,7 @@
           }
         },
         {
-          "id": "t-1y",
+          "id": "t-1j",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1560,7 +1361,7 @@
           }
         },
         {
-          "id": "t-1z",
+          "id": "t-1k",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -1627,9 +1428,9 @@
       },
       "elements": [
         {
-          "id": "s-27",
+          "id": "s-1s",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -1644,7 +1445,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -1655,11 +1456,11 @@
           "name": "title-body glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-29",
+          "id": "s-1u",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1683,7 +1484,7 @@
           }
         },
         {
-          "id": "t-23",
+          "id": "t-1o",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1715,7 +1516,7 @@
           }
         },
         {
-          "id": "s-24",
+          "id": "s-1p",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -1726,7 +1527,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -1738,7 +1546,7 @@
           }
         },
         {
-          "id": "t-25",
+          "id": "t-1q",
           "kind": "text",
           "role": "body",
           "box": {
@@ -1770,7 +1578,7 @@
           }
         },
         {
-          "id": "s-26",
+          "id": "s-1r",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -1787,7 +1595,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -1798,7 +1606,7 @@
           "name": "Orb",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         }
       ]
@@ -1823,9 +1631,9 @@
       },
       "elements": [
         {
-          "id": "s-2f",
+          "id": "s-20",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": 58,
@@ -1840,7 +1648,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -1851,11 +1659,11 @@
           "name": "title-bullets glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-2h",
+          "id": "s-22",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -1879,7 +1687,7 @@
           }
         },
         {
-          "id": "s-2a",
+          "id": "s-1v",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -1890,7 +1698,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -1902,7 +1717,7 @@
           }
         },
         {
-          "id": "t-2b",
+          "id": "t-1w",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1934,7 +1749,7 @@
           }
         },
         {
-          "id": "t-2c",
+          "id": "t-1x",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -1976,7 +1791,7 @@
           }
         },
         {
-          "id": "s-2d",
+          "id": "s-1y",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -2016,7 +1831,7 @@
           }
         },
         {
-          "id": "img-2e",
+          "id": "img-1z",
           "kind": "image",
           "role": "image",
           "box": {
@@ -2058,9 +1873,9 @@
       },
       "elements": [
         {
-          "id": "s-2n",
+          "id": "s-28",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -2075,7 +1890,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -2086,11 +1901,11 @@
           "name": "title-bullets glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-2p",
+          "id": "s-2a",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -2114,7 +1929,7 @@
           }
         },
         {
-          "id": "s-2i",
+          "id": "s-23",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -2125,7 +1940,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -2137,7 +1959,7 @@
           }
         },
         {
-          "id": "t-2j",
+          "id": "t-24",
           "kind": "text",
           "role": "title",
           "box": {
@@ -2169,7 +1991,7 @@
           }
         },
         {
-          "id": "t-2k",
+          "id": "t-25",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -2211,7 +2033,7 @@
           }
         },
         {
-          "id": "s-2l",
+          "id": "s-26",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -2251,7 +2073,7 @@
           }
         },
         {
-          "id": "img-2m",
+          "id": "img-27",
           "kind": "image",
           "role": "image",
           "box": {
@@ -2293,9 +2115,9 @@
       },
       "elements": [
         {
-          "id": "s-2t",
+          "id": "s-2e",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -2310,7 +2132,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -2321,11 +2143,11 @@
           "name": "summary-list glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-2v",
+          "id": "s-2g",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -2348,7 +2170,7 @@
           }
         },
         {
-          "id": "t-2q",
+          "id": "t-2b",
           "kind": "text",
           "role": "label",
           "box": {
@@ -2381,7 +2203,7 @@
           }
         },
         {
-          "id": "t-2r",
+          "id": "t-2c",
           "kind": "text",
           "role": "title",
           "box": {
@@ -2413,7 +2235,7 @@
           }
         },
         {
-          "id": "t-2s",
+          "id": "t-2d",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -2466,114 +2288,13 @@
       "title": "Quote",
       "notes": "",
       "templateId": "theme:editorial:quote",
-      "designOverrides": {
-        "background": {
-          "type": "gradient",
-          "from": {
-            "value": "#fbf6ee"
-          },
-          "to": {
-            "value": "#f1e7d8"
-          },
-          "angle": 155
-        }
-      },
       "elements": [
         {
-          "id": "s-30",
-          "kind": "shape",
-          "opacity": 0.14,
-          "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "quote-hero glow",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-31",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 18,
-          "box": {
-            "x": 84,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "quote-hero motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-32",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#211b17"
-            }
-          },
-          "locked": true,
-          "name": "quote-hero secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "t-2w",
+          "id": "t-n",
           "kind": "text",
           "box": {
             "x": 6,
-            "y": 6,
+            "y": 8,
             "w": 30,
             "h": 30
           },
@@ -2599,7 +2320,7 @@
           }
         },
         {
-          "id": "t-2x",
+          "id": "t-o",
           "kind": "text",
           "role": "quote",
           "box": {
@@ -2622,16 +2343,16 @@
           },
           "content": {
             "kind": "text",
-            "text": "Taste is attention, paid consistently, until it looks effortless.",
+            "text": "Taste is just attention, paid consistently, until it looks effortless.",
             "paragraphs": [
               {
-                "text": "Taste is attention, paid consistently, until it looks effortless."
+                "text": "Taste is just attention, paid consistently, until it looks effortless."
               }
             ]
           }
         },
         {
-          "id": "s-2y",
+          "id": "s-p",
           "kind": "shape",
           "box": {
             "x": 14,
@@ -2644,19 +2365,19 @@
             "fill": {
               "value": "#e0533b"
             },
-            "radius": 50
+            "radius": 0
           },
           "locked": true,
-          "name": "Accent bar",
+          "name": "Underline",
           "content": {
             "kind": "shape",
             "shape": "rect"
           }
         },
         {
-          "id": "t-2z",
+          "id": "t-q",
           "kind": "text",
-          "role": "subtitle",
+          "role": "caption",
           "box": {
             "x": 14,
             "y": 71,
@@ -2666,21 +2387,20 @@
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3,
               "bold": false,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.35,
               "color": "#8a7a6b",
               "fontId": "source-sans-3"
             }
           },
           "content": {
             "kind": "text",
-            "text": "— Director of Design",
+            "text": "— Editorial Director",
             "paragraphs": [
               {
-                "text": "— Director of Design"
+                "text": "— Editorial Director"
               }
             ]
           }
@@ -2693,231 +2413,119 @@
       "title": "Big Stat",
       "notes": "",
       "templateId": "theme:editorial:big-stat",
-      "designOverrides": {
-        "background": {
-          "type": "gradient",
-          "from": {
-            "value": "#e0533b"
-          },
-          "to": {
-            "value": "#211b17"
-          },
-          "angle": 140
-        }
-      },
       "elements": [
         {
-          "id": "s-37",
-          "kind": "shape",
-          "opacity": 0.14,
-          "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "stat-hero glow",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-38",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
-          "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "stat-hero motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-39",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#211b17"
-            }
-          },
-          "locked": true,
-          "name": "stat-hero secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-33",
-          "kind": "shape",
-          "opacity": 0.3,
-          "box": {
-            "x": 56,
-            "y": 16,
-            "w": 60,
-            "h": 86
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-34",
+          "id": "t-n",
           "kind": "text",
-          "role": "label",
           "box": {
-            "x": 9,
-            "y": 22,
-            "w": 40,
-            "h": 5
+            "x": 6,
+            "y": 8,
+            "w": 30,
+            "h": 30
           },
           "zIndex": 9,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.2,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "verticalAlign": "middle",
-              "color": "#ffffff",
-              "fontId": "source-serif-4"
-            }
-          },
-          "name": "Kicker",
-          "content": {
-            "kind": "text",
-            "text": "HEADLINE",
-            "paragraphs": [
-              {
-                "text": "HEADLINE"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-35",
-          "kind": "text",
-          "box": {
-            "x": 8,
-            "y": 28,
-            "w": 80,
-            "h": 38
-          },
-          "zIndex": 10,
           "designOverrides": {
             "textStyle": {
               "fontSize": 30,
               "bold": true,
               "italic": false,
               "align": "left",
-              "color": "#ffffff",
+              "color": "#e0533b",
               "fontId": "source-serif-4"
             }
           },
           "content": {
             "kind": "text",
-            "text": "4.8×",
+            "text": "“",
             "paragraphs": [
               {
-                "text": "4.8×"
+                "text": "“"
               }
             ]
           }
         },
         {
-          "id": "t-36",
+          "id": "t-o",
           "kind": "text",
-          "role": "subtitle",
+          "role": "quote",
           "box": {
-            "x": 9,
-            "y": 70,
-            "w": 60,
-            "h": 12
+            "x": 14,
+            "y": 30,
+            "w": 72,
+            "h": 34
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 6.2,
+              "bold": false,
+              "italic": true,
+              "align": "left",
+              "lineHeight": 1.2,
+              "color": "#211b17",
+              "fontId": "source-serif-4"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Taste is just attention, paid consistently, until it looks effortless.",
+            "paragraphs": [
+              {
+                "text": "Taste is just attention, paid consistently, until it looks effortless."
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-p",
+          "kind": "shape",
+          "box": {
+            "x": 14,
+            "y": 68,
+            "w": 10,
+            "h": 0.8
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#e0533b"
+            },
+            "radius": 0
+          },
+          "locked": true,
+          "name": "Underline",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-q",
+          "kind": "text",
+          "role": "caption",
+          "box": {
+            "x": 14,
+            "y": 71,
+            "w": 50,
+            "h": 6
           },
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3,
               "bold": false,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.35,
-              "color": "#ffffffcc",
+              "color": "#8a7a6b",
               "fontId": "source-sans-3"
             }
           },
           "content": {
             "kind": "text",
-            "text": "faster from idea to shipped, across pilot teams.",
+            "text": "— Editorial Director",
             "paragraphs": [
               {
-                "text": "faster from idea to shipped, across pilot teams."
+                "text": "— Editorial Director"
               }
             ]
           }
@@ -2944,9 +2552,9 @@
       },
       "elements": [
         {
-          "id": "s-3k",
+          "id": "s-2r",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -2961,7 +2569,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -2972,11 +2580,11 @@
           "name": "metric-row glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-3l",
+          "id": "s-2s",
           "kind": "shape",
           "opacity": 0.42,
           "box": {
@@ -3008,7 +2616,7 @@
           }
         },
         {
-          "id": "s-3m",
+          "id": "s-2t",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -3032,7 +2640,7 @@
           }
         },
         {
-          "id": "t-3a",
+          "id": "t-2h",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3064,7 +2672,7 @@
           }
         },
         {
-          "id": "s-3b",
+          "id": "s-2i",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3104,7 +2712,7 @@
           }
         },
         {
-          "id": "t-3c",
+          "id": "t-2j",
           "kind": "text",
           "box": {
             "x": 10,
@@ -3134,7 +2742,7 @@
           }
         },
         {
-          "id": "t-3d",
+          "id": "t-2k",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3166,7 +2774,7 @@
           }
         },
         {
-          "id": "s-3e",
+          "id": "s-2l",
           "kind": "shape",
           "box": {
             "x": 37,
@@ -3206,7 +2814,7 @@
           }
         },
         {
-          "id": "t-3f",
+          "id": "t-2m",
           "kind": "text",
           "box": {
             "x": 39,
@@ -3236,7 +2844,7 @@
           }
         },
         {
-          "id": "t-3g",
+          "id": "t-2n",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3268,7 +2876,7 @@
           }
         },
         {
-          "id": "s-3h",
+          "id": "s-2o",
           "kind": "shape",
           "box": {
             "x": 66,
@@ -3308,7 +2916,7 @@
           }
         },
         {
-          "id": "t-3i",
+          "id": "t-2p",
           "kind": "text",
           "box": {
             "x": 68,
@@ -3338,7 +2946,7 @@
           }
         },
         {
-          "id": "t-3j",
+          "id": "t-2q",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3391,9 +2999,9 @@
       },
       "elements": [
         {
-          "id": "s-3t",
+          "id": "s-30",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -3408,7 +3016,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -3419,11 +3027,11 @@
           "name": "data-insight glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-3v",
+          "id": "s-32",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -3447,7 +3055,7 @@
           }
         },
         {
-          "id": "t-3n",
+          "id": "t-2u",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3479,7 +3087,7 @@
           }
         },
         {
-          "id": "t-3o",
+          "id": "t-2v",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -3521,7 +3129,7 @@
           }
         },
         {
-          "id": "s-3p",
+          "id": "s-2w",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -3561,7 +3169,7 @@
           }
         },
         {
-          "id": "s-3q",
+          "id": "s-2x",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -3572,7 +3180,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -3584,7 +3199,7 @@
           }
         },
         {
-          "id": "s-3r",
+          "id": "s-2y",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -3595,7 +3210,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -3607,7 +3229,7 @@
           }
         },
         {
-          "id": "s-3s",
+          "id": "s-2z",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -3618,7 +3240,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -3651,9 +3280,9 @@
       },
       "elements": [
         {
-          "id": "s-43",
+          "id": "s-3a",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -3668,7 +3297,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -3679,11 +3308,11 @@
           "name": "table glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-45",
+          "id": "s-3c",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -3707,7 +3336,7 @@
           }
         },
         {
-          "id": "t-3w",
+          "id": "t-33",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3739,7 +3368,7 @@
           }
         },
         {
-          "id": "s-3x",
+          "id": "s-34",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3779,7 +3408,7 @@
           }
         },
         {
-          "id": "s-3y",
+          "id": "s-35",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3819,7 +3448,7 @@
           }
         },
         {
-          "id": "s-3z",
+          "id": "s-36",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3859,7 +3488,7 @@
           }
         },
         {
-          "id": "s-40",
+          "id": "s-37",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3899,7 +3528,7 @@
           }
         },
         {
-          "id": "t-41",
+          "id": "t-38",
           "kind": "text",
           "role": "label",
           "box": {
@@ -3930,7 +3559,7 @@
           }
         },
         {
-          "id": "t-42",
+          "id": "t-39",
           "kind": "text",
           "role": "label",
           "box": {
@@ -3982,9 +3611,9 @@
       },
       "elements": [
         {
-          "id": "s-4d",
+          "id": "s-3k",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -3999,7 +3628,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -4010,11 +3639,11 @@
           "name": "table glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-4f",
+          "id": "s-3m",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -4037,7 +3666,7 @@
           }
         },
         {
-          "id": "t-46",
+          "id": "t-3d",
           "kind": "text",
           "role": "title",
           "box": {
@@ -4069,7 +3698,7 @@
           }
         },
         {
-          "id": "s-47",
+          "id": "s-3e",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4109,7 +3738,7 @@
           }
         },
         {
-          "id": "s-48",
+          "id": "s-3f",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4149,7 +3778,7 @@
           }
         },
         {
-          "id": "s-49",
+          "id": "s-3g",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4189,7 +3818,7 @@
           }
         },
         {
-          "id": "s-4a",
+          "id": "s-3h",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4229,7 +3858,7 @@
           }
         },
         {
-          "id": "t-4b",
+          "id": "t-3i",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4260,7 +3889,7 @@
           }
         },
         {
-          "id": "t-4c",
+          "id": "t-3j",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4312,9 +3941,9 @@
       },
       "elements": [
         {
-          "id": "s-4n",
+          "id": "s-3u",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -4329,7 +3958,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -4340,11 +3969,11 @@
           "name": "problem-solution glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-4p",
+          "id": "s-3w",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -4368,7 +3997,7 @@
           }
         },
         {
-          "id": "s-4q",
+          "id": "s-3x",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -4393,7 +4022,7 @@
           }
         },
         {
-          "id": "s-4g",
+          "id": "s-3n",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4433,7 +4062,7 @@
           }
         },
         {
-          "id": "t-4h",
+          "id": "t-3o",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4464,7 +4093,7 @@
           }
         },
         {
-          "id": "t-4i",
+          "id": "t-3p",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -4506,7 +4135,7 @@
           }
         },
         {
-          "id": "s-4m",
+          "id": "s-3t",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4529,7 +4158,7 @@
           }
         },
         {
-          "id": "s-4j",
+          "id": "s-3q",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4569,7 +4198,7 @@
           }
         },
         {
-          "id": "t-4k",
+          "id": "t-3r",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4600,7 +4229,7 @@
           }
         },
         {
-          "id": "t-4l",
+          "id": "t-3s",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -4663,9 +4292,9 @@
       },
       "elements": [
         {
-          "id": "s-50",
+          "id": "s-47",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": 58,
@@ -4680,7 +4309,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -4691,11 +4320,11 @@
           "name": "before-after glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-52",
+          "id": "s-49",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -4719,7 +4348,7 @@
           }
         },
         {
-          "id": "s-53",
+          "id": "s-4a",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -4744,7 +4373,7 @@
           }
         },
         {
-          "id": "t-4r",
+          "id": "t-3y",
           "kind": "text",
           "role": "title",
           "box": {
@@ -4776,7 +4405,7 @@
           }
         },
         {
-          "id": "s-4s",
+          "id": "s-3z",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4816,7 +4445,7 @@
           }
         },
         {
-          "id": "t-4t",
+          "id": "t-40",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4847,7 +4476,7 @@
           }
         },
         {
-          "id": "t-4u",
+          "id": "t-41",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -4889,7 +4518,7 @@
           }
         },
         {
-          "id": "s-4v",
+          "id": "s-42",
           "kind": "shape",
           "opacity": 1,
           "rotation": 90,
@@ -4913,7 +4542,7 @@
           }
         },
         {
-          "id": "s-4z",
+          "id": "s-46",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4936,7 +4565,7 @@
           }
         },
         {
-          "id": "s-4w",
+          "id": "s-43",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4976,7 +4605,7 @@
           }
         },
         {
-          "id": "t-4x",
+          "id": "t-44",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5007,7 +4636,7 @@
           }
         },
         {
-          "id": "t-4y",
+          "id": "t-45",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5070,9 +4699,9 @@
       },
       "elements": [
         {
-          "id": "s-5c",
+          "id": "s-4j",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -5087,7 +4716,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -5098,11 +4727,11 @@
           "name": "two-column glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-5e",
+          "id": "s-4l",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -5126,7 +4755,7 @@
           }
         },
         {
-          "id": "s-5f",
+          "id": "s-4m",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5151,7 +4780,7 @@
           }
         },
         {
-          "id": "t-54",
+          "id": "t-4b",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5183,7 +4812,7 @@
           }
         },
         {
-          "id": "s-55",
+          "id": "s-4c",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -5223,7 +4852,7 @@
           }
         },
         {
-          "id": "t-56",
+          "id": "t-4d",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5254,7 +4883,7 @@
           }
         },
         {
-          "id": "t-57",
+          "id": "t-4e",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5296,7 +4925,7 @@
           }
         },
         {
-          "id": "s-5b",
+          "id": "s-4i",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5319,7 +4948,7 @@
           }
         },
         {
-          "id": "s-58",
+          "id": "s-4f",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5359,7 +4988,7 @@
           }
         },
         {
-          "id": "t-59",
+          "id": "t-4g",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5390,7 +5019,7 @@
           }
         },
         {
-          "id": "t-5a",
+          "id": "t-4h",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5453,9 +5082,9 @@
       },
       "elements": [
         {
-          "id": "s-5o",
+          "id": "s-4v",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -5470,7 +5099,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -5481,11 +5110,11 @@
           "name": "pros-cons glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-5q",
+          "id": "s-4x",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -5508,7 +5137,7 @@
           }
         },
         {
-          "id": "s-5r",
+          "id": "s-4y",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5533,7 +5162,7 @@
           }
         },
         {
-          "id": "t-5g",
+          "id": "t-4n",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5565,7 +5194,7 @@
           }
         },
         {
-          "id": "s-5h",
+          "id": "s-4o",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -5605,7 +5234,7 @@
           }
         },
         {
-          "id": "t-5i",
+          "id": "t-4p",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5636,7 +5265,7 @@
           }
         },
         {
-          "id": "t-5j",
+          "id": "t-4q",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5678,7 +5307,7 @@
           }
         },
         {
-          "id": "s-5n",
+          "id": "s-4u",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5701,7 +5330,7 @@
           }
         },
         {
-          "id": "s-5k",
+          "id": "s-4r",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5741,7 +5370,7 @@
           }
         },
         {
-          "id": "t-5l",
+          "id": "t-4s",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5772,7 +5401,7 @@
           }
         },
         {
-          "id": "t-5m",
+          "id": "t-4t",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5835,9 +5464,9 @@
       },
       "elements": [
         {
-          "id": "s-60",
+          "id": "s-57",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -5852,7 +5481,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -5863,11 +5492,11 @@
           "name": "two-column glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-62",
+          "id": "s-59",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -5891,7 +5520,7 @@
           }
         },
         {
-          "id": "s-63",
+          "id": "s-5a",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5916,7 +5545,7 @@
           }
         },
         {
-          "id": "t-5s",
+          "id": "t-4z",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5948,7 +5577,7 @@
           }
         },
         {
-          "id": "s-5t",
+          "id": "s-50",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -5988,7 +5617,7 @@
           }
         },
         {
-          "id": "t-5u",
+          "id": "t-51",
           "kind": "text",
           "role": "label",
           "box": {
@@ -6019,7 +5648,7 @@
           }
         },
         {
-          "id": "t-5v",
+          "id": "t-52",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -6061,7 +5690,7 @@
           }
         },
         {
-          "id": "s-5z",
+          "id": "s-56",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6084,7 +5713,7 @@
           }
         },
         {
-          "id": "s-5w",
+          "id": "s-53",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6124,7 +5753,7 @@
           }
         },
         {
-          "id": "t-5x",
+          "id": "t-54",
           "kind": "text",
           "role": "label",
           "box": {
@@ -6155,7 +5784,7 @@
           }
         },
         {
-          "id": "t-5y",
+          "id": "t-55",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -6218,9 +5847,9 @@
       },
       "elements": [
         {
-          "id": "s-69",
+          "id": "s-5g",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -6235,7 +5864,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -6246,11 +5875,11 @@
           "name": "matrix-2x2 glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-6b",
+          "id": "s-5i",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -6274,7 +5903,7 @@
           }
         },
         {
-          "id": "s-6c",
+          "id": "s-5j",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -6299,7 +5928,7 @@
           }
         },
         {
-          "id": "t-64",
+          "id": "t-5b",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6331,7 +5960,7 @@
           }
         },
         {
-          "id": "s-65",
+          "id": "s-5c",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -6371,7 +6000,7 @@
           }
         },
         {
-          "id": "s-66",
+          "id": "s-5d",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -6411,7 +6040,7 @@
           }
         },
         {
-          "id": "s-67",
+          "id": "s-5e",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -6451,7 +6080,7 @@
           }
         },
         {
-          "id": "s-68",
+          "id": "s-5f",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -6512,7 +6141,7 @@
       },
       "elements": [
         {
-          "id": "s-6j",
+          "id": "s-5q",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -6536,7 +6165,7 @@
           }
         },
         {
-          "id": "s-6h",
+          "id": "s-5o",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 18,
@@ -6569,7 +6198,7 @@
           }
         },
         {
-          "id": "s-6i",
+          "id": "s-5p",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -6593,7 +6222,7 @@
           }
         },
         {
-          "id": "s-6d",
+          "id": "s-5k",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -6610,7 +6239,7 @@
                 "value": "#e0533b"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#e0533b"
               },
               "cx": 42,
               "cy": 38,
@@ -6621,11 +6250,11 @@
           "name": "Orb",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-6e",
+          "id": "s-5l",
           "kind": "shape",
           "box": {
             "x": 35,
@@ -6665,7 +6294,7 @@
           }
         },
         {
-          "id": "t-6f",
+          "id": "t-5m",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6718,7 +6347,7 @@
       },
       "elements": [
         {
-          "id": "s-6w",
+          "id": "s-63",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -6742,7 +6371,7 @@
           }
         },
         {
-          "id": "s-6u",
+          "id": "s-61",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -6775,7 +6404,7 @@
           }
         },
         {
-          "id": "s-6v",
+          "id": "s-62",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -6799,7 +6428,7 @@
           }
         },
         {
-          "id": "t-6k",
+          "id": "t-5r",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6831,7 +6460,7 @@
           }
         },
         {
-          "id": "s-6l",
+          "id": "s-5s",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -6853,7 +6482,7 @@
           }
         },
         {
-          "id": "t-6m",
+          "id": "t-5t",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6885,7 +6514,7 @@
           }
         },
         {
-          "id": "s-6n",
+          "id": "s-5u",
           "kind": "shape",
           "box": {
             "x": 30,
@@ -6907,7 +6536,7 @@
           }
         },
         {
-          "id": "t-6o",
+          "id": "t-5v",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6939,7 +6568,7 @@
           }
         },
         {
-          "id": "s-6p",
+          "id": "s-5w",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6961,7 +6590,7 @@
           }
         },
         {
-          "id": "t-6q",
+          "id": "t-5x",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6993,7 +6622,7 @@
           }
         },
         {
-          "id": "s-6r",
+          "id": "s-5y",
           "kind": "shape",
           "box": {
             "x": 74,
@@ -7015,7 +6644,7 @@
           }
         },
         {
-          "id": "t-6s",
+          "id": "t-5z",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7068,7 +6697,7 @@
       },
       "elements": [
         {
-          "id": "s-79",
+          "id": "s-6g",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7092,7 +6721,7 @@
           }
         },
         {
-          "id": "s-77",
+          "id": "s-6e",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -7125,7 +6754,7 @@
           }
         },
         {
-          "id": "s-78",
+          "id": "s-6f",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -7149,7 +6778,7 @@
           }
         },
         {
-          "id": "t-6x",
+          "id": "t-64",
           "kind": "text",
           "role": "title",
           "box": {
@@ -7181,7 +6810,7 @@
           }
         },
         {
-          "id": "s-6y",
+          "id": "s-65",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7203,7 +6832,7 @@
           }
         },
         {
-          "id": "t-6z",
+          "id": "t-66",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7235,7 +6864,7 @@
           }
         },
         {
-          "id": "s-70",
+          "id": "s-67",
           "kind": "shape",
           "box": {
             "x": 30,
@@ -7257,7 +6886,7 @@
           }
         },
         {
-          "id": "t-71",
+          "id": "t-68",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7289,7 +6918,7 @@
           }
         },
         {
-          "id": "s-72",
+          "id": "s-69",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -7311,7 +6940,7 @@
           }
         },
         {
-          "id": "t-73",
+          "id": "t-6a",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7343,7 +6972,7 @@
           }
         },
         {
-          "id": "s-74",
+          "id": "s-6b",
           "kind": "shape",
           "box": {
             "x": 74,
@@ -7365,7 +6994,7 @@
           }
         },
         {
-          "id": "t-75",
+          "id": "t-6c",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7418,7 +7047,7 @@
       },
       "elements": [
         {
-          "id": "s-7n",
+          "id": "s-6u",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7442,7 +7071,7 @@
           }
         },
         {
-          "id": "s-7l",
+          "id": "s-6s",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -7475,7 +7104,7 @@
           }
         },
         {
-          "id": "s-7m",
+          "id": "s-6t",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -7499,7 +7128,7 @@
           }
         },
         {
-          "id": "t-7a",
+          "id": "t-6h",
           "kind": "text",
           "role": "title",
           "box": {
@@ -7531,7 +7160,7 @@
           }
         },
         {
-          "id": "s-7b",
+          "id": "s-6i",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7554,7 +7183,7 @@
           }
         },
         {
-          "id": "s-7c",
+          "id": "s-6j",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -7565,7 +7194,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7577,7 +7213,7 @@
           }
         },
         {
-          "id": "t-7d",
+          "id": "t-6k",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7609,7 +7245,7 @@
           }
         },
         {
-          "id": "s-7e",
+          "id": "s-6l",
           "kind": "shape",
           "box": {
             "x": 32,
@@ -7620,7 +7256,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7632,7 +7275,7 @@
           }
         },
         {
-          "id": "t-7f",
+          "id": "t-6m",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7664,7 +7307,7 @@
           }
         },
         {
-          "id": "s-7g",
+          "id": "s-6n",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -7675,7 +7318,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7687,7 +7337,7 @@
           }
         },
         {
-          "id": "t-7h",
+          "id": "t-6o",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7719,7 +7369,7 @@
           }
         },
         {
-          "id": "s-7i",
+          "id": "s-6p",
           "kind": "shape",
           "box": {
             "x": 76,
@@ -7730,7 +7380,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7742,7 +7399,7 @@
           }
         },
         {
-          "id": "t-7j",
+          "id": "t-6q",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7795,7 +7452,7 @@
       },
       "elements": [
         {
-          "id": "s-7x",
+          "id": "s-74",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7819,7 +7476,7 @@
           }
         },
         {
-          "id": "s-7v",
+          "id": "s-72",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -7852,7 +7509,7 @@
           }
         },
         {
-          "id": "s-7w",
+          "id": "s-73",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -7875,7 +7532,7 @@
           }
         },
         {
-          "id": "s-7o",
+          "id": "s-6v",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7915,7 +7572,7 @@
           }
         },
         {
-          "id": "t-7p",
+          "id": "t-6w",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7947,7 +7604,7 @@
           }
         },
         {
-          "id": "s-7q",
+          "id": "s-6x",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7987,7 +7644,7 @@
           }
         },
         {
-          "id": "t-7r",
+          "id": "t-6y",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8019,7 +7676,7 @@
           }
         },
         {
-          "id": "s-7s",
+          "id": "s-6z",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -8059,7 +7716,7 @@
           }
         },
         {
-          "id": "t-7t",
+          "id": "t-70",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8112,7 +7769,7 @@
       },
       "elements": [
         {
-          "id": "s-87",
+          "id": "s-7e",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -8136,7 +7793,7 @@
           }
         },
         {
-          "id": "s-85",
+          "id": "s-7c",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -8169,7 +7826,7 @@
           }
         },
         {
-          "id": "s-86",
+          "id": "s-7d",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -8193,7 +7850,7 @@
           }
         },
         {
-          "id": "s-7y",
+          "id": "s-75",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -8233,7 +7890,7 @@
           }
         },
         {
-          "id": "t-7z",
+          "id": "t-76",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8265,7 +7922,7 @@
           }
         },
         {
-          "id": "s-80",
+          "id": "s-77",
           "kind": "shape",
           "box": {
             "x": 38,
@@ -8305,7 +7962,7 @@
           }
         },
         {
-          "id": "t-81",
+          "id": "t-78",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8337,7 +7994,7 @@
           }
         },
         {
-          "id": "s-82",
+          "id": "s-79",
           "kind": "shape",
           "box": {
             "x": 66,
@@ -8377,7 +8034,7 @@
           }
         },
         {
-          "id": "t-83",
+          "id": "t-7a",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8430,9 +8087,9 @@
       },
       "elements": [
         {
-          "id": "s-8c",
+          "id": "s-7j",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": 58,
@@ -8447,7 +8104,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -8458,11 +8115,11 @@
           "name": "case-study glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-8e",
+          "id": "s-7l",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -8486,7 +8143,7 @@
           }
         },
         {
-          "id": "s-88",
+          "id": "s-7f",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -8526,7 +8183,7 @@
           }
         },
         {
-          "id": "img-89",
+          "id": "img-7g",
           "kind": "image",
           "role": "image",
           "box": {
@@ -8547,7 +8204,7 @@
           }
         },
         {
-          "id": "t-8a",
+          "id": "t-7h",
           "kind": "text",
           "role": "title",
           "box": {
@@ -8579,7 +8236,7 @@
           }
         },
         {
-          "id": "t-8b",
+          "id": "t-7i",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -8642,9 +8299,9 @@
       },
       "elements": [
         {
-          "id": "s-8j",
+          "id": "s-7q",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -8659,7 +8316,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -8670,11 +8327,11 @@
           "name": "case-study glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-8l",
+          "id": "s-7s",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -8697,7 +8354,7 @@
           }
         },
         {
-          "id": "s-8f",
+          "id": "s-7m",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -8737,7 +8394,7 @@
           }
         },
         {
-          "id": "img-8g",
+          "id": "img-7n",
           "kind": "image",
           "role": "image",
           "box": {
@@ -8758,7 +8415,7 @@
           }
         },
         {
-          "id": "t-8h",
+          "id": "t-7o",
           "kind": "text",
           "role": "title",
           "box": {
@@ -8790,7 +8447,7 @@
           }
         },
         {
-          "id": "t-8i",
+          "id": "t-7p",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -8853,9 +8510,9 @@
       },
       "elements": [
         {
-          "id": "s-8y",
+          "id": "s-85",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -8870,7 +8527,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -8881,11 +8538,11 @@
           "name": "cards-4 glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-8z",
+          "id": "s-86",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -8918,7 +8575,7 @@
           }
         },
         {
-          "id": "s-90",
+          "id": "s-87",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -8941,7 +8598,7 @@
           }
         },
         {
-          "id": "s-8m",
+          "id": "s-7t",
           "kind": "shape",
           "box": {
             "x": 7,
@@ -8981,7 +8638,7 @@
           }
         },
         {
-          "id": "t-8n",
+          "id": "t-7u",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9012,7 +8669,7 @@
           }
         },
         {
-          "id": "t-8o",
+          "id": "t-7v",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9044,7 +8701,7 @@
           }
         },
         {
-          "id": "s-8p",
+          "id": "s-7w",
           "kind": "shape",
           "box": {
             "x": 29,
@@ -9084,7 +8741,7 @@
           }
         },
         {
-          "id": "t-8q",
+          "id": "t-7x",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9115,7 +8772,7 @@
           }
         },
         {
-          "id": "t-8r",
+          "id": "t-7y",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9147,7 +8804,7 @@
           }
         },
         {
-          "id": "s-8s",
+          "id": "s-7z",
           "kind": "shape",
           "box": {
             "x": 51,
@@ -9187,7 +8844,7 @@
           }
         },
         {
-          "id": "t-8t",
+          "id": "t-80",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9218,7 +8875,7 @@
           }
         },
         {
-          "id": "t-8u",
+          "id": "t-81",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9250,7 +8907,7 @@
           }
         },
         {
-          "id": "s-8v",
+          "id": "s-82",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -9290,7 +8947,7 @@
           }
         },
         {
-          "id": "t-8w",
+          "id": "t-83",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9321,7 +8978,7 @@
           }
         },
         {
-          "id": "t-8x",
+          "id": "t-84",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9374,9 +9031,9 @@
       },
       "elements": [
         {
-          "id": "s-96",
+          "id": "s-8d",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -9391,7 +9048,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -9402,11 +9059,11 @@
           "name": "matrix-2x2 glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-98",
+          "id": "s-8f",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -9430,7 +9087,7 @@
           }
         },
         {
-          "id": "s-99",
+          "id": "s-8g",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -9455,7 +9112,7 @@
           }
         },
         {
-          "id": "t-91",
+          "id": "t-88",
           "kind": "text",
           "role": "title",
           "box": {
@@ -9487,7 +9144,7 @@
           }
         },
         {
-          "id": "s-92",
+          "id": "s-89",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -9527,7 +9184,7 @@
           }
         },
         {
-          "id": "s-93",
+          "id": "s-8a",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -9567,7 +9224,7 @@
           }
         },
         {
-          "id": "s-94",
+          "id": "s-8b",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -9607,7 +9264,7 @@
           }
         },
         {
-          "id": "s-95",
+          "id": "s-8c",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -9668,9 +9325,9 @@
       },
       "elements": [
         {
-          "id": "s-9g",
+          "id": "s-8n",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -9685,7 +9342,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -9696,11 +9353,11 @@
           "name": "data-insight glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-9i",
+          "id": "s-8p",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -9724,7 +9381,7 @@
           }
         },
         {
-          "id": "t-9a",
+          "id": "t-8h",
           "kind": "text",
           "role": "title",
           "box": {
@@ -9756,7 +9413,7 @@
           }
         },
         {
-          "id": "t-9b",
+          "id": "t-8i",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -9798,7 +9455,7 @@
           }
         },
         {
-          "id": "s-9c",
+          "id": "s-8j",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -9838,7 +9495,7 @@
           }
         },
         {
-          "id": "s-9d",
+          "id": "s-8k",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -9849,7 +9506,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -9861,7 +9525,7 @@
           }
         },
         {
-          "id": "s-9e",
+          "id": "s-8l",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -9872,7 +9536,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -9884,7 +9555,7 @@
           }
         },
         {
-          "id": "s-9f",
+          "id": "s-8m",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -9895,7 +9566,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -9928,9 +9606,9 @@
       },
       "elements": [
         {
-          "id": "s-9p",
+          "id": "s-8w",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": 58,
@@ -9945,7 +9623,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -9956,11 +9634,11 @@
           "name": "data-insight glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-9r",
+          "id": "s-8y",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -9984,7 +9662,7 @@
           }
         },
         {
-          "id": "t-9j",
+          "id": "t-8q",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10016,7 +9694,7 @@
           }
         },
         {
-          "id": "t-9k",
+          "id": "t-8r",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -10058,7 +9736,7 @@
           }
         },
         {
-          "id": "s-9l",
+          "id": "s-8s",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -10098,7 +9776,7 @@
           }
         },
         {
-          "id": "s-9m",
+          "id": "s-8t",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -10109,7 +9787,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10121,7 +9806,7 @@
           }
         },
         {
-          "id": "s-9n",
+          "id": "s-8u",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -10132,7 +9817,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10144,7 +9836,7 @@
           }
         },
         {
-          "id": "s-9o",
+          "id": "s-8v",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -10155,7 +9847,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10188,9 +9887,9 @@
       },
       "elements": [
         {
-          "id": "s-a2",
+          "id": "s-99",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -10205,7 +9904,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -10216,11 +9915,11 @@
           "name": "risk-register glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-a4",
+          "id": "s-9b",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -10243,7 +9942,7 @@
           }
         },
         {
-          "id": "t-9s",
+          "id": "t-8z",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10275,7 +9974,7 @@
           }
         },
         {
-          "id": "s-9t",
+          "id": "s-90",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10315,7 +10014,7 @@
           }
         },
         {
-          "id": "s-9u",
+          "id": "s-91",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10326,7 +10025,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10338,7 +10044,7 @@
           }
         },
         {
-          "id": "t-9v",
+          "id": "t-92",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10370,7 +10076,7 @@
           }
         },
         {
-          "id": "s-9w",
+          "id": "s-93",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10410,7 +10116,7 @@
           }
         },
         {
-          "id": "s-9x",
+          "id": "s-94",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10421,7 +10127,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10433,7 +10146,7 @@
           }
         },
         {
-          "id": "t-9y",
+          "id": "t-95",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10465,7 +10178,7 @@
           }
         },
         {
-          "id": "s-9z",
+          "id": "s-96",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10505,7 +10218,7 @@
           }
         },
         {
-          "id": "s-a0",
+          "id": "s-97",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10516,7 +10229,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10528,7 +10248,7 @@
           }
         },
         {
-          "id": "t-a1",
+          "id": "t-98",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10577,9 +10297,9 @@
       },
       "elements": [
         {
-          "id": "s-a7",
+          "id": "s-9e",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": 58,
@@ -10594,7 +10314,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -10605,11 +10325,11 @@
           "name": "recommendation glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-a9",
+          "id": "s-9g",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -10633,7 +10353,7 @@
           }
         },
         {
-          "id": "t-a5",
+          "id": "t-9c",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10664,7 +10384,7 @@
           }
         },
         {
-          "id": "t-a6",
+          "id": "t-9d",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -10713,9 +10433,9 @@
       },
       "elements": [
         {
-          "id": "s-ac",
+          "id": "s-9j",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -10730,7 +10450,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -10741,11 +10461,11 @@
           "name": "recommendation glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-ae",
+          "id": "s-9l",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -10769,7 +10489,7 @@
           }
         },
         {
-          "id": "t-aa",
+          "id": "t-9h",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10800,7 +10520,7 @@
           }
         },
         {
-          "id": "t-ab",
+          "id": "t-9i",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -10843,15 +10563,15 @@
         "background": {
           "type": "solid",
           "color": {
-            "value": "#211b17"
+            "value": "#fbf6ee"
           }
         }
       },
       "elements": [
         {
-          "id": "s-ai",
+          "id": "s-9p",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -10866,7 +10586,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -10877,11 +10597,11 @@
           "name": "next-steps glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-ak",
+          "id": "s-9r",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -10905,7 +10625,7 @@
           }
         },
         {
-          "id": "s-af",
+          "id": "s-9m",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10916,7 +10636,14 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "value": "#e0533b"
+              "type": "linearGradient",
+              "from": {
+                "value": "#e0533b"
+              },
+              "to": {
+                "value": "#e0533b"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10928,7 +10655,7 @@
           }
         },
         {
-          "id": "t-ag",
+          "id": "t-9n",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10960,7 +10687,7 @@
           }
         },
         {
-          "id": "t-ah",
+          "id": "t-9o",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11023,9 +10750,9 @@
       },
       "elements": [
         {
-          "id": "s-ax",
+          "id": "s-a4",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": 58,
@@ -11040,7 +10767,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -11051,11 +10778,11 @@
           "name": "cards-4 glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-ay",
+          "id": "s-a5",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 18,
@@ -11088,7 +10815,7 @@
           }
         },
         {
-          "id": "s-az",
+          "id": "s-a6",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -11112,7 +10839,7 @@
           }
         },
         {
-          "id": "s-al",
+          "id": "s-9s",
           "kind": "shape",
           "box": {
             "x": 7,
@@ -11152,7 +10879,7 @@
           }
         },
         {
-          "id": "t-am",
+          "id": "t-9t",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11183,7 +10910,7 @@
           }
         },
         {
-          "id": "t-an",
+          "id": "t-9u",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11215,7 +10942,7 @@
           }
         },
         {
-          "id": "s-ao",
+          "id": "s-9v",
           "kind": "shape",
           "box": {
             "x": 29,
@@ -11255,7 +10982,7 @@
           }
         },
         {
-          "id": "t-ap",
+          "id": "t-9w",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11286,7 +11013,7 @@
           }
         },
         {
-          "id": "t-aq",
+          "id": "t-9x",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11318,7 +11045,7 @@
           }
         },
         {
-          "id": "s-ar",
+          "id": "s-9y",
           "kind": "shape",
           "box": {
             "x": 51,
@@ -11358,7 +11085,7 @@
           }
         },
         {
-          "id": "t-as",
+          "id": "t-9z",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11389,7 +11116,7 @@
           }
         },
         {
-          "id": "t-at",
+          "id": "t-a0",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11421,7 +11148,7 @@
           }
         },
         {
-          "id": "s-au",
+          "id": "s-a1",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -11461,7 +11188,7 @@
           }
         },
         {
-          "id": "t-av",
+          "id": "t-a2",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11492,7 +11219,7 @@
           }
         },
         {
-          "id": "t-aw",
+          "id": "t-a3",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11545,9 +11272,9 @@
       },
       "elements": [
         {
-          "id": "s-b7",
+          "id": "s-ae",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": -18,
             "y": -24,
@@ -11562,7 +11289,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -11573,11 +11300,11 @@
           "name": "pricing-cards glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-b8",
+          "id": "s-af",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -11610,7 +11337,7 @@
           }
         },
         {
-          "id": "s-b9",
+          "id": "s-ag",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -11633,7 +11360,7 @@
           }
         },
         {
-          "id": "s-b0",
+          "id": "s-a7",
           "kind": "shape",
           "box": {
             "x": 12,
@@ -11673,7 +11400,7 @@
           }
         },
         {
-          "id": "t-b1",
+          "id": "t-a8",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11704,7 +11431,7 @@
           }
         },
         {
-          "id": "t-b2",
+          "id": "t-a9",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11746,7 +11473,7 @@
           }
         },
         {
-          "id": "s-b6",
+          "id": "s-ad",
           "kind": "shape",
           "box": {
             "x": 56,
@@ -11769,7 +11496,7 @@
           }
         },
         {
-          "id": "s-b3",
+          "id": "s-aa",
           "kind": "shape",
           "box": {
             "x": 56,
@@ -11809,7 +11536,7 @@
           }
         },
         {
-          "id": "t-b4",
+          "id": "t-ab",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11840,7 +11567,7 @@
           }
         },
         {
-          "id": "t-b5",
+          "id": "t-ac",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11903,9 +11630,9 @@
       },
       "elements": [
         {
-          "id": "s-bi",
+          "id": "s-ap",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": 58,
@@ -11920,7 +11647,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -11931,11 +11658,11 @@
           "name": "team-grid glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-bj",
+          "id": "s-aq",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -11968,7 +11695,7 @@
           }
         },
         {
-          "id": "s-bk",
+          "id": "s-ar",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -11992,7 +11719,7 @@
           }
         },
         {
-          "id": "s-ba",
+          "id": "s-ah",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -12014,7 +11741,7 @@
           }
         },
         {
-          "id": "t-bb",
+          "id": "t-ai",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12046,7 +11773,7 @@
           }
         },
         {
-          "id": "s-bc",
+          "id": "s-aj",
           "kind": "shape",
           "box": {
             "x": 31,
@@ -12068,7 +11795,7 @@
           }
         },
         {
-          "id": "t-bd",
+          "id": "t-ak",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12100,7 +11827,7 @@
           }
         },
         {
-          "id": "s-be",
+          "id": "s-al",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -12122,7 +11849,7 @@
           }
         },
         {
-          "id": "t-bf",
+          "id": "t-am",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12154,7 +11881,7 @@
           }
         },
         {
-          "id": "s-bg",
+          "id": "s-an",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -12176,7 +11903,7 @@
           }
         },
         {
-          "id": "t-bh",
+          "id": "t-ao",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12219,15 +11946,15 @@
         "background": {
           "type": "solid",
           "color": {
-            "value": "#211b17"
+            "value": "#fbf6ee"
           }
         }
       },
       "elements": [
         {
-          "id": "s-bo",
+          "id": "s-av",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -12242,7 +11969,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -12253,11 +11980,11 @@
           "name": "visual-focus glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-bq",
+          "id": "s-ax",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -12281,7 +12008,7 @@
           }
         },
         {
-          "id": "img-bl",
+          "id": "img-as",
           "kind": "image",
           "role": "image",
           "box": {
@@ -12301,7 +12028,7 @@
           }
         },
         {
-          "id": "s-bm",
+          "id": "s-at",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -12341,7 +12068,7 @@
           }
         },
         {
-          "id": "t-bn",
+          "id": "t-au",
           "kind": "text",
           "role": "title",
           "box": {
@@ -12380,223 +12107,115 @@
       "title": "Closing",
       "notes": "",
       "templateId": "theme:editorial:closing",
-      "designOverrides": {
-        "background": {
-          "type": "gradient",
-          "from": {
-            "value": "#e0533b"
-          },
-          "to": {
-            "value": "#211b17"
-          },
-          "angle": 140
-        }
-      },
       "elements": [
         {
-          "id": "s-bv",
+          "id": "s-r",
           "kind": "shape",
-          "opacity": 0.14,
           "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
+            "x": 4,
+            "y": 5,
+            "w": 92,
+            "h": 90
           },
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#211b17"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "closing glow",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-bw",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
-          "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "closing motif",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-bx",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#211b17"
-            }
-          },
-          "locked": true,
-          "name": "closing secondary motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-br",
-          "kind": "shape",
-          "opacity": 0.4,
-          "box": {
-            "x": 54,
-            "y": 24,
-            "w": 64,
-            "h": 88
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0533b"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-bs",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 40,
-            "w": 10,
-            "h": 1
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#ffffff"
+              "value": "#fbf6ee"
             },
-            "radius": 50
+            "stroke": {
+              "color": "#211b17",
+              "width": 0.4
+            },
+            "radius": 0
           },
           "locked": true,
-          "name": "Accent bar",
+          "name": "Frame",
           "content": {
             "kind": "shape",
             "shape": "rect"
           }
         },
         {
-          "id": "t-bt",
+          "id": "t-s",
           "kind": "text",
           "role": "title",
           "box": {
-            "x": 8,
-            "y": 44,
-            "w": 78,
-            "h": 16
+            "x": 9,
+            "y": 40,
+            "w": 70,
+            "h": 14
           },
           "zIndex": 10,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 11,
+              "fontSize": 9,
               "bold": true,
-              "italic": false,
+              "italic": true,
               "align": "left",
-              "lineHeight": 1.04,
-              "color": "#ffffff",
+              "color": "#211b17",
               "fontId": "source-serif-4"
             }
           },
           "content": {
             "kind": "text",
-            "text": "Thank you.",
+            "text": "Read on.",
             "paragraphs": [
               {
-                "text": "Thank you."
+                "text": "Read on."
               }
             ]
           }
         },
         {
-          "id": "t-bu",
+          "id": "s-t",
+          "kind": "shape",
+          "box": {
+            "x": 9,
+            "y": 56,
+            "w": 16,
+            "h": 0.9
+          },
+          "zIndex": 9,
+          "designOverrides": {
+            "fill": {
+              "value": "#e0533b"
+            },
+            "radius": 0
+          },
+          "locked": true,
+          "name": "Underline",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-u",
           "kind": "text",
           "role": "subtitle",
           "box": {
-            "x": 8,
-            "y": 64,
-            "w": 56,
+            "x": 9,
+            "y": 60,
+            "w": 60,
             "h": 8
           },
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3,
               "bold": false,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.35,
-              "color": "#ffffffcc",
+              "color": "#8a7a6b",
               "fontId": "source-sans-3"
             }
           },
           "content": {
             "kind": "text",
-            "text": "hello@studio · studio.com",
+            "text": "Set in Source Serif 4 & Source Sans 3.  studio@editorial.press",
             "paragraphs": [
               {
-                "text": "hello@studio · studio.com"
+                "text": "Set in Source Serif 4 & Source Sans 3.  studio@editorial.press"
               }
             ]
           }
@@ -12623,9 +12242,9 @@
       },
       "elements": [
         {
-          "id": "s-c0",
+          "id": "s-b0",
           "kind": "shape",
-          "opacity": 0.14,
+          "opacity": 0.2,
           "box": {
             "x": 72,
             "y": -24,
@@ -12640,7 +12259,7 @@
                 "value": "#211b17"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#211b17"
               },
               "cx": 42,
               "cy": 38,
@@ -12651,11 +12270,11 @@
           "name": "appendix-detail glow",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-c2",
+          "id": "s-b2",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -12679,7 +12298,7 @@
           }
         },
         {
-          "id": "t-by",
+          "id": "t-ay",
           "kind": "text",
           "role": "title",
           "box": {
@@ -12711,7 +12330,7 @@
           }
         },
         {
-          "id": "t-bz",
+          "id": "t-az",
           "kind": "text",
           "role": "bullet",
           "box": {

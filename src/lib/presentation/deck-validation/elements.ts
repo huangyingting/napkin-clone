@@ -188,10 +188,36 @@ function validateRadialGradientFill(
   const cx = validatePercentGeometry(input.cx, `${context}.cx`);
   const cy = validatePercentGeometry(input.cy, `${context}.cy`);
   const r = validatePercentGeometry(input.r, `${context}.r`);
+  const stops = Array.isArray(input.stops)
+    ? input.stops.map((stop, index) => {
+        if (!isPlainObject(stop)) {
+          throw new DeckValidationError(
+            `${context}.stops[${index}] must be an object`,
+          );
+        }
+        const offset = validatePercentGeometry(
+          stop.offset,
+          `${context}.stops[${index}].offset`,
+        );
+        if (offset === undefined) {
+          throw new DeckValidationError(
+            `${context}.stops[${index}].offset must be a number`,
+          );
+        }
+        return {
+          color: validateColorRef(
+            stop.color,
+            `${context}.stops[${index}].color`,
+          ),
+          offset,
+        };
+      })
+    : undefined;
   return {
     type: "radialGradient" as const,
     inner: validateColorRef(input.inner, `${context}.inner`),
     outer: validateColorRef(input.outer, `${context}.outer`),
+    ...(stops !== undefined ? { stops } : {}),
     ...(cx !== undefined ? { cx } : {}),
     ...(cy !== undefined ? { cy } : {}),
     ...(r !== undefined ? { r } : {}),
@@ -204,6 +230,16 @@ function validateElementFill(input: unknown, context: string): ElementFill {
   }
   if (input.type === "radialGradient") {
     return validateRadialGradientFill(input, context);
+  }
+  if (input.type === "linearGradient") {
+    return {
+      type: "linearGradient" as const,
+      from: validateColorRef(input.from, `${context}.from`),
+      to: validateColorRef(input.to, `${context}.to`),
+      ...(typeof input.angle === "number" && Number.isFinite(input.angle)
+        ? { angle: input.angle }
+        : {}),
+    };
   }
   return validateColorRef(input, context);
 }

@@ -187,7 +187,7 @@ function shapeNeedsRasterFallback(el: ShapeElement): boolean {
     (fill &&
       typeof fill === "object" &&
       "type" in fill &&
-      fill.type === "radialGradient"),
+      (fill.type === "radialGradient" || fill.type === "linearGradient")),
   );
 }
 
@@ -319,13 +319,16 @@ function checkShapeElement(
   diagnostics: PreflightDiagnostic[],
 ): void {
   if (target !== "pptx" || !shapeNeedsRasterFallback(el)) return;
+  const fill = el.designOverrides?.fill;
+  const fillType =
+    fill && typeof fill === "object" && "type" in fill ? fill.type : undefined;
   diagnostics.push({
     severity: "warning",
     code: "raster-fallback",
-    message: `Slide ${slideIndex + 1}: shape element will be rasterised in PPTX (radial fill/glass effect).`,
+    message: `Slide ${slideIndex + 1}: shape element will be rasterised in PPTX (gradient fill/shape effect).`,
     slideIndex,
     elementId: el.id,
-    detail: el.designOverrides?.effect ? "glass" : "radialGradient",
+    detail: el.designOverrides?.effect?.kind ?? fillType ?? "radialGradient",
   });
 }
 

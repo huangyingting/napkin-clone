@@ -118,16 +118,30 @@ export type ShapeKind =
 
 export type ColorRef = { token: string } | { value: string };
 
+export interface GradientStop {
+  color: ColorRef;
+  offset: number;
+}
+
 export interface RadialGradientFill {
   type: "radialGradient";
   inner: ColorRef;
   outer: ColorRef;
+  stops?: GradientStop[];
   cx?: number;
   cy?: number;
   r?: number;
 }
 
-export type ElementFill = ColorRef | RadialGradientFill;
+export interface LinearGradientFill {
+  type: "linearGradient";
+  from: ColorRef;
+  to: ColorRef;
+  /** Gradient angle in degrees; defaults to 90 (left → right). */
+  angle?: number;
+}
+
+export type ElementFill = ColorRef | RadialGradientFill | LinearGradientFill;
 
 export interface GlassEffect {
   kind: "glass";

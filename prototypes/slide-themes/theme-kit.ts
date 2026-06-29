@@ -65,15 +65,24 @@ export type ColorToken =
 
 export type ColorRef = { token: ColorToken } | { value: Hex };
 
+export type GradientStop = { color: ColorRef; offset: number };
+
 export type Fill =
   | ColorRef
   | {
       type: "radialGradient";
       inner: ColorRef;
       outer: ColorRef;
+      stops?: GradientStop[];
       cx?: number;
       cy?: number;
       r?: number;
+    }
+  | {
+      type: "linearGradient";
+      from: ColorRef;
+      to: ColorRef;
+      angle?: number;
     };
 
 export type ShapeEffect = {
@@ -133,13 +142,62 @@ function colorRef(input: Hex | ColorRef): ColorRef {
 export function radialFill(
   inner: Hex | ColorRef,
   outer: Hex | ColorRef,
-  options: { cx?: number; cy?: number; r?: number } = {},
+  options: {
+    cx?: number;
+    cy?: number;
+    r?: number;
+    stops?: GradientStop[];
+  } = {},
 ): Fill {
   return {
     type: "radialGradient",
     inner: colorRef(inner),
     outer: colorRef(outer),
     ...options,
+  };
+}
+
+export function softRadialFill(
+  color: Hex,
+  options: { cx?: number; cy?: number; r?: number } = {},
+): Fill {
+  const raw = color.replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  const red = Number.parseInt(expanded.slice(0, 2), 16);
+  const green = Number.parseInt(expanded.slice(2, 4), 16);
+  const blue = Number.parseInt(expanded.slice(4, 6), 16);
+  const rgba = (alpha: number) =>
+    value(`rgba(${red}, ${green}, ${blue}, ${alpha})`);
+  return radialFill(color, value("transparent"), {
+    cx: 50,
+    cy: 50,
+    r: 92,
+    ...options,
+    stops: [
+      { color: rgba(0.78), offset: 0 },
+      { color: rgba(0.48), offset: 32 },
+      { color: rgba(0.16), offset: 58 },
+      { color: rgba(0), offset: 78 },
+    ],
+  });
+}
+
+export function linearFill(
+  from: Hex | ColorRef,
+  to: Hex | ColorRef,
+  angle = 90,
+): Fill {
+  return {
+    type: "linearGradient",
+    from: colorRef(from),
+    to: colorRef(to),
+    angle,
   };
 }
 
@@ -580,6 +638,16 @@ function semanticSlideFromBase(
   };
 }
 
+function shouldUseThemeBaseSlide(family: ThemePackageRenderFamily): boolean {
+  return [
+    "cover",
+    "section-divider",
+    "quote-hero",
+    "stat-hero",
+    "closing",
+  ].includes(family);
+}
+
 export function templateSourceSpecsForTheme(): ThemeTemplateSourceSpec[] {
   return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
     const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
@@ -608,6 +676,9 @@ export function buildSemanticSlides(
   const baseSlides = spec.buildSlides(spec);
   return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
     const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
+    if (shouldUseThemeBaseSlide(metadata.renderFamily)) {
+      return semanticSlideFromBase(spec.id, kind, baseSlides);
+    }
     const designed = familySlide(
       spec,
       kind,

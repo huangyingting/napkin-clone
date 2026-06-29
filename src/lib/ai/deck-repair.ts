@@ -205,13 +205,33 @@ function repairFill(input: unknown) {
     const cx = repairPercent(input.cx);
     const cy = repairPercent(input.cy);
     const r = repairPercent(input.r);
+    const stops = Array.isArray(input.stops)
+      ? input.stops.flatMap((stop) => {
+          if (!isPlainObject(stop)) return [];
+          const color = repairColorRef(stop.color);
+          const offset = repairPercent(stop.offset);
+          return color && offset !== undefined ? [{ color, offset }] : [];
+        })
+      : undefined;
     return {
       type: "radialGradient" as const,
       inner,
       outer,
+      ...(stops && stops.length > 0 ? { stops } : {}),
       ...(cx !== undefined ? { cx } : {}),
       ...(cy !== undefined ? { cy } : {}),
       ...(r !== undefined ? { r } : {}),
+    };
+  }
+  if (input.type === "linearGradient") {
+    const from = repairColorRef(input.from);
+    const to = repairColorRef(input.to);
+    if (!from || !to) return undefined;
+    return {
+      type: "linearGradient" as const,
+      from,
+      to,
+      ...(isFiniteNumber(input.angle) ? { angle: input.angle } : {}),
     };
   }
   return repairColorRef(input);

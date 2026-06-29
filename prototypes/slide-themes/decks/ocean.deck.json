@@ -215,29 +215,15 @@
       "title": "Cover",
       "notes": "",
       "templateId": "theme:ocean:cover",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "value": "#38bdf8"
-          },
-          "outer": {
-            "value": "#0c4a6e"
-          },
-          "cx": 70,
-          "cy": 28,
-          "r": 88
-        }
-      },
       "elements": [
         {
-          "id": "s-13",
+          "id": "s-1",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.25,
           "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
+            "x": 60,
+            "y": -22,
+            "w": 62,
             "h": 76
           },
           "zIndex": 1,
@@ -245,175 +231,115 @@
             "fill": {
               "type": "radialGradient",
               "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "cover glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-14",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
-          "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
                 "value": "#38bdf8"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "cover motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-15",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#99f6e4"
-            }
-          },
-          "locked": true,
-          "name": "cover secondary motif",
+          "name": "Current",
           "content": {
             "kind": "shape",
             "shape": "ellipse"
           }
         },
         {
-          "id": "s-x",
+          "id": "s-2",
           "kind": "shape",
-          "opacity": 0.3,
-          "box": {
-            "x": 52,
-            "y": -28,
-            "w": 72,
-            "h": 88
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-y",
-          "kind": "shape",
-          "opacity": 0.32,
+          "opacity": 0.35,
           "box": {
             "x": 70,
-            "y": 24,
-            "w": 52,
-            "h": 64
+            "y": 20,
+            "w": 44,
+            "h": 58
           },
           "zIndex": 2,
           "designOverrides": {
             "fill": {
               "type": "radialGradient",
               "inner": {
-                "value": "#38bdf8"
+                "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "Orb",
+          "name": "Current",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-z",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 31,
-            "w": 2,
-            "h": 24
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#0284c7"
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-10",
+          "id": "t-3",
           "kind": "text",
           "role": "label",
           "box": {
-            "x": 11,
-            "y": 26,
-            "w": 50,
+            "x": 8,
+            "y": 27,
+            "w": 48,
             "h": 5
           },
           "zIndex": 9,
@@ -424,81 +350,81 @@
               "italic": false,
               "align": "left",
               "verticalAlign": "middle",
-              "color": "#ffffff",
+              "color": "#0284c7",
               "fontId": "space-grotesk"
             }
           },
           "name": "Kicker",
           "content": {
             "kind": "text",
-            "text": "PRESENTATION · 2026",
+            "text": "PRODUCT REVIEW · 2026",
             "paragraphs": [
               {
-                "text": "PRESENTATION · 2026"
+                "text": "PRODUCT REVIEW · 2026"
               }
             ]
           }
         },
         {
-          "id": "t-11",
+          "id": "t-4",
           "kind": "text",
           "role": "title",
           "box": {
-            "x": 10.5,
-            "y": 33,
-            "w": 78,
-            "h": 30
+            "x": 7.5,
+            "y": 34,
+            "w": 66,
+            "h": 25
           },
           "zIndex": 10,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 11,
+              "fontSize": 8.8,
               "bold": true,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.04,
-              "color": "#ffffff",
+              "lineHeight": 1.02,
+              "color": "#0c4a6e",
               "fontId": "space-grotesk"
             }
           },
           "content": {
             "kind": "text",
-            "text": "A clear, confident\nopening",
+            "text": "Navigate with\nbetter signals",
             "paragraphs": [
               {
-                "text": "A clear, confident\nopening"
+                "text": "Navigate with\nbetter signals"
               }
             ]
           }
         },
         {
-          "id": "t-12",
+          "id": "t-5",
           "kind": "text",
           "role": "subtitle",
           "box": {
-            "x": 11,
-            "y": 66,
+            "x": 8,
+            "y": 64,
             "w": 56,
             "h": 10
           },
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3.4,
               "bold": false,
               "italic": false,
               "align": "left",
               "lineHeight": 1.35,
-              "color": "#ffffffcc",
+              "color": "#0e7490",
               "fontId": "inter"
             }
           },
           "content": {
             "kind": "text",
-            "text": "Set the scene with one strong promise.",
+            "text": "A calm operating view for product, customer, and market data.",
             "paragraphs": [
               {
-                "text": "Set the scene with one strong promise."
+                "text": "A calm operating view for product, customer, and market data."
               }
             ]
           }
@@ -527,9 +453,9 @@
       },
       "elements": [
         {
-          "id": "s-1j",
+          "id": "s-1a",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -544,7 +470,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -559,7 +485,7 @@
           }
         },
         {
-          "id": "s-1l",
+          "id": "s-1c",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -582,7 +508,7 @@
           }
         },
         {
-          "id": "t-16",
+          "id": "t-x",
           "kind": "text",
           "role": "title",
           "box": {
@@ -614,11 +540,320 @@
           }
         },
         {
-          "id": "s-17",
+          "id": "s-y",
           "kind": "shape",
           "box": {
             "x": 8,
             "y": 28,
+            "w": 84,
+            "h": 11
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#e0f2fe"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "stroke": {
+              "color": "#ffffff",
+              "width": 0.18
+            },
+            "radius": 14,
+            "effect": {
+              "kind": "glass",
+              "intensity": "medium"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-z",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 30.5,
+            "w": 6,
+            "h": 6
+          },
+          "zIndex": 12,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#0284c7",
+              "fontId": "space-grotesk"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "01",
+            "paragraphs": [
+              {
+                "text": "01"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-10",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 18,
+            "y": 30.5,
+            "w": 70,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#075985",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "Where we are",
+            "paragraphs": [
+              {
+                "text": "Where we are"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-11",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 43,
+            "w": 84,
+            "h": 11
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#e0f2fe"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "stroke": {
+              "color": "#ffffff",
+              "width": 0.18
+            },
+            "radius": 14,
+            "effect": {
+              "kind": "glass",
+              "intensity": "medium"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-12",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 45.5,
+            "w": 6,
+            "h": 6
+          },
+          "zIndex": 12,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#0284c7",
+              "fontId": "space-grotesk"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "02",
+            "paragraphs": [
+              {
+                "text": "02"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-13",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 18,
+            "y": 45.5,
+            "w": 70,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#075985",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "What we found",
+            "paragraphs": [
+              {
+                "text": "What we found"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-14",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 58,
+            "w": 84,
+            "h": 11
+          },
+          "zIndex": 8,
+          "designOverrides": {
+            "fill": {
+              "type": "radialGradient",
+              "inner": {
+                "value": "#e0f2fe"
+              },
+              "outer": {
+                "token": "slideBg"
+              },
+              "cx": 35,
+              "cy": 20,
+              "r": 78
+            },
+            "stroke": {
+              "color": "#ffffff",
+              "width": 0.18
+            },
+            "radius": 14,
+            "effect": {
+              "kind": "glass",
+              "intensity": "medium"
+            }
+          },
+          "locked": true,
+          "name": "Panel",
+          "content": {
+            "kind": "shape",
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "t-15",
+          "kind": "text",
+          "role": "label",
+          "box": {
+            "x": 11,
+            "y": 60.5,
+            "w": 6,
+            "h": 6
+          },
+          "zIndex": 12,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 2.5,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "color": "#0284c7",
+              "fontId": "space-grotesk"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "03",
+            "paragraphs": [
+              {
+                "text": "03"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-16",
+          "kind": "text",
+          "role": "body",
+          "box": {
+            "x": 18,
+            "y": 60.5,
+            "w": 70,
+            "h": 7
+          },
+          "zIndex": 11,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 3.2,
+              "bold": false,
+              "italic": false,
+              "align": "left",
+              "lineHeight": 1.5,
+              "color": "#075985",
+              "fontId": "inter"
+            }
+          },
+          "content": {
+            "kind": "text",
+            "text": "What we recommend",
+            "paragraphs": [
+              {
+                "text": "What we recommend"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-17",
+          "kind": "shape",
+          "box": {
+            "x": 8,
+            "y": 73,
             "w": 84,
             "h": 11
           },
@@ -659,315 +894,6 @@
           "role": "label",
           "box": {
             "x": 11,
-            "y": 30.5,
-            "w": 6,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#0284c7",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "01",
-            "paragraphs": [
-              {
-                "text": "01"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-19",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 18,
-            "y": 30.5,
-            "w": 70,
-            "h": 7
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#075985",
-              "fontId": "inter"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Where we are",
-            "paragraphs": [
-              {
-                "text": "Where we are"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1a",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 43,
-            "w": 84,
-            "h": 11
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0f2fe"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "stroke": {
-              "color": "#ffffff",
-              "width": 0.18
-            },
-            "radius": 14,
-            "effect": {
-              "kind": "glass",
-              "intensity": "medium"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1b",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
-            "y": 45.5,
-            "w": 6,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#0284c7",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "02",
-            "paragraphs": [
-              {
-                "text": "02"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-1c",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 18,
-            "y": 45.5,
-            "w": 70,
-            "h": 7
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#075985",
-              "fontId": "inter"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "What we found",
-            "paragraphs": [
-              {
-                "text": "What we found"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1d",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 58,
-            "w": 84,
-            "h": 11
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0f2fe"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "stroke": {
-              "color": "#ffffff",
-              "width": 0.18
-            },
-            "radius": 14,
-            "effect": {
-              "kind": "glass",
-              "intensity": "medium"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1e",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
-            "y": 60.5,
-            "w": 6,
-            "h": 6
-          },
-          "zIndex": 12,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#0284c7",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "03",
-            "paragraphs": [
-              {
-                "text": "03"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-1f",
-          "kind": "text",
-          "role": "body",
-          "box": {
-            "x": 18,
-            "y": 60.5,
-            "w": 70,
-            "h": 7
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.5,
-              "color": "#075985",
-              "fontId": "inter"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "What we recommend",
-            "paragraphs": [
-              {
-                "text": "What we recommend"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-1g",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 73,
-            "w": 84,
-            "h": 11
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#e0f2fe"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 35,
-              "cy": 20,
-              "r": 78
-            },
-            "stroke": {
-              "color": "#ffffff",
-              "width": 0.18
-            },
-            "radius": 14,
-            "effect": {
-              "kind": "glass",
-              "intensity": "medium"
-            }
-          },
-          "locked": true,
-          "name": "Panel",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-1h",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
             "y": 75.5,
             "w": 6,
             "h": 6
@@ -994,7 +920,7 @@
           }
         },
         {
-          "id": "t-1i",
+          "id": "t-19",
           "kind": "text",
           "role": "body",
           "box": {
@@ -1049,9 +975,9 @@
       },
       "elements": [
         {
-          "id": "s-1q",
+          "id": "s-1h",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -1066,7 +992,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -1081,7 +1007,7 @@
           }
         },
         {
-          "id": "s-1s",
+          "id": "s-1j",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1105,7 +1031,7 @@
           }
         },
         {
-          "id": "t-1m",
+          "id": "t-1d",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1137,7 +1063,7 @@
           }
         },
         {
-          "id": "s-1n",
+          "id": "s-1e",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -1148,7 +1074,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -1160,7 +1093,7 @@
           }
         },
         {
-          "id": "t-1o",
+          "id": "t-1f",
           "kind": "text",
           "role": "body",
           "box": {
@@ -1192,7 +1125,7 @@
           }
         },
         {
-          "id": "s-1p",
+          "id": "s-1g",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -1209,7 +1142,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -1220,7 +1153,7 @@
           "name": "Orb",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         }
       ]
@@ -1235,52 +1168,43 @@
         "background": {
           "type": "solid",
           "color": {
-            "value": "#0284c7"
+            "value": "#0c4a6e"
           }
         }
       },
       "elements": [
         {
-          "id": "s-1w",
+          "id": "s-6",
           "kind": "shape",
-          "opacity": 0.28,
           "box": {
-            "x": 72,
-            "y": -24,
-            "w": 52,
-            "h": 76
+            "x": 0,
+            "y": 0,
+            "w": 100,
+            "h": 100
           },
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
+              "value": "#0c4a6e"
+            },
+            "radius": 0
           },
           "locked": true,
-          "name": "section-divider glow",
+          "name": "Field",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
-          "id": "s-1x",
+          "id": "s-7",
           "kind": "shape",
-          "opacity": 0.42,
+          "opacity": 0.16,
           "box": {
-            "x": 5,
-            "y": 12,
-            "w": 8,
-            "h": 14
+            "x": -16,
+            "y": 48,
+            "w": 58,
+            "h": 72
           },
           "zIndex": 2,
           "designOverrides": {
@@ -1290,135 +1214,162 @@
                 "value": "#38bdf8"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "section-divider motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-1y",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -14,
-          "box": {
-            "x": 88,
-            "y": 78,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#99f6e4"
-            }
-          },
-          "locked": true,
-          "name": "section-divider secondary motif",
+          "name": "Current",
           "content": {
             "kind": "shape",
             "shape": "ellipse"
           }
         },
         {
-          "id": "s-1t",
+          "id": "s-8",
           "kind": "shape",
-          "opacity": 0.12,
+          "opacity": 0.18,
           "box": {
-            "x": -14,
-            "y": 40,
-            "w": 58,
-            "h": 80
+            "x": 70,
+            "y": -20,
+            "w": 52,
+            "h": 70
           },
-          "zIndex": 2,
+          "zIndex": 3,
           "designOverrides": {
             "fill": {
               "type": "radialGradient",
               "inner": {
-                "value": "#ffffff"
+                "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(153, 246, 228, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "Orb",
+          "name": "Current",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "t-1u",
+          "id": "t-9",
           "kind": "text",
-          "opacity": 0.45,
           "box": {
-            "x": 9,
-            "y": 24,
+            "x": 8,
+            "y": 30,
             "w": 30,
-            "h": 20
+            "h": 8
           },
           "zIndex": 10,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 17,
+              "fontSize": 5.4,
               "bold": true,
               "italic": false,
               "align": "left",
-              "color": "#ffffff",
+              "color": "#99f6e4",
               "fontId": "space-grotesk"
             }
           },
           "content": {
             "kind": "text",
-            "text": "01",
+            "text": "02",
             "paragraphs": [
               {
-                "text": "01"
+                "text": "02"
               }
             ]
           }
         },
         {
-          "id": "t-1v",
+          "id": "t-a",
           "kind": "text",
-          "role": "title",
+          "role": "sectionTitle",
           "box": {
-            "x": 9,
-            "y": 50,
-            "w": 78,
-            "h": 18
+            "x": 8,
+            "y": 43,
+            "w": 76,
+            "h": 20
           },
-          "zIndex": 10,
+          "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 9,
+              "fontSize": 8,
               "bold": true,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.04,
+              "lineHeight": 1.02,
               "color": "#ffffff",
               "fontId": "space-grotesk"
             }
           },
           "content": {
             "kind": "text",
-            "text": "A new section",
+            "text": "Signals below\nthe surface",
             "paragraphs": [
               {
-                "text": "A new section"
+                "text": "Signals below\nthe surface"
               }
             ]
           }
@@ -1447,9 +1398,9 @@
       },
       "elements": [
         {
-          "id": "s-22",
+          "id": "s-1n",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -1464,7 +1415,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -1479,7 +1430,7 @@
           }
         },
         {
-          "id": "s-24",
+          "id": "s-1p",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1503,7 +1454,7 @@
           }
         },
         {
-          "id": "t-1z",
+          "id": "t-1k",
           "kind": "text",
           "role": "label",
           "box": {
@@ -1536,7 +1487,7 @@
           }
         },
         {
-          "id": "t-20",
+          "id": "t-1l",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1568,7 +1519,7 @@
           }
         },
         {
-          "id": "t-21",
+          "id": "t-1m",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -1637,9 +1588,9 @@
       },
       "elements": [
         {
-          "id": "s-29",
+          "id": "s-1u",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -1654,7 +1605,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -1669,7 +1620,7 @@
           }
         },
         {
-          "id": "s-2b",
+          "id": "s-1w",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -1693,7 +1644,7 @@
           }
         },
         {
-          "id": "t-25",
+          "id": "t-1q",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1725,7 +1676,7 @@
           }
         },
         {
-          "id": "s-26",
+          "id": "s-1r",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -1736,7 +1687,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -1748,7 +1706,7 @@
           }
         },
         {
-          "id": "t-27",
+          "id": "t-1s",
           "kind": "text",
           "role": "body",
           "box": {
@@ -1780,7 +1738,7 @@
           }
         },
         {
-          "id": "s-28",
+          "id": "s-1t",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -1797,7 +1755,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -1808,7 +1766,7 @@
           "name": "Orb",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         }
       ]
@@ -1835,9 +1793,9 @@
       },
       "elements": [
         {
-          "id": "s-2h",
+          "id": "s-22",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": 58,
@@ -1852,7 +1810,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -1867,7 +1825,7 @@
           }
         },
         {
-          "id": "s-2j",
+          "id": "s-24",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -1891,7 +1849,7 @@
           }
         },
         {
-          "id": "s-2c",
+          "id": "s-1x",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -1902,7 +1860,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -1914,7 +1879,7 @@
           }
         },
         {
-          "id": "t-2d",
+          "id": "t-1y",
           "kind": "text",
           "role": "title",
           "box": {
@@ -1946,7 +1911,7 @@
           }
         },
         {
-          "id": "t-2e",
+          "id": "t-1z",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -1988,7 +1953,7 @@
           }
         },
         {
-          "id": "s-2f",
+          "id": "s-20",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -2028,7 +1993,7 @@
           }
         },
         {
-          "id": "img-2g",
+          "id": "img-21",
           "kind": "image",
           "role": "image",
           "box": {
@@ -2072,9 +2037,9 @@
       },
       "elements": [
         {
-          "id": "s-2p",
+          "id": "s-2a",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -2089,7 +2054,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -2104,7 +2069,7 @@
           }
         },
         {
-          "id": "s-2r",
+          "id": "s-2c",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -2128,7 +2093,7 @@
           }
         },
         {
-          "id": "s-2k",
+          "id": "s-25",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -2139,7 +2104,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -2151,7 +2123,7 @@
           }
         },
         {
-          "id": "t-2l",
+          "id": "t-26",
           "kind": "text",
           "role": "title",
           "box": {
@@ -2183,7 +2155,7 @@
           }
         },
         {
-          "id": "t-2m",
+          "id": "t-27",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -2225,7 +2197,7 @@
           }
         },
         {
-          "id": "s-2n",
+          "id": "s-28",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -2265,7 +2237,7 @@
           }
         },
         {
-          "id": "img-2o",
+          "id": "img-29",
           "kind": "image",
           "role": "image",
           "box": {
@@ -2309,9 +2281,9 @@
       },
       "elements": [
         {
-          "id": "s-2v",
+          "id": "s-2g",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -2326,7 +2298,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -2341,7 +2313,7 @@
           }
         },
         {
-          "id": "s-2x",
+          "id": "s-2i",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -2364,7 +2336,7 @@
           }
         },
         {
-          "id": "t-2s",
+          "id": "t-2d",
           "kind": "text",
           "role": "label",
           "box": {
@@ -2397,7 +2369,7 @@
           }
         },
         {
-          "id": "t-2t",
+          "id": "t-2e",
           "kind": "text",
           "role": "title",
           "box": {
@@ -2429,7 +2401,7 @@
           }
         },
         {
-          "id": "t-2u",
+          "id": "t-2f",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -2482,65 +2454,18 @@
       "title": "Quote",
       "notes": "",
       "templateId": "theme:ocean:quote",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "token": "surface"
-          },
-          "outer": {
-            "token": "slideBg"
-          },
-          "cx": 72,
-          "cy": 18,
-          "r": 78
-        }
-      },
       "elements": [
         {
-          "id": "s-32",
+          "id": "s-p",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.16,
           "box": {
-            "x": -18,
-            "y": 58,
-            "w": 52,
-            "h": 76
+            "x": 60,
+            "y": 20,
+            "w": 54,
+            "h": 74
           },
           "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "quote-hero glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-33",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 18,
-          "box": {
-            "x": 84,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
           "designOverrides": {
             "fill": {
               "type": "radialGradient",
@@ -2548,57 +2473,92 @@
                 "value": "#38bdf8"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "quote-hero motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-34",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -28,
-          "box": {
-            "x": 4,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#99f6e4"
-            }
-          },
-          "locked": true,
-          "name": "quote-hero secondary motif",
+          "name": "Current",
           "content": {
             "kind": "shape",
             "shape": "ellipse"
           }
         },
         {
-          "id": "t-2y",
+          "id": "t-q",
           "kind": "text",
+          "role": "label",
           "box": {
-            "x": 6,
-            "y": 6,
-            "w": 30,
-            "h": 30
+            "x": 8,
+            "y": 24,
+            "w": 44,
+            "h": 5
           },
           "zIndex": 9,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 30,
+              "fontSize": 2.2,
+              "bold": true,
+              "italic": false,
+              "align": "left",
+              "verticalAlign": "middle",
+              "color": "#0284c7",
+              "fontId": "space-grotesk"
+            }
+          },
+          "name": "Kicker",
+          "content": {
+            "kind": "text",
+            "text": "RETENTION LIFT",
+            "paragraphs": [
+              {
+                "text": "RETENTION LIFT"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t-r",
+          "kind": "text",
+          "box": {
+            "x": 7.5,
+            "y": 31,
+            "w": 60,
+            "h": 26
+          },
+          "zIndex": 10,
+          "designOverrides": {
+            "textStyle": {
+              "fontSize": 15,
               "bold": true,
               "italic": false,
               "align": "left",
@@ -2608,97 +2568,42 @@
           },
           "content": {
             "kind": "text",
-            "text": "“",
+            "text": "+11 pts",
             "paragraphs": [
               {
-                "text": "“"
+                "text": "+11 pts"
               }
             ]
           }
         },
         {
-          "id": "t-2z",
-          "kind": "text",
-          "role": "quote",
-          "box": {
-            "x": 14,
-            "y": 30,
-            "w": 72,
-            "h": 34
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 6.2,
-              "bold": false,
-              "italic": true,
-              "align": "left",
-              "lineHeight": 1.2,
-              "color": "#0c4a6e",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Taste is attention, paid consistently, until it looks effortless.",
-            "paragraphs": [
-              {
-                "text": "Taste is attention, paid consistently, until it looks effortless."
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-30",
-          "kind": "shape",
-          "box": {
-            "x": 14,
-            "y": 68,
-            "w": 10,
-            "h": 0.8
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#0284c7"
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-31",
+          "id": "t-s",
           "kind": "text",
           "role": "subtitle",
           "box": {
-            "x": 14,
-            "y": 71,
-            "w": 50,
-            "h": 6
+            "x": 8,
+            "y": 61,
+            "w": 62,
+            "h": 10
           },
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3.5,
               "bold": false,
               "italic": false,
               "align": "left",
               "lineHeight": 1.35,
-              "color": "#0e7490",
+              "color": "#075985",
               "fontId": "inter"
             }
           },
           "content": {
             "kind": "text",
-            "text": "— Director of Design",
+            "text": "net retention improvement in teams using the new health model.",
             "paragraphs": [
               {
-                "text": "— Director of Design"
+                "text": "net retention improvement in teams using the new health model."
               }
             ]
           }
@@ -2711,65 +2616,18 @@
       "title": "Big Stat",
       "notes": "",
       "templateId": "theme:ocean:big-stat",
-      "designOverrides": {
-        "background": {
-          "type": "radialGradient",
-          "inner": {
-            "value": "#38bdf8"
-          },
-          "outer": {
-            "value": "#0c4a6e"
-          },
-          "cx": 70,
-          "cy": 28,
-          "r": 88
-        }
-      },
       "elements": [
         {
-          "id": "s-39",
+          "id": "s-p",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.16,
           "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
+            "x": 60,
+            "y": 20,
+            "w": 54,
+            "h": 74
           },
           "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "stat-hero glow",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-3a",
-          "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
-          "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
-          },
-          "zIndex": 2,
           "designOverrides": {
             "fill": {
               "type": "radialGradient",
@@ -2777,84 +2635,54 @@
                 "value": "#38bdf8"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "stat-hero motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-3b",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#99f6e4"
-            }
-          },
-          "locked": true,
-          "name": "stat-hero secondary motif",
+          "name": "Current",
           "content": {
             "kind": "shape",
             "shape": "ellipse"
           }
         },
         {
-          "id": "s-35",
-          "kind": "shape",
-          "opacity": 0.3,
-          "box": {
-            "x": 56,
-            "y": 16,
-            "w": 60,
-            "h": 86
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "t-36",
+          "id": "t-q",
           "kind": "text",
           "role": "label",
           "box": {
-            "x": 9,
-            "y": 22,
-            "w": 40,
+            "x": 8,
+            "y": 24,
+            "w": 44,
             "h": 5
           },
           "zIndex": 9,
@@ -2865,79 +2693,79 @@
               "italic": false,
               "align": "left",
               "verticalAlign": "middle",
-              "color": "#ffffff",
+              "color": "#0284c7",
               "fontId": "space-grotesk"
             }
           },
           "name": "Kicker",
           "content": {
             "kind": "text",
-            "text": "HEADLINE",
+            "text": "RETENTION LIFT",
             "paragraphs": [
               {
-                "text": "HEADLINE"
+                "text": "RETENTION LIFT"
               }
             ]
           }
         },
         {
-          "id": "t-37",
+          "id": "t-r",
           "kind": "text",
           "box": {
-            "x": 8,
-            "y": 28,
-            "w": 80,
-            "h": 38
+            "x": 7.5,
+            "y": 31,
+            "w": 60,
+            "h": 26
           },
           "zIndex": 10,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 30,
+              "fontSize": 15,
               "bold": true,
               "italic": false,
               "align": "left",
-              "color": "#ffffff",
+              "color": "#0284c7",
               "fontId": "space-grotesk"
             }
           },
           "content": {
             "kind": "text",
-            "text": "4.8×",
+            "text": "+11 pts",
             "paragraphs": [
               {
-                "text": "4.8×"
+                "text": "+11 pts"
               }
             ]
           }
         },
         {
-          "id": "t-38",
+          "id": "t-s",
           "kind": "text",
           "role": "subtitle",
           "box": {
-            "x": 9,
-            "y": 70,
-            "w": 60,
-            "h": 12
+            "x": 8,
+            "y": 61,
+            "w": 62,
+            "h": 10
           },
           "zIndex": 11,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 3.2,
+              "fontSize": 3.5,
               "bold": false,
               "italic": false,
               "align": "left",
               "lineHeight": 1.35,
-              "color": "#ffffffcc",
+              "color": "#075985",
               "fontId": "inter"
             }
           },
           "content": {
             "kind": "text",
-            "text": "faster from idea to shipped, across pilot teams.",
+            "text": "net retention improvement in teams using the new health model.",
             "paragraphs": [
               {
-                "text": "faster from idea to shipped, across pilot teams."
+                "text": "net retention improvement in teams using the new health model."
               }
             ]
           }
@@ -2966,9 +2794,9 @@
       },
       "elements": [
         {
-          "id": "s-3m",
+          "id": "s-2t",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -2983,7 +2811,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -2998,7 +2826,7 @@
           }
         },
         {
-          "id": "s-3n",
+          "id": "s-2u",
           "kind": "shape",
           "opacity": 0.42,
           "box": {
@@ -3030,7 +2858,7 @@
           }
         },
         {
-          "id": "s-3o",
+          "id": "s-2v",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -3054,7 +2882,7 @@
           }
         },
         {
-          "id": "t-3c",
+          "id": "t-2j",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3086,7 +2914,7 @@
           }
         },
         {
-          "id": "s-3d",
+          "id": "s-2k",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3126,7 +2954,7 @@
           }
         },
         {
-          "id": "t-3e",
+          "id": "t-2l",
           "kind": "text",
           "box": {
             "x": 10,
@@ -3156,7 +2984,7 @@
           }
         },
         {
-          "id": "t-3f",
+          "id": "t-2m",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3188,7 +3016,7 @@
           }
         },
         {
-          "id": "s-3g",
+          "id": "s-2n",
           "kind": "shape",
           "box": {
             "x": 37,
@@ -3228,7 +3056,7 @@
           }
         },
         {
-          "id": "t-3h",
+          "id": "t-2o",
           "kind": "text",
           "box": {
             "x": 39,
@@ -3258,7 +3086,7 @@
           }
         },
         {
-          "id": "t-3i",
+          "id": "t-2p",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3290,7 +3118,7 @@
           }
         },
         {
-          "id": "s-3j",
+          "id": "s-2q",
           "kind": "shape",
           "box": {
             "x": 66,
@@ -3330,7 +3158,7 @@
           }
         },
         {
-          "id": "t-3k",
+          "id": "t-2r",
           "kind": "text",
           "box": {
             "x": 68,
@@ -3360,7 +3188,7 @@
           }
         },
         {
-          "id": "t-3l",
+          "id": "t-2s",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -3415,9 +3243,9 @@
       },
       "elements": [
         {
-          "id": "s-3v",
+          "id": "s-32",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -3432,7 +3260,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -3447,7 +3275,7 @@
           }
         },
         {
-          "id": "s-3x",
+          "id": "s-34",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -3471,7 +3299,7 @@
           }
         },
         {
-          "id": "t-3p",
+          "id": "t-2w",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3503,7 +3331,7 @@
           }
         },
         {
-          "id": "t-3q",
+          "id": "t-2x",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -3545,7 +3373,7 @@
           }
         },
         {
-          "id": "s-3r",
+          "id": "s-2y",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -3585,7 +3413,7 @@
           }
         },
         {
-          "id": "s-3s",
+          "id": "s-2z",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -3596,7 +3424,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -3608,7 +3443,7 @@
           }
         },
         {
-          "id": "s-3t",
+          "id": "s-30",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -3619,7 +3454,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#38bdf8"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -3631,7 +3473,7 @@
           }
         },
         {
-          "id": "s-3u",
+          "id": "s-31",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -3642,7 +3484,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -3677,9 +3526,9 @@
       },
       "elements": [
         {
-          "id": "s-45",
+          "id": "s-3c",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -3694,7 +3543,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -3709,7 +3558,7 @@
           }
         },
         {
-          "id": "s-47",
+          "id": "s-3e",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -3733,7 +3582,7 @@
           }
         },
         {
-          "id": "t-3y",
+          "id": "t-35",
           "kind": "text",
           "role": "title",
           "box": {
@@ -3765,7 +3614,7 @@
           }
         },
         {
-          "id": "s-3z",
+          "id": "s-36",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3805,7 +3654,7 @@
           }
         },
         {
-          "id": "s-40",
+          "id": "s-37",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3845,7 +3694,7 @@
           }
         },
         {
-          "id": "s-41",
+          "id": "s-38",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3885,7 +3734,7 @@
           }
         },
         {
-          "id": "s-42",
+          "id": "s-39",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -3925,7 +3774,7 @@
           }
         },
         {
-          "id": "t-43",
+          "id": "t-3a",
           "kind": "text",
           "role": "label",
           "box": {
@@ -3956,7 +3805,7 @@
           }
         },
         {
-          "id": "t-44",
+          "id": "t-3b",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4010,9 +3859,9 @@
       },
       "elements": [
         {
-          "id": "s-4f",
+          "id": "s-3m",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -4027,7 +3876,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -4042,7 +3891,7 @@
           }
         },
         {
-          "id": "s-4h",
+          "id": "s-3o",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -4065,7 +3914,7 @@
           }
         },
         {
-          "id": "t-48",
+          "id": "t-3f",
           "kind": "text",
           "role": "title",
           "box": {
@@ -4097,7 +3946,7 @@
           }
         },
         {
-          "id": "s-49",
+          "id": "s-3g",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4137,7 +3986,7 @@
           }
         },
         {
-          "id": "s-4a",
+          "id": "s-3h",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4177,7 +4026,7 @@
           }
         },
         {
-          "id": "s-4b",
+          "id": "s-3i",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4217,7 +4066,7 @@
           }
         },
         {
-          "id": "s-4c",
+          "id": "s-3j",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4257,7 +4106,7 @@
           }
         },
         {
-          "id": "t-4d",
+          "id": "t-3k",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4288,7 +4137,7 @@
           }
         },
         {
-          "id": "t-4e",
+          "id": "t-3l",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4342,9 +4191,9 @@
       },
       "elements": [
         {
-          "id": "s-4p",
+          "id": "s-3w",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -4359,7 +4208,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -4374,7 +4223,7 @@
           }
         },
         {
-          "id": "s-4r",
+          "id": "s-3y",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -4398,7 +4247,7 @@
           }
         },
         {
-          "id": "s-4s",
+          "id": "s-3z",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -4422,7 +4271,7 @@
           }
         },
         {
-          "id": "s-4i",
+          "id": "s-3p",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4462,7 +4311,7 @@
           }
         },
         {
-          "id": "t-4j",
+          "id": "t-3q",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4493,7 +4342,7 @@
           }
         },
         {
-          "id": "t-4k",
+          "id": "t-3r",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -4535,7 +4384,7 @@
           }
         },
         {
-          "id": "s-4o",
+          "id": "s-3v",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4558,7 +4407,7 @@
           }
         },
         {
-          "id": "s-4l",
+          "id": "s-3s",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4598,7 +4447,7 @@
           }
         },
         {
-          "id": "t-4m",
+          "id": "t-3t",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4629,7 +4478,7 @@
           }
         },
         {
-          "id": "t-4n",
+          "id": "t-3u",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -4694,9 +4543,9 @@
       },
       "elements": [
         {
-          "id": "s-52",
+          "id": "s-49",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": 58,
@@ -4711,7 +4560,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -4726,7 +4575,7 @@
           }
         },
         {
-          "id": "s-54",
+          "id": "s-4b",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -4750,7 +4599,7 @@
           }
         },
         {
-          "id": "s-55",
+          "id": "s-4c",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -4774,7 +4623,7 @@
           }
         },
         {
-          "id": "t-4t",
+          "id": "t-40",
           "kind": "text",
           "role": "title",
           "box": {
@@ -4806,7 +4655,7 @@
           }
         },
         {
-          "id": "s-4u",
+          "id": "s-41",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -4846,7 +4695,7 @@
           }
         },
         {
-          "id": "t-4v",
+          "id": "t-42",
           "kind": "text",
           "role": "label",
           "box": {
@@ -4877,7 +4726,7 @@
           }
         },
         {
-          "id": "t-4w",
+          "id": "t-43",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -4919,7 +4768,7 @@
           }
         },
         {
-          "id": "s-4x",
+          "id": "s-44",
           "kind": "shape",
           "opacity": 1,
           "rotation": 90,
@@ -4943,7 +4792,7 @@
           }
         },
         {
-          "id": "s-51",
+          "id": "s-48",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -4966,7 +4815,7 @@
           }
         },
         {
-          "id": "s-4y",
+          "id": "s-45",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5006,7 +4855,7 @@
           }
         },
         {
-          "id": "t-4z",
+          "id": "t-46",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5037,7 +4886,7 @@
           }
         },
         {
-          "id": "t-50",
+          "id": "t-47",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5102,9 +4951,9 @@
       },
       "elements": [
         {
-          "id": "s-5e",
+          "id": "s-4l",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -5119,7 +4968,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -5134,7 +4983,7 @@
           }
         },
         {
-          "id": "s-5g",
+          "id": "s-4n",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -5158,7 +5007,7 @@
           }
         },
         {
-          "id": "s-5h",
+          "id": "s-4o",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5182,7 +5031,7 @@
           }
         },
         {
-          "id": "t-56",
+          "id": "t-4d",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5214,7 +5063,7 @@
           }
         },
         {
-          "id": "s-57",
+          "id": "s-4e",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -5254,7 +5103,7 @@
           }
         },
         {
-          "id": "t-58",
+          "id": "t-4f",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5285,7 +5134,7 @@
           }
         },
         {
-          "id": "t-59",
+          "id": "t-4g",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5327,7 +5176,7 @@
           }
         },
         {
-          "id": "s-5d",
+          "id": "s-4k",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5350,7 +5199,7 @@
           }
         },
         {
-          "id": "s-5a",
+          "id": "s-4h",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5390,7 +5239,7 @@
           }
         },
         {
-          "id": "t-5b",
+          "id": "t-4i",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5421,7 +5270,7 @@
           }
         },
         {
-          "id": "t-5c",
+          "id": "t-4j",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5486,9 +5335,9 @@
       },
       "elements": [
         {
-          "id": "s-5q",
+          "id": "s-4x",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -5503,7 +5352,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -5518,7 +5367,7 @@
           }
         },
         {
-          "id": "s-5s",
+          "id": "s-4z",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -5541,7 +5390,7 @@
           }
         },
         {
-          "id": "s-5t",
+          "id": "s-50",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5565,7 +5414,7 @@
           }
         },
         {
-          "id": "t-5i",
+          "id": "t-4p",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5597,7 +5446,7 @@
           }
         },
         {
-          "id": "s-5j",
+          "id": "s-4q",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -5637,7 +5486,7 @@
           }
         },
         {
-          "id": "t-5k",
+          "id": "t-4r",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5668,7 +5517,7 @@
           }
         },
         {
-          "id": "t-5l",
+          "id": "t-4s",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5710,7 +5559,7 @@
           }
         },
         {
-          "id": "s-5p",
+          "id": "s-4w",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5733,7 +5582,7 @@
           }
         },
         {
-          "id": "s-5m",
+          "id": "s-4t",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -5773,7 +5622,7 @@
           }
         },
         {
-          "id": "t-5n",
+          "id": "t-4u",
           "kind": "text",
           "role": "label",
           "box": {
@@ -5804,7 +5653,7 @@
           }
         },
         {
-          "id": "t-5o",
+          "id": "t-4v",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -5869,9 +5718,9 @@
       },
       "elements": [
         {
-          "id": "s-62",
+          "id": "s-59",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -5886,7 +5735,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -5901,7 +5750,7 @@
           }
         },
         {
-          "id": "s-64",
+          "id": "s-5b",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -5925,7 +5774,7 @@
           }
         },
         {
-          "id": "s-65",
+          "id": "s-5c",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -5949,7 +5798,7 @@
           }
         },
         {
-          "id": "t-5u",
+          "id": "t-51",
           "kind": "text",
           "role": "title",
           "box": {
@@ -5981,7 +5830,7 @@
           }
         },
         {
-          "id": "s-5v",
+          "id": "s-52",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -6021,7 +5870,7 @@
           }
         },
         {
-          "id": "t-5w",
+          "id": "t-53",
           "kind": "text",
           "role": "label",
           "box": {
@@ -6052,7 +5901,7 @@
           }
         },
         {
-          "id": "t-5x",
+          "id": "t-54",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -6094,7 +5943,7 @@
           }
         },
         {
-          "id": "s-61",
+          "id": "s-58",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6117,7 +5966,7 @@
           }
         },
         {
-          "id": "s-5y",
+          "id": "s-55",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6157,7 +6006,7 @@
           }
         },
         {
-          "id": "t-5z",
+          "id": "t-56",
           "kind": "text",
           "role": "label",
           "box": {
@@ -6188,7 +6037,7 @@
           }
         },
         {
-          "id": "t-60",
+          "id": "t-57",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -6253,9 +6102,9 @@
       },
       "elements": [
         {
-          "id": "s-6b",
+          "id": "s-5i",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -6270,7 +6119,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -6285,7 +6134,7 @@
           }
         },
         {
-          "id": "s-6d",
+          "id": "s-5k",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -6309,7 +6158,7 @@
           }
         },
         {
-          "id": "s-6e",
+          "id": "s-5l",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -6333,7 +6182,7 @@
           }
         },
         {
-          "id": "t-66",
+          "id": "t-5d",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6365,7 +6214,7 @@
           }
         },
         {
-          "id": "s-67",
+          "id": "s-5e",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -6405,7 +6254,7 @@
           }
         },
         {
-          "id": "s-68",
+          "id": "s-5f",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -6445,7 +6294,7 @@
           }
         },
         {
-          "id": "s-69",
+          "id": "s-5g",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -6485,7 +6334,7 @@
           }
         },
         {
-          "id": "s-6a",
+          "id": "s-5h",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -6548,7 +6397,7 @@
       },
       "elements": [
         {
-          "id": "s-6l",
+          "id": "s-5s",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -6572,7 +6421,7 @@
           }
         },
         {
-          "id": "s-6j",
+          "id": "s-5q",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 18,
@@ -6605,7 +6454,7 @@
           }
         },
         {
-          "id": "s-6k",
+          "id": "s-5r",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -6629,7 +6478,7 @@
           }
         },
         {
-          "id": "s-6f",
+          "id": "s-5m",
           "kind": "shape",
           "opacity": 0.12,
           "box": {
@@ -6646,7 +6495,7 @@
                 "value": "#0284c7"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#0284c7"
               },
               "cx": 42,
               "cy": 38,
@@ -6657,11 +6506,11 @@
           "name": "Orb",
           "content": {
             "kind": "shape",
-            "shape": "circle"
+            "shape": "ellipse"
           }
         },
         {
-          "id": "s-6g",
+          "id": "s-5n",
           "kind": "shape",
           "box": {
             "x": 35,
@@ -6701,7 +6550,7 @@
           }
         },
         {
-          "id": "t-6h",
+          "id": "t-5o",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6756,7 +6605,7 @@
       },
       "elements": [
         {
-          "id": "s-6y",
+          "id": "s-65",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -6780,7 +6629,7 @@
           }
         },
         {
-          "id": "s-6w",
+          "id": "s-63",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -6813,7 +6662,7 @@
           }
         },
         {
-          "id": "s-6x",
+          "id": "s-64",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -6837,7 +6686,7 @@
           }
         },
         {
-          "id": "t-6m",
+          "id": "t-5t",
           "kind": "text",
           "role": "title",
           "box": {
@@ -6869,7 +6718,7 @@
           }
         },
         {
-          "id": "s-6n",
+          "id": "s-5u",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -6891,7 +6740,7 @@
           }
         },
         {
-          "id": "t-6o",
+          "id": "t-5v",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6923,7 +6772,7 @@
           }
         },
         {
-          "id": "s-6p",
+          "id": "s-5w",
           "kind": "shape",
           "box": {
             "x": 30,
@@ -6945,7 +6794,7 @@
           }
         },
         {
-          "id": "t-6q",
+          "id": "t-5x",
           "kind": "text",
           "role": "body",
           "box": {
@@ -6977,7 +6826,7 @@
           }
         },
         {
-          "id": "s-6r",
+          "id": "s-5y",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -6999,7 +6848,7 @@
           }
         },
         {
-          "id": "t-6s",
+          "id": "t-5z",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7031,7 +6880,7 @@
           }
         },
         {
-          "id": "s-6t",
+          "id": "s-60",
           "kind": "shape",
           "box": {
             "x": 74,
@@ -7053,7 +6902,7 @@
           }
         },
         {
-          "id": "t-6u",
+          "id": "t-61",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7108,7 +6957,7 @@
       },
       "elements": [
         {
-          "id": "s-7b",
+          "id": "s-6i",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7132,7 +6981,7 @@
           }
         },
         {
-          "id": "s-79",
+          "id": "s-6g",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -7165,7 +7014,7 @@
           }
         },
         {
-          "id": "s-7a",
+          "id": "s-6h",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -7189,7 +7038,7 @@
           }
         },
         {
-          "id": "t-6z",
+          "id": "t-66",
           "kind": "text",
           "role": "title",
           "box": {
@@ -7221,7 +7070,7 @@
           }
         },
         {
-          "id": "s-70",
+          "id": "s-67",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7243,7 +7092,7 @@
           }
         },
         {
-          "id": "t-71",
+          "id": "t-68",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7275,7 +7124,7 @@
           }
         },
         {
-          "id": "s-72",
+          "id": "s-69",
           "kind": "shape",
           "box": {
             "x": 30,
@@ -7297,7 +7146,7 @@
           }
         },
         {
-          "id": "t-73",
+          "id": "t-6a",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7329,7 +7178,7 @@
           }
         },
         {
-          "id": "s-74",
+          "id": "s-6b",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -7351,7 +7200,7 @@
           }
         },
         {
-          "id": "t-75",
+          "id": "t-6c",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7383,7 +7232,7 @@
           }
         },
         {
-          "id": "s-76",
+          "id": "s-6d",
           "kind": "shape",
           "box": {
             "x": 74,
@@ -7405,7 +7254,7 @@
           }
         },
         {
-          "id": "t-77",
+          "id": "t-6e",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7460,7 +7309,7 @@
       },
       "elements": [
         {
-          "id": "s-7p",
+          "id": "s-6w",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7484,7 +7333,7 @@
           }
         },
         {
-          "id": "s-7n",
+          "id": "s-6u",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -7517,7 +7366,7 @@
           }
         },
         {
-          "id": "s-7o",
+          "id": "s-6v",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -7541,7 +7390,7 @@
           }
         },
         {
-          "id": "t-7c",
+          "id": "t-6j",
           "kind": "text",
           "role": "title",
           "box": {
@@ -7573,7 +7422,7 @@
           }
         },
         {
-          "id": "s-7d",
+          "id": "s-6k",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7596,7 +7445,7 @@
           }
         },
         {
-          "id": "s-7e",
+          "id": "s-6l",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -7607,7 +7456,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7619,7 +7475,7 @@
           }
         },
         {
-          "id": "t-7f",
+          "id": "t-6m",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7651,7 +7507,7 @@
           }
         },
         {
-          "id": "s-7g",
+          "id": "s-6n",
           "kind": "shape",
           "box": {
             "x": 32,
@@ -7662,7 +7518,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7674,7 +7537,7 @@
           }
         },
         {
-          "id": "t-7h",
+          "id": "t-6o",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7706,7 +7569,7 @@
           }
         },
         {
-          "id": "s-7i",
+          "id": "s-6p",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -7717,7 +7580,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7729,7 +7599,7 @@
           }
         },
         {
-          "id": "t-7j",
+          "id": "t-6q",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7761,7 +7631,7 @@
           }
         },
         {
-          "id": "s-7k",
+          "id": "s-6r",
           "kind": "shape",
           "box": {
             "x": 76,
@@ -7772,7 +7642,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -7784,7 +7661,7 @@
           }
         },
         {
-          "id": "t-7l",
+          "id": "t-6s",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7839,7 +7716,7 @@
       },
       "elements": [
         {
-          "id": "s-7z",
+          "id": "s-76",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -7863,7 +7740,7 @@
           }
         },
         {
-          "id": "s-7x",
+          "id": "s-74",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -7896,7 +7773,7 @@
           }
         },
         {
-          "id": "s-7y",
+          "id": "s-75",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -7919,7 +7796,7 @@
           }
         },
         {
-          "id": "s-7q",
+          "id": "s-6x",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -7959,7 +7836,7 @@
           }
         },
         {
-          "id": "t-7r",
+          "id": "t-6y",
           "kind": "text",
           "role": "body",
           "box": {
@@ -7991,7 +7868,7 @@
           }
         },
         {
-          "id": "s-7s",
+          "id": "s-6z",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -8031,7 +7908,7 @@
           }
         },
         {
-          "id": "t-7t",
+          "id": "t-70",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8063,7 +7940,7 @@
           }
         },
         {
-          "id": "s-7u",
+          "id": "s-71",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -8103,7 +7980,7 @@
           }
         },
         {
-          "id": "t-7v",
+          "id": "t-72",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8158,7 +8035,7 @@
       },
       "elements": [
         {
-          "id": "s-89",
+          "id": "s-7g",
           "kind": "shape",
           "opacity": 0.35,
           "box": {
@@ -8182,7 +8059,7 @@
           }
         },
         {
-          "id": "s-87",
+          "id": "s-7e",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -8215,7 +8092,7 @@
           }
         },
         {
-          "id": "s-88",
+          "id": "s-7f",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -8239,7 +8116,7 @@
           }
         },
         {
-          "id": "s-80",
+          "id": "s-77",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -8279,7 +8156,7 @@
           }
         },
         {
-          "id": "t-81",
+          "id": "t-78",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8311,7 +8188,7 @@
           }
         },
         {
-          "id": "s-82",
+          "id": "s-79",
           "kind": "shape",
           "box": {
             "x": 38,
@@ -8351,7 +8228,7 @@
           }
         },
         {
-          "id": "t-83",
+          "id": "t-7a",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8383,7 +8260,7 @@
           }
         },
         {
-          "id": "s-84",
+          "id": "s-7b",
           "kind": "shape",
           "box": {
             "x": 66,
@@ -8423,7 +8300,7 @@
           }
         },
         {
-          "id": "t-85",
+          "id": "t-7c",
           "kind": "text",
           "role": "body",
           "box": {
@@ -8478,9 +8355,9 @@
       },
       "elements": [
         {
-          "id": "s-8e",
+          "id": "s-7l",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": 58,
@@ -8495,7 +8372,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -8510,7 +8387,7 @@
           }
         },
         {
-          "id": "s-8g",
+          "id": "s-7n",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -8534,7 +8411,7 @@
           }
         },
         {
-          "id": "s-8a",
+          "id": "s-7h",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -8574,7 +8451,7 @@
           }
         },
         {
-          "id": "img-8b",
+          "id": "img-7i",
           "kind": "image",
           "role": "image",
           "box": {
@@ -8595,7 +8472,7 @@
           }
         },
         {
-          "id": "t-8c",
+          "id": "t-7j",
           "kind": "text",
           "role": "title",
           "box": {
@@ -8627,7 +8504,7 @@
           }
         },
         {
-          "id": "t-8d",
+          "id": "t-7k",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -8692,9 +8569,9 @@
       },
       "elements": [
         {
-          "id": "s-8l",
+          "id": "s-7s",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -8709,7 +8586,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -8724,7 +8601,7 @@
           }
         },
         {
-          "id": "s-8n",
+          "id": "s-7u",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -8747,7 +8624,7 @@
           }
         },
         {
-          "id": "s-8h",
+          "id": "s-7o",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -8787,7 +8664,7 @@
           }
         },
         {
-          "id": "img-8i",
+          "id": "img-7p",
           "kind": "image",
           "role": "image",
           "box": {
@@ -8808,7 +8685,7 @@
           }
         },
         {
-          "id": "t-8j",
+          "id": "t-7q",
           "kind": "text",
           "role": "title",
           "box": {
@@ -8840,7 +8717,7 @@
           }
         },
         {
-          "id": "t-8k",
+          "id": "t-7r",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -8905,9 +8782,9 @@
       },
       "elements": [
         {
-          "id": "s-90",
+          "id": "s-87",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -8922,7 +8799,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -8937,7 +8814,7 @@
           }
         },
         {
-          "id": "s-91",
+          "id": "s-88",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -8970,7 +8847,7 @@
           }
         },
         {
-          "id": "s-92",
+          "id": "s-89",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -8993,7 +8870,7 @@
           }
         },
         {
-          "id": "s-8o",
+          "id": "s-7v",
           "kind": "shape",
           "box": {
             "x": 7,
@@ -9033,7 +8910,7 @@
           }
         },
         {
-          "id": "t-8p",
+          "id": "t-7w",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9064,7 +8941,7 @@
           }
         },
         {
-          "id": "t-8q",
+          "id": "t-7x",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9096,7 +8973,7 @@
           }
         },
         {
-          "id": "s-8r",
+          "id": "s-7y",
           "kind": "shape",
           "box": {
             "x": 29,
@@ -9136,7 +9013,7 @@
           }
         },
         {
-          "id": "t-8s",
+          "id": "t-7z",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9167,7 +9044,7 @@
           }
         },
         {
-          "id": "t-8t",
+          "id": "t-80",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9199,7 +9076,7 @@
           }
         },
         {
-          "id": "s-8u",
+          "id": "s-81",
           "kind": "shape",
           "box": {
             "x": 51,
@@ -9239,7 +9116,7 @@
           }
         },
         {
-          "id": "t-8v",
+          "id": "t-82",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9270,7 +9147,7 @@
           }
         },
         {
-          "id": "t-8w",
+          "id": "t-83",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9302,7 +9179,7 @@
           }
         },
         {
-          "id": "s-8x",
+          "id": "s-84",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -9342,7 +9219,7 @@
           }
         },
         {
-          "id": "t-8y",
+          "id": "t-85",
           "kind": "text",
           "role": "label",
           "box": {
@@ -9373,7 +9250,7 @@
           }
         },
         {
-          "id": "t-8z",
+          "id": "t-86",
           "kind": "text",
           "role": "body",
           "box": {
@@ -9428,9 +9305,9 @@
       },
       "elements": [
         {
-          "id": "s-98",
+          "id": "s-8f",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -9445,7 +9322,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -9460,7 +9337,7 @@
           }
         },
         {
-          "id": "s-9a",
+          "id": "s-8h",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -9484,7 +9361,7 @@
           }
         },
         {
-          "id": "s-9b",
+          "id": "s-8i",
           "kind": "shape",
           "opacity": 0.18,
           "rotation": 45,
@@ -9508,7 +9385,7 @@
           }
         },
         {
-          "id": "t-93",
+          "id": "t-8a",
           "kind": "text",
           "role": "title",
           "box": {
@@ -9540,7 +9417,7 @@
           }
         },
         {
-          "id": "s-94",
+          "id": "s-8b",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -9580,7 +9457,7 @@
           }
         },
         {
-          "id": "s-95",
+          "id": "s-8c",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -9620,7 +9497,7 @@
           }
         },
         {
-          "id": "s-96",
+          "id": "s-8d",
           "kind": "shape",
           "box": {
             "x": 22,
@@ -9660,7 +9537,7 @@
           }
         },
         {
-          "id": "s-97",
+          "id": "s-8e",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -9723,9 +9600,9 @@
       },
       "elements": [
         {
-          "id": "s-9i",
+          "id": "s-8p",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -9740,7 +9617,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -9755,7 +9632,7 @@
           }
         },
         {
-          "id": "s-9k",
+          "id": "s-8r",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -9779,7 +9656,7 @@
           }
         },
         {
-          "id": "t-9c",
+          "id": "t-8j",
           "kind": "text",
           "role": "title",
           "box": {
@@ -9811,7 +9688,7 @@
           }
         },
         {
-          "id": "t-9d",
+          "id": "t-8k",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -9853,7 +9730,7 @@
           }
         },
         {
-          "id": "s-9e",
+          "id": "s-8l",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -9893,7 +9770,7 @@
           }
         },
         {
-          "id": "s-9f",
+          "id": "s-8m",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -9904,7 +9781,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -9916,7 +9800,7 @@
           }
         },
         {
-          "id": "s-9g",
+          "id": "s-8n",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -9927,7 +9811,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#38bdf8"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -9939,7 +9830,7 @@
           }
         },
         {
-          "id": "s-9h",
+          "id": "s-8o",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -9950,7 +9841,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -9985,9 +9883,9 @@
       },
       "elements": [
         {
-          "id": "s-9r",
+          "id": "s-8y",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": 58,
@@ -10002,7 +9900,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -10017,7 +9915,7 @@
           }
         },
         {
-          "id": "s-9t",
+          "id": "s-90",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -10041,7 +9939,7 @@
           }
         },
         {
-          "id": "t-9l",
+          "id": "t-8s",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10073,7 +9971,7 @@
           }
         },
         {
-          "id": "t-9m",
+          "id": "t-8t",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -10115,7 +10013,7 @@
           }
         },
         {
-          "id": "s-9n",
+          "id": "s-8u",
           "kind": "shape",
           "box": {
             "x": 54,
@@ -10155,7 +10053,7 @@
           }
         },
         {
-          "id": "s-9o",
+          "id": "s-8v",
           "kind": "shape",
           "box": {
             "x": 58,
@@ -10166,7 +10064,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10178,7 +10083,7 @@
           }
         },
         {
-          "id": "s-9p",
+          "id": "s-8w",
           "kind": "shape",
           "box": {
             "x": 68,
@@ -10189,7 +10094,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#38bdf8"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10201,7 +10113,7 @@
           }
         },
         {
-          "id": "s-9q",
+          "id": "s-8x",
           "kind": "shape",
           "box": {
             "x": 78,
@@ -10212,7 +10124,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10247,9 +10166,9 @@
       },
       "elements": [
         {
-          "id": "s-a4",
+          "id": "s-9b",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -10264,7 +10183,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -10279,7 +10198,7 @@
           }
         },
         {
-          "id": "s-a6",
+          "id": "s-9d",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -10302,7 +10221,7 @@
           }
         },
         {
-          "id": "t-9u",
+          "id": "t-91",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10334,7 +10253,7 @@
           }
         },
         {
-          "id": "s-9v",
+          "id": "s-92",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10374,7 +10293,7 @@
           }
         },
         {
-          "id": "s-9w",
+          "id": "s-93",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10385,7 +10304,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10397,7 +10323,7 @@
           }
         },
         {
-          "id": "t-9x",
+          "id": "t-94",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10429,7 +10355,7 @@
           }
         },
         {
-          "id": "s-9y",
+          "id": "s-95",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10469,7 +10395,7 @@
           }
         },
         {
-          "id": "s-9z",
+          "id": "s-96",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10480,7 +10406,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10492,7 +10425,7 @@
           }
         },
         {
-          "id": "t-a0",
+          "id": "t-97",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10524,7 +10457,7 @@
           }
         },
         {
-          "id": "s-a1",
+          "id": "s-98",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10564,7 +10497,7 @@
           }
         },
         {
-          "id": "s-a2",
+          "id": "s-99",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10575,7 +10508,14 @@
           "zIndex": 9,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10587,7 +10527,7 @@
           }
         },
         {
-          "id": "t-a3",
+          "id": "t-9a",
           "kind": "text",
           "role": "body",
           "box": {
@@ -10636,9 +10576,9 @@
       },
       "elements": [
         {
-          "id": "s-a9",
+          "id": "s-9g",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": 58,
@@ -10653,7 +10593,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -10668,7 +10608,7 @@
           }
         },
         {
-          "id": "s-ab",
+          "id": "s-9i",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -10692,7 +10632,7 @@
           }
         },
         {
-          "id": "t-a7",
+          "id": "t-9e",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10723,7 +10663,7 @@
           }
         },
         {
-          "id": "t-a8",
+          "id": "t-9f",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -10772,9 +10712,9 @@
       },
       "elements": [
         {
-          "id": "s-ae",
+          "id": "s-9l",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -10789,7 +10729,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -10804,7 +10744,7 @@
           }
         },
         {
-          "id": "s-ag",
+          "id": "s-9n",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -10828,7 +10768,7 @@
           }
         },
         {
-          "id": "t-ac",
+          "id": "t-9j",
           "kind": "text",
           "role": "title",
           "box": {
@@ -10859,7 +10799,7 @@
           }
         },
         {
-          "id": "t-ad",
+          "id": "t-9k",
           "kind": "text",
           "role": "subtitle",
           "box": {
@@ -10902,15 +10842,15 @@
         "background": {
           "type": "solid",
           "color": {
-            "value": "#0c4a6e"
+            "value": "#f6fbff"
           }
         }
       },
       "elements": [
         {
-          "id": "s-ak",
+          "id": "s-9r",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -10925,7 +10865,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -10940,7 +10880,7 @@
           }
         },
         {
-          "id": "s-am",
+          "id": "s-9t",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -10964,7 +10904,7 @@
           }
         },
         {
-          "id": "s-ah",
+          "id": "s-9o",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -10975,7 +10915,14 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "value": "#0284c7"
+              "type": "linearGradient",
+              "from": {
+                "value": "#0284c7"
+              },
+              "to": {
+                "value": "#38bdf8"
+              },
+              "angle": 90
             },
             "radius": 50
           },
@@ -10987,7 +10934,7 @@
           }
         },
         {
-          "id": "t-ai",
+          "id": "t-9p",
           "kind": "text",
           "role": "title",
           "box": {
@@ -11019,7 +10966,7 @@
           }
         },
         {
-          "id": "t-aj",
+          "id": "t-9q",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11084,9 +11031,9 @@
       },
       "elements": [
         {
-          "id": "s-az",
+          "id": "s-a6",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": 58,
@@ -11101,7 +11048,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -11116,7 +11063,7 @@
           }
         },
         {
-          "id": "s-b0",
+          "id": "s-a7",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 18,
@@ -11149,7 +11096,7 @@
           }
         },
         {
-          "id": "s-b1",
+          "id": "s-a8",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -28,
@@ -11173,7 +11120,7 @@
           }
         },
         {
-          "id": "s-an",
+          "id": "s-9u",
           "kind": "shape",
           "box": {
             "x": 7,
@@ -11213,7 +11160,7 @@
           }
         },
         {
-          "id": "t-ao",
+          "id": "t-9v",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11244,7 +11191,7 @@
           }
         },
         {
-          "id": "t-ap",
+          "id": "t-9w",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11276,7 +11223,7 @@
           }
         },
         {
-          "id": "s-aq",
+          "id": "s-9x",
           "kind": "shape",
           "box": {
             "x": 29,
@@ -11316,7 +11263,7 @@
           }
         },
         {
-          "id": "t-ar",
+          "id": "t-9y",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11347,7 +11294,7 @@
           }
         },
         {
-          "id": "t-as",
+          "id": "t-9z",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11379,7 +11326,7 @@
           }
         },
         {
-          "id": "s-at",
+          "id": "s-a0",
           "kind": "shape",
           "box": {
             "x": 51,
@@ -11419,7 +11366,7 @@
           }
         },
         {
-          "id": "t-au",
+          "id": "t-a1",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11450,7 +11397,7 @@
           }
         },
         {
-          "id": "t-av",
+          "id": "t-a2",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11482,7 +11429,7 @@
           }
         },
         {
-          "id": "s-aw",
+          "id": "s-a3",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -11522,7 +11469,7 @@
           }
         },
         {
-          "id": "t-ax",
+          "id": "t-a4",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11553,7 +11500,7 @@
           }
         },
         {
-          "id": "t-ay",
+          "id": "t-a5",
           "kind": "text",
           "role": "body",
           "box": {
@@ -11608,9 +11555,9 @@
       },
       "elements": [
         {
-          "id": "s-b9",
+          "id": "s-ag",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": -18,
             "y": -24,
@@ -11625,7 +11572,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -11640,7 +11587,7 @@
           }
         },
         {
-          "id": "s-ba",
+          "id": "s-ah",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": -18,
@@ -11673,7 +11620,7 @@
           }
         },
         {
-          "id": "s-bb",
+          "id": "s-ai",
           "kind": "shape",
           "opacity": 0.22,
           "box": {
@@ -11696,7 +11643,7 @@
           }
         },
         {
-          "id": "s-b2",
+          "id": "s-a9",
           "kind": "shape",
           "box": {
             "x": 12,
@@ -11736,7 +11683,7 @@
           }
         },
         {
-          "id": "t-b3",
+          "id": "t-aa",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11767,7 +11714,7 @@
           }
         },
         {
-          "id": "t-b4",
+          "id": "t-ab",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11809,7 +11756,7 @@
           }
         },
         {
-          "id": "s-b8",
+          "id": "s-af",
           "kind": "shape",
           "box": {
             "x": 56,
@@ -11832,7 +11779,7 @@
           }
         },
         {
-          "id": "s-b5",
+          "id": "s-ac",
           "kind": "shape",
           "box": {
             "x": 56,
@@ -11872,7 +11819,7 @@
           }
         },
         {
-          "id": "t-b6",
+          "id": "t-ad",
           "kind": "text",
           "role": "label",
           "box": {
@@ -11903,7 +11850,7 @@
           }
         },
         {
-          "id": "t-b7",
+          "id": "t-ae",
           "kind": "text",
           "role": "bullet",
           "box": {
@@ -11968,9 +11915,9 @@
       },
       "elements": [
         {
-          "id": "s-bk",
+          "id": "s-ar",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": 58,
@@ -11985,7 +11932,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -12000,7 +11947,7 @@
           }
         },
         {
-          "id": "s-bl",
+          "id": "s-as",
           "kind": "shape",
           "opacity": 0.42,
           "rotation": 36,
@@ -12033,7 +11980,7 @@
           }
         },
         {
-          "id": "s-bm",
+          "id": "s-at",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -42,
@@ -12057,7 +12004,7 @@
           }
         },
         {
-          "id": "s-bc",
+          "id": "s-aj",
           "kind": "shape",
           "box": {
             "x": 10,
@@ -12079,7 +12026,7 @@
           }
         },
         {
-          "id": "t-bd",
+          "id": "t-ak",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12111,7 +12058,7 @@
           }
         },
         {
-          "id": "s-be",
+          "id": "s-al",
           "kind": "shape",
           "box": {
             "x": 31,
@@ -12133,7 +12080,7 @@
           }
         },
         {
-          "id": "t-bf",
+          "id": "t-am",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12165,7 +12112,7 @@
           }
         },
         {
-          "id": "s-bg",
+          "id": "s-an",
           "kind": "shape",
           "box": {
             "x": 52,
@@ -12187,7 +12134,7 @@
           }
         },
         {
-          "id": "t-bh",
+          "id": "t-ao",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12219,7 +12166,7 @@
           }
         },
         {
-          "id": "s-bi",
+          "id": "s-ap",
           "kind": "shape",
           "box": {
             "x": 73,
@@ -12241,7 +12188,7 @@
           }
         },
         {
-          "id": "t-bj",
+          "id": "t-aq",
           "kind": "text",
           "role": "body",
           "box": {
@@ -12284,15 +12231,15 @@
         "background": {
           "type": "solid",
           "color": {
-            "value": "#0c4a6e"
+            "value": "#f6fbff"
           }
         }
       },
       "elements": [
         {
-          "id": "s-bq",
+          "id": "s-ax",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -12307,7 +12254,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -12322,7 +12269,7 @@
           }
         },
         {
-          "id": "s-bs",
+          "id": "s-az",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -12346,7 +12293,7 @@
           }
         },
         {
-          "id": "img-bn",
+          "id": "img-au",
           "kind": "image",
           "role": "image",
           "box": {
@@ -12366,7 +12313,7 @@
           }
         },
         {
-          "id": "s-bo",
+          "id": "s-av",
           "kind": "shape",
           "box": {
             "x": 8,
@@ -12406,7 +12353,7 @@
           }
         },
         {
-          "id": "t-bp",
+          "id": "t-aw",
           "kind": "text",
           "role": "title",
           "box": {
@@ -12447,61 +12394,45 @@
       "templateId": "theme:ocean:closing",
       "designOverrides": {
         "background": {
-          "type": "radialGradient",
-          "inner": {
-            "value": "#38bdf8"
-          },
-          "outer": {
+          "type": "solid",
+          "color": {
             "value": "#0c4a6e"
-          },
-          "cx": 70,
-          "cy": 28,
-          "r": 88
+          }
         }
       },
       "elements": [
         {
-          "id": "s-bx",
+          "id": "s-t",
           "kind": "shape",
-          "opacity": 0.28,
           "box": {
-            "x": 72,
-            "y": 58,
-            "w": 52,
-            "h": 76
+            "x": 0,
+            "y": 0,
+            "w": 100,
+            "h": 100
           },
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#99f6e4"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
+              "value": "#0c4a6e"
+            },
+            "radius": 0
           },
           "locked": true,
-          "name": "closing glow",
+          "name": "Field",
           "content": {
             "kind": "shape",
-            "shape": "ellipse"
+            "shape": "rect"
           }
         },
         {
-          "id": "s-by",
+          "id": "s-u",
           "kind": "shape",
-          "opacity": 0.42,
-          "rotation": 36,
+          "opacity": 0.18,
           "box": {
-            "x": 5,
-            "y": 72,
-            "w": 8,
-            "h": 14
+            "x": 58,
+            "y": 18,
+            "w": 58,
+            "h": 80
           },
           "zIndex": 2,
           "designOverrides": {
@@ -12511,139 +12442,85 @@
                 "value": "#38bdf8"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "transparent"
               },
-              "cx": 42,
-              "cy": 34,
-              "r": 72
+              "stops": [
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.78)"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.48)"
+                  },
+                  "offset": 32
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0.16)"
+                  },
+                  "offset": 58
+                },
+                {
+                  "color": {
+                    "value": "rgba(56, 189, 248, 0)"
+                  },
+                  "offset": 78
+                }
+              ],
+              "cx": 50,
+              "cy": 50,
+              "r": 92
             }
           },
           "locked": true,
-          "name": "closing motif",
-          "content": {
-            "kind": "shape",
-            "shape": "diamond"
-          }
-        },
-        {
-          "id": "s-bz",
-          "kind": "shape",
-          "opacity": 0.22,
-          "rotation": -42,
-          "box": {
-            "x": 88,
-            "y": 8,
-            "w": 6,
-            "h": 11
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#99f6e4"
-            }
-          },
-          "locked": true,
-          "name": "closing secondary motif",
+          "name": "Current",
           "content": {
             "kind": "shape",
             "shape": "ellipse"
           }
         },
         {
-          "id": "s-bt",
-          "kind": "shape",
-          "opacity": 0.4,
-          "box": {
-            "x": 54,
-            "y": 24,
-            "w": 64,
-            "h": 88
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "type": "radialGradient",
-              "inner": {
-                "value": "#0284c7"
-              },
-              "outer": {
-                "token": "slideBg"
-              },
-              "cx": 42,
-              "cy": 38,
-              "r": 72
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "circle"
-          }
-        },
-        {
-          "id": "s-bu",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 40,
-            "w": 10,
-            "h": 1
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#ffffff"
-            },
-            "radius": 50
-          },
-          "locked": true,
-          "name": "Accent bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-bv",
+          "id": "t-v",
           "kind": "text",
           "role": "title",
           "box": {
             "x": 8,
-            "y": 44,
-            "w": 78,
-            "h": 16
+            "y": 40,
+            "w": 68,
+            "h": 14
           },
           "zIndex": 10,
           "designOverrides": {
             "textStyle": {
-              "fontSize": 11,
+              "fontSize": 8,
               "bold": true,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.04,
               "color": "#ffffff",
               "fontId": "space-grotesk"
             }
           },
           "content": {
             "kind": "text",
-            "text": "Thank you.",
+            "text": "Stay on course.",
             "paragraphs": [
               {
-                "text": "Thank you."
+                "text": "Stay on course."
               }
             ]
           }
         },
         {
-          "id": "t-bw",
+          "id": "t-w",
           "kind": "text",
           "role": "subtitle",
           "box": {
             "x": 8,
-            "y": 64,
-            "w": 56,
+            "y": 58,
+            "w": 60,
             "h": 8
           },
           "zIndex": 11,
@@ -12653,17 +12530,16 @@
               "bold": false,
               "italic": false,
               "align": "left",
-              "lineHeight": 1.35,
-              "color": "#ffffffcc",
+              "color": "#bae6fd",
               "fontId": "inter"
             }
           },
           "content": {
             "kind": "text",
-            "text": "hello@studio · studio.com",
+            "text": "Focus the next sprint on signal quality and account motion.",
             "paragraphs": [
               {
-                "text": "hello@studio · studio.com"
+                "text": "Focus the next sprint on signal quality and account motion."
               }
             ]
           }
@@ -12692,9 +12568,9 @@
       },
       "elements": [
         {
-          "id": "s-c2",
+          "id": "s-b2",
           "kind": "shape",
-          "opacity": 0.28,
+          "opacity": 0.45,
           "box": {
             "x": 72,
             "y": -24,
@@ -12709,7 +12585,7 @@
                 "value": "#99f6e4"
               },
               "outer": {
-                "token": "slideBg"
+                "value": "#99f6e4"
               },
               "cx": 42,
               "cy": 38,
@@ -12724,7 +12600,7 @@
           }
         },
         {
-          "id": "s-c4",
+          "id": "s-b4",
           "kind": "shape",
           "opacity": 0.22,
           "rotation": -14,
@@ -12748,7 +12624,7 @@
           }
         },
         {
-          "id": "t-c0",
+          "id": "t-b0",
           "kind": "text",
           "role": "title",
           "box": {
@@ -12780,7 +12656,7 @@
           }
         },
         {
-          "id": "t-c1",
+          "id": "t-b1",
           "kind": "text",
           "role": "bullet",
           "box": {
