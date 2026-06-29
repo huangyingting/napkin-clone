@@ -1,12 +1,14 @@
 import {
-  SEMANTIC_TO_RENDER_FAMILY,
   THEME_PACKAGE_TEMPLATE_KINDS,
   THEME_PACKAGE_TEMPLATE_METADATA,
+  resolveThemePackageTemplateKind,
+  templateCategoryForFamily,
   type ThemePackageRenderFamily,
   type ThemePackageTemplateKind,
-  type ThemePackageTemplateMetadata,
 } from "@/lib/presentation/theme-template-taxonomy";
 import type { ThemeVisualLanguageToken } from "@/lib/presentation/presentation-theme-types";
+import type { Slide, SlideTemplate, SlideTemplateElement } from "@/lib/presentation/deck-core";
+import type { SlideElement } from "@/lib/presentation/deck-elements";
 import { familySlide } from "./render-family-layouts";
 
 /**
@@ -604,16 +606,6 @@ export interface ThemeSpec {
   buildSlides: (spec: ThemeSpec) => Record<string, unknown>[];
 }
 
-export interface ThemeTemplateSourceSpec {
-  kind: ThemePackageTemplateKind;
-  renderFamily: ThemePackageRenderFamily;
-  metadata: ThemePackageTemplateMetadata;
-  buildSlide: (
-    packageId: string,
-    baseSlides: readonly Record<string, unknown>[],
-  ) => Record<string, unknown>;
-}
-
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -639,7 +631,7 @@ function baseSlideIndexForRenderFamily(
   }
 }
 
-function semanticSlideFromBase(
+function templatePreviewSlideFromBase(
   packageId: string,
   kind: ThemePackageTemplateKind,
   baseSlides: readonly Record<string, unknown>[],
@@ -659,7 +651,7 @@ function semanticSlideFromBase(
   };
 }
 
-function semanticSlideFromBaseIndex(
+function templatePreviewSlideFromBaseIndex(
   packageId: string,
   kind: ThemePackageTemplateKind,
   baseSlides: readonly Record<string, unknown>[],
@@ -705,29 +697,7 @@ function shouldUseThemeBaseSlide(family: ThemePackageRenderFamily): boolean {
   ].includes(family);
 }
 
-export function templateSourceSpecsForTheme(): ThemeTemplateSourceSpec[] {
-  return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
-    const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
-    return {
-      kind,
-      renderFamily: SEMANTIC_TO_RENDER_FAMILY[kind],
-      metadata,
-      buildSlide: (packageId, baseSlides) =>
-        semanticSlideFromBase(packageId, kind, baseSlides),
-    };
-  });
-}
-
-export function buildSemanticSlidesFromBase(
-  packageId: string,
-  baseSlides: readonly Record<string, unknown>[],
-): Record<string, unknown>[] {
-  return templateSourceSpecsForTheme().map((templateSpec) =>
-    templateSpec.buildSlide(packageId, baseSlides),
-  );
-}
-
-export function buildSemanticSlides(
+export function buildTemplatePreviewSlides(
   spec: ThemeSpec,
 ): Record<string, unknown>[] {
   const baseSlides = spec.buildSlides(spec);
@@ -736,7 +706,7 @@ export function buildSemanticSlides(
     const auroraBaseIndex =
       spec.id === "aurora" ? auroraFirstThreeBaseIndex(kind) : undefined;
     if (auroraBaseIndex !== undefined) {
-      return semanticSlideFromBaseIndex(
+      return templatePreviewSlideFromBaseIndex(
         spec.id,
         kind,
         baseSlides,
@@ -744,7 +714,7 @@ export function buildSemanticSlides(
       );
     }
     if (shouldUseThemeBaseSlide(metadata.renderFamily)) {
-      return semanticSlideFromBase(spec.id, kind, baseSlides);
+      return templatePreviewSlideFromBase(spec.id, kind, baseSlides);
     }
     const designed = familySlide(
       spec,
@@ -752,8 +722,69 @@ export function buildSemanticSlides(
       metadata.renderFamily,
       metadata.label,
     );
-    return designed ?? semanticSlideFromBase(spec.id, kind, baseSlides);
+    return designed ?? templatePreviewSlideFromBase(spec.id, kind, baseSlides);
   });
+}
+
+function templateElementFromSlideElement(
+  element: SlideElement,
+  index: number,
+): SlideTemplateElement {
+  const record = element as unknown as Record<string, unknown>;
+  return {
+    id:
+      typeof record.id === "string"
+        ? record.id
+        : `template-element-${index + 1}`,
+    kind: typeof record.kind === "string" ? record.kind : "shape",
+    ...(typeof record.role === "string" ? { role: record.role } : {}),
+    ...(record.box !== undefined ? { box: clone(record.box) } : {}),
+    ...(record.content !== undefined
+      ? { contentDefaults: clone(record.content as Record<string, unknown>) }
+      : {}),
+    ...(record.designOverrides !== undefined
+      ? {
+          designOverrides: clone(
+            record.designOverrides as Record<string, unknown>,
+          ),
+        }
+      : {}),
+    ...(typeof record.opacity === "number" ? { opacity: record.opacity } : {}),
+    ...(typeof record.rotation === "number"
+      ? { rotation: record.rotation }
+      : {}),
+    ...(typeof record.locked === "boolean" ? { locked: record.locked } : {}),
+    ...(typeof record.name === "string" ? { name: record.name } : {}),
+  };
+}
+
+function templateFromPreviewSlide(
+  packageId: string,
+  masterId: string,
+  kind: ThemePackageTemplateKind,
+  slide: Slide,
+): SlideTemplate {
+  const semanticKind = resolveThemePackageTemplateKind(kind) ?? "content";
+  const metadata = THEME_PACKAGE_TEMPLATE_METADATA[semanticKind];
+  return {
+    id: `theme:${packageId}:${kind}`,
+    name: metadata.label,
+    category: templateCategoryForFamily(metadata.renderFamily),
+    source: "theme",
+    semanticKind,
+    layoutFamily: metadata.renderFamily,
+    styleMode: "theme-aware",
+    accepts: [...metadata.accepts],
+    capacity: clone(metadata.capacity),
+    bindings: clone(metadata.bindings),
+    defaultMasterId: masterId,
+    ...(slide.designOverrides
+      ? { slideDesignDefaults: clone(slide.designOverrides) }
+      : {}),
+    elements: [...(slide.elements ?? [])]
+      .sort((a, b) => ((a as any).zIndex ?? 0) - ((b as any).zIndex ?? 0))
+      .map(templateElementFromSlideElement),
+  };
 }
 
 function roleTokens(spec: ThemeSpec): Record<string, unknown> {
@@ -1132,9 +1163,92 @@ function tokenSet(spec: ThemeSpec): Record<string, unknown> {
   };
 }
 
+function mastersForTheme(spec: ThemeSpec): Record<string, unknown>[] {
+  return [
+    {
+      id: `master-${spec.id}`,
+      name: `${spec.name} Master`,
+      background: bg(spec.masterBackground),
+      elements:
+        spec.id === "aurora"
+          ? []
+          : [
+              {
+                id: "footer",
+                kind: "text",
+                role: "footer",
+                masterChromeKind: "footer",
+                layer: "foreground",
+                locked: true,
+                zIndex: 0,
+                box: { x: 5, y: 93.5, w: 60, h: 4 },
+                content: {
+                  kind: "text",
+                  text: spec.name.toUpperCase(),
+                  paragraphs: [{ text: spec.name.toUpperCase() }],
+                },
+                designOverrides: {
+                  textStyle: {
+                    fontSize: 1.7,
+                    bold: true,
+                    italic: false,
+                    align: "left",
+                    color: spec.palette.muted,
+                    fontId: spec.fonts.heading,
+                  },
+                },
+              },
+              {
+                id: "page-number",
+                kind: "text",
+                role: "pageNumber",
+                masterChromeKind: "pageNumber",
+                layer: "foreground",
+                locked: true,
+                zIndex: 0,
+                box: { x: 88, y: 93.5, w: 7, h: 4 },
+                content: {
+                  kind: "text",
+                  text: "{{pageNumber}}",
+                  paragraphs: [{ text: "{{pageNumber}}" }],
+                },
+                designOverrides: {
+                  textStyle: {
+                    fontSize: 1.7,
+                    bold: true,
+                    italic: false,
+                    align: "right",
+                    color: spec.palette.muted,
+                    fontId: spec.fonts.body,
+                  },
+                },
+              },
+            ],
+    },
+  ];
+}
+
+export function buildThemePackageSource(spec: ThemeSpec): Record<string, unknown> {
+  resetSeq();
+  const masterId = `master-${spec.id}`;
+  const previewSlides = buildTemplatePreviewSlides(spec) as Slide[];
+  return {
+    id: spec.id,
+    name: spec.name,
+    tagline: spec.tagline,
+    accent: spec.palette.accent,
+    tokenSet: tokenSet(spec),
+    masters: mastersForTheme(spec),
+    defaultMasterId: masterId,
+    templates: THEME_PACKAGE_TEMPLATE_KINDS.map((kind, index) =>
+      templateFromPreviewSlide(spec.id, masterId, kind, previewSlides[index]!),
+    ),
+  };
+}
+
 export function buildDeck(spec: ThemeSpec): Record<string, unknown> {
   resetSeq();
-  const slides = buildSemanticSlides(spec).map((slide, index) => ({
+  const slides = buildTemplatePreviewSlides(spec).map((slide, index) => ({
     ...slide,
     index,
   }));
@@ -1145,68 +1259,7 @@ export function buildDeck(spec: ThemeSpec): Record<string, unknown> {
       themeId: `pro-${spec.id}`,
       themeOverrides: { tokenSet: tokenSet(spec) },
     },
-    masters: [
-      {
-        id: `master-${spec.id}`,
-        name: `${spec.name} Master`,
-        background: bg(spec.masterBackground),
-        elements:
-          spec.id === "aurora"
-            ? []
-            : [
-                {
-                  id: "footer",
-                  kind: "text",
-                  role: "footer",
-                  masterChromeKind: "footer",
-                  layer: "foreground",
-                  locked: true,
-                  zIndex: 0,
-                  box: { x: 5, y: 93.5, w: 60, h: 4 },
-                  content: {
-                    kind: "text",
-                    text: spec.name.toUpperCase(),
-                    paragraphs: [{ text: spec.name.toUpperCase() }],
-                  },
-                  designOverrides: {
-                    textStyle: {
-                      fontSize: 1.7,
-                      bold: true,
-                      italic: false,
-                      align: "left",
-                      color: spec.palette.muted,
-                      fontId: spec.fonts.heading,
-                    },
-                  },
-                },
-                {
-                  id: "page-number",
-                  kind: "text",
-                  role: "pageNumber",
-                  masterChromeKind: "pageNumber",
-                  layer: "foreground",
-                  locked: true,
-                  zIndex: 0,
-                  box: { x: 88, y: 93.5, w: 7, h: 4 },
-                  content: {
-                    kind: "text",
-                    text: "{{pageNumber}}",
-                    paragraphs: [{ text: "{{pageNumber}}" }],
-                  },
-                  designOverrides: {
-                    textStyle: {
-                      fontSize: 1.7,
-                      bold: true,
-                      italic: false,
-                      align: "right",
-                      color: spec.palette.muted,
-                      fontId: spec.fonts.body,
-                    },
-                  },
-                },
-              ],
-      },
-    ],
+    masters: mastersForTheme(spec),
     defaultMasterId: `master-${spec.id}`,
     slides,
   };

@@ -1,28 +1,18 @@
-import auroraDeckJson from "./theme-package-decks/aurora.deck.json";
-import clarityDeckJson from "./theme-package-decks/clarity.deck.json";
-import editorialDeckJson from "./theme-package-decks/editorial.deck.json";
-import monolithDeckJson from "./theme-package-decks/monolith.deck.json";
-import noirDeckJson from "./theme-package-decks/noir.deck.json";
-import oceanDeckJson from "./theme-package-decks/ocean.deck.json";
-import pulseDeckJson from "./theme-package-decks/pulse.deck.json";
-import terraDeckJson from "./theme-package-decks/terra.deck.json";
+import auroraPackageJson from "./theme-package-sources/aurora.package.json";
+import clarityPackageJson from "./theme-package-sources/clarity.package.json";
+import editorialPackageJson from "./theme-package-sources/editorial.package.json";
+import monolithPackageJson from "./theme-package-sources/monolith.package.json";
+import noirPackageJson from "./theme-package-sources/noir.package.json";
+import oceanPackageJson from "./theme-package-sources/ocean.package.json";
+import pulsePackageJson from "./theme-package-sources/pulse.package.json";
+import terraPackageJson from "./theme-package-sources/terra.package.json";
 
-import type {
-  Deck,
-  Slide,
-  SlideMaster,
-  SlideTemplate,
-  SlideTemplateElement,
-} from "./deck-core";
-import type { SlideElement } from "./deck-elements";
+import type { Deck, Slide, SlideMaster, SlideTemplate } from "./deck-core";
 import type { PresentationTheme } from "./presentation-theme-types";
-import { resolveThemeTokens } from "./presentation-theme-resolvers";
 import {
-  SEMANTIC_TO_RENDER_FAMILY,
   THEME_PACKAGE_TEMPLATE_KINDS,
   THEME_PACKAGE_TEMPLATE_METADATA,
   resolveThemePackageTemplateKind,
-  templateCategoryForFamily,
   type ThemePackageTemplateGroup,
   type ThemePackageTemplateKind,
   type ThemePackageTemplateMetadata,
@@ -82,7 +72,11 @@ type PackageDeckSource = {
   id: ThemePackageId;
   name: string;
   tagline: string;
-  deck: Deck;
+  accent: string;
+  tokenSet: PresentationTheme;
+  masters: SlideMaster[];
+  defaultMasterId: string;
+  templates: SlideTemplate[];
 };
 
 const PACKAGE_ID_SET = new Set<string>(THEME_PACKAGE_IDS);
@@ -91,76 +85,16 @@ const PACKAGE_ALIASES: Record<string, ThemePackageId> = {
   default: DEFAULT_THEME_PACKAGE_ID,
 };
 
-function baseTemplateIndex(kind: ThemePackageTemplateKind): number {
-  const family = SEMANTIC_TO_RENDER_FAMILY[kind];
-  switch (family) {
-    case "cover":
-      return 0;
-    case "section-divider":
-      return 1;
-    case "two-column":
-    case "matrix-2x2":
-      return 3;
-    case "quote-hero":
-    case "stat-hero":
-      return 4;
-    case "closing":
-      return 5;
-    default:
-      return 2;
-  }
-}
-
-const PACKAGE_DECK_SOURCES: PackageDeckSource[] = [
-  {
-    id: "clarity",
-    name: "Clarity",
-    tagline: "Clean business layouts that keep the content in front.",
-    deck: clarityDeckJson as unknown as Deck,
-  },
-  {
-    id: "ocean",
-    name: "Ocean",
-    tagline: "Clear product and data layouts with blue-green depth.",
-    deck: oceanDeckJson as unknown as Deck,
-  },
-  {
-    id: "aurora",
-    name: "Aurora",
-    tagline: "Modern tech and SaaS keynote layouts.",
-    deck: auroraDeckJson as unknown as Deck,
-  },
-  {
-    id: "monolith",
-    name: "Monolith",
-    tagline: "Corporate and consulting layouts with crisp structure.",
-    deck: monolithDeckJson as unknown as Deck,
-  },
-  {
-    id: "editorial",
-    name: "Editorial",
-    tagline: "Magazine-style brand and report storytelling.",
-    deck: editorialDeckJson as unknown as Deck,
-  },
-  {
-    id: "noir",
-    name: "Noir",
-    tagline: "Premium dark pitch decks with amber accents.",
-    deck: noirDeckJson as unknown as Deck,
-  },
-  {
-    id: "terra",
-    name: "Terra",
-    tagline: "Research and sustainability decks with organic geometry.",
-    deck: terraDeckJson as unknown as Deck,
-  },
-  {
-    id: "pulse",
-    name: "Pulse",
-    tagline: "Launch and marketing layouts with high-contrast energy.",
-    deck: pulseDeckJson as unknown as Deck,
-  },
-];
+const PACKAGE_SOURCES: PackageDeckSource[] = [
+  clarityPackageJson,
+  oceanPackageJson,
+  auroraPackageJson,
+  monolithPackageJson,
+  editorialPackageJson,
+  noirPackageJson,
+  terraPackageJson,
+  pulsePackageJson,
+].map((source) => source as unknown as PackageDeckSource);
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -173,106 +107,19 @@ export function resolveThemePackageTemplateId(
   return `theme:${packageId}:${kind}`;
 }
 
-function templateElementFromSlideElement(
-  element: SlideElement,
-  index: number,
-): SlideTemplateElement {
-  const record = element as unknown as Record<string, unknown>;
-  return {
-    id:
-      typeof record.id === "string"
-        ? record.id
-        : `template-element-${index + 1}`,
-    kind: typeof record.kind === "string" ? record.kind : "shape",
-    ...(typeof record.role === "string" ? { role: record.role } : {}),
-    ...(record.box !== undefined ? { box: clone(record.box) } : {}),
-    ...(record.content !== undefined
-      ? { contentDefaults: clone(record.content as Record<string, unknown>) }
-      : {}),
-    ...(record.designOverrides !== undefined
-      ? {
-          designOverrides: clone(
-            record.designOverrides as Record<string, unknown>,
-          ),
-        }
-      : {}),
-    ...(typeof record.opacity === "number" ? { opacity: record.opacity } : {}),
-    ...(typeof record.rotation === "number"
-      ? { rotation: record.rotation }
-      : {}),
-    ...(typeof record.locked === "boolean" ? { locked: record.locked } : {}),
-    ...(typeof record.name === "string" ? { name: record.name } : {}),
-  };
-}
-
-function templateFromSlide(
-  packageId: ThemePackageId,
-  masterId: string,
-  kind: ThemePackageTemplateKind,
-  slide: Slide,
-): SlideTemplate {
-  const semanticKind = resolveThemePackageTemplateKind(kind) ?? "content";
-  const metadata = THEME_PACKAGE_TEMPLATE_METADATA[semanticKind];
-  const elements = [...(slide.elements ?? [])]
-    .sort((a, b) => ((a as any).zIndex ?? 0) - ((b as any).zIndex ?? 0))
-    .map(templateElementFromSlideElement);
-  return {
-    id: resolveThemePackageTemplateId(packageId, kind),
-    name: metadata.label,
-    category: templateCategoryForFamily(metadata.renderFamily),
-    source: "theme",
-    semanticKind,
-    layoutFamily: metadata.renderFamily,
-    styleMode: "theme-aware",
-    accepts: [...metadata.accepts],
-    capacity: clone(metadata.capacity),
-    bindings: clone(metadata.bindings),
-    defaultMasterId: masterId,
-    ...(slide.designOverrides
-      ? { slideDesignDefaults: clone(slide.designOverrides) }
-      : {}),
-    elements,
-  };
-}
-
 function buildThemePackage(
   source: PackageDeckSource,
 ): PresentationThemePackage {
-  const tokenSet = clone(
-    ((source.deck as any).design?.themeOverrides?.tokenSet ??
-      resolveThemeTokens("default")) as PresentationTheme,
-  );
-  const masters = clone(source.deck.masters ?? []);
-  const defaultMasterId = source.deck.defaultMasterId ?? `master-${source.id}`;
-  const slides = source.deck.slides ?? [];
-  const slideByTemplateId = new Map(
-    slides
-      .filter((slide) => typeof slide.templateId === "string")
-      .map((slide) => [slide.templateId as string, slide]),
-  );
-  const semanticSlide = (kind: ThemePackageTemplateKind): Slide =>
-    slideByTemplateId.get(resolveThemePackageTemplateId(source.id, kind)) ??
-    slides[baseTemplateIndex(kind)] ??
-    slides[2] ??
-    slides[0]!;
+  const tokenSet = clone(source.tokenSet);
   return {
     id: source.id,
     name: source.name,
     tagline: source.tagline,
-    accent: tokenSet.colors.accent,
+    accent: source.accent,
     tokenSet: { ...tokenSet, id: source.id, name: source.name },
-    masters,
-    defaultMasterId,
-    templates: [
-      ...THEME_PACKAGE_TEMPLATE_KINDS.map((kind) =>
-        templateFromSlide(
-          source.id,
-          defaultMasterId,
-          kind,
-          semanticSlide(kind),
-        ),
-      ),
-    ],
+    masters: clone(source.masters),
+    defaultMasterId: source.defaultMasterId,
+    templates: clone(source.templates),
     templateMetadata: THEME_PACKAGE_TEMPLATE_KINDS.map((kind) =>
       clone(THEME_PACKAGE_TEMPLATE_METADATA[kind]),
     ),
@@ -280,7 +127,7 @@ function buildThemePackage(
 }
 
 export const THEME_PACKAGES: readonly PresentationThemePackage[] =
-  PACKAGE_DECK_SOURCES.map(buildThemePackage);
+  PACKAGE_SOURCES.map(buildThemePackage);
 
 const PACKAGE_BY_ID = new Map(
   THEME_PACKAGES.map((themePackage) => [themePackage.id, themePackage]),

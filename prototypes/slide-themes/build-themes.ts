@@ -1,6 +1,7 @@
 /**
- * Builds the professional theme decks, validates each through the real v6
- * deck schema (`safeParseDeck`), and writes the validated JSON to disk.
+ * Builds professional theme preview decks and runtime theme package sources.
+ * Preview decks validate through `safeParseDeck`; package sources validate by
+ * round-tripping as `customTemplates` in a current-schema deck.
  *
  * Run from the repo root:
  *   node --import tsx prototypes/slide-themes/build-themes.ts
@@ -15,16 +16,18 @@ import {
   THEME_PACKAGE_TEMPLATE_KINDS,
   THEME_PACKAGE_TEMPLATE_METADATA,
 } from "@/lib/presentation/theme-template-taxonomy";
-import { buildDeck } from "./theme-kit";
+import { buildDeck, buildThemePackageSource } from "./theme-kit";
 import { THEMES } from "./themes";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "decks");
+const packageOutDir = join(here, "packages");
 const runtimeOutDir = join(
   here,
-  "../../src/lib/presentation/theme-package-decks",
+  "../../src/lib/presentation/theme-package-sources",
 );
 mkdirSync(outDir, { recursive: true });
+mkdirSync(packageOutDir, { recursive: true });
 mkdirSync(runtimeOutDir, { recursive: true });
 
 const manifest: {
@@ -32,6 +35,7 @@ const manifest: {
   name: string;
   tagline: string;
   file: string;
+  packageFile: string;
   slides: number;
   fonts: { heading: string; body: string };
   accent: string;
@@ -55,6 +59,7 @@ for (const spec of THEMES) {
     continue;
   }
   const file = `${spec.id}.deck.json`;
+  const packageFile = `${spec.id}.package.json`;
   writeFileSync(
     join(outDir, file),
     `${JSON.stringify(result.data, null, 2)}\n`,
@@ -70,14 +75,37 @@ for (const spec of THEMES) {
     const expected = `theme:${spec.id}:${kind}`;
     if (!semanticIds.has(expected)) {
       failures += 1;
-      console.error(`✗ ${spec.id} missing semantic source slide ${expected}`);
+      console.error(`✗ ${spec.id} missing template preview slide ${expected}`);
     }
+  }
+  let packageSource: ReturnType<typeof buildThemePackageSource>;
+  try {
+    packageSource = buildThemePackageSource(spec);
+  } catch (error) {
+    failures += 1;
+    console.error(
+      `✗ ${spec.id} package source failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    continue;
+  }
+  const packageValidation = safeParseDeck({
+    ...result.data,
+    customTemplates: packageSource.templates,
+    slides: [],
+  });
+  if (!packageValidation.success) {
+    failures += 1;
+    console.error(
+      `✗ ${spec.id} package source FAILED schema validation: ${packageValidation.error}`,
+    );
+    continue;
   }
   manifest.push({
     id: spec.id,
     name: spec.name,
     tagline: spec.tagline,
     file: `decks/${file}`,
+    packageFile: `packages/${packageFile}`,
     slides,
     fonts: { heading: spec.fonts.heading, body: spec.fonts.body },
     accent: spec.palette.accent,
@@ -96,8 +124,13 @@ for (const spec of THEMES) {
     `✓ ${spec.name.padEnd(10)} valid — ${slides} slides → decks/${file}`,
   );
   writeFileSync(
-    join(runtimeOutDir, file),
-    `${JSON.stringify(result.data, null, 2)}\n`,
+    join(runtimeOutDir, packageFile),
+    `${JSON.stringify(packageSource, null, 2)}\n`,
+    "utf8",
+  );
+  writeFileSync(
+    join(packageOutDir, packageFile),
+    `${JSON.stringify(packageSource, null, 2)}\n`,
     "utf8",
   );
 }

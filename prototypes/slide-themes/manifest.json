@@ -5,6 +5,7 @@
       "name": "Clarity",
       "tagline": "Clean business layouts that keep the content in front.",
       "file": "decks/clarity.deck.json",
+      "packageFile": "packages/clarity.package.json",
       "slides": 27,
       "fonts": {
         "heading": "inter",
@@ -208,6 +209,7 @@
       "name": "Ocean",
       "tagline": "Clear product and data layouts with blue-green depth.",
       "file": "decks/ocean.deck.json",
+      "packageFile": "packages/ocean.package.json",
       "slides": 27,
       "fonts": {
         "heading": "space-grotesk",
@@ -411,6 +413,7 @@
       "name": "Aurora",
       "tagline": "Modern tech & SaaS keynote — luminous gradients, geometric sans.",
       "file": "decks/aurora.deck.json",
+      "packageFile": "packages/aurora.package.json",
       "slides": 27,
       "fonts": {
         "heading": "space-grotesk",
@@ -614,6 +617,7 @@
       "name": "Monolith",
       "tagline": "Corporate & consulting — navy, gold, crisp rules, zero radius.",
       "file": "decks/monolith.deck.json",
+      "packageFile": "packages/monolith.package.json",
       "slides": 27,
       "fonts": {
         "heading": "ibm-plex-sans",
@@ -817,6 +821,7 @@
       "name": "Editorial",
       "tagline": "Magazine & brand storytelling — warm cream, serif display, coral.",
       "file": "decks/editorial.deck.json",
+      "packageFile": "packages/editorial.package.json",
       "slides": 27,
       "fonts": {
         "heading": "source-serif-4",
@@ -1020,6 +1025,7 @@
       "name": "Noir",
       "tagline": "Dark premium pitch deck — near-black canvas, amber accent, glow.",
       "file": "decks/noir.deck.json",
+      "packageFile": "packages/noir.package.json",
       "slides": 27,
       "fonts": {
         "heading": "manrope",
@@ -1223,6 +1229,7 @@
       "name": "Terra",
       "tagline": "Sustainability & research — sage canvas, forest ink, terracotta.",
       "file": "decks/terra.deck.json",
+      "packageFile": "packages/terra.package.json",
       "slides": 27,
       "fonts": {
         "heading": "manrope",
@@ -1426,6 +1433,7 @@
       "name": "Pulse",
       "tagline": "Bold startup & marketing — high-contrast geometry, hot gradient.",
       "file": "decks/pulse.deck.json",
+      "packageFile": "packages/pulse.package.json",
       "slides": 27,
       "fonts": {
         "heading": "space-grotesk",

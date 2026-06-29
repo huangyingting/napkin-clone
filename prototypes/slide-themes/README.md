@@ -21,10 +21,12 @@ output always matches the live schema.
 - `themes.ts` — the eight `ThemeSpec`s (palette, fonts, signature shapes, copy).
 - `render-family-layouts.ts` — render-family grammar (shared family chrome,
   panel/card/image treatments, gradients, shapes, font pairing) so each of the
-  43 semantic templates looks bespoke while templates in the same family stay
+  semantic templates looks bespoke while templates in the same family stay
   visually related.
-- `build-themes.ts` — builds each deck, validates it with the real
-  **`safeParseDeck`** validator, and writes `decks/<id>.deck.json` + `manifest.json`.
+- `build-themes.ts` — builds each preview deck, validates it with the real
+  **`safeParseDeck`** validator, and writes `decks/<id>.deck.json`,
+  `packages/<id>.package.json`, runtime `theme-package-sources/<id>.package.json`,
+  and `manifest.json`.
 - `render-html.mjs` — renders the validated decks into static **HTML previews**
   under `preview/` (one page per theme + an `index.html` gallery). The HTML
   mirrors the live slide canvas exactly: percent-positioned boxes, `cqh` font
@@ -56,9 +58,11 @@ public viewer, and PPTX export all pick up the palette and fonts automatically.
   shape elements. This is intentional and matches the schema.
 - **Color tokens** allowed in `ColorRef` are `slideBg, surface, accent, onBg,
 onSurface, muted`; everything else uses concrete `{ value: "#hex" }`.
-- Each deck includes a source slide for every semantic template kind in
-  `THEME_PACKAGE_TEMPLATE_KINDS`. Shared render-family grammar keeps related
-  templates consistent while allowing background/motif variants.
+- Each preview deck includes a slide for every semantic template kind in
+  `THEME_PACKAGE_TEMPLATE_KINDS`. Runtime packages use the generated
+  `SlideTemplate` sources directly rather than re-reading preview deck slides.
+  Shared render-family grammar keeps related templates consistent while allowing
+  background/motif variants.
 
 ## The eight themes
 
@@ -73,5 +77,6 @@ onSurface, muted`; everything else uses concrete `{ value: "#hex" }`.
 | 7   | **Terra**     | Sustainability / research | Manrope / Source Sans 3        | `#c2683f` | Organic circles/ellipses, earthy radial fields, soft glass     |
 | 8   | **Pulse**     | Bold startup / marketing  | Space Grotesk / Manrope        | `#ec2d6f` | Triangle/diamond motifs, high-contrast fields, energetic glass |
 
-See `manifest.json` for the machine-readable index and `decks/*.deck.json` for
-the full decks.
+See `manifest.json` for the machine-readable index, `decks/*.deck.json` for
+preview decks, and `packages/*.package.json` for runtime template package
+sources.
