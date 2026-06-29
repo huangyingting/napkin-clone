@@ -8,6 +8,7 @@
 
 import {
   collectDocumentBlocks,
+  documentTableBlockToMarkdown,
   type DocumentBlock,
 } from "@/lib/content/document-blocks";
 
@@ -24,6 +25,10 @@ function blockLine(
 ): string | null {
   if (block.kind === "visual") {
     return options.includeVisualMarkers ? `[visual: ${block.visualId}]` : null;
+  }
+
+  if (block.kind === "table") {
+    return documentTableBlockToMarkdown(block);
   }
 
   if (block.blockType === "hr") {

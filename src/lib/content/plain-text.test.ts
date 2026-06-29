@@ -11,6 +11,20 @@ function paragraph(text: string) {
   return { type: "paragraph", children: [{ type: "text", text }] };
 }
 
+function table(rows: string[][], caption?: string) {
+  return {
+    type: "table",
+    ...(caption ? { caption } : {}),
+    children: rows.map((row) => ({
+      type: "tablerow",
+      children: row.map((cell) => ({
+        type: "tablecell",
+        children: [paragraph(cell)],
+      })),
+    })),
+  };
+}
+
 test("extracts one line per top-level block", () => {
   const json = state([paragraph("Hello"), paragraph("World")]);
   assert.equal(lexicalStateToPlainText(json), "Hello\nWorld");
@@ -83,6 +97,25 @@ test("projects every core block type in document order", () => {
   assert.equal(
     lexicalStateToPlainText(json),
     "Title\nIntro paragraph\nfirst\nsecond\nstep one\nstep two\nA wise quote\n---\nAfter the divider",
+  );
+});
+
+test("projects document tables as Markdown pipe tables", () => {
+  const json = state([
+    paragraph("Before"),
+    table(
+      [
+        ["Region", "ARR"],
+        ["NA", "$12M"],
+        ["EU", "$8M"],
+      ],
+      "Revenue assumptions",
+    ),
+    paragraph("After"),
+  ]);
+  assert.equal(
+    lexicalStateToPlainText(json),
+    "Before\nRevenue assumptions\n| Region | ARR |\n| --- | --- |\n| NA | $12M |\n| EU | $8M |\nAfter",
   );
 });
 

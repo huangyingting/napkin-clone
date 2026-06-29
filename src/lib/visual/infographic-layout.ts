@@ -10,7 +10,10 @@
  * consumes this output and draws each block onto an HTML Canvas.
  */
 
-import type { DocumentBlock } from "@/lib/content";
+import {
+  documentTableBlockToMarkdown,
+  type DocumentBlock,
+} from "@/lib/content";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -233,6 +236,13 @@ export function computeInfographicLayout(
         // Default: 16:9 aspect ratio
         blockHeight = Math.round(contentWidth * (9 / 16));
       }
+    } else if (block.kind === "table") {
+      blockHeight = estimateTextHeight(
+        documentTableBlockToMarkdown(block),
+        config.fontBody,
+        contentWidth,
+        config.lineHeight,
+      );
     } else {
       const { blockType, text, level } = block;
 

@@ -64,6 +64,7 @@
     "@lexical/react": "^0.45.0",
     "@lexical/rich-text": "^0.45.0",
     "@lexical/selection": "^0.45.0",
+    "@lexical/table": "^0.45.0",
     "@lexical/utils": "^0.45.0",
     "@lexical/yjs": "^0.45.0",
     "@prisma/adapter-better-sqlite3": "^7.8.0",

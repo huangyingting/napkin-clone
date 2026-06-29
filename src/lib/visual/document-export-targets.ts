@@ -17,7 +17,11 @@ import {
   DEFAULT_INFOGRAPHIC_CONFIG,
   type InfographicConfig,
 } from "@/lib/visual/infographic-layout";
-import type { DocumentBlock, DocumentVisualBlock } from "@/lib/content";
+import {
+  documentTableBlockToMarkdown,
+  type DocumentBlock,
+  type DocumentVisualBlock,
+} from "@/lib/content";
 
 // ---------------------------------------------------------------------------
 // PDF helpers (browser-only)
@@ -163,6 +167,14 @@ export async function exportDocumentAsPDF(
         // on a new portrait page rather than being drawn over the visual.
         curY = MARGIN_MM;
         needsTextPageAfterVisual = true;
+        continue;
+      }
+
+      if (block.kind === "table") {
+        ensureTextPageAfterVisual();
+        writeText(documentTableBlockToMarkdown(block), 10, false);
+        curY += 1;
+        onFirstPage = false;
         continue;
       }
 
@@ -533,6 +545,23 @@ export async function exportDocumentAsInfographic(
         } catch {
           // Skip this visual if rendering fails
         }
+        continue;
+      }
+
+      if (block.kind === "table") {
+        const fs = config.fontBody;
+        ctx.save();
+        ctx.font = `${fs}px sans-serif`;
+        ctx.fillStyle = config.textColor ?? "#15171a";
+        canvasWrapText(
+          ctx,
+          documentTableBlockToMarkdown(block),
+          x,
+          y + fs,
+          contentWidth,
+          fs * config.lineHeight,
+        );
+        ctx.restore();
         continue;
       }
 

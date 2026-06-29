@@ -9,6 +9,7 @@ import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { TablePlugin } from "@lexical/react/LexicalTablePlugin";
 import { $getRoot, type EditorState } from "lexical";
 import { useEffect, type ComponentProps } from "react";
 
@@ -150,6 +151,15 @@ export function createCoreEditorPlugins({
     )),
     createEditorPlugin("list", () => <ListPlugin />),
     createEditorPlugin("link", () => <LinkPlugin />),
+    createEditorPlugin("table", () => (
+      <TablePlugin
+        hasCellMerge={false}
+        hasCellBackgroundColor={false}
+        hasHorizontalScroll={false}
+        hasNestedTables={false}
+        hasTabHandler
+      />
+    )),
     createEditorPlugin("horizontal-rule", () => <HorizontalRulePlugin />),
     createEditorPlugin("autosave", () => (
       <OnChangePlugin

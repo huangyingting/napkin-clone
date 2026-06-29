@@ -103,6 +103,10 @@ test("block insert registry exposes ordered list metadata and remains hidden whe
   assert.equal(number.label, "Numbered list");
   assert.deepEqual(number.keywords, ["numbered", "ordered", "list", "ol"]);
   assert.equal(Boolean(number.run), true);
+  const table = tools.find((tool) => tool.id === "insert-table");
+  assert.ok(table, "expected table insertion tool");
+  assert.equal(table.label, "Table");
+  assert.deepEqual(table.keywords, ["table", "grid", "rows", "columns"]);
 
   assert.deepEqual(toolsFor("block-insert", ctx({ editable: false })), []);
 });

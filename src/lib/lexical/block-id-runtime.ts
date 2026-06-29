@@ -1,6 +1,7 @@
 import { ListItemNode } from "@lexical/list";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { TableNode } from "@lexical/table";
 import {
   $getRoot,
   $isElementNode,
@@ -56,7 +57,8 @@ function isDurableBlockNode(node: LexicalNode): boolean {
     node instanceof HeadingNode ||
     node instanceof QuoteNode ||
     node instanceof HorizontalRuleNode ||
-    node instanceof ListItemNode
+    node instanceof ListItemNode ||
+    node instanceof TableNode
   );
 }
 /* node:coverage ignore next 2 */ /* tsx maps this covered helper signature as uncovered. */
@@ -132,6 +134,7 @@ export function ensureLexicalBlockIdSupport(): void {
   patchNodeClass(QuoteNode as unknown as PatchableNodeClass);
   patchNodeClass(ListItemNode as unknown as PatchableNodeClass);
   patchNodeClass(HorizontalRuleNode as unknown as PatchableNodeClass);
+  patchNodeClass(TableNode as unknown as PatchableNodeClass);
 }
 
 /**
@@ -164,6 +167,9 @@ export function registerBlockIdTransforms(editor: LexicalEditor): () => void {
     }),
     /* node:coverage ignore next 3 */ /* HorizontalRuleNode transform is asserted via registerBlockIdTransforms; tsx maps the callback tail as uncovered. */
     editor.registerNodeTransform(HorizontalRuleNode, (node) => {
+      if (!hasNodeBid(node)) ensureNodeBid(node);
+    }),
+    editor.registerNodeTransform(TableNode, (node) => {
       if (!hasNodeBid(node)) ensureNodeBid(node);
     }),
   ];

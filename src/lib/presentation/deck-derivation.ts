@@ -1,6 +1,10 @@
 /** Pure document-to-deck derivation helpers. */
 
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import {
+  documentTableBlockToMarkdown,
+  type DocumentBlock,
+  type DocumentTextBlock,
+} from "@/lib/content";
 import { fnv1aHash32 } from "@/lib/presentation/fnv-hash";
 import { DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import {
@@ -436,6 +440,21 @@ export function buildDeckFromBlocks(
         current.noteLines.push(trimmed);
       }
       if (!hasContent) hasContent = true;
+      continue;
+    }
+
+    if (block.kind === "table") {
+      const tableText = documentTableBlockToMarkdown(block);
+      if (tableText.trim().length > 0) {
+        if (current.bodyTexts.length < MAX_BULLETS) {
+          current.bodyTexts.push(tableText);
+          current.bodyRuns.push([]);
+          current.bodySources.push(undefined);
+        } else {
+          current.noteLines.push(tableText);
+        }
+        if (!hasContent) hasContent = true;
+      }
       continue;
     }
 

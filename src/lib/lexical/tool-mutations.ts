@@ -12,6 +12,7 @@ import {
   type HeadingTagType,
 } from "@lexical/rich-text";
 import { $patchStyleText, $setBlocksType } from "@lexical/selection";
+import { $createTableNodeWithDimensions } from "@lexical/table";
 import {
   $createParagraphNode,
   $getNodeByKey,
@@ -38,7 +39,8 @@ type BlockInsertKind =
   | "bullet"
   | "number"
   | "quote"
-  | "divider";
+  | "divider"
+  | "table";
 
 function toggleFormat(editor: LexicalEditor, format: TextFormatType): void {
   editor.dispatchCommand(FORMAT_TEXT_COMMAND, format);
@@ -140,6 +142,14 @@ function applyBlockInsert(
     if (top === null || !$isElementNode(top)) {
       return;
     }
+    if (itemKey === "table") {
+      const table = $createTableNodeWithDimensions(2, 2, true);
+      const paragraph = $createParagraphNode();
+      top.replace(table);
+      table.insertAfter(paragraph);
+      paragraph.select();
+      return;
+    }
     const paragraph = $createParagraphNode();
     top.replace(paragraph);
     paragraph.select();
@@ -208,6 +218,8 @@ export const TOOL_RUNNERS = {
     /* Coverage rationale: divider insert runner is asserted; tsx maps object tail as uncovered. */
     /* node:coverage ignore next */
     applyBlockInsert(editor, ctx, "divider"),
+  insertTable: (editor: LexicalEditor, ctx: EditorContextSnapshot) =>
+    applyBlockInsert(editor, ctx, "table"),
 } as const;
 
 export type ToolRunName = keyof typeof TOOL_RUNNERS;

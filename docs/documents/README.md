@@ -22,6 +22,12 @@ and deck shapes are documented in [../data-model/](../data-model/README.md).
 | Dashboard view model        | [`src/lib/dashboard/view-model.ts`](../../src/lib/dashboard/view-model.ts)                       |
 | Onboarding sample document  | [`src/lib/onboarding/seed-sample-document.ts`](../../src/lib/onboarding/seed-sample-document.ts) |
 
+## Plans
+
+| Document                                       | Scope                                                                                     |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [table-support-plan.md](table-support-plan.md) | Planned first-class document table blocks, Lexical table editing, import, and slide flow. |
+
 ## Creation Paths
 
 Template creation resolves a requested template id through the template catalog.

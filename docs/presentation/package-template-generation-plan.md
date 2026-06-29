@@ -126,6 +126,10 @@ DEFAULT_THEME_PACKAGE_ID`.
 - Source extraction preserves already-structured table-like document blocks as
   table slot candidates when available, without adding a broader import parser
   expansion to the first table slice.
+- First-class document table authoring is tracked separately in
+  [../documents/table-support-plan.md](../documents/table-support-plan.md).
+  Document tables feed package-template generation as structured candidates,
+  not automatic one-table-one-slide output.
 - `evidence` and `table` semantic template kinds may share the table render
   family. `evidence` is for proof, source-to-claim, legal, audit, and factual
   support slides; `table` is for general structured data.

@@ -31,6 +31,25 @@ export function documentBlockSignature(block: DocumentBlock): string {
   if (block.kind === "visual") {
     return `visual\x02${block.visualId}`;
   }
+  if (block.kind === "table") {
+    return [
+      "table",
+      `caption\x01${block.caption ?? ""}`,
+      `columns\x01${block.columns
+        .map((column) => `${column.id}\x03${column.label}`)
+        .join("\x04")}`,
+      `rows\x01${block.rows
+        .map(
+          (row) =>
+            `${row.id}\x03${row.cells
+              .map((cell) =>
+                JSON.stringify({ text: cell.text, runs: cell.runs ?? [] }),
+              )
+              .join("\x05")}`,
+        )
+        .join("\x04")}`,
+    ].join("\x02");
+  }
   const parts: string[] = [
     `type\x01${block.blockType}`,
     `text\x01${block.text}`,

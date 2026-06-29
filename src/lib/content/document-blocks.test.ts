@@ -233,7 +233,7 @@ test("text+visual mixed document: blocks maintain exact reading order", () => {
   if (blocks[7].kind === "visual") assert.equal(blocks[7].visualId, "vis-2");
 });
 
-test("collects structured table-like nodes as text blocks with table metadata", () => {
+test("collects structured table-like nodes as first-class table blocks", () => {
   const blocks = collectDocumentBlocks(
     state([
       paragraph("Before"),
@@ -248,18 +248,81 @@ test("collects structured table-like nodes as text blocks with table metadata", 
 
   assert.equal(blocks.length, 3);
   const block = blocks[1];
-  assert.equal(block.kind, "text");
-  if (block.kind === "text") {
-    assert.equal(block.blockType, "paragraph");
+  assert.equal(block.kind, "table");
+  if (block.kind === "table") {
     assert.equal(block.blockId, "table-1");
-    assert.equal(block.text, "Region\tARR\nNA\t$12M\nEU\t$8M");
-    assert.deepEqual(block.table, {
-      columns: ["Region", "ARR"],
-      rows: [
-        ["NA", "$12M"],
-        ["EU", "$8M"],
-      ],
+    assert.deepEqual(block.columns, [
+      { id: "col-1", label: "Region" },
+      { id: "col-2", label: "ARR" },
+    ]);
+    assert.deepEqual(block.rows, [
+      {
+        id: "row-1",
+        cells: [{ text: "NA" }, { text: "$12M" }],
+      },
+      {
+        id: "row-2",
+        cells: [{ text: "EU" }, { text: "$8M" }],
+      },
+    ]);
+  }
+});
+
+test("collects rich text runs inside table cells", () => {
+  const blocks = collectDocumentBlocks(
+    state([
+      {
+        type: "table",
+        children: [
+          {
+            type: "tablerow",
+            children: [
+              { type: "tablecell", children: [paragraph("Name")] },
+              { type: "tablecell", children: [paragraph("Status")] },
+            ],
+          },
+          {
+            type: "tablerow",
+            children: [
+              { type: "tablecell", children: [paragraph("Task")] },
+              {
+                type: "tablecell",
+                children: [richParagraph([richText("Done", { format: 1 })])],
+              },
+            ],
+          },
+        ],
+      },
+    ]),
+  );
+
+  const block = blocks[0];
+  assert.equal(block.kind, "table");
+  if (block.kind === "table") {
+    assert.deepEqual(block.rows[0].cells[1], {
+      text: "Done",
+      runs: [{ text: "Done", bold: true }],
     });
+  }
+});
+
+test("collectDocumentBlocks pads ragged table rows to the column count", () => {
+  const blocks = collectDocumentBlocks(
+    state([
+      table([
+        ["A", "B", "C"],
+        ["1", "2"],
+      ]),
+    ]),
+  );
+  const block = blocks[0];
+  assert.equal(block.kind, "table");
+  if (block.kind === "table") {
+    assert.deepEqual(block.rows[0].cells, [
+      { text: "1" },
+      { text: "2" },
+      { text: "" },
+    ]);
   }
 });
 

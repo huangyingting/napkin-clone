@@ -331,6 +331,16 @@ export const BLOCK_INSERT_TOOL_METADATA: readonly ToolMetadata[] = [
     when: "editable",
     run: "insertDivider",
   },
+  {
+    id: "insert-table",
+    group: "block-insert",
+    label: "Table",
+    icon: "table",
+    description: "Insert a simple table",
+    keywords: ["table", "grid", "rows", "columns"],
+    when: "editable",
+    run: "insertTable",
+  },
 ];
 
 export const VISUAL_INSERT_TOOL_METADATA: readonly ToolMetadata[] =

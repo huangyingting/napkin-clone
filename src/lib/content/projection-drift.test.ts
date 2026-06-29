@@ -37,6 +37,9 @@ function summarizeBlocks(blocks: ReadonlyArray<DocumentBlock>) {
     if (block.kind === "visual") {
       return `visual:${block.visualId}`;
     }
+    if (block.kind === "table") {
+      return `table:${block.columns.map((column) => column.label).join("|")}`;
+    }
     return `${block.blockType}:${block.level ?? ""}:${block.text}`;
   });
 }

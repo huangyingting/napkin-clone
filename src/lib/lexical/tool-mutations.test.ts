@@ -12,6 +12,7 @@ import {
 } from "@lexical/list";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import {
   $createParagraphNode,
   $createTextNode,
@@ -61,6 +62,9 @@ function makeEditor(): LexicalEditor {
       ListNode,
       ListItemNode,
       LinkNode,
+      TableNode,
+      TableRowNode,
+      TableCellNode,
       HorizontalRuleNode,
     ],
     onError(error) {
@@ -276,6 +280,14 @@ test("block insert runners replace the selected block using block key and fallba
   TOOL_RUNNERS.insertQuote(editor, ctx({ blockKey: undefined }));
   await tick();
   assert.equal(firstBlock(editor).getType(), "quote");
+});
+
+test("insertTable runner replaces the selected block with a simple table", async () => {
+  const editor = makeEditor();
+  const blockKey = seedParagraph(editor, "replace me");
+  TOOL_RUNNERS.insertTable(editor, ctx({ blockKey }));
+  await tick();
+  assert.equal(firstNodeType(editor), "table");
 });
 
 test("block insertion no-ops when no block can be resolved and visual insert dispatches transient keys", async () => {

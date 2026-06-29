@@ -30,7 +30,11 @@ import {
   AI_VISUAL_INVENTORY_MAX_ITEMS,
 } from "@/lib/limits";
 import type { TextRun } from "@/lib/presentation/deck";
-import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
+import {
+  collectDocumentBlocks,
+  documentTableBlockToMarkdown,
+  type DocumentBlock,
+} from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 
 /** One entry in the inventory the model may reference (mirrors generateDeck). */
@@ -96,6 +100,10 @@ function blockContent(block: Extract<DocumentBlock, { kind: "text" }>): string {
 function serializeBlock(block: DocumentBlock): string | null {
   if (block.kind === "visual") {
     return `[visual: ${block.visualId}]`;
+  }
+
+  if (block.kind === "table") {
+    return documentTableBlockToMarkdown(block);
   }
 
   if (block.blockType === "hr") {

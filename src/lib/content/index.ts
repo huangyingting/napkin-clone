@@ -28,11 +28,16 @@ export {
   blockRichText,
   collectDocumentBlocks,
   computePageBreaks,
+  documentTableBlockToMarkdown,
   PAGE_SIZE_DIMENSIONS,
 } from "@/lib/content/document-blocks";
 /* node:coverage ignore next 7 -- Document block type facade exports are erased by tsx. */
 export type {
   DocumentBlock,
+  DocumentTableBlock,
+  DocumentTableCell,
+  DocumentTableColumn,
+  DocumentTableRow,
   DocumentTextBlock,
   DocumentVisualBlock,
   PageSize,

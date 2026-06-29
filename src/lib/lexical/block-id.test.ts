@@ -5,6 +5,7 @@ import { createHeadlessEditor } from "@lexical/headless";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import {
   $createParagraphNode,
   $createTextNode,
@@ -145,7 +146,16 @@ function makeHeadlessEditor() {
   ensureLexicalBlockIdSupport();
   const editor = createHeadlessEditor({
     namespace: "block-id-test",
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, HorizontalRuleNode],
+    nodes: [
+      HeadingNode,
+      QuoteNode,
+      ListNode,
+      ListItemNode,
+      HorizontalRuleNode,
+      TableNode,
+      TableRowNode,
+      TableCellNode,
+    ],
     onError(error) {
       throw error;
     },
@@ -171,6 +181,7 @@ test("BLOCK_NODE_TYPES contains every bid-carrying block node type", () => {
     "listitem",
     "paragraph",
     "quote",
+    "table",
   ]);
 });
 
@@ -392,6 +403,7 @@ test("block id runtime registers and unregisters every durable node transform", 
     "QuoteNode",
     "ListItemNode",
     "HorizontalRuleNode",
+    "TableNode",
   ]);
   assert.deepEqual(unregistered, registered);
 });
@@ -420,9 +432,13 @@ test("block id runtime transform stamps bidless horizontal rules", () => {
   const horizontalRuleTransform = transforms.find(
     ({ klassName }) => klassName === "HorizontalRuleNode",
   )?.transform;
+  const tableTransform = transforms.find(
+    ({ klassName }) => klassName === "TableNode",
+  )?.transform;
   assert.ok(quoteTransform, "expected QuoteNode transform");
   assert.ok(listItemTransform, "expected ListItemNode transform");
   assert.ok(horizontalRuleTransform, "expected HorizontalRuleNode transform");
+  assert.ok(tableTransform, "expected TableNode transform");
 
   const bidlessNode = {
     getWritable() {
@@ -434,6 +450,8 @@ test("block id runtime transform stamps bidless horizontal rules", () => {
   listItemTransform(bidlessNode);
   delete bidlessNode.__bid;
   horizontalRuleTransform(bidlessNode);
+  delete bidlessNode.__bid;
+  tableTransform(bidlessNode);
   assert.match(String(bidlessNode.__bid), /^[A-Za-z0-9]{12}$/);
 
   const stampedNode = {
@@ -443,6 +461,7 @@ test("block id runtime transform stamps bidless horizontal rules", () => {
     },
   };
   horizontalRuleTransform(stampedNode);
+  tableTransform(stampedNode);
   assert.equal(stampedNode.__bid, "existing-block-id");
 
   unregister();

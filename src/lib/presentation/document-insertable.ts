@@ -19,7 +19,11 @@
  *    from the slide-editor call-site is tracked in issue #377.
  */
 
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import {
+  documentTableBlockToMarkdown,
+  type DocumentBlock,
+  type DocumentTextBlock,
+} from "@/lib/content";
 
 import {
   buildVisualElement,
@@ -117,6 +121,22 @@ export function buildInsertables(
       out.push({
         kind: "visual",
         visualId: block.visualId,
+        contentHash: hashDocumentBlock(block),
+      });
+      continue;
+    }
+    if (block.kind === "table") {
+      const text = documentTableBlockToMarkdown(block);
+      if (text.trim() === "") continue;
+      out.push({
+        kind: "text",
+        label: toLabel(
+          block.caption ??
+            block.columns.map((column) => column.label).join(" / "),
+        ),
+        text,
+        heading: false,
+        ...(block.blockId ? { blockId: block.blockId } : {}),
         contentHash: hashDocumentBlock(block),
       });
       continue;

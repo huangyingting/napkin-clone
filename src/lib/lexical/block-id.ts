@@ -34,6 +34,7 @@ export const BLOCK_NODE_TYPES = new Set([
   "quote",
   "horizontalrule",
   "listitem",
+  "table",
 ]);
 
 type MutableJsonRecord = Record<string, unknown>;

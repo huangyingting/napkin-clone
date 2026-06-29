@@ -5,6 +5,7 @@ import { ListItemNode, ListNode } from "@lexical/list";
 import { LexicalCollaboration } from "@lexical/react/LexicalCollaborationContext";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
+import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import type { EditorThemeClasses, Klass, LexicalNode } from "lexical";
 import { SlidersHorizontal } from "lucide-react";
@@ -75,6 +76,11 @@ const theme: EditorThemeClasses = {
   hr: "my-6 border-0 border-t border-ds-border-strong",
   visual: "my-2",
   link: "text-ds-accent-text underline underline-offset-2",
+  table: "my-4 w-full border-collapse overflow-hidden rounded-ds-md text-sm",
+  tableCell: "border border-ds-border-subtle px-2 py-1.5 align-top leading-6",
+  tableCellHeader:
+    "border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 text-left font-semibold leading-6",
+  tableRow: "align-top",
   list: {
     ul: "mb-3 ml-6 list-disc",
     ol: "mb-3 ml-6 list-decimal",
@@ -97,6 +103,9 @@ const NODES: Array<Klass<LexicalNode>> = [
   ListNode,
   ListItemNode,
   LinkNode,
+  TableNode,
+  TableRowNode,
+  TableCellNode,
   HorizontalRuleNode,
   VisualNode,
 ];
