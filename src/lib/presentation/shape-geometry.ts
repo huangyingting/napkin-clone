@@ -1,5 +1,13 @@
 import type { ElementBox, ShapeKind } from "./deck-elements";
 
+/**
+ * Fixed-aspect semantic shapes (`circle`, `square`) keep the same outer layout
+ * box as any other element, but render as the largest centered square inside
+ * that box. Canvas callers must use `inscribedElementBox` because percentage
+ * boxes need slide aspect-ratio math; SVG/PPTX callers already work in real
+ * units and can use `shapeRenderBox` directly.
+ */
+
 export interface RectLike {
   x: number;
   y: number;
@@ -25,6 +33,13 @@ export function inscribedSquareBox<T extends RectLike>(box: T): T {
     w: side,
     h: side,
   };
+}
+
+export function shapeRenderBox<T extends RectLike>(
+  shape: ShapeKind,
+  box: T,
+): T {
+  return isInscribedShape(shape) ? inscribedSquareBox(box) : box;
 }
 
 export function inscribedElementBox(

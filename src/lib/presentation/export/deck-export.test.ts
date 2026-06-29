@@ -1027,6 +1027,34 @@ test("slide image export renders radial glass shapes and triangle image masks", 
   assert.match(svg, /<clipPath id="slide-0-1-clip"><polygon/);
 });
 
+test("slide image export renders circle and square as fixed-aspect inscribed shapes", async () => {
+  const deck: Deck = buildDeck({
+    design: { themeId: "indigo" },
+    slides: [
+      freeFormSlide(0, [
+        fixtureShapeElement("fixed-circle", {
+          shape: "circle",
+          box: { x: 10, y: 10, w: 30, h: 20 },
+        }),
+        fixtureShapeElement("fixed-square", {
+          shape: "square",
+          box: { x: 50, y: 10, w: 30, h: 20 },
+        }),
+      ]),
+    ],
+  });
+
+  const blob = await exportDeckAsSlideImages(deck, new Map(), NO_SVG);
+  assert.ok(blob, "expected a slide-image ZIP blob");
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const svg = await zip.file("slide-01.svg")?.async("string");
+
+  assert.ok(svg, "expected slide-01.svg in the ZIP");
+  assert.match(svg, /<ellipse[^>]+rx="90" ry="90"/);
+  assert.match(svg, /<rect[^>]+width="180" height="180"/);
+});
+
 test("slide image export renders native ellipse, diamond, and hexagon visual specs", async () => {
   const shapedVisual = buildVisual({
     version: 1,

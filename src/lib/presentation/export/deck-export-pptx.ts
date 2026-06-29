@@ -19,10 +19,7 @@ import {
   deckGeometry,
   toExportTextStyle,
 } from "@/lib/presentation/export/deck-export-spec";
-import {
-  inscribedSquareBox,
-  isInscribedShape,
-} from "@/lib/presentation/shape-geometry";
+import { shapeRenderBox } from "@/lib/presentation/shape-geometry";
 /* Type-only aliases are erased by tsx. */
 /* node:coverage ignore next 10 */
 import type {
@@ -210,9 +207,7 @@ function renderStyledShapeSvg(
   if (typeof DOMParser === "undefined") return null;
   const width = Math.max(1, Math.round(op.w * pxPerIn));
   const height = Math.max(1, Math.round(op.h * pxPerIn));
-  const box = isInscribedShape(op.shape)
-    ? inscribedSquareBox({ x: 0, y: 0, w: width, h: height })
-    : { x: 0, y: 0, w: width, h: height };
+  const box = shapeRenderBox(op.shape, { x: 0, y: 0, w: width, h: height });
   const fill = op.fill ?? op.color;
   const preset = op.effect ? GLASS_PRESETS[op.effect.intensity] : undefined;
   const outerStyle = "position:relative;width:100%;height:100%;";
@@ -475,7 +470,7 @@ export function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
 function applyShapeTextOp(slide: PptxSlide, op: DeckShapeOp): void {
   const labelText = op.text ?? "";
   if (labelText.length === 0 || op.shape === "line") return;
-  const textBox = isInscribedShape(op.shape) ? inscribedSquareBox(op) : op;
+  const textBox = shapeRenderBox(op.shape, op);
   /* node:coverage disable */
   /* Shape-label text options are asserted by PPTX applier tests; tsx maps object-literal rows as residual. */
   applyTextOp(slide, {
@@ -549,9 +544,7 @@ export function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
         : op.radius
           ? SHAPES.roundRect
           : SHAPES.rect;
-  const drawOp = isInscribedShape(op.shape)
-    ? { ...op, ...inscribedSquareBox(op) }
-    : op;
+  const drawOp = { ...op, ...shapeRenderBox(op.shape, op) };
   slide.addShape(shapeName, {
     x: drawOp.x,
     y: drawOp.y,

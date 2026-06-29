@@ -19,10 +19,7 @@ import {
   deckGeometry,
   toExportTextStyle,
 } from "@/lib/presentation/export/deck-export-spec";
-import {
-  inscribedSquareBox,
-  isInscribedShape,
-} from "@/lib/presentation/shape-geometry";
+import { shapeRenderBox } from "@/lib/presentation/shape-geometry";
 /* node:coverage ignore next 11 */
 /* Type-only aliases are erased by tsx. */
 import type {
@@ -367,9 +364,7 @@ function renderGlassShapeSvg(
   fill: NonNullable<DeckShapeOp["fill"]>,
   pxPerIn: number,
 ): string {
-  const drawOp = isInscribedShape(op.shape)
-    ? { ...op, ...inscribedSquareBox(op) }
-    : op;
+  const drawOp = { ...op, ...shapeRenderBox(op.shape, op) };
   const preset = GLASS_PRESETS[drawOp.effect?.intensity ?? "medium"];
   const x = px(drawOp.x, pxPerIn);
   const y = px(drawOp.y, pxPerIn);
@@ -403,9 +398,7 @@ function renderShapeSvg(
   id: string,
   pxPerIn: number,
 ): { defs: string[]; body: string } {
-  const drawOp = isInscribedShape(op.shape)
-    ? { ...op, ...inscribedSquareBox(op) }
-    : op;
+  const drawOp = { ...op, ...shapeRenderBox(op.shape, op) };
   const x = drawOp.x * pxPerIn;
   const y = drawOp.y * pxPerIn;
   const w = drawOp.w * pxPerIn;
