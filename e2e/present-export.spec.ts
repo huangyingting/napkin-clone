@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { login } from "./helpers/auth";
 import {
@@ -8,7 +8,9 @@ import {
   e2eProfileEnabled,
   profileDocPath,
   profileOwnerCredentials,
+  profilePresentEmbedPath,
   profilePresentPath,
+  profileViewerCredentials,
 } from "./helpers/profile";
 
 /**
@@ -29,14 +31,57 @@ import {
  */
 
 const SLIDE_TEXT = E2E_PROFILE_FIXTURE.slideTitleText;
+const SECOND_SLIDE_TEXT = E2E_PROFILE_FIXTURE.slideTwoTitleText;
+
+async function clickNextPublicSlide(page: Page) {
+  await expect(async () => {
+    await page.getByRole("button", { name: "Next slide" }).last().click();
+    await expect(page).toHaveURL(/#2$/, { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+}
 
 test.describe("present + export", () => {
   test.skip(
     !e2eProfileEnabled(),
     "Set E2E_PROFILE=1 and seed (npm run db:seed:e2e) to run present/export",
   );
+  // Authenticated tests need login + navigation which can exceed the default
+  // 30 s under dev-server load (2-worker parallel run).
+  test.setTimeout(90_000);
+  // One retry absorbs the occasional login timeout caused by the concurrent
+  // slide-editor serial test saturating the dev server briefly.
+  test.describe.configure({ retries: 1 });
 
   test("authenticated present mode renders the seeded slide text", async ({
+    page,
+  }) => {
+    await login(page, profileOwnerCredentials());
+    await page.goto(profileDocPath());
+
+    const presentBtn = page.getByRole("button", { name: /^Present / });
+    await expect(
+      presentBtn,
+      "present: Present button not found in editor toolbar",
+    ).toBeVisible({ timeout: 20_000 });
+
+    const presentRegion = page.getByRole("region", { name: "Presentation" });
+    // Retry the click in case the first attempt fires before the overlay
+    // transition is ready (e.g. cold server start or high initial load).
+    await expect(async () => {
+      await presentBtn.click();
+      await expect(presentRegion).toBeVisible({ timeout: 2_000 });
+    }, "present: presentation overlay did not open").toPass({
+      timeout: 25_000,
+    });
+
+    // Non-blank assertion: the seeded title text must render on the slide.
+    await expect(
+      presentRegion.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "present: seeded slide text not rendered (blank slide)",
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("authenticated present mode exposes presenter controls and slide overview navigation", async ({
     page,
   }) => {
     await login(page, profileOwnerCredentials());
@@ -55,11 +100,67 @@ test.describe("present + export", () => {
       "present: presentation overlay did not open",
     ).toBeVisible({ timeout: 20_000 });
 
-    // Non-blank assertion: the seeded title text must render on the slide.
+    const progress = presentRegion.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(progress, "present: progress meter missing").toHaveAttribute(
+      "aria-valuemax",
+      "2",
+    );
+    await expect(progress).toHaveAttribute("aria-valuenow", "1");
+
     await expect(
-      presentRegion.getByText(SLIDE_TEXT, { exact: false }),
-      "present: seeded slide text not rendered (blank slide)",
+      presentRegion.getByRole("button", { name: "Show keyboard shortcuts" }),
+      "present: keyboard-help control missing",
+    ).toBeVisible();
+    await expect(
+      presentRegion.getByRole("button", { name: "Show slide overview" }),
+      "present: slide-overview control missing",
+    ).toBeVisible();
+    await expect(
+      presentRegion.getByRole("button", { name: "Show speaker notes" }),
+      "present: speaker-notes control missing",
+    ).toBeVisible();
+
+    await presentRegion
+      .getByRole("button", { name: "Show presenter timer" })
+      .click();
+    await expect(
+      presentRegion.getByLabel(/Elapsed time/),
+      "present: presenter timer did not become visible",
+    ).toBeVisible();
+
+    await presentRegion
+      .getByRole("button", { name: "Show speaker notes" })
+      .click();
+    await expect(
+      presentRegion.getByText("Current slide notes"),
+      "present: speaker notes panel did not open",
+    ).toBeVisible();
+    await expect(
+      presentRegion.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "present: up-next preview should include the second seeded slide",
+    ).toBeVisible();
+
+    await presentRegion
+      .getByRole("button", { name: "Show slide overview" })
+      .click();
+    const overview = page.getByRole("dialog", { name: "Slide overview" });
+    await expect(
+      overview,
+      "present: slide overview dialog missing",
+    ).toBeVisible();
+    await overview
+      .getByRole("button", {
+        name: new RegExp(`Jump to slide 2, ${SECOND_SLIDE_TEXT}`),
+      })
+      .click();
+
+    await expect(
+      presentRegion.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "present: overview jump did not render the second slide",
     ).toBeVisible({ timeout: 15_000 });
+    await expect(progress).toHaveAttribute("aria-valuenow", "2");
   });
 
   test("public present mode renders the seeded deck via the share link", async ({
@@ -83,6 +184,280 @@ test.describe("present + export", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
+  test("public present mode supports deterministic slide navigation", async ({
+    page,
+  }) => {
+    const response = await page.goto(profilePresentPath());
+    expect(
+      response?.status(),
+      "present: public present link should resolve (200)",
+    ).toBe(200);
+
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    await expect(region).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "present: first seeded slide missing on public present page",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const progress = region.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(progress).toHaveAttribute("aria-valuemax", "2");
+    await expect(progress).toHaveAttribute("aria-valuenow", "1");
+
+    await clickNextPublicSlide(page);
+    await expect(
+      page.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "present: next navigation did not show second seeded slide",
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(progress).toHaveAttribute("aria-valuenow", "2");
+
+    await expect(async () => {
+      await page.keyboard.press("Home");
+      await expect(progress).toHaveAttribute("aria-valuenow", "1", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(
+      page.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "present: Home shortcut did not return to the first slide",
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/#1$/);
+  });
+
+  test("public presentation embed route renders chrome-free navigation", async ({
+    page,
+  }) => {
+    const response = await page.goto(profilePresentEmbedPath());
+    expect(
+      response?.status(),
+      "embed: presentation embed link should resolve (200)",
+    ).toBe(200);
+
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    await expect(
+      region,
+      "embed: public presentation region missing",
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "embed: seeded slide text missing on presentation embed page",
+    ).toBeVisible({ timeout: 15_000 });
+
+    await expect(
+      page.getByLabel("Presentation controls"),
+      "embed: presentation embed should suppress top HUD controls",
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("progressbar", { name: "Presentation progress" }),
+      "embed: presentation embed should suppress the top progress HUD",
+    ).toHaveCount(0);
+
+    await clickNextPublicSlide(page);
+    await expect(
+      page.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "embed: bottom navigation did not show second seeded slide",
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("public present mode supports keyboard ArrowRight and ArrowLeft navigation", async ({
+    page,
+  }) => {
+    const response = await page.goto(profilePresentPath());
+    expect(
+      response?.status(),
+      "present: public present link should resolve (200)",
+    ).toBe(200);
+
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    await expect(region).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "present: first slide should be visible before ArrowRight",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const progress = region.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(progress).toHaveAttribute("aria-valuenow", "1");
+
+    // ArrowRight advances to the second slide.
+    await expect(async () => {
+      await page.keyboard.press("ArrowRight");
+      await expect(progress).toHaveAttribute("aria-valuenow", "2", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(
+      page.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "present: ArrowRight did not advance to the second slide",
+    ).toBeVisible({ timeout: 15_000 });
+
+    // ArrowLeft returns to the first slide.
+    await expect(async () => {
+      await page.keyboard.press("ArrowLeft");
+      await expect(progress).toHaveAttribute("aria-valuenow", "1", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(
+      page.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "present: ArrowLeft did not return to the first slide",
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("public present mode End key navigates to the last slide", async ({
+    page,
+  }) => {
+    const response = await page.goto(profilePresentPath());
+    expect(
+      response?.status(),
+      "present: public present link should resolve (200)",
+    ).toBe(200);
+
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    await expect(region).toBeVisible({ timeout: 20_000 });
+
+    const progress = region.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(progress).toHaveAttribute("aria-valuenow", "1");
+
+    await expect(async () => {
+      await page.keyboard.press("End");
+      await expect(progress).toHaveAttribute("aria-valuenow", "2", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(
+      page.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "present: End key did not navigate to the last slide",
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/#2$/);
+  });
+
+  test("authenticated present mode closes overlay on Escape", async ({
+    page,
+  }) => {
+    await login(page, profileOwnerCredentials());
+    await page.goto(profileDocPath());
+
+    const presentBtn = page.getByRole("button", { name: /^Present / });
+    await expect(
+      presentBtn,
+      "present: Present button not found in editor toolbar",
+    ).toBeVisible({ timeout: 20_000 });
+
+    const presentRegion = page.getByRole("region", { name: "Presentation" });
+    // Use retry wrapper (same pattern as export menu) in case the first click
+    // doesn't register before the overlay transition completes.
+    await expect(async () => {
+      await presentBtn.click();
+      await expect(presentRegion).toBeVisible({ timeout: 2_000 });
+    }, "present: presentation overlay did not open").toPass({
+      timeout: 25_000,
+    });
+
+    // Wait for slide content so React effects (including the keyboard shortcut
+    // handler) are guaranteed to have run before we press Escape.
+    await expect(
+      presentRegion.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "present: seeded slide text should render after overlay opens",
+    ).toBeVisible({ timeout: 10_000 });
+    // Ensure the overlay container has keyboard focus before pressing Escape.
+    await presentRegion.focus();
+    // Use retry wrapper: the first Escape press may land before the shortcut
+    // handler registers in environments with slow effect scheduling.
+    await expect(async () => {
+      await page.keyboard.press("Escape");
+      await expect(presentRegion).not.toBeVisible({ timeout: 2_000 });
+    }, "present: Escape key should close the presentation overlay").toPass({
+      timeout: 15_000,
+    });
+    // The editor toolbar should remain accessible after closing.
+    await expect(
+      presentBtn,
+      "present: Present button should still be visible after closing overlay",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("viewer user can open the public presentation link", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    try {
+      const viewerPage = await ctx.newPage();
+      await login(viewerPage, profileViewerCredentials());
+
+      const response = await viewerPage.goto(profilePresentPath());
+      expect(
+        response?.status(),
+        "present: public link must be accessible to an authenticated viewer (200)",
+      ).toBe(200);
+
+      const region = viewerPage.getByRole("region", { name: /^Presentation/ });
+      await expect(
+        region,
+        "present: presentation region must render for a viewer",
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(
+        viewerPage.getByText(SLIDE_TEXT, { exact: false }).first(),
+        "present: seeded slide text must be visible to the viewer",
+      ).toBeVisible({ timeout: 15_000 });
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("public present direct deep-link to slide 2 renders the second slide", async ({
+    page,
+  }) => {
+    const response = await page.goto(`${profilePresentPath()}#2`);
+    expect(
+      response?.status(),
+      "present: deep-link to slide 2 should resolve (200)",
+    ).toBe(200);
+
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    await expect(region).toBeVisible({ timeout: 20_000 });
+
+    const progress = region.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(
+      progress,
+      "present: deep-link to #2 should start on slide 2",
+    ).toHaveAttribute("aria-valuenow", "2", { timeout: 15_000 });
+    await expect(
+      page.getByText(SECOND_SLIDE_TEXT, { exact: false }).first(),
+      "present: deep-link did not render the second seeded slide",
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("public presentation embed mode Previous slide button returns to first slide", async ({
+    page,
+  }) => {
+    // Start on slide 2 via deep-link so there is a previous slide to navigate to.
+    const response = await page.goto(`${profilePresentEmbedPath()}#2`);
+    expect(
+      response?.status(),
+      "embed: deep-link to slide 2 should resolve (200)",
+    ).toBe(200);
+
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    await expect(region).toBeVisible({ timeout: 20_000 });
+
+    await expect(async () => {
+      await page.getByRole("button", { name: "Previous slide" }).last().click();
+      await expect(page).toHaveURL(/#1$/, { timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await expect(
+      page.getByText(SLIDE_TEXT, { exact: false }).first(),
+      "embed: Previous slide button did not return to the first slide",
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
   test("exports a real PDF file with nonzero bytes", async ({ page }) => {
     await login(page, profileOwnerCredentials());
     await page.goto(profileDocPath());
@@ -92,15 +467,18 @@ test.describe("present + export", () => {
       exportBtn,
       "export: Export button not found in editor toolbar",
     ).toBeVisible({ timeout: 20_000 });
-    await exportBtn.click();
 
     const menu = page.getByRole("menu", { name: "Export document" });
+    await expect(async () => {
+      await exportBtn.click();
+      await expect(menu).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
     await expect(menu, "export: export menu did not open").toBeVisible();
 
     // PDF is always available (no plan gating); it produces a real blob
     // download via an anchor click (src/lib/visual/export.ts).
     const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
-    await menu.getByRole("menuitem", { name: "PDF" }).click();
+    await menu.getByRole("menuitem", { name: /^PDF\b/ }).click();
 
     const download = await downloadPromise;
     expect(
