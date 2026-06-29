@@ -37,8 +37,12 @@
       "default": {
         "slide": {
           "background": {
-            "type": "solid",
-            "color": "#06080a"
+            "type": "pattern",
+            "kind": "scanlines",
+            "color": "rgba(57,255,136,.22)",
+            "background": "#06080a",
+            "spacingPct": 8,
+            "strokeWidthPct": 0.18
           },
           "chrome": "minimal",
           "decoration": "expressive"
@@ -49,10 +53,14 @@
       "default": {
         "slide": {
           "background": {
-            "type": "solid",
-            "color": {
+            "type": "pattern",
+            "kind": "scanlines",
+            "color": "rgba(57,255,136,.16)",
+            "background": {
               "token": "colors.canvas.fill"
-            }
+            },
+            "spacingPct": 8,
+            "strokeWidthPct": 0.08
           },
           "chrome": "default",
           "decoration": "default"
@@ -399,18 +407,21 @@
       "layout": {
         "frame": {
           "x": 0,
-          "y": 12,
+          "y": 0,
           "w": 100,
-          "h": 0.18
+          "h": 100
         },
         "zIndex": 0
       },
       "style": {
         "fill": {
-          "type": "solid",
-          "color": "#39ff88"
+          "type": "pattern",
+          "kind": "scanlines",
+          "color": "#39ff88",
+          "spacingPct": 8,
+          "strokeWidthPct": 0.08
         },
-        "opacity": 0.34
+        "opacity": 0.55
       },
       "content": {
         "type": "shape",

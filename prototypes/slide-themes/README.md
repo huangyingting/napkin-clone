@@ -49,6 +49,9 @@ adapters consume the render tree.
   `SlideNode` trees and visual language comes from package style refs.
 - **Theme packages own tokens, styles, and decorations only.** Semantic template
   layout stays in `src/lib/presentation-vnext/theme-packages.ts`.
+- Rich backgrounds from the original style decks are expressed as v7 fills and
+  decorations: conic gradients, repeating gradients, grid/dot/scanline patterns,
+  glass cards, blurred glow fields, hard shadows, rings, and silk overlays.
 - Each preview deck includes a slide for every semantic template kind in
   `SEMANTIC_TEMPLATE_KINDS` and is validated with `safeParseDeckV7`.
 

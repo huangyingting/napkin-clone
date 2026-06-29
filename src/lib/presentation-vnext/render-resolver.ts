@@ -221,6 +221,20 @@ function resolveDecorations(
   for (const recipe of Object.values(pkg.decorations)) {
     if (disabledIds.has(recipe.id)) continue;
 
+    if (
+      recipe.appliesTo?.templateKinds &&
+      !recipe.appliesTo.templateKinds.includes(slide.template.kind)
+    ) {
+      continue;
+    }
+    if (
+      recipe.appliesTo?.layoutIds &&
+      (slide.template.layoutId === undefined ||
+        !recipe.appliesTo.layoutIds.includes(slide.template.layoutId))
+    ) {
+      continue;
+    }
+
     // Filter by visibility level
     if (recipe.visibility) {
       const recipeRank = DECORATION_VISIBILITY_RANK[recipe.visibility] ?? 2;

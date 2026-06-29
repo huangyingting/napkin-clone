@@ -49,6 +49,8 @@ export type TextStyle = {
 
 export type GradientStop = { color: ColorValue; offsetPct: number };
 
+export type PatternFillKind = "grid" | "dots" | "stripes" | "scanlines";
+
 export type FillStyle =
   | { type: "solid"; color: ColorValue }
   | {
@@ -68,6 +70,28 @@ export type FillStyle =
       rx?: number;
       ry?: number;
       stops?: GradientStop[];
+    }
+  | {
+      type: "conicGradient";
+      fromAngle?: number;
+      cx?: number;
+      cy?: number;
+      stops: GradientStop[];
+    }
+  | {
+      type: "repeatingLinearGradient";
+      angle?: number;
+      stops: GradientStop[];
+      sizePct?: number;
+    }
+  | {
+      type: "pattern";
+      kind: PatternFillKind;
+      color: ColorValue;
+      background?: ColorValue;
+      spacingPct?: number;
+      strokeWidthPct?: number;
+      angle?: number;
     }
   | { type: "image"; assetId: AssetId; opacity?: number };
 

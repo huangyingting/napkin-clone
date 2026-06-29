@@ -36,13 +36,28 @@
       "default": {
         "slide": {
           "background": {
-            "type": "radialGradient",
-            "inner": "#22234c",
-            "outer": "#0a0a14",
-            "cx": 62,
-            "cy": 8,
-            "rx": 95,
-            "ry": 95
+            "type": "conicGradient",
+            "fromAngle": 180,
+            "cx": 60,
+            "cy": 40,
+            "stops": [
+              {
+                "color": "#ff5ec7",
+                "offsetPct": 0
+              },
+              {
+                "color": "#7b5cff",
+                "offsetPct": 34
+              },
+              {
+                "color": "#22d3ee",
+                "offsetPct": 68
+              },
+              {
+                "color": "#7bff9e",
+                "offsetPct": 100
+              }
+            ]
           },
           "chrome": "minimal",
           "decoration": "expressive"
@@ -215,9 +230,7 @@
       "default": {
         "fill": {
           "type": "solid",
-          "color": {
-            "token": "colors.surface.fill"
-          }
+          "color": "rgba(255,255,255,.08)"
         },
         "stroke": {
           "color": {
@@ -234,6 +247,10 @@
           "blurPt": 24,
           "color": "#7b5cff",
           "opacity": 0.18
+        },
+        "effect": {
+          "kind": "glass",
+          "intensity": "medium"
         }
       }
     },
@@ -320,10 +337,10 @@
     "media.hero": {
       "default": {
         "fill": {
-          "type": "solid",
-          "color": {
-            "token": "colors.surface.fill"
-          }
+          "type": "linearGradient",
+          "from": "#ff5ec7",
+          "to": "#22d3ee",
+          "angle": 135
         },
         "image": {
           "fit": "cover",
@@ -394,6 +411,64 @@
     }
   },
   "decorations": {
+    "iridescentField": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "iridescentField",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "h": 100
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "conicGradient",
+          "fromAngle": 180,
+          "cx": 60,
+          "cy": 40,
+          "stops": [
+            {
+              "color": "#ff5ec7",
+              "offsetPct": 0
+            },
+            {
+              "color": "#7b5cff",
+              "offsetPct": 35
+            },
+            {
+              "color": "#22d3ee",
+              "offsetPct": 70
+            },
+            {
+              "color": "#7bff9e",
+              "offsetPct": 100
+            }
+          ]
+        },
+        "opacity": 0.42,
+        "effect": {
+          "kind": "blur",
+          "radiusPt": 54
+        }
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "appliesTo": {
+        "templateKinds": [
+          "cover",
+          "section",
+          "visual-focus"
+        ]
+      }
+    },
     "glow": {
       "role": "themeDecoration",
       "visibility": "default",

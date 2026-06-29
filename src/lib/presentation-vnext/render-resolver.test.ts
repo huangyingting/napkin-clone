@@ -131,6 +131,31 @@ describe("resolveDeckRenderTree", () => {
     );
   });
 
+  test("filters decorations by template kind", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide(), buildContentSlide()]);
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "cover-only": {
+          id: "cover-only",
+          component: "shape",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 0 },
+          style: { fill: { type: "solid", color: "#cccccc" } },
+          appliesTo: { templateKinds: ["cover"] },
+        },
+      },
+    });
+
+    const result = resolveDeckRenderTree(deck, pkg);
+
+    assert.deepEqual(
+      result.slides[0].decorations.map((decoration) => decoration.id),
+      ["decoration-cover-only"],
+    );
+    assert.deepEqual(result.slides[1].decorations, []);
+  });
+
   test("filters decorations by slide decoration level", () => {
     resetBuilderCounter();
     const slide = {

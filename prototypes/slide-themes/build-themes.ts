@@ -20,6 +20,7 @@ import {
   DECK_SCHEMA_VERSION_V7,
   type DeckV7,
   type SemanticTemplateKind,
+  type SlideNode,
   type SlotKey,
 } from "@/lib/presentation-vnext/schema";
 import {
@@ -176,7 +177,7 @@ function sampleSlideSpec(kind: SemanticTemplateKind): AiSlideSpec {
 
 function previewDeckForThemePackage(themePackage: ThemePackageV1): DeckV7 {
   resetIdCounter();
-  const slides = SEMANTIC_TEMPLATE_KINDS.map((kind, index) => {
+  const slides: SlideNode[] = SEMANTIC_TEMPLATE_KINDS.map((kind, index) => {
     const template = registry.get(kind);
     if (!template) throw new Error(`Missing v7 semantic template: ${kind}`);
     const { slide, diagnostics } = compileSlide(
@@ -198,7 +199,7 @@ function previewDeckForThemePackage(themePackage: ThemePackageV1): DeckV7 {
     return {
       ...slide,
       id: `${themePackage.id}-${kind}`,
-      props: { decoration: "default", chrome: "default" },
+      props: { decoration: "default", chrome: "default" } as const,
     };
   });
 

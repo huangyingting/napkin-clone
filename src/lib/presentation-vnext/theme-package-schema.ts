@@ -7,7 +7,7 @@
 
 import type { ThemePackageId, ThemeVersion, AssetId } from "./types";
 import type { StyleObject, ThemeTokens, StyleRef } from "./style-schema";
-import type { LayoutBox } from "./schema";
+import type { LayoutBox, SemanticTemplateKind } from "./schema";
 import type { PresentationDiagnostic } from "./diagnostics";
 
 // ---------------------------------------------------------------------------
@@ -26,6 +26,10 @@ export type ThemeDecorationRecipe = {
   layout: LayoutBox;
   style: StyleObject;
   content?: TemplateStaticContent;
+  appliesTo?: {
+    templateKinds?: SemanticTemplateKind[];
+    layoutIds?: string[];
+  };
   visibility?: "subtle" | "default" | "expressive";
   chrome?: "default" | "minimal";
 };

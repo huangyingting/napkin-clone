@@ -102,3 +102,10 @@ consumers. It is not duplicated inside theme packages.
 V7 has no slide masters in the active package path. Shared visual personality is
 expressed as package styles and `ThemeDecorationRecipe` entries, then injected by
 `resolveDeckRenderTree` according to slide chrome/decoration props.
+
+Theme packages can express rich visual backgrounds without owning layout:
+`FillStyle` supports solid, linear, radial, conic, repeating-linear, pattern,
+and image fills. Pattern fills cover grids, dots, stripes, and scanlines.
+Decoration recipes can target specific semantic template kinds or layout ids via
+`appliesTo`, so package motifs can be expressive on covers and section dividers
+without polluting every slide.

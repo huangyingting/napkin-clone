@@ -37,6 +37,16 @@ function backgroundToCss(
   assetResolver?: (id: string) => string | undefined,
 ): React.CSSProperties {
   if (!fill) return {};
+  const stopsToCss = (
+    stops: readonly { color: unknown; offsetPct: number }[] | undefined,
+  ) =>
+    stops
+      ?.map((stop) => {
+        const color =
+          typeof stop.color === "string" ? stop.color : "transparent";
+        return `${color} ${stop.offsetPct}%`;
+      })
+      .join(", ");
   switch (fill.type) {
     case "solid":
       return typeof fill.color === "string"
@@ -46,12 +56,58 @@ function backgroundToCss(
       const from = typeof fill.from === "string" ? fill.from : "transparent";
       const to = typeof fill.to === "string" ? fill.to : "transparent";
       const angle = fill.angle ?? 90;
-      return { background: `linear-gradient(${angle}deg, ${from}, ${to})` };
+      const stops = stopsToCss(fill.stops);
+      return {
+        background: `linear-gradient(${angle}deg, ${stops ?? `${from}, ${to}`})`,
+      };
     }
     case "radialGradient": {
       const inner = typeof fill.inner === "string" ? fill.inner : "transparent";
       const outer = typeof fill.outer === "string" ? fill.outer : "transparent";
-      return { background: `radial-gradient(circle, ${inner}, ${outer})` };
+      const stops = stopsToCss(fill.stops);
+      return {
+        background: `radial-gradient(${fill.rx ?? fill.r ?? 70}% ${fill.ry ?? fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${inner}, ${outer}`})`,
+      };
+    }
+    case "conicGradient": {
+      const stops = stopsToCss(fill.stops) ?? "transparent, transparent";
+      return {
+        background: `conic-gradient(from ${fill.fromAngle ?? 0}deg at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`,
+      };
+    }
+    case "repeatingLinearGradient": {
+      const stops =
+        stopsToCss(fill.stops) ?? "transparent 0%, transparent 100%";
+      return {
+        background: `repeating-linear-gradient(${fill.angle ?? 90}deg, ${stops})`,
+      };
+    }
+    case "pattern": {
+      const color =
+        typeof fill.color === "string" ? fill.color : "currentColor";
+      const background =
+        typeof fill.background === "string" ? fill.background : undefined;
+      const spacing = fill.spacingPct ?? 8;
+      const width = fill.strokeWidthPct ?? 0.25;
+      if (fill.kind === "grid") {
+        return {
+          ...(background ? { backgroundColor: background } : {}),
+          backgroundImage: `linear-gradient(${color} ${width}%, transparent ${width}%), linear-gradient(90deg, ${color} ${width}%, transparent ${width}%)`,
+          backgroundSize: `${spacing}% ${spacing}%`,
+        };
+      }
+      if (fill.kind === "dots") {
+        return {
+          ...(background ? { backgroundColor: background } : {}),
+          backgroundImage: `radial-gradient(circle, ${color} ${width}%, transparent ${width}%)`,
+          backgroundSize: `${spacing}% ${spacing}%`,
+        };
+      }
+      const angle = fill.kind === "scanlines" ? 0 : (fill.angle ?? 135);
+      return {
+        ...(background ? { backgroundColor: background } : {}),
+        backgroundImage: `repeating-linear-gradient(${angle}deg, ${color} 0%, ${color} ${width}%, transparent ${width}%, transparent ${spacing}%)`,
+      };
     }
     case "image": {
       const src = assetResolver?.(fill.assetId);

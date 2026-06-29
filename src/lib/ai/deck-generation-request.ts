@@ -60,7 +60,7 @@ export interface DeckGenerationResponseMetadata {
 export type DeckGenerateResult =
   | {
       ok: true;
-  deckV7: DeckV7;
+      deckV7: DeckV7;
       truncated: boolean;
       metadata?: DeckGenerationResponseMetadata;
     }

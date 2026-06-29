@@ -340,6 +340,65 @@ describe("buildVnextPptxSpec — radial gradient and image fill fallback", () =>
       "Expected unsupported-export-feature for image fill",
     );
   });
+
+  test("conic gradient fill emits unsupported-export-feature diagnostic", () => {
+    const pkgWithConic = buildMinimalThemePackage("conic-pkg", {
+      styles: {
+        ...buildMinimalThemePackage().styles,
+        "slide.cover": {
+          default: {
+            slide: {
+              background: {
+                type: "conicGradient" as const,
+                stops: [
+                  { color: "#ff00aa", offsetPct: 0 },
+                  { color: "#00ccff", offsetPct: 100 },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()]);
+    const renderTree = resolveDeckRenderTree(deck, pkgWithConic);
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.ok(
+      pptx.diagnostics.some((d) => d.code === "unsupported-export-feature"),
+      "Expected unsupported-export-feature for conic gradient",
+    );
+  });
+
+  test("pattern fill emits unsupported-export-feature diagnostic", () => {
+    const pkgWithPattern = buildMinimalThemePackage("pattern-pkg", {
+      styles: {
+        ...buildMinimalThemePackage().styles,
+        "slide.cover": {
+          default: {
+            slide: {
+              background: {
+                type: "pattern" as const,
+                kind: "grid" as const,
+                color: "#999999",
+                background: "#ffffff",
+              },
+            },
+          },
+        },
+      },
+    });
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()]);
+    const renderTree = resolveDeckRenderTree(deck, pkgWithPattern);
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.ok(
+      pptx.diagnostics.some((d) => d.code === "unsupported-export-feature"),
+      "Expected unsupported-export-feature for pattern fill",
+    );
+  });
 });
 
 describe("buildVnextPptxSpec — custom canvas format", () => {

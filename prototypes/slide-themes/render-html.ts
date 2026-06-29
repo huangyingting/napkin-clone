@@ -57,6 +57,32 @@ function fillCss(fill: FillStyle | undefined): string {
       .join(", ");
     return `radial-gradient(${fill.rx ?? fill.r ?? 70}% ${fill.ry ?? fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${colorCss(fill.inner)}, ${colorCss(fill.outer)}`})`;
   }
+  if (fill.type === "conicGradient") {
+    const stops = fill.stops
+      .map((stop) => `${colorCss(stop.color)} ${stop.offsetPct}%`)
+      .join(", ");
+    return `conic-gradient(from ${fill.fromAngle ?? 0}deg at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`;
+  }
+  if (fill.type === "repeatingLinearGradient") {
+    const stops = fill.stops
+      .map((stop) => `${colorCss(stop.color)} ${stop.offsetPct}%`)
+      .join(", ");
+    return `repeating-linear-gradient(${fill.angle ?? 90}deg, ${stops})`;
+  }
+  if (fill.type === "pattern") {
+    const color = colorCss(fill.color);
+    const background = fill.background ? `, ${colorCss(fill.background)}` : "";
+    const spacing = fill.spacingPct ?? 8;
+    const width = fill.strokeWidthPct ?? 0.25;
+    if (fill.kind === "grid") {
+      return `linear-gradient(${color} ${width}%, transparent ${width}%), linear-gradient(90deg, ${color} ${width}%, transparent ${width}%)${background}`;
+    }
+    if (fill.kind === "dots") {
+      return `radial-gradient(circle, ${color} ${width}%, transparent ${width}%)${background}`;
+    }
+    const angle = fill.kind === "scanlines" ? 0 : (fill.angle ?? 135);
+    return `repeating-linear-gradient(${angle}deg, ${color} 0%, ${color} ${width}%, transparent ${width}%, transparent ${spacing}%)${background}`;
+  }
   return "#e9e9ee";
 }
 
@@ -67,6 +93,11 @@ function ptToCqh(value: number): string {
 function styleCss(style: StyleObject): string {
   const parts: string[] = [];
   if (style.fill) parts.push(`background:${fillCss(style.fill)};`);
+  if (style.fill?.type === "pattern" && style.fill.kind !== "stripes") {
+    parts.push(
+      `background-size:${style.fill.spacingPct ?? 8}% ${style.fill.spacingPct ?? 8}%;`,
+    );
+  }
   if (style.stroke) {
     const line =
       style.stroke.dash === "dashed"

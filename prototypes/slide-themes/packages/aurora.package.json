@@ -216,9 +216,7 @@
       "default": {
         "fill": {
           "type": "solid",
-          "color": {
-            "token": "colors.surface.fill"
-          }
+          "color": "rgba(255,255,255,.08)"
         },
         "stroke": {
           "color": {
@@ -235,6 +233,10 @@
           "blurPt": 24,
           "color": "#5b6cff",
           "opacity": 0.18
+        },
+        "effect": {
+          "kind": "glass",
+          "intensity": "medium"
         }
       }
     },
@@ -395,6 +397,38 @@
     }
   },
   "decorations": {
+    "silk": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "silk",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "h": 100
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "radialGradient",
+          "inner": "rgba(47,61,143,.14)",
+          "outer": "transparent",
+          "cx": 78,
+          "cy": 100,
+          "rx": 70,
+          "ry": 60
+        },
+        "opacity": 0.8
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    },
     "ring": {
       "role": "themeDecoration",
       "visibility": "default",

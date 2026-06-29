@@ -7,7 +7,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { writeDeckWithCas } from "@/lib/document/deck-cas-writer";
-import type { DeckPatch, SlideCommand } from "@/lib/presentation/slide-commands";
+import type {
+  DeckPatch,
+  SlideCommand,
+} from "@/lib/presentation/slide-commands";
 import type {
   SaveDeckPatchResult,
   SaveDeckResult,

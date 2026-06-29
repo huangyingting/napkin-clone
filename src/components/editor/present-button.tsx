@@ -86,10 +86,7 @@ export function PresentButton({
       />
 
       {presentData ? (
-        <PresentModeVNext
-          deck={presentData.deck}
-          onClose={handleClose}
-        />
+        <PresentModeVNext deck={presentData.deck} onClose={handleClose} />
       ) : null}
     </>
   );

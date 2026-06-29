@@ -216,19 +216,19 @@
         },
         "stroke": {
           "color": {
-            "token": "colors.surface.border"
+            "token": "colors.canvas.text"
           },
-          "widthPt": 1
+          "widthPt": 2.2
         },
         "radius": {
           "allPt": 14
         },
         "shadow": {
-          "xPt": 0,
-          "yPt": 10,
-          "blurPt": 24,
-          "color": "#1f3aff",
-          "opacity": 0.18
+          "xPt": 5,
+          "yPt": 5,
+          "blurPt": 0,
+          "color": "#0b0b0b",
+          "opacity": 1
         }
       }
     },
@@ -315,10 +315,10 @@
     "media.hero": {
       "default": {
         "fill": {
-          "type": "solid",
-          "color": {
-            "token": "colors.surface.fill"
-          }
+          "type": "linearGradient",
+          "from": "#1f3aff",
+          "to": "#ff2d2d",
+          "angle": 135
         },
         "image": {
           "fit": "cover",
@@ -414,6 +414,44 @@
       "content": {
         "type": "shape",
         "shape": "rect"
+      }
+    },
+    "popDots": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "popDots",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "h": 100
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "pattern",
+          "kind": "dots",
+          "color": "#0b0b0b",
+          "spacingPct": 9,
+          "strokeWidthPct": 0.45
+        },
+        "opacity": 0.22
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "appliesTo": {
+        "templateKinds": [
+          "cover",
+          "section",
+          "quote",
+          "closing"
+        ]
       }
     },
     "secondaryBlock": {

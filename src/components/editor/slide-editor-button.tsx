@@ -30,8 +30,8 @@ interface SlideEditorButtonProps {
   deckPort: DeckActionPort;
   /**
    * The DB-persisted serialised Lexical state the editor seeds from. Used as a
-    * non-empty fallback for AI generation when the live editor state has not
-    * finished seeding yet.
+   * non-empty fallback for AI generation when the live editor state has not
+   * finished seeding yet.
    */
   initialContentJson?: string | null;
   onOpenRightSurface?: () => void;

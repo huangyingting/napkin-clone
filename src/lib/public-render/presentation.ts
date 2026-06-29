@@ -1,8 +1,5 @@
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
-import {
-  createBlankDeckV7,
-  openDeckFromJson,
-} from "@/lib/presentation-vnext";
+import { createBlankDeckV7, openDeckFromJson } from "@/lib/presentation-vnext";
 
 import { buildPublicAttribution, type PublicAttribution } from "./attribution";
 

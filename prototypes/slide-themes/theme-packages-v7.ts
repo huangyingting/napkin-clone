@@ -55,6 +55,27 @@ function radial(inner: string, outer: string, cx = 70, cy = 10): FillStyle {
   return { type: "radialGradient", inner, outer, cx, cy, rx: 95, ry: 95 };
 }
 
+function conic(stops: FillStyle & { type: "conicGradient" }): FillStyle {
+  return stops;
+}
+
+function pattern(
+  kind: "grid" | "dots" | "stripes" | "scanlines",
+  color: ColorInput,
+  background?: ColorInput,
+  spacingPct = 8,
+  strokeWidthPct = 0.25,
+): FillStyle {
+  return {
+    type: "pattern",
+    kind,
+    color,
+    ...(background ? { background } : {}),
+    spacingPct,
+    strokeWidthPct,
+  };
+}
+
 const DEFINITIONS: ThemeDefinition[] = [
   {
     id: "clarity",
@@ -81,7 +102,18 @@ const DEFINITIONS: ThemeDefinition[] = [
     tagline: "Holographic pitch decks with glass panels and gradients.",
     accent: "#7b5cff",
     background: "#0a0a14",
-    coverBackground: radial("#22234c", "#0a0a14", 62, 8),
+    coverBackground: conic({
+      type: "conicGradient",
+      fromAngle: 180,
+      cx: 60,
+      cy: 40,
+      stops: [
+        { color: "#ff5ec7", offsetPct: 0 },
+        { color: "#7b5cff", offsetPct: 34 },
+        { color: "#22d3ee", offsetPct: 68 },
+        { color: "#7bff9e", offsetPct: 100 },
+      ],
+    }),
     surface: "#f7f7ff",
     border: "#d8d7ff",
     text: "#f5f7ff",
@@ -191,7 +223,13 @@ const DEFINITIONS: ThemeDefinition[] = [
     tagline: "Neon terminal-style decks with mono typography and grids.",
     accent: "#39ff88",
     background: "#06080a",
-    coverBackground: solid("#06080a"),
+    coverBackground: pattern(
+      "scanlines",
+      "rgba(57,255,136,.22)",
+      "#06080a",
+      8,
+      0.18,
+    ),
     surface: "#0d1512",
     border: "#224d36",
     text: "#d6f7e6",
@@ -265,6 +303,8 @@ function makeStyles(definition: ThemeDefinition): ThemePackageV1["styles"] {
   const surfaceMutedText = token("colors.surface.mutedText");
   const accentFill = token("colors.accent.fill");
   const accentText = token("colors.accent.text");
+  const glassy = definition.id === "ocean" || definition.id === "aurora";
+  const hardShadow = definition.id === "terra" || definition.id === "monolith";
 
   const styles: Record<StyleRef, Record<string, StyleObject>> = {
     "slide.cover": {
@@ -279,7 +319,24 @@ function makeStyles(definition: ThemeDefinition): ThemePackageV1["styles"] {
     "slide.content": {
       default: {
         slide: {
-          background: solid(token("colors.canvas.fill")),
+          background:
+            definition.id === "clarity"
+              ? pattern(
+                  "grid",
+                  "rgba(10,10,10,.12)",
+                  token("colors.canvas.fill"),
+                  8,
+                  0.12,
+                )
+              : definition.id === "pulse"
+                ? pattern(
+                    "scanlines",
+                    "rgba(57,255,136,.16)",
+                    token("colors.canvas.fill"),
+                    8,
+                    0.08,
+                  )
+                : solid(token("colors.canvas.fill")),
           chrome: "default",
           decoration: "default",
         },
@@ -331,16 +388,26 @@ function makeStyles(definition: ThemeDefinition): ThemePackageV1["styles"] {
     },
     "surface.card": {
       default: {
-        fill: solid(token("colors.surface.fill")),
-        stroke: { color: token("colors.surface.border"), widthPt: 1 },
+        fill: glassy
+          ? solid("rgba(255,255,255,.08)")
+          : solid(token("colors.surface.fill")),
+        stroke: {
+          color: hardShadow
+            ? token("colors.canvas.text")
+            : token("colors.surface.border"),
+          widthPt: hardShadow ? 2.2 : 1,
+        },
         radius: { allPt: definition.radiusPt },
         shadow: {
-          xPt: 0,
-          yPt: 10,
-          blurPt: 24,
-          color: definition.shadowColor,
-          opacity: 0.18,
+          xPt: hardShadow ? 5 : 0,
+          yPt: hardShadow ? 5 : 10,
+          blurPt: hardShadow ? 0 : 24,
+          color: hardShadow ? definition.border : definition.shadowColor,
+          opacity: hardShadow ? 1 : 0.18,
         },
+        ...(glassy
+          ? { effect: { kind: "glass", intensity: "medium" } as const }
+          : {}),
       },
     },
     "surface.callout": {
@@ -371,7 +438,12 @@ function makeStyles(definition: ThemeDefinition): ThemePackageV1["styles"] {
     },
     "media.hero": {
       default: {
-        fill: solid(token("colors.surface.fill")),
+        fill:
+          definition.id === "ocean"
+            ? linear("#ff5ec7", "#22d3ee", 135)
+            : definition.id === "terra"
+              ? linear("#1f3aff", "#ff2d2d", 135)
+              : solid(token("colors.surface.fill")),
         image: { fit: "cover", radiusPct: definition.radiusPt > 0 ? 3 : 0 },
         radius: { allPt: definition.radiusPt },
       },
@@ -426,8 +498,11 @@ function makeDecorations(
         ...base,
         id: "grid",
         component: "shape",
-        layout: { frame: { x: 0, y: 18, w: 100, h: 0.25 }, zIndex: 0 },
-        style: { fill: solid(definition.border), opacity: 0.65 },
+        layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 0 },
+        style: {
+          fill: pattern("grid", definition.border, undefined, 6.25, 0.1),
+          opacity: 0.42,
+        },
         content: { type: "shape", shape: "rect" },
       },
       accentRule: {
@@ -447,8 +522,11 @@ function makeDecorations(
         ...base,
         id: "scanLine",
         component: "shape",
-        layout: { frame: { x: 0, y: 12, w: 100, h: 0.18 }, zIndex: 0 },
-        style: { fill: solid(definition.accent), opacity: 0.34 },
+        layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 0 },
+        style: {
+          fill: pattern("scanlines", definition.accent, undefined, 8, 0.08),
+          opacity: 0.55,
+        },
         content: { type: "shape", shape: "rect" },
       },
       terminalBlock: {
@@ -477,6 +555,20 @@ function makeDecorations(
         style: { fill: solid(definition.accent), opacity: 0.9 },
         content: { type: "shape", shape: "rect" },
       },
+      popDots: {
+        ...base,
+        id: "popDots",
+        component: "shape",
+        layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 0 },
+        style: {
+          fill: pattern("dots", definition.border, undefined, 9, 0.45),
+          opacity: definition.id === "terra" ? 0.22 : 0,
+        },
+        content: { type: "shape", shape: "rect" },
+        appliesTo: {
+          templateKinds: ["cover", "section", "quote", "closing"],
+        },
+      },
       secondaryBlock: {
         ...base,
         id: "secondaryBlock",
@@ -490,6 +582,28 @@ function makeDecorations(
 
   if (definition.decoration === "ring" || definition.decoration === "frame") {
     return {
+      silk: {
+        ...base,
+        id: "silk",
+        component: "shape",
+        layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 0 },
+        style: {
+          fill: {
+            type: "radialGradient",
+            inner:
+              definition.id === "noir"
+                ? "rgba(201,162,74,.16)"
+                : "rgba(47,61,143,.14)",
+            outer: "transparent",
+            cx: 78,
+            cy: 100,
+            rx: 70,
+            ry: 60,
+          },
+          opacity: 0.8,
+        },
+        content: { type: "shape", shape: "rect" },
+      },
       ring: {
         ...base,
         id: "ring",
@@ -520,6 +634,30 @@ function makeDecorations(
   }
 
   return {
+    iridescentField: {
+      ...base,
+      id: "iridescentField",
+      component: "shape",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 0 },
+      style: {
+        fill: conic({
+          type: "conicGradient",
+          fromAngle: 180,
+          cx: 60,
+          cy: 40,
+          stops: [
+            { color: "#ff5ec7", offsetPct: 0 },
+            { color: definition.accent, offsetPct: 35 },
+            { color: "#22d3ee", offsetPct: 70 },
+            { color: "#7bff9e", offsetPct: 100 },
+          ],
+        }),
+        opacity: 0.42,
+        effect: { kind: "blur", radiusPt: 54 },
+      },
+      content: { type: "shape", shape: "rect" },
+      appliesTo: { templateKinds: ["cover", "section", "visual-focus"] },
+    },
     glow: {
       ...base,
       id: "glow",

@@ -276,6 +276,30 @@ function fillToHex(
     );
     return resolveColor(fill.inner, "#cccccc", dc, ctx);
   }
+  if (fill.type === "conicGradient") {
+    dc.warning(
+      "unsupported-export-feature",
+      `${ctx}: conic gradient fill uses first-stop fallback in PPTX export`,
+      { path: ctx, action: "replace-style-ref" },
+    );
+    return resolveColor(fill.stops[0]?.color, "#cccccc", dc, ctx);
+  }
+  if (fill.type === "repeatingLinearGradient") {
+    dc.warning(
+      "unsupported-export-feature",
+      `${ctx}: repeating gradient fill uses first-stop fallback in PPTX export`,
+      { path: ctx, action: "replace-style-ref" },
+    );
+    return resolveColor(fill.stops[0]?.color, "#cccccc", dc, ctx);
+  }
+  if (fill.type === "pattern") {
+    dc.warning(
+      "unsupported-export-feature",
+      `${ctx}: pattern fill uses background/color fallback in PPTX export`,
+      { path: ctx, action: "replace-style-ref" },
+    );
+    return resolveColor(fill.background ?? fill.color, "#cccccc", dc, ctx);
+  }
   if (fill.type === "image") {
     dc.warning(
       "unsupported-export-feature",

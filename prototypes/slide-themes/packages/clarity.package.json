@@ -49,10 +49,14 @@
       "default": {
         "slide": {
           "background": {
-            "type": "solid",
-            "color": {
+            "type": "pattern",
+            "kind": "grid",
+            "color": "rgba(10,10,10,.12)",
+            "background": {
               "token": "colors.canvas.fill"
-            }
+            },
+            "spacingPct": 8,
+            "strokeWidthPct": 0.12
           },
           "chrome": "default",
           "decoration": "default"
@@ -399,18 +403,21 @@
       "layout": {
         "frame": {
           "x": 0,
-          "y": 18,
+          "y": 0,
           "w": 100,
-          "h": 0.25
+          "h": 100
         },
         "zIndex": 0
       },
       "style": {
         "fill": {
-          "type": "solid",
-          "color": "#cfcfca"
+          "type": "pattern",
+          "kind": "grid",
+          "color": "#cfcfca",
+          "spacingPct": 6.25,
+          "strokeWidthPct": 0.1
         },
-        "opacity": 0.65
+        "opacity": 0.42
       },
       "content": {
         "type": "shape",
