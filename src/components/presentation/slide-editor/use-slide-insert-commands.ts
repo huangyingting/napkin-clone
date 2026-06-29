@@ -17,6 +17,7 @@ import {
 } from "@/lib/presentation/slide-templates";
 import {
   buildInsertables,
+  insertableTableElement,
   insertableTextElement,
   insertableVisualElement,
   type Insertable,
@@ -30,7 +31,7 @@ import {
 } from "@/lib/presentation/text-element-fit";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { Visual } from "@/lib/visual/schema";
-import type { DocumentTextBlock } from "@/lib/content";
+import type { DocumentBlock } from "@/lib/content";
 import type { ElementBox } from "@/lib/presentation/deck";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
@@ -242,7 +243,7 @@ interface UseSlideInsertCommandsOptions {
   zoom: number;
   accentForSelected: string;
   visuals: ReadonlyMap<string, Visual>;
-  documentTextBlocks: readonly DocumentTextBlock[];
+  documentBlocks: readonly DocumentBlock[];
   documentId?: string;
   slideAssetPort?: SlideAssetActionPort;
   setInsertMenuOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
@@ -267,7 +268,7 @@ export function useSlideInsertCommands({
   zoom,
   accentForSelected,
   visuals,
-  documentTextBlocks,
+  documentBlocks,
   documentId,
   slideAssetPort,
   setInsertMenuOpen,
@@ -588,6 +589,25 @@ export function useSlideInsertCommands({
     ],
   );
 
+  const handleInsertDocumentTable = useCallback(
+    (item: Extract<Insertable, { kind: "table" }>) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      const element = insertableTableElement(item, { documentId });
+      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
+      handleSelectElement(element.id);
+      setInsertMenuOpen(false);
+    },
+    [
+      deck,
+      doCommitAndChange,
+      documentId,
+      handleSelectElement,
+      safeSelected,
+      setInsertMenuOpen,
+    ],
+  );
+
   const handleAddAllVisuals = useCallback(() => {
     const slideId = deck.slides[safeSelected]?.id;
     const ids = [...visuals.keys()];
@@ -620,11 +640,20 @@ export function useSlideInsertCommands({
 
   const documentTextInsertables = useMemo(
     () =>
-      buildInsertables(documentTextBlocks as DocumentTextBlock[]).filter(
+      buildInsertables(documentBlocks).filter(
         (item): item is Extract<Insertable, { kind: "text" }> =>
           item.kind === "text",
       ),
-    [documentTextBlocks],
+    [documentBlocks],
+  );
+
+  const documentTableInsertables = useMemo(
+    () =>
+      buildInsertables(documentBlocks).filter(
+        (item): item is Extract<Insertable, { kind: "table" }> =>
+          item.kind === "table",
+      ),
+    [documentBlocks],
   );
 
   return {
@@ -639,7 +668,9 @@ export function useSlideInsertCommands({
     handleAddVisual,
     handleInsertDocumentVisual,
     handleInsertDocumentText,
+    handleInsertDocumentTable,
     handleAddAllVisuals,
     documentTextInsertables,
+    documentTableInsertables,
   };
 }

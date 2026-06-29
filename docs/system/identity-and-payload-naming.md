@@ -33,6 +33,8 @@ interfaces just to adopt them.
 
 - `blockKind: "text"` means `blockId` is a document block `bid` / `blockId`.
 - `blockKind: "visual"` means `blockId` is the durable `visualId`.
+- `blockKind: "table"` means `blockId` is a document table block `bid` /
+  `blockId`.
 - `blockKind` is required; callers must not infer it.
 
 Comment anchors keep their historical `anchorNodeId` DB column, but current code

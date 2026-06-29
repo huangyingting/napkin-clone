@@ -42,9 +42,13 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
   if (input.unlinked !== undefined && typeof input.unlinked !== "boolean") {
     throw new DeckValidationError(`${context}.unlinked must be a boolean`);
   }
-  if (input.blockKind !== "text" && input.blockKind !== "visual") {
+  if (
+    input.blockKind !== "text" &&
+    input.blockKind !== "visual" &&
+    input.blockKind !== "table"
+  ) {
     throw new DeckValidationError(
-      `${context}.blockKind must be "text" or "visual"`,
+      `${context}.blockKind must be "text", "visual", or "table"`,
     );
   }
   return {

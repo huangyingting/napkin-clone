@@ -210,10 +210,10 @@ All persistence orchestration lives in the service:
 
 Slides can reference document content in two ways:
 
-| Dependency kind | Where                                      | Identified by                               |
-| --------------- | ------------------------------------------ | ------------------------------------------- |
-| `visual`        | Free-form `SlideElement.kind === "visual"` | `element.visualId` → `Visual.anchorBlockId` |
-| `source_ref`    | `SlideElement.sourceRef` (text or visual)  | `sourceRef.blockId` + `contentHash`         |
+| Dependency kind | Where                                             | Identified by                               |
+| --------------- | ------------------------------------------------- | ------------------------------------------- |
+| `visual`        | Free-form `SlideElement.kind === "visual"`        | `element.visualId` → `Visual.anchorBlockId` |
+| `source_ref`    | `SlideElement.sourceRef` (text, visual, or table) | `sourceRef.blockId` + `contentHash`         |
 
 `enumerateDeckDependencies(deck)` returns both dependency kinds in a typed union.
 `checkDependencyHealth(deck, freshBlocks)` classifies each as found/stale/missing/invalid.

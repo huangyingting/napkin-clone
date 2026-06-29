@@ -114,6 +114,44 @@ function bulletListNode(items: string[]): SerializedElementNode {
   };
 }
 
+function tableCellNode(text: string, header: boolean): SerializedElementNode {
+  return {
+    children: [paragraphNode(text)],
+    direction: null,
+    format: "",
+    indent: 0,
+    type: "tablecell",
+    version: 1,
+    headerState: header ? 2 : 0,
+  };
+}
+
+function tableRowNode(cells: string[], header: boolean): SerializedElementNode {
+  return {
+    children: cells.map((cell) => tableCellNode(cell, header)),
+    direction: null,
+    format: "",
+    indent: 0,
+    type: "tablerow",
+    version: 1,
+  };
+}
+
+function tableNode(columns: string[], rows: string[][]): SerializedElementNode {
+  return {
+    bid: generateBlockId(),
+    children: [
+      tableRowNode(columns, true),
+      ...rows.map((row) => tableRowNode(row, false)),
+    ],
+    direction: null,
+    format: "",
+    indent: 0,
+    type: "table",
+    version: 1,
+  };
+}
+
 /**
  * Converts a Markdown string into a serialized Lexical editor state object.
  * Empty or whitespace-only input yields a state with a single empty paragraph.
@@ -129,6 +167,8 @@ export function markdownToLexicalStateObject(
       children.push(headingNode(block.level, block.text));
     } else if (block.kind === "bullets") {
       children.push(bulletListNode(block.items));
+    } else if (block.kind === "table") {
+      children.push(tableNode(block.columns, block.rows));
     } else {
       children.push(paragraphNode(block.text));
     }

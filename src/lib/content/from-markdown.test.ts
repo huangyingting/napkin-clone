@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { createHeadlessEditor } from "@lexical/headless";
+import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
+
 import {
   markdownToLexicalState,
   markdownToLexicalStateObject,
@@ -50,6 +53,39 @@ test("mixes headings, paragraphs, and bullets in document order", () => {
     root.children.map((node) => node.type),
     ["heading", "paragraph", "list"],
   );
+});
+
+test("converts Markdown pipe tables into Lexical table nodes", () => {
+  const { root } = markdownToLexicalStateObject(
+    "Before\n\n| Region | ARR |\n| --- | --- |\n| NA | $12M |\n| EU | $8M |\n\nAfter",
+  );
+  assert.deepEqual(
+    root.children.map((node) => node.type),
+    ["paragraph", "table", "paragraph"],
+  );
+  const table = root.children[1];
+  assert.ok(table.bid);
+  assert.equal(table.children.length, 3);
+  const headerRow = table.children[0] as {
+    children: Array<{ children: any[] }>;
+  };
+  assert.equal(headerRow.children[0].children[0].children[0].text, "Region");
+  assert.equal(headerRow.children[1].children[0].children[0].text, "ARR");
+});
+
+test("Markdown table state parses with Lexical table nodes registered", () => {
+  const editor = createHeadlessEditor({
+    namespace: "markdown-table-test",
+    nodes: [TableNode, TableRowNode, TableCellNode],
+    onError(error) {
+      throw error;
+    },
+  });
+  assert.doesNotThrow(() => {
+    editor.parseEditorState(
+      markdownToLexicalState("| Region | ARR |\n| --- | --- |\n| NA | $12M |"),
+    );
+  });
 });
 
 test("empty or whitespace input yields a single empty paragraph", () => {

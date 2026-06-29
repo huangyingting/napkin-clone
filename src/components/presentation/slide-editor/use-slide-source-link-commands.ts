@@ -2,12 +2,17 @@
 
 import { useCallback, useMemo } from "react";
 
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import type {
+  DocumentBlock,
+  DocumentTableBlock,
+  DocumentTextBlock,
+} from "@/lib/content";
 import type { Deck, SourceRef } from "@/lib/presentation/deck";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import {
   findStaleSourceLinks,
   updateTextElementFromBlock,
+  updateTableElementFromBlock,
   buildRefreshSourceRef,
   type StaleSourceLink,
 } from "@/lib/presentation/source-link-staleness";
@@ -83,7 +88,7 @@ export function useSlideSourceLinkCommands({
             ? { runs: (updated as any).content.runs }
             : {}),
         });
-      } else {
+      } else if (link.blockKind === "visual") {
         const fresh = documentBlocks.find(
           (b) => b.kind === "visual" && b.visualId === link.blockId,
         );
@@ -100,6 +105,30 @@ export function useSlideSourceLinkCommands({
           slideId: link.slideId,
           elementId: link.elementId,
           source: newRef,
+        });
+      } else {
+        if (element.kind !== "table") return;
+        const fresh = documentBlocks.find(
+          (b): b is DocumentTableBlock =>
+            b.kind === "table" && b.blockId === link.blockId,
+        );
+        if (!fresh) return;
+        const newRef = buildRefreshSourceRef(
+          currentSource,
+          link.blockId,
+          hashDocumentBlock(fresh),
+          linkedAt,
+          "table",
+        );
+        const updated = updateTableElementFromBlock(element, fresh, newRef);
+        doCommitAndChange(deck, {
+          type: "UPDATE_ELEMENT",
+          slideId: link.slideId,
+          elementId: link.elementId,
+          patch: {
+            source: newRef,
+            content: updated.content,
+          },
         });
       }
     },

@@ -197,8 +197,8 @@ function validateSourceRef(
   if (value.unlinked !== undefined && typeof value.unlinked !== "boolean") {
     errors.push(`${context}.unlinked must be a boolean when provided.`);
   }
-  if (!isOneOf(value.blockKind, ["text", "visual"] as const)) {
-    errors.push(`${context}.blockKind must be "text" or "visual".`);
+  if (!isOneOf(value.blockKind, ["text", "visual", "table"] as const)) {
+    errors.push(`${context}.blockKind must be "text", "visual", or "table".`);
   }
 }
 

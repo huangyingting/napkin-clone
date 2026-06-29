@@ -7,8 +7,8 @@
 export interface SourceRef {
   documentId: string;
   /**
-   * Durable source block id. For `blockKind: "text"` this is the document
-   * block `bid` / `blockId`; for `blockKind: "visual"` this is the visual id.
+   * Durable source block id. For `blockKind: "text"` and `"table"` this is
+   * the document block `bid` / `blockId`; for `blockKind: "visual"` this is the visual id.
    * It is never a live Lexical NodeKey.
    */
   blockId: string;
@@ -20,7 +20,7 @@ export interface SourceRef {
   /** True when the user explicitly broke the source link. */
   unlinked?: boolean;
   /** Kind of source block this ref points to. */
-  blockKind: "text" | "visual";
+  blockKind: "text" | "visual" | "table";
 }
 
 type SourceRefCarrier = { source?: SourceRef };

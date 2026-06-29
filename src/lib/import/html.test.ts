@@ -69,6 +69,16 @@ test("htmlToMarkdown extracts body content when present", () => {
   assert.ok(!result.includes("title"));
 });
 
+test("htmlToMarkdown converts simple tables to Markdown pipe tables", () => {
+  const result = htmlToMarkdown(
+    "<table><caption>Revenue</caption><tr><th>Region</th><th>ARR</th></tr><tr><td>NA</td><td>$12M</td></tr></table>",
+  );
+  assert.equal(
+    result.trim(),
+    "Revenue\n| Region | ARR |\n| --- | --- |\n| NA | $12M |",
+  );
+});
+
 test("htmlToMarkdown returns empty string for empty input", () => {
   assert.equal(htmlToMarkdown("").trim(), "");
   assert.equal(htmlToMarkdown("   ").trim(), "");

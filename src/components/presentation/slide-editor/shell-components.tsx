@@ -1156,6 +1156,12 @@ function fromDocVisualLabel(id: string, visual: Visual): string {
   return `${kind} · ${id.slice(0, 6)}`;
 }
 
+function sourceKindLabel(kind: StaleSourceLink["blockKind"]): string {
+  if (kind === "visual") return "Visual";
+  if (kind === "table") return "Table";
+  return "Text";
+}
+
 /**
  * The "From document" quick-insert panel (issue #293). Lists the document's
  * visuals and text as click-to-insert cards plus an "Add all visuals" action.
@@ -1170,23 +1176,28 @@ function fromDocVisualLabel(id: string, visual: Visual): string {
 export function FromDocumentPanel({
   visuals,
   textItems,
+  tableItems = [],
   staleLinks = [],
   onAddAllVisuals,
   onInsertVisual,
   onInsertText,
+  onInsertTable,
   onUpdateFromSource,
   onUnlinkSource,
   onRelinkSource,
   onRemoveOrphaned,
   documentTextInsertables = [],
+  documentTableInsertables = [],
   documentVisualInsertables = [],
 }: {
   visuals: readonly (readonly [string, Visual])[];
   textItems: readonly Extract<Insertable, { kind: "text" }>[];
+  tableItems?: readonly Extract<Insertable, { kind: "table" }>[];
   staleLinks?: StaleSourceLink[];
   onAddAllVisuals: () => void;
   onInsertVisual: (item: Extract<Insertable, { kind: "visual" }>) => void;
   onInsertText: (item: Extract<Insertable, { kind: "text" }>) => void;
+  onInsertTable: (item: Extract<Insertable, { kind: "table" }>) => void;
   onUpdateFromSource?: (link: StaleSourceLink) => void;
   onUnlinkSource?: (link: StaleSourceLink) => void;
   onRelinkSource?: (
@@ -1196,6 +1207,7 @@ export function FromDocumentPanel({
   ) => void;
   onRemoveOrphaned?: (link: StaleSourceLink) => void;
   documentTextInsertables?: readonly Extract<Insertable, { kind: "text" }>[];
+  documentTableInsertables?: readonly Extract<Insertable, { kind: "table" }>[];
   documentVisualInsertables?: readonly Extract<
     Insertable,
     { kind: "visual" }
@@ -1203,6 +1215,7 @@ export function FromDocumentPanel({
 }) {
   const hasVisuals = visuals.length > 0;
   const hasText = textItems.length > 0;
+  const hasTables = tableItems.length > 0;
   const hasStale = staleLinks.length > 0;
   const changedLinks = staleLinks.filter((l) => l.reason === "content_changed");
   const missingLinks = staleLinks.filter((l) => l.reason === "block_missing");
@@ -1243,7 +1256,7 @@ export function FromDocumentPanel({
                       className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5"
                     >
                       <span className="min-w-0 flex-1 truncate text-[11px] text-ds-text-secondary">
-                        {link.blockKind === "visual" ? "Visual" : "Text"} ·{" "}
+                        {sourceKindLabel(link.blockKind)} ·{" "}
                         {link.blockId.slice(0, 8)}
                       </span>
                       <button
@@ -1281,7 +1294,7 @@ export function FromDocumentPanel({
                       className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5"
                     >
                       <span className="min-w-0 flex-1 truncate text-[11px] text-ds-text-secondary">
-                        {link.blockKind === "visual" ? "Visual" : "Text"} ·{" "}
+                        {sourceKindLabel(link.blockKind)} ·{" "}
                         {link.blockId.slice(0, 8)}
                       </span>
                       {/* Relink to a new block (visual or text) */}
@@ -1343,6 +1356,36 @@ export function FromDocumentPanel({
                               ))}
                           </select>
                         )}
+                      {link.blockKind === "table" &&
+                        documentTableInsertables.length > 0 && (
+                          <select
+                            aria-label="Relink to table block"
+                            defaultValue=""
+                            onChange={(e) => {
+                              const item = documentTableInsertables.find(
+                                (i) => i.blockId === e.target.value,
+                              );
+                              if (item)
+                                onRelinkSource?.(
+                                  link,
+                                  item.blockId!,
+                                  item.contentHash,
+                                );
+                            }}
+                            className={`shrink-0 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1 py-0.5 text-[11px] text-ds-text-secondary ${FOCUS_RING}`}
+                          >
+                            <option value="" disabled>
+                              Relink…
+                            </option>
+                            {documentTableInsertables
+                              .filter((i) => i.blockId !== undefined)
+                              .map((i) => (
+                                <option key={i.blockId} value={i.blockId}>
+                                  {i.label}
+                                </option>
+                              ))}
+                          </select>
+                        )}
                       <button
                         type="button"
                         onClick={() => onUnlinkSource?.(link)}
@@ -1369,10 +1412,10 @@ export function FromDocumentPanel({
           </section>
         ) : null}
 
-        {!hasVisuals && !hasText && !hasStale ? (
+        {!hasVisuals && !hasText && !hasTables && !hasStale ? (
           <p className="px-3 py-8 text-center text-xs text-ds-text-muted">
-            This document has no text or visuals yet. Add content in the
-            document to reuse it on a slide.
+            This document has no text, tables, or visuals yet. Add content in
+            the document to reuse it on a slide.
           </p>
         ) : (
           <div className="p-3">
@@ -1455,6 +1498,37 @@ export function FromDocumentPanel({
                               : "text-ds-text-secondary"
                           }`}
                         >
+                          {item.label}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {hasTables ? (
+              <section
+                aria-label="Document tables"
+                className={hasVisuals || hasText ? "mt-4" : ""}
+              >
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                  Tables
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {tableItems.map((item, index) => (
+                    <li key={item.blockId ?? index}>
+                      <button
+                        type="button"
+                        onClick={() => onInsertTable(item)}
+                        aria-label={`Insert table: ${item.label}`}
+                        title={item.label}
+                        className={`flex w-full items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
+                      >
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-ds-sm bg-ds-accent-surface text-ds-accent-text">
+                          <Table2 size={13} aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-ds-text-secondary">
                           {item.label}
                         </span>
                       </button>
@@ -1948,11 +2022,13 @@ export function SlideToolbar({
   onAddConnector,
   documentVisualEntries,
   documentTextInsertables,
+  documentTableInsertables,
   documentVisualInsertables,
   hasDocumentInsertables,
   onAddAllVisuals,
   onInsertDocumentVisual,
   onInsertDocumentText,
+  onInsertDocumentTable,
   onDuplicateSlide,
   onRemoveSlide,
   onOpenPanel,
@@ -1971,6 +2047,7 @@ export function SlideToolbar({
   onAddConnector: () => void;
   documentVisualEntries: readonly (readonly [string, Visual])[];
   documentTextInsertables: readonly Extract<Insertable, { kind: "text" }>[];
+  documentTableInsertables: readonly Extract<Insertable, { kind: "table" }>[];
   documentVisualInsertables: readonly Extract<Insertable, { kind: "visual" }>[];
   hasDocumentInsertables: boolean;
   onAddAllVisuals: () => void;
@@ -1978,6 +2055,7 @@ export function SlideToolbar({
     item: Extract<Insertable, { kind: "visual" }>,
   ) => void;
   onInsertDocumentText: (item: Extract<Insertable, { kind: "text" }>) => void;
+  onInsertDocumentTable: (item: Extract<Insertable, { kind: "table" }>) => void;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
   onOpenPanel: () => void;
@@ -2238,8 +2316,10 @@ export function SlideToolbar({
           <FromDocumentPanel
             visuals={documentVisualEntries}
             textItems={documentTextInsertables}
+            tableItems={documentTableInsertables}
             documentVisualInsertables={documentVisualInsertables}
             documentTextInsertables={documentTextInsertables}
+            documentTableInsertables={documentTableInsertables}
             onAddAllVisuals={() => {
               onAddAllVisuals();
               closeFromDocumentMenu();
@@ -2250,6 +2330,10 @@ export function SlideToolbar({
             }}
             onInsertText={(item) => {
               onInsertDocumentText(item);
+              closeFromDocumentMenu();
+            }}
+            onInsertTable={(item) => {
+              onInsertDocumentTable(item);
               closeFromDocumentMenu();
             }}
           />

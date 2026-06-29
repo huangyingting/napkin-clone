@@ -32,11 +32,62 @@ function stripTags(html: string): string {
     .trim();
 }
 
+function stripTagsPreserveLines(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&mdash;/gi, "—")
+    .replace(/&ndash;/gi, "–")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .trim();
+}
+
 /** Decodes a string of HTML entities; used indirectly via `stripTags`. */
 function _noop(_: string): string {
   return _;
 }
 void _noop;
+
+function splitHtmlRows(tableHtml: string): string[][] {
+  const rows: string[][] = [];
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRe.exec(tableHtml)) !== null) {
+    const cells: string[] = [];
+    const cellRe = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRe.exec(rowMatch[1])) !== null) {
+      cells.push(stripTags(cellMatch[1]));
+    }
+    if (cells.length > 0) rows.push(cells);
+  }
+  return rows;
+}
+
+function tableHtmlToMarkdown(tableHtml: string): string {
+  const captionMatch = /<caption[^>]*>([\s\S]*?)<\/caption>/i.exec(tableHtml);
+  const caption = captionMatch ? stripTags(captionMatch[1]) : "";
+  const rows = splitHtmlRows(tableHtml);
+  if (rows.length === 0) return "";
+  const width = Math.max(...rows.map((row) => row.length));
+  const normalized = rows.map((row) =>
+    Array.from({ length: width }, (_value, index) => row[index] ?? ""),
+  );
+  const [columns, ...bodyRows] = normalized;
+  const tableLines = [
+    `| ${(columns ?? []).join(" | ")} |`,
+    `| ${Array.from({ length: width }, () => "---").join(" | ")} |`,
+    ...bodyRows.map((row) => `| ${row.join(" | ")} |`),
+  ];
+  return [caption, ...tableLines].filter(Boolean).join("\n");
+}
 
 /**
  * Converts an HTML string to the Markdown subset understood by the editor.
@@ -69,6 +120,14 @@ export function htmlToMarkdown(html: string): string {
   // We use a single-pass approach: replace block tags with newline markers,
   // then handle lists specially.
   let processed = body;
+
+  processed = processed.replace(
+    /<table[^>]*>([\s\S]*?)<\/table>/gi,
+    (match) => {
+      const table = tableHtmlToMarkdown(match);
+      return table ? `\n${table}\n` : "";
+    },
+  );
 
   // Process headings.
   processed = processed.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, inner) => {
@@ -131,8 +190,8 @@ export function htmlToMarkdown(html: string): string {
   // Line breaks.
   processed = processed.replace(/<br\s*\/?>/gi, "\n");
 
-  // Strip remaining tags (inline markup).
-  processed = stripTags(processed);
+  // Strip remaining tags (inline markup) while preserving block/table breaks.
+  processed = stripTagsPreserveLines(processed);
 
   // Split into lines, trim each, drop blanks after collapsing.
   for (const rawLine of processed.split("\n")) {

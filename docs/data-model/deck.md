@@ -44,7 +44,8 @@ The current deck version is exported from
   `sourceSectionId`.
 - `BaseElement.layoutSlot`, `PlaceholderElement`, `BulletsElement`, and
   flat kind payload fields are no longer supported in persisted decks.
-- `SourceRef.blockKind` is required and must be either `"text"` or `"visual"`.
+- `SourceRef.blockKind` is required and must be `"text"`, `"visual"`, or
+  `"table"`.
 - Serialized deck JSON strings are persisted-schema drift, not supported
   persisted input.
 
@@ -240,7 +241,7 @@ type SourceRef = {
   contentHash?: string;
   linkedAt: string;
   unlinked?: boolean;
-  blockKind: "text" | "visual";
+  blockKind: "text" | "visual" | "table";
 };
 ```
 

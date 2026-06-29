@@ -471,7 +471,6 @@ function CloseConfirmDialog({
 export function SlideEditor({
   deck: deckProp,
   visuals,
-  documentTextBlocks = [],
   documentBlocks,
   documentId,
   slideAssetPort,
@@ -1362,8 +1361,10 @@ export function SlideEditor({
     handleAddVisual,
     handleInsertDocumentVisual,
     handleInsertDocumentText,
+    handleInsertDocumentTable,
     handleAddAllVisuals,
     documentTextInsertables,
+    documentTableInsertables,
   } = useSlideInsertCommands({
     deck,
     safeSelected,
@@ -1375,7 +1376,7 @@ export function SlideEditor({
     zoom,
     accentForSelected,
     visuals,
-    documentTextBlocks,
+    documentBlocks,
     documentId,
     slideAssetPort,
     setInsertMenuOpen,
@@ -1402,7 +1403,9 @@ export function SlideEditor({
     [documentVisualInsertables, visuals],
   );
   const hasDocumentInsertables =
-    documentTextInsertables.length > 0 || documentVisualEntries.length > 0;
+    documentTextInsertables.length > 0 ||
+    documentTableInsertables.length > 0 ||
+    documentVisualEntries.length > 0;
 
   const {
     staleLinks,
@@ -1474,6 +1477,9 @@ export function SlideEditor({
     setSourceMenuOpen,
     staleLinks,
   ]);
+
+  const sourceKindLabel = (kind: string | undefined) =>
+    kind === "visual" ? "Visual" : kind === "table" ? "Table" : "Text";
 
   const presentationThemeTokenSet = resolvePresentationThemeTokens(deck);
   const activeSlideKitName =
@@ -1804,10 +1810,8 @@ export function SlideEditor({
                   {selectedSource && effectiveSelectedElementId ? (
                     <TopToolbarMenuSection title="Selected Source">
                       <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary">
-                        {selectedSource.blockKind === "visual"
-                          ? "Visual"
-                          : "Text"}{" "}
-                        · {selectedSource.blockId?.slice(0, 8) ?? "linked"}
+                        {sourceKindLabel(selectedSource.blockKind)} ·{" "}
+                        {selectedSource.blockId?.slice(0, 8) ?? "linked"}
                       </div>
                       {selectedStaleLink?.reason === "content_changed" ? (
                         <TopToolbarMenuAction
@@ -1821,7 +1825,11 @@ export function SlideEditor({
                       ) : null}
                       <TopToolbarMenuAction
                         icon={<FileText size={15} aria-hidden="true" />}
-                        label="Open visual panel"
+                        label={
+                          selectedSource.blockKind === "visual"
+                            ? "Open visual panel"
+                            : "Open source panel"
+                        }
                         onClick={() => {
                           openRightPanel(
                             selectedSource.blockKind === "visual"
@@ -2092,11 +2100,13 @@ export function SlideEditor({
                           onAddConnector={handleAddConnector}
                           documentVisualEntries={documentVisualEntries}
                           documentTextInsertables={documentTextInsertables}
+                          documentTableInsertables={documentTableInsertables}
                           documentVisualInsertables={documentVisualInsertables}
                           hasDocumentInsertables={hasDocumentInsertables}
                           onAddAllVisuals={handleAddAllVisuals}
                           onInsertDocumentVisual={handleInsertDocumentVisual}
                           onInsertDocumentText={handleInsertDocumentText}
+                          onInsertDocumentTable={handleInsertDocumentTable}
                           onDuplicateSlide={() => handleDuplicate(safeSelected)}
                           onRemoveSlide={() => handleRemove(safeSelected)}
                           onOpenPanel={() => openRightPanel("slide")}

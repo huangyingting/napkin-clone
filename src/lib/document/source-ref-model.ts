@@ -48,14 +48,14 @@ export type DocumentDeckDependency =
     }
   | {
       /**
-       * Reference via a `SourceRef` on any slide element (text or visual
-       * block linked from the document).
+       * Reference via a `SourceRef` on any slide element (text, visual, or
+       * table block linked from the document).
        */
       kind: "source_ref";
       slideId: string;
       elementId: string;
       blockId: string;
-      blockKind: "text" | "visual";
+      blockKind: SourceRef["blockKind"];
       source: SourceRef;
     };
 

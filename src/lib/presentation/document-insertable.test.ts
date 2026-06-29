@@ -77,7 +77,9 @@ test("skips hr and empty / whitespace-only text blocks", () => {
   ];
   const items = buildInsertables(blocks);
   assert.deepEqual(
-    items.map((i) => (i.kind === "text" ? i.text : i.visualId)),
+    items.map((i) =>
+      i.kind === "text" ? i.text : i.kind === "visual" ? i.visualId : i.label,
+    ),
     ["Real text", "Another"],
   );
 });

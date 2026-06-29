@@ -67,6 +67,21 @@ export function resolveVisualRef(
     : { status: "missing", reason: `Visual ${visualId} was not found.` };
 }
 
+export function resolveTableRef(
+  blockId: string,
+  blocks: readonly DocumentBlock[],
+): AnchorResolution<DocumentBlock> {
+  if (!isNonEmptyId(blockId)) {
+    return { status: "invalid", reason: "Table block id is empty." };
+  }
+  const target = blocks.find(
+    (block) => block.kind === "table" && block.blockId === blockId,
+  );
+  return target
+    ? { status: "found", target }
+    : { status: "missing", reason: `Table ${blockId} was not found.` };
+}
+
 export function resolveSourceRef(
   sourceRef: SourceRef,
   blocks: readonly DocumentBlock[],
@@ -76,7 +91,7 @@ export function resolveSourceRef(
   }
 
   const blockKind = sourceRef.blockKind;
-  if (blockKind !== "text" && blockKind !== "visual") {
+  if (blockKind !== "text" && blockKind !== "visual" && blockKind !== "table") {
     return {
       status: "invalid",
       reason: `Unsupported source ref blockKind: ${String(blockKind)}.`,
@@ -86,7 +101,9 @@ export function resolveSourceRef(
   const resolution =
     blockKind === "visual"
       ? resolveVisualRef(sourceRef.blockId, blocks)
-      : resolveBlockRef(sourceRef.blockId, blocks);
+      : blockKind === "table"
+        ? resolveTableRef(sourceRef.blockId, blocks)
+        : resolveBlockRef(sourceRef.blockId, blocks);
 
   if (resolution.status !== "found" || !resolution.target) {
     return resolution;

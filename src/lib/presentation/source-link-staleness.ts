@@ -30,13 +30,22 @@
  */
 
 import type { Deck } from "./deck-core";
-import type { TextElement, VisualElement } from "./deck-elements";
+import type {
+  TableElement,
+  TableElementContent,
+  TextElement,
+  VisualElement,
+} from "./deck-elements";
 import type { SourceRef } from "./deck-source-refs";
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import type {
+  DocumentBlock,
+  DocumentTableBlock,
+  DocumentTextBlock,
+} from "@/lib/content";
 import { hashDocumentBlock } from "./document-block-hash";
 
 function elementContent(
-  element: TextElement | VisualElement,
+  element: TextElement | VisualElement | TableElement,
 ): Record<string, any> {
   return ((element as any).content ?? {}) as Record<string, any>;
 }
@@ -67,7 +76,7 @@ export interface StaleSourceLink {
   /**
    * Kind of the source block. Matches `sourceRef.blockKind`.
    */
-  blockKind: "text" | "visual";
+  blockKind: SourceRef["blockKind"];
 }
 
 /**
@@ -92,11 +101,14 @@ export function findStaleSourceLinks(
 ): StaleSourceLink[] {
   // Index fresh text blocks by blockId for O(1) lookup.
   const textBlockById = new Map<string, DocumentTextBlock>();
+  const tableBlockById = new Map<string, DocumentTableBlock>();
   // Index fresh visual blocks by visualId for O(1) lookup.
   const visualBlockByVisualId = new Map<string, DocumentBlock>();
   for (const block of freshBlocks) {
     if (block.kind === "text" && block.blockId !== undefined) {
       textBlockById.set(block.blockId, block);
+    } else if (block.kind === "table" && block.blockId !== undefined) {
+      tableBlockById.set(block.blockId, block);
     } else if (block.kind === "visual") {
       visualBlockByVisualId.set(block.visualId, block);
     }
@@ -142,7 +154,7 @@ export function findStaleSourceLinks(
             blockKind: "visual",
           });
         }
-      } else {
+      } else if (blockKind === "text") {
         // Text block (default): look up by blockId.
         const fresh = textBlockById.get(sourceRef.blockId);
         if (fresh === undefined) {
@@ -165,11 +177,64 @@ export function findStaleSourceLinks(
             blockKind: "text",
           });
         }
+      } else {
+        const fresh = tableBlockById.get(sourceRef.blockId);
+        if (fresh === undefined) {
+          stale.push({
+            slideId: slide.id,
+            elementId: element.id,
+            blockId: sourceRef.blockId,
+            reason: "block_missing",
+            blockKind: "table",
+          });
+          continue;
+        }
+        const freshHash = hashDocumentBlock(fresh);
+        if (freshHash !== sourceRef.contentHash) {
+          stale.push({
+            slideId: slide.id,
+            elementId: element.id,
+            blockId: sourceRef.blockId,
+            reason: "content_changed",
+            blockKind: "table",
+          });
+        }
       }
     }
   }
 
   return stale;
+}
+
+function tableContentFromBlock(block: DocumentTableBlock): TableElementContent {
+  return {
+    kind: "table",
+    columns: block.columns.map((column) => ({
+      id: column.id,
+      label: column.label,
+    })),
+    rows: block.rows.map((row) => ({
+      id: row.id,
+      cells: row.cells.map((cell) => ({
+        text: cell.text,
+        ...(cell.runs && cell.runs.length > 0 ? { runs: cell.runs } : {}),
+      })),
+    })),
+    header: true,
+    ...(block.caption ? { caption: block.caption } : {}),
+  };
+}
+
+export function updateTableElementFromBlock(
+  element: TableElement,
+  freshBlock: DocumentTableBlock,
+  newRef: SourceRef,
+): TableElement {
+  return {
+    ...element,
+    content: tableContentFromBlock(freshBlock),
+    source: { ...newRef, unlinked: undefined },
+  } as unknown as TableElement;
 }
 
 // ---------------------------------------------------------------------------
@@ -259,7 +324,7 @@ export function buildRefreshSourceRef(
   blockId: string,
   contentHash: string,
   linkedAt: string,
-  blockKind: "text" | "visual",
+  blockKind: SourceRef["blockKind"],
 ): SourceRef {
   return {
     documentId: existing.documentId,

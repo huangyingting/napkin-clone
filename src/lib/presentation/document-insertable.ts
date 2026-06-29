@@ -22,6 +22,7 @@
 import {
   documentTableBlockToMarkdown,
   type DocumentBlock,
+  type DocumentTableBlock,
   type DocumentTextBlock,
 } from "@/lib/content";
 
@@ -29,6 +30,7 @@ import {
   buildVisualElement,
   type BaseElement,
   type ElementBox,
+  type TableElement,
   type TextElement,
   type TextRun,
 } from "./deck-elements";
@@ -48,6 +50,13 @@ export type Insertable =
        * (issue #424). Always present so staleness detection works when
        * `documentId` is later provided.
        */
+      contentHash: string;
+    }
+  | {
+      kind: "table";
+      label: string;
+      block: DocumentTableBlock;
+      blockId?: string;
       contentHash: string;
     }
   | {
@@ -129,13 +138,12 @@ export function buildInsertables(
       const text = documentTableBlockToMarkdown(block);
       if (text.trim() === "") continue;
       out.push({
-        kind: "text",
+        kind: "table",
         label: toLabel(
           block.caption ??
             block.columns.map((column) => column.label).join(" / "),
         ),
-        text,
-        heading: false,
+        block,
         ...(block.blockId ? { blockId: block.blockId } : {}),
         contentHash: hashDocumentBlock(block),
       });
@@ -170,8 +178,9 @@ export function buildSourceRefFromBlock(
   blockId: string,
   contentHash: string,
   linkedAt: string,
+  blockKind: SourceRef["blockKind"] = "text",
 ): SourceRef {
-  return { documentId, blockId, contentHash, linkedAt, blockKind: "text" };
+  return { documentId, blockId, contentHash, linkedAt, blockKind };
 }
 
 /**
@@ -287,4 +296,50 @@ export function insertableVisualElement(
     ...(options.box !== undefined ? { box: options.box } : {}),
     ...(source !== undefined ? { source } : {}),
   });
+}
+
+const DEFAULT_TABLE_BOX: ElementBox = { x: 12, y: 22, w: 76, h: 48 };
+
+export function insertableTableElement(
+  item: Extract<Insertable, { kind: "table" }>,
+  options: {
+    id?: string;
+    box?: ElementBox;
+    documentId?: string;
+    linkedAt?: string;
+  } = {},
+): Omit<TableElement, "zIndex"> & { id: string } {
+  const source: SourceRef | undefined =
+    options.documentId !== undefined && item.blockId !== undefined
+      ? buildSourceRefFromBlock(
+          options.documentId,
+          item.blockId,
+          item.contentHash,
+          options.linkedAt ?? new Date().toISOString(),
+          "table",
+        )
+      : undefined;
+  return {
+    id: options.id ?? makeElementId(),
+    kind: "table",
+    role: "table",
+    box: options.box ?? { ...DEFAULT_TABLE_BOX },
+    content: {
+      kind: "table",
+      header: true,
+      ...(item.block.caption ? { caption: item.block.caption } : {}),
+      columns: item.block.columns.map((column) => ({
+        id: column.id,
+        label: column.label,
+      })),
+      rows: item.block.rows.map((row) => ({
+        id: row.id,
+        cells: row.cells.map((cell) => ({
+          text: cell.text,
+          ...(cell.runs && cell.runs.length > 0 ? { runs: cell.runs } : {}),
+        })),
+      })),
+    },
+    ...(source !== undefined ? { source } : {}),
+  } as unknown as Omit<TableElement, "zIndex"> & { id: string };
 }

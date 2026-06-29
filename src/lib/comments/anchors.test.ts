@@ -61,7 +61,7 @@ test("slideAnchorToRecord round-trips through slideAnchorFromRecord", () => {
   );
 });
 
-test("commentAnchorFromRecord maps deck, text, visual, slide, and element variants", () => {
+test("commentAnchorFromRecord maps deck, text, visual, table, slide, and element variants", () => {
   assert.deepEqual(commentAnchorFromRecord({}), { kind: "deck" });
   assert.deepEqual(
     commentAnchorFromRecord({ anchorType: "text", anchorText: "Paragraph" }),
@@ -79,6 +79,19 @@ test("commentAnchorFromRecord maps deck, text, visual, slide, and element varian
         text: "Chart",
         nodeId: "visual-1",
       }),
+    },
+  );
+  assert.deepEqual(
+    commentAnchorFromRecord({
+      anchorType: "table",
+      anchorText: "Evidence",
+      anchorNodeId: "table-1",
+    }),
+    {
+      kind: "document-block",
+      blockKind: "table",
+      text: "Evidence",
+      nodeId: "table-1",
     },
   );
   assert.deepEqual(
@@ -120,6 +133,15 @@ test("commentAnchorToRecord maps canonical variants to DB columns", () => {
       nodeId: "visual-1",
     }).anchorType,
     "visual",
+  );
+  assert.equal(
+    commentAnchorToRecord({
+      kind: "document-block",
+      blockKind: "table",
+      text: "Evidence",
+      nodeId: "table-1",
+    }).anchorType,
+    "table",
   );
   assert.deepEqual(
     commentAnchorToRecord({
@@ -190,6 +212,7 @@ test("commentAnchorToRecord maps canonical variants to DB columns", () => {
 test("anchor primitive normalizers trim, coerce, and reject invalid values", () => {
   assert.equal(normalizeAnchorType("text"), "text");
   assert.equal(normalizeAnchorType("visual"), "visual");
+  assert.equal(normalizeAnchorType("table"), "table");
   assert.equal(normalizeAnchorType("deck"), null);
   assert.equal(
     normalizeAnchorText("  Many\n\nspaces\tinside  ", 11),
