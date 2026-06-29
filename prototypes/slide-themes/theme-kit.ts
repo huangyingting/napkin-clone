@@ -132,6 +132,7 @@ export type BackgroundTreatment =
       from: Hex | ColorRef;
       to: Hex | ColorRef;
       angle?: number;
+      stops?: GradientStop[];
     }
   | {
       type: "radialGradient";
@@ -140,6 +141,9 @@ export type BackgroundTreatment =
       cx?: number;
       cy?: number;
       r?: number;
+      rx?: number;
+      ry?: number;
+      stops?: GradientStop[];
     };
 
 export interface ThemeVisualLanguage {
@@ -1221,6 +1225,9 @@ function bg(t: BackgroundTreatment): Record<string, unknown> {
       ...(t.cx !== undefined ? { cx: t.cx } : {}),
       ...(t.cy !== undefined ? { cy: t.cy } : {}),
       ...(t.r !== undefined ? { r: t.r } : {}),
+      ...(t.rx !== undefined ? { rx: t.rx } : {}),
+      ...(t.ry !== undefined ? { ry: t.ry } : {}),
+      ...(t.stops !== undefined ? { stops: t.stops } : {}),
     };
   }
   return {
@@ -1228,6 +1235,7 @@ function bg(t: BackgroundTreatment): Record<string, unknown> {
     from: colorRef(t.from),
     to: colorRef(t.to),
     ...(t.angle !== undefined ? { angle: t.angle } : {}),
+    ...(t.stops !== undefined ? { stops: t.stops } : {}),
   };
 }
 

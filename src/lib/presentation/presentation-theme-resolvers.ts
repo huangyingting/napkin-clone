@@ -134,18 +134,26 @@ export function resolveSlideBackground(
  * Suitable for use as an inline `style.background` value in the renderer.
  */
 export function backgroundTreatmentToCss(bg: BackgroundTreatment): string {
+  const stopsCss = (stops: readonly { color: string; offset?: number }[]) =>
+    stops
+      .map(
+        (stop) =>
+          `${stop.color}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+      )
+      .join(", ");
   switch (bg.type) {
     case "solid":
       return bg.color;
     case "gradient": {
       const angle = bg.angle ?? 135;
-      return `linear-gradient(${angle}deg, ${bg.from}, ${bg.to})`;
+      return `linear-gradient(${angle}deg, ${bg.stops ? stopsCss(bg.stops) : `${bg.from}, ${bg.to}`})`;
     }
     case "radialGradient": {
       const cx = bg.cx ?? 50;
       const cy = bg.cy ?? 50;
-      const r = bg.r ?? 70;
-      return `radial-gradient(${r}% ${r}% at ${cx}% ${cy}%, ${bg.inner}, ${bg.outer})`;
+      const rx = bg.rx ?? bg.r ?? 70;
+      const ry = bg.ry ?? bg.r ?? 70;
+      return `radial-gradient(${rx}% ${ry}% at ${cx}% ${cy}%, ${bg.stops ? stopsCss(bg.stops) : `${bg.inner}, ${bg.outer}`})`;
     }
     case "image":
       return `url(${JSON.stringify(bg.url)}) center / cover no-repeat`;

@@ -975,7 +975,12 @@ const aurora: ThemeSpec = {
           outer: "#07080f",
           cx: 80,
           cy: 0,
-          r: 100,
+          rx: 100,
+          ry: 90,
+          stops: [
+            { color: { value: "#1b1f4d" } },
+            { color: { value: "#07080f" }, offset: 55 },
+          ],
         },
       ),
       // Section divider

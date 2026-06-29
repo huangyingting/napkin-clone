@@ -243,7 +243,13 @@ export type ImageDefaultsToken = {
  */
 export type BackgroundTreatment =
   | { type: "solid"; color: string }
-  | { type: "gradient"; from: string; to: string; angle?: number }
+  | {
+      type: "gradient";
+      from: string;
+      to: string;
+      angle?: number;
+      stops?: ThemeGradientStop[];
+    }
   | {
       type: "radialGradient";
       inner: string;
@@ -253,8 +259,14 @@ export type BackgroundTreatment =
       r?: number;
       rx?: number;
       ry?: number;
+      stops?: ThemeGradientStop[];
     }
   | { type: "image"; url: string };
+
+export interface ThemeGradientStop {
+  color: string;
+  offset?: number;
+}
 
 export interface ThemeShadowToken {
   x: number;

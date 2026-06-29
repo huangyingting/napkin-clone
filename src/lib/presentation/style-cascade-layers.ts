@@ -68,6 +68,26 @@ function colorRefValue(
   return undefined;
 }
 
+function gradientStopsFromDesign(
+  input: unknown,
+  tokenSet: PresentationTheme,
+): Array<{ color: string; offset?: number }> | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const stops = input.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const stop = item as { color?: unknown; offset?: unknown };
+    const color = colorRefValue(stop.color, tokenSet);
+    if (!color) return [];
+    return [
+      {
+        color,
+        ...(typeof stop.offset === "number" ? { offset: stop.offset } : {}),
+      },
+    ];
+  });
+  return stops.length >= 2 ? stops : undefined;
+}
+
 function backgroundFromDesign(
   input: unknown,
   tokenSet: PresentationTheme,
@@ -89,6 +109,9 @@ function backgroundFromDesign(
       ...(typeof background.angle === "number"
         ? { angle: background.angle }
         : {}),
+      ...(gradientStopsFromDesign(background.stops, tokenSet)
+        ? { stops: gradientStopsFromDesign(background.stops, tokenSet) }
+        : {}),
     };
   }
   if (background.type === "radialGradient") {
@@ -102,6 +125,11 @@ function backgroundFromDesign(
       ...(typeof background.cx === "number" ? { cx: background.cx } : {}),
       ...(typeof background.cy === "number" ? { cy: background.cy } : {}),
       ...(typeof background.r === "number" ? { r: background.r } : {}),
+      ...(typeof background.rx === "number" ? { rx: background.rx } : {}),
+      ...(typeof background.ry === "number" ? { ry: background.ry } : {}),
+      ...(gradientStopsFromDesign(background.stops, tokenSet)
+        ? { stops: gradientStopsFromDesign(background.stops, tokenSet) }
+        : {}),
     };
   }
   if (background.type === "image" && typeof background.url === "string") {

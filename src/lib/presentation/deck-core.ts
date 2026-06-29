@@ -26,9 +26,20 @@ export type PresentationThemeId = (typeof PRESENTATION_THEME_IDS)[number];
 /* node:coverage ignore next 6 -- type-only deck aliases are erased by tsx and map to uncovered comment lines. */
 export type ColorRef = { token: string } | { value: string };
 
+export interface BackgroundGradientStop {
+  color: ColorRef;
+  offset?: number;
+}
+
 export type SlideBackgroundDesign =
   | { type: "solid"; color: ColorRef }
-  | { type: "gradient"; from: ColorRef; to: ColorRef; angle?: number }
+  | {
+      type: "gradient";
+      from: ColorRef;
+      to: ColorRef;
+      angle?: number;
+      stops?: BackgroundGradientStop[];
+    }
   | {
       type: "radialGradient";
       inner: ColorRef;
@@ -36,6 +47,9 @@ export type SlideBackgroundDesign =
       cx?: number;
       cy?: number;
       r?: number;
+      rx?: number;
+      ry?: number;
+      stops?: BackgroundGradientStop[];
     }
   | { type: "image"; url: string; assetId?: string };
 

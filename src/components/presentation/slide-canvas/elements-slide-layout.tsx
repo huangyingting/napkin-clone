@@ -24,9 +24,34 @@ function radialBackgroundImage(
     { type: "radialGradient" }
   >,
 ): string {
-  const radius = background.r ?? 70;
-  const stops = `${background.inner}, ${background.outer}`;
-  return `radial-gradient(${radius}% ${radius}% at ${background.cx ?? 50}% ${background.cy ?? 50}%, ${stops})`;
+  const rx = background.rx ?? background.r ?? 70;
+  const ry = background.ry ?? background.r ?? 70;
+  const stops = background.stops
+    ? background.stops
+        .map(
+          (stop) =>
+            `${stop.color}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+        )
+        .join(", ")
+    : `${background.inner}, ${background.outer}`;
+  return `radial-gradient(${rx}% ${ry}% at ${background.cx ?? 50}% ${background.cy ?? 50}%, ${stops})`;
+}
+
+function linearBackgroundImage(
+  background: Extract<
+    ResolvedSlideRenderModel["background"],
+    { type: "gradient" }
+  >,
+): string {
+  const stops = background.stops
+    ? background.stops
+        .map(
+          (stop) =>
+            `${stop.color}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+        )
+        .join(", ")
+    : `${background.from}, ${background.to}`;
+  return `linear-gradient(${background.angle ?? 135}deg, ${stops})`;
 }
 
 function SlideElementView({
@@ -134,7 +159,7 @@ export function ElementsSlideLayout({
         }
       : background.type === "gradient"
         ? {
-            backgroundImage: `linear-gradient(${background.angle ?? 135}deg, ${background.from}, ${background.to})`,
+            backgroundImage: linearBackgroundImage(background),
           }
         : background.type === "radialGradient"
           ? {

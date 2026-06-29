@@ -52,17 +52,32 @@ function backgroundCss(treatment, colors) {
   if (treatment.type === "gradient") {
     const from = resolveColor(treatment.from, colors);
     const to = resolveColor(treatment.to, colors);
-    return `background:linear-gradient(${treatment.angle ?? 135}deg, ${from}, ${to});`;
+    const stops = stopList(treatment, colors) ?? `${from}, ${to}`;
+    return `background:linear-gradient(${treatment.angle ?? 135}deg, ${stops});`;
   }
   if (treatment.type === "radialGradient") {
     const inner = resolveColor(treatment.inner, colors);
     const outer = resolveColor(treatment.outer, colors);
-    return `background:radial-gradient(${treatment.r ?? 70}% ${treatment.r ?? 70}% at ${treatment.cx ?? 50}% ${treatment.cy ?? 50}%, ${inner}, ${outer});`;
+    const rx = treatment.rx ?? treatment.r ?? 70;
+    const ry = treatment.ry ?? treatment.r ?? 70;
+    const stops = stopList(treatment, colors) ?? `${inner}, ${outer}`;
+    return `background:radial-gradient(${rx}% ${ry}% at ${treatment.cx ?? 50}% ${treatment.cy ?? 50}%, ${stops});`;
   }
   if (treatment.type === "image") {
     return `background:#e9e9ee url(${treatment.url}) center/cover;`;
   }
   return "";
+}
+
+function stopList(fill, colors, alpha) {
+  if (!Array.isArray(fill?.stops)) return undefined;
+  return fill.stops
+    .map((stop) => {
+      const color = resolveColor(stop.color, colors);
+      const value = alpha === undefined ? color : rgba(color, alpha);
+      return `${value}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`;
+    })
+    .join(", ");
 }
 
 function rgba(hex, alpha) {
@@ -92,16 +107,20 @@ function fillCss(fill, colors, effect) {
   if (fill?.type === "radialGradient") {
     const inner = resolveColor(fill.inner, colors);
     const outer = resolveColor(fill.outer, colors);
+    const rx = fill.rx ?? fill.r ?? 70;
+    const ry = fill.ry ?? fill.r ?? 70;
+    const stops = stopList(fill, colors, isGlass ? alpha + 0.08 : undefined);
     return isGlass
-      ? `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgba(inner, alpha + 0.08)}, ${rgba(outer, alpha)})`
-      : `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${inner}, ${outer})`;
+      ? `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${rgba(inner, alpha + 0.08)}, ${rgba(outer, alpha)}`})`
+      : `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${inner}, ${outer}`})`;
   }
   if (fill?.type === "linearGradient") {
     const from = resolveColor(fill.from, colors);
     const to = resolveColor(fill.to, colors);
+    const stops = stopList(fill, colors, isGlass ? alpha + 0.08 : undefined);
     return isGlass
-      ? `linear-gradient(${fill.angle ?? 90}deg, ${rgba(from, alpha + 0.08)}, ${rgba(to, alpha)})`
-      : `linear-gradient(${fill.angle ?? 90}deg, ${from}, ${to})`;
+      ? `linear-gradient(${fill.angle ?? 90}deg, ${stops ?? `${rgba(from, alpha + 0.08)}, ${rgba(to, alpha)}`})`
+      : `linear-gradient(${fill.angle ?? 90}deg, ${stops ?? `${from}, ${to}`})`;
   }
   const color = resolveColor(fill, colors) ?? SHAPE_DEFAULT_FILL;
   return isGlass ? rgba(color, alpha) : color;
@@ -110,6 +129,9 @@ function fillCss(fill, colors, effect) {
 function effectCss(effect) {
   if (!effect) return "";
   if (effect.kind === "blur") return `filter:blur(${effect.radius}cqmin);`;
+  if (effect.kind === "glow") {
+    return `filter:drop-shadow(0 0 ${effect.blur}cqmin ${rgba(effect.color, effect.opacity ?? 1)});`;
+  }
   const blur =
     effect.intensity === "strong" ? 22 : effect.intensity === "light" ? 6 : 14;
   const saturate = effect.intensity === "light" ? 1.16 : 1.3;
@@ -119,6 +141,9 @@ function effectCss(effect) {
 
 function radiusCss(radius, fallback = "0.25rem") {
   if (radius === undefined) return fallback;
+  if (typeof radius === "object") {
+    return `${radius.topLeft}cqmin ${radius.topRight}cqmin ${radius.bottomRight}cqmin ${radius.bottomLeft}cqmin`;
+  }
   return radius >= 50 ? "9999px" : `${radius}cqmin`;
 }
 
@@ -142,8 +167,12 @@ function boxCss(el) {
   if (el.opacity !== undefined && el.opacity < 1)
     css += `opacity:${el.opacity};`;
   if (el.rotation) css += `transform:rotate(${el.rotation}deg);`;
-  if (el.shadow)
-    css += `filter:drop-shadow(0 0.6cqmin 1.2cqmin rgba(0,0,0,.28));`;
+  if (el.shadow) {
+    css +=
+      el.shadow === true
+        ? `filter:drop-shadow(0 0.6cqmin 1.2cqmin rgba(0,0,0,.28));`
+        : `filter:drop-shadow(${el.shadow.x}cqmin ${el.shadow.y}cqmin ${el.shadow.blur}cqmin ${rgba(el.shadow.color, el.shadow.opacity ?? 1)});`;
+  }
   return css;
 }
 
@@ -162,6 +191,7 @@ function renderText(el, colors, accent) {
   const paragraphs = content.paragraphs ?? [{ text: content.text ?? "" }];
   const hasList = paragraphs.some((p) => p.listType);
   const color = ts.color ?? colors.onBg;
+  const textFill = fillCss(ts.textFill, colors);
   const justify =
     ts.verticalAlign === "top"
       ? "flex-start"
@@ -171,11 +201,14 @@ function renderText(el, colors, accent) {
   let css =
     boxCss(el) +
     `display:flex;flex-direction:column;justify-content:${justify};` +
-    `color:${color};font-size:${ts.fontSize ?? 4.5}cqh;` +
+    `${ts.textFill ? `background:${textFill};-webkit-background-clip:text;background-clip:text;color:transparent;` : `color:${color};`}font-size:${ts.fontSize ?? 4.5}cqh;` +
     `font-weight:${ts.bold ? 700 : 400};font-style:${ts.italic ? "italic" : "normal"};` +
     `text-align:${ts.align ?? "left"};line-height:${ts.lineHeight ?? 1.18};` +
     `font-family:${fontStack(ts.fontId)};overflow:hidden;`;
   if (ts.underline) css += "text-decoration:underline;";
+  if (ts.letterSpacing !== undefined)
+    css += `letter-spacing:${ts.letterSpacing}em;`;
+  if (ts.textTransform) css += `text-transform:${ts.textTransform};`;
 
   if (hasList) {
     const marker = accent ?? color;
