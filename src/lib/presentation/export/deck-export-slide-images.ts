@@ -138,7 +138,7 @@ function rgbaColor(value: string, alpha: number): string {
 }
 
 const GLASS_PRESETS = {
-  light: { alpha: 0.22, blur: 8, saturate: 1.18, borderAlpha: 0.42 },
+  light: { alpha: 0.05, blur: 6, saturate: 1.16, borderAlpha: 0.12 },
   medium: { alpha: 0.3, blur: 14, saturate: 1.3, borderAlpha: 0.5 },
   strong: { alpha: 0.4, blur: 22, saturate: 1.42, borderAlpha: 0.6 },
 } as const;

@@ -175,6 +175,8 @@ export function ElementsSlideLayout({
         height: "100%",
         width: "100%",
         overflow: "hidden",
+        isolation: "isolate",
+        contain: "paint",
         ...backgroundStyle,
         containerType: "size",
       }}

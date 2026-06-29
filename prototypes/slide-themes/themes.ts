@@ -1012,21 +1012,20 @@ const aurora: ThemeSpec = {
         "Three forces",
         "content",
         [
-          glow(1, { x: 62, y: -16, w: 42, h: 75 }, p.deco[1], 0.35, {
+          glow(1, { x: 68, y: -16, w: 40, h: 71 }, p.deco[1], 0.35, {
             r: 8,
           }),
           shape({
             zIndex: 3,
-            shape: "rect",
-            box: { x: 8, y: 14, w: 20, h: 1.2 },
+            shape: "line",
+            box: { x: 8, y: 9, w: 26, h: 1 },
             fill: linearFill(p.accent, p.deco[0], 90),
-            radius: 50,
             locked: true,
             name: "Accent bar",
           }),
           text({
             zIndex: 10,
-            box: { x: 8, y: 21, w: 58, h: 10 },
+            box: { x: 8, y: 14, w: 62, h: 10 },
             role: "title",
             text: "Three forces converging",
             style: {
@@ -1047,27 +1046,26 @@ const aurora: ThemeSpec = {
             {
               title: "Adaptive tools",
               body: "fit the team, not the reverse.",
-              x: 36,
+              x: 36.8,
             },
             {
               title: "Invisible UI",
               body: "the best interface vanishes.",
-              x: 64,
+              x: 65.6,
             },
           ].flatMap((card, index) => [
             glassPanel({
               zIndex: 8,
-              box: { x: card.x, y: 42, w: 24, h: 25 },
-              fill: p.surface,
-              radius: 14,
+              box: { x: card.x, y: 29, w: 26.4, h: 18.8 },
+              fill: "#ffffff",
+              radius: 4,
               intensity: "light",
-              stroke: { color: "#ffffff", width: 0.14 },
               locked: true,
               name: `Card ${index + 1}`,
             }),
             text({
               zIndex: 10,
-              box: { x: card.x + 2.2, y: 47, w: 19.5, h: 5.5 },
+              box: { x: card.x + 3.1, y: 33.7, w: 20.2, h: 4.5 },
               role: "title",
               text: card.title,
               style: {
@@ -1080,7 +1078,7 @@ const aurora: ThemeSpec = {
             }),
             text({
               zIndex: 10,
-              box: { x: card.x + 2.2, y: 55, w: 19.5, h: 7 },
+              box: { x: card.x + 3.1, y: 40.2, w: 20.2, h: 4.8 },
               role: "body",
               text: card.body,
               style: {

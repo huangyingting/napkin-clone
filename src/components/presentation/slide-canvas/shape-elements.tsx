@@ -26,10 +26,15 @@ import { shapeContent, shapeTextDesign } from "./v6-model";
 type ResolvedShapeDesign = Extract<ResolvedElementDesign, { kind: "shape" }>;
 
 const GLASS_PRESETS = {
-  light: { alpha: 0.22, blur: 8, saturate: 1.18, borderAlpha: 0.42 },
+  light: { alpha: 0.05, blur: 6, saturate: 1.16, borderAlpha: 0.12 },
   medium: { alpha: 0.3, blur: 14, saturate: 1.3, borderAlpha: 0.5 },
   strong: { alpha: 0.4, blur: 22, saturate: 1.42, borderAlpha: 0.6 },
 } as const;
+
+function radiusCss(radius: number | undefined, fallback = "0.25rem"): string {
+  if (radius === undefined) return fallback;
+  return radius >= 50 ? "9999px" : `${radius}cqmin`;
+}
 
 function glassFillCss(fill: ResolvedElementFill, alpha: number): string {
   if (typeof fill === "string") return hexToRgba(fill, alpha);
@@ -161,7 +166,7 @@ export function ShapeElementView({
               content.shape === "circle"
                 ? "9999px"
                 : radius !== undefined
-                  ? `${radius}%`
+                  ? radiusCss(radius)
                   : "0.25rem",
             ...(effStroke
               ? {
@@ -190,7 +195,7 @@ export function ShapeElementView({
       >
         <div
           style={{
-            height: `${effStroke?.width ?? 0.4}cqmin`,
+            height: effStroke?.width ? `${effStroke.width}cqmin` : "100%",
             width: "100%",
             background: effStroke?.color ?? resolvedFillToCss(fill),
           }}
@@ -270,7 +275,7 @@ export function ShapeElementView({
           content.shape === "ellipse"
             ? "50%"
             : radius !== undefined
-              ? `${radius}%`
+              ? radiusCss(radius)
               : "0.25rem",
         ...(effStroke
           ? {

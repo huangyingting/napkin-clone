@@ -634,10 +634,10 @@
           "kind": "shape",
           "opacity": 0.35,
           "box": {
-            "x": 62,
+            "x": 68,
             "y": -16,
-            "w": 42,
-            "h": 75
+            "w": 40,
+            "h": 71
           },
           "zIndex": 1,
           "designOverrides": {
@@ -661,9 +661,9 @@
           "kind": "shape",
           "box": {
             "x": 8,
-            "y": 14,
-            "w": 20,
-            "h": 1.2
+            "y": 9,
+            "w": 26,
+            "h": 1
           },
           "zIndex": 3,
           "designOverrides": {
@@ -676,14 +676,13 @@
                 "value": "#22d3ee"
               },
               "angle": 90
-            },
-            "radius": 50
+            }
           },
           "locked": true,
           "name": "Accent bar",
           "content": {
             "kind": "shape",
-            "shape": "rect"
+            "shape": "line"
           }
         },
         {
@@ -692,8 +691,8 @@
           "role": "title",
           "box": {
             "x": 8,
-            "y": 21,
-            "w": 58,
+            "y": 14,
+            "w": 62,
             "h": 10
           },
           "zIndex": 10,
@@ -723,20 +722,16 @@
           "kind": "shape",
           "box": {
             "x": 8,
-            "y": 42,
-            "w": 24,
-            "h": 25
+            "y": 29,
+            "w": 26.4,
+            "h": 18.8
           },
           "zIndex": 8,
           "designOverrides": {
             "fill": {
-              "value": "#181c39"
+              "value": "#ffffff"
             },
-            "stroke": {
-              "color": "#ffffff",
-              "width": 0.14
-            },
-            "radius": 14,
+            "radius": 4,
             "effect": {
               "kind": "glass",
               "intensity": "light"
@@ -754,10 +749,10 @@
           "kind": "text",
           "role": "title",
           "box": {
-            "x": 10.2,
-            "y": 47,
-            "w": 19.5,
-            "h": 5.5
+            "x": 11.1,
+            "y": 33.7,
+            "w": 20.2,
+            "h": 4.5
           },
           "zIndex": 10,
           "designOverrides": {
@@ -785,10 +780,10 @@
           "kind": "text",
           "role": "body",
           "box": {
-            "x": 10.2,
-            "y": 55,
-            "w": 19.5,
-            "h": 7
+            "x": 11.1,
+            "y": 40.2,
+            "w": 20.2,
+            "h": 4.8
           },
           "zIndex": 10,
           "designOverrides": {
@@ -816,21 +811,17 @@
           "id": "s-m",
           "kind": "shape",
           "box": {
-            "x": 36,
-            "y": 42,
-            "w": 24,
-            "h": 25
+            "x": 36.8,
+            "y": 29,
+            "w": 26.4,
+            "h": 18.8
           },
           "zIndex": 8,
           "designOverrides": {
             "fill": {
-              "value": "#181c39"
+              "value": "#ffffff"
             },
-            "stroke": {
-              "color": "#ffffff",
-              "width": 0.14
-            },
-            "radius": 14,
+            "radius": 4,
             "effect": {
               "kind": "glass",
               "intensity": "light"
@@ -848,10 +839,10 @@
           "kind": "text",
           "role": "title",
           "box": {
-            "x": 38.2,
-            "y": 47,
-            "w": 19.5,
-            "h": 5.5
+            "x": 39.9,
+            "y": 33.7,
+            "w": 20.2,
+            "h": 4.5
           },
           "zIndex": 10,
           "designOverrides": {
@@ -879,10 +870,10 @@
           "kind": "text",
           "role": "body",
           "box": {
-            "x": 38.2,
-            "y": 55,
-            "w": 19.5,
-            "h": 7
+            "x": 39.9,
+            "y": 40.2,
+            "w": 20.2,
+            "h": 4.8
           },
           "zIndex": 10,
           "designOverrides": {
@@ -910,21 +901,17 @@
           "id": "s-p",
           "kind": "shape",
           "box": {
-            "x": 64,
-            "y": 42,
-            "w": 24,
-            "h": 25
+            "x": 65.6,
+            "y": 29,
+            "w": 26.4,
+            "h": 18.8
           },
           "zIndex": 8,
           "designOverrides": {
             "fill": {
-              "value": "#181c39"
+              "value": "#ffffff"
             },
-            "stroke": {
-              "color": "#ffffff",
-              "width": 0.14
-            },
-            "radius": 14,
+            "radius": 4,
             "effect": {
               "kind": "glass",
               "intensity": "light"
@@ -942,10 +929,10 @@
           "kind": "text",
           "role": "title",
           "box": {
-            "x": 66.2,
-            "y": 47,
-            "w": 19.5,
-            "h": 5.5
+            "x": 68.69999999999999,
+            "y": 33.7,
+            "w": 20.2,
+            "h": 4.5
           },
           "zIndex": 10,
           "designOverrides": {
@@ -973,10 +960,10 @@
           "kind": "text",
           "role": "body",
           "box": {
-            "x": 66.2,
-            "y": 55,
-            "w": 19.5,
-            "h": 7
+            "x": 68.69999999999999,
+            "y": 40.2,
+            "w": 20.2,
+            "h": 4.8
           },
           "zIndex": 10,
           "designOverrides": {

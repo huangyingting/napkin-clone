@@ -87,7 +87,7 @@ function fillCss(fill, colors, effect) {
     isGlass && effect?.intensity === "strong"
       ? 0.4
       : isGlass && effect?.intensity === "light"
-        ? 0.22
+        ? 0.05
         : 0.3;
   if (fill?.type === "radialGradient") {
     const inner = resolveColor(fill.inner, colors);
@@ -111,8 +111,15 @@ function effectCss(effect) {
   if (!effect) return "";
   if (effect.kind === "blur") return `filter:blur(${effect.radius}cqmin);`;
   const blur =
-    effect.intensity === "strong" ? 22 : effect.intensity === "light" ? 8 : 14;
-  return `backdrop-filter:blur(${blur}px) saturate(1.3);-webkit-backdrop-filter:blur(${blur}px) saturate(1.3);border:1px solid ${rgba("#ffffff", 0.45)};box-shadow:0 8px 24px rgba(15,23,42,.18);`;
+    effect.intensity === "strong" ? 22 : effect.intensity === "light" ? 6 : 14;
+  const saturate = effect.intensity === "light" ? 1.16 : 1.3;
+  const borderAlpha = effect.intensity === "light" ? 0.12 : 0.45;
+  return `backdrop-filter:blur(${blur}px) saturate(${saturate});-webkit-backdrop-filter:blur(${blur}px) saturate(${saturate});border:1px solid ${rgba("#ffffff", borderAlpha)};box-shadow:0 8px 24px rgba(15,23,42,.18);`;
+}
+
+function radiusCss(radius, fallback = "0.25rem") {
+  if (radius === undefined) return fallback;
+  return radius >= 50 ? "9999px" : `${radius}cqmin`;
 }
 
 function inscribedBox(box) {
@@ -204,7 +211,7 @@ function renderShape(el, colors = {}) {
   const effect = effectCss(d.effect);
   const overflow = "hidden";
   if (shape === "line") {
-    return `<div style="${boxCss(el)}display:flex;align-items:center;"><div style="height:${stroke?.width ?? 0.4}cqmin;width:100%;background:${stroke?.color ?? fill};"></div></div>`;
+    return `<div style="${boxCss(el)}display:flex;align-items:center;"><div style="height:${stroke?.width ? `${stroke.width}cqmin` : "100%"};width:100%;background:${stroke?.color ?? fill};"></div></div>`;
   }
   if (shape === "ellipse" && d.effect?.kind === "blur") {
     return `<div style="${boxCss(el)}background:${fill};border-radius:50%;${effect}"></div>`;
@@ -221,7 +228,7 @@ function renderShape(el, colors = {}) {
       shape === "circle"
         ? "9999px"
         : d.radius !== undefined
-          ? `${d.radius}%`
+          ? radiusCss(d.radius)
           : "0.25rem";
     const border = stroke
       ? `border:${stroke.width}cqmin solid ${stroke.color};`
@@ -232,7 +239,7 @@ function renderShape(el, colors = {}) {
     shape === "ellipse"
       ? "50%"
       : d.radius !== undefined
-        ? `${d.radius}%`
+        ? radiusCss(d.radius)
         : "0.25rem";
   const border = stroke
     ? `border:${stroke.width}cqmin solid ${stroke.color};`
@@ -311,7 +318,7 @@ header p{color:#a0a3ac;margin:0;font-size:14px}
 header a{color:#9db4ff}
 .deck{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:28px;padding:0 24px}
 .slide-wrap{margin:0}
-.slide{position:relative;width:100%;aspect-ratio:16/9;container-type:size;container-name:slide;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);}
+.slide{position:relative;width:100%;aspect-ratio:16/9;container-type:size;container-name:slide;border-radius:10px;overflow:hidden;isolation:isolate;contain:paint;box-shadow:0 10px 30px rgba(0,0,0,.45);}
 figcaption{margin-top:8px;font-size:12px;color:#8b8f99;font-variant-numeric:tabular-nums}
 nav{max-width:1120px;margin:0 auto 28px;padding:0 24px;display:flex;flex-wrap:wrap;gap:10px}
 nav a{display:inline-block;padding:8px 14px;border-radius:999px;background:#2a2d35;color:#e7e8ec;text-decoration:none;font-size:13px;border:1px solid #3a3e48}
