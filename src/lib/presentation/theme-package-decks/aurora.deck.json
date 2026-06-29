@@ -91,7 +91,9 @@
               "fontSize": 11,
               "color": "#6366f1",
               "weight": 700,
-              "align": "left"
+              "align": "left",
+              "letterSpacing": 0.24,
+              "textTransform": "uppercase"
             },
             "footer": {
               "fontFamily": "'Inter', system-ui, sans-serif",
@@ -117,6 +119,175 @@
           "cornerRadiusPt": 10,
           "shadowCss": "0 18px 40px rgba(99,102,241,0.18)",
           "fill": "#6366f1"
+        },
+        "visualLanguage": {
+          "slide": {
+            "radius": 10,
+            "shadow": {
+              "x": 0,
+              "y": 1.8,
+              "blur": 5,
+              "color": "#000000",
+              "opacity": 0.5
+            }
+          },
+          "surfaces": {
+            "card": {
+              "fill": "#181c39",
+              "radius": 16,
+              "effect": {
+                "kind": "glass",
+                "intensity": "medium"
+              }
+            },
+            "chip": {
+              "fill": "#181c39",
+              "stroke": "#9aa2c8",
+              "strokeWidth": 0.16,
+              "radius": 50,
+              "effect": {
+                "kind": "glass",
+                "intensity": "medium"
+              }
+            },
+            "tag": {
+              "fill": "#6366f1",
+              "radius": 50,
+              "opacity": 1
+            },
+            "frame": {
+              "stroke": "#9aa2c8",
+              "strokeWidth": 0.14,
+              "radius": 10
+            }
+          },
+          "motifs": {
+            "primary": {
+              "kind": "orb",
+              "shape": "circle",
+              "box": {
+                "x": 58,
+                "y": -18,
+                "w": 48,
+                "h": 72
+              },
+              "fill": "#22d3ee",
+              "opacity": 0.3,
+              "effect": {
+                "kind": "blur",
+                "radius": 8
+              }
+            },
+            "secondary": {
+              "kind": "orb",
+              "shape": "diamond",
+              "box": {
+                "x": -12,
+                "y": 58,
+                "w": 44,
+                "h": 60
+              },
+              "fill": "#a855f7",
+              "opacity": 0.24,
+              "effect": {
+                "kind": "blur",
+                "radius": 6
+              }
+            },
+            "accent": {
+              "kind": "bar",
+              "shape": "rect",
+              "box": {
+                "x": 8,
+                "y": 30,
+                "w": 18,
+                "h": 1
+              },
+              "fill": "#6366f1",
+              "radius": 50
+            },
+            "glowA": {
+              "kind": "orb",
+              "shape": "ellipse",
+              "box": {
+                "x": 50,
+                "y": -18,
+                "w": 60,
+                "h": 60
+              },
+              "fill": "#6366f1",
+              "opacity": 0.55,
+              "effect": {
+                "kind": "blur",
+                "radius": 8
+              }
+            },
+            "glowB": {
+              "kind": "orb",
+              "shape": "ellipse",
+              "box": {
+                "x": 60,
+                "y": 30,
+                "w": 46,
+                "h": 46
+              },
+              "fill": "#a855f7",
+              "opacity": 0.55,
+              "effect": {
+                "kind": "blur",
+                "radius": 8
+              }
+            }
+          },
+          "text": {
+            "kicker": {
+              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#6366f1",
+              "weight": 700,
+              "letterSpacing": 0.26,
+              "textTransform": "uppercase"
+            },
+            "heroTitle": {
+              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
+              "fontSize": 44,
+              "color": "#e9ebff",
+              "weight": 800,
+              "lineHeight": 0.98,
+              "letterSpacing": -0.02
+            },
+            "subtitle": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 16,
+              "color": "#9aa2c8",
+              "weight": 400,
+              "lineHeight": 1.3
+            },
+            "stat": {
+              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
+              "fontSize": 84,
+              "color": "#6366f1",
+              "weight": 800
+            },
+            "cardTitle": {
+              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
+              "fontSize": 17,
+              "color": "#c9cdf2",
+              "weight": 700
+            },
+            "cardBody": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 12,
+              "color": "#9aa2c8",
+              "weight": 400
+            },
+            "chipText": {
+              "fontFamily": "'Inter', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#c9cdf2",
+              "weight": 600
+            }
+          }
         },
         "defaultBackground": {
           "type": "gradient",
@@ -171,6 +342,13 @@
           "id": "s-1",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#a855f7",
+            "opacity": 0.2
+          },
           "box": {
             "x": 58,
             "y": -18,
@@ -180,11 +358,37 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#a855f7"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#a855f7"
+              },
+              "outer": {
+                "value": "#a855f7"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#a855f7"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#a855f7"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#a855f7",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -198,6 +402,13 @@
           "id": "s-2",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#22d3ee",
+            "opacity": 0.2
+          },
           "box": {
             "x": 60,
             "y": 30,
@@ -207,11 +418,37 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "value": "#22d3ee"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#22d3ee"
+              },
+              "outer": {
+                "value": "#22d3ee"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#22d3ee"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#22d3ee"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#22d3ee",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -336,6 +573,35 @@
               "italic": false,
               "align": "left",
               "lineHeight": 0.98,
+              "letterSpacing": -0.02,
+              "textFill": {
+                "type": "linearGradient",
+                "from": {
+                  "value": "#ffffff"
+                },
+                "to": {
+                  "value": "#22d3ee"
+                },
+                "angle": 100,
+                "stops": [
+                  {
+                    "color": {
+                      "value": "#ffffff"
+                    }
+                  },
+                  {
+                    "color": {
+                      "value": "#b9c0ff"
+                    },
+                    "offset": 40
+                  },
+                  {
+                    "color": {
+                      "value": "#22d3ee"
+                    }
+                  }
+                ]
+              },
               "color": "#22d3ee",
               "fontId": "space-grotesk"
             }
@@ -493,6 +759,13 @@
           "id": "s-10",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#6366f1",
+            "opacity": 0.2
+          },
           "box": {
             "x": -12,
             "y": 48,
@@ -502,11 +775,37 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#6366f1"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#6366f1"
+              },
+              "outer": {
+                "value": "#6366f1"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#6366f1"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#6366f1"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#6366f1",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -633,6 +932,13 @@
           "id": "s-g",
           "kind": "shape",
           "opacity": 0.35,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#a855f7",
+            "opacity": 0.2
+          },
           "box": {
             "x": 68,
             "y": -16,
@@ -642,11 +948,37 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#a855f7"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#a855f7"
+              },
+              "outer": {
+                "value": "#a855f7"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#a855f7"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#a855f7"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#a855f7",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -1032,6 +1364,13 @@
           "id": "s-c",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#a855f7",
+            "opacity": 0.2
+          },
           "box": {
             "x": -10,
             "y": 45,
@@ -1041,11 +1380,37 @@
           "zIndex": 2,
           "designOverrides": {
             "fill": {
-              "value": "#a855f7"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#a855f7"
+              },
+              "outer": {
+                "value": "#a855f7"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#a855f7"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#a855f7"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#a855f7",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -1059,6 +1424,13 @@
           "id": "s-d",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#22d3ee",
+            "opacity": 0.2
+          },
           "box": {
             "x": 65,
             "y": -20,
@@ -1068,11 +1440,37 @@
           "zIndex": 3,
           "designOverrides": {
             "fill": {
-              "value": "#22d3ee"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#22d3ee"
+              },
+              "outer": {
+                "value": "#22d3ee"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#22d3ee"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#22d3ee"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#22d3ee",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -2236,6 +2634,13 @@
           "id": "s-10",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#6366f1",
+            "opacity": 0.2
+          },
           "box": {
             "x": -12,
             "y": 48,
@@ -2245,11 +2650,37 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#6366f1"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#6366f1"
+              },
+              "outer": {
+                "value": "#6366f1"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#6366f1"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#6366f1"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#6366f1",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,
@@ -2382,6 +2813,13 @@
           "id": "s-10",
           "kind": "shape",
           "opacity": 0.55,
+          "shadow": {
+            "x": 0,
+            "y": 0,
+            "blur": 2.4,
+            "color": "#6366f1",
+            "opacity": 0.2
+          },
           "box": {
             "x": -12,
             "y": 48,
@@ -2391,11 +2829,37 @@
           "zIndex": 1,
           "designOverrides": {
             "fill": {
-              "value": "#6366f1"
+              "type": "radialGradient",
+              "inner": {
+                "value": "#6366f1"
+              },
+              "outer": {
+                "value": "#6366f1"
+              },
+              "cx": 42,
+              "cy": 38,
+              "rx": 100,
+              "ry": 90,
+              "stops": [
+                {
+                  "color": {
+                    "value": "#6366f1"
+                  },
+                  "offset": 0
+                },
+                {
+                  "color": {
+                    "value": "#6366f1"
+                  },
+                  "offset": 100
+                }
+              ]
             },
             "effect": {
-              "kind": "blur",
-              "radius": 8
+              "kind": "glow",
+              "color": "#6366f1",
+              "blur": 8,
+              "opacity": 0.35
             }
           },
           "locked": true,

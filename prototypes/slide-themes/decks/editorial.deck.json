@@ -91,7 +91,9 @@
               "fontSize": 11,
               "color": "#e0533b",
               "weight": 700,
-              "align": "left"
+              "align": "left",
+              "letterSpacing": 0.24,
+              "textTransform": "uppercase"
             },
             "footer": {
               "fontFamily": "'Source Sans 3', system-ui, sans-serif",
@@ -117,6 +119,157 @@
           "cornerRadiusPt": 2,
           "shadowCss": "none",
           "fill": "#e0533b"
+        },
+        "visualLanguage": {
+          "slide": {
+            "radius": 6,
+            "shadow": {
+              "x": 0,
+              "y": 1.8,
+              "blur": 5,
+              "color": "#000000",
+              "opacity": 0.5
+            }
+          },
+          "surfaces": {
+            "card": {
+              "fill": "#f1e7d8",
+              "stroke": "#8a7a6b",
+              "strokeWidth": 0.18,
+              "radius": 2,
+              "effect": {
+                "kind": "glass",
+                "intensity": "light"
+              }
+            },
+            "chip": {
+              "fill": "#f1e7d8",
+              "stroke": "#8a7a6b",
+              "strokeWidth": 0.16,
+              "radius": 50,
+              "effect": {
+                "kind": "glass",
+                "intensity": "light"
+              }
+            },
+            "tag": {
+              "fill": "#e0533b",
+              "radius": 50,
+              "opacity": 1
+            },
+            "frame": {
+              "stroke": "#8a7a6b",
+              "strokeWidth": 0.14,
+              "radius": 2
+            }
+          },
+          "motifs": {
+            "primary": {
+              "kind": "orb",
+              "shape": "rect",
+              "box": {
+                "x": 58,
+                "y": -18,
+                "w": 48,
+                "h": 72
+              },
+              "fill": "#e0533b",
+              "opacity": 0.3,
+              "effect": {
+                "kind": "blur",
+                "radius": 8
+              }
+            },
+            "secondary": {
+              "kind": "orb",
+              "shape": "diamond",
+              "box": {
+                "x": -12,
+                "y": 58,
+                "w": 44,
+                "h": 60
+              },
+              "fill": "#211b17",
+              "opacity": 0.24,
+              "effect": {
+                "kind": "blur",
+                "radius": 6
+              }
+            },
+            "accent": {
+              "kind": "bar",
+              "shape": "rect",
+              "box": {
+                "x": 8,
+                "y": 30,
+                "w": 18,
+                "h": 1
+              },
+              "fill": "#e0533b",
+              "radius": 50
+            },
+            "frame": {
+              "kind": "frame",
+              "shape": "rect",
+              "box": {
+                "x": 3.5,
+                "y": 4,
+                "w": 93,
+                "h": 92
+              },
+              "stroke": "#211b17",
+              "strokeWidth": 0.14,
+              "opacity": 1
+            }
+          },
+          "text": {
+            "kicker": {
+              "fontFamily": "'Source Serif 4', Georgia, serif",
+              "fontSize": 11,
+              "color": "#e0533b",
+              "weight": 700,
+              "letterSpacing": 0.26,
+              "textTransform": "uppercase"
+            },
+            "heroTitle": {
+              "fontFamily": "'Source Serif 4', Georgia, serif",
+              "fontSize": 44,
+              "color": "#211b17",
+              "weight": 800,
+              "lineHeight": 0.98
+            },
+            "subtitle": {
+              "fontFamily": "'Source Sans 3', system-ui, sans-serif",
+              "fontSize": 16,
+              "color": "#8a7a6b",
+              "weight": 400,
+              "lineHeight": 1.3
+            },
+            "stat": {
+              "fontFamily": "'Source Serif 4', Georgia, serif",
+              "fontSize": 84,
+              "color": "#e0533b",
+              "weight": 800
+            },
+            "cardTitle": {
+              "fontFamily": "'Source Serif 4', Georgia, serif",
+              "fontSize": 17,
+              "color": "#4b3f36",
+              "weight": 700
+            },
+            "cardBody": {
+              "fontFamily": "'Source Sans 3', system-ui, sans-serif",
+              "fontSize": 12,
+              "color": "#8a7a6b",
+              "weight": 400
+            },
+            "chipText": {
+              "fontFamily": "'Source Sans 3', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#4b3f36",
+              "weight": 600
+            }
+          }
         },
         "defaultBackground": {
           "type": "solid",

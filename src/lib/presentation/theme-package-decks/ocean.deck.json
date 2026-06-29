@@ -91,7 +91,9 @@
               "fontSize": 11,
               "color": "#0284c7",
               "weight": 700,
-              "align": "left"
+              "align": "left",
+              "letterSpacing": 0.24,
+              "textTransform": "uppercase"
             },
             "footer": {
               "fontFamily": "'Inter', 'Noto Sans SC', system-ui, sans-serif",
@@ -117,6 +119,144 @@
           "cornerRadiusPt": 8,
           "shadowCss": "0 14px 32px rgba(2,132,199,0.14)",
           "fill": "#0284c7"
+        },
+        "visualLanguage": {
+          "slide": {
+            "radius": 8,
+            "shadow": {
+              "x": 0,
+              "y": 1.8,
+              "blur": 5,
+              "color": "#000000",
+              "opacity": 0.5
+            }
+          },
+          "surfaces": {
+            "card": {
+              "fill": "#e0f2fe",
+              "stroke": "#ffffff",
+              "strokeWidth": 0.18,
+              "radius": 14,
+              "effect": {
+                "kind": "glass",
+                "intensity": "medium"
+              }
+            },
+            "chip": {
+              "fill": "#e0f2fe",
+              "stroke": "#0e7490",
+              "strokeWidth": 0.16,
+              "radius": 50,
+              "effect": {
+                "kind": "glass",
+                "intensity": "medium"
+              }
+            },
+            "tag": {
+              "fill": "#0284c7",
+              "radius": 50,
+              "opacity": 1
+            },
+            "frame": {
+              "stroke": "#0e7490",
+              "strokeWidth": 0.14,
+              "radius": 8
+            }
+          },
+          "motifs": {
+            "primary": {
+              "kind": "orb",
+              "shape": "circle",
+              "box": {
+                "x": 58,
+                "y": -18,
+                "w": 48,
+                "h": 72
+              },
+              "fill": "#38bdf8",
+              "opacity": 0.3,
+              "effect": {
+                "kind": "blur",
+                "radius": 8
+              }
+            },
+            "secondary": {
+              "kind": "orb",
+              "shape": "ellipse",
+              "box": {
+                "x": -12,
+                "y": 58,
+                "w": 44,
+                "h": 60
+              },
+              "fill": "#99f6e4",
+              "opacity": 0.24,
+              "effect": {
+                "kind": "blur",
+                "radius": 6
+              }
+            },
+            "accent": {
+              "kind": "bar",
+              "shape": "rect",
+              "box": {
+                "x": 8,
+                "y": 30,
+                "w": 18,
+                "h": 1
+              },
+              "fill": "#0284c7",
+              "radius": 50
+            }
+          },
+          "text": {
+            "kicker": {
+              "fontFamily": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#0284c7",
+              "weight": 700,
+              "letterSpacing": 0.26,
+              "textTransform": "uppercase"
+            },
+            "heroTitle": {
+              "fontFamily": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 44,
+              "color": "#0c4a6e",
+              "weight": 800,
+              "lineHeight": 0.98
+            },
+            "subtitle": {
+              "fontFamily": "'Inter', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 16,
+              "color": "#0e7490",
+              "weight": 400,
+              "lineHeight": 1.3
+            },
+            "stat": {
+              "fontFamily": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 84,
+              "color": "#0284c7",
+              "weight": 800
+            },
+            "cardTitle": {
+              "fontFamily": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 17,
+              "color": "#075985",
+              "weight": 700
+            },
+            "cardBody": {
+              "fontFamily": "'Inter', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 12,
+              "color": "#0e7490",
+              "weight": 400
+            },
+            "chipText": {
+              "fontFamily": "'Inter', 'Noto Sans SC', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#075985",
+              "weight": 600
+            }
+          }
         },
         "defaultBackground": {
           "type": "solid",

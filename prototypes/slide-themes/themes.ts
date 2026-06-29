@@ -837,9 +837,22 @@ const aurora: ThemeSpec = {
         zIndex: z,
         shape: "ellipse",
         box,
-        fill: color,
-        effect: { kind: "blur", radius: options.r ?? 8 },
+        fill: {
+          type: "radialGradient",
+          inner: { value: color },
+          outer: { value: color },
+          cx: options.cx ?? 42,
+          cy: options.cy ?? 38,
+          rx: 120,
+          ry: 90,
+          stops: [
+            { color: { value: color }, offset: 0 },
+            { color: { value: color }, offset: 100 },
+          ],
+        },
+        effect: { kind: "glow", color, blur: options.r ?? 8, opacity: 0.35 },
         opacity,
+        shadow: { x: 0, y: 0, blur: 2.4, color, opacity: 0.2 },
         locked: true,
         name: "Glow",
       });
@@ -903,6 +916,12 @@ const aurora: ThemeSpec = {
               bold: true,
               align: "left",
               lineHeight: 0.98,
+              textFill: linearFill("#ffffff", p.deco[0], 100, [
+                { color: { value: "#ffffff" } },
+                { color: { value: "#b9c0ff" }, offset: 40 },
+                { color: { value: p.deco[0] } },
+              ]),
+              letterSpacing: -0.02,
             },
           }),
           text({

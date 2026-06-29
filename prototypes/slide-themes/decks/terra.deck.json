@@ -91,7 +91,9 @@
               "fontSize": 11,
               "color": "#c2683f",
               "weight": 700,
-              "align": "left"
+              "align": "left",
+              "letterSpacing": 0.24,
+              "textTransform": "uppercase"
             },
             "footer": {
               "fontFamily": "'Source Sans 3', system-ui, sans-serif",
@@ -117,6 +119,178 @@
           "cornerRadiusPt": 16,
           "shadowCss": "0 14px 30px rgba(31,42,34,0.12)",
           "fill": "#c2683f"
+        },
+        "visualLanguage": {
+          "slide": {
+            "radius": 16,
+            "shadow": {
+              "x": 0,
+              "y": 1.8,
+              "blur": 5,
+              "color": "#000000",
+              "opacity": 0.5
+            }
+          },
+          "surfaces": {
+            "card": {
+              "fill": "#e4ece0",
+              "radius": 26,
+              "effect": {
+                "kind": "glass",
+                "intensity": "light"
+              }
+            },
+            "chip": {
+              "fill": "#e4ece0",
+              "stroke": "#6f7d6c",
+              "strokeWidth": 0.16,
+              "radius": 50,
+              "effect": {
+                "kind": "glass",
+                "intensity": "light"
+              }
+            },
+            "tag": {
+              "fill": "#c2683f",
+              "radius": 50,
+              "opacity": 1
+            },
+            "frame": {
+              "stroke": "#6f7d6c",
+              "strokeWidth": 0.14,
+              "radius": 16
+            }
+          },
+          "motifs": {
+            "primary": {
+              "kind": "orb",
+              "shape": "circle",
+              "box": {
+                "x": 58,
+                "y": -18,
+                "w": 48,
+                "h": 72
+              },
+              "fill": "#3f6b4a",
+              "opacity": 0.3,
+              "effect": {
+                "kind": "blur",
+                "radius": 8
+              }
+            },
+            "secondary": {
+              "kind": "orb",
+              "shape": "ellipse",
+              "box": {
+                "x": -12,
+                "y": 58,
+                "w": 44,
+                "h": 60
+              },
+              "fill": "#c2683f",
+              "opacity": 0.24,
+              "effect": {
+                "kind": "blur",
+                "radius": 6
+              }
+            },
+            "accent": {
+              "kind": "bar",
+              "shape": "rect",
+              "box": {
+                "x": 8,
+                "y": 30,
+                "w": 18,
+                "h": 1
+              },
+              "fill": "#c2683f",
+              "radius": 50
+            },
+            "leaf": {
+              "kind": "leaf",
+              "shape": "ellipse",
+              "box": {
+                "x": 57,
+                "y": -16,
+                "w": 55,
+                "h": 70
+              },
+              "fill": "#3f6b4a",
+              "radius": {
+                "topLeft": 50,
+                "topRight": 50,
+                "bottomRight": 50,
+                "bottomLeft": 8
+              },
+              "rotation": 12
+            },
+            "leafSoft": {
+              "kind": "leaf",
+              "shape": "ellipse",
+              "box": {
+                "x": 60,
+                "y": 18,
+                "w": 34,
+                "h": 46
+              },
+              "fill": "#c2683f",
+              "radius": {
+                "topLeft": 50,
+                "topRight": 8,
+                "bottomRight": 50,
+                "bottomLeft": 50
+              },
+              "opacity": 0.6
+            }
+          },
+          "text": {
+            "kicker": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#c2683f",
+              "weight": 700,
+              "letterSpacing": 0.26,
+              "textTransform": "uppercase"
+            },
+            "heroTitle": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 44,
+              "color": "#1f2a22",
+              "weight": 800,
+              "lineHeight": 0.98
+            },
+            "subtitle": {
+              "fontFamily": "'Source Sans 3', system-ui, sans-serif",
+              "fontSize": 16,
+              "color": "#6f7d6c",
+              "weight": 400,
+              "lineHeight": 1.3
+            },
+            "stat": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 84,
+              "color": "#c2683f",
+              "weight": 800
+            },
+            "cardTitle": {
+              "fontFamily": "'Manrope', system-ui, sans-serif",
+              "fontSize": 17,
+              "color": "#37463a",
+              "weight": 700
+            },
+            "cardBody": {
+              "fontFamily": "'Source Sans 3', system-ui, sans-serif",
+              "fontSize": 12,
+              "color": "#6f7d6c",
+              "weight": 400
+            },
+            "chipText": {
+              "fontFamily": "'Source Sans 3', system-ui, sans-serif",
+              "fontSize": 11,
+              "color": "#37463a",
+              "weight": 600
+            }
+          }
         },
         "defaultBackground": {
           "type": "solid",

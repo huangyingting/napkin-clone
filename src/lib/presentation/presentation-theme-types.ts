@@ -277,10 +277,17 @@ export interface ThemeSurfaceRecipe {
   fill?: string;
   stroke?: string;
   strokeWidth?: number;
-  radius?: number;
+  radius?: number | ThemeRadiusToken;
   opacity?: number;
   shadow?: ThemeShadowToken;
   effect?: ThemeEffectToken;
+}
+
+export interface ThemeRadiusToken {
+  topLeft: number;
+  topRight: number;
+  bottomRight: number;
+  bottomLeft: number;
 }
 
 export interface ThemeMotifRecipe {
@@ -290,7 +297,7 @@ export interface ThemeMotifRecipe {
   fill?: string;
   stroke?: string;
   strokeWidth?: number;
-  radius?: number;
+  radius?: number | ThemeRadiusToken;
   rotation?: number;
   opacity?: number;
   shadow?: ThemeShadowToken;

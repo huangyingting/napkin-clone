@@ -6,6 +6,7 @@ import {
   type ThemePackageTemplateKind,
   type ThemePackageTemplateMetadata,
 } from "@/lib/presentation/theme-template-taxonomy";
+import type { ThemeVisualLanguageToken } from "@/lib/presentation/presentation-theme-types";
 import { familySlide } from "./render-family-layouts";
 
 /**
@@ -65,6 +66,11 @@ export type ColorToken =
 
 export type ColorRef = { token: ColorToken } | { value: Hex };
 
+export interface GradientStop {
+  color: ColorRef;
+  offset?: number;
+}
+
 export type Fill =
   | ColorRef
   | {
@@ -74,12 +80,16 @@ export type Fill =
       cx?: number;
       cy?: number;
       r?: number;
+      rx?: number;
+      ry?: number;
+      stops?: GradientStop[];
     }
   | {
       type: "linearGradient";
       from: ColorRef;
       to: ColorRef;
       angle?: number;
+      stops?: GradientStop[];
     };
 
 export type ShapeEffect =
@@ -90,7 +100,30 @@ export type ShapeEffect =
   | {
       kind: "blur";
       radius: number;
+    }
+  | {
+      kind: "glow";
+      color: Hex;
+      blur: number;
+      opacity?: number;
     };
+
+export type Radius =
+  | number
+  | {
+      topLeft: number;
+      topRight: number;
+      bottomRight: number;
+      bottomLeft: number;
+    };
+
+export interface Shadow {
+  x: number;
+  y: number;
+  blur: number;
+  color: Hex;
+  opacity?: number;
+}
 
 export type BackgroundTreatment =
   | { type: "solid"; color: Hex | ColorRef }
@@ -144,7 +177,14 @@ function colorRef(input: Hex | ColorRef): ColorRef {
 export function radialFill(
   inner: Hex | ColorRef,
   outer: Hex | ColorRef,
-  options: { cx?: number; cy?: number; r?: number } = {},
+  options: {
+    cx?: number;
+    cy?: number;
+    r?: number;
+    rx?: number;
+    ry?: number;
+    stops?: GradientStop[];
+  } = {},
 ): Fill {
   return {
     type: "radialGradient",
@@ -158,12 +198,14 @@ export function linearFill(
   from: Hex | ColorRef,
   to: Hex | ColorRef,
   angle = 90,
+  stops?: GradientStop[],
 ): Fill {
   return {
     type: "linearGradient",
     from: colorRef(from),
     to: colorRef(to),
     angle,
+    ...(stops ? { stops } : {}),
   };
 }
 
@@ -191,6 +233,9 @@ export interface TextStyleInput {
   lineHeight?: number;
   paragraphSpacing?: number;
   underline?: boolean;
+  letterSpacing?: number;
+  textTransform?: "none" | "uppercase";
+  textFill?: Fill;
 }
 
 export function text(opts: {
@@ -238,6 +283,13 @@ export function text(opts: {
           ? { paragraphSpacing: opts.style.paragraphSpacing }
           : {}),
         ...(opts.style.underline ? { underline: true } : {}),
+        ...(opts.style.letterSpacing !== undefined
+          ? { letterSpacing: opts.style.letterSpacing }
+          : {}),
+        ...(opts.style.textTransform
+          ? { textTransform: opts.style.textTransform }
+          : {}),
+        ...(opts.style.textFill ? { textFill: opts.style.textFill } : {}),
       },
     },
   };
@@ -249,10 +301,11 @@ export function shape(opts: {
   box: Box;
   fill?: Hex | Fill;
   stroke?: { color: Hex; width: number };
-  radius?: number;
+  radius?: Radius;
   effect?: ShapeEffect;
   opacity?: number;
   rotation?: number;
+  shadow?: Shadow;
   dash?: boolean;
   name?: string;
   locked?: boolean;
@@ -276,6 +329,7 @@ export function shape(opts: {
     zIndex: opts.zIndex,
     ...(opts.opacity !== undefined ? { opacity: opts.opacity } : {}),
     ...(opts.rotation ? { rotation: opts.rotation } : {}),
+    ...(opts.shadow ? { shadow: opts.shadow } : {}),
     ...(opts.locked ? { locked: true } : {}),
     ...(opts.name ? { name: opts.name } : {}),
     content: { kind: "shape", shape: opts.shape },
@@ -711,6 +765,7 @@ function roleTokens(spec: ThemeSpec): Record<string, unknown> {
       weight: 800,
       align: "left",
       lineHeight: 1.05,
+      ...(spec.id === "pulse" ? { textTransform: "uppercase" } : {}),
     },
     sectionTitle: {
       fontFamily: fonts.headingCss,
@@ -766,6 +821,8 @@ function roleTokens(spec: ThemeSpec): Record<string, unknown> {
       color: palette.accent,
       weight: 700,
       align: "left",
+      letterSpacing: 0.24,
+      textTransform: "uppercase",
     },
     footer: {
       fontFamily: fonts.bodyCss,
@@ -782,6 +839,265 @@ function roleTokens(spec: ThemeSpec): Record<string, unknown> {
       align: "right",
     },
   };
+}
+
+function themeVisualLanguageToken(spec: ThemeSpec): ThemeVisualLanguageToken {
+  const lang = visualLanguage(spec);
+  const p = spec.palette;
+  const motifShape = (shape: ShapeKind) =>
+    shape === "square" || shape === "rect" || shape === "line" ? "rect" : shape;
+  const slideShadow = {
+    x: 0,
+    y: 1.8,
+    blur: 5,
+    color: "#000000",
+    opacity: lang.surface === "ink" ? 0.6 : 0.5,
+  };
+  const cardRadius = lang.card.radius;
+  const glassEffect =
+    lang.card.fill === "glass"
+      ? {
+          kind: "glass" as const,
+          intensity: (lang.surface === "glass" ? "medium" : "light") as
+            | "medium"
+            | "light",
+        }
+      : undefined;
+  const cardStroke = lang.card.stroke
+    ? lang.surface === "glass"
+      ? "#ffffff"
+      : p.muted
+    : undefined;
+  const primary = p.deco[0] ?? p.accent;
+  const secondary = p.deco[1] ?? p.surface;
+
+  const base: ThemeVisualLanguageToken = {
+    slide: { radius: Math.max(6, spec.cornerRadiusPt), shadow: slideShadow },
+    surfaces: {
+      card: {
+        fill: lang.card.fill === "slideBg" ? p.slideBg : p.surface,
+        ...(cardStroke ? { stroke: cardStroke, strokeWidth: 0.18 } : {}),
+        radius: cardRadius,
+        ...(glassEffect ? { effect: glassEffect } : {}),
+      },
+      chip: {
+        fill: p.surface,
+        stroke: p.muted,
+        strokeWidth: 0.16,
+        radius: 50,
+        ...(glassEffect ? { effect: glassEffect } : {}),
+      },
+      tag: {
+        fill: p.accent,
+        radius: 50,
+        opacity: 1,
+      },
+      frame: {
+        stroke: p.muted,
+        strokeWidth: 0.14,
+        radius: Math.max(0, spec.cornerRadiusPt),
+      },
+    },
+    motifs: {
+      primary: {
+        kind: "orb",
+        shape: motifShape(lang.motifShapes.primary),
+        box: { x: 58, y: -18, w: 48, h: 72 },
+        fill: primary,
+        opacity: 0.3,
+        effect: { kind: "blur", radius: 8 },
+      },
+      secondary: {
+        kind: "orb",
+        shape: motifShape(lang.motifShapes.secondary),
+        box: { x: -12, y: 58, w: 44, h: 60 },
+        fill: secondary,
+        opacity: 0.24,
+        effect: { kind: "blur", radius: 6 },
+      },
+      accent: {
+        kind: "bar",
+        shape: "rect",
+        box: { x: 8, y: 30, w: 18, h: 1 },
+        fill: p.accent,
+        radius: 50,
+      },
+    },
+    text: {
+      kicker: {
+        fontFamily: spec.fonts.headingCss,
+        fontSize: 11,
+        color: p.accent,
+        weight: 700,
+        letterSpacing: 0.26,
+        textTransform: "uppercase",
+      },
+      heroTitle: {
+        fontFamily: spec.fonts.headingCss,
+        fontSize: spec.id === "pulse" ? 54 : 44,
+        color: p.onBg,
+        weight: spec.id === "pulse" ? 400 : 800,
+        lineHeight: spec.id === "pulse" ? 0.86 : 0.98,
+        ...(spec.id === "pulse" ? { textTransform: "uppercase" } : {}),
+      },
+      subtitle: {
+        fontFamily: spec.fonts.bodyCss,
+        fontSize: 16,
+        color: p.muted,
+        weight: 400,
+        lineHeight: 1.3,
+      },
+      stat: {
+        fontFamily: spec.fonts.headingCss,
+        fontSize: spec.id === "pulse" ? 96 : 84,
+        color: p.accent,
+        weight: 800,
+      },
+      cardTitle: {
+        fontFamily: spec.fonts.headingCss,
+        fontSize: 17,
+        color: p.onSurface,
+        weight: 700,
+      },
+      cardBody: {
+        fontFamily: spec.fonts.bodyCss,
+        fontSize: 12,
+        color: p.muted,
+        weight: 400,
+      },
+      chipText: {
+        fontFamily: spec.fonts.bodyCss,
+        fontSize: 11,
+        color: p.onSurface,
+        weight: 600,
+      },
+    },
+  };
+
+  switch (spec.id) {
+    case "aurora":
+      return {
+        ...base,
+        motifs: {
+          ...base.motifs,
+          glowA: {
+            kind: "orb",
+            shape: "ellipse",
+            box: { x: 50, y: -18, w: 60, h: 60 },
+            fill: p.deco[2] ?? p.accent,
+            opacity: 0.55,
+            effect: { kind: "blur", radius: 8 },
+          },
+          glowB: {
+            kind: "orb",
+            shape: "ellipse",
+            box: { x: 60, y: 30, w: 46, h: 46 },
+            fill: p.deco[1] ?? p.accent,
+            opacity: 0.55,
+            effect: { kind: "blur", radius: 8 },
+          },
+        },
+        text: {
+          ...base.text,
+          heroTitle: {
+            ...base.text?.heroTitle,
+            color: p.onBg,
+            letterSpacing: -0.02,
+          },
+        },
+      };
+    case "noir":
+      return {
+        ...base,
+        motifs: {
+          ...base.motifs,
+          ring: {
+            kind: "ring",
+            shape: "circle",
+            box: { x: 58, y: 8, w: 64, h: 64 },
+            stroke: p.surface,
+            strokeWidth: 18,
+            opacity: 1,
+            effect: { kind: "glow", color: p.accent, blur: 24, opacity: 0.2 },
+          },
+        },
+      };
+    case "terra":
+      return {
+        ...base,
+        motifs: {
+          ...base.motifs,
+          leaf: {
+            kind: "leaf",
+            shape: "ellipse",
+            box: { x: 57, y: -16, w: 55, h: 70 },
+            fill: p.deco[0] ?? p.accent,
+            radius: {
+              topLeft: 50,
+              topRight: 50,
+              bottomRight: 50,
+              bottomLeft: 8,
+            },
+            rotation: 12,
+          },
+          leafSoft: {
+            kind: "leaf",
+            shape: "ellipse",
+            box: { x: 60, y: 18, w: 34, h: 46 },
+            fill: p.deco[1] ?? p.surface,
+            radius: {
+              topLeft: 50,
+              topRight: 8,
+              bottomRight: 50,
+              bottomLeft: 50,
+            },
+            opacity: 0.6,
+          },
+        },
+      };
+    case "pulse":
+      return {
+        ...base,
+        motifs: {
+          ...base.motifs,
+          wedge: {
+            kind: "wedge",
+            shape: "rect",
+            box: { x: 50, y: -10, w: 60, h: 120 },
+            fill: p.deco[0] ?? p.accent,
+            radius: 8,
+            rotation: 14,
+          },
+          holo: {
+            kind: "holo",
+            shape: "rect",
+            box: { x: 54, y: 62, w: 46, h: 46 },
+            fill: p.deco[1] ?? p.accent,
+            radius: 6,
+            rotation: 18,
+            opacity: 0.9,
+            effect: { kind: "blur", radius: 0.4 },
+          },
+        },
+      };
+    case "editorial":
+      return {
+        ...base,
+        motifs: {
+          ...base.motifs,
+          frame: {
+            kind: "frame",
+            shape: "rect",
+            box: { x: 3.5, y: 4, w: 93, h: 92 },
+            stroke: p.onBg,
+            strokeWidth: 0.14,
+            opacity: 1,
+          },
+        },
+      };
+    default:
+      return base;
+  }
 }
 
 function tokenSet(spec: ThemeSpec): Record<string, unknown> {
@@ -810,6 +1126,7 @@ function tokenSet(spec: ThemeSpec): Record<string, unknown> {
       shadowCss: spec.shadowCss,
       fill: palette.accent,
     },
+    visualLanguage: themeVisualLanguageToken(spec),
     defaultBackground: spec.defaultBackground,
   };
 }
