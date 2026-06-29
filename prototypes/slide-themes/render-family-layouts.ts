@@ -28,6 +28,8 @@ import {
   visualLanguage,
 } from "./theme-kit";
 import type { ThemePackageRenderFamily } from "@/lib/presentation/theme-template-taxonomy";
+import { flex } from "./layout-dsl";
+import { shapeFromStyle, style } from "./style-dsl";
 
 type Bg = BackgroundTreatment;
 
@@ -168,6 +170,28 @@ function panel(z: number, box: Box, color: string, radius: number) {
       });
 }
 
+function panelCssStyle(
+  spec: ThemeSpec,
+  radius: number,
+  color = spec.palette.surface,
+) {
+  const lang = visualLanguage(spec);
+  const panelRadius = lang.card.radius ?? radius;
+  return lang.card.fill === "glass"
+    ? style({
+        background: `radial-gradient(78% 78% at 35% 20%, ${color}, var(--slideBg))`,
+        border: lang.card.stroke
+          ? `0.18cqmin solid ${lang.surface === "glass" ? "#ffffff" : color}`
+          : undefined,
+        borderRadius: `${panelRadius}cqmin`,
+        backdropFilter: `glass(${lang.surface === "glass" ? "medium" : "light"})`,
+      })
+    : style({
+        background: color,
+        borderRadius: `${panelRadius}cqmin`,
+      });
+}
+
 function H(spec: ThemeSpec, box: Box, txt: string, size = 6, color?: string) {
   return text({
     zIndex: 10,
@@ -280,6 +304,46 @@ function card(
 
 const T = (spec: ThemeSpec, kind: string) => `theme:${spec.id}:${kind}`;
 
+function cardBox(
+  spec: ThemeSpec,
+  box: Box,
+  label: string,
+  lines: string[],
+  accentTop = false,
+) {
+  const [labelBox, listBox] = flex({
+    box,
+    direction: "column",
+    gap: "1cqh",
+    padding: "4cqh 2.5cqw 3cqh",
+    children: [{ height: "6cqh", shrink: 0 }, { grow: 1 }],
+  });
+  const els = [
+    shapeFromStyle({
+      zIndex: 8,
+      shape: "rect",
+      box,
+      style: panelCssStyle(spec, spec.cornerRadiusPt + 4),
+      locked: true,
+      name: "Panel",
+    }),
+    Label(spec, labelBox, label),
+    List(spec, listBox, lines),
+  ];
+  if (accentTop) {
+    els.unshift(
+      shapeFromStyle({
+        zIndex: 9,
+        shape: "rect",
+        box: { x: box.x, y: box.y, w: box.w, h: 1.4 },
+        style: style({ background: spec.palette.accent }),
+        locked: true,
+        name: "Edge",
+      }),
+    );
+  }
+  return els;
+}
 type Builder = (spec: ThemeSpec) => { els: Record<string, unknown>[]; bg?: Bg };
 
 function variantIndex(kind: string): number {
@@ -478,27 +542,54 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
       H(s, { x: 9, y: 50, w: 78, h: 18 }, "A new section", 9, "#ffffff"),
     ],
   }),
-  agenda: (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 60, h: 9 }, "Agenda", 6),
-      ...[
-        "Where we are",
-        "What we found",
-        "What we recommend",
-        "What happens next",
-      ].flatMap((t, i) => [
-        panel(
-          8,
-          { x: 8, y: 28 + i * 15, w: 84, h: 11 },
-          s.palette.surface,
-          s.cornerRadiusPt + 2,
-        ),
-        Label(s, { x: 11, y: 30.5 + i * 15, w: 6, h: 6 }, `0${i + 1}`),
-        Body(s, { x: 18, y: 30.5 + i * 15, w: 70, h: 7 }, t),
-      ]),
-    ],
-  }),
+  agenda: (s) => {
+    const rows = flex({
+      box: { x: 8, y: 28, w: 84, h: 56 },
+      direction: "column",
+      gap: "4cqh",
+      children: Array.from({ length: 4 }, () => ({
+        height: "11cqh",
+        shrink: 0,
+      })),
+    });
+    const panelStyle = panelCssStyle(s, s.cornerRadiusPt + 2);
+    return {
+      bg: tint(s),
+      els: [
+        H(s, { x: 8, y: 12, w: 60, h: 9 }, "Agenda", 6),
+        ...[
+          "Where we are",
+          "What we found",
+          "What we recommend",
+          "What happens next",
+        ].flatMap((t, i) => {
+          const [labelBox, bodyBox] = flex({
+            box: rows[i],
+            direction: "row",
+            align: "center",
+            gap: "1cqw",
+            padding: "0 4cqw 0 3cqw",
+            children: [
+              { width: "6cqw", height: "6cqh", shrink: 0 },
+              { grow: 1, height: "7cqh" },
+            ],
+          });
+          return [
+            shapeFromStyle({
+              zIndex: 8,
+              shape: "rect",
+              box: rows[i],
+              style: panelStyle,
+              locked: true,
+              name: "Panel",
+            }),
+            Label(s, labelBox, `0${i + 1}`),
+            Body(s, bodyBox, t),
+          ];
+        }),
+      ],
+    };
+  },
   "summary-list": (s) => ({
     bg: tint(s),
     els: [
@@ -675,38 +766,57 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
       ),
     ],
   }),
-  "metric-row": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 70, h: 9 }, "By the numbers", 5.4),
-      ...[0, 1, 2].flatMap((i) => [
-        panel(
-          8,
-          { x: 8 + i * 29, y: 30, w: 26, h: 46 },
-          s.palette.surface,
-          s.cornerRadiusPt + 4,
-        ),
-        text({
-          zIndex: 10,
-          box: { x: 10 + i * 29, y: 36, w: 22, h: 12 },
-          text: ["86%", "3.2\u00d7", "$2.4M"][i],
-          style: {
-            fontSize: 8,
-            color: s.palette.accent,
-            fontId: s.fonts.heading,
-            bold: true,
-            align: "left",
-          },
+  "metric-row": (s) => {
+    const cards = flex({
+      box: { x: 8, y: 30, w: 84, h: 46 },
+      direction: "row",
+      gap: "3cqw",
+      children: Array.from({ length: 3 }, () => ({ grow: 1 })),
+    });
+    return {
+      bg: tint(s),
+      els: [
+        H(s, { x: 8, y: 12, w: 70, h: 9 }, "By the numbers", 5.4),
+        ...cards.flatMap((cardBox, i) => {
+          const [statBox, subBox] = flex({
+            box: cardBox,
+            direction: "column",
+            gap: "4cqh",
+            padding: "6cqh 2cqw",
+            children: [{ height: "12cqh", shrink: 0 }, { height: "18cqh" }],
+          });
+          return [
+            shapeFromStyle({
+              zIndex: 8,
+              shape: "rect",
+              box: cardBox,
+              style: panelCssStyle(s, s.cornerRadiusPt + 4),
+              locked: true,
+              name: "Panel",
+            }),
+            text({
+              zIndex: 10,
+              box: statBox,
+              text: ["86%", "3.2\u00d7", "$2.4M"][i],
+              style: {
+                fontSize: 8,
+                color: s.palette.accent,
+                fontId: s.fonts.heading,
+                bold: true,
+                align: "left",
+              },
+            }),
+            Sub(
+              s,
+              subBox,
+              ["owners assigned", "cycle speedup", "new ARR"][i],
+              s.palette.onSurface,
+            ),
+          ];
         }),
-        Sub(
-          s,
-          { x: 10 + i * 29, y: 52, w: 22, h: 18 },
-          ["owners assigned", "cycle speedup", "new ARR"][i],
-          s.palette.onSurface,
-        ),
-      ]),
-    ],
-  }),
+      ],
+    };
+  },
   "data-insight": (s) => ({
     bg: tint(s),
     els: [
@@ -751,27 +861,32 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
       Label(s, { x: 60, y: 30.5, w: 30, h: 6 }, "SOURCE", "#ffffff"),
     ],
   }),
-  "two-column": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 80, h: 8 }, "Side by side", 5.4),
-      ...card(
-        s,
-        8,
-        "OPTION A",
-        ["Lower risk", "Faster approval", "Limited upside"],
-        40,
-      ),
-      ...card(
-        s,
-        52,
-        "OPTION B",
-        ["Higher upside", "Clear ownership", "Needs sequencing"],
-        40,
-        true,
-      ),
-    ],
-  }),
+  "two-column": (s) => {
+    const columns = flex({
+      box: { x: 8, y: 30, w: 84, h: 50 },
+      direction: "row",
+      gap: "4cqw",
+      children: [{ grow: 1 }, { grow: 1 }],
+    });
+    return {
+      bg: tint(s),
+      els: [
+        H(s, { x: 8, y: 12, w: 80, h: 8 }, "Side by side", 5.4),
+        ...cardBox(s, columns[0], "OPTION A", [
+          "Lower risk",
+          "Faster approval",
+          "Limited upside",
+        ]),
+        ...cardBox(
+          s,
+          columns[1],
+          "OPTION B",
+          ["Higher upside", "Clear ownership", "Needs sequencing"],
+          true,
+        ),
+      ],
+    };
+  },
   "before-after": (s) => ({
     bg: tint(s),
     els: [
@@ -823,21 +938,27 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
       ),
     ],
   }),
-  "cards-3": (s) => ({
-    bg: tint(s),
-    els: [
-      H(s, { x: 8, y: 12, w: 70, h: 9 }, "Three pillars", 5.4),
-      ...[0, 1, 2].flatMap((i) =>
-        card(
-          s,
-          8 + i * 29,
-          ["FOCUS", "TRUST", "SPEED"][i],
-          ["A clear bet", "Earned daily", "Compounds"],
-          26,
+  "cards-3": (s) => {
+    const cards = flex({
+      box: { x: 8, y: 30, w: 84, h: 50 },
+      direction: "row",
+      gap: "3cqw",
+      children: Array.from({ length: 3 }, () => ({ grow: 1 })),
+    });
+    return {
+      bg: tint(s),
+      els: [
+        H(s, { x: 8, y: 12, w: 70, h: 9 }, "Three pillars", 5.4),
+        ...cards.flatMap((cardBoxValue, i) =>
+          cardBox(s, cardBoxValue, ["FOCUS", "TRUST", "SPEED"][i], [
+            "A clear bet",
+            "Earned daily",
+            "Compounds",
+          ]),
         ),
-      ),
-    ],
-  }),
+      ],
+    };
+  },
   "cards-4": (s) => ({
     bg: tint(s),
     els: [0, 1, 2, 3].flatMap((i) => [
@@ -1060,8 +1181,23 @@ const L: Partial<Record<ThemePackageRenderFamily, Builder>> = {
   "pricing-cards": (s) => ({
     bg: tint(s),
     els: [
-      ...card(s, 12, "STARTER", ["Core", "3/mo", "Email"], 32),
-      ...card(s, 56, "SCALE", ["All", "Unlimited", "Strategist"], 32, true),
+      ...flex({
+        box: { x: 12, y: 30, w: 76, h: 50 },
+        direction: "row",
+        gap: "12cqw",
+        children: [{ grow: 1 }, { grow: 1 }],
+      }).flatMap((box, i) =>
+        cardBox(
+          s,
+          box,
+          ["STARTER", "SCALE"][i],
+          [
+            ["Core", "3/mo", "Email"],
+            ["All", "Unlimited", "Strategist"],
+          ][i],
+          i === 1,
+        ),
+      ),
     ],
   }),
   closing: (s) => ({
