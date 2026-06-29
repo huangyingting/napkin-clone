@@ -7,7 +7,11 @@ import {
   type ThemePackageTemplateKind,
 } from "@/lib/presentation/theme-template-taxonomy";
 import type { ThemeVisualLanguageToken } from "@/lib/presentation/presentation-theme-types";
-import type { Slide, SlideTemplate, SlideTemplateElement } from "@/lib/presentation/deck-core";
+import type {
+  Slide,
+  SlideTemplate,
+  SlideTemplateElement,
+} from "@/lib/presentation/deck-core";
 import type { SlideElement } from "@/lib/presentation/deck-elements";
 import { familySlide } from "./render-family-layouts";
 
@@ -602,6 +606,8 @@ export interface ThemeSpec {
   defaultBackground: BackgroundTreatment;
   /** Master background treatment. */
   masterBackground: BackgroundTreatment;
+  /** True when source slides already include all visible chrome. */
+  suppressMasterChrome?: boolean;
   /** Builds the ordered slide list for the demo deck. */
   buildSlides: (spec: ThemeSpec) => Record<string, unknown>[];
 }
@@ -622,10 +628,11 @@ function baseSlideIndexForRenderFamily(
     case "matrix-2x2":
       return 3;
     case "quote-hero":
-    case "stat-hero":
       return 4;
-    case "closing":
+    case "stat-hero":
       return 5;
+    case "closing":
+      return 6;
     default:
       return 2;
   }
@@ -651,42 +658,6 @@ function templatePreviewSlideFromBase(
   };
 }
 
-function templatePreviewSlideFromBaseIndex(
-  packageId: string,
-  kind: ThemePackageTemplateKind,
-  baseSlides: readonly Record<string, unknown>[],
-  baseIndex: number,
-): Record<string, unknown> {
-  const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
-  const base = clone(
-    baseSlides[baseIndex] ??
-      baseSlides[2] ??
-      baseSlides[0] ??
-      slide(`${packageId}-empty`, metadata.label, "blank", []),
-  );
-  return {
-    ...base,
-    id: `${packageId}-${kind}`,
-    title: metadata.label,
-    templateId: `theme:${packageId}:${kind}`,
-  };
-}
-
-function auroraFirstThreeBaseIndex(
-  kind: ThemePackageTemplateKind,
-): number | undefined {
-  switch (kind) {
-    case "cover":
-      return 0;
-    case "agenda":
-      return 4;
-    case "content":
-      return 2;
-    default:
-      return undefined;
-  }
-}
-
 function shouldUseThemeBaseSlide(family: ThemePackageRenderFamily): boolean {
   return [
     "cover",
@@ -701,18 +672,19 @@ export function buildTemplatePreviewSlides(
   spec: ThemeSpec,
 ): Record<string, unknown>[] {
   const baseSlides = spec.buildSlides(spec);
+  const completeStyleDeckSlides = THEME_PACKAGE_TEMPLATE_KINDS.map((kind) =>
+    baseSlides.find(
+      (candidate) =>
+        (candidate as { templateId?: unknown }).templateId ===
+        `theme:${spec.id}:${kind}`,
+    ),
+  );
+  if (completeStyleDeckSlides.every(Boolean)) {
+    return completeStyleDeckSlides.map((entry) => clone(entry!));
+  }
+
   return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
     const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
-    const auroraBaseIndex =
-      spec.id === "aurora" ? auroraFirstThreeBaseIndex(kind) : undefined;
-    if (auroraBaseIndex !== undefined) {
-      return templatePreviewSlideFromBaseIndex(
-        spec.id,
-        kind,
-        baseSlides,
-        auroraBaseIndex,
-      );
-    }
     if (shouldUseThemeBaseSlide(metadata.renderFamily)) {
       return templatePreviewSlideFromBase(spec.id, kind, baseSlides);
     }
@@ -1170,7 +1142,7 @@ function mastersForTheme(spec: ThemeSpec): Record<string, unknown>[] {
       name: `${spec.name} Master`,
       background: bg(spec.masterBackground),
       elements:
-        spec.id === "aurora"
+        spec.suppressMasterChrome || spec.id === "aurora"
           ? []
           : [
               {
@@ -1228,7 +1200,9 @@ function mastersForTheme(spec: ThemeSpec): Record<string, unknown>[] {
   ];
 }
 
-export function buildThemePackageSource(spec: ThemeSpec): Record<string, unknown> {
+export function buildThemePackageSource(
+  spec: ThemeSpec,
+): Record<string, unknown> {
   resetSeq();
   const masterId = `master-${spec.id}`;
   const previewSlides = buildTemplatePreviewSlides(spec) as Slide[];

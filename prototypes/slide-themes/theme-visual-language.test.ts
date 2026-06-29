@@ -4,11 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-
-const deckPath = join(
-  process.cwd(),
-  "prototypes/slide-themes/decks/aurora.deck.json",
-);
+import { THEME_PACKAGE_TEMPLATE_KINDS } from "@/lib/presentation/theme-template-taxonomy";
 
 function readDeck(id: string) {
   const parsed = safeParseDeck(
@@ -24,77 +20,111 @@ function readDeck(id: string) {
   return parsed.data;
 }
 
-test("generated Aurora theme carries and uses rich visual-language primitives", () => {
-  const parsed = safeParseDeck(JSON.parse(readFileSync(deckPath, "utf8")));
-  assert.equal(parsed.success, true, parsed.success ? undefined : parsed.error);
-  if (!parsed.success) return;
-
-  const tokenSet = parsed.data.design?.themeOverrides?.tokenSet as any;
-  assert.equal(tokenSet.visualLanguage.motifs.glowA.effect.kind, "blur");
-  assert.equal(tokenSet.visualLanguage.surfaces.card.effect.kind, "glass");
-  assert.equal(tokenSet.visualLanguage.text.kicker.textTransform, "uppercase");
-
-  const cover = parsed.data.slides.find(
-    (slide) => slide.templateId === "theme:aurora:cover",
+function readPackage(id: string) {
+  return JSON.parse(
+    readFileSync(
+      join(
+        process.cwd(),
+        `prototypes/slide-themes/packages/${id}.package.json`,
+      ),
+      "utf8",
+    ),
   );
-  assert.ok(cover, "expected Aurora cover slide");
-  const glow = cover.elements?.find(
-    (element) => element.name === "Glow",
-  ) as any;
-  assert.equal(glow?.designOverrides?.effect?.kind, "glow");
-  assert.equal(glow?.designOverrides?.fill?.type, "radialGradient");
-  assert.equal(glow?.designOverrides?.fill?.rx, 100);
-  assert.equal(glow?.designOverrides?.fill?.ry, 90);
-  assert.equal(glow?.shadow?.color, "#a855f7");
+}
 
-  const gradientText = cover.elements?.find(
-    (element: any) => element.content?.text === "frontier",
-  ) as any;
-  assert.equal(
-    gradientText?.designOverrides?.textStyle?.textFill?.type,
-    "linearGradient",
+function assertNativeComponents(slide: any): void {
+  assert.ok(slide.elements?.length > 1, slide.templateId);
+  assert.ok(
+    slide.elements.some((element: any) => element.kind === "text"),
+    `${slide.templateId} has text elements`,
+  );
+  assert.ok(
+    slide.elements.some((element: any) => element.kind === "shape"),
+    `${slide.templateId} has shape elements`,
   );
   assert.equal(
-    gradientText?.designOverrides?.textStyle?.textFill?.stops.length,
-    3,
+    slide.elements.some(
+      (element: any) =>
+        element.kind === "image" &&
+        /^data:image\/svg\+xml,/.test(element.content?.src ?? ""),
+    ),
+    false,
+    `${slide.templateId} does not use full-slide SVG image`,
   );
-  assert.equal(gradientText?.designOverrides?.textStyle?.letterSpacing, -0.02);
+}
+
+test("package JSON materializes every semantic template into preview decks", () => {
+  for (const id of [
+    "clarity",
+    "ocean",
+    "aurora",
+    "monolith",
+    "editorial",
+    "noir",
+    "terra",
+    "pulse",
+  ]) {
+    const themePackage = readPackage(id);
+    const deck = readDeck(id);
+    assert.equal(
+      themePackage.templates.length,
+      THEME_PACKAGE_TEMPLATE_KINDS.length,
+      id,
+    );
+    assert.equal(deck.slides.length, THEME_PACKAGE_TEMPLATE_KINDS.length, id);
+    assert.equal(deck.masters[0]?.elements?.length, 0, id);
+
+    for (const kind of THEME_PACKAGE_TEMPLATE_KINDS) {
+      const template = themePackage.templates.find(
+        (candidate: any) => candidate.id === `theme:${id}:${kind}`,
+      );
+      const slide = deck.slides.find(
+        (candidate) => candidate.templateId === `theme:${id}:${kind}`,
+      );
+      assert.ok(template, `${id}:${kind}`);
+      assert.ok(slide, `${id}:${kind}`);
+      assert.equal(slide.elements[0]?.id, template.elements[0]?.id);
+      assertNativeComponents(slide);
+    }
+  }
 });
 
-test("generated explore-style themes use rich motif primitives", () => {
-  const noir = readDeck("noir");
-  const noirCover = noir.slides.find(
-    (slide) => slide.templateId === "theme:noir:cover",
+test("package JSON retains distinctive native component treatments", () => {
+  const editorialCover = readDeck("editorial").slides.find(
+    (slide) => slide.templateId === "theme:editorial:cover",
   );
-  const noirGlow = noirCover?.elements?.find(
-    (element) => element.name === "Glow",
-  ) as any;
-  assert.equal(noirGlow?.designOverrides?.effect?.kind, "glow");
-  assert.equal(noirGlow?.designOverrides?.fill?.rx, 100);
-  assert.equal(noirGlow?.shadow?.color, "#f5b301");
-
-  const terra = readDeck("terra");
-  const terraCover = terra.slides.find(
-    (slide) => slide.templateId === "theme:terra:cover",
+  assert.ok(
+    editorialCover?.elements.some(
+      (element: any) => element.name === "Editorial ring",
+    ),
   );
-  const terraLeaf = terraCover?.elements?.find(
-    (element) => element.name === "Leaf",
-  ) as any;
-  assert.deepEqual(terraLeaf?.designOverrides?.radius, {
-    topLeft: 50,
-    topRight: 50,
-    bottomRight: 50,
-    bottomLeft: 8,
-  });
+  assert.ok(
+    editorialCover?.elements.some(
+      (element: any) =>
+        element.kind === "text" && element.content?.text.includes("Brand"),
+    ),
+  );
 
-  const pulse = readDeck("pulse");
-  const pulseCover = pulse.slides.find(
+  const oceanCover = readDeck("ocean").slides.find(
+    (slide) => slide.templateId === "theme:ocean:cover",
+  );
+  assert.ok(
+    oceanCover?.elements.some(
+      (element: any) => element.name === "Iridescent field",
+    ),
+  );
+
+  const pulseCover = readDeck("pulse").slides.find(
     (slide) => slide.templateId === "theme:pulse:cover",
   );
-  const wedge = pulseCover?.elements?.find(
-    (element) => element.name === "Wedge",
-  ) as any;
-  assert.equal(wedge?.content?.shape, "rect");
-  assert.equal(wedge?.designOverrides?.fill?.type, "linearGradient");
-  assert.equal(wedge?.designOverrides?.fill?.stops.length, 3);
+  assert.ok(
+    pulseCover?.elements.some((element: any) => element.name === "Scan line"),
+  );
+  assert.ok(
+    pulseCover?.elements.some(
+      (element: any) =>
+        element.kind === "text" &&
+        element.content?.text.includes("studio_showe"),
+    ),
+  );
 });

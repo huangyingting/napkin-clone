@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const decksDir = join(here, "decks");
+const packagesDir = join(here, "packages");
 const outDir = join(here, "preview");
 mkdirSync(outDir, { recursive: true });
 
@@ -293,7 +293,7 @@ function renderImage(el) {
     clip = "clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);";
   if (d.maskShape === "triangle")
     clip = "clip-path:polygon(50% 0%,0% 100%,100% 100%);";
-  return `<div style="${boxCss(el)}background:#e9e9ee url('${src}') center/${fit} no-repeat;border-radius:${radius};${clip}"></div>`;
+  return `<div style="${boxCss(el)}background:#e9e9ee;border-radius:${radius};${clip}overflow:hidden;"><img src="${src}" alt="${esc(el.content?.alt ?? "")}" style="display:block;width:100%;height:100%;object-fit:${fit};border-radius:inherit;"/></div>`;
 }
 
 function renderElement(el, colors, accent) {
@@ -358,15 +358,73 @@ nav a{display:inline-block;padding:8px 14px;border-radius:999px;background:#2a2d
 nav a:hover{background:#343843}
 `;
 
-const files = readdirSync(decksDir).filter((f) => f.endsWith(".deck.json"));
+function slideFromPackageTemplate(template, index) {
+  return {
+    id: `preview-${String(template.id).replace(/[^a-z0-9-]+/gi, "-")}`,
+    index,
+    title: String(template.name ?? template.id ?? `Slide ${index + 1}`),
+    notes: "",
+    templateId: template.id,
+    ...(template.defaultMasterId ? { masterId: template.defaultMasterId } : {}),
+    ...(template.slideDesignDefaults
+      ? { designOverrides: template.slideDesignDefaults }
+      : {}),
+    elements: (template.elements ?? []).map((element, elementIndex) => ({
+      id: element.id ?? `template-element-${elementIndex + 1}`,
+      kind: element.kind ?? "shape",
+      ...(element.role ? { role: element.role } : {}),
+      box: element.box ?? { x: 10, y: 10, w: 80, h: 20 },
+      zIndex: elementIndex,
+      content: element.contentDefaults ?? { kind: element.kind ?? "shape" },
+      ...(element.designOverrides
+        ? { designOverrides: element.designOverrides }
+        : {}),
+      ...(typeof element.opacity === "number"
+        ? { opacity: element.opacity }
+        : {}),
+      ...(typeof element.rotation === "number"
+        ? { rotation: element.rotation }
+        : {}),
+      ...(typeof element.locked === "boolean"
+        ? { locked: element.locked }
+        : {}),
+      ...(typeof element.name === "string" ? { name: element.name } : {}),
+    })),
+  };
+}
+
+function deckFromPackageSource(themePackage) {
+  return {
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: {
+      themeId: themePackage.id,
+      themeOverrides: {
+        tokenSet: {
+          ...(themePackage.tokenSet ?? {}),
+          id: themePackage.id,
+          name: themePackage.name,
+        },
+      },
+    },
+    masters: themePackage.masters ?? [],
+    defaultMasterId: themePackage.defaultMasterId,
+    slides: (themePackage.templates ?? []).map(slideFromPackageTemplate),
+  };
+}
+
+const files = readdirSync(packagesDir).filter((f) =>
+  f.endsWith(".package.json"),
+);
 const themes = [];
 
 for (const f of files) {
-  const deck = JSON.parse(readFileSync(join(decksDir, f), "utf8"));
+  const themePackage = JSON.parse(readFileSync(join(packagesDir, f), "utf8"));
+  const deck = deckFromPackageSource(themePackage);
   const tokenSet = deck.design.themeOverrides?.tokenSet ?? {};
   const colors = tokenSet.colors ?? {};
   const accent = colors.accent;
-  const id = f.replace(".deck.json", "");
+  const id = themePackage.id ?? f.replace(".package.json", "");
   const name = tokenSet.name ?? id;
   const slides = deck.slides
     .map((slide, i) => renderSlide(deck, slide, i, colors, accent))
@@ -374,7 +432,7 @@ for (const f of files) {
 
   const navLinks = files
     .map((other) => {
-      const oid = other.replace(".deck.json", "");
+      const oid = other.replace(".package.json", "");
       const active =
         oid === id ? ' style="background:#3a3e48;font-weight:600"' : "";
       return `<a href="${oid}.html"${active}>${oid}</a>`;
@@ -395,10 +453,11 @@ for (const f of files) {
 // Index gallery: first (cover) slide of each theme.
 const cards = [];
 for (const f of files) {
-  const deck = JSON.parse(readFileSync(join(decksDir, f), "utf8"));
+  const themePackage = JSON.parse(readFileSync(join(packagesDir, f), "utf8"));
+  const deck = deckFromPackageSource(themePackage);
   const tokenSet = deck.design.themeOverrides?.tokenSet ?? {};
   const colors = tokenSet.colors ?? {};
-  const id = f.replace(".deck.json", "");
+  const id = themePackage.id ?? f.replace(".package.json", "");
   const cover = renderSlide(deck, deck.slides[0], 0, colors, colors.accent);
   cards.push(
     `<a class="card" href="${id}.html"><div class="card-stage">${cover}</div><div class="card-meta"><strong>${esc(tokenSet.name ?? id)}</strong></div></a>`,

@@ -22,20 +22,21 @@ those existing fields.
 
 ## Package Catalog
 
-The first package catalog contains eight independent packages. `default` is not
-one of those packages; it is an alias that resolves to `clarity` for older decks
-or callers that still ask for the default package.
+The package catalog contains eight independent packages. `default` is not one
+of those packages; it is an alias that resolves to `clarity` for older decks or
+callers that still ask for the default package. The package ids remain stable
+even when the visible style names are refreshed.
 
-| Package     | Role                                                               |
-| ----------- | ------------------------------------------------------------------ |
-| `clarity`   | General business decks with quiet, content-first layouts.          |
-| `ocean`     | Product, data, and operations decks with clear blue-green layouts. |
-| `aurora`    | Technology and SaaS keynote decks.                                 |
-| `monolith`  | Corporate and consulting decks with structured navy/gold layouts.  |
-| `editorial` | Brand, narrative, and report decks with editorial typography.      |
-| `noir`      | Premium dark pitch decks with amber accents.                       |
-| `terra`     | Sustainability, research, and strategy decks.                      |
-| `pulse`     | Launch, startup, and marketing decks with high-contrast geometry.  |
+| Package     | Visible style         | Role                                                      |
+| ----------- | --------------------- | --------------------------------------------------------- |
+| `clarity`   | Swiss Minimal Grid    | Precise brand systems with light grids and blue emphasis. |
+| `ocean`     | Iridescent Gradient   | Holographic pitch decks with glass panels and gradients.  |
+| `aurora`    | Dark Aurora Corporate | Dark finance and strategy reports with luminous glass.    |
+| `monolith`  | Brutalist Bold        | High-impact black, red, and lime creative decks.          |
+| `editorial` | Editorial Serif Luxe  | Cream, cobalt, and gold editorial storytelling decks.     |
+| `noir`      | Luxe Maroon Magazine  | Premium maroon and gold portfolio or brand decks.         |
+| `terra`     | Vibrant Pop           | Playful yellow, red, and blue creative brief decks.       |
+| `pulse`     | Tech Terminal Mono    | Neon terminal-style decks with mono typography and grids. |
 
 Each package exposes the canonical semantic template catalog defined by
 `THEME_PACKAGE_TEMPLATE_KINDS`. The catalog includes opening, core, compare,
@@ -53,12 +54,12 @@ older decks and commands. New AI/catalog flows prefer semantic kinds such as
 `comparison`, `pros-cons`, `tradeoff`, `before-after`, and
 `problem-solution`.
 
-Six packages (`aurora`, `monolith`, `editorial`, `noir`, `terra`, and `pulse`)
-are derived from the validated prototype decks under `prototypes/slide-themes`.
-`clarity` and `ocean` are additional complete package decks under
-`src/lib/presentation/theme-package-decks/`. All eight packages follow the same
-quality bar and data shape rather than falling back to the older generic
-built-in slide templates.
+All eight packages are derived from the validated prototype pipeline under
+`prototypes/slide-themes`. The current visual source is the package JSON set
+under `prototypes/slide-themes/packages/`. The generator validates those package
+files, materializes schema-valid v6 preview decks, copies the same package JSON
+to the runtime source directory, and renders static previews from the package
+templates.
 
 ## Apply Behavior
 
