@@ -420,12 +420,16 @@ export interface DeckShapeOp extends InchBox {
         cx?: number;
         cy?: number;
         r?: number;
+        rx?: number;
+        ry?: number;
+        stops?: { color: string; offset?: number }[];
       }
     | {
         type: "linearGradient";
         from: string;
         to: string;
         angle?: number;
+        stops?: { color: string; offset?: number }[];
       };
   effect?: ElementEffect;
   /** Optional centered label inside the shape. */
@@ -597,6 +601,14 @@ function exportResolvedFill(
       from: toHex(fill.from),
       to: toHex(fill.to),
       ...(fill.angle !== undefined ? { angle: fill.angle } : {}),
+      ...(fill.stops
+        ? {
+            stops: fill.stops.map((stop) => ({
+              color: toHex(stop.color),
+              ...(stop.offset !== undefined ? { offset: stop.offset } : {}),
+            })),
+          }
+        : {}),
     };
   }
   return {
@@ -606,6 +618,16 @@ function exportResolvedFill(
     ...(fill.cx !== undefined ? { cx: fill.cx } : {}),
     ...(fill.cy !== undefined ? { cy: fill.cy } : {}),
     ...(fill.r !== undefined ? { r: fill.r } : {}),
+    ...(fill.rx !== undefined ? { rx: fill.rx } : {}),
+    ...(fill.ry !== undefined ? { ry: fill.ry } : {}),
+    ...(fill.stops
+      ? {
+          stops: fill.stops.map((stop) => ({
+            color: toHex(stop.color),
+            ...(stop.offset !== undefined ? { offset: stop.offset } : {}),
+          })),
+        }
+      : {}),
   };
 }
 

@@ -149,15 +149,55 @@ function glassFillCss(
 ): string {
   if (typeof fill === "string") return rgbaColor(fill, alpha);
   if (fill.type === "linearGradient") {
+    if (fill.stops) {
+      return `linear-gradient(${fill.angle ?? 90}deg, ${fill.stops
+        .map(
+          (stop) =>
+            `${rgbaColor(stop.color, alpha + 0.08)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+        )
+        .join(", ")})`;
+    }
     return `linear-gradient(${fill.angle ?? 90}deg, ${rgbaColor(
       fill.from,
       alpha + 0.08,
     )}, ${rgbaColor(fill.to, alpha)})`;
   }
-  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
+  const rx = fill.rx ?? fill.r ?? 70;
+  const ry = fill.ry ?? fill.r ?? 70;
+  if (fill.stops) {
+    return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.stops
+      .map(
+        (stop) =>
+          `${rgbaColor(stop.color, alpha + 0.08)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+      )
+      .join(", ")})`;
+  }
+  return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
     fill.inner,
     alpha + 0.08,
   )}, ${rgbaColor(fill.outer, alpha)})`;
+}
+
+function gradientStopsSvg(
+  fill: Exclude<NonNullable<DeckShapeOp["fill"]>, string>,
+): string {
+  const stops =
+    fill.stops ??
+    (fill.type === "linearGradient"
+      ? [
+          { color: fill.from, offset: 0 },
+          { color: fill.to, offset: 100 },
+        ]
+      : [
+          { color: fill.inner, offset: 0 },
+          { color: fill.outer, offset: 100 },
+        ]);
+  return stops
+    .map(
+      (stop, index) =>
+        `<stop offset="${stop.offset ?? (index / Math.max(1, stops.length - 1)) * 100}%" stop-color="${hashColor(stop.color)}" />`,
+    )
+    .join("");
 }
 
 function rotationTransform(
@@ -353,7 +393,7 @@ function shapeFillAttr(
     const dy = Math.sin(rad);
     return {
       defs: [
-        `<linearGradient id="${gradientId}" x1="${(50 - dx * 50).toFixed(2)}%" y1="${(50 - dy * 50).toFixed(2)}%" x2="${(50 + dx * 50).toFixed(2)}%" y2="${(50 + dy * 50).toFixed(2)}%"><stop offset="0%" stop-color="${hashColor(fill.from)}" /><stop offset="100%" stop-color="${hashColor(fill.to)}" /></linearGradient>`,
+        `<linearGradient id="${gradientId}" x1="${(50 - dx * 50).toFixed(2)}%" y1="${(50 - dy * 50).toFixed(2)}%" x2="${(50 + dx * 50).toFixed(2)}%" y2="${(50 + dy * 50).toFixed(2)}%">${gradientStopsSvg(fill)}</linearGradient>`,
       ],
       attr: `url(#${gradientId})`,
     };
@@ -361,7 +401,7 @@ function shapeFillAttr(
   const gradientId = `${id}-radial-fill`;
   return {
     defs: [
-      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? 70}%"><stop offset="0%" stop-color="${hashColor(fill.inner)}" /><stop offset="100%" stop-color="${hashColor(fill.outer)}" /></radialGradient>`,
+      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? fill.rx ?? 70}%" fx="${fill.cx ?? 50}%" fy="${fill.cy ?? 50}%" gradientTransform="scale(1 ${(fill.ry ?? fill.r ?? 70) / (fill.rx ?? fill.r ?? 70)})">${gradientStopsSvg(fill)}</radialGradient>`,
     ],
     attr: `url(#${gradientId})`,
   };

@@ -9,7 +9,10 @@ import {
 } from "react";
 
 import type { TextElement, TextFitMode } from "@/lib/presentation/deck";
-import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
+import {
+  resolvedFillToCss,
+  type ResolvedElementDesign,
+} from "@/lib/presentation/slide-render-model";
 import { useSlideFontsReady } from "@/lib/presentation/slide-font-loading";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
@@ -106,6 +109,15 @@ export function TextElementView({
   const lineHeight = textStyle?.lineHeight ?? design.lineHeight;
   const paragraphSpacing =
     textStyle?.paragraphSpacing ?? design.paragraphSpacing;
+  const textFill = resolvedDesign?.textFill;
+  const paintStyle = textFill
+    ? {
+        background: resolvedFillToCss(textFill),
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        color: "transparent",
+      }
+    : { color };
 
   if (hasListParagraphs) {
     const numbers: (number | null)[] = [];
@@ -142,12 +154,18 @@ export function TextElementView({
               : verticalAlign === "bottom"
                 ? "flex-end"
                 : "center",
-          color,
+          ...paintStyle,
           fontSize: fontSizeCss,
           fontWeight: bold ? 700 : 400,
           fontStyle: italic ? "italic" : "normal",
           ...(underline ? { textDecoration: "underline" } : {}),
           ...(roleFontFamily ? { fontFamily: roleFontFamily } : {}),
+          ...(textStyle?.letterSpacing !== undefined
+            ? { letterSpacing: `${textStyle.letterSpacing}em` }
+            : {}),
+          ...(textStyle?.textTransform
+            ? { textTransform: textStyle.textTransform }
+            : {}),
           textAlign: align,
           lineHeight: lineHeight ?? 1.2,
           overflow: "hidden",
@@ -250,12 +268,18 @@ export function TextElementView({
               ? "flex-end"
               : "center",
         textAlign: align,
-        color,
+        ...paintStyle,
         fontSize: fontSizeCss,
         fontWeight: bold ? 700 : 400,
         fontStyle: italic ? "italic" : "normal",
         ...(underline ? { textDecoration: "underline" } : {}),
         ...(roleFontFamily ? { fontFamily: roleFontFamily } : {}),
+        ...(textStyle?.letterSpacing !== undefined
+          ? { letterSpacing: `${textStyle.letterSpacing}em` }
+          : {}),
+        ...(textStyle?.textTransform
+          ? { textTransform: textStyle.textTransform }
+          : {}),
         lineHeight: lineHeight ?? 1.15,
         overflow: "hidden",
       }}

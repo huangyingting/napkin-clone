@@ -306,6 +306,111 @@ test("safeParseDeck round-trips radial backgrounds, radial fills, and glass effe
   });
 });
 
+test("safeParseDeck round-trips rich visual style primitives", () => {
+  const result = safeParseDeck(
+    minimalV6Deck({
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          elements: [
+            textElement({
+              designOverrides: {
+                textStyle: {
+                  fontSize: 8,
+                  bold: true,
+                  italic: false,
+                  align: "left",
+                  letterSpacing: 0.24,
+                  textTransform: "uppercase",
+                  textFill: {
+                    type: "linearGradient",
+                    from: { value: "#ffffff" },
+                    to: { token: "accent" },
+                    angle: 100,
+                    stops: [
+                      { color: { value: "#ffffff" } },
+                      { color: { value: "#b9c0ff" }, offset: 40 },
+                      { color: { token: "accent" } },
+                    ],
+                  },
+                },
+              },
+            }),
+            shapeElement({
+              shadow: {
+                x: 0,
+                y: 0.8,
+                blur: 2.4,
+                color: "#000000",
+                opacity: 0.5,
+              },
+              designOverrides: {
+                radius: {
+                  topLeft: 50,
+                  topRight: 50,
+                  bottomRight: 50,
+                  bottomLeft: 8,
+                },
+                fill: {
+                  type: "radialGradient",
+                  inner: { value: "#ffffff" },
+                  outer: { value: "#000000" },
+                  cx: 95,
+                  cy: 10,
+                  rx: 120,
+                  ry: 90,
+                  stops: [
+                    { color: { value: "#14171f" } },
+                    { color: { value: "#050608" }, offset: 60 },
+                  ],
+                },
+                effect: {
+                  kind: "glow",
+                  color: "#f5b301",
+                  blur: 24,
+                  opacity: 0.2,
+                },
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  assert.equal(result.success, true, result.success ? undefined : result.error);
+  if (!result.success) return;
+  const text = result.data.slides[0]?.elements?.[0] as any;
+  assert.equal(text.designOverrides.textStyle.letterSpacing, 0.24);
+  assert.equal(text.designOverrides.textStyle.textTransform, "uppercase");
+  assert.equal(text.designOverrides.textStyle.textFill.stops.length, 3);
+
+  const shape = result.data.slides[0]?.elements?.[1] as any;
+  assert.deepEqual(shape.shadow, {
+    x: 0,
+    y: 0.8,
+    blur: 2.4,
+    color: "#000000",
+    opacity: 0.5,
+  });
+  assert.deepEqual(shape.designOverrides.radius, {
+    topLeft: 50,
+    topRight: 50,
+    bottomRight: 50,
+    bottomLeft: 8,
+  });
+  assert.equal(shape.designOverrides.fill.rx, 100);
+  assert.equal(shape.designOverrides.fill.ry, 90);
+  assert.deepEqual(shape.designOverrides.effect, {
+    kind: "glow",
+    color: "#f5b301",
+    blur: 24,
+    opacity: 0.2,
+  });
+});
+
 test("safeParseDeck rejects glass effects outside non-line shapes", () => {
   const textResult = safeParseDeck(
     minimalV6Deck({

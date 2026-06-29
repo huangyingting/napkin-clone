@@ -34,7 +34,9 @@ export type TextStyleField =
   | "underline"
   | "align"
   | "lineHeight"
-  | "paragraphSpacing";
+  | "paragraphSpacing"
+  | "letterSpacing"
+  | "textTransform";
 
 /**
  * Final, render/export-ready text style resolved from the presentation theme role
@@ -55,6 +57,8 @@ export interface ResolvedTextStyle {
   align: "left" | "center" | "right";
   lineHeight?: number;
   paragraphSpacing?: number;
+  letterSpacing?: number;
+  textTransform?: "none" | "uppercase";
   /**
    * The role this style resolved from, after applying per-kind defaults for
    * elements that opt into template inheritance without naming a role.
@@ -208,6 +212,24 @@ export function resolveRoleTextStyle(
     origin.paragraphSpacing = "deck";
   }
 
+  let letterSpacing: number | undefined;
+  if (o.letterSpacing !== undefined) {
+    letterSpacing = o.letterSpacing;
+    origin.letterSpacing = "element";
+  } else {
+    letterSpacing = token.letterSpacing;
+    origin.letterSpacing = "deck";
+  }
+
+  let textTransform: "none" | "uppercase" | undefined;
+  if (o.textTransform !== undefined) {
+    textTransform = o.textTransform;
+    origin.textTransform = "element";
+  } else {
+    textTransform = token.textTransform;
+    origin.textTransform = "deck";
+  }
+
   return {
     fontFamily,
     fontSize,
@@ -218,6 +240,8 @@ export function resolveRoleTextStyle(
     align,
     ...(lineHeight !== undefined ? { lineHeight } : {}),
     ...(paragraphSpacing !== undefined ? { paragraphSpacing } : {}),
+    ...(letterSpacing !== undefined ? { letterSpacing } : {}),
+    ...(textTransform !== undefined ? { textTransform } : {}),
     role,
     origin,
   };

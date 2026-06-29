@@ -1,7 +1,11 @@
 import type { JSX } from "react";
 import type * as React from "react";
 
-import type { SlideElement, TextRun } from "@/lib/presentation/deck";
+import type {
+  ElementShadow,
+  SlideElement,
+  TextRun,
+} from "@/lib/presentation/deck";
 
 export function boxStyle(element: SlideElement): React.CSSProperties {
   return {
@@ -17,9 +21,20 @@ export function boxStyle(element: SlideElement): React.CSSProperties {
     ...(element.rotation
       ? { transform: `rotate(${element.rotation}deg)` }
       : {}),
-    ...(element.shadow
-      ? { filter: "drop-shadow(0 0.6cqmin 1.2cqmin rgba(0,0,0,0.28))" }
-      : {}),
+    ...shadowStyle(element.shadow),
+  };
+}
+
+export function shadowStyle(
+  shadow: SlideElement["shadow"] | undefined,
+): React.CSSProperties {
+  if (!shadow) return {};
+  if (shadow === true) {
+    return { filter: "drop-shadow(0 0.6cqmin 1.2cqmin rgba(0,0,0,0.28))" };
+  }
+  const value = shadow as ElementShadow;
+  return {
+    filter: `drop-shadow(${value.x}cqmin ${value.y}cqmin ${value.blur}cqmin ${hexToRgba(value.color, value.opacity ?? 1)})`,
   };
 }
 

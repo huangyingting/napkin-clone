@@ -1,6 +1,7 @@
 import type { Deck, Slide, SlideMaster } from "./deck-core";
 import type {
   ElementEffect,
+  ElementRadius,
   SlideElement,
   TableElementStyle,
 } from "./deck-elements";
@@ -38,6 +39,9 @@ export interface ResolvedRadialGradientFill {
   cx?: number;
   cy?: number;
   r?: number;
+  rx?: number;
+  ry?: number;
+  stops?: ResolvedGradientStop[];
 }
 
 export interface ResolvedLinearGradientFill {
@@ -45,6 +49,12 @@ export interface ResolvedLinearGradientFill {
   from: string;
   to: string;
   angle?: number;
+  stops?: ResolvedGradientStop[];
+}
+
+export interface ResolvedGradientStop {
+  color: string;
+  offset?: number;
 }
 
 export type ResolvedElementFill =
@@ -54,16 +64,25 @@ export type ResolvedElementFill =
 
 export function resolvedFillToCss(fill: ResolvedElementFill): string {
   if (typeof fill === "string") return fill;
+  const stops = fill.stops
+    ?.map(
+      (stop) =>
+        `${stop.color}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+    )
+    .join(", ");
   if (fill.type === "linearGradient") {
-    return `linear-gradient(${fill.angle ?? 90}deg, ${fill.from}, ${fill.to})`;
+    return `linear-gradient(${fill.angle ?? 90}deg, ${stops ?? `${fill.from}, ${fill.to}`})`;
   }
-  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.inner}, ${fill.outer})`;
+  const rx = fill.rx ?? fill.r ?? 70;
+  const ry = fill.ry ?? fill.r ?? 70;
+  return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${fill.inner}, ${fill.outer}`})`;
 }
 
 export function resolvedFillRepresentativeColor(
   fill: ResolvedElementFill,
 ): string {
   if (typeof fill === "string") return fill;
+  if (fill.stops?.[0]) return fill.stops[0].color;
   if (fill.type === "linearGradient") return fill.from;
   return fill.outer;
 }
@@ -75,6 +94,7 @@ export type ResolvedElementDesign =
       kind: "text";
       role?: string;
       textStyle: ResolvedTextStyle;
+      textFill?: ResolvedElementFill;
     }
   | {
       kind: "visual";
@@ -93,7 +113,7 @@ export type ResolvedElementDesign =
       role?: string;
       fill: ResolvedElementFill;
       stroke?: { color: string; width: number };
-      radius?: number;
+      radius?: ElementRadius;
       effect?: ElementEffect;
       textStyle?: ResolvedTextStyle;
     }
@@ -170,6 +190,9 @@ function resolveElementFill(
       from,
       to,
       ...(typeof fill.angle === "number" ? { angle: fill.angle } : {}),
+      ...(Array.isArray(fill.stops)
+        ? { stops: resolveGradientStops(fill.stops, tokenSet) }
+        : {}),
     };
   }
   if (fill.type !== "radialGradient") return colorRefValue(input, tokenSet);
@@ -183,7 +206,31 @@ function resolveElementFill(
     ...(typeof fill.cx === "number" ? { cx: fill.cx } : {}),
     ...(typeof fill.cy === "number" ? { cy: fill.cy } : {}),
     ...(typeof fill.r === "number" ? { r: fill.r } : {}),
+    ...(typeof fill.rx === "number" ? { rx: fill.rx } : {}),
+    ...(typeof fill.ry === "number" ? { ry: fill.ry } : {}),
+    ...(Array.isArray(fill.stops)
+      ? { stops: resolveGradientStops(fill.stops, tokenSet) }
+      : {}),
   };
+}
+
+function resolveGradientStops(
+  input: readonly unknown[],
+  tokenSet: PresentationTheme,
+): ResolvedGradientStop[] | undefined {
+  const stops = input.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const stop = item as { color?: unknown; offset?: unknown };
+    const color = colorRefValue(stop.color, tokenSet);
+    if (!color) return [];
+    return [
+      {
+        color,
+        ...(typeof stop.offset === "number" ? { offset: stop.offset } : {}),
+      },
+    ];
+  });
+  return stops.length >= 2 ? stops : undefined;
 }
 
 function resolveElementEffect(input: unknown): ElementEffect | undefined {
@@ -193,6 +240,13 @@ function resolveElementEffect(input: unknown): ElementEffect | undefined {
     return effect as unknown as ElementEffect;
   }
   if (effect.kind === "blur" && typeof effect.radius === "number") {
+    return effect as unknown as ElementEffect;
+  }
+  if (
+    effect.kind === "glow" &&
+    typeof effect.color === "string" &&
+    typeof effect.blur === "number"
+  ) {
     return effect as unknown as ElementEffect;
   }
   return undefined;
@@ -241,6 +295,14 @@ function resolveElementDesign(
         kind: "text",
         ...(role ? { role } : {}),
         textStyle: resolveTextElementStyle(deck, element),
+        ...(resolveElementFill(design?.textStyle?.textFill, tokenSet)
+          ? {
+              textFill: resolveElementFill(
+                design?.textStyle?.textFill,
+                tokenSet,
+              ),
+            }
+          : {}),
       };
     case "visual": {
       const styleThemeId =
@@ -286,7 +348,8 @@ function resolveElementDesign(
           tokenSet.shape.fill ??
           tokenSet.colors.accent,
         ...(stroke ? { stroke } : {}),
-        ...(typeof design?.radius === "number"
+        ...(typeof design?.radius === "number" ||
+        (design?.radius && typeof design.radius === "object")
           ? { radius: design.radius }
           : {}),
         ...(resolveElementEffect(design?.effect)

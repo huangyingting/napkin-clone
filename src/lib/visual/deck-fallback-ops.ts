@@ -28,6 +28,8 @@ export function buildDeckImageOp(
 ) {
   const { content } = element;
   const design = element.designOverrides ?? {};
+  const designRadius =
+    typeof design.radius === "number" ? design.radius : undefined;
   if (isEmptyImageSrc(content.src)) return null;
 
   return {
@@ -42,10 +44,10 @@ export function buildDeckImageOp(
       ? { maskShape: design.maskShape ?? imageDefaults?.maskShape }
       : {}),
     ...(content.crop !== undefined ? { crop: content.crop } : {}),
-    ...((design.radius ?? imageDefaults?.radiusPct)
+    ...((designRadius ?? imageDefaults?.radiusPct)
       ? {
           radius:
-            ((design.radius ?? imageDefaults?.radiusPct ?? 0) / 100) *
+            ((designRadius ?? imageDefaults?.radiusPct ?? 0) / 100) *
             Math.min(box.w, box.h),
         }
       : {}),

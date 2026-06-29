@@ -69,6 +69,10 @@ export type PresentationRoleToken = {
   paragraphSpacing?: number;
   /** Default horizontal alignment for the role. */
   align?: ElementAlign;
+  /** Optional letter spacing in `em` units. */
+  letterSpacing?: number;
+  /** Optional text transform for expressive theme roles. */
+  textTransform?: "none" | "uppercase";
 };
 
 /** A complete-or-partial map of role → token. */
@@ -247,8 +251,72 @@ export type BackgroundTreatment =
       cx?: number;
       cy?: number;
       r?: number;
+      rx?: number;
+      ry?: number;
     }
   | { type: "image"; url: string };
+
+export interface ThemeShadowToken {
+  x: number;
+  y: number;
+  blur: number;
+  color: string;
+  opacity?: number;
+}
+
+export interface ThemeEffectToken {
+  kind: "blur" | "glow" | "glass";
+  radius?: number;
+  blur?: number;
+  color?: string;
+  opacity?: number;
+  intensity?: "light" | "medium" | "strong";
+}
+
+export interface ThemeSurfaceRecipe {
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  radius?: number;
+  opacity?: number;
+  shadow?: ThemeShadowToken;
+  effect?: ThemeEffectToken;
+}
+
+export interface ThemeMotifRecipe {
+  kind: "orb" | "ring" | "wedge" | "leaf" | "frame" | "bar" | "holo";
+  shape?: "rect" | "ellipse" | "circle" | "triangle" | "diamond";
+  box: { x: number; y: number; w: number; h: number };
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  radius?: number;
+  rotation?: number;
+  opacity?: number;
+  shadow?: ThemeShadowToken;
+  effect?: ThemeEffectToken;
+}
+
+export interface ThemeVisualLanguageToken {
+  slide?: { radius?: number; shadow?: ThemeShadowToken };
+  surfaces?: Partial<
+    Record<"card" | "chip" | "tag" | "frame", ThemeSurfaceRecipe>
+  >;
+  motifs?: Record<string, ThemeMotifRecipe>;
+  text?: Partial<
+    Record<
+      | "kicker"
+      | "heroTitle"
+      | "subtitle"
+      | "stat"
+      | "quoteMark"
+      | "cardTitle"
+      | "cardBody"
+      | "chipText",
+      Partial<PresentationRoleToken>
+    >
+  >;
+}
 
 // ---------------------------------------------------------------------------
 // Complete token set
@@ -275,6 +343,8 @@ export type PresentationTheme = {
   visual?: VisualDefaultsToken;
   /** Optional image defaults (#601). Absent → deterministic fallbacks. */
   image?: ImageDefaultsToken;
+  /** Optional expressive visual-language recipes used by rich theme packages. */
+  visualLanguage?: ThemeVisualLanguageToken;
   /** Default background applied when no slide- or master-level override exists. */
   defaultBackground: BackgroundTreatment;
 };

@@ -8,6 +8,9 @@ import type {
   ElementBox,
   ElementEffect,
   ElementFill,
+  ElementRadius,
+  ElementShadow,
+  GradientStop,
   ShapeKind,
   SlideElement,
   TableCell,
@@ -188,6 +191,8 @@ function validateRadialGradientFill(
   const cx = validatePercentGeometry(input.cx, `${context}.cx`);
   const cy = validatePercentGeometry(input.cy, `${context}.cy`);
   const r = validatePercentGeometry(input.r, `${context}.r`);
+  const rx = validatePercentGeometry(input.rx, `${context}.rx`);
+  const ry = validatePercentGeometry(input.ry, `${context}.ry`);
   return {
     type: "radialGradient" as const,
     inner: validateColorRef(input.inner, `${context}.inner`),
@@ -195,7 +200,35 @@ function validateRadialGradientFill(
     ...(cx !== undefined ? { cx } : {}),
     ...(cy !== undefined ? { cy } : {}),
     ...(r !== undefined ? { r } : {}),
+    ...(rx !== undefined ? { rx } : {}),
+    ...(ry !== undefined ? { ry } : {}),
+    ...(input.stops !== undefined
+      ? { stops: validateGradientStops(input.stops, `${context}.stops`) }
+      : {}),
   };
+}
+
+function validateGradientStops(
+  input: unknown,
+  context: string,
+): GradientStop[] {
+  if (!Array.isArray(input) || input.length < 2) {
+    throw new DeckValidationError(`${context} must contain at least two stops`);
+  }
+  return input.map((stop, index) => {
+    const stopContext = `${context}[${index}]`;
+    if (!isPlainObject(stop)) {
+      throw new DeckValidationError(`${stopContext} must be an object`);
+    }
+    const offset = validatePercentGeometry(
+      stop.offset,
+      `${stopContext}.offset`,
+    );
+    return {
+      color: validateColorRef(stop.color, `${stopContext}.color`),
+      ...(offset !== undefined ? { offset } : {}),
+    };
+  });
 }
 
 function validateElementFill(input: unknown, context: string): ElementFill {
@@ -212,6 +245,9 @@ function validateElementFill(input: unknown, context: string): ElementFill {
       to: validateColorRef(input.to, `${context}.to`),
       ...(typeof input.angle === "number" && Number.isFinite(input.angle)
         ? { angle: input.angle }
+        : {}),
+      ...(input.stops !== undefined
+        ? { stops: validateGradientStops(input.stops, `${context}.stops`) }
         : {}),
     };
   }
@@ -231,8 +267,23 @@ function validateElementEffect(input: unknown, context: string): ElementEffect {
       ),
     };
   }
+  if (input.kind === "glow") {
+    if (!isHexColor(input.color)) {
+      throw new DeckValidationError(`${context}.color must be a hex color`);
+    }
+    return {
+      kind: "glow",
+      color: input.color,
+      blur: Math.max(0, validateFiniteNumber(input.blur, `${context}.blur`)),
+      ...(input.opacity !== undefined
+        ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
+        : {}),
+    };
+  }
   if (input.kind !== "glass") {
-    throw new DeckValidationError(`${context}.kind must be "glass" or "blur"`);
+    throw new DeckValidationError(
+      `${context}.kind must be "glass", "blur", or "glow"`,
+    );
   }
   if (
     !GLASS_EFFECT_INTENSITIES.includes(
@@ -251,6 +302,61 @@ function validateElementEffect(input: unknown, context: string): ElementEffect {
       ElementEffect,
       { kind: "glass" }
     >["intensity"],
+  };
+}
+
+function validateRadius(input: unknown, context: string): ElementRadius {
+  if (isPlainObject(input)) {
+    return {
+      topLeft: Math.max(
+        0,
+        Math.min(50, validateFiniteNumber(input.topLeft, `${context}.topLeft`)),
+      ),
+      topRight: Math.max(
+        0,
+        Math.min(
+          50,
+          validateFiniteNumber(input.topRight, `${context}.topRight`),
+        ),
+      ),
+      bottomRight: Math.max(
+        0,
+        Math.min(
+          50,
+          validateFiniteNumber(input.bottomRight, `${context}.bottomRight`),
+        ),
+      ),
+      bottomLeft: Math.max(
+        0,
+        Math.min(
+          50,
+          validateFiniteNumber(input.bottomLeft, `${context}.bottomLeft`),
+        ),
+      ),
+    };
+  }
+  return Math.max(0, Math.min(50, validateFiniteNumber(input, context)));
+}
+
+function validateShadow(
+  input: unknown,
+  context: string,
+): boolean | ElementShadow {
+  if (typeof input === "boolean") return input;
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be a boolean or object`);
+  }
+  if (!isHexColor(input.color)) {
+    throw new DeckValidationError(`${context}.color must be a hex color`);
+  }
+  return {
+    x: validateFiniteNumber(input.x, `${context}.x`),
+    y: validateFiniteNumber(input.y, `${context}.y`),
+    blur: Math.max(0, validateFiniteNumber(input.blur, `${context}.blur`)),
+    color: input.color,
+    ...(input.opacity !== undefined
+      ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
+      : {}),
   };
 }
 
@@ -358,10 +464,7 @@ function validateDesignOverrides(
     };
   }
   if (input.radius !== undefined) {
-    out.radius = Math.max(
-      0,
-      Math.min(50, validateFiniteNumber(input.radius, `${context}.radius`)),
-    );
+    out.radius = validateRadius(input.radius, `${context}.radius`);
   }
   if (input.fitMode !== undefined) {
     out.fitMode = validateImageFitMode(input.fitMode, `${context}.fitMode`);
@@ -524,6 +627,18 @@ function validatePartialTextStyle(
   if (input.color !== undefined && !isHexColor(input.color)) {
     throw new DeckValidationError(`${context}.color must be a hex color`);
   }
+  if (input.textFill !== undefined) {
+    validateElementFill(input.textFill, `${context}.textFill`);
+  }
+  if (
+    input.textTransform !== undefined &&
+    input.textTransform !== "none" &&
+    input.textTransform !== "uppercase"
+  ) {
+    throw new DeckValidationError(
+      `${context}.textTransform must be "none" or "uppercase"`,
+    );
+  }
   if (
     input.verticalAlign !== undefined &&
     !VERTICAL_ALIGNS.includes(input.verticalAlign as VerticalAlign)
@@ -559,6 +674,18 @@ function validatePartialTextStyle(
       input.paragraphSpacing,
       `${context}.paragraphSpacing`,
     );
+  }
+  if (input.letterSpacing !== undefined) {
+    out.letterSpacing = validateFiniteNumber(
+      input.letterSpacing,
+      `${context}.letterSpacing`,
+    );
+  }
+  if (input.textTransform !== undefined) {
+    out.textTransform = input.textTransform as "none" | "uppercase";
+  }
+  if (input.textFill !== undefined) {
+    out.textFill = validateElementFill(input.textFill, `${context}.textFill`);
   }
   if (input.color !== undefined) out.color = input.color as string;
   /* node:coverage ignore next 3 */
@@ -732,6 +859,9 @@ function validateBaseElementFields(
   if (input.rotation !== undefined) {
     validateFiniteNumber(input.rotation, `${context}.rotation`);
   }
+  if (input.shadow !== undefined) {
+    validateShadow(input.shadow, `${context}.shadow`);
+  }
   if (
     input.name !== undefined &&
     (typeof input.name !== "string" || input.name.length === 0)
@@ -757,7 +887,9 @@ function validateBaseElementFields(
           rotation: validateFiniteNumber(input.rotation, `${context}.rotation`),
         }
       : {}),
-    ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
+    ...(input.shadow !== undefined
+      ? { shadow: validateShadow(input.shadow, `${context}.shadow`) }
+      : {}),
     ...(input.role !== undefined
       ? { role: validatePresentationRole(input.role, `${context}.role`) }
       : {}),

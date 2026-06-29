@@ -99,6 +99,12 @@ export interface TextElementStyle {
   paragraphSpacing?: number;
   /** Optional hex color override; falls back to the theme color when unset. */
   color?: string;
+  /** Optional text fill. When set to a gradient, renderers clip it to text. */
+  textFill?: ElementFill;
+  /** Letter spacing in `em` units. */
+  letterSpacing?: number;
+  /** Optional text transform for expressive theme roles. */
+  textTransform?: "none" | "uppercase";
   /**
    * Optional slide font id (see `slide-fonts.ts`). Selects a self-hosted,
    * cross-platform font for this element; falls back to the theme/role font
@@ -118,6 +124,12 @@ export type ShapeKind =
 
 export type ColorRef = { token: string } | { value: string };
 
+export interface GradientStop {
+  color: ColorRef;
+  /** Stop offset in percent (0–100). Absent lets the renderer distribute it. */
+  offset?: number;
+}
+
 export interface RadialGradientFill {
   type: "radialGradient";
   inner: ColorRef;
@@ -125,6 +137,12 @@ export interface RadialGradientFill {
   cx?: number;
   cy?: number;
   r?: number;
+  /** Optional horizontal radius in percent. Falls back to `r`. */
+  rx?: number;
+  /** Optional vertical radius in percent. Falls back to `r`. */
+  ry?: number;
+  /** Optional ordered stops for richer radial treatments. */
+  stops?: GradientStop[];
 }
 
 export interface LinearGradientFill {
@@ -133,6 +151,8 @@ export interface LinearGradientFill {
   to: ColorRef;
   /** Gradient angle in degrees; defaults to 90 (left → right). */
   angle?: number;
+  /** Optional ordered stops for richer linear treatments. */
+  stops?: GradientStop[];
 }
 
 export type ElementFill = ColorRef | RadialGradientFill | LinearGradientFill;
@@ -147,7 +167,31 @@ export interface BlurEffect {
   radius: number;
 }
 
-export type ElementEffect = GlassEffect | BlurEffect;
+export interface GlowEffect {
+  kind: "glow";
+  color: string;
+  blur: number;
+  opacity?: number;
+}
+
+export type ElementEffect = GlassEffect | BlurEffect | GlowEffect;
+
+export interface ElementRadiusCorners {
+  topLeft: number;
+  topRight: number;
+  bottomRight: number;
+  bottomLeft: number;
+}
+
+export type ElementRadius = number | ElementRadiusCorners;
+
+export interface ElementShadow {
+  x: number;
+  y: number;
+  blur: number;
+  color: string;
+  opacity?: number;
+}
 
 export type ConnectorAnchor = "center" | "top" | "bottom" | "left" | "right";
 
@@ -253,7 +297,7 @@ export interface ElementDesignOverrides {
   textStyle?: Partial<TextElementStyle>;
   fill?: ElementFill;
   stroke?: { color: string; width: number };
-  radius?: number;
+  radius?: ElementRadius;
   fitMode?: ImageFitMode;
   maskShape?: ImageMaskShape;
   effect?: ElementEffect;
@@ -295,7 +339,7 @@ export interface BaseElement {
    */
   rotation?: number;
   /** Optional drop shadow. Absent/false means no shadow. */
-  shadow?: boolean;
+  shadow?: boolean | ElementShadow;
   /** When true, the element is not selectable or draggable in the editor. */
   locked?: boolean;
   /**

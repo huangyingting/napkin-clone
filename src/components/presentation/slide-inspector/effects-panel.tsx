@@ -54,7 +54,7 @@ function ElementEffectsControl({
     <PropRow label="Shadow">
       <input
         type="checkbox"
-        checked={element.shadow ?? false}
+        checked={Boolean(element.shadow)}
         onChange={(event) =>
           onUpdateElement(element.id, {
             shadow: event.target.checked ? true : undefined,

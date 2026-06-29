@@ -198,21 +198,57 @@ function shapeFillCss(
     const preset = GLASS_PRESETS[effect.intensity];
     if (typeof fill === "string") return rgbaColor(fill, preset.alpha);
     if (fill.type === "linearGradient") {
+      if (fill.stops) {
+        return `linear-gradient(${fill.angle ?? 90}deg, ${fill.stops
+          .map(
+            (stop) =>
+              `${rgbaColor(stop.color, preset.alpha + 0.08)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+          )
+          .join(", ")})`;
+      }
       return `linear-gradient(${fill.angle ?? 90}deg, ${rgbaColor(
         fill.from,
         preset.alpha + 0.08,
       )}, ${rgbaColor(fill.to, preset.alpha)})`;
     }
-    return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
+    const rx = fill.rx ?? fill.r ?? 70;
+    const ry = fill.ry ?? fill.r ?? 70;
+    if (fill.stops) {
+      return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.stops
+        .map(
+          (stop) =>
+            `${rgbaColor(stop.color, preset.alpha + 0.08)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+        )
+        .join(", ")})`;
+    }
+    return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
       fill.inner,
       preset.alpha + 0.08,
     )}, ${rgbaColor(fill.outer, preset.alpha)})`;
   }
   if (typeof fill === "string") return hashColor(fill);
   if (fill.type === "linearGradient") {
+    if (fill.stops) {
+      return `linear-gradient(${fill.angle ?? 90}deg, ${fill.stops
+        .map(
+          (stop) =>
+            `${hashColor(stop.color)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+        )
+        .join(", ")})`;
+    }
     return `linear-gradient(${fill.angle ?? 90}deg, ${hashColor(fill.from)}, ${hashColor(fill.to)})`;
   }
-  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hashColor(
+  const rx = fill.rx ?? fill.r ?? 70;
+  const ry = fill.ry ?? fill.r ?? 70;
+  if (fill.stops) {
+    return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.stops
+      .map(
+        (stop) =>
+          `${hashColor(stop.color)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+      )
+      .join(", ")})`;
+  }
+  return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hashColor(
     fill.inner,
   )}, ${hashColor(fill.outer)})`;
 }

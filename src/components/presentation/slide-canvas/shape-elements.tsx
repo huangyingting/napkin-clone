@@ -31,20 +31,43 @@ const GLASS_PRESETS = {
   strong: { alpha: 0.4, blur: 22, saturate: 1.42, borderAlpha: 0.6 },
 } as const;
 
-function radiusCss(radius: number | undefined, fallback = "0.25rem"): string {
+function radiusCss(
+  radius: ResolvedShapeDesign["radius"] | undefined,
+  fallback = "0.25rem",
+): string {
   if (radius === undefined) return fallback;
-  return radius >= 50 ? "9999px" : `${radius}cqmin`;
+  if (typeof radius === "number")
+    return radius >= 50 ? "9999px" : `${radius}cqmin`;
+  return `${radius.topLeft}cqmin ${radius.topRight}cqmin ${radius.bottomRight}cqmin ${radius.bottomLeft}cqmin`;
 }
 
 function glassFillCss(fill: ResolvedElementFill, alpha: number): string {
   if (typeof fill === "string") return hexToRgba(fill, alpha);
   if (fill.type === "linearGradient") {
+    if (fill.stops) {
+      return `linear-gradient(${fill.angle ?? 90}deg, ${fill.stops
+        .map(
+          (stop) =>
+            `${hexToRgba(stop.color, alpha + 0.08)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+        )
+        .join(", ")})`;
+    }
     return `linear-gradient(${fill.angle ?? 90}deg, ${hexToRgba(
       fill.from,
       alpha + 0.08,
     )}, ${hexToRgba(fill.to, alpha)})`;
   }
-  return `radial-gradient(${fill.r ?? 70}% ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hexToRgba(
+  const rx = fill.rx ?? fill.r ?? 70;
+  const ry = fill.ry ?? fill.r ?? 70;
+  if (fill.stops) {
+    return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.stops
+      .map(
+        (stop) =>
+          `${hexToRgba(stop.color, alpha + 0.08)}${stop.offset !== undefined ? ` ${stop.offset}%` : ""}`,
+      )
+      .join(", ")})`;
+  }
+  return `radial-gradient(${rx}% ${ry}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hexToRgba(
     fill.inner,
     alpha + 0.08,
   )}, ${hexToRgba(fill.outer, alpha)})`;
@@ -59,6 +82,12 @@ function fillBoxStyle(
     return {
       background: resolvedFillToCss(fill),
       filter: `blur(${effect.radius}cqmin)`,
+    };
+  }
+  if (effect.kind === "glow") {
+    return {
+      background: resolvedFillToCss(fill),
+      filter: `drop-shadow(0 0 ${effect.blur}cqmin ${hexToRgba(effect.color, effect.opacity ?? 1)})`,
     };
   }
   const preset = GLASS_PRESETS[effect.intensity];
@@ -108,6 +137,12 @@ function ShapeText({
         fontStyle: italic ? "italic" : "normal",
         ...(underline ? { textDecoration: "underline" } : {}),
         ...(fontCss ? { fontFamily: fontCss } : {}),
+        ...(textStyle?.letterSpacing !== undefined
+          ? { letterSpacing: `${textStyle.letterSpacing}em` }
+          : {}),
+        ...(textStyle?.textTransform
+          ? { textTransform: textStyle.textTransform }
+          : {}),
         textAlign: align,
         lineHeight: 1.15,
         whiteSpace: "pre-wrap",

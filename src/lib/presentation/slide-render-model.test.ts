@@ -285,6 +285,114 @@ test("resolveSlideRenderModel resolves linear gradient element fill", () => {
   }
 });
 
+test("resolveSlideRenderModel resolves rich fill stops, radii, glow, and text fill", () => {
+  const d = deck();
+  const text = {
+    id: "text-gradient",
+    kind: "text",
+    role: "title",
+    box: { x: 0, y: 0, w: 50, h: 20 },
+    zIndex: 0,
+    content: {
+      kind: "text",
+      text: "Frontier",
+      paragraphs: [{ text: "Frontier" }],
+    },
+    designOverrides: {
+      textStyle: {
+        fontSize: 8,
+        bold: true,
+        italic: false,
+        align: "left",
+        letterSpacing: 0.2,
+        textTransform: "uppercase",
+        textFill: {
+          type: "linearGradient",
+          from: { value: "#ffffff" },
+          to: { token: "accent" },
+          angle: 100,
+          stops: [
+            { color: { value: "#ffffff" } },
+            { color: { value: "#b9c0ff" }, offset: 40 },
+            { color: { token: "accent" } },
+          ],
+        },
+      },
+    },
+  } as unknown as SlideElement;
+  const shape = shapeElement("rich-shape", 1) as any;
+  shape.shadow = { x: 0, y: 0.8, blur: 2.4, color: "#000000", opacity: 0.5 };
+  shape.designOverrides = {
+    radius: { topLeft: 50, topRight: 50, bottomRight: 50, bottomLeft: 8 },
+    fill: {
+      type: "radialGradient",
+      inner: { value: "#14171f" },
+      outer: { value: "#050608" },
+      cx: 95,
+      cy: 10,
+      rx: 100,
+      ry: 90,
+      stops: [
+        { color: { value: "#14171f" } },
+        { color: { value: "#050608" }, offset: 60 },
+      ],
+    },
+    effect: { kind: "glow", color: "#f5b301", blur: 24, opacity: 0.2 },
+  };
+  d.slides[0] = { ...d.slides[0]!, elements: [text, shape] };
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.elementDesigns["text-gradient"]?.kind, "text");
+  if (model.elementDesigns["text-gradient"]?.kind === "text") {
+    assert.equal(
+      model.elementDesigns["text-gradient"].textStyle.letterSpacing,
+      0.2,
+    );
+    assert.equal(
+      model.elementDesigns["text-gradient"].textStyle.textTransform,
+      "uppercase",
+    );
+    assert.deepEqual(model.elementDesigns["text-gradient"].textFill, {
+      type: "linearGradient",
+      from: "#ffffff",
+      to: model.tokenSet.colors.accent,
+      angle: 100,
+      stops: [
+        { color: "#ffffff" },
+        { color: "#b9c0ff", offset: 40 },
+        { color: model.tokenSet.colors.accent },
+      ],
+    });
+  }
+
+  assert.equal(model.elementDesigns["rich-shape"]?.kind, "shape");
+  if (model.elementDesigns["rich-shape"]?.kind === "shape") {
+    assert.deepEqual(model.elementDesigns["rich-shape"].radius, {
+      topLeft: 50,
+      topRight: 50,
+      bottomRight: 50,
+      bottomLeft: 8,
+    });
+    assert.deepEqual(model.elementDesigns["rich-shape"].effect, {
+      kind: "glow",
+      color: "#f5b301",
+      blur: 24,
+      opacity: 0.2,
+    });
+    assert.deepEqual(model.elementDesigns["rich-shape"].fill, {
+      type: "radialGradient",
+      inner: "#14171f",
+      outer: "#050608",
+      cx: 95,
+      cy: 10,
+      rx: 100,
+      ry: 90,
+      stops: [{ color: "#14171f" }, { color: "#050608", offset: 60 }],
+    });
+  }
+});
+
 test("resolveSlideRenderModel resolves blur shape effects", () => {
   const d = deck();
   const element = shapeElement("blur-shape", 0) as any;
