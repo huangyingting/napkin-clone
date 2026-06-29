@@ -38,7 +38,14 @@ function imageCropClipPath(
 }
 
 function imageMaskStyle(mask: {
-  maskShape?: "none" | "circle" | "rounded" | "diamond";
+  maskShape?:
+    | "none"
+    | "rect"
+    | "circle"
+    | "ellipse"
+    | "rounded"
+    | "diamond"
+    | "triangle";
   radius?: number;
 }): React.CSSProperties {
   const radius =
@@ -46,10 +53,14 @@ function imageMaskStyle(mask: {
   switch (mask.maskShape) {
     case "circle":
       return { clipPath: "circle(50% at 50% 50%)" };
+    case "ellipse":
+      return { clipPath: "ellipse(50% 50% at 50% 50%)" };
     case "diamond":
       return {
         clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
       };
+    case "triangle":
+      return { clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)" };
     case "rounded":
       return { borderRadius: `${radius ?? 12}%` };
     default:

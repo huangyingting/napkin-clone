@@ -29,6 +29,14 @@ export type ColorRef = { token: string } | { value: string };
 export type SlideBackgroundDesign =
   | { type: "solid"; color: ColorRef }
   | { type: "gradient"; from: ColorRef; to: ColorRef; angle?: number }
+  | {
+      type: "radialGradient";
+      inner: ColorRef;
+      outer: ColorRef;
+      cx?: number;
+      cy?: number;
+      r?: number;
+    }
   | { type: "image"; url: string; assetId?: string };
 
 export interface SlideDesignOverrides {

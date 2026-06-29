@@ -51,7 +51,15 @@ test("validateImageFitMode rejects an unknown fit mode", () => {
 });
 
 test("validateImageMaskShape accepts the supported mask shapes", () => {
-  for (const maskShape of ["none", "circle", "rounded", "diamond"] as const) {
+  for (const maskShape of [
+    "none",
+    "rect",
+    "circle",
+    "ellipse",
+    "rounded",
+    "diamond",
+    "triangle",
+  ] as const) {
     assert.equal(validateImageMaskShape(maskShape, "maskShape"), maskShape);
   }
   assert.equal(validateImageMaskShape(undefined, "maskShape"), undefined);
@@ -92,7 +100,7 @@ test("safeParseDeck round-trips image crop, fitMode, and maskShape", () => {
   const result = safeParseDeck(
     imageElementDeck({
       fitMode: "fill",
-      maskShape: "diamond",
+      maskShape: "triangle",
       crop: { top: 0.1, right: 0.2, bottom: 0.3, left: 0.05 },
     }),
   );
@@ -102,7 +110,7 @@ test("safeParseDeck round-trips image crop, fitMode, and maskShape", () => {
     assert.equal(element?.kind, "image");
     if (element?.kind === "image") {
       assert.equal((element as any).designOverrides.fitMode, "fill");
-      assert.equal((element as any).designOverrides.maskShape, "diamond");
+      assert.equal((element as any).designOverrides.maskShape, "triangle");
       assert.deepEqual((element as any).content.crop, {
         top: 0.1,
         right: 0.2,

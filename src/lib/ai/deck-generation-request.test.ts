@@ -112,6 +112,33 @@ test("parseDeckResponse returns the deck and truncated flag", () => {
   assert.equal(parsed.deck.slides[0].title, "Current");
 });
 
+test("parseDeckResponse returns package-template response metadata", () => {
+  const parsed = parseDeckResponse({
+    deck: VALID_DECK,
+    truncated: false,
+    metadata: {
+      requestedGenerationMode: "package-template",
+      generationMode: "legacy",
+      fallback: true,
+      tableSlideCount: 2,
+      schemaValid: true,
+      themePackageId: "noir",
+      selectedKindCounts: { table: 1, cover: 1, ignored: "bad" },
+    },
+  });
+
+  assert.ok(parsed);
+  assert.deepEqual(parsed.metadata, {
+    requestedGenerationMode: "package-template",
+    generationMode: "legacy",
+    fallback: true,
+    tableSlideCount: 2,
+    schemaValid: true,
+    themePackageId: "noir",
+    selectedKindCounts: { table: 1, cover: 1 },
+  });
+});
+
 test("parseDeckResponse defaults truncated to false", () => {
   const parsed = parseDeckResponse({ deck: VALID_DECK });
   assert.ok(parsed);

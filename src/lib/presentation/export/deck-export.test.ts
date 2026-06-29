@@ -520,6 +520,65 @@ test("image ops carry fitMode, maskShape, and crop metadata", () => {
   });
 });
 
+test("shape ops carry radial fills, glass effects, and radial backgrounds", () => {
+  const deck: Deck = {
+    design: { themeId: "indigo" },
+    slides: [
+      freeFormSlide(
+        0,
+        [
+          fixtureShapeElement("radial-glass", {
+            designOverrides: {
+              fill: {
+                type: "radialGradient",
+                inner: { value: "#ffffff" },
+                outer: { value: "#1e293b" },
+                cx: 50,
+                cy: 45,
+                r: 70,
+              },
+              effect: { kind: "glass", intensity: "strong" },
+            },
+          }),
+        ],
+        {
+          designOverrides: {
+            background: {
+              type: "radialGradient",
+              inner: { value: "#f8fafc" },
+              outer: { value: "#0f172a" },
+              cx: 42,
+              cy: 38,
+              r: 74,
+            },
+          },
+        },
+      ),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.deepEqual(spec.backgroundFill, {
+    type: "radialGradient",
+    inner: "F8FAFC",
+    outer: "0F172A",
+    cx: 42,
+    cy: 38,
+    r: 74,
+  });
+  const shape = ofKind(spec.ops, "shape")[0];
+  assert.deepEqual(shape?.fill, {
+    type: "radialGradient",
+    inner: "FFFFFF",
+    outer: "1E293B",
+    cx: 50,
+    cy: 45,
+    r: 70,
+  });
+  assert.deepEqual(shape?.effect, { kind: "glass", intensity: "strong" });
+  assert.equal(shape?.color, "1E293B");
+});
+
 test("a transformed visual degrades to a fallback image op instead of losing styling", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const transformed: VisualElement = {
@@ -911,6 +970,61 @@ test("slide image export writes SVG slides with rich free-form content", async (
   assert.match(svg, /<ellipse/);
   assert.match(svg, /<polygon/);
   assert.match(svg, /https:\/\/example\.test\/bg\.png/);
+});
+
+test("slide image export renders radial glass shapes and triangle image masks", async () => {
+  const deck: Deck = buildDeck({
+    design: { themeId: "indigo" },
+    slides: [
+      freeFormSlide(
+        0,
+        [
+          fixtureShapeElement("glass-triangle", {
+            shape: "triangle",
+            designOverrides: {
+              fill: {
+                type: "radialGradient",
+                inner: { value: "#ffffff" },
+                outer: { value: "#334155" },
+                cx: 48,
+                cy: 36,
+                r: 68,
+              },
+              effect: { kind: "glass", intensity: "strong" },
+            },
+          }),
+          imageEl("triangle-image", {
+            maskShape: "triangle",
+            fitMode: "cover",
+          }),
+        ],
+        {
+          designOverrides: {
+            background: {
+              type: "radialGradient",
+              inner: { value: "#f8fafc" },
+              outer: { value: "#0f172a" },
+              cx: 42,
+              cy: 38,
+              r: 74,
+            },
+          },
+        },
+      ),
+    ],
+  });
+
+  const blob = await exportDeckAsSlideImages(deck, new Map(), NO_SVG);
+  assert.ok(blob, "expected a slide-image ZIP blob");
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const svg = await zip.file("slide-01.svg")?.async("string");
+
+  assert.ok(svg, "expected slide-01.svg in the ZIP");
+  assert.match(svg, /<radialGradient id="slide-0-background-radial-fill"/);
+  assert.match(svg, /backdrop-filter:blur\(22px\) saturate\(1\.42\)/);
+  assert.match(svg, /clip-path:polygon\(50% 0%, 0% 100%, 100% 100%\)/);
+  assert.match(svg, /<clipPath id="slide-0-1-clip"><polygon/);
 });
 
 test("slide image export renders native ellipse, diamond, and hexagon visual specs", async () => {
@@ -1348,6 +1462,43 @@ test("PPTX image applier rasterizes masked and cropped images when browser APIs 
   assert.equal(imageCalls[0]?.data, "data:image/png;base64,ZmFrZQ==");
   assert.equal(imageCalls[0]?.altText, "cropped");
   assert.equal(imageCalls[0]?.rotate, 9);
+  assert.deepEqual(imageCalls[0]?.shadow, deckExportTestHelpers.SHADOW_OPTS);
+});
+
+test("PPTX deck op rasterizes radial glass shapes when browser APIs are available", async () => {
+  installRasterExportDom();
+  const { slide, imageCalls, shapeCalls } = recordingSlide();
+
+  await deckExportTestHelpers.applyDeckOp(
+    slide,
+    {
+      kind: "shape",
+      shape: "triangle",
+      x: 1,
+      y: 2,
+      w: 3,
+      h: 2,
+      color: "334155",
+      fill: {
+        type: "radialGradient",
+        inner: "FFFFFF",
+        outer: "334155",
+        cx: 48,
+        cy: 36,
+        r: 68,
+      },
+      effect: { kind: "glass", intensity: "strong" },
+      text: "Glass",
+      rotation: 11,
+      shadow: true,
+    },
+    NO_SVG,
+  );
+
+  assert.equal(shapeCalls.length, 0);
+  assert.equal(imageCalls.length, 1);
+  assert.equal(imageCalls[0]?.data, "data:image/png;base64,ZmFrZQ==");
+  assert.equal(imageCalls[0]?.rotate, 11);
   assert.deepEqual(imageCalls[0]?.shadow, deckExportTestHelpers.SHADOW_OPTS);
 });
 

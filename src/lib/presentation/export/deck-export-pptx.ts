@@ -100,6 +100,32 @@ function escapeXml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function hashColor(value: string): string {
+  return value.startsWith("#") ? value : `#${value}`;
+}
+
+function rgbaColor(value: string, alpha: number): string {
+  const raw = value.replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  if (expanded.length < 6) return `rgba(113,113,122,${alpha})`;
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+const GLASS_PRESETS = {
+  light: { alpha: 0.22, blur: 8, saturate: 1.18, borderAlpha: 0.42 },
+  medium: { alpha: 0.3, blur: 14, saturate: 1.3, borderAlpha: 0.5 },
+  strong: { alpha: 0.4, blur: 22, saturate: 1.42, borderAlpha: 0.6 },
+} as const;
+
 function hasImageCrop(crop: ImageCrop | undefined): crop is ImageCrop {
   return Boolean(
     crop &&
@@ -123,6 +149,91 @@ function imageNeedsRasterFallback(op: DeckImageOp): boolean {
     hasImageCrop(op.crop) ||
     op.fitMode === "none"
   );
+}
+
+function shapeNeedsRasterFallback(op: DeckShapeOp): boolean {
+  return Boolean(
+    op.effect || (op.fill !== undefined && typeof op.fill !== "string"),
+  );
+}
+
+function shapeClipCss(op: DeckShapeOp, height: number): string {
+  switch (op.shape) {
+    case "ellipse":
+      return "clip-path:ellipse(50% 50% at 50% 50%);";
+    case "triangle":
+      return "clip-path:polygon(50% 0%, 0% 100%, 100% 100%);";
+    case "rect":
+      return op.radius ? `border-radius:${Math.round(op.radius * 192)}px;` : "";
+    case "line":
+      return `height:${Math.max(1, Math.round(height * 0.04))}px;margin-top:${Math.round(
+        height / 2,
+      )}px;`;
+  }
+}
+
+function shapeFillCss(
+  fill: NonNullable<DeckShapeOp["fill"]>,
+  effect: DeckShapeOp["effect"],
+): string {
+  if (effect) {
+    const preset = GLASS_PRESETS[effect.intensity];
+    if (typeof fill === "string") return rgbaColor(fill, preset.alpha);
+    return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
+      fill.inner,
+      preset.alpha + 0.08,
+    )}, ${rgbaColor(fill.outer, preset.alpha)})`;
+  }
+  if (typeof fill === "string") return hashColor(fill);
+  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hashColor(
+    fill.inner,
+  )}, ${hashColor(fill.outer)})`;
+}
+
+function renderStyledShapeSvg(
+  op: DeckShapeOp,
+  pxPerIn = 192,
+): SVGSVGElement | null {
+  if (typeof DOMParser === "undefined") return null;
+  const width = Math.max(1, Math.round(op.w * pxPerIn));
+  const height = Math.max(1, Math.round(op.h * pxPerIn));
+  const fill = op.fill ?? op.color;
+  const preset = op.effect ? GLASS_PRESETS[op.effect.intensity] : undefined;
+  const bodyStyle = [
+    "position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;",
+    `background:${shapeFillCss(fill, op.effect)};`,
+    op.effect
+      ? `backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});-webkit-backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});`
+      : "",
+    op.effect
+      ? `border:1px solid ${rgbaColor("ffffff", preset?.borderAlpha ?? 0.5)};box-shadow:0 8px 24px rgba(15,23,42,0.18);`
+      : op.stroke
+        ? `border:${Math.max(1, Math.round(op.stroke.width))}px solid ${hashColor(op.stroke.color)};`
+        : "",
+    op.opacity !== undefined ? `opacity:${op.opacity};` : "",
+    shapeClipCss(op, height),
+  ].join("");
+  const labelStyle = [
+    "position:absolute;inset:8%;display:flex;align-items:center;justify-content:center;",
+    `color:${hashColor(op.textColor ?? "18181b")};`,
+    `font-size:${Math.round(op.fontSize ?? 18)}px;`,
+    `font-weight:${op.bold ? 700 : 400};`,
+    `font-style:${op.italic ? "italic" : "normal"};`,
+    `text-align:${op.align ?? "center"};`,
+    "white-space:pre-wrap;overflow-wrap:break-word;overflow:hidden;",
+  ].join("");
+  const label = op.text
+    ? `<div style="${labelStyle}">${escapeXml(op.text)}</div>`
+    : "";
+  const svgString = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <foreignObject x="0" y="0" width="${width}" height="${height}">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="${bodyStyle}">${label}</div>
+  </foreignObject>
+</svg>`;
+  const parsed = new DOMParser().parseFromString(svgString, "image/svg+xml");
+  const root = parsed.documentElement;
+  return root.tagName === "svg" ? (root as unknown as SVGSVGElement) : null;
 }
 
 /* node:coverage ignore next 4 */
@@ -446,6 +557,27 @@ export function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
 }
 /* node:coverage enable */
 
+async function applyShapeRasterFallback(
+  slide: PptxSlide,
+  op: DeckShapeOp,
+): Promise<boolean> {
+  if (!shapeNeedsRasterFallback(op)) return false;
+  const styledSvg = renderStyledShapeSvg(op);
+  if (!styledSvg) return false;
+  const pngDataUrl = await svgToPngDataUrl(styledSvg);
+  if (!pngDataUrl) return false;
+  slide.addImage({
+    data: pngDataUrl,
+    x: op.x,
+    y: op.y,
+    w: op.w,
+    h: op.h,
+    ...(op.rotation ? { rotate: op.rotation } : {}),
+    ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+  });
+  return true;
+}
+
 export async function applyImageOp(
   slide: PptxSlide,
   op: DeckImageOp,
@@ -574,7 +706,9 @@ export async function applyDeckOp(
       applyBulletsOp(slide, op);
       break;
     case "shape":
-      applyShapeOp(slide, op);
+      if (!(await applyShapeRasterFallback(slide, op))) {
+        applyShapeOp(slide, op);
+      }
       break;
     case "image":
       await applyImageOp(slide, op);

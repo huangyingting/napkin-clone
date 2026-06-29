@@ -108,6 +108,43 @@ function shadowCss(enabled: boolean | undefined): string {
   return enabled ? "filter:drop-shadow(0px 4px 8px rgba(0,0,0,0.28));" : "";
 }
 
+function hashColor(value: string): string {
+  return value.startsWith("#") ? value : `#${value}`;
+}
+
+function rgbaColor(value: string, alpha: number): string {
+  const raw = value.replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  if (expanded.length < 6) return `rgba(113,113,122,${alpha})`;
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+const GLASS_PRESETS = {
+  light: { alpha: 0.22, blur: 8, saturate: 1.18, borderAlpha: 0.42 },
+  medium: { alpha: 0.3, blur: 14, saturate: 1.3, borderAlpha: 0.5 },
+  strong: { alpha: 0.4, blur: 22, saturate: 1.42, borderAlpha: 0.6 },
+} as const;
+
+function glassFillCss(
+  fill: NonNullable<DeckShapeOp["fill"]>,
+  alpha: number,
+): string {
+  if (typeof fill === "string") return rgbaColor(fill, alpha);
+  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${rgbaColor(
+    fill.inner,
+    alpha + 0.08,
+  )}, ${rgbaColor(fill.outer, alpha)})`;
+}
+
 function rotationTransform(
   x: number,
   y: number,
@@ -288,7 +325,71 @@ function renderShapeLabel(op: DeckShapeOp, pxPerIn: number): string {
   );
 }
 
-function renderShapeSvg(op: DeckShapeOp, pxPerIn: number): string {
+function shapeFillAttr(
+  fill: NonNullable<DeckShapeOp["fill"]>,
+  id: string,
+): { defs: string[]; attr: string } {
+  if (typeof fill === "string") return { defs: [], attr: hashColor(fill) };
+  const gradientId = `${id}-radial-fill`;
+  return {
+    defs: [
+      `<radialGradient id="${gradientId}" cx="${fill.cx ?? 50}%" cy="${fill.cy ?? 50}%" r="${fill.r ?? 70}%"><stop offset="0%" stop-color="${hashColor(fill.inner)}" /><stop offset="100%" stop-color="${hashColor(fill.outer)}" /></radialGradient>`,
+    ],
+    attr: `url(#${gradientId})`,
+  };
+}
+
+function glassClipCss(op: DeckShapeOp, pxPerIn: number): string {
+  switch (op.shape) {
+    case "ellipse":
+      return "clip-path:ellipse(50% 50% at 50% 50%);";
+    case "triangle":
+      return "clip-path:polygon(50% 0%, 0% 100%, 100% 100%);";
+    case "rect":
+      return op.radius ? `border-radius:${op.radius * pxPerIn}px;` : "";
+    case "line":
+      return "";
+  }
+}
+
+function renderGlassShapeSvg(
+  op: DeckShapeOp,
+  fill: NonNullable<DeckShapeOp["fill"]>,
+  pxPerIn: number,
+): string {
+  const preset = GLASS_PRESETS[op.effect?.intensity ?? "medium"];
+  const x = px(op.x, pxPerIn);
+  const y = px(op.y, pxPerIn);
+  const w = px(op.w, pxPerIn);
+  const h = px(op.h, pxPerIn);
+  const transform = rotationTransform(
+    op.x * pxPerIn,
+    op.y * pxPerIn,
+    op.w * pxPerIn,
+    op.h * pxPerIn,
+    op.rotation,
+  );
+  const style = [
+    "width:100%;height:100%;box-sizing:border-box;",
+    `background:${glassFillCss(fill, preset.alpha)};`,
+    `backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`,
+    `-webkit-backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`,
+    `border:1px solid ${rgbaColor("ffffff", preset.borderAlpha)};`,
+    "box-shadow:0 8px 24px rgba(15,23,42,0.18);",
+    op.opacity !== undefined ? `opacity:${op.opacity};` : "",
+    glassClipCss(op, pxPerIn),
+  ].join("");
+  return `<g${transform}><foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="${style}"></div></foreignObject>${renderShapeLabel(
+    op,
+    pxPerIn,
+  )}</g>`;
+}
+
+function renderShapeSvg(
+  op: DeckShapeOp,
+  id: string,
+  pxPerIn: number,
+): { defs: string[]; body: string } {
   const x = op.x * pxPerIn;
   const y = op.y * pxPerIn;
   const w = op.w * pxPerIn;
@@ -298,10 +399,15 @@ function renderShapeSvg(op: DeckShapeOp, pxPerIn: number): string {
   /* node:coverage enable */
   const fillOpacity = op.opacity ?? 1;
   const lineWidth = op.stroke ? Number(pxFromPt(op.stroke.width, pxPerIn)) : 0;
+  const fill = op.fill ?? op.color;
+  if (op.effect && op.shape !== "line") {
+    return { defs: [], body: renderGlassShapeSvg(op, fill, pxPerIn) };
+  }
+  const fillValue = shapeFillAttr(fill, id);
   const dash = op.stroke?.dash
     ? ` stroke-dasharray="${lineWidth * 3} ${lineWidth * 2}"`
     : "";
-  const common = `fill="#${op.color}" fill-opacity="${fillOpacity}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth}"${dash}`;
+  const common = `fill="${fillValue.attr}" fill-opacity="${fillOpacity}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth}"${dash}`;
   const transform = rotationTransform(x, y, w, h, op.rotation);
   const groupStyle = shadowCss(op.shadow);
   let shapeSvg = "";
@@ -323,10 +429,13 @@ function renderShapeSvg(op: DeckShapeOp, pxPerIn: number): string {
 
   /* node:coverage disable */
   /* Shape SVG wrapper is asserted by slide-image export tests; tsx maps wrapped template rows as residual. */
-  return `<g${transform}${groupStyle ? ` style="${groupStyle}"` : ""}>${shapeSvg}${renderShapeLabel(
-    op,
-    pxPerIn,
-  )}</g>`;
+  return {
+    defs: fillValue.defs,
+    body: `<g${transform}${groupStyle ? ` style="${groupStyle}"` : ""}>${shapeSvg}${renderShapeLabel(
+      op,
+      pxPerIn,
+    )}</g>`,
+  };
   /* node:coverage enable */
 }
 
@@ -342,7 +451,36 @@ function renderImageSvg(
   const h = op.h * pxPerIn;
   const defs: string[] = [];
   let clip = "";
-  if ("radius" in op && op.radius) {
+  if ("maskShape" in op && op.maskShape && op.maskShape !== "none") {
+    const clipId = `${id}-clip`;
+    if (op.maskShape === "circle") {
+      const r = Math.min(w, h) / 2;
+      defs.push(
+        `<clipPath id="${clipId}"><circle cx="${x + w / 2}" cy="${y + h / 2}" r="${r}" /></clipPath>`,
+      );
+    } else if (op.maskShape === "ellipse") {
+      defs.push(
+        `<clipPath id="${clipId}"><ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" /></clipPath>`,
+      );
+    } else if (op.maskShape === "diamond") {
+      defs.push(
+        `<clipPath id="${clipId}"><polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" /></clipPath>`,
+      );
+    } else if (op.maskShape === "triangle") {
+      defs.push(
+        `<clipPath id="${clipId}"><polygon points="${x + w / 2},${y} ${x},${y + h} ${x + w},${y + h}" /></clipPath>`,
+      );
+    } else if (op.maskShape === "rounded" || op.maskShape === "rect") {
+      const radius =
+        op.maskShape === "rounded"
+          ? op.radius || Math.min(w, h) * 0.12
+          : (op.radius ?? 0);
+      defs.push(
+        `<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${radius}" ry="${radius}" /></clipPath>`,
+      );
+    }
+    clip = ` clip-path="url(#${clipId})"`;
+  } else if ("radius" in op && op.radius) {
     const clipId = `${id}-clip`;
     defs.push(
       `<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${op.radius * pxPerIn}" ry="${op.radius * pxPerIn}" /></clipPath>`,
@@ -507,9 +645,20 @@ function slideSpecToSvgString(
   const defs: string[] = [];
   const body: string[] = [];
 
-  body.push(
-    `<rect x="0" y="0" width="${geometry.width}" height="${geometry.height}" fill="#${slideSpec.background}" />`,
-  );
+  if (slideSpec.backgroundFill) {
+    const backgroundFill = shapeFillAttr(
+      slideSpec.backgroundFill,
+      `slide-${slideSpec.index}-background`,
+    );
+    defs.push(...backgroundFill.defs);
+    body.push(
+      `<rect x="0" y="0" width="${geometry.width}" height="${geometry.height}" fill="${backgroundFill.attr}" />`,
+    );
+  } else {
+    body.push(
+      `<rect x="0" y="0" width="${geometry.width}" height="${geometry.height}" fill="#${slideSpec.background}" />`,
+    );
+  }
 
   if (slideSpec.backgroundImage) {
     body.push(
@@ -527,7 +676,11 @@ function slideSpecToSvgString(
         body.push(renderBulletsForeignObject(op, geometry.pxPerIn));
         break;
       case "shape":
-        body.push(renderShapeSvg(op, geometry.pxPerIn));
+        {
+          const rendered = renderShapeSvg(op, id, geometry.pxPerIn);
+          defs.push(...rendered.defs);
+          body.push(rendered.body);
+        }
         break;
       case "image": {
         const rendered = renderImageSvg(op, id, op.src, geometry.pxPerIn);

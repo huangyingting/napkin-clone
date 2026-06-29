@@ -15,6 +15,7 @@
 
 import type { Deck, Slide } from "../deck-core";
 import type {
+  ElementEffect,
   ElementAlign,
   ElementBox,
   ImageCrop,
@@ -33,7 +34,11 @@ import {
   slideFormatConfig,
   type SlideFormat,
 } from "@/lib/presentation/slide-format";
-import { resolveSlideRenderModel } from "@/lib/presentation/slide-render-model";
+import {
+  resolvedFillRepresentativeColor,
+  resolveSlideRenderModel,
+  type ResolvedElementFill,
+} from "@/lib/presentation/slide-render-model";
 import { slideFontExportFace } from "@/lib/presentation/slide-fonts";
 import {
   adaptShapeLabelForExport,
@@ -405,6 +410,18 @@ export interface DeckShapeOp extends InchBox {
   shape: ShapeKind;
   /** Hex color without leading `#`. */
   color: string;
+  /** Optional rich fill; strings are hex colors without leading `#`. */
+  fill?:
+    | string
+    | {
+        type: "radialGradient";
+        inner: string;
+        outer: string;
+        cx?: number;
+        cy?: number;
+        r?: number;
+      };
+  effect?: ElementEffect;
   /** Optional centered label inside the shape. */
   text?: string;
   textRuns?: TextRun[];
@@ -482,6 +499,8 @@ export interface DeckSlideSpec {
   index: number;
   /** Slide background — hex color without leading `#`. */
   background: string;
+  /** Optional rich slide background fill for image/SVG exports. */
+  backgroundFill?: DeckShapeOp["fill"];
   /** Optional background image (data URL or path); takes precedence in render. */
   backgroundImage?: string;
   /** Slide accent — hex color without leading `#`. */
@@ -562,6 +581,20 @@ function boxToInches(box: ElementBox, geometry: DeckGeometry): InchBox {
   };
 }
 
+function exportResolvedFill(
+  fill: ResolvedElementFill,
+): NonNullable<DeckShapeOp["fill"]> {
+  if (typeof fill === "string") return toHex(fill);
+  return {
+    type: "radialGradient",
+    inner: toHex(fill.inner),
+    outer: toHex(fill.outer),
+    ...(fill.cx !== undefined ? { cx: fill.cx } : {}),
+    ...(fill.cy !== undefined ? { cy: fill.cy } : {}),
+    ...(fill.r !== undefined ? { r: fill.r } : {}),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Pure transform: Deck → DeckSlideSpec[]
 // ---------------------------------------------------------------------------
@@ -591,12 +624,18 @@ function buildSlideSpec(
   geometry: DeckGeometry,
 ): DeckSlideSpec {
   const renderModel = resolveSlideRenderModel(deck, slide);
+  const backgroundFill =
+    renderModel.background.type === "radialGradient"
+      ? exportResolvedFill(renderModel.background)
+      : undefined;
   const background = toHex(
     renderModel.background.type === "solid"
       ? renderModel.background.color
       : renderModel.background.type === "gradient"
         ? renderModel.background.from
-        : "#ffffff",
+        : renderModel.background.type === "radialGradient"
+          ? renderModel.background.outer
+          : "#ffffff",
   );
   const accent = toHex(renderModel.accent);
 
@@ -719,6 +758,9 @@ function buildSlideSpec(
       case "shape": {
         const content = elementContent(element);
         const design = elementDesign(element);
+        const resolvedDesign = renderModel.elementDesigns[element.id];
+        const shapeDesign =
+          resolvedDesign?.kind === "shape" ? resolvedDesign : undefined;
         const labelStyle = adaptShapeLabelForExport(
           deck,
           element as any,
@@ -728,15 +770,20 @@ function buildSlideSpec(
         const shape = content.shape;
         const text = content.text;
         const textRuns = content.textRuns;
-        const color =
-          colorRefValue(design.fill, renderModel.tokenSet) ?? "#000000";
-        const stroke = design.stroke;
-        const radius = design.radius;
+        const fill =
+          shapeDesign?.fill ??
+          colorRefValue(design.fill, renderModel.tokenSet) ??
+          "#000000";
+        const color = resolvedFillRepresentativeColor(fill);
+        const stroke = shapeDesign?.stroke ?? design.stroke;
+        const radius = shapeDesign?.radius ?? design.radius;
         ops.push({
           kind: "shape",
           ...box,
           shape,
           color: toHex(color),
+          fill: exportResolvedFill(fill),
+          ...(shapeDesign?.effect ? { effect: shapeDesign.effect } : {}),
           ...(text && shape !== "line"
             ? {
                 text,
@@ -852,6 +899,7 @@ function buildSlideSpec(
   return {
     index,
     background,
+    ...(backgroundFill ? { backgroundFill } : {}),
     ...((slide as any).designOverrides?.background?.type === "image"
       ? { backgroundImage: (slide as any).designOverrides.background.url }
       : {}),

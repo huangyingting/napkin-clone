@@ -141,6 +141,12 @@ export function backgroundTreatmentToCss(bg: BackgroundTreatment): string {
       const angle = bg.angle ?? 135;
       return `linear-gradient(${angle}deg, ${bg.from}, ${bg.to})`;
     }
+    case "radialGradient": {
+      const cx = bg.cx ?? 50;
+      const cy = bg.cy ?? 50;
+      const r = bg.r ?? 70;
+      return `radial-gradient(circle ${r}% at ${cx}% ${cy}%, ${bg.inner}, ${bg.outer})`;
+    }
     case "image":
       return `url(${JSON.stringify(bg.url)}) center / cover no-repeat`;
   }

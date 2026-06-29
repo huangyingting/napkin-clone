@@ -91,6 +91,19 @@ function backgroundFromDesign(
         : {}),
     };
   }
+  if (background.type === "radialGradient") {
+    const inner = colorRefValue(background.inner, tokenSet);
+    const outer = colorRefValue(background.outer, tokenSet);
+    if (!inner || !outer) return undefined;
+    return {
+      type: "radialGradient",
+      inner,
+      outer,
+      ...(typeof background.cx === "number" ? { cx: background.cx } : {}),
+      ...(typeof background.cy === "number" ? { cy: background.cy } : {}),
+      ...(typeof background.r === "number" ? { r: background.r } : {}),
+    };
+  }
   if (background.type === "image" && typeof background.url === "string") {
     return { type: "image", url: background.url };
   }
@@ -198,7 +211,9 @@ export function resolveSlideThemeColors(
       ? r.background.color
       : r.background.type === "gradient"
         ? r.background.from
-        : r.tokenSet.colors.slideBg;
+        : r.background.type === "radialGradient"
+          ? r.background.outer
+          : r.tokenSet.colors.slideBg;
   return {
     bgColor,
     accentColor: r.accent,

@@ -20,6 +20,18 @@ function textElement(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function shapeElement(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "el-shape",
+    kind: "shape",
+    role: "background",
+    box: { x: 10, y: 12, w: 40, h: 30 },
+    zIndex: 1,
+    content: { kind: "shape", shape: "rect" },
+    ...overrides,
+  };
+}
+
 function masterElement(overrides: Record<string, unknown> = {}) {
   return {
     id: "master-footer",
@@ -241,6 +253,100 @@ test("safeParseDeck preserves optional design, slide, master, and custom templat
     result.data.customTemplates?.[0]?.defaultMasterId,
     "master-default",
   );
+});
+
+test("safeParseDeck round-trips radial backgrounds, radial fills, and glass effects", () => {
+  const result = safeParseDeck(
+    minimalV6Deck({
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          designOverrides: {
+            background: {
+              type: "radialGradient",
+              inner: { value: "#ffffff" },
+              outer: { token: "slideBg" },
+              cx: 45,
+              cy: 40,
+              r: 75,
+            },
+          },
+          elements: [
+            shapeElement({
+              designOverrides: {
+                fill: {
+                  type: "radialGradient",
+                  inner: { token: "surface" },
+                  outer: { value: "#112233" },
+                  cx: 50,
+                  cy: 45,
+                  r: 70,
+                },
+                effect: { kind: "glass", intensity: "medium" },
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  assert.equal(result.success, true, result.success ? undefined : result.error);
+  if (!result.success) return;
+  const slide = result.data.slides[0] as any;
+  assert.equal(slide.designOverrides.background.type, "radialGradient");
+  assert.equal(slide.designOverrides.background.r, 75);
+  const element = slide.elements[0] as any;
+  assert.equal(element.designOverrides.fill.type, "radialGradient");
+  assert.deepEqual(element.designOverrides.effect, {
+    kind: "glass",
+    intensity: "medium",
+  });
+});
+
+test("safeParseDeck rejects glass effects outside non-line shapes", () => {
+  const textResult = safeParseDeck(
+    minimalV6Deck({
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          elements: [
+            textElement({
+              designOverrides: {
+                effect: { kind: "glass", intensity: "light" },
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(textResult.success, false);
+
+  const lineResult = safeParseDeck(
+    minimalV6Deck({
+      slides: [
+        {
+          id: "slide-1",
+          index: 0,
+          title: "Hello",
+          elements: [
+            shapeElement({
+              content: { kind: "shape", shape: "line" },
+              designOverrides: {
+                effect: { kind: "glass", intensity: "strong" },
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(lineResult.success, false);
 });
 
 test("safeParseDeck rejects invalid optional object payloads", () => {

@@ -240,6 +240,14 @@ export type ImageDefaultsToken = {
 export type BackgroundTreatment =
   | { type: "solid"; color: string }
   | { type: "gradient"; from: string; to: string; angle?: number }
+  | {
+      type: "radialGradient";
+      inner: string;
+      outer: string;
+      cx?: number;
+      cy?: number;
+      r?: number;
+    }
   | { type: "image"; url: string };
 
 // ---------------------------------------------------------------------------

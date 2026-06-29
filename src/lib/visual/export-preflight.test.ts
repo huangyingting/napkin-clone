@@ -21,6 +21,7 @@ import type {
   ImageFitMode,
   ImageElement,
   ImageMaskShape,
+  ShapeElement,
   Slide,
   SlideElement,
   TextElement,
@@ -86,6 +87,21 @@ function imageEl(overrides: ImageFixtureOverrides = {}): ImageElement {
     },
     ...elementOverrides,
   } as ImageElement;
+}
+
+type ShapeFixtureOverrides = Partial<ShapeElement>;
+
+function shapeEl(overrides: ShapeFixtureOverrides = {}): ShapeElement {
+  return {
+    id: "shape-1",
+    kind: "shape",
+    role: "background",
+    box: { x: 10, y: 10, w: 30, h: 20 },
+    zIndex: 1,
+    content: { kind: "shape", shape: "rect" },
+    designOverrides: { fill: { value: "#123456" } },
+    ...overrides,
+  } as ShapeElement;
 }
 
 type TextFixtureOverrides = Partial<TextElement> & { text?: string };
@@ -283,6 +299,46 @@ describe("raster-fallback diagnostics", () => {
     ]);
     const result = runExportPreflight(deck, { target: "pptx" });
     assert.ok(codesOf(result).includes("raster-fallback"));
+  });
+
+  test("shape with radial fill emits raster-fallback warning in pptx", () => {
+    const deck = makeDeck([
+      makeSlide([
+        shapeEl({
+          designOverrides: {
+            fill: {
+              type: "radialGradient",
+              inner: { value: "#ffffff" },
+              outer: { value: "#123456" },
+            },
+          },
+        }),
+      ]),
+    ]);
+    const result = runExportPreflight(deck, { target: "pptx" });
+    const warning = warningDiagnostics(result).find(
+      (d) => d.code === "raster-fallback",
+    );
+    assert.equal(warning?.elementId, "shape-1");
+    assert.equal(warning?.detail, "radialGradient");
+  });
+
+  test("shape with glass effect emits raster-fallback warning in pptx", () => {
+    const deck = makeDeck([
+      makeSlide([
+        shapeEl({
+          designOverrides: {
+            effect: { kind: "glass", intensity: "medium" },
+          },
+        }),
+      ]),
+    ]);
+    const result = runExportPreflight(deck, { target: "pptx" });
+    const warning = warningDiagnostics(result).find(
+      (d) => d.code === "raster-fallback",
+    );
+    assert.equal(warning?.elementId, "shape-1");
+    assert.equal(warning?.detail, "glass");
   });
 
   test("raster-fallback is NOT emitted for image target", () => {

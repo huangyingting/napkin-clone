@@ -1,5 +1,9 @@
 import type { Deck, Slide, SlideMaster } from "./deck-core";
-import type { SlideElement, TableElementStyle } from "./deck-elements";
+import type {
+  ElementEffect,
+  SlideElement,
+  TableElementStyle,
+} from "./deck-elements";
 import type { ImageFitMode, ImageMaskShape } from "./deck-element-primitives";
 import type {
   BackgroundTreatment,
@@ -27,6 +31,28 @@ export interface ResolvedSlideCanvas {
   pptxHeightIn: number;
 }
 
+export interface ResolvedRadialGradientFill {
+  type: "radialGradient";
+  inner: string;
+  outer: string;
+  cx?: number;
+  cy?: number;
+  r?: number;
+}
+
+export type ResolvedElementFill = string | ResolvedRadialGradientFill;
+
+export function resolvedFillToCss(fill: ResolvedElementFill): string {
+  if (typeof fill === "string") return fill;
+  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${fill.inner}, ${fill.outer})`;
+}
+
+export function resolvedFillRepresentativeColor(
+  fill: ResolvedElementFill,
+): string {
+  return typeof fill === "string" ? fill : fill.outer;
+}
+
 /* node:coverage disable */
 /* Type-only render-model union rows are erased by tsx and reported as source-map gaps. */
 export type ResolvedElementDesign =
@@ -50,9 +76,10 @@ export type ResolvedElementDesign =
   | {
       kind: "shape";
       role?: string;
-      fill: string;
+      fill: ResolvedElementFill;
       stroke?: { color: string; width: number };
       radius?: number;
+      effect?: ElementEffect;
       textStyle?: ResolvedTextStyle;
     }
   | {
@@ -110,6 +137,35 @@ function colorRefValue(
   /* node:coverage ignore next 2 */
   /* Invalid color-ref fallback is defensive; public model tests assert valid token/value resolution. */
   return undefined;
+}
+
+function resolveElementFill(
+  input: unknown,
+  tokenSet: PresentationTheme,
+): ResolvedElementFill | undefined {
+  if (!input || typeof input !== "object")
+    return colorRefValue(input, tokenSet);
+  const fill = input as Record<string, unknown>;
+  if (fill.type !== "radialGradient") return colorRefValue(input, tokenSet);
+  const inner = colorRefValue(fill.inner, tokenSet);
+  const outer = colorRefValue(fill.outer, tokenSet);
+  if (!inner || !outer) return undefined;
+  return {
+    type: "radialGradient",
+    inner,
+    outer,
+    ...(typeof fill.cx === "number" ? { cx: fill.cx } : {}),
+    ...(typeof fill.cy === "number" ? { cy: fill.cy } : {}),
+    ...(typeof fill.r === "number" ? { r: fill.r } : {}),
+  };
+}
+
+function resolveElementEffect(input: unknown): ElementEffect | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const effect = input as Record<string, unknown>;
+  return effect.kind === "glass" && typeof effect.intensity === "string"
+    ? (effect as unknown as ElementEffect)
+    : undefined;
 }
 
 function resolveTableStyle(
@@ -196,12 +252,15 @@ function resolveElementDesign(
         kind: "shape",
         ...(role ? { role } : {}),
         fill:
-          colorRefValue(design?.fill, tokenSet) ??
+          resolveElementFill(design?.fill, tokenSet) ??
           tokenSet.shape.fill ??
           tokenSet.colors.accent,
         ...(stroke ? { stroke } : {}),
         ...(typeof design?.radius === "number"
           ? { radius: design.radius }
+          : {}),
+        ...(resolveElementEffect(design?.effect)
+          ? { effect: resolveElementEffect(design?.effect) }
           : {}),
         textStyle: resolveShapeLabelStyle(deck, element),
       };

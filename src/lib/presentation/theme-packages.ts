@@ -248,6 +248,16 @@ function buildThemePackage(
   const masters = clone(source.deck.masters ?? []);
   const defaultMasterId = source.deck.defaultMasterId ?? `master-${source.id}`;
   const slides = source.deck.slides ?? [];
+  const slideByTemplateId = new Map(
+    slides
+      .filter((slide) => typeof slide.templateId === "string")
+      .map((slide) => [slide.templateId as string, slide]),
+  );
+  const semanticSlide = (kind: ThemePackageTemplateKind): Slide =>
+    slideByTemplateId.get(resolveThemePackageTemplateId(source.id, kind)) ??
+    slides[baseTemplateIndex(kind)] ??
+    slides[2] ??
+    slides[0]!;
   return {
     id: source.id,
     name: source.name,
@@ -262,7 +272,7 @@ function buildThemePackage(
           source.id,
           defaultMasterId,
           kind,
-          slides[baseTemplateIndex(kind)] ?? slides[2] ?? slides[0]!,
+          semanticSlide(kind),
         ),
       ),
       ...LEGACY_THEME_PACKAGE_TEMPLATE_ALIASES.map((kind) =>

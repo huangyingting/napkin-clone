@@ -6,6 +6,8 @@ import type {
   ConnectorRouting,
   ElementAlign,
   ElementBox,
+  ElementEffect,
+  ElementFill,
   ShapeKind,
   SlideElement,
   TableCell,
@@ -22,6 +24,7 @@ import {
   validateImageFitMode,
   validateImageMaskShape,
 } from "./media";
+import { GLASS_EFFECT_INTENSITIES } from "../deck-element-primitives";
 import { validateSourceRef } from "./source-refs";
 /* node:coverage disable */
 /* Import-list member rows are tsx source-map gaps; validation branches are tested below. */
@@ -170,6 +173,65 @@ function validateColorRef(
   );
 }
 
+function validatePercentGeometry(
+  input: unknown,
+  context: string,
+): number | undefined {
+  if (input === undefined) return undefined;
+  return Math.max(0, Math.min(100, validateFiniteNumber(input, context)));
+}
+
+function validateRadialGradientFill(
+  input: Record<string, unknown>,
+  context: string,
+) {
+  const cx = validatePercentGeometry(input.cx, `${context}.cx`);
+  const cy = validatePercentGeometry(input.cy, `${context}.cy`);
+  const r = validatePercentGeometry(input.r, `${context}.r`);
+  return {
+    type: "radialGradient" as const,
+    inner: validateColorRef(input.inner, `${context}.inner`),
+    outer: validateColorRef(input.outer, `${context}.outer`),
+    ...(cx !== undefined ? { cx } : {}),
+    ...(cy !== undefined ? { cy } : {}),
+    ...(r !== undefined ? { r } : {}),
+  };
+}
+
+function validateElementFill(input: unknown, context: string): ElementFill {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.type === "radialGradient") {
+    return validateRadialGradientFill(input, context);
+  }
+  return validateColorRef(input, context);
+}
+
+function validateElementEffect(input: unknown, context: string): ElementEffect {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.kind !== "glass") {
+    throw new DeckValidationError(`${context}.kind must be "glass"`);
+  }
+  if (
+    !GLASS_EFFECT_INTENSITIES.includes(
+      input.intensity as (typeof GLASS_EFFECT_INTENSITIES)[number],
+    )
+  ) {
+    throw new DeckValidationError(
+      `${context}.intensity must be one of: ${GLASS_EFFECT_INTENSITIES.join(
+        ", ",
+      )}`,
+    );
+  }
+  return {
+    kind: "glass",
+    intensity: input.intensity as ElementEffect["intensity"],
+  };
+}
+
 export function validateBackgroundDesign(
   input: unknown,
   context: string,
@@ -192,6 +254,9 @@ export function validateBackgroundDesign(
         ? { angle: input.angle }
         : {}),
     };
+  }
+  if (input.type === "radialGradient") {
+    return validateRadialGradientFill(input, context);
   }
   if (input.type === "image") {
     /* node:coverage ignore next 5 */
@@ -220,7 +285,7 @@ export function validateBackgroundDesign(
     };
   }
   throw new DeckValidationError(
-    `${context}.type must be "solid", "gradient", or "image"`,
+    `${context}.type must be "solid", "gradient", "radialGradient", or "image"`,
   );
 }
 
@@ -251,7 +316,10 @@ function validateDesignOverrides(
     );
   }
   if (input.fill !== undefined) {
-    out.fill = validateColorRef(input.fill, `${context}.fill`);
+    out.fill = validateElementFill(input.fill, `${context}.fill`);
+  }
+  if (input.effect !== undefined) {
+    out.effect = validateElementEffect(input.effect, `${context}.effect`);
   }
   if (input.stroke !== undefined) {
     if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
@@ -1000,6 +1068,18 @@ export function validateElement(input: unknown, context: string): SlideElement {
     input.content,
     `${context}.content`,
   );
+  const effect = (base.designOverrides as Record<string, unknown> | undefined)
+    ?.effect;
+  if (effect !== undefined && kind !== "shape") {
+    throw new DeckValidationError(
+      `${context}.designOverrides.effect is only supported on shape elements`,
+    );
+  }
+  if (effect !== undefined && kind === "shape" && content.shape === "line") {
+    throw new DeckValidationError(
+      `${context}.designOverrides.effect is not supported on line shapes`,
+    );
+  }
   return { ...base, content } as unknown as SlideElement;
 }
 

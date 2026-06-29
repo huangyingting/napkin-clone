@@ -9,8 +9,14 @@ export type ImageFitMode = (typeof IMAGE_FIT_MODES)[number];
 
 export const IMAGE_MASK_SHAPES = [
   "none",
+  "rect",
   "circle",
+  "ellipse",
   "rounded",
   "diamond",
+  "triangle",
 ] as const;
 export type ImageMaskShape = (typeof IMAGE_MASK_SHAPES)[number];
+
+export const GLASS_EFFECT_INTENSITIES = ["light", "medium", "strong"] as const;
+export type GlassEffectIntensity = (typeof GLASS_EFFECT_INTENSITIES)[number];

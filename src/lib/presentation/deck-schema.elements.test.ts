@@ -1081,7 +1081,7 @@ test("background and master chrome validation reject invalid contracts", () => {
   );
   assert.throws(
     () => validateBackgroundDesign({ type: "video" }, "background"),
-    /type must be "solid", "gradient", or "image"/,
+    /type must be "solid", "gradient", "radialGradient", or "image"/,
   );
   assert.throws(
     () =>

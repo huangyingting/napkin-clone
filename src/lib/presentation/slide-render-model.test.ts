@@ -205,6 +205,60 @@ test("resolveSlideRenderModel applies visual style overrides", () => {
   }
 });
 
+test("resolveSlideRenderModel resolves radial fills and shape effects", () => {
+  const d = deck();
+  d.slides[0] = {
+    ...d.slides[0]!,
+    designOverrides: {
+      background: {
+        type: "radialGradient",
+        inner: { value: "#f8fafc" },
+        outer: { value: "#0f172a" },
+        cx: 42,
+        cy: 38,
+        r: 74,
+      },
+    },
+    elements: [shapeElement("radial-shape", 0)],
+  };
+  const element = d.slides[0]!.elements![0]! as any;
+  element.designOverrides = {
+    fill: {
+      type: "radialGradient",
+      inner: { value: "#ffffff" },
+      outer: { value: "#1e293b" },
+      cx: 50,
+      cy: 45,
+      r: 70,
+    },
+    effect: { kind: "glass", intensity: "strong" },
+  };
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.background.type, "radialGradient");
+  if (model.background.type === "radialGradient") {
+    assert.equal(model.background.inner, "#f8fafc");
+    assert.equal(model.background.outer, "#0f172a");
+    assert.equal(model.background.r, 74);
+  }
+  assert.equal(model.elementDesigns["radial-shape"]?.kind, "shape");
+  if (model.elementDesigns["radial-shape"]?.kind === "shape") {
+    assert.deepEqual(model.elementDesigns["radial-shape"].fill, {
+      type: "radialGradient",
+      inner: "#ffffff",
+      outer: "#1e293b",
+      cx: 50,
+      cy: 45,
+      r: 70,
+    });
+    assert.deepEqual(model.elementDesigns["radial-shape"].effect, {
+      kind: "glass",
+      intensity: "strong",
+    });
+  }
+});
+
 test("resolveSlideRenderModel resolves table defaults and overrides", () => {
   const d = deck();
   d.slides[0] = {

@@ -1,3 +1,13 @@
+import {
+  SEMANTIC_TO_RENDER_FAMILY,
+  THEME_PACKAGE_TEMPLATE_KINDS,
+  THEME_PACKAGE_TEMPLATE_METADATA,
+  type ThemePackageRenderFamily,
+  type ThemePackageTemplateKind,
+  type ThemePackageTemplateMetadata,
+} from "@/lib/presentation/theme-template-taxonomy";
+import { familySlide } from "./render-family-layouts";
+
 /**
  * Shared authoring kit for the six professional slide themes.
  *
@@ -224,6 +234,102 @@ export interface ThemeSpec {
   buildSlides: (spec: ThemeSpec) => Record<string, unknown>[];
 }
 
+export interface ThemeTemplateSourceSpec {
+  kind: ThemePackageTemplateKind;
+  renderFamily: ThemePackageRenderFamily;
+  metadata: ThemePackageTemplateMetadata;
+  buildSlide: (
+    packageId: string,
+    baseSlides: readonly Record<string, unknown>[],
+  ) => Record<string, unknown>;
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function baseSlideIndexForRenderFamily(
+  family: ThemePackageRenderFamily,
+): number {
+  switch (family) {
+    case "cover":
+      return 0;
+    case "section-divider":
+      return 1;
+    case "two-column":
+    case "before-after":
+    case "problem-solution":
+    case "pros-cons":
+    case "matrix-2x2":
+      return 3;
+    case "quote-hero":
+    case "stat-hero":
+      return 4;
+    case "closing":
+      return 5;
+    default:
+      return 2;
+  }
+}
+
+function semanticSlideFromBase(
+  packageId: string,
+  kind: ThemePackageTemplateKind,
+  baseSlides: readonly Record<string, unknown>[],
+): Record<string, unknown> {
+  const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
+  const base = clone(
+    baseSlides[baseSlideIndexForRenderFamily(metadata.renderFamily)] ??
+      baseSlides[2] ??
+      baseSlides[0] ??
+      slide(`${packageId}-empty`, metadata.label, "blank", []),
+  );
+  return {
+    ...base,
+    id: `${packageId}-${kind}`,
+    title: metadata.label,
+    templateId: `theme:${packageId}:${kind}`,
+  };
+}
+
+export function templateSourceSpecsForTheme(): ThemeTemplateSourceSpec[] {
+  return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
+    const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
+    return {
+      kind,
+      renderFamily: SEMANTIC_TO_RENDER_FAMILY[kind],
+      metadata,
+      buildSlide: (packageId, baseSlides) =>
+        semanticSlideFromBase(packageId, kind, baseSlides),
+    };
+  });
+}
+
+export function buildSemanticSlidesFromBase(
+  packageId: string,
+  baseSlides: readonly Record<string, unknown>[],
+): Record<string, unknown>[] {
+  return templateSourceSpecsForTheme().map((templateSpec) =>
+    templateSpec.buildSlide(packageId, baseSlides),
+  );
+}
+
+export function buildSemanticSlides(
+  spec: ThemeSpec,
+): Record<string, unknown>[] {
+  const baseSlides = spec.buildSlides(spec);
+  return THEME_PACKAGE_TEMPLATE_KINDS.map((kind) => {
+    const metadata = THEME_PACKAGE_TEMPLATE_METADATA[kind];
+    const designed = familySlide(
+      spec,
+      kind,
+      metadata.renderFamily,
+      metadata.label,
+    );
+    return designed ?? semanticSlideFromBase(spec.id, kind, baseSlides);
+  });
+}
+
 function roleTokens(spec: ThemeSpec): Record<string, unknown> {
   const { palette, fonts } = spec;
   return {
@@ -339,7 +445,7 @@ function tokenSet(spec: ThemeSpec): Record<string, unknown> {
 
 export function buildDeck(spec: ThemeSpec): Record<string, unknown> {
   resetSeq();
-  const slides = spec.buildSlides(spec).map((slide, index) => ({
+  const slides = buildSemanticSlides(spec).map((slide, index) => ({
     ...slide,
     index,
   }));

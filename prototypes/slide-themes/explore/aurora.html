@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Aurora — exploration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0a0b14; --ink: #e9ebff; --mut: #9aa2c8;
+        --a1: #6366f1; --a2: #22d3ee; --a3: #a855f7;
+        --h: "Space Grotesk", sans-serif; --b: "Inter", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #07080f; padding: 36px 0 64px; }
+      .deck { max-width: 1180px; margin: 0 auto; padding: 0 24px; display: flex; flex-direction: column; gap: 26px; }
+      .slide { position: relative; aspect-ratio: 16/9; container-type: size; border-radius: 16px; overflow: hidden; background: var(--bg); box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+      .orb { position: absolute; border-radius: 50%; filter: blur(8cqmin); opacity: .55; }
+      .pad { position: absolute; inset: 0; padding: 9cqh 8cqw; display: flex; flex-direction: column; }
+      .kick { font: 700 2.3cqh var(--h); letter-spacing: .28em; color: var(--a2); text-transform: uppercase; }
+      .grad { background: linear-gradient(100deg, #fff, #b9c0ff 40%, var(--a2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      h1 { font: 700 11cqh/.98 var(--h); color: var(--ink); margin: 3cqh 0 0; letter-spacing: -.02em; }
+      .sub { font: 400 3cqh var(--b); color: var(--mut); margin-top: 3cqh; max-width: 60%; }
+      .chip { display: inline-flex; gap: .6em; align-items: center; align-self: flex-start; margin-top: auto; padding: 1.4cqh 2.2cqh; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: var(--ink); font: 600 2.2cqh var(--b); backdrop-filter: blur(6px); }
+      .dot { width: 1.2cqh; height: 1.2cqh; border-radius: 50%; background: var(--a2); }
+      .stat { font: 700 26cqh var(--h); letter-spacing: -.03em; }
+      .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5cqw; margin-top: 4cqh; }
+      .card { border-radius: 4cqmin; padding: 4cqh 3cqw; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); }
+      .card b { font: 700 3.4cqh var(--h); color: var(--ink); } .card p { font: 400 2.4cqh var(--b); color: var(--mut); margin: 1.4cqh 0 0; }
+      .bar { height: 1cqh; width: 26%; border-radius: 999px; background: linear-gradient(90deg, var(--a1), var(--a2)); }
+    </style>
+  </head>
+  <body>
+    <div class="deck">
+      <!-- Cover -->
+      <div class="slide" style="background:radial-gradient(120% 120% at 80% -10%, #1b1f4d, #07080f 55%);">
+        <div class="orb" style="width:60cqw;height:60cqw;right:-10cqw;top:-18cqh;background:var(--a3);"></div>
+        <div class="orb" style="width:46cqw;height:46cqw;right:6cqw;top:30cqh;background:var(--a2);"></div>
+        <div class="pad">
+          <span class="kick">Product Keynote · 2026</span>
+          <h1>Build the<br /><span class="grad">next frontier</span></h1>
+          <p class="sub">A platform story told in light, motion, and momentum.</p>
+          <span class="chip"><span class="dot"></span>Aurora Studio</span>
+        </div>
+      </div>
+      <!-- Big stat -->
+      <div class="slide" style="background:radial-gradient(100% 100% at 10% 110%, #14224d, #07080f 60%);">
+        <div class="orb" style="width:50cqw;height:50cqw;left:-12cqw;bottom:-20cqh;background:var(--a1);"></div>
+        <div class="pad"><span class="kick">Measured Impact</span><div class="stat grad">4.8×</div><p class="sub">faster from idea to shipped across pilot teams.</p></div>
+      </div>
+      <!-- 3 cards -->
+      <div class="slide"><div class="orb" style="width:40cqw;height:40cqw;right:-8cqw;top:-12cqh;background:var(--a3);opacity:.35;"></div><div class="pad"><div class="bar"></div><h1 style="font-size:6.4cqh;">Three forces converging</h1><div class="cards"><div class="card"><b>Ambient compute</b><p>cheap enough to disappear.</p></div><div class="card"><b>Adaptive tools</b><p>fit the team, not the reverse.</p></div><div class="card"><b>Invisible UI</b><p>the best interface vanishes.</p></div></div></div></div>
+      <!-- Closing -->
+      <div class="slide" style="background:linear-gradient(135deg, var(--a3), var(--a1) 60%, var(--a2));"><div class="pad" style="justify-content:center;"><h1 style="color:#fff;">Let’s build it.</h1><p class="sub" style="color:rgba(255,255,255,.85);">hello@aurora.studio</p></div></div>
+    </div>
+  </body>
+</html>

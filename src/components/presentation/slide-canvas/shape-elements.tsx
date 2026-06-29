@@ -1,13 +1,52 @@
 import type { JSX } from "react";
 
 import type { ShapeElement, SlideElement } from "@/lib/presentation/deck";
-import type { ResolvedElementDesign } from "@/lib/presentation/slide-render-model";
+import {
+  resolvedFillRepresentativeColor,
+  resolvedFillToCss,
+  type ResolvedElementDesign,
+  type ResolvedElementFill,
+} from "@/lib/presentation/slide-render-model";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 
-import { boxStyle, contrastTextColor, renderRuns } from "./primitives";
+import {
+  boxStyle,
+  contrastTextColor,
+  hexToRgba,
+  renderRuns,
+} from "./primitives";
 import { shapeContent, shapeTextDesign } from "./v6-model";
 
 type ResolvedShapeDesign = Extract<ResolvedElementDesign, { kind: "shape" }>;
+
+const GLASS_PRESETS = {
+  light: { alpha: 0.22, blur: 8, saturate: 1.18, borderAlpha: 0.42 },
+  medium: { alpha: 0.3, blur: 14, saturate: 1.3, borderAlpha: 0.5 },
+  strong: { alpha: 0.4, blur: 22, saturate: 1.42, borderAlpha: 0.6 },
+} as const;
+
+function glassFillCss(fill: ResolvedElementFill, alpha: number): string {
+  if (typeof fill === "string") return hexToRgba(fill, alpha);
+  return `radial-gradient(circle ${fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${hexToRgba(
+    fill.inner,
+    alpha + 0.08,
+  )}, ${hexToRgba(fill.outer, alpha)})`;
+}
+
+function fillBoxStyle(
+  fill: ResolvedElementFill,
+  effect: ResolvedShapeDesign["effect"],
+): React.CSSProperties {
+  if (!effect) return { background: resolvedFillToCss(fill) };
+  const preset = GLASS_PRESETS[effect.intensity];
+  return {
+    background: glassFillCss(fill, preset.alpha),
+    backdropFilter: `blur(${preset.blur}px) saturate(${preset.saturate})`,
+    WebkitBackdropFilter: `blur(${preset.blur}px) saturate(${preset.saturate})`,
+    boxShadow: "0 0.8cqmin 2.4cqmin rgba(15, 23, 42, 0.18)",
+    border: `1px solid ${hexToRgba("#ffffff", preset.borderAlpha)}`,
+  };
+}
 
 function ShapeText({
   element,
@@ -72,9 +111,11 @@ export function ShapeElementView({
   resolvedDesign?: ResolvedShapeDesign;
 }): JSX.Element {
   const content = shapeContent(element);
-  const fillColor = resolvedDesign?.fill ?? "#6366f1";
+  const fill = resolvedDesign?.fill ?? "#6366f1";
+  const fillColor = resolvedFillRepresentativeColor(fill);
   const effStroke = resolvedDesign?.stroke;
   const radius = resolvedDesign?.radius;
+  const fillStyle = fillBoxStyle(fill, resolvedDesign?.effect);
   if (content.shape === "line") {
     return (
       <div
@@ -88,7 +129,7 @@ export function ShapeElementView({
           style={{
             height: `${effStroke?.width ?? 0.4}cqmin`,
             width: "100%",
-            backgroundColor: effStroke?.color ?? fillColor,
+            background: effStroke?.color ?? resolvedFillToCss(fill),
           }}
         />
       </div>
@@ -107,7 +148,7 @@ export function ShapeElementView({
           style={{
             position: "absolute",
             inset: 0,
-            backgroundColor: fillColor,
+            ...fillStyle,
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
           }}
         />
@@ -124,7 +165,7 @@ export function ShapeElementView({
       style={{
         ...boxStyle(element),
         overflow: "hidden",
-        backgroundColor: fillColor,
+        ...fillStyle,
         borderRadius:
           content.shape === "ellipse"
             ? "9999px"

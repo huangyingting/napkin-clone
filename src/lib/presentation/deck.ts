@@ -31,6 +31,7 @@ export type {
 
 export {
   normalizeTextParagraphs,
+  GLASS_EFFECT_INTENSITIES,
   IMAGE_FIT_MODES,
   IMAGE_MASK_SHAPES,
   DEFAULT_VISUAL_BOX,
@@ -38,9 +39,14 @@ export {
 } from "./deck-elements";
 export type {
   ElementBox,
+  ColorRef,
+  ElementEffect,
+  ElementFill,
+  GlassEffect,
   TextRun,
   TextFitMode,
   TextElementStyle,
+  RadialGradientFill,
   ShapeKind,
   ConnectorAnchor,
   ConnectorEndpoint,

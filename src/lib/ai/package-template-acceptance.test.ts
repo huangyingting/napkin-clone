@@ -118,7 +118,10 @@ const fixtures = [
   },
 ] as const;
 
-async function runFixture(packageId: ThemePackageId, slides: readonly unknown[]) {
+async function runFixture(
+  packageId: ThemePackageId,
+  slides: readonly unknown[],
+) {
   return runPackageTemplateDeckGeneration({
     contentJson,
     visuals: new Map(),

@@ -13,7 +13,10 @@ import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Deck } from "@/lib/presentation/deck";
-import type { ThemePackageId } from "@/lib/presentation/theme-packages";
+import {
+  isThemePackageId,
+  type ThemePackageId,
+} from "@/lib/presentation/theme-packages";
 
 export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 
@@ -44,8 +47,23 @@ export interface DeckGenerateError {
 }
 
 /** Result of a deck-generation request: a usable deck or a classified error. */
+export interface DeckGenerationResponseMetadata {
+  requestedGenerationMode?: "legacy" | "package-template";
+  generationMode?: "legacy" | "package-template";
+  fallback?: boolean;
+  tableSlideCount?: number;
+  schemaValid?: boolean;
+  themePackageId?: ThemePackageId;
+  selectedKindCounts?: Record<string, number>;
+}
+
 export type DeckGenerateResult =
-  | { ok: true; deck: Deck; truncated: boolean }
+  | {
+      ok: true;
+      deck: Deck;
+      truncated: boolean;
+      metadata?: DeckGenerationResponseMetadata;
+    }
   | { ok: false; error: string; errorKind: DeckGenerateErrorKind };
 
 const FALLBACK_REQUEST_ERROR =
@@ -124,9 +142,67 @@ export function buildDeckGenerationBody(
  * same contract the open path expects) is ever surfaced.
  */
 /* node:coverage ignore stop */
-export function parseDeckResponse(
-  payload: unknown,
-): { deck: Deck; truncated: boolean } | null {
+function parseGenerationMode(
+  value: unknown,
+): "legacy" | "package-template" | undefined {
+  return value === "legacy" || value === "package-template" ? value : undefined;
+}
+
+function parseKindCounts(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const counts: Record<string, number> = {};
+  for (const [key, count] of Object.entries(value)) {
+    if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
+      counts[key] = count;
+    }
+  }
+  return Object.keys(counts).length > 0 ? counts : undefined;
+}
+
+function parseDeckResponseMetadata(
+  value: unknown,
+): DeckGenerationResponseMetadata | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const raw = value as Record<string, unknown>;
+  const metadata: DeckGenerationResponseMetadata = {};
+  const requestedGenerationMode = parseGenerationMode(
+    raw.requestedGenerationMode,
+  );
+  if (requestedGenerationMode) {
+    metadata.requestedGenerationMode = requestedGenerationMode;
+  }
+  const generationMode = parseGenerationMode(raw.generationMode);
+  if (generationMode) {
+    metadata.generationMode = generationMode;
+  }
+  if (typeof raw.fallback === "boolean") {
+    metadata.fallback = raw.fallback;
+  }
+  if (typeof raw.tableSlideCount === "number" && raw.tableSlideCount >= 0) {
+    metadata.tableSlideCount = raw.tableSlideCount;
+  }
+  if (typeof raw.schemaValid === "boolean") {
+    metadata.schemaValid = raw.schemaValid;
+  }
+  if (isThemePackageId(raw.themePackageId)) {
+    metadata.themePackageId = raw.themePackageId;
+  }
+  const selectedKindCounts = parseKindCounts(raw.selectedKindCounts);
+  if (selectedKindCounts) {
+    metadata.selectedKindCounts = selectedKindCounts;
+  }
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+export function parseDeckResponse(payload: unknown): {
+  deck: Deck;
+  truncated: boolean;
+  metadata?: DeckGenerationResponseMetadata;
+} | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
@@ -134,9 +210,13 @@ export function parseDeckResponse(
   if (!result.success) {
     return null;
   }
+  const metadata = parseDeckResponseMetadata(
+    (payload as { metadata?: unknown }).metadata,
+  );
   return {
     deck: result.data,
     truncated: (payload as { truncated?: unknown }).truncated === true,
+    ...(metadata ? { metadata } : {}),
   };
 }
 
@@ -223,5 +303,10 @@ export async function requestDeckGeneration(
   if (!parsed) {
     return { ok: false, error: BAD_PAYLOAD_ERROR, errorKind: "other" };
   }
-  return { ok: true, deck: parsed.deck, truncated: parsed.truncated };
+  return {
+    ok: true,
+    deck: parsed.deck,
+    truncated: parsed.truncated,
+    ...(parsed.metadata ? { metadata: parsed.metadata } : {}),
+  };
 }

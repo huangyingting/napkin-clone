@@ -125,6 +125,43 @@ paragraphs omit `listType`; bulleted and numbered paragraphs set `listType` and
 optional `indent`. `content.text` is the compact text string, and `content.runs`
 / paragraph `runs` carry inline rich text.
 
+`ShapeElement` uses `kind: "shape"` and `content.shape` of `"rect"`,
+`"ellipse"`, `"line"`, or `"triangle"`. Shape fills are normally color refs
+(`{ token }` or `{ value }`), but `designOverrides.fill` may also carry a
+two-stop radial fill:
+
+```ts
+type RadialGradientFill = {
+  type: "radialGradient";
+  inner: ColorRef;
+  outer: ColorRef;
+  cx?: number;
+  cy?: number;
+  r?: number;
+};
+```
+
+`cx`, `cy`, and `r` are percentages in the 0-100 range. Shape effects are
+currently limited to glass presets on non-line shapes:
+
+```ts
+type ElementEffect = {
+  kind: "glass";
+  intensity: "light" | "medium" | "strong";
+};
+```
+
+Glass is a clipped material effect: rectangles use the element radius, ellipses
+use an ellipse clip, and triangles use a triangle clip. Text does not carry a
+glass or blur effect directly; templates should layer editable text above a
+glass shape. SVG/PNG export preserves radial/glass styling, while PPTX export
+rasterizes radial/glass shapes when browser rasterization APIs are available.
+
+`ImageElement.designOverrides.maskShape` accepts `"none"`, `"rect"`,
+`"circle"`, `"ellipse"`, `"rounded"`, `"diamond"`, and `"triangle"`. Image
+masking remains an image style only; image elements do not carry glass/blur
+effects.
+
 `TableElement` is a first-class v6 element. It uses `kind: "table"` and optional
 `role: "table"`. The persisted content shape is:
 
@@ -228,6 +265,23 @@ Deck.design theme/themeOverrides
 `SlideTemplate` participates only when a slide is created or explicitly
 reapplied. Normal render/export does not look up `Slide.templateId` to derive
 content.
+
+Slide and master backgrounds support these current background treatments:
+
+```ts
+type BackgroundTreatment =
+  | { type: "solid"; color: ColorRef }
+  | { type: "gradient"; from: ColorRef; to: ColorRef; angle?: number }
+  | {
+      type: "radialGradient";
+      inner: ColorRef;
+      outer: ColorRef;
+      cx?: number;
+      cy?: number;
+      r?: number;
+    }
+  | { type: "image"; url: string; assetId?: string };
+```
 
 ## Source References
 

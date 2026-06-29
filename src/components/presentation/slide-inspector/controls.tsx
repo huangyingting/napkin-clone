@@ -489,9 +489,12 @@ export const IMAGE_FIT_MODE_OPTIONS: {
 
 export const IMAGE_MASK_OPTIONS: { value: ImageMaskShape; label: string }[] = [
   { value: "none", label: "None" },
+  { value: "rect", label: "Rectangle" },
   { value: "circle", label: "Circle" },
+  { value: "ellipse", label: "Ellipse" },
   { value: "rounded", label: "Rounded" },
   { value: "diamond", label: "Diamond" },
+  { value: "triangle", label: "Triangle" },
 ];
 
 export function ImageFitModeControl({

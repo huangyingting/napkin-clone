@@ -3,10 +3,12 @@
 import type { PresentationRole } from "@/lib/presentation/presentation-role-primitives";
 import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
 import {
+  GLASS_EFFECT_INTENSITIES,
   IMAGE_FIT_MODES,
   IMAGE_MASK_SHAPES,
   type ConnectorArrow,
   type ElementAlign,
+  type GlassEffectIntensity,
   type ImageFitMode,
   type ImageMaskShape,
 } from "./deck-element-primitives";
@@ -107,6 +109,26 @@ export interface TextElementStyle {
 
 export type ShapeKind = "rect" | "ellipse" | "line" | "triangle";
 
+export type ColorRef = { token: string } | { value: string };
+
+export interface RadialGradientFill {
+  type: "radialGradient";
+  inner: ColorRef;
+  outer: ColorRef;
+  cx?: number;
+  cy?: number;
+  r?: number;
+}
+
+export type ElementFill = ColorRef | RadialGradientFill;
+
+export interface GlassEffect {
+  kind: "glass";
+  intensity: GlassEffectIntensity;
+}
+
+export type ElementEffect = GlassEffect;
+
 export type ConnectorAnchor = "center" | "top" | "bottom" | "left" | "right";
 
 export interface ConnectorEndpoint {
@@ -198,9 +220,9 @@ export interface TableCell {
 }
 
 export interface TableElementStyle {
-  headerFill?: { token: string } | { value: string };
-  rowFill?: { token: string } | { value: string };
-  alternateRowFill?: { token: string } | { value: string };
+  headerFill?: ColorRef;
+  rowFill?: ColorRef;
+  alternateRowFill?: ColorRef;
   borderColor?: string;
   borderWidth?: number;
   textStyle?: Partial<TextElementStyle>;
@@ -209,11 +231,12 @@ export interface TableElementStyle {
 
 export interface ElementDesignOverrides {
   textStyle?: Partial<TextElementStyle>;
-  fill?: { token: string } | { value: string };
+  fill?: ElementFill;
   stroke?: { color: string; width: number };
   radius?: number;
   fitMode?: ImageFitMode;
   maskShape?: ImageMaskShape;
+  effect?: ElementEffect;
   opacity?: number;
   dash?: boolean;
   arrowStart?: ConnectorArrow;
@@ -329,8 +352,14 @@ export interface VisualElement extends BaseElement {
 }
 
 /** How an image is sized within its element box. */
-export { IMAGE_FIT_MODES, IMAGE_MASK_SHAPES };
-export type { ConnectorArrow, ElementAlign, ImageFitMode, ImageMaskShape };
+export { GLASS_EFFECT_INTENSITIES, IMAGE_FIT_MODES, IMAGE_MASK_SHAPES };
+export type {
+  ConnectorArrow,
+  ElementAlign,
+  GlassEffectIntensity,
+  ImageFitMode,
+  ImageMaskShape,
+};
 
 /** Shape mask options for an image element. */
 /** Fractional clipping inset applied to an image element. */

@@ -1,5 +1,5 @@
 /**
- * The six professional slide themes. Each `buildSlides` returns a demo deck of
+ * The eight professional slide themes. Each `buildSlides` returns a demo deck of
  * six slides (cover, section, content, two-column, stat, closing) that exercise
  * the theme's palette, fonts, and signature decorative shapes.
  */
@@ -18,7 +18,772 @@ const bullets = (items: string[]) =>
   items.map((t) => ({ text: t, listType: "bullet" as const }));
 
 /* ======================================================================= *
- * 1. AURORA — modern tech / SaaS keynote
+ * 1. CLARITY — clean business layouts
+ * ======================================================================= */
+
+const clarity: ThemeSpec = {
+  id: "clarity",
+  name: "Clarity",
+  tagline: "Clean business layouts that keep the content in front.",
+  palette: {
+    slideBg: "#ffffff",
+    surface: "#f1f5f9",
+    accent: "#2563eb",
+    onBg: "#0f172a",
+    onSurface: "#1e293b",
+    onAccent: "#ffffff",
+    muted: "#64748b",
+    deco: ["#2563eb", "#dbeafe", "#94a3b8"],
+  },
+  fonts: {
+    heading: "inter",
+    body: "source-sans-3",
+    headingCss: "'Inter', 'Noto Sans SC', system-ui, sans-serif",
+    bodyCss: "'Source Sans 3', 'Noto Sans SC', system-ui, sans-serif",
+  },
+  cornerRadiusPt: 4,
+  shadowCss: "none",
+  defaultBackground: { type: "solid", color: "#ffffff" },
+  masterBackground: { type: "solid", color: "#ffffff" },
+  buildSlides: (spec) => {
+    const palette = spec.palette;
+    const fonts = spec.fonts;
+    const rule = (zIndex: number, box: Box, color = palette.accent) =>
+      shape({
+        zIndex,
+        shape: "rect",
+        box,
+        fill: color,
+        locked: true,
+        name: "Rule",
+      });
+    return [
+      slide("clarity-cover", "Clarity", "title", [
+        rule(1, { x: 8, y: 29, w: 13, h: 0.7 }),
+        shape({
+          zIndex: 1,
+          shape: "rect",
+          box: { x: 69, y: 0, w: 31, h: 100 },
+          fill: palette.surface,
+          locked: true,
+          name: "Side panel",
+        }),
+        shape({
+          zIndex: 2,
+          shape: "rect",
+          box: { x: 73, y: 18, w: 18, h: 0.5 },
+          fill: palette.deco[2],
+          locked: true,
+          name: "Panel rule",
+        }),
+        kicker(
+          9,
+          { x: 8, y: 22, w: 48, h: 5 },
+          "BOARD BRIEF · 2026",
+          palette.accent,
+          fonts.heading,
+        ),
+        text({
+          zIndex: 10,
+          box: { x: 7.5, y: 34, w: 58, h: 24 },
+          role: "title",
+          text: "Make the case\nclearly",
+          style: {
+            fontSize: 8.4,
+            color: palette.onBg,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+            lineHeight: 1.02,
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 63, w: 52, h: 10 },
+          role: "subtitle",
+          text: "A structured package for decisions, plans, and operating updates.",
+          style: {
+            fontSize: 3.3,
+            color: palette.muted,
+            fontId: fonts.body,
+            align: "left",
+            lineHeight: 1.35,
+          },
+        }),
+      ]),
+      slide(
+        "clarity-section",
+        "Section",
+        "title",
+        [
+          shape({
+            zIndex: 1,
+            shape: "rect",
+            box: { x: 0, y: 0, w: 100, h: 100 },
+            fill: palette.accent,
+            locked: true,
+            name: "Field",
+          }),
+          text({
+            zIndex: 9,
+            box: { x: 8, y: 28, w: 24, h: 8 },
+            text: "01",
+            style: {
+              fontSize: 5,
+              color: "#bfdbfe",
+              fontId: fonts.heading,
+              bold: true,
+              align: "left",
+            },
+          }),
+          rule(9, { x: 8, y: 39, w: 10, h: 0.7 }, "#bfdbfe"),
+          text({
+            zIndex: 10,
+            box: { x: 8, y: 45, w: 72, h: 18 },
+            role: "sectionTitle",
+            text: "What matters now",
+            style: {
+              fontSize: 7,
+              color: "#ffffff",
+              fontId: fonts.heading,
+              bold: true,
+              align: "left",
+            },
+          }),
+        ],
+        { type: "solid", color: palette.accent },
+      ),
+      slide("clarity-content", "Update", "content", [
+        text({
+          zIndex: 10,
+          box: { x: 7, y: 10, w: 72, h: 8 },
+          role: "title",
+          text: "Current operating picture",
+          style: {
+            fontSize: 5.3,
+            color: palette.onBg,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        rule(9, { x: 7, y: 20, w: 86, h: 0.35 }, palette.deco[2]),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 28, w: 43, h: 48 },
+          role: "bullet",
+          paragraphs: bullets([
+            "Demand remains healthy across priority accounts.",
+            "Execution risk is concentrated in launch sequencing.",
+            "The next decision should lock scope and owner model.",
+          ]),
+          style: {
+            fontSize: 3.2,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.55,
+            paragraphSpacing: 1.7,
+          },
+        }),
+        shape({
+          zIndex: 8,
+          shape: "rect",
+          box: { x: 57, y: 27, w: 35, h: 48 },
+          fill: palette.surface,
+          radius: 6,
+          locked: true,
+          name: "Summary panel",
+        }),
+        text({
+          zIndex: 10,
+          box: { x: 60, y: 32, w: 29, h: 6 },
+          role: "label",
+          text: "DECISION",
+          style: {
+            fontSize: 2.5,
+            color: palette.accent,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 60, y: 40, w: 29, h: 26 },
+          role: "body",
+          text: "Commit to the focused release path and move exploratory items to the next planning cycle.",
+          style: {
+            fontSize: 3.1,
+            color: palette.onBg,
+            fontId: fonts.body,
+            lineHeight: 1.45,
+            align: "left",
+          },
+        }),
+      ]),
+      slide("clarity-twocol", "Options", "two-column", [
+        text({
+          zIndex: 10,
+          box: { x: 7, y: 10, w: 72, h: 8 },
+          role: "title",
+          text: "Two options, one recommendation",
+          style: {
+            fontSize: 5.3,
+            color: palette.onBg,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        rule(9, { x: 7, y: 20, w: 86, h: 0.35 }, palette.deco[2]),
+        shape({
+          zIndex: 8,
+          shape: "rect",
+          box: { x: 7, y: 27, w: 40, h: 52 },
+          fill: palette.surface,
+          radius: 6,
+          locked: true,
+          name: "Left card",
+        }),
+        shape({
+          zIndex: 8,
+          shape: "rect",
+          box: { x: 53, y: 27, w: 40, h: 52 },
+          fill: "#ffffff",
+          stroke: { color: palette.accent, width: 0.5 },
+          radius: 6,
+          locked: true,
+          name: "Right card",
+        }),
+        text({
+          zIndex: 10,
+          box: { x: 10, y: 32, w: 34, h: 6 },
+          role: "label",
+          text: "OPTION A",
+          style: {
+            fontSize: 2.6,
+            color: palette.muted,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 10, y: 39, w: 34, h: 34 },
+          role: "bullet",
+          paragraphs: bullets([
+            "Lower disruption",
+            "Faster approval",
+            "Limited upside",
+          ]),
+          style: {
+            fontSize: 3.1,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.55,
+            paragraphSpacing: 1.5,
+          },
+        }),
+        text({
+          zIndex: 10,
+          box: { x: 56, y: 32, w: 34, h: 6 },
+          role: "label",
+          text: "OPTION B",
+          style: {
+            fontSize: 2.6,
+            color: palette.accent,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 56, y: 39, w: 34, h: 34 },
+          role: "bullet",
+          paragraphs: bullets([
+            "Higher upside",
+            "Clearer ownership",
+            "Requires sequencing",
+          ]),
+          style: {
+            fontSize: 3.1,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.55,
+            paragraphSpacing: 1.5,
+          },
+        }),
+      ]),
+      slide("clarity-stat", "Metric", "title", [
+        kicker(
+          9,
+          { x: 8, y: 24, w: 44, h: 5 },
+          "HEADLINE SIGNAL",
+          palette.accent,
+          fonts.heading,
+        ),
+        text({
+          zIndex: 10,
+          box: { x: 7.5, y: 31, w: 58, h: 26 },
+          text: "86%",
+          style: {
+            fontSize: 17,
+            color: palette.accent,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 61, w: 62, h: 10 },
+          role: "subtitle",
+          text: "of priority work is now tied to named accountable owners.",
+          style: {
+            fontSize: 3.5,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            align: "left",
+            lineHeight: 1.35,
+          },
+        }),
+        shape({
+          zIndex: 1,
+          shape: "rect",
+          box: { x: 72, y: 18, w: 16, h: 60 },
+          fill: palette.surface,
+          radius: 8,
+          locked: true,
+          name: "Metric bar",
+        }),
+        shape({
+          zIndex: 2,
+          shape: "rect",
+          box: { x: 72, y: 40, w: 16, h: 38 },
+          fill: palette.accent,
+          radius: 8,
+          locked: true,
+          name: "Metric fill",
+        }),
+      ]),
+      slide("clarity-closing", "Next steps", "title", [
+        shape({
+          zIndex: 1,
+          shape: "rect",
+          box: { x: 0, y: 0, w: 100, h: 100 },
+          fill: palette.onBg,
+          locked: true,
+          name: "Field",
+        }),
+        rule(2, { x: 8, y: 43, w: 12, h: 0.7 }, palette.accent),
+        text({
+          zIndex: 10,
+          box: { x: 8, y: 48, w: 68, h: 13 },
+          role: "title",
+          text: "Clear next steps.",
+          style: {
+            fontSize: 8,
+            color: "#ffffff",
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 64, w: 60, h: 8 },
+          role: "subtitle",
+          text: "Confirm scope, assign owners, review in two weeks.",
+          style: {
+            fontSize: 3.2,
+            color: "#cbd5e1",
+            fontId: fonts.body,
+            align: "left",
+          },
+        }),
+      ]),
+    ];
+  },
+};
+
+/* ======================================================================= *
+ * 2. OCEAN — clear product and data layouts
+ * ======================================================================= */
+
+const ocean: ThemeSpec = {
+  id: "ocean",
+  name: "Ocean",
+  tagline: "Clear product and data layouts with blue-green depth.",
+  palette: {
+    slideBg: "#f6fbff",
+    surface: "#e0f2fe",
+    accent: "#0284c7",
+    onBg: "#0c4a6e",
+    onSurface: "#075985",
+    onAccent: "#ffffff",
+    muted: "#0e7490",
+    deco: ["#38bdf8", "#99f6e4", "#bae6fd"],
+  },
+  fonts: {
+    heading: "space-grotesk",
+    body: "inter",
+    headingCss: "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+    bodyCss: "'Inter', 'Noto Sans SC', system-ui, sans-serif",
+  },
+  cornerRadiusPt: 8,
+  shadowCss: "0 14px 32px rgba(2,132,199,0.14)",
+  defaultBackground: { type: "solid", color: "#f6fbff" },
+  masterBackground: { type: "solid", color: "#f6fbff" },
+  buildSlides: (spec) => {
+    const palette = spec.palette;
+    const fonts = spec.fonts;
+    const current = (zIndex: number, box: Box, color: string, opacity = 0.3) =>
+      shape({
+        zIndex,
+        shape: "ellipse",
+        box,
+        fill: color,
+        opacity,
+        locked: true,
+        name: "Current",
+      });
+    return [
+      slide("ocean-cover", "Ocean", "title", [
+        current(1, { x: 60, y: -22, w: 62, h: 76 }, palette.deco[0], 0.25),
+        current(2, { x: 70, y: 20, w: 44, h: 58 }, palette.deco[1], 0.35),
+        kicker(
+          9,
+          { x: 8, y: 27, w: 48, h: 5 },
+          "PRODUCT REVIEW · 2026",
+          palette.accent,
+          fonts.heading,
+        ),
+        text({
+          zIndex: 10,
+          box: { x: 7.5, y: 34, w: 66, h: 25 },
+          role: "title",
+          text: "Navigate with\nbetter signals",
+          style: {
+            fontSize: 8.8,
+            color: palette.onBg,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+            lineHeight: 1.02,
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 64, w: 56, h: 10 },
+          role: "subtitle",
+          text: "A calm operating view for product, customer, and market data.",
+          style: {
+            fontSize: 3.4,
+            color: palette.muted,
+            fontId: fonts.body,
+            align: "left",
+            lineHeight: 1.35,
+          },
+        }),
+      ]),
+      slide(
+        "ocean-section",
+        "Depth",
+        "title",
+        [
+          shape({
+            zIndex: 1,
+            shape: "rect",
+            box: { x: 0, y: 0, w: 100, h: 100 },
+            fill: palette.onBg,
+            locked: true,
+            name: "Field",
+          }),
+          current(2, { x: -16, y: 48, w: 58, h: 72 }, palette.deco[0], 0.16),
+          current(3, { x: 70, y: -20, w: 52, h: 70 }, palette.deco[1], 0.18),
+          text({
+            zIndex: 10,
+            box: { x: 8, y: 30, w: 30, h: 8 },
+            text: "02",
+            style: {
+              fontSize: 5.4,
+              color: palette.deco[1],
+              fontId: fonts.heading,
+              bold: true,
+              align: "left",
+            },
+          }),
+          text({
+            zIndex: 11,
+            box: { x: 8, y: 43, w: 76, h: 20 },
+            role: "sectionTitle",
+            text: "Signals below\nthe surface",
+            style: {
+              fontSize: 8,
+              color: "#ffffff",
+              fontId: fonts.heading,
+              bold: true,
+              align: "left",
+              lineHeight: 1.02,
+            },
+          }),
+        ],
+        { type: "solid", color: palette.onBg },
+      ),
+      slide("ocean-content", "Signals", "content", [
+        current(1, { x: 76, y: 72, w: 30, h: 40 }, palette.deco[0], 0.16),
+        kicker(
+          9,
+          { x: 8, y: 12, w: 42, h: 5 },
+          "SIGNALS",
+          palette.accent,
+          fonts.heading,
+        ),
+        text({
+          zIndex: 10,
+          box: { x: 8, y: 18, w: 58, h: 12 },
+          role: "title",
+          text: "What changed this quarter",
+          style: {
+            fontSize: 5.5,
+            color: palette.onBg,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+            lineHeight: 1.06,
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 34, w: 43, h: 48 },
+          role: "bullet",
+          paragraphs: bullets([
+            "Activation recovered after onboarding simplification.",
+            "Enterprise cycles are longer but higher confidence.",
+            "Retention lift is strongest where support touch is early.",
+          ]),
+          style: {
+            fontSize: 3.2,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.55,
+            paragraphSpacing: 1.7,
+          },
+        }),
+        shape({
+          zIndex: 8,
+          shape: "rect",
+          box: { x: 57, y: 30, w: 35, h: 46 },
+          fill: palette.surface,
+          radius: 12,
+          locked: true,
+          name: "Metric card",
+        }),
+        text({
+          zIndex: 10,
+          box: { x: 60, y: 35, w: 28, h: 9 },
+          text: "+18%",
+          style: {
+            fontSize: 6.4,
+            color: palette.accent,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 60, y: 48, w: 28, h: 16 },
+          role: "caption",
+          text: "qualified activation after the product education update.",
+          style: {
+            fontSize: 2.8,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.35,
+            align: "left",
+          },
+        }),
+      ]),
+      slide("ocean-twocol", "Compare", "two-column", [
+        text({
+          zIndex: 10,
+          box: { x: 8, y: 12, w: 76, h: 8 },
+          role: "title",
+          text: "Current versus target state",
+          style: {
+            fontSize: 5.4,
+            color: palette.onBg,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        shape({
+          zIndex: 8,
+          shape: "rect",
+          box: { x: 8, y: 28, w: 40, h: 54 },
+          fill: "#ffffff",
+          stroke: { color: palette.deco[2], width: 0.5 },
+          radius: 12,
+          locked: true,
+          name: "Left card",
+        }),
+        shape({
+          zIndex: 8,
+          shape: "rect",
+          box: { x: 52, y: 28, w: 40, h: 54 },
+          fill: palette.surface,
+          radius: 12,
+          locked: true,
+          name: "Right card",
+        }),
+        text({
+          zIndex: 10,
+          box: { x: 11, y: 33, w: 34, h: 6 },
+          role: "label",
+          text: "CURRENT",
+          style: {
+            fontSize: 2.6,
+            color: palette.muted,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 11, y: 40, w: 34, h: 36 },
+          role: "bullet",
+          paragraphs: bullets([
+            "Signal spread across tools",
+            "Weekly readouts",
+            "Reactive account motion",
+          ]),
+          style: {
+            fontSize: 3.05,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.55,
+            paragraphSpacing: 1.45,
+          },
+        }),
+        text({
+          zIndex: 10,
+          box: { x: 55, y: 33, w: 34, h: 6 },
+          role: "label",
+          text: "TARGET",
+          style: {
+            fontSize: 2.6,
+            color: palette.accent,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 55, y: 40, w: 34, h: 36 },
+          role: "bullet",
+          paragraphs: bullets([
+            "One decision surface",
+            "Daily signal quality",
+            "Proactive customer plays",
+          ]),
+          style: {
+            fontSize: 3.05,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            lineHeight: 1.55,
+            paragraphSpacing: 1.45,
+          },
+        }),
+      ]),
+      slide("ocean-stat", "Lift", "title", [
+        current(1, { x: 60, y: 20, w: 54, h: 74 }, palette.deco[0], 0.16),
+        kicker(
+          9,
+          { x: 8, y: 24, w: 44, h: 5 },
+          "RETENTION LIFT",
+          palette.accent,
+          fonts.heading,
+        ),
+        text({
+          zIndex: 10,
+          box: { x: 7.5, y: 31, w: 60, h: 26 },
+          text: "+11 pts",
+          style: {
+            fontSize: 15,
+            color: palette.accent,
+            fontId: fonts.heading,
+            bold: true,
+            align: "left",
+          },
+        }),
+        text({
+          zIndex: 11,
+          box: { x: 8, y: 61, w: 62, h: 10 },
+          role: "subtitle",
+          text: "net retention improvement in teams using the new health model.",
+          style: {
+            fontSize: 3.5,
+            color: palette.onSurface,
+            fontId: fonts.body,
+            align: "left",
+            lineHeight: 1.35,
+          },
+        }),
+      ]),
+      slide(
+        "ocean-closing",
+        "Course",
+        "title",
+        [
+          shape({
+            zIndex: 1,
+            shape: "rect",
+            box: { x: 0, y: 0, w: 100, h: 100 },
+            fill: palette.onBg,
+            locked: true,
+            name: "Field",
+          }),
+          current(2, { x: 58, y: 18, w: 58, h: 80 }, palette.deco[0], 0.18),
+          text({
+            zIndex: 10,
+            box: { x: 8, y: 40, w: 68, h: 14 },
+            role: "title",
+            text: "Stay on course.",
+            style: {
+              fontSize: 8,
+              color: "#ffffff",
+              fontId: fonts.heading,
+              bold: true,
+              align: "left",
+            },
+          }),
+          text({
+            zIndex: 11,
+            box: { x: 8, y: 58, w: 60, h: 8 },
+            role: "subtitle",
+            text: "Focus the next sprint on signal quality and account motion.",
+            style: {
+              fontSize: 3.2,
+              color: "#bae6fd",
+              fontId: fonts.body,
+              align: "left",
+            },
+          }),
+        ],
+        { type: "solid", color: palette.onBg },
+      ),
+    ];
+  },
+};
+
+/* ======================================================================= *
+ * 3. AURORA — modern tech / SaaS keynote
  * ======================================================================= */
 
 const aurora: ThemeSpec = {
@@ -2477,6 +3242,8 @@ const pulse: ThemeSpec = {
 };
 
 export const THEMES: ThemeSpec[] = [
+  clarity,
+  ocean,
   aurora,
   monolith,
   editorial,

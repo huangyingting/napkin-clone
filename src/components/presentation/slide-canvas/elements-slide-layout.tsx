@@ -120,7 +120,11 @@ export function ElementsSlideLayout({
         ? {
             backgroundImage: `linear-gradient(${background.angle ?? 135}deg, ${background.from}, ${background.to})`,
           }
-        : { backgroundColor: background.color };
+        : background.type === "radialGradient"
+          ? {
+              backgroundImage: `radial-gradient(circle ${background.r ?? 70}% at ${background.cx ?? 50}% ${background.cy ?? 50}%, ${background.inner}, ${background.outer})`,
+            }
+          : { backgroundColor: background.color };
   const ordered = slideElements
     .filter((element) => !element.hidden && !hiddenElementIds?.has(element.id))
     .sort((a, b) => a.zIndex - b.zIndex);

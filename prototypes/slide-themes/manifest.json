@@ -1,76 +1,2524 @@
 {
   "themes": [
     {
-      "id": "aurora",
-      "name": "Aurora",
-      "tagline": "Modern tech & SaaS keynote — luminous gradients, geometric sans.",
-      "file": "decks/aurora.deck.json",
-      "slides": 6,
+      "id": "clarity",
+      "name": "Clarity",
+      "tagline": "Clean business layouts that keep the content in front.",
+      "file": "decks/clarity.deck.json",
+      "slides": 43,
+      "fonts": {
+        "heading": "inter",
+        "body": "source-sans-3"
+      },
+      "accent": "#2563eb",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
+    },
+    {
+      "id": "ocean",
+      "name": "Ocean",
+      "tagline": "Clear product and data layouts with blue-green depth.",
+      "file": "decks/ocean.deck.json",
+      "slides": 43,
       "fonts": {
         "heading": "space-grotesk",
         "body": "inter"
       },
-      "accent": "#6366f1"
+      "accent": "#0284c7",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora",
+      "tagline": "Modern tech & SaaS keynote — luminous gradients, geometric sans.",
+      "file": "decks/aurora.deck.json",
+      "slides": 43,
+      "fonts": {
+        "heading": "space-grotesk",
+        "body": "inter"
+      },
+      "accent": "#6366f1",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
     },
     {
       "id": "monolith",
       "name": "Monolith",
       "tagline": "Corporate & consulting — navy, gold, crisp rules, zero radius.",
       "file": "decks/monolith.deck.json",
-      "slides": 6,
+      "slides": 43,
       "fonts": {
         "heading": "ibm-plex-sans",
         "body": "ibm-plex-sans"
       },
-      "accent": "#b3892f"
+      "accent": "#b3892f",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
     },
     {
       "id": "editorial",
       "name": "Editorial",
       "tagline": "Magazine & brand storytelling — warm cream, serif display, coral.",
       "file": "decks/editorial.deck.json",
-      "slides": 6,
+      "slides": 43,
       "fonts": {
         "heading": "source-serif-4",
         "body": "source-sans-3"
       },
-      "accent": "#e0533b"
+      "accent": "#e0533b",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
     },
     {
       "id": "noir",
       "name": "Noir",
       "tagline": "Dark premium pitch deck — near-black canvas, amber accent, glow.",
       "file": "decks/noir.deck.json",
-      "slides": 6,
+      "slides": 43,
       "fonts": {
         "heading": "manrope",
         "body": "inter"
       },
-      "accent": "#f5b301"
+      "accent": "#f5b301",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
     },
     {
       "id": "terra",
       "name": "Terra",
       "tagline": "Sustainability & research — sage canvas, forest ink, terracotta.",
       "file": "decks/terra.deck.json",
-      "slides": 6,
+      "slides": 43,
       "fonts": {
         "heading": "manrope",
         "body": "source-sans-3"
       },
-      "accent": "#c2683f"
+      "accent": "#c2683f",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
     },
     {
       "id": "pulse",
       "name": "Pulse",
       "tagline": "Bold startup & marketing — high-contrast geometry, hot gradient.",
       "file": "decks/pulse.deck.json",
-      "slides": 6,
+      "slides": 43,
       "fonts": {
         "heading": "space-grotesk",
         "body": "manrope"
       },
-      "accent": "#ec2d6f"
+      "accent": "#ec2d6f",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "opening",
+          "priority": 1,
+          "renderFamily": "cover"
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "opening",
+          "priority": 2,
+          "renderFamily": "agenda"
+        },
+        {
+          "kind": "context",
+          "label": "Context",
+          "group": "opening",
+          "priority": 3,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "section",
+          "label": "Section",
+          "group": "opening",
+          "priority": 4,
+          "renderFamily": "section-divider"
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "core",
+          "priority": 5,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "definition",
+          "label": "Definition",
+          "group": "core",
+          "priority": 6,
+          "renderFamily": "title-body"
+        },
+        {
+          "kind": "principle",
+          "label": "Principle",
+          "group": "core",
+          "priority": 7,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "core",
+          "priority": 8,
+          "renderFamily": "title-bullets"
+        },
+        {
+          "kind": "key-takeaways",
+          "label": "Key Takeaways",
+          "group": "core",
+          "priority": 9,
+          "renderFamily": "summary-list"
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "core",
+          "priority": 10,
+          "renderFamily": "quote-hero"
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "core",
+          "priority": 11,
+          "renderFamily": "stat-hero"
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "core",
+          "priority": 12,
+          "renderFamily": "metric-row"
+        },
+        {
+          "kind": "data-insight",
+          "label": "Data Insight",
+          "group": "proof",
+          "priority": 13,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "proof",
+          "priority": 14,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "proof",
+          "priority": 15,
+          "renderFamily": "table"
+        },
+        {
+          "kind": "problem-solution",
+          "label": "Problem Solution",
+          "group": "compare",
+          "priority": 16,
+          "renderFamily": "problem-solution"
+        },
+        {
+          "kind": "before-after",
+          "label": "Before After",
+          "group": "compare",
+          "priority": 17,
+          "renderFamily": "before-after"
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 18,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "pros-cons",
+          "label": "Pros Cons",
+          "group": "compare",
+          "priority": 19,
+          "renderFamily": "pros-cons"
+        },
+        {
+          "kind": "tradeoff",
+          "label": "Tradeoff",
+          "group": "compare",
+          "priority": 20,
+          "renderFamily": "two-column"
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 21,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "flow",
+          "priority": 22,
+          "renderFamily": "framework-diagram"
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "flow",
+          "priority": 23,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "workflow",
+          "label": "Workflow",
+          "group": "flow",
+          "priority": 24,
+          "renderFamily": "process-steps"
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "flow",
+          "priority": 25,
+          "renderFamily": "timeline"
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "flow",
+          "priority": 26,
+          "renderFamily": "roadmap"
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "flow",
+          "priority": 27,
+          "renderFamily": "architecture-diagram"
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "business",
+          "priority": 28,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "customer-story",
+          "label": "Customer Story",
+          "group": "business",
+          "priority": 29,
+          "renderFamily": "case-study"
+        },
+        {
+          "kind": "market-landscape",
+          "label": "Market Landscape",
+          "group": "business",
+          "priority": 30,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "competitive-landscape",
+          "label": "Competitive Landscape",
+          "group": "compare",
+          "priority": 31,
+          "renderFamily": "matrix-2x2"
+        },
+        {
+          "kind": "experiment",
+          "label": "Experiment",
+          "group": "proof",
+          "priority": 32,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "results",
+          "label": "Results",
+          "group": "proof",
+          "priority": 33,
+          "renderFamily": "data-insight"
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 34,
+          "renderFamily": "risk-register"
+        },
+        {
+          "kind": "decision",
+          "label": "Decision",
+          "group": "decision",
+          "priority": 35,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 36,
+          "renderFamily": "recommendation"
+        },
+        {
+          "kind": "next-steps",
+          "label": "Next Steps",
+          "group": "decision",
+          "priority": 37,
+          "renderFamily": "next-steps"
+        },
+        {
+          "kind": "business-model",
+          "label": "Business Model",
+          "group": "business",
+          "priority": 38,
+          "renderFamily": "cards-4"
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "business",
+          "priority": 39,
+          "renderFamily": "pricing-cards"
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "business",
+          "priority": 40,
+          "renderFamily": "team-grid"
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "core",
+          "priority": 41,
+          "renderFamily": "visual-focus"
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 42,
+          "renderFamily": "closing"
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 43,
+          "renderFamily": "appendix-detail"
+        }
+      ]
     }
   ]
 }

@@ -277,7 +277,7 @@ const indexHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><m
 .card-stage figcaption{display:none}
 .card-meta{margin-top:10px;font-size:15px}
 .card:hover .slide{outline:2px solid #9db4ff}
-</style></head><body><header><h1>Professional slide themes</h1><p>Six v6 theme decks rendered with the same conventions as the live canvas. Click a theme for all six layouts.</p></header><main class="grid">${cards.join("")}</main></body></html>`;
+</style></head><body><header><h1>Professional slide themes</h1><p>Eight v6 theme decks rendered with the same conventions as the live canvas. Click a theme for the full template set.</p></header><main class="grid">${cards.join("")}</main></body></html>`;
 writeFileSync(join(outDir, "index.html"), indexHtml, "utf8");
 console.log(
   `✓ preview/index.html\n\nOpen prototypes/slide-themes/preview/index.html`,
