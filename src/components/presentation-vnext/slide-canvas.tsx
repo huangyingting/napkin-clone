@@ -28,6 +28,27 @@ import { SlideNodeRenderer } from "./slide-node-renderer";
 import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
 
+export type ResizeHandlePosition =
+  | "nw"
+  | "n"
+  | "ne"
+  | "e"
+  | "se"
+  | "s"
+  | "sw"
+  | "w";
+
+const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
+  "nw",
+  "n",
+  "ne",
+  "e",
+  "se",
+  "s",
+  "sw",
+  "w",
+];
+
 // ---------------------------------------------------------------------------
 // Background helper
 // ---------------------------------------------------------------------------
@@ -169,6 +190,14 @@ export interface SlideCanvasVNextProps {
   selection?: SelectionState;
   /** Called when the user clicks a node. */
   onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user starts dragging a node. */
+  onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
+  /** Called when the user starts resizing a selected node. */
+  onResizeHandlePointerDown?: (
+    nodeId: string,
+    handle: ResizeHandlePosition,
+    event: React.PointerEvent,
+  ) => void;
   /** True when rendered at reduced size (thumbnail rail, next-slide preview). */
   preview?: boolean;
   /** Optional extra CSS class applied to the outer canvas container. */
@@ -190,6 +219,8 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   assetResolver,
   selection,
   onNodeClick,
+  onNodePointerDown,
+  onResizeHandlePointerDown,
   preview = false,
   className,
 }: SlideCanvasVNextProps): JSX.Element {
@@ -199,6 +230,9 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   // Flatten groups for rendering (children positioned in slide-relative space)
   const decorationNodes = flattenNodes(slide.decorations);
   const userNodes = flattenNodes(slide.nodes);
+  const selectedUserNodes = selection
+    ? userNodes.filter((node) => isSelected(selection, node.id))
+    : [];
 
   const handleNodeClick = onNodeClick
     ? (nodeId: string, event: React.MouseEvent) => {
@@ -208,6 +242,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
 
   return (
     <div
+      data-slide-canvas-vnext="true"
       className={`relative overflow-hidden${className ? ` ${className}` : ""}`}
       style={{
         aspectRatio: `${aspectRatio}`,
@@ -233,13 +268,56 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           selected={selection ? isSelected(selection, node.id) : false}
           onClick={handleNodeClick}
+          onPointerDown={preview ? undefined : onNodePointerDown}
           assetResolver={assetResolver}
           preview={preview}
         />
       ))}
+
+      {!preview && onResizeHandlePointerDown
+        ? selectedUserNodes.map((node) => (
+            <div
+              key={`${node.id}-resize-overlay`}
+              aria-hidden="true"
+              className="pointer-events-none absolute z-raised"
+              style={{
+                left: `${node.layout.frame.x}%`,
+                top: `${node.layout.frame.y}%`,
+                width: `${node.layout.frame.w}%`,
+                height: `${node.layout.frame.h}%`,
+              }}
+            >
+              {RESIZE_HANDLES.map((handle) => (
+                <span
+                  key={handle}
+                  data-resize-handle={handle}
+                  className="pointer-events-auto absolute h-2.5 w-2.5 rounded-full border border-ds-accent-border bg-ds-surface shadow-ds-sm"
+                  style={resizeHandleStyle(handle)}
+                  onPointerDown={(event) =>
+                    onResizeHandlePointerDown(node.id, handle, event)
+                  }
+                />
+              ))}
+            </div>
+          ))
+        : null}
     </div>
   );
 });
+
+function resizeHandleStyle(handle: ResizeHandlePosition): React.CSSProperties {
+  const horizontal = handle.includes("w")
+    ? { left: 0, transform: "translate(-50%, -50%)" }
+    : handle.includes("e")
+      ? { left: "100%", transform: "translate(-50%, -50%)" }
+      : { left: "50%", transform: "translate(-50%, -50%)" };
+  const vertical = handle.includes("n")
+    ? { top: 0 }
+    : handle.includes("s")
+      ? { top: "100%" }
+      : { top: "50%" };
+  return { ...horizontal, ...vertical };
+}
 
 // ---------------------------------------------------------------------------
 // DeckCanvasVNext — renders all slides in a deck tree
@@ -256,6 +334,10 @@ export interface DeckCanvasVNextProps {
   selection?: SelectionState;
   /** Called when the user clicks a node on the active slide. */
   onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user starts dragging a node on the active slide. */
+  onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
+  /** Called when the user starts resizing a selected node on the active slide. */
+  onResizeHandlePointerDown?: SlideCanvasVNextProps["onResizeHandlePointerDown"];
   /** Called when the user clicks a slide in the thumbnail rail. */
   onSlideClick?: (slideIndex: number) => void;
   /** True when rendered at reduced size. */
@@ -277,6 +359,8 @@ export function DeckCanvasVNext({
   assetResolver,
   selection,
   onNodeClick,
+  onNodePointerDown,
+  onResizeHandlePointerDown,
   preview = false,
   className,
 }: DeckCanvasVNextProps): JSX.Element | null {
@@ -290,6 +374,8 @@ export function DeckCanvasVNext({
       assetResolver={assetResolver}
       selection={selection}
       onNodeClick={onNodeClick}
+      onNodePointerDown={onNodePointerDown}
+      onResizeHandlePointerDown={onResizeHandlePointerDown}
       preview={preview}
       className={className}
     />

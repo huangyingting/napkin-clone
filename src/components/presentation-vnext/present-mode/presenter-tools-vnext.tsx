@@ -37,6 +37,7 @@ export interface SlideOverviewPanelVNextProps {
   slides: SlideNode[];
   renderTree: ResolvedDeckRenderTree;
   currentIndex: number;
+  assetResolver?: (id: string) => string | undefined;
   onJump: (index: number) => void;
   onClose: () => void;
 }
@@ -45,6 +46,7 @@ export function SlideOverviewPanelVNext({
   slides,
   renderTree,
   currentIndex,
+  assetResolver,
   onJump,
   onClose,
 }: SlideOverviewPanelVNextProps): JSX.Element {
@@ -114,6 +116,7 @@ export function SlideOverviewPanelVNext({
                     <SlideCanvasVNext
                       slide={slideTree}
                       canvas={renderTree.canvas}
+                      assetResolver={assetResolver}
                       preview
                     />
                   </div>

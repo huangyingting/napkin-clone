@@ -224,19 +224,51 @@ export { buildExportSpec } from "./export-spec";
 // Editor commands
 export {
   insertSlide,
+  insertBlankSlide,
+  duplicateSlide,
+  deleteSlide,
+  moveSlide,
   applyTemplate,
   updateSlideControls,
+  updateSlideAttributes,
+  updateSlideLocalStyle,
+  resetSlideLocalStyle,
+  updateSlideSourceMetadata,
   setThemePackage,
+  insertNode,
+  pasteNodes,
   updateNodeContent,
   updateNodeLayout,
+  updateNodeLayouts,
+  updateNodeAttributes,
+  updateNodeSourceMetadata,
+  moveNodesBy,
+  deleteNodes,
+  duplicateNodes,
   updateNodeStyleBinding,
   updateLocalStyle,
   resetLocalStyleOverride,
   detachDecoration,
   groupNodes,
+  ungroupNodes,
   reorderZIndex,
   updateAssetMetadata,
 } from "./editor-commands";
+
+export type {
+  StageGuide,
+  StageGuideInput,
+  SnapFrameResult,
+} from "./stage-guides";
+export {
+  alignmentGuidesForFrames,
+  snapFrameToStageGuides,
+} from "./stage-guides";
+export type { SelectionFrame } from "./selection-geometry";
+export {
+  normalizeSelectionFrame,
+  selectNodesInFrame,
+} from "./selection-geometry";
 
 // Theme packages (built-in template registry)
 export {
@@ -247,12 +279,23 @@ export {
 // Neutral fallback theme package
 export { NEUTRAL_THEME_PACKAGE } from "./neutral-theme-package";
 
+// Runtime v7 theme package registry
+export type { ThemePackageResolution } from "./theme-package-registry";
+export {
+  THEME_PACKAGE_REGISTRY,
+  resolveThemePackageIdV7,
+  getThemePackageV7,
+  listThemePackagesV7,
+  resolveThemePackageForDeck,
+} from "./theme-package-registry";
+
 // Native v7 starter decks
 export { createBlankDeckV7 } from "./empty-deck";
 
-// Open-deck boundary helper (v7-only runtime parse path)
+// Open-deck boundary helper (v7 runtime parse + one-time legacy migration path)
 export type { OpenDeckResult } from "./open-deck";
 export { openDeckFromJson, looksLikeDeckV7 } from "./open-deck";
+export { looksLikeLegacyDeckV6, migrateLegacyDeckV6 } from "./migration-v6";
 
 // PPTX export adapter (DOM-free; browser applier calls PptxGenJS with the result)
 export type {

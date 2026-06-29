@@ -1,0 +1,144 @@
+"use client";
+
+import type { JSX } from "react";
+
+import type {
+  LayoutBox,
+  SlideChildNode,
+} from "@/lib/presentation-vnext/schema";
+import { FOCUS_RING } from "@/components/ui/tokens";
+
+export interface NodeGeometryPanelProps {
+  node: SlideChildNode;
+  onUpdateLayout: (patch: Partial<LayoutBox>) => void;
+  onUpdateAttributes: (patch: { locked?: boolean; hidden?: boolean }) => void;
+}
+
+function NumberField({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step = 0.5,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange: (value: number) => void;
+}): JSX.Element {
+  return (
+    <label
+      htmlFor={id}
+      className="flex flex-col gap-1 text-xs text-ds-text-secondary"
+    >
+      {label}
+      <input
+        id={id}
+        type="number"
+        value={Number.isFinite(value) ? value : 0}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-[12px] text-ds-text-primary outline-none ${FOCUS_RING}`}
+      />
+    </label>
+  );
+}
+
+export function NodeGeometryPanel({
+  node,
+  onUpdateLayout,
+  onUpdateAttributes,
+}: NodeGeometryPanelProps): JSX.Element | null {
+  const layout = node.layout;
+  if (!layout) return null;
+  const frame = layout.frame;
+
+  function updateFrame(patch: Partial<LayoutBox["frame"]>) {
+    onUpdateLayout({ frame: { ...frame, ...patch } });
+  }
+
+  return (
+    <section className="flex flex-col gap-2 px-3 py-2.5">
+      <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+        Geometry
+      </h4>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberField
+          id="vnext-node-x"
+          label="X"
+          value={frame.x}
+          min={0}
+          max={100}
+          onChange={(x) => updateFrame({ x })}
+        />
+        <NumberField
+          id="vnext-node-y"
+          label="Y"
+          value={frame.y}
+          min={0}
+          max={100}
+          onChange={(y) => updateFrame({ y })}
+        />
+        <NumberField
+          id="vnext-node-w"
+          label="W"
+          value={frame.w}
+          min={0.5}
+          max={100}
+          onChange={(w) => updateFrame({ w })}
+        />
+        <NumberField
+          id="vnext-node-h"
+          label="H"
+          value={frame.h}
+          min={0.5}
+          max={100}
+          onChange={(h) => updateFrame({ h })}
+        />
+        <NumberField
+          id="vnext-node-rotation"
+          label="Rotation"
+          value={layout.rotation ?? 0}
+          step={1}
+          onChange={(rotation) => onUpdateLayout({ rotation })}
+        />
+        <NumberField
+          id="vnext-node-z"
+          label="Layer"
+          value={layout.zIndex}
+          step={1}
+          onChange={(zIndex) => onUpdateLayout({ zIndex: Math.trunc(zIndex) })}
+        />
+      </div>
+      <div className="mt-1 flex items-center gap-4 text-xs text-ds-text-secondary">
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={node.locked === true}
+            onChange={(event) =>
+              onUpdateAttributes({ locked: event.currentTarget.checked })
+            }
+          />
+          Locked
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={node.hidden === true}
+            onChange={(event) =>
+              onUpdateAttributes({ hidden: event.currentTarget.checked })
+            }
+          />
+          Hidden
+        </label>
+      </div>
+    </section>
+  );
+}

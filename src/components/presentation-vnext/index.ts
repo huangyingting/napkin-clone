@@ -13,6 +13,7 @@ export { SlideCanvasVNext, DeckCanvasVNext } from "./slide-canvas";
 export type {
   SlideCanvasVNextProps,
   DeckCanvasVNextProps,
+  ResizeHandlePosition,
 } from "./slide-canvas";
 
 // ---------------------------------------------------------------------------
@@ -55,12 +56,24 @@ export {
   LocalOverrideBadge,
   DiagnosticsPanel,
   SlideControlsPanel,
+  SlideSettingsPanel,
+  NodeGeometryPanel,
+  NodeContentPanel,
+  LocalStylePanel,
+  NodeSourcePanel,
+  LayersPanel,
 } from "./inspector";
 export type {
   StyleBindingPanelProps,
   LocalOverrideBadgeProps,
   DiagnosticsPanelProps,
   SlideControlsPanelProps,
+  SlideSettingsPanelProps,
+  NodeGeometryPanelProps,
+  NodeContentPanelProps,
+  LocalStylePanelProps,
+  NodeSourcePanelProps,
+  LayersPanelProps,
 } from "./inspector";
 
 // ---------------------------------------------------------------------------

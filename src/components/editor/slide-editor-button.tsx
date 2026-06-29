@@ -21,9 +21,70 @@ import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
 import {
   exportDeckV7AsPPTX,
-  NEUTRAL_THEME_PACKAGE,
+  resolveThemePackageForDeck,
+  type PresentationDiagnostic,
 } from "@/lib/presentation-vnext";
 import { downloadBlob } from "@/lib/visual/export";
+
+function SlideEditorOpenRecovery({
+  error,
+  diagnostics,
+  validationErrors,
+  onClose,
+}: {
+  error: string;
+  diagnostics: readonly PresentationDiagnostic[];
+  validationErrors?: readonly string[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex h-full w-full flex-col bg-ds-surface">
+      <header className="flex shrink-0 items-center justify-between border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold text-ds-text-primary">
+            Slides could not be opened
+          </h2>
+          <p className="mt-0.5 text-xs text-ds-text-muted">
+            The saved deck data needs migration or repair before editing.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-ds-sm border border-ds-border-subtle px-3 py-1.5 text-xs font-medium text-ds-text-primary hover:bg-ds-state-hover"
+        >
+          Close
+        </button>
+      </header>
+      <main className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-6">
+        <section className="w-full max-w-2xl rounded-ds-md border border-ds-danger-border bg-ds-danger-surface p-4">
+          <p className="text-sm font-medium text-ds-danger-text">{error}</p>
+          {diagnostics.length > 0 ? (
+            <ul className="mt-3 space-y-2 text-xs text-ds-danger-text">
+              {diagnostics.map((diagnostic, index) => (
+                <li key={`${diagnostic.code}-${index}`}>
+                  {diagnostic.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {validationErrors && validationErrors.length > 0 ? (
+            <details className="mt-3 text-xs text-ds-danger-text">
+              <summary className="cursor-pointer font-medium">
+                Validation details
+              </summary>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                {validationErrors.map((message, index) => (
+                  <li key={`${message}-${index}`}>{message}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </section>
+      </main>
+    </div>
+  );
+}
 
 function SlideEditorOverlay({ children }: { children: React.ReactNode }) {
   if (typeof document === "undefined") return null;
@@ -67,8 +128,18 @@ export function SlideEditorButton({
   const {
     open,
     deckV7,
+    deckOpenDiagnosticsV7,
+    deckOpenErrorV7,
+    saveStatus,
+    saveStatusLabel,
+    saveErrorMessage,
+    hasUnsavedWork,
     handleDeckV7Change,
     handleSaveV7,
+    handleUndoV7,
+    handleRedoV7,
+    canUndoV7,
+    canRedoV7,
     handleOpen,
     handleClose,
     aiEnabled,
@@ -95,12 +166,21 @@ export function SlideEditorButton({
     onCloseRightSurface,
   });
 
+  const themeResolution = deckV7 ? resolveThemePackageForDeck(deckV7) : null;
+  const editorDiagnostics = [
+    ...deckOpenDiagnosticsV7,
+    ...(themeResolution?.diagnostics ?? []),
+  ];
+
   const handleExportV7Pptx = useCallback(async () => {
     if (!deckV7) return;
-    const blob = await exportDeckV7AsPPTX(deckV7, NEUTRAL_THEME_PACKAGE);
+    const blob = await exportDeckV7AsPPTX(
+      deckV7,
+      themeResolution?.package ?? resolveThemePackageForDeck(deckV7).package,
+    );
     if (!blob) throw new Error("PPTX export returned empty result");
     downloadBlob(blob, "presentation.pptx");
-  }, [deckV7]);
+  }, [deckV7, themeResolution]);
 
   return (
     <>
@@ -141,10 +221,31 @@ export function SlideEditorButton({
         <SlideEditorOverlay>
           <SlideEditorVNext
             deck={deckV7}
+            themePackage={themeResolution?.package}
+            diagnostics={editorDiagnostics}
+            saveStatus={saveStatus}
+            saveStatusLabel={saveStatusLabel}
+            saveErrorMessage={saveErrorMessage}
+            hasUnsavedWork={hasUnsavedWork}
+            canUndo={canUndoV7}
+            canRedo={canRedoV7}
+            onUndo={handleUndoV7}
+            onRedo={handleRedoV7}
             onDeckChange={handleDeckV7Change}
             onSave={handleSaveV7}
             onClose={handleClose}
             onExportPptx={handleExportV7Pptx}
+          />
+        </SlideEditorOverlay>
+      ) : null}
+
+      {open && !deckV7 && deckOpenErrorV7 ? (
+        <SlideEditorOverlay>
+          <SlideEditorOpenRecovery
+            error={deckOpenErrorV7.error}
+            diagnostics={deckOpenErrorV7.diagnostics}
+            validationErrors={deckOpenErrorV7.validationErrors}
+            onClose={handleClose}
           />
         </SlideEditorOverlay>
       ) : null}

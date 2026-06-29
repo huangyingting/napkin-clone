@@ -5,6 +5,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver";
+import { updateSlideLocalStyle } from "@/lib/presentation-vnext/editor-commands";
 import {
   buildDeckV7,
   buildCoverSlide,
@@ -228,6 +229,20 @@ describe("resolveDeckRenderTree", () => {
       result.diagnostics.some((d) => d.code === "missing-node-layout"),
       "Expected missing-node-layout diagnostic",
     );
+  });
+
+  test("slide localStyle overrides theme slide background", () => {
+    resetBuilderCounter();
+    const baseDeck = buildDeckV7([buildCoverSlide()]);
+    const deck = updateSlideLocalStyle(baseDeck, baseDeck.slides[0].id, {
+      slide: { background: { type: "solid", color: "#123456" } },
+    });
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.deepEqual(result.slides[0].background.fill, {
+      type: "solid",
+      color: "#123456",
+    });
   });
 
   test("theme switch preserves node layout frames", () => {

@@ -22,12 +22,19 @@ import {
   DEFAULT_THEME_PACKAGE_ID,
   type ThemePackageId,
 } from "@/lib/presentation/theme-packages";
-import { SLIDE_SAVE_DEBOUNCE_MS } from "@/lib/presentation/save-status";
+import {
+  SAVE_STATUS_LABEL,
+  SLIDE_SAVE_DEBOUNCE_MS,
+  resolveSaveErrorMessage,
+  resolveSaveStatus,
+  type SaveStatus,
+} from "@/lib/presentation/save-status";
 import { bucketCount, emitProductTelemetry } from "@/lib/telemetry/product";
 import {
   createBlankDeckV7,
   openDeckFromJson,
   type DeckV7,
+  type PresentationDiagnostic,
 } from "@/lib/presentation-vnext";
 
 /** State backing the v7 AI deck preview/diff surface. */
@@ -55,6 +62,21 @@ export interface UseSlideEditorOpenOptions {
 
 const noop = () => undefined;
 
+type PreparedDeckV7 =
+  | { ok: true; deck: DeckV7; diagnostics: PresentationDiagnostic[] }
+  | {
+      ok: false;
+      error: string;
+      diagnostics: PresentationDiagnostic[];
+      validationErrors?: string[];
+    };
+
+export type SlideEditorOpenErrorV7 = {
+  error: string;
+  diagnostics: PresentationDiagnostic[];
+  validationErrors?: string[];
+};
+
 export function useSlideEditorOpen({
   documentId,
   initialDeckJson,
@@ -71,6 +93,16 @@ export function useSlideEditorOpen({
   const [emptyDocument, setEmptyDocument] = useState(false);
   const [aiPreviewV7, setAiPreviewV7] = useState<AiPreviewStateV7 | null>(null);
   const [deckV7, setDeckV7] = useState<DeckV7 | null>(null);
+  const [deckOpenDiagnosticsV7, setDeckOpenDiagnosticsV7] = useState<
+    PresentationDiagnostic[]
+  >([]);
+  const [deckOpenErrorV7, setDeckOpenErrorV7] =
+    useState<SlideEditorOpenErrorV7 | null>(null);
+  const [v7Dirty, setV7Dirty] = useState(false);
+  const [v7Saving, setV7Saving] = useState(false);
+  const [v7SaveError, setV7SaveError] = useState<string | null>(null);
+  const [undoStackV7, setUndoStackV7] = useState<DeckV7[]>([]);
+  const [redoStackV7, setRedoStackV7] = useState<DeckV7[]>([]);
   const [conflictStateV7, setConflictStateV7] = useState<{
     localDeck: DeckV7;
     serverRevisionToken: string | null;
@@ -97,8 +129,15 @@ export function useSlideEditorOpen({
   );
 
   const finishOpenV7 = useCallback(
-    (startDeck: DeckV7) => {
+    (startDeck: DeckV7, diagnostics: PresentationDiagnostic[] = []) => {
       setDeckV7(startDeck);
+      setDeckOpenDiagnosticsV7(diagnostics);
+      setDeckOpenErrorV7(null);
+      setV7Dirty(false);
+      setV7Saving(false);
+      setV7SaveError(null);
+      setUndoStackV7([]);
+      setRedoStackV7([]);
       setPendingJson(null);
       setAiPreviewV7(null);
       setOpen(true);
@@ -107,7 +146,7 @@ export function useSlideEditorOpen({
     [onOpenRightSurface],
   );
 
-  const prepareOpenV7 = useCallback(async (): Promise<DeckV7> => {
+  const prepareOpenV7 = useCallback(async (): Promise<PreparedDeckV7> => {
     let fetchedRaw: unknown = null;
     try {
       const fetched = await deckPort.fetchDeckJson(documentId);
@@ -118,18 +157,50 @@ export function useSlideEditorOpen({
     }
 
     const rawCandidate = fetchedRaw ?? lastSavedRef.current;
-    if (rawCandidate) {
+    if (rawCandidate !== null && rawCandidate !== undefined) {
       const openResult = openDeckFromJson(rawCandidate);
-      if (openResult.ok) return openResult.deck;
+      if (openResult.ok) {
+        return {
+          ok: true,
+          deck: openResult.deck,
+          diagnostics: openResult.diagnostics,
+        };
+      }
+      return {
+        ok: false,
+        error: openResult.error,
+        diagnostics: openResult.diagnostics,
+        validationErrors: openResult.errors,
+      };
     }
 
-    return fallbackDeck();
+    return { ok: true, deck: fallbackDeck(), diagnostics: [] };
   }, [deckPort, documentId, fallbackDeck]);
 
   const openDerivedV7 = useCallback(async () => {
     aiAppliedDeckRef.current = null;
-    finishOpenV7(await prepareOpenV7());
-  }, [finishOpenV7, prepareOpenV7]);
+    const prepared = await prepareOpenV7();
+    if (prepared.ok) {
+      finishOpenV7(prepared.deck, prepared.diagnostics);
+      return;
+    }
+    setDeckV7(null);
+    setDeckOpenDiagnosticsV7(prepared.diagnostics);
+    setDeckOpenErrorV7({
+      error: prepared.error,
+      diagnostics: prepared.diagnostics,
+      validationErrors: prepared.validationErrors,
+    });
+    setPendingJson(null);
+    setAiPreviewV7(null);
+    setV7Dirty(false);
+    setV7Saving(false);
+    setV7SaveError(prepared.error);
+    setUndoStackV7([]);
+    setRedoStackV7([]);
+    setOpen(true);
+    onOpenRightSurface();
+  }, [finishOpenV7, onOpenRightSurface, prepareOpenV7]);
 
   const openWithAiDeckV7 = useCallback(
     (aiDeck: DeckV7) => {
@@ -150,7 +221,10 @@ export function useSlideEditorOpen({
       options: DeckGenerationOptions,
       json: string,
     ) => {
-      const baselineDeck = await prepareOpenV7();
+      const preparedBaseline = await prepareOpenV7();
+      const baselineDeck = preparedBaseline.ok
+        ? preparedBaseline.deck
+        : fallbackDeck();
       setPendingJson(null);
       setAiPreviewV7({
         proposedDeck,
@@ -160,7 +234,7 @@ export function useSlideEditorOpen({
         contentJson: json,
       });
     },
-    [prepareOpenV7],
+    [fallbackDeck, prepareOpenV7],
   );
 
   const effectiveContentJson = useCallback(
@@ -194,6 +268,13 @@ export function useSlideEditorOpen({
   const handleClose = useCallback(() => {
     setOpen(false);
     setDeckV7(null);
+    setDeckOpenDiagnosticsV7([]);
+    setDeckOpenErrorV7(null);
+    setV7Dirty(false);
+    setV7Saving(false);
+    setV7SaveError(null);
+    setUndoStackV7([]);
+    setRedoStackV7([]);
     setPendingJson(null);
     setPendingThemePackageId(DEFAULT_THEME_PACKAGE_ID);
     setEmptyDocument(false);
@@ -209,6 +290,12 @@ export function useSlideEditorOpen({
 
   const handleSaveV7 = useCallback(
     async (updatedDeck: DeckV7): Promise<ActionResult> => {
+      if (v7AutosaveTimerRef.current !== null) {
+        clearTimeout(v7AutosaveTimerRef.current);
+        v7AutosaveTimerRef.current = null;
+      }
+      setV7Saving(true);
+      setV7SaveError(null);
       const saveResult = await deckPort.saveDeckJson(
         documentId,
         updatedDeck,
@@ -217,6 +304,9 @@ export function useSlideEditorOpen({
       if (saveResult.ok === true) {
         lastSavedRef.current = updatedDeck;
         revisionTokenRef.current = saveResult.revisionToken;
+        setV7Dirty(false);
+        setV7Saving(false);
+        setV7SaveError(null);
 
         if (aiAppliedDeckRef.current) {
           aiAppliedDeckRef.current = null;
@@ -229,23 +319,27 @@ export function useSlideEditorOpen({
         return { ok: true, data: undefined };
       }
       if (saveResult.ok === "conflict") {
+        const error = "Save conflict: another session modified this deck.";
+        setV7Saving(false);
+        setV7SaveError(error);
         setConflictStateV7({
           localDeck: updatedDeck,
           serverRevisionToken: saveResult.serverRevisionToken,
         });
         return {
           ok: false,
-          error: "Save conflict: another session modified this deck.",
+          error,
         };
       }
+      setV7Saving(false);
+      setV7SaveError(saveResult.error);
       return { ok: false, error: saveResult.error };
     },
     [deckPort, documentId],
   );
 
-  const handleDeckV7Change = useCallback(
+  const scheduleAutosaveV7 = useCallback(
     (updatedDeck: DeckV7) => {
-      setDeckV7(updatedDeck);
       if (v7AutosaveTimerRef.current !== null) {
         clearTimeout(v7AutosaveTimerRef.current);
       }
@@ -262,6 +356,46 @@ export function useSlideEditorOpen({
     },
     [handleSaveV7],
   );
+
+  const handleDeckV7Change = useCallback(
+    (updatedDeck: DeckV7) => {
+      setUndoStackV7((stack) =>
+        deckV7 ? [...stack, deckV7].slice(-50) : stack,
+      );
+      setRedoStackV7([]);
+      setDeckV7(updatedDeck);
+      setV7Dirty(true);
+      setV7SaveError(null);
+      scheduleAutosaveV7(updatedDeck);
+    },
+    [deckV7, scheduleAutosaveV7],
+  );
+
+  const handleUndoV7 = useCallback(() => {
+    setUndoStackV7((stack) => {
+      const previous = stack.at(-1);
+      if (!previous || !deckV7) return stack;
+      setRedoStackV7((redoStack) => [...redoStack, deckV7].slice(-50));
+      setDeckV7(previous);
+      setV7Dirty(true);
+      setV7SaveError(null);
+      scheduleAutosaveV7(previous);
+      return stack.slice(0, -1);
+    });
+  }, [deckV7, scheduleAutosaveV7]);
+
+  const handleRedoV7 = useCallback(() => {
+    setRedoStackV7((stack) => {
+      const next = stack.at(-1);
+      if (!next || !deckV7) return stack;
+      setUndoStackV7((undoStack) => [...undoStack, deckV7].slice(-50));
+      setDeckV7(next);
+      setV7Dirty(true);
+      setV7SaveError(null);
+      scheduleAutosaveV7(next);
+      return stack.slice(0, -1);
+    });
+  }, [deckV7, scheduleAutosaveV7]);
 
   const handleOpenDialogApply = useCallback(
     ({
@@ -341,23 +475,56 @@ export function useSlideEditorOpen({
         revisionTokenRef.current = fetched.revisionToken;
         lastSavedRef.current = fetched.deckJson;
         const openResult = openDeckFromJson(fetched.deckJson);
-        setDeckV7(openResult.ok ? openResult.deck : fallbackDeck());
+        if (openResult.ok) {
+          setDeckV7(openResult.deck);
+          setDeckOpenDiagnosticsV7(openResult.diagnostics);
+          setDeckOpenErrorV7(null);
+          setV7Dirty(false);
+          setV7Saving(false);
+          setV7SaveError(null);
+          setUndoStackV7([]);
+          setRedoStackV7([]);
+        } else {
+          setDeckOpenDiagnosticsV7(openResult.diagnostics);
+          setDeckOpenErrorV7({
+            error: openResult.error,
+            diagnostics: openResult.diagnostics,
+            validationErrors: openResult.errors,
+          });
+          setV7SaveError(openResult.error);
+        }
       } catch {
         // Best-effort: keep the user's local deck if fetch fails.
       }
     })();
-  }, [deckPort, documentId, fallbackDeck]);
+  }, [deckPort, documentId]);
 
   const handleConflictDismissV7 = useCallback(() => {
     setConflictStateV7(null);
   }, []);
 
+  const saveStatus: SaveStatus = resolveSaveStatus({
+    isDirty: v7Dirty,
+    isSaving: v7Saving,
+    hasError: v7SaveError !== null,
+  });
+
   return {
     open,
     deckV7,
+    deckOpenDiagnosticsV7,
+    deckOpenErrorV7,
+    saveStatus,
+    saveStatusLabel: SAVE_STATUS_LABEL[saveStatus],
+    saveErrorMessage: resolveSaveErrorMessage(v7SaveError),
+    hasUnsavedWork: v7Dirty || v7Saving || v7SaveError !== null,
     setDeckV7,
     handleDeckV7Change,
     handleSaveV7,
+    handleUndoV7,
+    handleRedoV7,
+    canUndoV7: undoStackV7.length > 0,
+    canRedoV7: redoStackV7.length > 0,
     handleOpen,
     handleClose,
     aiEnabled,

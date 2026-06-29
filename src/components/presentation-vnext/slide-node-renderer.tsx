@@ -526,6 +526,8 @@ export interface SlideNodeRendererProps {
   node: ResolvedRenderNode;
   /** Called when the node is clicked (editor usage). */
   onClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when pointer drag starts on the node (editor usage). */
+  onPointerDown?: (nodeId: string, event: React.PointerEvent) => void;
   /** When true, renders a selection ring around the node. */
   selected?: boolean;
   /**
@@ -548,6 +550,7 @@ export interface SlideNodeRendererProps {
 export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   node,
   onClick,
+  onPointerDown,
   selected = false,
   assetResolver,
   preview = false,
@@ -580,6 +583,10 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     onClick?.(node.id, e);
   }
 
+  function handlePointerDown(e: React.PointerEvent) {
+    onPointerDown?.(node.id, e);
+  }
+
   const inner = renderContent(content, style, assetResolver, preview);
 
   return (
@@ -589,6 +596,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       data-node-source={node.source}
       style={{ ...containerStyle, ...textCss }}
       onClick={onClick ? handleClick : undefined}
+      onPointerDown={onPointerDown ? handlePointerDown : undefined}
       aria-hidden={node.source === "themeDecoration" ? true : undefined}
     >
       {inner}

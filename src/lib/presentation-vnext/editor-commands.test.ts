@@ -6,13 +6,28 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   insertSlide,
+  insertBlankSlide,
+  duplicateSlide,
+  deleteSlide,
+  moveSlide,
   updateSlideControls,
+  updateSlideAttributes,
+  updateSlideLocalStyle,
+  resetSlideLocalStyle,
+  updateSlideSourceMetadata,
   setThemePackage,
+  insertNode,
+  pasteNodes,
   updateNodeLayout,
+  updateNodeSourceMetadata,
+  moveNodesBy,
+  deleteNodes,
+  duplicateNodes,
   updateLocalStyle,
   resetLocalStyleOverride,
   reorderZIndex,
   groupNodes,
+  ungroupNodes,
   updateAssetMetadata,
   applyTemplate,
   updateNodeContent,
@@ -82,6 +97,50 @@ describe("insertSlide", () => {
   });
 });
 
+describe("slide management", () => {
+  test("insertBlankSlide inserts an empty content slide", () => {
+    const deck = makeTestDeck();
+    const result = insertBlankSlide(deck, 1);
+
+    assert.equal(result.deck.slides.length, deck.slides.length + 1);
+    assert.equal(result.deck.slides[1].id, result.slideId);
+    assert.equal(result.deck.slides[1].template.kind, "content");
+  });
+
+  test("duplicateSlide clones a slide and its children with new ids", () => {
+    const deck = makeTestDeck();
+    const result = duplicateSlide(deck, deck.slides[0].id);
+
+    assert.equal(result.deck.slides.length, deck.slides.length + 1);
+    assert.notEqual(result.slideId, deck.slides[0].id);
+    assert.equal(
+      result.deck.slides[1].children.length,
+      deck.slides[0].children.length,
+    );
+    assert.notEqual(
+      result.deck.slides[1].children[0].id,
+      deck.slides[0].children[0].id,
+    );
+  });
+
+  test("deleteSlide keeps at least one slide", () => {
+    const deck = makeTestDeck();
+    const oneSlide = deleteSlide(deck, deck.slides[0].id).deck;
+    const stillOneSlide = deleteSlide(oneSlide, oneSlide.slides[0].id).deck;
+
+    assert.equal(stillOneSlide.slides.length, 1);
+  });
+
+  test("moveSlide reorders slides", () => {
+    const deck = makeTestDeck();
+    const secondId = deck.slides[1].id;
+    const result = moveSlide(deck, secondId, 0);
+
+    assert.equal(result.deck.slides[0].id, secondId);
+    assert.equal(result.index, 0);
+  });
+});
+
 describe("updateSlideControls", () => {
   test("updates controls on target slide", () => {
     const deck = makeTestDeck();
@@ -99,6 +158,49 @@ describe("updateSlideControls", () => {
     const slideId = deck.slides[0].id;
     const updated = updateSlideControls(deck, slideId, { tone: "confident" });
     assert.equal(updated.slides[1].controls, deck.slides[1].controls);
+  });
+});
+
+describe("slide metadata and local style", () => {
+  test("updates slide name and notes", () => {
+    const deck = makeTestDeck();
+    const slideId = deck.slides[0].id;
+    const updated = updateSlideAttributes(deck, slideId, {
+      name: "Updated slide",
+      notes: "Speaker notes",
+    });
+
+    assert.equal(updated.slides[0].name, "Updated slide");
+    assert.equal(updated.slides[0].notes, "Speaker notes");
+  });
+
+  test("updates and resets slide local style", () => {
+    const deck = makeTestDeck();
+    const slideId = deck.slides[0].id;
+    const withStyle = updateSlideLocalStyle(deck, slideId, {
+      slide: { background: { type: "solid", color: "#ffeeaa" } },
+    });
+    assert.equal(
+      withStyle.slides[0].localStyle?.slide?.background?.type,
+      "solid",
+    );
+
+    const reset = resetSlideLocalStyle(withStyle, slideId);
+    assert.equal(reset.slides[0].localStyle, undefined);
+  });
+
+  test("sets and clears slide source metadata", () => {
+    const deck = makeTestDeck();
+    const slideId = deck.slides[0].id;
+    const withSource = updateSlideSourceMetadata(deck, slideId, {
+      documentId: "doc-1",
+      blockId: "section-1",
+      blockKind: "text",
+    });
+    assert.equal(withSource.slides[0].source?.blockId, "section-1");
+
+    const cleared = updateSlideSourceMetadata(withSource, slideId, undefined);
+    assert.equal(cleared.slides[0].source, undefined);
   });
 });
 
@@ -132,6 +234,114 @@ describe("updateNodeLayout", () => {
     });
     const node = updated.slides[0].children.find((n) => n.id === nodeId);
     assert.ok(node?.layout?.frame.x === 20);
+  });
+});
+
+describe("insertNode and pasteNodes", () => {
+  test("insertNode appends a v7 node to the target slide", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const result = insertNode(deck, slide.id, {
+      id: "inserted-text",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 12, y: 12, w: 30, h: 12 }, zIndex: 50 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "p1", text: "Inserted" }] },
+    });
+
+    assert.equal(result.nodeId, "inserted-text");
+    assert.equal(result.deck.slides[0].children.at(-1)?.id, "inserted-text");
+  });
+
+  test("pasteNodes re-identifies pasted nodes and offsets their frames", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const source = slide.children[0];
+    const result = pasteNodes(deck, slide.id, [source]);
+    const pasted = result.deck.slides[0].children.find(
+      (node) => node.id === result.nodeIds[0],
+    );
+
+    assert.ok(pasted);
+    assert.notEqual(pasted.id, source.id);
+    assert.equal(pasted.layout?.frame.x, source.layout!.frame.x + 2);
+  });
+});
+
+describe("updateNodeSourceMetadata", () => {
+  test("sets and clears source metadata on a node", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const withSource = updateNodeSourceMetadata(deck, slide.id, nodeId, {
+      documentId: "doc-1",
+      blockId: "block-1",
+      blockKind: "text",
+    });
+    const sourcedNode = withSource.slides[0].children.find(
+      (node) => node.id === nodeId,
+    );
+    assert.equal(sourcedNode?.source?.blockId, "block-1");
+
+    const cleared = updateNodeSourceMetadata(
+      withSource,
+      slide.id,
+      nodeId,
+      undefined,
+    );
+    const clearedNode = cleared.slides[0].children.find(
+      (node) => node.id === nodeId,
+    );
+    assert.equal(clearedNode?.source, undefined);
+  });
+});
+
+describe("moveNodesBy", () => {
+  test("nudges selected nodes in percent space", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const original = slide.children[0].layout!.frame;
+    const updated = moveNodesBy(deck, slide.id, [nodeId], { x: 1, y: -1 });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.equal(node?.layout?.frame.x, original.x + 1);
+    assert.equal(node?.layout?.frame.y, original.y - 1);
+  });
+});
+
+describe("deleteNodes", () => {
+  test("removes selected nodes from a slide", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const updated = deleteNodes(deck, slide.id, [nodeId]);
+
+    assert.equal(
+      updated.slides[0].children.some((node) => node.id === nodeId),
+      false,
+    );
+  });
+});
+
+describe("duplicateNodes", () => {
+  test("duplicates selected top-level nodes with new ids and offset frames", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const node = slide.children[0];
+    const result = duplicateNodes(deck, slide.id, [node.id]);
+
+    assert.equal(
+      result.deck.slides[0].children.length,
+      slide.children.length + 1,
+    );
+    assert.equal(result.duplicatedIds.length, 1);
+    const duplicated = result.deck.slides[0].children.find(
+      (candidate) => candidate.id === result.duplicatedIds[0],
+    );
+    assert.ok(duplicated);
+    assert.equal(duplicated.layout?.frame.x, node.layout!.frame.x + 2);
   });
 });
 
@@ -241,6 +451,26 @@ describe("groupNodes", () => {
     );
     // No group should be created since no nodes matched
     assert.ok(!updated.slides[0].children.some((n) => n.id === "group-002"));
+  });
+});
+
+describe("ungroupNodes", () => {
+  test("replaces a group node with its children", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeIds = slide.children.map((node) => node.id);
+    const grouped = groupNodes(deck, slide.id, nodeIds, "group-ungroup", {
+      ref: "surface.card",
+    });
+    const result = ungroupNodes(grouped, slide.id, "group-ungroup");
+
+    assert.deepEqual(new Set(result.nodeIds), new Set(nodeIds));
+    assert.equal(
+      result.deck.slides[0].children.some(
+        (node) => node.id === "group-ungroup",
+      ),
+      false,
+    );
   });
 });
 

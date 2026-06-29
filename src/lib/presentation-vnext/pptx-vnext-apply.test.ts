@@ -16,6 +16,7 @@ import {
   applyVnextShapeOp,
   applyVnextTableOp,
   applyVnextConnectorOp,
+  resolveExportSpecAssetSources,
 } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type {
@@ -28,6 +29,7 @@ import type {
   TextContent,
   TableContent,
 } from "@/lib/presentation-vnext/schema";
+import { buildDeckV7, buildImageAsset } from "@/test/builders/deck-v7";
 
 // ---------------------------------------------------------------------------
 // Mock slide target
@@ -62,6 +64,50 @@ function makeMockSlide() {
   };
   return { slide, calls };
 }
+
+// ---------------------------------------------------------------------------
+// resolveExportSpecAssetSources
+// ---------------------------------------------------------------------------
+
+describe("resolveExportSpecAssetSources", () => {
+  test("replaces image operation asset ids with DeckV7 image src values", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {
+          "img-1": buildImageAsset("img-1", {
+            src: "https://example.com/image.png",
+          }),
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "image",
+              id: "image-1",
+              assetId: "img-1",
+              frame: { x: 0, y: 0, w: 100, h: 100 },
+              style: {},
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const op = resolved.slides[0].operations[0];
+    assert.equal(op.type, "image");
+    if (op.type === "image") {
+      assert.equal(op.assetId, "https://example.com/image.png");
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // textContentToPptxRuns

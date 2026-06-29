@@ -79,16 +79,20 @@ describe("openDeckFromJson — v7 pass-through", () => {
 // ---------------------------------------------------------------------------
 
 describe("openDeckFromJson — legacy schemas", () => {
-  test("rejects a v6 deck", () => {
+  test("migrates a v6 deck to valid DeckV7", () => {
     const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(!result.ok);
-    assert.match(result.error, /Expected schemaVersion 7/);
+    assert.ok(result.ok);
+    assert.equal(result.source, "legacy-v6");
+    assert.equal(result.deck.schemaVersion, 7);
+    assert.equal(result.deck.slides[0].children[0].type, "text");
+    assert.equal(result.diagnostics[0]?.message.includes("migrated"), true);
   });
 
   test("rejects a v6 deck with no slides", () => {
     const noSlides = { ...MINIMAL_V6, slides: [] };
     const result = openDeckFromJson(noSlides);
     assert.ok(!result.ok);
+    assert.equal(result.diagnostics[0]?.severity, "fatal");
   });
 });
 

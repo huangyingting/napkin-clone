@@ -306,8 +306,14 @@ function resolveSlide(
   // Background
   let slideFill = undefined;
   if (slide.style) {
-    const { style } = resolveNodeStyle(slide.style, deck.theme, pkg);
+    const { style, diagnostics } = resolveNodeStyle(
+      slide.style,
+      deck.theme,
+      pkg,
+      slide.localStyle,
+    );
     slideFill = style.slide?.background;
+    for (const d of diagnostics) dc.add(d);
   }
 
   const background: ResolvedSlideBackground = {
