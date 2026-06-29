@@ -190,7 +190,7 @@ function elementsMatchTemplate(
     case "section":
       return elements.some(isTitleText);
     case "content":
-      return elements.some((el) => el.kind === "text");
+      return elements.some((el) => el.kind === "text" || el.kind === "table");
     case "blank":
       return true;
     default:

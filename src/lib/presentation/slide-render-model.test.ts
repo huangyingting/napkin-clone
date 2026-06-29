@@ -33,6 +33,35 @@ function visualElement(id: string, zIndex: number): SlideElement {
   } as unknown as SlideElement;
 }
 
+function tableElement(id: string, zIndex: number): SlideElement {
+  return {
+    id,
+    kind: "table",
+    role: "table",
+    box: { x: 0, y: 0, w: 60, h: 40 },
+    zIndex,
+    content: {
+      kind: "table",
+      header: true,
+      caption: "Revenue assumptions",
+      columns: [
+        { id: "col-1", label: "Region" },
+        { id: "col-2", label: "ARR" },
+      ],
+      rows: [{ id: "row-1", cells: [{ text: "NA" }, { text: "$12M" }] }],
+    },
+    designOverrides: {
+      tableStyle: {
+        headerFill: { value: "#123456" },
+        alternateRowFill: { token: "surface" },
+        borderColor: "#abcdef",
+        textStyle: { color: "#111111", fontSize: 2.4 },
+        headerTextStyle: { color: "#eeeeee", bold: true },
+      },
+    },
+  } as unknown as SlideElement;
+}
+
 function masterTextElement(
   id: string,
   masterChromeKind: "footer" | "watermark",
@@ -173,5 +202,28 @@ test("resolveSlideRenderModel applies visual style overrides", () => {
   assert.equal(model.elementDesigns["visual-el"]?.kind, "visual");
   if (model.elementDesigns["visual-el"]?.kind === "visual") {
     assert.equal(model.elementDesigns["visual-el"].styleThemeId, "ocean");
+  }
+});
+
+test("resolveSlideRenderModel resolves table defaults and overrides", () => {
+  const d = deck();
+  d.slides[0] = {
+    ...d.slides[0]!,
+    elements: [tableElement("table-el", 0)],
+  };
+
+  const model = resolveSlideRenderModel(d, d.slides[0]!);
+
+  assert.equal(model.elementDesigns["table-el"]?.kind, "table");
+  if (model.elementDesigns["table-el"]?.kind === "table") {
+    const { tableStyle } = model.elementDesigns["table-el"];
+    assert.equal(tableStyle.headerFill, "#123456");
+    assert.equal(tableStyle.rowFill, "#eef2ff");
+    assert.equal(tableStyle.alternateRowFill, "#eef2ff");
+    assert.equal(tableStyle.borderColor, "#abcdef");
+    assert.equal(tableStyle.textStyle.color, "#111111");
+    assert.equal(tableStyle.textStyle.fontSize, 2.4);
+    assert.equal(tableStyle.headerTextStyle.color, "#eeeeee");
+    assert.equal(tableStyle.headerTextStyle.weight, 700);
   }
 });

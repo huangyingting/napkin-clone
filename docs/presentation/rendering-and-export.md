@@ -61,6 +61,7 @@ Supported element rendering:
 | `image`     | Renders data URL, remote URL, or asset-resolved URL; empty image treatment depends on `editable`.   |
 | `shape`     | Renders rect/ellipse/line/triangle with stroke, radius, label, shadow, opacity, and rotation.       |
 | `connector` | Resolves free/bound endpoints and renders straight/elbow connector geometry.                        |
+| `table`     | Renders a clipped grid with optional header, caption, alternating rows, borders, and cell runs.     |
 
 Renderers do not synthesize elements from flat slide fields. A stored slide must
 already carry current `elements[]`.
@@ -103,6 +104,14 @@ Deck + Visual map
 slide render model order as `SlideCanvas`, converts percentage element boxes
 into physical slide units, and emits operations such as text, bullets, shape,
 image, connector, native visual, and visual image retry.
+
+Table export is deliberately compiled into deterministic shape and text
+operations for the first version. Each table cell emits a shape fill/border op
+and a text op; headers use the resolved header fill/text style, body rows use
+resolved row/alternate fills, and captions emit as text below the grid inside
+the table element box. Cell `runs` are passed through the same rich-text export
+path used by text elements. Native PPTX table output is a future optimization,
+not the current fidelity path.
 
 `exportDeckAsPPTX` applies those descriptors with PptxGenJS. Visual elements use
 `visualToNativeSpecs` when native PPTX output is available. Otherwise the applier

@@ -1,5 +1,5 @@
 import type { Deck, Slide, SlideMaster } from "./deck-core";
-import type { SlideElement } from "./deck-elements";
+import type { SlideElement, TableElementStyle } from "./deck-elements";
 import type { ImageFitMode, ImageMaskShape } from "./deck-element-primitives";
 import type {
   BackgroundTreatment,
@@ -9,6 +9,7 @@ import { slideFormatConfig, type SlideFormat } from "./slide-format";
 import {
   resolveShapeLabelStyle,
   resolveTextElementStyle,
+  resolveRoleTextStyle,
   type ResolvedTextStyle,
 } from "./style-cascade-text";
 import {
@@ -61,8 +62,23 @@ export type ResolvedElementDesign =
       arrowStart: string;
       arrowEnd: string;
       dash: boolean;
+    }
+  | {
+      kind: "table";
+      role?: string;
+      tableStyle: ResolvedTableStyle;
     };
 /* node:coverage enable */
+
+export interface ResolvedTableStyle {
+  headerFill: string;
+  rowFill: string;
+  alternateRowFill: string;
+  borderColor: string;
+  borderWidth: number;
+  textStyle: ResolvedTextStyle;
+  headerTextStyle: ResolvedTextStyle;
+}
 
 export interface ResolvedSlideRenderModel {
   canvas: ResolvedSlideCanvas;
@@ -94,6 +110,29 @@ function colorRefValue(
   /* node:coverage ignore next 2 */
   /* Invalid color-ref fallback is defensive; public model tests assert valid token/value resolution. */
   return undefined;
+}
+
+function resolveTableStyle(
+  tokenSet: PresentationTheme,
+  overrides?: TableElementStyle,
+): ResolvedTableStyle {
+  return {
+    headerFill:
+      colorRefValue(overrides?.headerFill, tokenSet) ?? tokenSet.colors.accent,
+    rowFill:
+      colorRefValue(overrides?.rowFill, tokenSet) ?? tokenSet.colors.surface,
+    alternateRowFill:
+      colorRefValue(overrides?.alternateRowFill, tokenSet) ??
+      tokenSet.colors.slideBg,
+    borderColor: overrides?.borderColor ?? tokenSet.colors.muted,
+    borderWidth: overrides?.borderWidth ?? 0.14,
+    textStyle: resolveRoleTextStyle(tokenSet, "table", overrides?.textStyle),
+    headerTextStyle: resolveRoleTextStyle(tokenSet, "table", {
+      bold: true,
+      color: tokenSet.colors.onAccent,
+      ...overrides?.headerTextStyle,
+    }),
+  };
 }
 
 /* node:coverage ignore next 3 */
@@ -185,6 +224,12 @@ function resolveElementDesign(
             tokenSet.connector.dash !== "solid"),
       };
     }
+    case "table":
+      return {
+        kind: "table",
+        ...(role ? { role } : {}),
+        tableStyle: resolveTableStyle(tokenSet, design?.tableStyle),
+      };
   }
 }
 

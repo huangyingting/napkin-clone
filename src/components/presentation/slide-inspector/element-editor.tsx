@@ -47,6 +47,8 @@ export function ElementEditor({
       );
     case "visual":
       return null;
+    case "table":
+      return null;
     case "connector":
       return (
         <ConnectorElementEditor

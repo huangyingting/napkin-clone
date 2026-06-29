@@ -8,6 +8,10 @@ import type {
   ElementBox,
   ShapeKind,
   SlideElement,
+  TableCell,
+  TableColumn,
+  TableElementStyle,
+  TableRow,
   TextElementStyle,
   TextFitMode,
   TextRun,
@@ -54,6 +58,7 @@ const PRESENTATION_ROLES = [
   "media",
   "visual",
   "image",
+  "table",
   "logo",
   "pageNumber",
   "background",
@@ -65,6 +70,7 @@ const COLOR_REF_TOKENS = [
   "accent",
   "onBg",
   "onSurface",
+  "onAccent",
   "muted",
 ] as const;
 
@@ -117,7 +123,13 @@ const ELEMENT_CONTENT_KEYS: Record<string, readonly string[]> = {
   image: ["kind", "src", "assetId", "alt", "crop"],
   shape: ["kind", "shape", "text", "textRuns"],
   connector: ["kind", "start", "end", "routing"],
+  table: ["kind", "columns", "rows", "header", "caption"],
 };
+
+const TABLE_COLUMN_MIN = 1;
+const TABLE_COLUMN_MAX = 8;
+const TABLE_ROW_MIN = 1;
+const TABLE_ROW_MAX = 20;
 
 function validatePresentationRole(input: unknown, context: string): string {
   if (
@@ -232,6 +244,12 @@ function validateDesignOverrides(
       `${context}.textStyle`,
     );
   }
+  if (input.tableStyle !== undefined) {
+    out.tableStyle = validateTableElementStyle(
+      input.tableStyle,
+      `${context}.tableStyle`,
+    );
+  }
   if (input.fill !== undefined) {
     out.fill = validateColorRef(input.fill, `${context}.fill`);
   }
@@ -288,6 +306,58 @@ function validateDesignOverrides(
   /* node:coverage enable */
   if (input.dash !== undefined) out.dash = Boolean(input.dash);
   /* node:coverage ignore next 3 -- Design-override return is asserted; tsx maps wrapper close rows as residual. */
+  return out;
+}
+
+function validateTableElementStyle(
+  input: unknown,
+  context: string,
+): TableElementStyle {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const out: TableElementStyle = {};
+  if (input.headerFill !== undefined) {
+    out.headerFill = validateColorRef(
+      input.headerFill,
+      `${context}.headerFill`,
+    );
+  }
+  if (input.rowFill !== undefined) {
+    out.rowFill = validateColorRef(input.rowFill, `${context}.rowFill`);
+  }
+  if (input.alternateRowFill !== undefined) {
+    out.alternateRowFill = validateColorRef(
+      input.alternateRowFill,
+      `${context}.alternateRowFill`,
+    );
+  }
+  if (input.borderColor !== undefined) {
+    if (!isHexColor(input.borderColor)) {
+      throw new DeckValidationError(
+        `${context}.borderColor must be a hex color`,
+      );
+    }
+    out.borderColor = input.borderColor;
+  }
+  if (input.borderWidth !== undefined) {
+    out.borderWidth = Math.max(
+      0,
+      validateFiniteNumber(input.borderWidth, `${context}.borderWidth`),
+    );
+  }
+  if (input.textStyle !== undefined) {
+    out.textStyle = validatePartialTextStyle(
+      input.textStyle,
+      `${context}.textStyle`,
+    );
+  }
+  if (input.headerTextStyle !== undefined) {
+    out.headerTextStyle = validatePartialTextStyle(
+      input.headerTextStyle,
+      `${context}.headerTextStyle`,
+    );
+  }
   return out;
 }
 
@@ -553,10 +623,12 @@ function validateBaseElementFields(
   /* Invalid element kind rejection is asserted in schema tests; tsx maps wrapped throw rows as residual. */
   if (
     typeof input.kind !== "string" ||
-    !["text", "visual", "image", "shape", "connector"].includes(input.kind)
+    !["text", "visual", "image", "shape", "connector", "table"].includes(
+      input.kind,
+    )
   ) {
     throw new DeckValidationError(
-      `${context}.kind must be one of: text, visual, image, shape, connector`,
+      `${context}.kind must be one of: text, visual, image, shape, connector, table`,
     );
   }
   rejectUnknownKeys(input, allowedKeys, context); /* node:coverage disable */
@@ -622,6 +694,88 @@ function validateBaseElementFields(
       : {}),
   };
   /* node:coverage enable */
+}
+
+function validateTableColumn(input: unknown, context: string): TableColumn {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  rejectUnknownKeys(input, ["id", "label", "width"], context);
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (typeof input.label !== "string") {
+    throw new DeckValidationError(`${context}.label must be a string`);
+  }
+  return {
+    id: input.id,
+    label: input.label,
+    ...(input.width !== undefined
+      ? {
+          width: Math.max(
+            0,
+            validateFiniteNumber(input.width, `${context}.width`),
+          ),
+        }
+      : {}),
+  };
+}
+
+function validateTableCell(input: unknown, context: string): TableCell {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  rejectUnknownKeys(input, ["text", "runs"], context);
+  if (typeof input.text !== "string") {
+    throw new DeckValidationError(`${context}.text must be a string`);
+  }
+  return {
+    text: input.text,
+    ...(input.runs !== undefined
+      ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
+      : {}),
+  };
+}
+
+function validateTableRow(
+  input: unknown,
+  context: string,
+  columnCount: number,
+): TableRow {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  rejectUnknownKeys(input, ["id", "cells"], context);
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (!Array.isArray(input.cells)) {
+    throw new DeckValidationError(`${context}.cells must be an array`);
+  }
+  if (input.cells.length !== columnCount) {
+    throw new DeckValidationError(
+      `${context}.cells must contain exactly ${columnCount} cells`,
+    );
+  }
+  return {
+    id: input.id,
+    cells: input.cells.map((cell, index) =>
+      validateTableCell(cell, `${context}.cells[${index}]`),
+    ),
+  };
+}
+
+function assertUniqueIds(
+  entries: readonly { id: string }[],
+  context: string,
+): void {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (seen.has(entry.id)) {
+      throw new DeckValidationError(`${context} ids must be unique`);
+    }
+    seen.add(entry.id);
+  }
 }
 
 /* node:coverage disable */
@@ -782,9 +936,55 @@ function validateElementContent(
           : {}),
       };
     }
+    case "table": {
+      if (!Array.isArray(input.columns)) {
+        throw new DeckValidationError(`${context}.columns must be an array`);
+      }
+      if (
+        input.columns.length < TABLE_COLUMN_MIN ||
+        input.columns.length > TABLE_COLUMN_MAX
+      ) {
+        throw new DeckValidationError(
+          `${context}.columns must contain ${TABLE_COLUMN_MIN}-${TABLE_COLUMN_MAX} columns`,
+        );
+      }
+      if (!Array.isArray(input.rows)) {
+        throw new DeckValidationError(`${context}.rows must be an array`);
+      }
+      if (
+        input.rows.length < TABLE_ROW_MIN ||
+        input.rows.length > TABLE_ROW_MAX
+      ) {
+        throw new DeckValidationError(
+          `${context}.rows must contain ${TABLE_ROW_MIN}-${TABLE_ROW_MAX} rows`,
+        );
+      }
+      if (input.caption !== undefined && typeof input.caption !== "string") {
+        throw new DeckValidationError(`${context}.caption must be a string`);
+      }
+      const columns = input.columns.map((column, index) =>
+        validateTableColumn(column, `${context}.columns[${index}]`),
+      );
+      assertUniqueIds(columns, `${context}.columns`);
+      const rows = input.rows.map((row, index) =>
+        validateTableRow(row, `${context}.rows[${index}]`, columns.length),
+      );
+      assertUniqueIds(rows, `${context}.rows`);
+      return {
+        kind,
+        columns,
+        rows,
+        ...(input.header !== undefined
+          ? { header: Boolean(input.header) }
+          : {}),
+        ...(typeof input.caption === "string" && input.caption.length > 0
+          ? { caption: input.caption }
+          : {}),
+      };
+    }
     default:
       throw new DeckValidationError(
-        `${context}.kind must be one of: text, visual, image, shape, connector`,
+        `${context}.kind must be one of: text, visual, image, shape, connector, table`,
       );
   }
 }

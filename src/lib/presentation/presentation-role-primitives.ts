@@ -13,6 +13,7 @@ export const PRESENTATION_ROLES = [
   "media",
   "visual",
   "image",
+  "table",
   "logo",
   "pageNumber",
   "background",

@@ -21,6 +21,7 @@ export type RightPanelTab =
   | "shape"
   | "image"
   | "visual"
+  | "table"
   | "line"
   | "effects"
   | "source"
@@ -35,6 +36,7 @@ export const PANEL_LABELS: Record<RightPanelTab, string> = {
   shape: "Shape",
   image: "Image",
   visual: "Visual",
+  table: "Table",
   line: "Line",
   effects: "Effects",
   source: "Visual",
@@ -53,6 +55,7 @@ const PANEL_ORDER: readonly RightPanelTab[] = [
   "shape",
   "image",
   "visual",
+  "table",
   "line",
   "arrange",
   "effects",
@@ -112,6 +115,7 @@ export type ToolbarSelectionKind =
   | "line"
   | "image"
   | "visual"
+  | "table"
   | "connector";
 
 /**
@@ -161,6 +165,8 @@ export function toToolbarSelectionKind(
       return "image";
     case "visual":
       return "visual";
+    case "table":
+      return "table";
     case "connector":
       return "connector";
     case "shape":
@@ -227,6 +233,9 @@ export function availablePanels(
     }
     if (context.kind === "visual") {
       set.add("visual");
+    }
+    if (context.kind === "table") {
+      set.add("table");
     }
     if (context.kind === "line" || context.kind === "connector") {
       set.add("line");

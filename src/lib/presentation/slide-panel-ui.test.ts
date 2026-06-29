@@ -99,6 +99,7 @@ test("toToolbarSelectionKind maps element kind + shape subtype", () => {
   assert.equal(toToolbarSelectionKind("text"), "text");
   assert.equal(toToolbarSelectionKind("image"), "image");
   assert.equal(toToolbarSelectionKind("visual"), "visual");
+  assert.equal(toToolbarSelectionKind("table"), "table");
   assert.equal(toToolbarSelectionKind("connector"), "connector");
   assert.equal(toToolbarSelectionKind("shape", "rect"), "shape");
   assert.equal(toToolbarSelectionKind("shape", "line"), "line");
@@ -180,6 +181,13 @@ test("availablePanels: visual exposes Visual", () => {
   assert.deepEqual(
     availablePanels({ kind: "visual", hasSourceRef: false, selectedCount: 1 }),
     ["visual", "arrange", "effects", "layers"],
+  );
+});
+
+test("availablePanels: table exposes Table", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "table", hasSourceRef: false, selectedCount: 1 }),
+    ["table", "arrange", "effects", "layers"],
   );
 });
 

@@ -89,6 +89,34 @@ function slideVisualIds(slide: Slide): string[] {
     .filter((visualId): visualId is string => typeof visualId === "string");
 }
 
+function slideTableSignatures(slide: Slide): string[] {
+  return (slide.elements ?? [])
+    .filter((element) => element.kind === "table")
+    .map((element) => {
+      const columns = element.content.columns
+        .map((column) => column.label.trim())
+        .join("\u0001");
+      const rows = element.content.rows
+        .map((row) =>
+          row.cells
+            .map((cell) =>
+              JSON.stringify({
+                text: cell.text.trim(),
+                runs: cell.runs ?? [],
+              }),
+            )
+            .join("\u0001"),
+        )
+        .join("\u0002");
+      return [
+        element.content.header ? "header" : "body",
+        element.content.caption?.trim() ?? "",
+        columns,
+        rows,
+      ].join("\u0001");
+    });
+}
+
 /**
  * A content fingerprint capturing v6 slide metadata and authoritative
  * `elements[]`. Used only to decide `changed` vs `unchanged` for an
@@ -102,6 +130,7 @@ function contentSignature(slide: Slide): string {
       .map((bullet) => bullet.trim())
       .join("\u0001")}`,
     `v:${slideVisualIds(slide).sort().join("\u0001")}`,
+    `tb:${slideTableSignatures(slide).join("\u0001")}`,
     `n:${(slide.notes ?? "").trim()}`,
   ];
 
@@ -124,6 +153,10 @@ function contentSignature(slide: Slide): string {
       >;
       parts.push(
         `es:${content.shape}:${design.fill?.value ?? ""}:${content.text?.trim() ?? ""}`,
+      );
+    } else if (element.kind === "table") {
+      parts.push(
+        `etb:${slideTableSignatures({ ...slide, elements: [element] }).join("\u0001")}`,
       );
     }
   }

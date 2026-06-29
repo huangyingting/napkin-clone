@@ -7,13 +7,14 @@ These documents describe the runtime presentation layer: the slide editor UI,
 stage interactions, present mode, and export pipeline. They sit between the
 persisted deck contract and the React components that render/edit slides.
 
-| Document                                                   | Scope                                                                                    |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [assets.md](assets.md)                                     | Slide image upload, storage, protected serving, deck references, and cleanup.            |
-| [theme-packages.md](theme-packages.md)                     | Theme package catalog, apply behavior, template identity, and master boundaries.         |
-| [slide-editor.md](slide-editor.md)                         | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.  |
-| [slide-stage-interactions.md](slide-stage-interactions.md) | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior. |
-| [rendering-and-export.md](rendering-and-export.md)         | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics. |
+| Document                                                                   | Scope                                                                                    |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [assets.md](assets.md)                                                     | Slide image upload, storage, protected serving, deck references, and cleanup.            |
+| [theme-packages.md](theme-packages.md)                                     | Theme package catalog, apply behavior, template identity, and master boundaries.         |
+| [package-template-generation-plan.md](package-template-generation-plan.md) | Planned package-template AI deck generation, semantic templates, and table element work. |
+| [slide-editor.md](slide-editor.md)                                         | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.  |
+| [slide-stage-interactions.md](slide-stage-interactions.md)                 | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior. |
+| [rendering-and-export.md](rendering-and-export.md)                         | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics. |
 
 ## Related Contracts
 

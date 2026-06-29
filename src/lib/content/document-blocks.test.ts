@@ -63,6 +63,20 @@ function hr() {
   return { type: "horizontalrule" };
 }
 
+function table(rows: string[][]) {
+  return {
+    type: "table",
+    bid: "table-1",
+    children: rows.map((row) => ({
+      type: "tablerow",
+      children: row.map((cell) => ({
+        type: "tablecell",
+        children: [paragraph(cell)],
+      })),
+    })),
+  };
+}
+
 function state(children: unknown[]): string {
   return JSON.stringify({ root: { type: "root", children } });
 }
@@ -217,6 +231,36 @@ test("text+visual mixed document: blocks maintain exact reading order", () => {
   assert.equal(blocks[7].kind, "visual");
   if (blocks[4].kind === "visual") assert.equal(blocks[4].visualId, "vis-1");
   if (blocks[7].kind === "visual") assert.equal(blocks[7].visualId, "vis-2");
+});
+
+test("collects structured table-like nodes as text blocks with table metadata", () => {
+  const blocks = collectDocumentBlocks(
+    state([
+      paragraph("Before"),
+      table([
+        ["Region", "ARR"],
+        ["NA", "$12M"],
+        ["EU", "$8M"],
+      ]),
+      paragraph("After"),
+    ]),
+  );
+
+  assert.equal(blocks.length, 3);
+  const block = blocks[1];
+  assert.equal(block.kind, "text");
+  if (block.kind === "text") {
+    assert.equal(block.blockType, "paragraph");
+    assert.equal(block.blockId, "table-1");
+    assert.equal(block.text, "Region\tARR\nNA\t$12M\nEU\t$8M");
+    assert.deepEqual(block.table, {
+      columns: ["Region", "ARR"],
+      rows: [
+        ["NA", "$12M"],
+        ["EU", "$8M"],
+      ],
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

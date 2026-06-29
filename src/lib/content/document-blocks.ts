@@ -85,6 +85,8 @@ export type DocumentTextBlock = {
    * equals the concatenation of run `text` values and remains the fallback.
    */
   runs?: TextRun[];
+  /** Optional structured table payload when a table-like source node exists. */
+  table?: DocumentTableData;
   /**
    * Stable identifier for this block within its source document, used to
    * anchor `sourceRef` links on inserted slide elements. Populated from the
@@ -92,6 +94,11 @@ export type DocumentTextBlock = {
    */
   blockId?: string;
 };
+
+export interface DocumentTableData {
+  columns: string[];
+  rows: string[][];
+}
 
 /* node:coverage ignore next 5 -- Type-only visual block contract is erased; tests cover runtime visual collection. */
 export type DocumentVisualBlock = {
@@ -244,6 +251,53 @@ function nodeBlockId(node: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+function collectTableRows(node: Record<string, unknown>): string[][] {
+  if (!Array.isArray(node.children)) return [];
+  const rows: string[][] = [];
+  for (const rowNode of node.children as unknown[]) {
+    if (!isRecord(rowNode)) continue;
+    if (rowNode.type !== "tablerow" && rowNode.type !== "table-row") continue;
+    const cells: string[] = [];
+    if (Array.isArray(rowNode.children)) {
+      for (const cellNode of rowNode.children as unknown[]) {
+        if (!isRecord(cellNode)) continue;
+        if (
+          cellNode.type !== "tablecell" &&
+          cellNode.type !== "table-cell" &&
+          cellNode.type !== "tableheader" &&
+          cellNode.type !== "table-header"
+        ) {
+          continue;
+        }
+        cells.push(blockText(cellNode).trim());
+      }
+    }
+    if (cells.length > 0) rows.push(cells);
+  }
+  return rows;
+}
+
+function tableDataFromNode(
+  node: Record<string, unknown>,
+): { table: DocumentTableData; text: string } | null {
+  const rows = collectTableRows(node);
+  if (rows.length === 0) return null;
+  const width = Math.max(...rows.map((row) => row.length));
+  if (width === 0) return null;
+  const normalizedRows = rows.map((row) =>
+    Array.from({ length: width }, (_value, index) => row[index] ?? ""),
+  );
+  const [columns, ...bodyRows] = normalizedRows;
+  const table = {
+    columns: columns ?? [],
+    rows: bodyRows.length > 0 ? bodyRows : normalizedRows,
+  };
+  return {
+    table,
+    text: normalizedRows.map((row) => row.join("\t")).join("\n"),
+  };
+}
+
 function walkBlocks(node: unknown, out: DocumentBlock[]): void {
   if (!isRecord(node)) return;
 
@@ -259,6 +313,21 @@ function walkBlocks(node: unknown, out: DocumentBlock[]): void {
         kind: "visual",
         visualId: node.visualId,
         visual: node.visual as unknown as Visual,
+      });
+    }
+    return;
+  }
+
+  if (type === "table") {
+    const tablePayload = tableDataFromNode(node);
+    if (tablePayload) {
+      const blockId = nodeBlockId(node);
+      out.push({
+        kind: "text",
+        blockType: "paragraph",
+        text: tablePayload.text,
+        table: tablePayload.table,
+        ...(blockId ? { blockId } : {}),
       });
     }
     return;

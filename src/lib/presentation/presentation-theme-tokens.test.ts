@@ -276,6 +276,7 @@ describe("semantic text roles (#603)", () => {
       "media",
       "visual",
       "image",
+      "table",
       "logo",
       "pageNumber",
       "background",

@@ -66,6 +66,7 @@ export function selectElementTypeLabel(element: SlideElement): string {
   if (element.kind === "shape") return "Shape";
   if (element.kind === "visual") return "Visual";
   if (element.kind === "connector") return "Connector";
+  if (element.kind === "table") return "Table";
   return assertNever(element);
 }
 
@@ -97,7 +98,10 @@ export function selectSelectionSummary(state: {
   const element = selectedSlide.elements.find(
     (candidate) => candidate.id === effectiveSelectedElementId,
   );
-  return element ? `${selectElementTypeLabel(element)} selected` : "No element selected"; }
+  return element
+    ? `${selectElementTypeLabel(element)} selected`
+    : "No element selected";
+}
 // ── Background preview ─────────────────────────────────────────────────────
 
 /**

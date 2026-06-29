@@ -413,6 +413,15 @@ function hitTestElement(
         reason: "box-interior",
       };
     }
+    case "table": {
+      if (!pointInElementBox(point, element, box, stageAspect)) {
+        return null;
+      }
+      return {
+        score: withBonuses(SCORE.boxInterior, element, selectedElementIds),
+        reason: "box-interior",
+      };
+    }
   }
 }
 

@@ -13,7 +13,8 @@ import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { PresentationRole } from "@/lib/presentation/presentation-theme";
 
-export type AddElementKind = PresentationRole | "image" | "shape";
+export type TextAddElementRole = Exclude<PresentationRole, "table">;
+export type AddElementKind = TextAddElementRole | "image" | "shape" | "table";
 
 export interface SlideInspectorProps {
   slide: Slide;

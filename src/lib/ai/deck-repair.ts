@@ -5,6 +5,11 @@ import {
   type ElementAlign,
   type ElementBox,
   type SlideElement,
+  type TableElement,
+  type TableElementStyle,
+  type TableCell,
+  type TableColumn,
+  type TableRow,
   type TextElementStyle,
 } from "@/lib/presentation/deck";
 import {
@@ -28,6 +33,11 @@ const SLIDE_TEMPLATE_IDS = [
 type SlideTemplateId = (typeof SLIDE_TEMPLATE_IDS)[number];
 const DEFAULT_TEMPLATE: SlideTemplateId = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
+const GENERATED_TABLE_MIN_COLUMNS = 2;
+const GENERATED_TABLE_MAX_COLUMNS = 4;
+const GENERATED_TABLE_MIN_ROWS = 2;
+const GENERATED_TABLE_MAX_ROWS = 6;
+const GENERATED_TABLE_CELL_MAX_CHARS = 80;
 const GENERATED_PRESENTATION_ROLES = [
   "title",
   "sectionTitle",
@@ -100,6 +110,216 @@ export function repairTextStyle(input: unknown): TextElementStyle {
     italic: Boolean(style.italic),
     align,
     ...(isHexColor(style.color) ? { color: style.color } : {}),
+  };
+}
+
+function textFromUnknown(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (isPlainObject(value) && typeof value.text === "string") return value.text;
+  return "";
+}
+
+function tableColumnLabel(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (isPlainObject(value) && typeof value.label === "string")
+    return value.label;
+  return "";
+}
+
+function repairTableStyle(input: unknown): TableElementStyle | undefined {
+  if (!isPlainObject(input)) return undefined;
+  const style: TableElementStyle = {};
+  for (const key of ["headerFill", "rowFill", "alternateRowFill"] as const) {
+    const ref = input[key];
+    if (
+      isPlainObject(ref) &&
+      typeof ref.value === "string" &&
+      isHexColor(ref.value)
+    ) {
+      style[key] = { value: ref.value };
+    } else if (isPlainObject(ref) && typeof ref.token === "string") {
+      style[key] = { token: ref.token };
+    }
+  }
+  if (isHexColor(input.borderColor)) style.borderColor = input.borderColor;
+  if (isFiniteNumber(input.borderWidth)) {
+    style.borderWidth = Math.max(0, input.borderWidth);
+  }
+  if (isPlainObject(input.textStyle))
+    style.textStyle = repairTextStyle(input.textStyle);
+  if (isPlainObject(input.headerTextStyle)) {
+    style.headerTextStyle = repairTextStyle(input.headerTextStyle);
+  }
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function truncateCellText(
+  text: string,
+  overflow: string[],
+  context: string,
+): string {
+  if (text.length <= GENERATED_TABLE_CELL_MAX_CHARS) return text;
+  overflow.push(`${context}: ${text}`);
+  return `${text.slice(0, GENERATED_TABLE_CELL_MAX_CHARS - 1)}…`;
+}
+
+function bulletsFromInvalidTable(
+  base: { id: string; box: ElementBox; zIndex: number },
+  caption: string | undefined,
+  rows: string[][],
+): SlideElement | undefined {
+  const items = rows
+    .map((row) =>
+      row
+        .filter((cell) => cell.trim().length > 0)
+        .join(" — ")
+        .trim(),
+    )
+    .filter((row) => row.length > 0);
+  if (items.length === 0) return undefined;
+  const text = items.join("\n");
+  return {
+    ...base,
+    kind: "text",
+    role: "bullet",
+    content: {
+      kind: "text",
+      text: caption ? `${caption}\n${text}` : text,
+      paragraphs: [
+        ...(caption ? [{ text: caption }] : []),
+        ...items.map((item) => ({ text: item, listType: "bullet" as const })),
+      ],
+    },
+    designOverrides: { textStyle: repairTextStyle({ fontSize: 3.8 }) },
+  } as unknown as SlideElement;
+}
+
+function repairTableElement(
+  base: { id: string; box: ElementBox; zIndex: number },
+  content: Record<string, unknown>,
+  designOverrides: Record<string, unknown>,
+): { element?: SlideElement; overflowNotes: string[] } {
+  const overflowNotes: string[] = [];
+  const caption =
+    typeof content.caption === "string" ? content.caption : undefined;
+  const rawColumns = Array.isArray(content.columns) ? content.columns : [];
+  const columns = rawColumns.map(tableColumnLabel);
+  const rawRows = Array.isArray(content.rows) ? content.rows : [];
+  const rows = rawRows
+    .map((row) => {
+      if (Array.isArray(row)) return row.map(textFromUnknown);
+      if (isPlainObject(row) && Array.isArray(row.cells)) {
+        return row.cells.map(textFromUnknown);
+      }
+      return [];
+    })
+    .filter((row) => row.some((cell) => cell.trim().length > 0));
+
+  if (
+    columns.length < GENERATED_TABLE_MIN_COLUMNS ||
+    rows.length < GENERATED_TABLE_MIN_ROWS
+  ) {
+    return {
+      element: bulletsFromInvalidTable(base, caption, rows),
+      overflowNotes,
+    };
+  }
+
+  const keptColumns = columns.slice(0, GENERATED_TABLE_MAX_COLUMNS);
+  if (columns.length > GENERATED_TABLE_MAX_COLUMNS) {
+    overflowNotes.push(
+      `Table omitted columns: ${columns.slice(GENERATED_TABLE_MAX_COLUMNS).join(", ")}`,
+    );
+  }
+  const keptRows = rows.slice(0, GENERATED_TABLE_MAX_ROWS);
+  if (rows.length > GENERATED_TABLE_MAX_ROWS) {
+    overflowNotes.push(
+      `Table omitted rows: ${rows
+        .slice(GENERATED_TABLE_MAX_ROWS)
+        .map((row) => row.join(" | "))
+        .join("; ")}`,
+    );
+  }
+
+  const tableColumns: TableColumn[] = keptColumns.map((label, index) => ({
+    id: `col-${index + 1}`,
+    label,
+  }));
+  const tableRows: TableRow[] = keptRows.map((row, rowIndex) => ({
+    id: `row-${rowIndex + 1}`,
+    cells: tableColumns.map((column, columnIndex): TableCell => {
+      const text = row[columnIndex] ?? "";
+      if (row.length > tableColumns.length) {
+        const overflow = row.slice(tableColumns.length).join(" | ");
+        if (overflow) {
+          overflowNotes.push(
+            `Table row ${rowIndex + 1} omitted cells: ${overflow}`,
+          );
+        }
+      }
+      return {
+        text: truncateCellText(
+          text,
+          overflowNotes,
+          `Table row ${rowIndex + 1}, column ${column.label || columnIndex + 1}`,
+        ),
+      };
+    }),
+  }));
+
+  const tableStyle = repairTableStyle(designOverrides.tableStyle);
+  return {
+    element: {
+      ...base,
+      kind: "table",
+      role: "table",
+      content: {
+        kind: "table",
+        columns: tableColumns,
+        rows: tableRows,
+        ...(content.header !== undefined
+          ? { header: Boolean(content.header) }
+          : {}),
+        ...(caption && caption.length > 0 ? { caption } : {}),
+      },
+      ...(tableStyle
+        ? { designOverrides: { ...designOverrides, tableStyle } }
+        : {}),
+    } as unknown as TableElement,
+    overflowNotes,
+  };
+}
+
+function repairElementWithOverflow(
+  input: unknown,
+  zIndex: number,
+  usedIds: ReadonlySet<string> = new Set<string>(),
+): { element?: SlideElement; overflowNotes: string[] } {
+  if (!isPlainObject(input)) {
+    return { overflowNotes: [] };
+  }
+
+  let id =
+    typeof input.id === "string" && input.id.length > 0
+      ? input.id
+      : fallbackElementId(zIndex, usedIds);
+  if (usedIds.has(id)) {
+    id = fallbackElementId(zIndex, usedIds);
+  }
+
+  const base = { id, box: repairBox(input.box), zIndex };
+  const content = isPlainObject(input.content) ? input.content : {};
+  const designOverrides = isPlainObject(input.designOverrides)
+    ? input.designOverrides
+    : {};
+
+  if (input.kind === "table") {
+    return repairTableElement(base, content, designOverrides);
+  }
+
+  return {
+    element: repairElement(input, zIndex, usedIds),
+    overflowNotes: [],
   };
 }
 
@@ -187,6 +407,8 @@ export function repairElement(
         },
       } as unknown as SlideElement;
     }
+    case "table":
+      return repairTableElement(base, content, designOverrides).element;
     default:
       return undefined;
   }
@@ -227,14 +449,22 @@ export function repairSlide(input: unknown, index: number): RepairedSlide {
   if (Array.isArray(slide.elements)) {
     const usedIds = new Set<string>();
     const elements: SlideElement[] = [];
+    const overflowNotes: string[] = [];
     for (const raw of slide.elements) {
-      const element = repairElement(raw, elements.length, usedIds);
+      const { element, overflowNotes: elementOverflowNotes } =
+        repairElementWithOverflow(raw, elements.length, usedIds);
       if (element) {
         usedIds.add(element.id);
         elements.push(element);
       }
+      overflowNotes.push(...elementOverflowNotes);
     }
     normalized.elements = elements;
+    if (overflowNotes.length > 0) {
+      normalized.notes = [normalized.notes, "Table overflow:", ...overflowNotes]
+        .filter((part) => part.length > 0)
+        .join("\n");
+    }
   }
 
   return normalized;

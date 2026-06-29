@@ -88,6 +88,27 @@ function visualElement(id: string, visualId: string): SlideElement {
   } as unknown as SlideElement;
 }
 
+function tableElement(value: string, borderColor = "#d4d4d8"): SlideElement {
+  return {
+    id: "table",
+    kind: "table",
+    role: "table",
+    zIndex: 3,
+    box: { x: 5, y: 24, w: 90, h: 50 },
+    content: {
+      kind: "table",
+      header: true,
+      caption: "Revenue assumptions",
+      columns: [
+        { id: "col-1", label: "Region" },
+        { id: "col-2", label: "ARR" },
+      ],
+      rows: [{ id: "row-1", cells: [{ text: "NA" }, { text: value }] }],
+    },
+    designOverrides: { tableStyle: { borderColor } },
+  } as unknown as SlideElement;
+}
+
 test("identical decks → no changes", () => {
   const baseline = deck([
     slide({ title: "Intro", bodyTexts: ["a", "b"] }),
@@ -253,4 +274,19 @@ test("entries carry proposed/baseline indices for added and removed", () => {
 test("single-slide summary uses singular noun", () => {
   const diff = diffDecks(deck([]), deck([slide({ title: "Only" })]));
   assert.equal(diff.summary, "1 slide — 1 new");
+});
+
+test("diff detects table semantic content but ignores table presentation style", () => {
+  const baseline = deck([
+    slide({ title: "Table", elements: [tableElement("$12M")] }),
+  ]);
+  const styled = deck([
+    slide({ title: "Table", elements: [tableElement("$12M", "#ff0000")] }),
+  ]);
+  const changed = deck([
+    slide({ title: "Table", elements: [tableElement("$14M")] }),
+  ]);
+
+  assert.equal(diffDecks(baseline, styled).changed, 0);
+  assert.equal(diffDecks(baseline, changed).changed, 1);
 });

@@ -62,6 +62,34 @@ function visualElement(visualId: string, zIndex: number) {
   };
 }
 
+function tableElement(caption: string, value: string) {
+  return {
+    id: `el-table-${value}`,
+    kind: "table",
+    role: "table",
+    box: { x: 0, y: 0, w: 50, h: 30 },
+    zIndex: 5,
+    content: {
+      kind: "table",
+      header: true,
+      caption,
+      columns: [
+        { id: "col-1", label: "Region" },
+        { id: "col-2", label: "ARR" },
+      ],
+      rows: [
+        {
+          id: "row-1",
+          cells: [
+            { text: "NA", runs: [{ text: "NA", bold: true }] },
+            { text: value },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 function slide(partial: Record<string, any>): Slide {
   const title = partial.title ?? "";
   const bodyTexts = (partial.bodyTexts ?? []) as string[];
@@ -188,6 +216,29 @@ test("content hash changes with presentation theme", () => {
   const a = deck([slide({ title: "Intro" })], "default");
   const b = deck([slide({ title: "Intro" })], "ocean");
   assert.notEqual(computeDeckContentHash(a), computeDeckContentHash(b));
+});
+
+test("content hash changes with table semantic content", () => {
+  const a = deck([
+    slide({ title: "Table", elements: [tableElement("Revenue", "$12M")] }),
+  ]);
+  const b = deck([
+    slide({ title: "Table", elements: [tableElement("Revenue", "$14M")] }),
+  ]);
+  const styled = deck([
+    slide({
+      title: "Table",
+      elements: [
+        {
+          ...tableElement("Revenue", "$12M"),
+          designOverrides: { tableStyle: { borderColor: "#ff0000" } },
+        },
+      ],
+    }),
+  ]);
+
+  assert.notEqual(computeDeckContentHash(a), computeDeckContentHash(b));
+  assert.equal(computeDeckContentHash(a), computeDeckContentHash(styled));
 });
 
 test("deckContentSignature is stable and order-sensitive", () => {

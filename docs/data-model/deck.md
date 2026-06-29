@@ -113,6 +113,7 @@ Supported element kinds are defined in `src/lib/presentation/deck.ts`:
 - `image`
 - `shape`
 - `connector`
+- `table`
 
 Each element has stable identity, geometry, z-order, optional presentation
 `role`, optional element-level `source`, kind-specific `content`, and local
@@ -122,6 +123,36 @@ Each element has stable identity, geometry, z-order, optional presentation
 paragraphs omit `listType`; bulleted and numbered paragraphs set `listType` and
 optional `indent`. `content.text` is the compact text string, and `content.runs`
 / paragraph `runs` carry inline rich text.
+
+`TableElement` is a first-class v6 element. It uses `kind: "table"` and optional
+`role: "table"`. The persisted content shape is:
+
+```ts
+type TableElementContent = {
+  kind: "table";
+  columns: Array<{ id: string; label: string; width?: number }>;
+  rows: Array<{ id: string; cells: Array<{ text: string; runs?: TextRun[] }> }>;
+  header?: boolean;
+  caption?: string;
+};
+```
+
+Persisted tables accept 1-8 columns and 1-20 rows. Column ids and row ids must
+be unique and stable; editing a label or cell text must not regenerate them.
+Every row must carry exactly one cell per column. Schema validation rejects
+mismatched cell counts instead of normalizing persisted data. AI generation,
+import, and paste boundaries may repair incoming tables before they reach
+`safeParseDeck`.
+
+Table styling lives in `designOverrides.tableStyle` and is table-level only:
+`headerFill`, `rowFill`, `alternateRowFill`, `borderColor`, `borderWidth`,
+`textStyle`, and `headerTextStyle`. Individual cells do not carry style blocks;
+cell `runs` preserve existing inline `TextRun` formatting where available.
+
+The editor treats tables as whole elements on the canvas: selection, drag,
+resize, z-order/layer visibility, and duplicate/delete work like other element
+kinds. Cell content, row/column add/remove, header flag, caption, and table
+style edits live in the table inspector panel.
 
 Templates are blueprints. Applying or creating from a template materializes real
 typed elements with `content`; `Slide.templateId` is provenance only. Template
@@ -242,6 +273,11 @@ refs when no document id is available.
 AI output may be sparse while it is still model output. Before it can be saved or
 shown as a deck, `normalizeGeneratedDeck` assigns the current theme/layout and
 current elements. Final output must pass `safeParseDeck`.
+
+Generated table elements are repaired with stricter slide-friendly limits than
+the persisted schema: 2-4 columns, 2-6 rows, and bounded cell text. Overflow is
+appended to the current slide notes. Empty or underspecified generated tables
+are rejected or downgraded to bullets before validation.
 
 Generated decks materialize authored v6 elements and pass `safeParseDeck`
 before they are returned.

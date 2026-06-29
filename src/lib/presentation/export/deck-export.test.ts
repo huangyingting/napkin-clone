@@ -23,6 +23,7 @@ import type {
   ShapeElement,
   Slide,
   SlideElement,
+  TableElement,
   TextElement,
   VisualElement,
 } from "@/lib/presentation/deck";
@@ -164,6 +165,45 @@ function connectorEl(
     end: { x: 80, y: 70 },
     ...overrides,
   });
+}
+
+function tableEl(id: string): TableElement {
+  return {
+    id,
+    kind: "table",
+    role: "table",
+    zIndex: 6,
+    box: { x: 10, y: 20, w: 70, h: 40 },
+    content: {
+      kind: "table",
+      header: true,
+      caption: "Revenue assumptions",
+      columns: [
+        { id: "col-1", label: "Region" },
+        { id: "col-2", label: "ARR" },
+      ],
+      rows: [
+        {
+          id: "row-1",
+          cells: [
+            { text: "NA", runs: [{ text: "NA", bold: true }] },
+            { text: "$12M" },
+          ],
+        },
+      ],
+    },
+    designOverrides: {
+      tableStyle: {
+        headerFill: { value: "#123456" },
+        rowFill: { value: "#f8fafc" },
+        alternateRowFill: { value: "#eef2ff" },
+        borderColor: "#abcdef",
+        borderWidth: 0.2,
+        textStyle: { fontSize: 2.2, color: "#111111", align: "left" },
+        headerTextStyle: { fontSize: 2.2, color: "#ffffff", bold: true },
+      },
+    },
+  } as unknown as TableElement;
 }
 
 function freeFormSlide(
@@ -719,7 +759,7 @@ test("connector op with bound endpoints resolves to element anchor positions", (
   assert.ok(Math.abs(op.y2 - 3.375) < 0.01, "y2 resolves to anchor midpoint");
 });
 
-test("all six element kinds (including connector) each emit at least one op", () => {
+test("all seven element kinds (including connector and table) each emit at least one op", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
     design: { themeId: "indigo" },
@@ -731,6 +771,7 @@ test("all six element kinds (including connector) each emit at least one op", ()
         fixtureShapeElement("sh"),
         imageEl("im"),
         connectorEl("cn"),
+        tableEl("tbl"),
       ]),
     ],
   };
@@ -746,6 +787,31 @@ test("all six element kinds (including connector) each emit at least one op", ()
   assert.ok(ofKind(spec.ops, "shape").length >= 1, "shape op emitted");
   assert.ok(ofKind(spec.ops, "image").length >= 1, "image op emitted");
   assert.ok(ofKind(spec.ops, "connector").length >= 1, "connector op emitted");
+  assert.ok(
+    ofKind(spec.ops, "text").some((op) => op.text === "Revenue assumptions"),
+    "table caption text op emitted",
+  );
+  assert.ok(
+    ofKind(spec.ops, "shape").some((op) => op.color === "123456"),
+    "table header shape op emitted",
+  );
+});
+
+test("table export compiles to shape and text ops with rich cell runs", () => {
+  const deck: Deck = {
+    design: { themeId: "indigo" },
+    slides: [freeFormSlide(0, [tableEl("tbl")])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const shapes = ofKind(spec.ops, "shape");
+  const texts = ofKind(spec.ops, "text");
+
+  assert.ok(shapes.some((op) => op.color === "123456"));
+  assert.ok(shapes.some((op) => op.stroke?.color === "ABCDEF"));
+  assert.ok(texts.some((op) => op.text === "Region" && op.bold));
+  const richCell = texts.find((op) => op.text === "NA");
+  assert.ok(richCell?.runs?.[0]?.bold);
+  assert.ok(texts.some((op) => op.text === "Revenue assumptions"));
 });
 
 test("slide image export writes SVG slides with rich free-form content", async () => {

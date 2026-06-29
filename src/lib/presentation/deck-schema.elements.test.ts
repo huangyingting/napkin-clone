@@ -127,13 +127,57 @@ test("safeParseDeck round-trips every element kind", () => {
         end: { x: 4, y: 5 },
       },
     },
+    {
+      id: "tbl",
+      kind: "table",
+      role: "table",
+      zIndex: 6,
+      box: { x: 10, y: 20, w: 60, h: 30 },
+      content: {
+        kind: "table",
+        header: true,
+        caption: "Revenue assumptions",
+        columns: [
+          { id: "col-1", label: "Region", width: 1 },
+          { id: "col-2", label: "ARR", width: 1.5 },
+        ],
+        rows: [
+          {
+            id: "row-1",
+            cells: [
+              { text: "NA", runs: [{ text: "NA", bold: true }] },
+              { text: "$12M" },
+            ],
+          },
+        ],
+      },
+      designOverrides: {
+        tableStyle: {
+          headerFill: { token: "accent" },
+          rowFill: { token: "surface" },
+          alternateRowFill: { value: "#f4f4f5" },
+          borderColor: "#d4d4d8",
+          borderWidth: 0.2,
+          textStyle: { fontSize: 2.2, align: "left" },
+          headerTextStyle: { bold: true, color: "#ffffff" },
+        },
+      },
+    },
   ]);
 
   const result = safeParseDeck(input);
   assert.equal(result.success, true);
   if (result.success) {
     const slide = result.data.slides[0];
-    assert.equal(slide.elements?.length, 6);
+    assert.equal(slide.elements?.length, 7);
+    const table = slide.elements?.find((element) => element.kind === "table");
+    assert.ok(table);
+    assert.equal(table.role, "table");
+    assert.equal(table.content.caption, "Revenue assumptions");
+    assert.equal(table.content.rows[0].cells[0].runs?.[0]?.bold, true);
+    assert.deepEqual((table as any).designOverrides.tableStyle.headerFill, {
+      token: "accent",
+    });
     assert.deepEqual((slide as any).designOverrides.background, {
       type: "solid",
       color: { value: "#101010" },
@@ -218,6 +262,73 @@ test("safeParseDeck rejects an unknown element kind", () => {
     ]),
   );
   assert.equal(result.success, false);
+});
+
+test("safeParseDeck rejects table rows with mismatched cell counts", () => {
+  const result = safeParseDeck(
+    elementDeck([
+      {
+        id: "tbl",
+        kind: "table",
+        zIndex: 0,
+        box: { x: 0, y: 0, w: 40, h: 30 },
+        content: {
+          kind: "table",
+          columns: [
+            { id: "col-1", label: "A" },
+            { id: "col-2", label: "B" },
+          ],
+          rows: [{ id: "row-1", cells: [{ text: "one" }] }],
+        },
+      },
+    ]),
+  );
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.match(result.error, /cells must contain exactly 2 cells/);
+  }
+});
+
+test("safeParseDeck rejects duplicate table column and row ids", () => {
+  const duplicateColumns = safeParseDeck(
+    elementDeck([
+      {
+        id: "tbl",
+        kind: "table",
+        zIndex: 0,
+        box: { x: 0, y: 0, w: 40, h: 30 },
+        content: {
+          kind: "table",
+          columns: [
+            { id: "col-1", label: "A" },
+            { id: "col-1", label: "B" },
+          ],
+          rows: [{ id: "row-1", cells: [{ text: "one" }, { text: "two" }] }],
+        },
+      },
+    ]),
+  );
+  assert.equal(duplicateColumns.success, false);
+
+  const duplicateRows = safeParseDeck(
+    elementDeck([
+      {
+        id: "tbl",
+        kind: "table",
+        zIndex: 0,
+        box: { x: 0, y: 0, w: 40, h: 30 },
+        content: {
+          kind: "table",
+          columns: [{ id: "col-1", label: "A" }],
+          rows: [
+            { id: "row-1", cells: [{ text: "one" }] },
+            { id: "row-1", cells: [{ text: "two" }] },
+          ],
+        },
+      },
+    ]),
+  );
+  assert.equal(duplicateRows.success, false);
 });
 
 test("validateElement rejects a placeholder element", () => {

@@ -501,6 +501,8 @@ export function fitElementBoxToContent(
       return element.box;
     case "connector":
       return element.box;
+    case "table":
+      return element.box;
     default:
       return assertNever(element);
   }

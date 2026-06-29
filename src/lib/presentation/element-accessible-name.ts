@@ -16,6 +16,7 @@ function elementContent(element: SlideElement): Record<string, any> {
  * - image          → `alt` when set, otherwise "Image"
  * - visual         → `alt` when set, otherwise "Visual"
  * - shape          → "Shape: <kind>"
+ * - table          → caption, column-label summary, or "Table"
  * - connector      → "Connector from <start> to <end>" when `allElements` is
  *                    provided and endpoints are bound; "Connector" otherwise.
  * - fallback       → "Element"
@@ -45,6 +46,24 @@ export function elementAccessibleName(
       const text = content.text?.trim();
       if (text) return text.length > 60 ? `${text.slice(0, 60)}…` : text;
       return `Shape: ${content.shape}`;
+    }
+    case "table": {
+      const content = element.content;
+      const caption = content.caption?.trim();
+      if (caption) {
+        const label = `Table: ${caption}`;
+        return label.length > 60 ? `${label.slice(0, 60)}…` : label;
+      }
+      const columns = content.columns
+        .map((column) => column.label.trim())
+        .filter((label) => label.length > 0)
+        .slice(0, 3)
+        .join(", ");
+      if (columns) {
+        const label = `Table: ${columns}`;
+        return label.length > 60 ? `${label.slice(0, 60)}…` : label;
+      }
+      return "Table";
     }
     case "connector": {
       if (!allElements) return "Connector";
@@ -87,6 +106,12 @@ function connectorTargetLabel(element: SlideElement): string {
       return elementContent(element).alt?.trim() || "visual";
     case "shape":
       return elementContent(element).shape;
+    case "table": {
+      const caption = element.content.caption?.trim();
+      if (caption)
+        return caption.length > 20 ? `${caption.slice(0, 20)}…` : caption;
+      return "table";
+    }
     default:
       return "element";
   }

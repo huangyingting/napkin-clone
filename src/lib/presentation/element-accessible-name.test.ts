@@ -59,6 +59,29 @@ function fixtureShape(shape: "rect" | "ellipse" | "line" | "triangle") {
   } as unknown as SlideElement;
 }
 
+function tableEl(caption?: string, labels = ["Region", "ARR"]): SlideElement {
+  return {
+    ...BASE,
+    kind: "table",
+    role: "table",
+    content: {
+      kind: "table",
+      header: true,
+      ...(caption !== undefined ? { caption } : {}),
+      columns: labels.map((label, index) => ({
+        id: `col-${index + 1}`,
+        label,
+      })),
+      rows: [
+        {
+          id: "row-1",
+          cells: labels.map((label) => ({ text: `${label} value` })),
+        },
+      ],
+    },
+  } as unknown as SlideElement;
+}
+
 // ---------------------------------------------------------------------------
 // Text element
 // ---------------------------------------------------------------------------
@@ -169,6 +192,25 @@ test("shape element prefers label text and truncates long labels", () => {
   const name = elementAccessibleName(element);
   assert.ok(name.endsWith("…"));
   assert.equal(name.length, 61);
+});
+
+// ---------------------------------------------------------------------------
+// Table element
+// ---------------------------------------------------------------------------
+
+test("table element accessible name prefers caption", () => {
+  assert.equal(
+    elementAccessibleName(tableEl("Revenue assumptions")),
+    "Table: Revenue assumptions",
+  );
+});
+
+test("table element accessible name falls back to column labels", () => {
+  assert.equal(elementAccessibleName(tableEl(undefined)), "Table: Region, ARR");
+});
+
+test("table element accessible name falls back to Table", () => {
+  assert.equal(elementAccessibleName(tableEl(undefined, ["", ""])), "Table");
 });
 
 // ---------------------------------------------------------------------------

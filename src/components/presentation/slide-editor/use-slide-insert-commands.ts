@@ -6,6 +6,7 @@ import type { Deck, ShapeKind, SlideElement } from "@/lib/presentation/deck";
 import { buildVisualElement, makeElementId } from "@/lib/presentation/deck";
 import { type DistributiveOmit } from "@/lib/presentation/deck-mutations";
 import type { AddElementKind } from "@/components/presentation/slide-inspector";
+import type { TextAddElementRole } from "@/components/presentation/slide-inspector/types";
 import {
   commitCommand,
   type DeckPatch,
@@ -31,7 +32,6 @@ import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { Visual } from "@/lib/visual/schema";
 import type { DocumentTextBlock } from "@/lib/content";
 import type { ElementBox } from "@/lib/presentation/deck";
-import type { PresentationRole } from "@/lib/presentation/presentation-theme";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import { appendPendingPatches } from "./use-slide-editor-commit";
@@ -41,7 +41,7 @@ type DoCommitAndChange = (
   cmd: Parameters<typeof commitCommand>[1],
 ) => void;
 
-function presentationRoleLabel(role: PresentationRole): string {
+function presentationRoleLabel(role: TextAddElementRole): string {
   switch (role) {
     case "title":
       return "Title";
@@ -76,7 +76,7 @@ function presentationRoleLabel(role: PresentationRole): string {
   }
 }
 
-function presentationRoleFontSize(role: PresentationRole): number {
+function presentationRoleFontSize(role: TextAddElementRole): number {
   switch (role) {
     case "title":
       return SLIDE_TEXT_FONT_SIZE.h1;
@@ -100,7 +100,7 @@ function presentationRoleFontSize(role: PresentationRole): number {
   }
 }
 
-function defaultTextBox(role: PresentationRole): ElementBox {
+function defaultTextBox(role: TextAddElementRole): ElementBox {
   switch (role) {
     case "title":
       return { x: 10, y: 18, w: 80, h: 14 };
@@ -130,7 +130,7 @@ function defaultTextBox(role: PresentationRole): ElementBox {
 }
 
 function buildDefaultTextElement(
-  role: PresentationRole,
+  role: TextAddElementRole,
   id: string,
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
   const label = presentationRoleLabel(role);
@@ -169,6 +169,35 @@ function buildDefaultElement(
   shapeKind: ShapeKind = "rect",
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
   switch (kind) {
+    case "table":
+      return {
+        id,
+        kind: "table",
+        role: "table",
+        box: { x: 14, y: 24, w: 72, h: 46 },
+        content: {
+          kind: "table",
+          header: true,
+          caption: "Table caption",
+          columns: [
+            { id: "col-1", label: "Column 1" },
+            { id: "col-2", label: "Column 2" },
+          ],
+          rows: [
+            { id: "row-1", cells: [{ text: "" }, { text: "" }] },
+            { id: "row-2", cells: [{ text: "" }, { text: "" }] },
+          ],
+        },
+        designOverrides: {
+          tableStyle: {
+            headerFill: { value: accent },
+            borderColor: accent,
+            borderWidth: 0.14,
+          },
+        },
+      } as unknown as DistributiveOmit<SlideElement, "id" | "zIndex"> & {
+        id: string;
+      };
     case "image":
       return {
         id,

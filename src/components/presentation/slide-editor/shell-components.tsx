@@ -40,6 +40,7 @@ import {
   Spline,
   Square,
   Tag,
+  Table2,
   Text as TextIcon,
   Type,
   Trash2,
@@ -110,6 +111,7 @@ import type { Insertable } from "@/lib/presentation/document-insertable";
 import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import type { AddElementKind } from "@/components/presentation/slide-inspector/types";
+import type { TextAddElementRole } from "@/components/presentation/slide-inspector/types";
 import {
   isSelectionToolbarVisible,
   shouldShowRichToolbarControls,
@@ -140,6 +142,7 @@ const PANEL_MENU_ICONS: Record<RightPanelTab, ReactNode> = {
   shape: <Square size={14} aria-hidden="true" />,
   image: <ImageIcon size={14} aria-hidden="true" />,
   visual: <FileText size={14} aria-hidden="true" />,
+  table: <Table2 size={14} aria-hidden="true" />,
   line: <Minus size={14} aria-hidden="true" />,
   effects: <Sparkles size={14} aria-hidden="true" />,
   source: <FileText size={14} aria-hidden="true" />,
@@ -637,10 +640,15 @@ const TEXT_ROLE_LABELS: Record<PresentationRole, string> = {
   media: "Media",
   visual: "Visual",
   image: "Image",
+  table: "Table",
   logo: "Logo",
   pageNumber: "Page number",
   background: "Background",
 };
+
+const TEXT_INSERT_ROLES = PRESENTATION_ROLES.filter(
+  (role): role is TextAddElementRole => role !== "table",
+);
 
 const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
   [
@@ -650,7 +658,7 @@ const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
     { kind: "triangle", label: "Triangle" },
   ];
 
-function presentationRoleIcon(role: PresentationRole): ReactNode {
+function presentationRoleIcon(role: TextAddElementRole): ReactNode {
   switch (role) {
     case "title":
       return <Heading1 size={16} aria-hidden="true" />;
@@ -2051,7 +2059,7 @@ export function SlideToolbar({
       </button>
     </Tooltip>
   );
-  const textItems = PRESENTATION_ROLES.map((role) => ({
+  const textItems = TEXT_INSERT_ROLES.map((role) => ({
     key: role,
     label: TEXT_ROLE_LABELS[role],
     icon: presentationRoleIcon(role),
@@ -2070,6 +2078,12 @@ export function SlideToolbar({
       icon: <Sparkles size={16} aria-hidden="true" />,
       onClick: () => setAddVisualOpen(true),
       keepOpen: true,
+    },
+    {
+      key: "table",
+      label: "Table",
+      icon: <Table2 size={16} aria-hidden="true" />,
+      onClick: () => onAddElement("table"),
     },
     {
       key: "connector",

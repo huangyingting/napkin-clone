@@ -22,6 +22,7 @@ import type {
   ImageMaskShape,
   ShapeKind,
   SlideElement,
+  TableElement,
   TextElementStyle,
   TextFitMode,
   TextRun,
@@ -118,6 +119,200 @@ function exportTextRuns(
       ? { fontSize: slideHeightPctToPoints(run.fontSize, slideHeightPt) }
       : {}),
   }));
+}
+
+function tableTextOp({
+  box,
+  text,
+  runs,
+  color,
+  fontSize,
+  fontFamily,
+  bold,
+  italic,
+  underline,
+  align,
+  geometry,
+}: {
+  box: InchBox;
+  text: string;
+  runs?: TextRun[];
+  color: string;
+  fontSize: number;
+  fontFamily?: string;
+  bold: boolean;
+  italic: boolean;
+  underline?: boolean;
+  align: ElementAlign;
+  geometry: DeckGeometry;
+}): DeckTextOp {
+  const fontFace = slideFontExportFace(fontFamily, text);
+  return {
+    kind: "text",
+    ...box,
+    text,
+    ...(runs && runs.length > 0
+      ? { runs: exportTextRuns(runs, geometry.slideHPt) }
+      : {}),
+    color: toHex(color),
+    fontSize: slideHeightPctToPoints(fontSize, geometry.slideHPt),
+    ...(fontFace ? { fontFace } : {}),
+    bold,
+    italic,
+    ...(underline ? { underline: true } : {}),
+    align,
+    verticalAlign: "middle",
+    fitMode: "shrink-to-fit",
+  };
+}
+
+function buildTableOps(
+  element: TableElement,
+  box: InchBox,
+  renderModel: ReturnType<typeof resolveSlideRenderModel>,
+  geometry: DeckGeometry,
+): DeckOp[] {
+  const design = renderModel.elementDesigns[element.id];
+  const tableStyle = design?.kind === "table" ? design.tableStyle : undefined;
+  const headerFill = tableStyle?.headerFill ?? renderModel.accent;
+  const rowFill = tableStyle?.rowFill ?? renderModel.tokenSet.colors.surface;
+  const alternateRowFill =
+    tableStyle?.alternateRowFill ?? renderModel.tokenSet.colors.slideBg;
+  const borderColor =
+    tableStyle?.borderColor ?? renderModel.tokenSet.colors.muted;
+  const borderWidthPt = Math.max(
+    0.25,
+    ((tableStyle?.borderWidth ?? 0.14) / 100) *
+      Math.min(geometry.slideW, geometry.slideH) *
+      72,
+  );
+  const bodyText = tableStyle?.textStyle;
+  const headerText = tableStyle?.headerTextStyle;
+  const bodyFontSize = bodyText?.fontSize ?? 2.2;
+  const headerFontSize = headerText?.fontSize ?? bodyFontSize;
+  const captionH = element.content.caption ? Math.min(box.h * 0.16, 0.34) : 0;
+  const tableH = Math.max(0.1, box.h - captionH);
+  const rowCount =
+    element.content.rows.length + (element.content.header ? 1 : 0);
+  const rowH = tableH / Math.max(1, rowCount);
+  const totalColumnWidth = element.content.columns.reduce(
+    (sum, column) => sum + (column.width ?? 1),
+    0,
+  );
+  const columnWidths = element.content.columns.map(
+    (column) => ((column.width ?? 1) / totalColumnWidth) * box.w,
+  );
+  const ops: DeckOp[] = [];
+
+  function cellBox(rowIndex: number, columnIndex: number): InchBox {
+    const x =
+      box.x +
+      columnWidths.slice(0, columnIndex).reduce((sum, width) => sum + width, 0);
+    return {
+      x,
+      y: box.y + rowIndex * rowH,
+      w: columnWidths[columnIndex] ?? 0,
+      h: rowH,
+      ...(box.rotation !== undefined ? { rotation: box.rotation } : {}),
+      ...(box.opacity !== undefined ? { opacity: box.opacity } : {}),
+    };
+  }
+
+  function insetTextBox(input: InchBox): InchBox {
+    const padX = Math.min(0.08, input.w * 0.12);
+    const padY = Math.min(0.04, input.h * 0.2);
+    return {
+      x: input.x + padX,
+      y: input.y + padY,
+      w: Math.max(0.01, input.w - padX * 2),
+      h: Math.max(0.01, input.h - padY * 2),
+      ...(input.rotation !== undefined ? { rotation: input.rotation } : {}),
+      ...(input.opacity !== undefined ? { opacity: input.opacity } : {}),
+    };
+  }
+
+  let rowOffset = 0;
+  if (element.content.header) {
+    element.content.columns.forEach((column, columnIndex) => {
+      const cell = cellBox(0, columnIndex);
+      ops.push({
+        kind: "shape",
+        ...cell,
+        shape: "rect",
+        color: toHex(headerFill),
+        stroke: { color: toHex(borderColor), width: borderWidthPt },
+      });
+      ops.push(
+        tableTextOp({
+          box: insetTextBox(cell),
+          text: column.label,
+          color: headerText?.color ?? renderModel.tokenSet.colors.onAccent,
+          fontSize: headerFontSize,
+          fontFamily: headerText?.fontFamily ?? bodyText?.fontFamily,
+          bold: headerText ? headerText.weight >= 600 : true,
+          italic: headerText?.italic ?? false,
+          underline: headerText?.underline,
+          align: headerText?.align ?? bodyText?.align ?? "left",
+          geometry,
+        }),
+      );
+    });
+    rowOffset = 1;
+  }
+
+  element.content.rows.forEach((row, rowIndex) => {
+    row.cells.forEach((cellContent, columnIndex) => {
+      const cell = cellBox(rowIndex + rowOffset, columnIndex);
+      ops.push({
+        kind: "shape",
+        ...cell,
+        shape: "rect",
+        color: toHex(rowIndex % 2 === 1 ? alternateRowFill : rowFill),
+        stroke: { color: toHex(borderColor), width: borderWidthPt },
+      });
+      ops.push(
+        tableTextOp({
+          box: insetTextBox(cell),
+          text: cellContent.text,
+          runs: cellContent.runs,
+          color: bodyText?.color ?? renderModel.tokenSet.colors.onSurface,
+          fontSize: bodyFontSize,
+          fontFamily: bodyText?.fontFamily,
+          bold: bodyText ? bodyText.weight >= 600 : false,
+          italic: bodyText?.italic ?? false,
+          underline: bodyText?.underline,
+          align: bodyText?.align ?? "left",
+          geometry,
+        }),
+      );
+    });
+  });
+
+  if (element.content.caption && captionH > 0) {
+    ops.push(
+      tableTextOp({
+        box: {
+          x: box.x,
+          y: box.y + tableH,
+          w: box.w,
+          h: captionH,
+          ...(box.rotation !== undefined ? { rotation: box.rotation } : {}),
+          ...(box.opacity !== undefined ? { opacity: box.opacity } : {}),
+        },
+        text: element.content.caption,
+        color: bodyText?.color ?? renderModel.tokenSet.colors.muted,
+        fontSize: Math.max(0.8, bodyFontSize * 0.8),
+        fontFamily: bodyText?.fontFamily,
+        bold: false,
+        italic: bodyText?.italic ?? false,
+        underline: bodyText?.underline,
+        align: bodyText?.align ?? "left",
+        geometry,
+      }),
+    );
+  }
+
+  return ops;
 }
 
 // ---------------------------------------------------------------------------
@@ -643,6 +838,10 @@ function buildSlideSpec(
             ? { opacity: element.opacity }
             : {}),
         });
+        break;
+      }
+      case "table": {
+        ops.push(...buildTableOps(element, box, renderModel, geometry));
         break;
       }
       default:

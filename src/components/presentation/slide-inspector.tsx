@@ -24,6 +24,7 @@ import {
   Minus,
   NotebookPen,
   Shapes,
+  Table2,
   Type,
   X,
 } from "lucide-react";
@@ -56,6 +57,7 @@ import { ElementEditor } from "@/components/presentation/slide-inspector/element
 import { ImagePanel } from "@/components/presentation/slide-inspector/image-panel";
 import { MultiSelectTools } from "@/components/presentation/slide-inspector/multi-select-tools";
 import { ShapePanel } from "@/components/presentation/slide-inspector/shape-panel";
+import { TablePanel } from "@/components/presentation/slide-inspector/table-panel";
 import { TextPanel } from "@/components/presentation/slide-inspector/text-panel";
 import { VisualPanel } from "@/components/presentation/slide-inspector/visual-panel";
 import { SlidePanelBody } from "@/components/presentation/slide-inspector/slide-panel";
@@ -97,6 +99,8 @@ function elementLabel(element: SlideElement): string {
       return `Shape · ${shapeContent(element).shape}`;
     case "connector":
       return "Connector";
+    case "table":
+      return "Table";
     default:
       return assertNever(element);
   }
@@ -119,6 +123,8 @@ function MasterChromeIcon({ element }: { element: SlideElement }) {
       );
     case "connector":
       return <Link2 size={12} className={className} aria-hidden="true" />;
+    case "table":
+      return <Table2 size={12} className={className} aria-hidden="true" />;
     default:
       return assertNever(element);
   }
@@ -529,6 +535,15 @@ export function SlideInspector({
             onUpdateElement={onUpdateElement}
             documentId={documentId}
             slideAssetPort={slideAssetPort}
+          />
+        ) : null}
+
+        {activeTab === "table" && selectedElement?.kind === "table" ? (
+          <TablePanel
+            element={selectedElement}
+            deck={deck}
+            slide={slide}
+            onUpdateElement={onUpdateElement}
           />
         ) : null}
 

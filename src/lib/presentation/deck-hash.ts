@@ -69,11 +69,47 @@ function slideContentSignature(slide: Slide): string {
     })
     .filter((visualId) => visualId.length > 0);
   /* node:coverage enable */
+  const tableRefs = elements
+    .filter((element) => element.kind === "table")
+    .map((element) => {
+      const content = element.content as
+        | {
+            columns?: Array<{ label?: string }>;
+            rows?: Array<{
+              cells?: Array<{ text?: string; runs?: unknown[] }>;
+            }>;
+            header?: boolean;
+            caption?: string;
+          }
+        | undefined;
+      const columns = (content?.columns ?? [])
+        .map((column) => column.label?.trim() ?? "")
+        .join("\u0001");
+      const rows = (content?.rows ?? [])
+        .map((row) =>
+          (row.cells ?? [])
+            .map((cell) =>
+              JSON.stringify({
+                text: cell.text?.trim() ?? "",
+                runs: cell.runs ?? [],
+              }),
+            )
+            .join("\u0001"),
+        )
+        .join("\u0002");
+      return [
+        content?.header ? "header" : "body",
+        content?.caption?.trim() ?? "",
+        columns,
+        rows,
+      ].join("\u0001");
+    });
   const parts = [
     `t:${slide.title.trim()}`,
     `template:${(slide as any).templateId ?? "blank"}`,
     `b:${bullets.map((bullet) => bullet.trim()).join("\u0001")}`,
     `v:${visualRefs.join("\u0001")}`,
+    `tb:${tableRefs.join("\u0001")}`,
     `n:${(slide.notes ?? "").trim()}`,
   ];
   return parts.join("\u0002");

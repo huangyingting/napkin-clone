@@ -173,6 +173,40 @@ export interface ConnectorElementContent {
   routing?: ConnectorRouting;
 }
 
+export interface TableElementContent {
+  kind: "table";
+  columns: TableColumn[];
+  rows: TableRow[];
+  header?: boolean;
+  caption?: string;
+}
+
+export interface TableColumn {
+  id: string;
+  label: string;
+  width?: number;
+}
+
+export interface TableRow {
+  id: string;
+  cells: TableCell[];
+}
+
+export interface TableCell {
+  text: string;
+  runs?: TextRun[];
+}
+
+export interface TableElementStyle {
+  headerFill?: { token: string } | { value: string };
+  rowFill?: { token: string } | { value: string };
+  alternateRowFill?: { token: string } | { value: string };
+  borderColor?: string;
+  borderWidth?: number;
+  textStyle?: Partial<TextElementStyle>;
+  headerTextStyle?: Partial<TextElementStyle>;
+}
+
 export interface ElementDesignOverrides {
   textStyle?: Partial<TextElementStyle>;
   fill?: { token: string } | { value: string };
@@ -184,6 +218,7 @@ export interface ElementDesignOverrides {
   dash?: boolean;
   arrowStart?: ConnectorArrow;
   arrowEnd?: ConnectorArrow;
+  tableStyle?: TableElementStyle;
 }
 
 /**
@@ -320,13 +355,20 @@ export interface ShapeElement extends BaseElement {
   content: ShapeElementContent;
 }
 
+export interface TableElement extends BaseElement {
+  kind: "table";
+  role?: "table";
+  content: TableElementContent;
+}
+
 /** Discriminated union of every free-form slide element. */
 export type SlideElement =
   | TextElement
   | VisualElement
   | ImageElement
   | ShapeElement
-  | ConnectorElement;
+  | ConnectorElement
+  | TableElement;
 
 /**
  * Default centered box for a freshly inserted visual element, in percent units.

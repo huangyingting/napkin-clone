@@ -13,6 +13,7 @@ import { assertNever } from "@/lib/assert-never";
 import { ConnectorElementView } from "./connector-elements";
 import { ImageElementView } from "./media-elements";
 import { ShapeElementView } from "./shape-elements";
+import { TableElementView } from "./table-elements";
 import { TextElementView } from "./text-elements";
 import { VisualElementView } from "./visual-elements";
 
@@ -73,6 +74,13 @@ function SlideElementView({
           element={element}
           elements={elements}
           resolvedDesign={design?.kind === "connector" ? design : undefined}
+        />
+      );
+    case "table":
+      return (
+        <TableElementView
+          element={element}
+          resolvedDesign={design?.kind === "table" ? design : undefined}
         />
       );
     default:

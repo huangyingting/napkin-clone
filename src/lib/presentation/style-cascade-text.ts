@@ -89,6 +89,7 @@ function presentationRoleToPresentationRole(
     case "media":
     case "visual":
     case "image":
+    case "table":
     case "logo":
     case "pageNumber":
     case "background":

@@ -32,6 +32,7 @@ import {
   Eye,
   EyeOff,
   Search,
+  Table2,
 } from "lucide-react";
 import {
   useCallback,
@@ -84,6 +85,8 @@ function KindIcon({ element }: { element: SlideElement }) {
       );
     case "connector":
       return <Link2 size={12} className={cls} aria-hidden="true" />;
+    case "table":
+      return <Table2 size={12} className={cls} aria-hidden="true" />;
     default:
       return assertNever(element);
   }
