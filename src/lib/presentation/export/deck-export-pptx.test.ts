@@ -58,6 +58,8 @@ test("applyShapeOp maps all shape variants to meaningful PPTX calls", () => {
     opacity: 0.25,
   });
   applyShapeOp(slide, { ...base, shape: "diamond" });
+  applyShapeOp(slide, { ...base, shape: "circle" });
+  applyShapeOp(slide, { ...base, shape: "square" });
   applyShapeOp(slide, { ...base, shape: "ellipse" });
   applyShapeOp(slide, {
     ...base,
@@ -70,12 +72,14 @@ test("applyShapeOp maps all shape variants to meaningful PPTX calls", () => {
 
   assert.deepEqual(
     shapeCalls.map((call) => call.shape),
-    ["line", "triangle", "diamond", "ellipse", "roundRect"],
+    ["line", "triangle", "diamond", "ellipse", "rect", "ellipse", "roundRect"],
   );
   assert.equal(shapeCalls[0]?.options.line?.dashType, "dash");
   assert.equal(shapeCalls[0]?.options.line?.transparency, 40);
   assert.equal(shapeCalls[1]?.options.fill?.transparency, 75);
-  assert.equal(shapeCalls[4]?.options.rectRadius, 0.2);
+  assert.equal(shapeCalls[4]?.options.w, 3);
+  assert.equal(shapeCalls[4]?.options.h, 3);
+  assert.equal(shapeCalls[6]?.options.rectRadius, 0.2);
   assert.equal(textCalls.length, 1);
 });
 

@@ -623,7 +623,7 @@ test("safeParseDeck validates rich element variants and optional base fields", (
         box: { x: 10, y: 50, w: 20, h: 20 },
         content: {
           kind: "shape",
-          shape: "diamond",
+          shape: "circle",
           text: "Delta",
           textRuns: [{ text: "Delta" }],
         },

@@ -46,6 +46,8 @@ const SHAPE_OPTIONS: ShapeKind[] = [
   "line",
   "triangle",
   "diamond",
+  "circle",
+  "square",
 ];
 
 const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {

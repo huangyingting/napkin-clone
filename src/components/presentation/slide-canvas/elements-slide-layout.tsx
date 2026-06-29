@@ -3,6 +3,7 @@ import type * as React from "react";
 
 import type { SlideElement } from "@/lib/presentation/deck";
 import type {
+  ResolvedSlideCanvas,
   ResolvedElementDesign,
   ResolvedSlideRenderModel,
 } from "@/lib/presentation/slide-render-model";
@@ -23,6 +24,7 @@ function SlideElementView({
   tc,
   accent,
   design,
+  canvas,
   visuals,
   editable,
 }: {
@@ -31,6 +33,7 @@ function SlideElementView({
   tc: SlideThemeColors;
   accent: string;
   design: ResolvedElementDesign | undefined;
+  canvas: ResolvedSlideCanvas;
   visuals: ReadonlyMap<string, Visual>;
   editable?: boolean;
 }): JSX.Element | null {
@@ -65,6 +68,7 @@ function SlideElementView({
         <ShapeElementView
           element={element}
           elements={elements}
+          canvas={canvas}
           resolvedDesign={design?.kind === "shape" ? design : undefined}
         />
       );
@@ -103,6 +107,7 @@ export function ElementsSlideLayout({
     background,
     masterBackgroundElements,
     masterForegroundElements,
+    canvas,
     themeColors: tc,
     slideElements,
     elementDesigns,
@@ -147,6 +152,7 @@ export function ElementsSlideLayout({
       tc={tc}
       accent={accent}
       design={elementDesigns[element.id]}
+      canvas={canvas}
       visuals={visuals}
       editable={editable}
     />

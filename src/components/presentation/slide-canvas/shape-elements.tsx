@@ -2,11 +2,17 @@ import type { JSX } from "react";
 
 import type { ShapeElement, SlideElement } from "@/lib/presentation/deck";
 import {
+  type ResolvedSlideCanvas,
   resolvedFillRepresentativeColor,
   resolvedFillToCss,
   type ResolvedElementDesign,
   type ResolvedElementFill,
 } from "@/lib/presentation/slide-render-model";
+import {
+  inscribedElementBox,
+  isInscribedShape,
+  relativeBox,
+} from "@/lib/presentation/shape-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 
 import {
@@ -104,10 +110,12 @@ function ShapeText({
 export function ShapeElementView({
   element,
   elements: _elements,
+  canvas,
   resolvedDesign,
 }: {
   element: ShapeElement;
   elements: readonly SlideElement[];
+  canvas: ResolvedSlideCanvas;
   resolvedDesign?: ResolvedShapeDesign;
 }): JSX.Element {
   const content = shapeContent(element);
@@ -116,6 +124,49 @@ export function ShapeElementView({
   const effStroke = resolvedDesign?.stroke;
   const radius = resolvedDesign?.radius;
   const fillStyle = fillBoxStyle(fill, resolvedDesign?.effect);
+  if (isInscribedShape(content.shape)) {
+    const inner = relativeBox(
+      inscribedElementBox(content.shape, element.box, canvas),
+      element.box,
+    );
+    return (
+      <div
+        style={{
+          ...boxStyle(element),
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: `${inner.x}%`,
+            top: `${inner.y}%`,
+            width: `${inner.w}%`,
+            height: `${inner.h}%`,
+            overflow: "hidden",
+            ...fillStyle,
+            borderRadius:
+              content.shape === "circle"
+                ? "9999px"
+                : radius !== undefined
+                  ? `${radius}%`
+                  : "0.25rem",
+            ...(effStroke
+              ? {
+                  border: `${effStroke.width}cqmin solid ${effStroke.color}`,
+                }
+              : {}),
+          }}
+        >
+          <ShapeText
+            element={element}
+            fillColor={fillColor}
+            resolvedDesign={resolvedDesign}
+          />
+        </div>
+      </div>
+    );
+  }
   if (content.shape === "line") {
     return (
       <div

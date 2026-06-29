@@ -126,7 +126,8 @@ optional `indent`. `content.text` is the compact text string, and `content.runs`
 / paragraph `runs` carry inline rich text.
 
 `ShapeElement` uses `kind: "shape"` and `content.shape` of `"rect"`,
-`"ellipse"`, `"line"`, `"triangle"`, or `"diamond"`. Shape fills are normally color refs
+`"ellipse"`, `"line"`, `"triangle"`, `"diamond"`, `"circle"`, or
+`"square"`. Shape fills are normally color refs
 (`{ token }` or `{ value }`), but `designOverrides.fill` may also carry a
 two-stop radial fill:
 

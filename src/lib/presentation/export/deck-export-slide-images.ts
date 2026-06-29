@@ -19,6 +19,10 @@ import {
   deckGeometry,
   toExportTextStyle,
 } from "@/lib/presentation/export/deck-export-spec";
+import {
+  inscribedSquareBox,
+  isInscribedShape,
+} from "@/lib/presentation/shape-geometry";
 /* node:coverage ignore next 11 */
 /* Type-only aliases are erased by tsx. */
 import type {
@@ -341,6 +345,10 @@ function shapeFillAttr(
 
 function glassClipCss(op: DeckShapeOp, pxPerIn: number): string {
   switch (op.shape) {
+    case "circle":
+      return "border-radius:9999px;";
+    case "square":
+      return op.radius ? `border-radius:${op.radius * pxPerIn}px;` : "";
     case "ellipse":
       return "clip-path:ellipse(50% 50% at 50% 50%);";
     case "triangle":
@@ -359,17 +367,20 @@ function renderGlassShapeSvg(
   fill: NonNullable<DeckShapeOp["fill"]>,
   pxPerIn: number,
 ): string {
-  const preset = GLASS_PRESETS[op.effect?.intensity ?? "medium"];
-  const x = px(op.x, pxPerIn);
-  const y = px(op.y, pxPerIn);
-  const w = px(op.w, pxPerIn);
-  const h = px(op.h, pxPerIn);
+  const drawOp = isInscribedShape(op.shape)
+    ? { ...op, ...inscribedSquareBox(op) }
+    : op;
+  const preset = GLASS_PRESETS[drawOp.effect?.intensity ?? "medium"];
+  const x = px(drawOp.x, pxPerIn);
+  const y = px(drawOp.y, pxPerIn);
+  const w = px(drawOp.w, pxPerIn);
+  const h = px(drawOp.h, pxPerIn);
   const transform = rotationTransform(
-    op.x * pxPerIn,
-    op.y * pxPerIn,
-    op.w * pxPerIn,
-    op.h * pxPerIn,
-    op.rotation,
+    drawOp.x * pxPerIn,
+    drawOp.y * pxPerIn,
+    drawOp.w * pxPerIn,
+    drawOp.h * pxPerIn,
+    drawOp.rotation,
   );
   const style = [
     "width:100%;height:100%;box-sizing:border-box;",
@@ -378,11 +389,11 @@ function renderGlassShapeSvg(
     `-webkit-backdrop-filter:blur(${preset.blur}px) saturate(${preset.saturate});`,
     `border:1px solid ${rgbaColor("ffffff", preset.borderAlpha)};`,
     "box-shadow:0 8px 24px rgba(15,23,42,0.18);",
-    op.opacity !== undefined ? `opacity:${op.opacity};` : "",
-    glassClipCss(op, pxPerIn),
+    drawOp.opacity !== undefined ? `opacity:${drawOp.opacity};` : "",
+    glassClipCss(drawOp, pxPerIn),
   ].join("");
   return `<g${transform}><foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="${style}"></div></foreignObject>${renderShapeLabel(
-    op,
+    drawOp,
     pxPerIn,
   )}</g>`;
 }
@@ -392,29 +403,40 @@ function renderShapeSvg(
   id: string,
   pxPerIn: number,
 ): { defs: string[]; body: string } {
-  const x = op.x * pxPerIn;
-  const y = op.y * pxPerIn;
-  const w = op.w * pxPerIn;
+  const drawOp = isInscribedShape(op.shape)
+    ? { ...op, ...inscribedSquareBox(op) }
+    : op;
+  const x = drawOp.x * pxPerIn;
+  const y = drawOp.y * pxPerIn;
+  const w = drawOp.w * pxPerIn;
   /* node:coverage disable */
   /* Image geometry is asserted by export tests; tsx maps scalar setup rows as residual. */
-  const h = op.h * pxPerIn;
+  const h = drawOp.h * pxPerIn;
   /* node:coverage enable */
-  const fillOpacity = op.opacity ?? 1;
-  const lineWidth = op.stroke ? Number(pxFromPt(op.stroke.width, pxPerIn)) : 0;
-  const fill = op.fill ?? op.color;
-  if (op.effect && op.shape !== "line") {
-    return { defs: [], body: renderGlassShapeSvg(op, fill, pxPerIn) };
+  const fillOpacity = drawOp.opacity ?? 1;
+  const lineWidth = drawOp.stroke
+    ? Number(pxFromPt(drawOp.stroke.width, pxPerIn))
+    : 0;
+  const fill = drawOp.fill ?? drawOp.color;
+  if (drawOp.effect && drawOp.shape !== "line") {
+    return { defs: [], body: renderGlassShapeSvg(drawOp, fill, pxPerIn) };
   }
   const fillValue = shapeFillAttr(fill, id);
   const dash = op.stroke?.dash
     ? ` stroke-dasharray="${lineWidth * 3} ${lineWidth * 2}"`
     : "";
-  const common = `fill="${fillValue.attr}" fill-opacity="${fillOpacity}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth}"${dash}`;
-  const transform = rotationTransform(x, y, w, h, op.rotation);
-  const groupStyle = shadowCss(op.shadow);
+  const common = `fill="${fillValue.attr}" fill-opacity="${fillOpacity}" stroke="#${drawOp.stroke?.color ?? drawOp.color}" stroke-width="${lineWidth}"${dash}`;
+  const transform = rotationTransform(x, y, w, h, drawOp.rotation);
+  const groupStyle = shadowCss(drawOp.shadow);
   let shapeSvg = "";
 
-  switch (op.shape) {
+  switch (drawOp.shape) {
+    case "circle":
+      shapeSvg = `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${common} />`;
+      break;
+    case "square":
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${drawOp.radius ? drawOp.radius * pxPerIn : 0}" ry="${drawOp.radius ? drawOp.radius * pxPerIn : 0}" ${common} />`;
+      break;
     case "ellipse":
       shapeSvg = `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${common} />`;
       break;
@@ -425,10 +447,10 @@ function renderShapeSvg(
       shapeSvg = `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" ${common} />`;
       break;
     case "line":
-      shapeSvg = `<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth || 1}" stroke-opacity="${fillOpacity}"${dash} />`;
+      shapeSvg = `<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="#${drawOp.stroke?.color ?? drawOp.color}" stroke-width="${lineWidth || 1}" stroke-opacity="${fillOpacity}"${dash} />`;
       break;
     default:
-      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${op.radius ? op.radius * pxPerIn : 0}" ry="${op.radius ? op.radius * pxPerIn : 0}" ${common} />`;
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${drawOp.radius ? drawOp.radius * pxPerIn : 0}" ry="${drawOp.radius ? drawOp.radius * pxPerIn : 0}" ${common} />`;
       break;
   }
 
@@ -437,7 +459,7 @@ function renderShapeSvg(
   return {
     defs: fillValue.defs,
     body: `<g${transform}${groupStyle ? ` style="${groupStyle}"` : ""}>${shapeSvg}${renderShapeLabel(
-      op,
+      drawOp,
       pxPerIn,
     )}</g>`,
   };

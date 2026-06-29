@@ -19,6 +19,10 @@ import {
   deckGeometry,
   toExportTextStyle,
 } from "@/lib/presentation/export/deck-export-spec";
+import {
+  inscribedSquareBox,
+  isInscribedShape,
+} from "@/lib/presentation/shape-geometry";
 /* Type-only aliases are erased by tsx. */
 /* node:coverage ignore next 10 */
 import type {
@@ -52,6 +56,8 @@ const SHAPES: Record<ShapeKind | "roundRect", ShapeName> = {
   line: "line",
   triangle: "triangle",
   diamond: "diamond",
+  circle: "ellipse",
+  square: "rect",
   roundRect: "roundRect",
 };
 
@@ -160,6 +166,10 @@ function shapeNeedsRasterFallback(op: DeckShapeOp): boolean {
 
 function shapeClipCss(op: DeckShapeOp, height: number): string {
   switch (op.shape) {
+    case "circle":
+      return "border-radius:9999px;";
+    case "square":
+      return op.radius ? `border-radius:${Math.round(op.radius * 192)}px;` : "";
     case "ellipse":
       return "clip-path:ellipse(50% 50% at 50% 50%);";
     case "triangle":
@@ -200,10 +210,15 @@ function renderStyledShapeSvg(
   if (typeof DOMParser === "undefined") return null;
   const width = Math.max(1, Math.round(op.w * pxPerIn));
   const height = Math.max(1, Math.round(op.h * pxPerIn));
+  const box = isInscribedShape(op.shape)
+    ? inscribedSquareBox({ x: 0, y: 0, w: width, h: height })
+    : { x: 0, y: 0, w: width, h: height };
   const fill = op.fill ?? op.color;
   const preset = op.effect ? GLASS_PRESETS[op.effect.intensity] : undefined;
-  const bodyStyle = [
-    "position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;",
+  const outerStyle = "position:relative;width:100%;height:100%;";
+  const shapeStyle = [
+    "position:absolute;box-sizing:border-box;overflow:hidden;",
+    `left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px;`,
     `background:${shapeFillCss(fill, op.effect)};`,
     op.effect
       ? `backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});-webkit-backdrop-filter:blur(${preset?.blur}px) saturate(${preset?.saturate});`
@@ -214,7 +229,7 @@ function renderStyledShapeSvg(
         ? `border:${Math.max(1, Math.round(op.stroke.width))}px solid ${hashColor(op.stroke.color)};`
         : "",
     op.opacity !== undefined ? `opacity:${op.opacity};` : "",
-    shapeClipCss(op, height),
+    shapeClipCss(op, box.h),
   ].join("");
   const labelStyle = [
     "position:absolute;inset:8%;display:flex;align-items:center;justify-content:center;",
@@ -231,7 +246,7 @@ function renderStyledShapeSvg(
   const svgString = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <foreignObject x="0" y="0" width="${width}" height="${height}">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="${bodyStyle}">${label}</div>
+    <div xmlns="http://www.w3.org/1999/xhtml" style="${outerStyle}"><div style="${shapeStyle}">${label}</div></div>
   </foreignObject>
 </svg>`;
   const parsed = new DOMParser().parseFromString(svgString, "image/svg+xml");
@@ -458,17 +473,19 @@ export function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
 }
 
 function applyShapeTextOp(slide: PptxSlide, op: DeckShapeOp): void {
-  if (!op.text || op.shape === "line") return;
+  const labelText = op.text ?? "";
+  if (labelText.length === 0 || op.shape === "line") return;
+  const textBox = isInscribedShape(op.shape) ? inscribedSquareBox(op) : op;
   /* node:coverage disable */
   /* Shape-label text options are asserted by PPTX applier tests; tsx maps object-literal rows as residual. */
   applyTextOp(slide, {
     kind: "text",
-    text: op.text,
+    text: labelText,
     ...(op.textRuns && op.textRuns.length > 0 ? { runs: op.textRuns } : {}),
-    x: op.x + op.w * 0.08,
-    y: op.y + op.h * 0.08,
-    w: op.w * 0.84,
-    h: op.h * 0.84,
+    x: textBox.x + textBox.w * 0.08,
+    y: textBox.y + textBox.h * 0.08,
+    w: textBox.w * 0.84,
+    h: textBox.h * 0.84,
     color: op.textColor ?? "18181b",
     fontSize: op.fontSize ?? 18,
     ...(op.fontFace ? { fontFace: op.fontFace } : {}),
@@ -481,7 +498,6 @@ function applyShapeTextOp(slide: PptxSlide, op: DeckShapeOp): void {
   });
   /* node:coverage enable */
 }
-
 /* node:coverage disable */
 /* V8/tsx marks covered PptxGenJS adapter object-literal lines as uncovered; deck-export tests assert each shape variant. */
 export function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
@@ -526,16 +542,21 @@ export function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
     return;
   }
   const shapeName =
-    op.shape === "ellipse"
+    op.shape === "circle"
       ? SHAPES.ellipse
-      : op.radius
-        ? SHAPES.roundRect
-        : SHAPES.rect;
+      : op.shape === "ellipse"
+        ? SHAPES.ellipse
+        : op.radius
+          ? SHAPES.roundRect
+          : SHAPES.rect;
+  const drawOp = isInscribedShape(op.shape)
+    ? { ...op, ...inscribedSquareBox(op) }
+    : op;
   slide.addShape(shapeName, {
-    x: op.x,
-    y: op.y,
-    w: op.w,
-    h: op.h,
+    x: drawOp.x,
+    y: drawOp.y,
+    w: drawOp.w,
+    h: drawOp.h,
     fill: {
       color: op.color,
       ...(transparency !== undefined ? { transparency } : {}),
