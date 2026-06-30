@@ -25,6 +25,7 @@ import {
   buildSlideV7,
   buildTableNode,
   buildTextNode,
+  buildMinimalThemePackage,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 import { renderPrototypeSlideHtml } from "../../../prototypes/slide-themes/render-html";
@@ -313,6 +314,69 @@ test("PPTX parity fixture covers representative core node operations", () => {
   assert.ok(
     ops.some((op) => op.id === "deck-chrome-pageNumber"),
     "PPTX spec includes deck chrome page number",
+  );
+  assert.equal(
+    pptx.diagnostics.some((diagnostic) => diagnostic.code === "missing-asset"),
+    false,
+  );
+});
+
+test("PPTX parity preserves theme decoration and deck chrome layer ordering", () => {
+  resetBuilderCounter();
+  const slide = buildSlideV7(
+    "content",
+    [
+      buildTextNode({
+        id: "parity-layer-user",
+        layout: { frame: { x: 18, y: 28, w: 64, h: 12 }, zIndex: 2 },
+      }),
+    ],
+    {
+      props: {
+        decoration: "default",
+        chrome: "default",
+      },
+    },
+  );
+  const deck = buildDeckV7([slide], {
+    chrome: {
+      watermark: {
+        enabled: true,
+        text: "Draft",
+        layout: { frame: { x: 12, y: 42, w: 76, h: 14 }, zIndex: -30 },
+      },
+      footer: { enabled: true, text: "Confidential" },
+      pageNumber: { enabled: true },
+    },
+  });
+  const pkg = buildMinimalThemePackage("test-package", {
+    decorations: {
+      "parity-bg": {
+        id: "parity-bg",
+        component: "shape",
+        role: "themeDecoration",
+        layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: -80 },
+        style: { fill: { type: "solid", color: "#eff6ff" } },
+      },
+    },
+  });
+
+  const renderTree = resolveDeckRenderTree(deck, pkg);
+  const exportSpec = resolveExportSpecAssetSources(
+    deck,
+    buildExportSpec(renderTree),
+  );
+  const pptx = buildVnextPptxSpec(exportSpec);
+
+  assert.deepEqual(
+    pptx.slides[0].ops.map((op) => op.id),
+    [
+      "decoration-parity-bg",
+      "deck-chrome-watermark",
+      "parity-layer-user",
+      "deck-chrome-footer",
+      "deck-chrome-pageNumber",
+    ],
   );
   assert.equal(
     pptx.diagnostics.some((diagnostic) => diagnostic.code === "missing-asset"),

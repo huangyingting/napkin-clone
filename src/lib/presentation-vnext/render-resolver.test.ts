@@ -317,6 +317,119 @@ describe("resolveDeckRenderTree", () => {
     );
   });
 
+  test("keeps theme decorations and deck chrome in distinct render layers", () => {
+    resetBuilderCounter();
+    const userNode = buildTextNode({
+      id: "layer-user-node",
+      layout: { frame: { x: 20, y: 22, w: 60, h: 14 }, zIndex: 5 },
+    });
+    const slide = {
+      ...buildCoverSlide(),
+      props: { decoration: "expressive" as const, chrome: "default" as const },
+      children: [userNode],
+    };
+    const deck = buildDeckV7([slide], {
+      chrome: {
+        watermark: {
+          enabled: true,
+          text: "Draft",
+          layout: { frame: { x: 10, y: 40, w: 80, h: 20 }, zIndex: -30 },
+        },
+        footer: { enabled: true, text: "Footer" },
+        border: { enabled: true, color: "#0f172a", widthPt: 1 },
+      },
+    });
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "cover-glow": {
+          id: "cover-glow",
+          component: "shape",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: -80 },
+          style: { fill: { type: "solid", color: "#eff6ff" } },
+          visibility: "expressive",
+        },
+      },
+    });
+
+    const result = resolveDeckRenderTree(deck, pkg);
+    const resolvedSlide = result.slides[0];
+    const backgroundChrome = resolvedSlide.chrome.filter(
+      (node) => (node.layout.zIndex ?? 0) < 0,
+    );
+    const foregroundChrome = resolvedSlide.chrome.filter(
+      (node) => (node.layout.zIndex ?? 0) >= 0,
+    );
+
+    assert.deepEqual(
+      resolvedSlide.decorations.map((node) => node.id),
+      ["decoration-cover-glow"],
+    );
+    assert.equal(resolvedSlide.decorations[0].source, "themeDecoration");
+    assert.deepEqual(
+      backgroundChrome.map((node) => node.chromeKind),
+      ["watermark"],
+    );
+    assert.deepEqual(
+      foregroundChrome.map((node) => node.chromeKind),
+      ["border", "footer"],
+    );
+    assert.deepEqual(
+      resolvedSlide.nodes.map((node) => node.id),
+      ["layer-user-node"],
+    );
+    assert.ok(
+      resolvedSlide.chrome.every((node) => node.source === "deckChrome"),
+    );
+  });
+
+  test("slide deck chrome disabled and detached modes avoid double-rendering", () => {
+    resetBuilderCounter();
+    const detachedFooter = buildTextNode({
+      id: "detached-footer-node",
+      role: "caption",
+      layout: { frame: { x: 6, y: 91, w: 88, h: 5 }, zIndex: 900 },
+      content: { paragraphs: [{ id: "detached-footer-p0", text: "Footer" }] },
+    });
+    const slide = {
+      ...buildContentSlide(),
+      children: [detachedFooter],
+      props: {
+        deckChrome: {
+          footer: { mode: "detached" as const, nodeId: "detached-footer-node" },
+          pageNumber: { mode: "disabled" as const },
+        },
+      },
+    };
+    const deck = buildDeckV7([slide], {
+      chrome: {
+        footer: { enabled: true, text: "Footer" },
+        pageNumber: { enabled: true, format: "number-total" },
+      },
+    });
+
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const resolvedSlide = result.slides[0];
+
+    assert.equal(
+      resolvedSlide.chrome.some((node) => node.chromeKind === "footer"),
+      false,
+    );
+    assert.equal(
+      resolvedSlide.chrome.some((node) => node.chromeKind === "pageNumber"),
+      false,
+    );
+    assert.equal(
+      resolvedSlide.nodes.filter((node) => node.id === "detached-footer-node")
+        .length,
+      1,
+    );
+    assert.equal(
+      resolvedSlide.nodes.some((node) => node.id === "deck-chrome-footer"),
+      false,
+    );
+  });
+
   test("reports missing deck chrome logo assets", () => {
     resetBuilderCounter();
     const deck = buildDeckV7([buildCoverSlide()], {
