@@ -16,6 +16,8 @@ import {
   applyVnextShapeOp,
   applyVnextTableOp,
   applyVnextConnectorOp,
+  applyVnextImageOp,
+  applyVnextVisualOp,
   resolveExportSpecAssetSources,
 } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
@@ -24,6 +26,8 @@ import type {
   VnextPptxShapeOp,
   VnextPptxTableOp,
   VnextPptxConnectorOp,
+  VnextPptxImageOp,
+  VnextPptxVisualOp,
 } from "@/lib/presentation-vnext/pptx-export-adapter";
 import type {
   TextContent,
@@ -105,6 +109,50 @@ describe("resolveExportSpecAssetSources", () => {
     assert.equal(op.type, "image");
     if (op.type === "image") {
       assert.equal(op.assetId, "https://example.com/image.png");
+    }
+  });
+
+  test("replaces visual operation asset ids with DeckV7 file src values", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {},
+        visuals: {
+          "visual-asset": { id: "visual-asset", visualId: "chart-1" },
+        },
+        files: {
+          "visual-asset": {
+            id: "visual-asset",
+            src: "data:image/png;base64,abc123",
+            mimeType: "image/png",
+          },
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "visual-asset",
+              frame: { x: 0, y: 0, w: 100, h: 100 },
+              style: {},
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const op = resolved.slides[0].operations[0];
+    assert.equal(op.type, "visual");
+    if (op.type === "visual") {
+      assert.equal(op.assetId, "data:image/png;base64,abc123");
     }
   });
 });
@@ -518,8 +566,8 @@ describe("applyVnextConnectorOp", () => {
     return {
       type: "connector",
       id: "con1",
-      from: {},
-      to: {},
+      from: { kind: "point", point: { x: 0, y: 50 } },
+      to: { kind: "point", point: { x: 100, y: 50 } },
       x: 0,
       y: 0,
       w: 5,
@@ -544,7 +592,11 @@ describe("applyVnextConnectorOp", () => {
       makeConnectorOp({ stroke: { color: "FF0000", widthPt: 2 } }),
     );
     const opts = calls[0].args[1] as Record<string, unknown>;
-    assert.deepEqual(opts.line, { color: "FF0000", width: 2 });
+    assert.deepEqual(opts.line, {
+      color: "FF0000",
+      width: 2,
+      dashType: "solid",
+    });
   });
 
   test("connector without stroke emits no line property", () => {
@@ -556,14 +608,61 @@ describe("applyVnextConnectorOp", () => {
     const opts = calls[0].args[1] as Record<string, unknown>;
     assert.equal(opts.line, undefined);
   });
+
+  test("connector endpoints map local points to slide line dimensions", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({
+        x: 1,
+        y: 2,
+        w: 4,
+        h: 3,
+        from: { kind: "point", point: { x: 25, y: 10 } },
+        to: { kind: "point", point: { x: 75, y: 90 } },
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.x, 2);
+    assert.equal(opts.y, 2.3);
+    assert.equal(opts.w, 2);
+    assert.equal(opts.h, 2.4000000000000004);
+  });
+
+  test("connector forwards dash and arrowheads to line options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({
+        stroke: { color: "FF0000", widthPt: 2, dash: "dashed" },
+        startArrow: "filled",
+        endArrow: "arrow",
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.line, {
+      color: "FF0000",
+      width: 2,
+      dashType: "dash",
+      beginArrowType: "triangle",
+      endArrowType: "arrow",
+    });
+  });
+
+  test("elbow connector emits three line segments", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({ routing: "elbow" }),
+    );
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every((call) => call.kind === "addShape"));
+  });
 });
 
 // ---------------------------------------------------------------------------
 // applyVnextImageOp
 // ---------------------------------------------------------------------------
-
-import { applyVnextImageOp } from "@/lib/presentation-vnext/pptx-vnext-apply";
-import type { VnextPptxImageOp } from "@/lib/presentation-vnext/pptx-export-adapter";
 
 describe("applyVnextImageOp", () => {
   function makeImageOp(
@@ -615,5 +714,53 @@ describe("applyVnextImageOp", () => {
     const opts = calls[0].args[0] as Record<string, unknown>;
     assert.equal(opts.altText, "A picture");
     assert.equal(opts.rotate, 30);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextVisualOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextVisualOp", () => {
+  function makeVisualOp(
+    overrides: Partial<VnextPptxVisualOp> = {},
+  ): VnextPptxVisualOp {
+    return {
+      type: "visual",
+      id: "vis1",
+      assetId: "data:image/png;base64,abc123",
+      visualId: "chart-1",
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("visual with a rendered asset is applied as an image", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(slide as never, makeVisualOp());
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addImage");
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.ok("data" in opts);
+    assert.equal(opts.altText, "chart-1");
+  });
+
+  test("visual without a rendered asset applies a labeled placeholder", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({
+        assetId: undefined,
+        fallbackLabel: "Revenue chart unavailable",
+      }),
+    );
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].kind, "addShape");
+    assert.equal(calls[1].kind, "addText");
+    assert.equal(calls[1].args[0], "Revenue chart unavailable");
   });
 });

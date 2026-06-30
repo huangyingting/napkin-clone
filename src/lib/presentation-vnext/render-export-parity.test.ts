@@ -1,0 +1,212 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { buildPublicPresentationModel } from "@/lib/public-render/presentation";
+import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
+import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver";
+import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
+import { buildVnextPptxSpec } from "@/lib/presentation-vnext/pptx-export-adapter";
+import { resolveExportSpecAssetSources } from "@/lib/presentation-vnext/pptx-vnext-apply";
+import type { DeckV7, SlideChildNode } from "@/lib/presentation-vnext/schema";
+import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
+import {
+  buildDeckV7,
+  buildImageNode,
+  buildShapeNode,
+  buildSlideV7,
+  buildTableNode,
+  buildTextNode,
+  resetBuilderCounter,
+} from "@/test/builders/deck-v7";
+import { renderPrototypeSlideHtml } from "../../../prototypes/slide-themes/render-html";
+
+const DATA_URI =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+
+function buildParityDeck(): DeckV7 {
+  resetBuilderCounter();
+  const connectorNode: SlideChildNode = {
+    id: "parity-connector",
+    type: "connector",
+    role: "connector",
+    layout: { frame: { x: 8, y: 70, w: 84, h: 14 }, zIndex: 6 },
+    style: { ref: "connector.primary" },
+    localStyle: {
+      connector: {
+        stroke: { color: "#2563eb", widthPt: 2, dash: "dashed" },
+        startArrow: "none",
+        endArrow: "filled",
+        routing: "elbow",
+      },
+    },
+    content: {
+      from: { kind: "point", point: { x: 0, y: 50 } },
+      to: { kind: "point", point: { x: 100, y: 50 } },
+      routing: "elbow",
+    },
+  };
+  const visualNode: SlideChildNode = {
+    id: "parity-visual",
+    type: "visual",
+    role: "visual",
+    layout: { frame: { x: 52, y: 22, w: 36, h: 32 }, zIndex: 5 },
+    style: { ref: "chart.primary" },
+    content: {
+      assetId: "visual-snapshot",
+      visualId: "revenue-chart",
+      alt: "Revenue chart",
+    },
+  };
+  const slide = buildSlideV7(
+    "architecture",
+    [
+      buildTextNode({
+        id: "parity-title",
+        role: "title",
+        layout: { frame: { x: 8, y: 8, w: 84, h: 10 }, zIndex: 1 },
+        style: { ref: "text.title" },
+      }),
+      buildShapeNode({
+        id: "parity-shape",
+        layout: { frame: { x: 8, y: 22, w: 34, h: 18 }, zIndex: 2 },
+        localStyle: {
+          fill: { type: "solid", color: "#dbeafe" },
+          stroke: { color: "#2563eb", widthPt: 1 },
+        },
+        content: {
+          shape: "rect",
+          text: { paragraphs: [{ id: "shape-label", text: "Core node" }] },
+        },
+      }),
+      buildImageNode("img-parity", {
+        id: "parity-image",
+        layout: { frame: { x: 8, y: 44, w: 34, h: 20 }, zIndex: 3 },
+      }),
+      buildTableNode({
+        id: "parity-table",
+        layout: { frame: { x: 52, y: 58, w: 36, h: 24 }, zIndex: 4 },
+      }),
+      visualNode,
+      connectorNode,
+    ],
+    { style: { ref: "slide.content" }, notes: "Parity fixture notes" },
+  );
+
+  return buildDeckV7([slide], {
+    title: "Render/export parity fixture",
+    theme: { packageId: "neutral" },
+    assets: {
+      images: {
+        "img-parity": {
+          id: "img-parity",
+          src: DATA_URI,
+          alt: "Parity image",
+          mimeType: "image/png",
+        },
+      },
+      visuals: {
+        "visual-snapshot": {
+          id: "visual-snapshot",
+          visualId: "revenue-chart",
+          title: "Revenue chart",
+          alt: "Revenue chart",
+        },
+      },
+      files: {
+        "visual-snapshot": {
+          id: "visual-snapshot",
+          src: DATA_URI,
+          filename: "revenue-chart.png",
+          mimeType: "image/png",
+        },
+      },
+    },
+  });
+}
+
+function surfaceSignature(tree: ResolvedDeckRenderTree) {
+  return tree.slides.map((slide) => ({
+    id: slide.id,
+    nodes: slide.nodes.map((node) => ({
+      id: node.id,
+      type: node.content.type,
+      zIndex: node.layout.zIndex,
+    })),
+    decorations: slide.decorations.map((node) => ({
+      id: node.id,
+      type: node.content.type,
+      zIndex: node.layout.zIndex,
+    })),
+  }));
+}
+
+test("representative deck keeps editor, present, and public v7 render signatures aligned", () => {
+  const deck = buildParityDeck();
+  const editorTree = resolveDeckRenderTree(deck, NEUTRAL_THEME_PACKAGE);
+  const presentTree = resolveDeckRenderTree(deck, NEUTRAL_THEME_PACKAGE);
+  const publicModel = buildPublicPresentationModel({
+    title: deck.title ?? "Parity deck",
+    contentJson: { root: { children: [] } },
+    deckJson: deck,
+    owner: { name: "TextIQ", plan: "pro" },
+  });
+  const publicTree = resolveDeckRenderTree(
+    publicModel.deckV7,
+    publicModel.themePackage,
+  );
+
+  assert.deepEqual(surfaceSignature(presentTree), surfaceSignature(editorTree));
+  assert.deepEqual(surfaceSignature(publicTree), surfaceSignature(editorTree));
+  assert.equal(publicModel.themePackage.id, "neutral");
+  assert.equal(
+    publicModel.diagnostics.some(
+      (diagnostic) => diagnostic.code === "unknown-theme-package",
+    ),
+    false,
+  );
+});
+
+test("prototype HTML renderer emits nodes from the product v7 render tree", () => {
+  const deck = buildParityDeck();
+  const tree = resolveDeckRenderTree(deck, NEUTRAL_THEME_PACKAGE);
+  const html = renderPrototypeSlideHtml(deck, NEUTRAL_THEME_PACKAGE, 0);
+
+  for (const node of tree.slides[0].nodes) {
+    assert.match(html, new RegExp(`data-node-id="${node.id}"`));
+    assert.match(html, new RegExp(`data-node-type="${node.content.type}"`));
+  }
+});
+
+test("PPTX parity fixture covers representative core node operations", () => {
+  const deck = buildParityDeck();
+  const renderTree = resolveDeckRenderTree(deck, NEUTRAL_THEME_PACKAGE);
+  const exportSpec = resolveExportSpecAssetSources(
+    deck,
+    buildExportSpec(renderTree),
+  );
+  const pptx = buildVnextPptxSpec(exportSpec);
+  const ops = pptx.slides[0].ops;
+  const types = new Set(ops.map((op) => op.type));
+  const expectedTypes = [
+    "connector",
+    "image",
+    "shape",
+    "tableShape",
+    "text",
+    "visual",
+  ] as const;
+
+  assert.deepEqual(
+    expectedTypes.filter((type) => !types.has(type)),
+    [],
+  );
+  const visualOp = ops.find((op) => op.type === "visual");
+  assert.equal(visualOp?.assetId, DATA_URI);
+  const connectorOp = ops.find((op) => op.type === "connector");
+  assert.equal(connectorOp?.routing, "elbow");
+  assert.equal(connectorOp?.endArrow, "filled");
+  assert.equal(
+    pptx.diagnostics.some((diagnostic) => diagnostic.code === "missing-asset"),
+    false,
+  );
+});
