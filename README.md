@@ -29,29 +29,31 @@ real secret outside quick local testing.
 
 ## Scripts
 
-| Script                     | Description                                                                  |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `npm run dev`              | Start the Next app through `server.mjs` with inline collaboration enabled.   |
-| `npm run dev:doctor`       | Check local Node/env/Prisma/port/Playwright readiness with repair hints.     |
-| `npm run dev:setup`        | Create a local `.env`, generate Prisma, and apply the SQLite schema.         |
-| `npm run dev:worktree`     | Create `.env.worktree` and report worktree-local safety checks.              |
-| `npm run ci:local`         | Run the same SQLite quality stages as GitHub CI, including `build`.          |
-| `npm run qa:browser`       | Seed deterministic browser QA data, start dev, and print fixture URLs.       |
-| `npm run build`            | Create a production build.                                                   |
-| `npm run start`            | Run the production server.                                                   |
-| `npm run collab`           | Run the standalone Yjs collaboration server.                                 |
-| `npm test`                 | Run unit/pure tests under `src/**/*.test.ts` and `scripts/**/*.test.mjs`.    |
-| `npm run test:e2e`         | Run Playwright E2E tests.                                                    |
-| `npm run typecheck`        | Type-check with `tsc --noEmit`.                                              |
-| `npm run lint`             | Run ESLint.                                                                  |
-| `npm run format`           | Format the repository with Prettier.                                         |
-| `npm run format:check`     | Check Prettier formatting.                                                   |
-| `npm run db:generate`      | Regenerate the SQLite schema when selected, then generate the Prisma client. |
-| `npm run db:schema:sqlite` | Regenerate `prisma/schema.sqlite.prisma` from the canonical schema.          |
-| `npm run db:schema:check`  | Check the generated SQLite schema for drift.                                 |
-| `npm run db:push`          | Regenerate the SQLite schema when selected, then apply it with `db push`.    |
-| `npm run db:seed`          | Seed demo data.                                                              |
-| `npm run db:reset`         | Regenerate Prisma, force-reset via `db push`, and seed.                      |
+| Script                     | Description                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------------- |
+| `npm run dev`              | Start the Next app through `server.mjs` with inline collaboration enabled.                    |
+| `npm run dev:doctor`       | Check local Node/env/Prisma/port/Playwright readiness with repair hints.                      |
+| `npm run dev:setup`        | Create a local `.env`, generate Prisma, and apply the SQLite schema.                          |
+| `npm run dev:worktree`     | Create `.env.worktree` and report worktree-local safety checks.                               |
+| `npm run ci:local`         | Run the same SQLite quality stages as GitHub CI, including `build`.                           |
+| `npm run qa:browser`       | Seed deterministic browser QA data, start dev, and print fixture URLs.                        |
+| `npm run build`            | Create a production build.                                                                    |
+| `npm run start`            | Run the production server.                                                                    |
+| `npm run collab`           | Run the standalone Yjs collaboration server.                                                  |
+| `npm test`                 | Run line coverage and subsystem coverage-map checks.                                          |
+| `npm run test:subsystem`   | Run tests mapped to one subsystem, for example `npm run test:subsystem -- editor`.            |
+| `npm run test:e2e`         | Run Playwright E2E tests.                                                                     |
+| `npm run typecheck`        | Type-check with `tsc --noEmit`.                                                               |
+| `npm run lint`             | Run design-system, action-ports, Next/build, boundary, import, E2E, perf checks, then ESLint. |
+| `npm run docs:check`       | Check docs source inventory, docs links, and docs formatting.                                 |
+| `npm run format`           | Format the repository with Prettier.                                                          |
+| `npm run format:check`     | Check Prettier formatting.                                                                    |
+| `npm run db:generate`      | Regenerate the SQLite schema when selected, then generate the Prisma client.                  |
+| `npm run db:schema:sqlite` | Regenerate `prisma/schema.sqlite.prisma` from the canonical schema.                           |
+| `npm run db:schema:check`  | Check the generated SQLite schema for drift.                                                  |
+| `npm run db:push`          | Regenerate the SQLite schema when selected, then apply it with `db push`.                     |
+| `npm run db:seed`          | Seed demo data.                                                                               |
+| `npm run db:reset`         | Regenerate Prisma, force-reset via `db push`, and seed.                                       |
 
 ## Database
 
@@ -99,7 +101,7 @@ COLLAB_INLINE=0 npm run dev
 
 Then set `NEXT_PUBLIC_COLLAB_WS_URL` for the browser client. Production
 deployment and scaling constraints are documented in
-[docs/operations/collab-deployment.md](docs/operations/collab-deployment.md).
+[docs/operations/collaboration-deployment.md](docs/operations/collaboration-deployment.md).
 
 ## Documentation
 
@@ -108,11 +110,12 @@ grouped by subsystem under flat directories:
 
 | Area                        | Start here                                                   |
 | --------------------------- | ------------------------------------------------------------ |
-| System overview             | [docs/system/current-state.md](docs/system/current-state.md) |
+| System overview             | [docs/system/README.md](docs/system/README.md)               |
 | AI generation               | [docs/ai/README.md](docs/ai/README.md)                       |
 | Authentication/account      | [docs/auth/README.md](docs/auth/README.md)                   |
 | Collaboration runtime       | [docs/collaboration/README.md](docs/collaboration/README.md) |
 | Data models                 | [docs/data-model/README.md](docs/data-model/README.md)       |
+| Diagnostics                 | [docs/diagnostics/README.md](docs/diagnostics/README.md)     |
 | Document management         | [docs/documents/README.md](docs/documents/README.md)         |
 | Editor architecture         | [docs/editor/README.md](docs/editor/README.md)               |
 | Import pipeline             | [docs/import/README.md](docs/import/README.md)               |
@@ -165,7 +168,8 @@ npm run format:check
 For documentation-only changes, at minimum run:
 
 ```bash
-npx prettier --check docs README.md AGENTS.md
+npm run docs:check
+npx prettier --check README.md AGENTS.md
 ```
 
 See [docs/operations/release-gate.md](docs/operations/release-gate.md) for the
