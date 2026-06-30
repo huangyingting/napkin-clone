@@ -305,6 +305,9 @@ function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
             display: para.list ? "flex" : undefined,
             gap: para.list ? "0.4em" : undefined,
             margin: 0,
+            paddingLeft: para.list?.indent
+              ? `${para.list.indent * 1.5}em`
+              : undefined,
           }}
         >
           {para.list ? (

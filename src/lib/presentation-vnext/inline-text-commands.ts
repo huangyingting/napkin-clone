@@ -14,10 +14,13 @@ export type InlineTextCommandName =
   | "strikethrough"
   | "bullet-list"
   | "numbered-list"
+  | "indent-list"
+  | "outdent-list"
   | "align-left"
   | "align-center"
   | "align-right"
   | "link"
+  | "unlink"
   | "color"
   | "font-size";
 

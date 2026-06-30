@@ -135,6 +135,7 @@ function serializeParagraphNode(
   node: Node,
   fallbackId: string,
   listKind?: "bullet" | "number",
+  listIndent?: number,
 ): Paragraph {
   const runs = mergeRunsV7(collectRuns(node)).filter(
     (run) => run.text !== "\n",
@@ -144,14 +145,25 @@ function serializeParagraphNode(
     id: fallbackId,
     text,
     ...(shouldStoreRunsV7(runs) ? { runs } : {}),
-    ...(listKind ? { list: { kind: listKind } } : {}),
+    ...(listKind
+      ? {
+          list: {
+            kind: listKind,
+            ...(listIndent && listIndent > 0 ? { indent: listIndent } : {}),
+          },
+        }
+      : {}),
   };
 }
 
 function editableParagraphNodes(
   container: HTMLElement,
-): { node: Node; listKind?: "bullet" | "number" }[] {
-  const nodes: { node: Node; listKind?: "bullet" | "number" }[] = [];
+): { node: Node; listKind?: "bullet" | "number"; listIndent?: number }[] {
+  const nodes: {
+    node: Node;
+    listKind?: "bullet" | "number";
+    listIndent?: number;
+  }[] = [];
   for (const child of Array.from(container.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
       if ((child.textContent ?? "").length > 0) nodes.push({ node: child });
@@ -163,20 +175,44 @@ function editableParagraphNodes(
     if (tagName === "ul" || tagName === "ol") {
       const listKind = tagName === "ol" ? "number" : "bullet";
       for (const item of Array.from(element.children)) {
-        if (item.tagName.toLowerCase() === "li")
-          nodes.push({ node: item, listKind });
+        if (item.tagName.toLowerCase() === "li") {
+          nodes.push({
+            node: item,
+            listKind,
+            listIndent: listIndentFromElement(item as HTMLElement),
+          });
+        }
       }
     } else if (tagName === "li") {
       const listKind =
         element.parentElement?.tagName.toLowerCase() === "ol"
           ? "number"
           : "bullet";
-      nodes.push({ node: element, listKind });
+      nodes.push({
+        node: element,
+        listKind,
+        listIndent: listIndentFromElement(element),
+      });
+    } else if (
+      element.dataset.listKind === "bullet" ||
+      element.dataset.listKind === "number"
+    ) {
+      nodes.push({
+        node: element,
+        listKind: element.dataset.listKind,
+        listIndent: listIndentFromElement(element),
+      });
     } else {
       nodes.push({ node: element });
     }
   }
   return nodes;
+}
+
+function listIndentFromElement(element: HTMLElement): number | undefined {
+  const raw = element.dataset.listIndent;
+  const indent = raw ? Number.parseInt(raw, 10) : 0;
+  return Number.isFinite(indent) && indent > 0 ? indent : undefined;
 }
 
 /** Convert the contenteditable DOM back to Paragraph[] preserving basic runs. */
@@ -190,11 +226,12 @@ function domToParagraphs(
     paragraphNodes.length > 0
       ? paragraphNodes
       : [{ node: document.createTextNode("") }];
-  return nodes.map(({ node, listKind }, index) =>
+  return nodes.map(({ node, listKind, listIndent }, index) =>
     serializeParagraphNode(
       node,
       initialParagraphs[index]?.id ?? `${idPrefix}-p-${index + 1}`,
       listKind,
+      listIndent,
     ),
   );
 }
@@ -230,7 +267,12 @@ function paragraphsToHtml(paragraphs: Paragraph[]): string {
       const text = p.runs?.length
         ? p.runs.map(runToHtml).join("")
         : escapeHtml(p.text);
-      return `<div>${text || "<br>"}</div>`;
+      if (!p.list) return `<div>${text || "<br>"}</div>`;
+      const indent = p.list.indent ?? 0;
+      const indentAttr = indent > 0 ? ` data-list-indent="${indent}"` : "";
+      const indentStyle =
+        indent > 0 ? ` style="padding-left:${indent * 1.5}em"` : "";
+      return `<div data-list-kind="${p.list.kind}"${indentAttr}${indentStyle}>${text || "<br>"}</div>`;
     })
     .join("");
 }
@@ -267,6 +309,46 @@ function wrapRange(
   wrapper.appendChild(fragment);
   range.insertNode(wrapper);
   restoreSelection(wrapper);
+}
+
+function unwrapElement(element: HTMLElement) {
+  const parent = element.parentNode;
+  if (!parent) return;
+  while (element.firstChild) {
+    parent.insertBefore(element.firstChild, element);
+  }
+  parent.removeChild(element);
+}
+
+function unlinkRange(container: HTMLElement) {
+  const range = rangeInside(container);
+  if (!range) return;
+  const anchors = new Set<HTMLAnchorElement>();
+  const addClosestAnchor = (node: Node | null) => {
+    const element =
+      node instanceof Element ? node : (node?.parentElement ?? null);
+    const anchor = element?.closest("a");
+    if (anchor instanceof HTMLAnchorElement && container.contains(anchor)) {
+      anchors.add(anchor);
+    }
+  };
+  const selection = window.getSelection();
+  addClosestAnchor(selection?.anchorNode ?? null);
+  addClosestAnchor(selection?.focusNode ?? null);
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, {
+    acceptNode(node) {
+      if (!(node instanceof HTMLAnchorElement)) return NodeFilter.FILTER_SKIP;
+      return range.intersectsNode(node)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP;
+    },
+  });
+  let current = walker.nextNode();
+  while (current) {
+    if (current instanceof HTMLAnchorElement) anchors.add(current);
+    current = walker.nextNode();
+  }
+  anchors.forEach(unwrapElement);
 }
 
 function blockForRange(container: HTMLElement, range: Range): HTMLElement {
@@ -315,6 +397,31 @@ function toggleList(container: HTMLElement, kind: "bullet" | "number") {
   list.appendChild(item);
   block.replaceWith(list);
   restoreSelection(item);
+}
+
+function adjustListIndent(container: HTMLElement, direction: 1 | -1) {
+  const range = rangeInside(container);
+  if (!range) return;
+  const block = blockForRange(container, range);
+  const listItem = block.closest("li") as HTMLElement | null;
+  const editableBlock = listItem ?? block;
+  const listKind =
+    editableBlock.dataset.listKind ??
+    (listItem
+      ? listItem.parentElement?.tagName.toLowerCase() === "ol"
+        ? "number"
+        : "bullet"
+      : undefined);
+  if (listKind !== "bullet" && listKind !== "number") return;
+  const current = listIndentFromElement(editableBlock) ?? 0;
+  const next = Math.max(0, Math.min(6, current + direction));
+  if (next > 0) {
+    editableBlock.dataset.listIndent = String(next);
+    editableBlock.style.paddingLeft = `${next * 1.5}em`;
+  } else {
+    delete editableBlock.dataset.listIndent;
+    editableBlock.style.paddingLeft = "";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -479,6 +586,12 @@ export function InlineTextEditorVNext({
         case "numbered-list":
           toggleList(el, "number");
           break;
+        case "indent-list":
+          adjustListIndent(el, 1);
+          break;
+        case "outdent-list":
+          adjustListIndent(el, -1);
+          break;
         case "link":
           if (value) {
             wrapRange(
@@ -489,6 +602,9 @@ export function InlineTextEditorVNext({
               "a",
             );
           }
+          break;
+        case "unlink":
+          unlinkRange(el);
           break;
         case "align-left":
           applyBlockAlign(el, "left");

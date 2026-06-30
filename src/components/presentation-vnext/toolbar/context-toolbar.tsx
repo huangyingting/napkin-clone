@@ -28,6 +28,8 @@ import {
   Ellipsis,
   Group,
   EyeOff,
+  IndentDecrease,
+  IndentIncrease,
   Italic,
   Link,
   List,
@@ -614,6 +616,22 @@ export function ContextToolbar({
             >
               <ListOrdered size={13} aria-hidden />
             </TBtn>
+            <TBtn
+              label="Outdent list"
+              onClick={() =>
+                dispatchInlineTextCommand({ command: "outdent-list" })
+              }
+            >
+              <IndentDecrease size={13} aria-hidden />
+            </TBtn>
+            <TBtn
+              label="Indent list"
+              onClick={() =>
+                dispatchInlineTextCommand({ command: "indent-list" })
+              }
+            >
+              <IndentIncrease size={13} aria-hidden />
+            </TBtn>
             <Divider />
             <TBtn label="Align left" onClick={() => updateTextAlign("left")}>
               <AlignLeft size={13} aria-hidden />
@@ -678,6 +696,16 @@ export function ContextToolbar({
                   className="self-end rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
                 >
                   Apply link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatchInlineTextCommand({ command: "unlink" });
+                    setLinkOpen(false);
+                  }}
+                  className="self-end rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
+                >
+                  Remove link
                 </button>
               </form>
             </Popover>

@@ -30,6 +30,26 @@ function textNode(
   };
 }
 
+function imageNode(
+  id: string,
+  frame: { x: number; y: number; w: number; h: number },
+  options: Partial<ResolvedRenderNode> = {},
+): ResolvedRenderNode {
+  return {
+    id,
+    type: "image",
+    role: "body",
+    layout: { frame, zIndex: 1 },
+    style: {},
+    content: {
+      type: "image",
+      content: { assetId: "image-1", fit: "cover" },
+    },
+    source: "user",
+    ...options,
+  };
+}
+
 function slide(nodes: ResolvedRenderNode[]): ResolvedSlideRenderTree {
   return {
     id: "slide-1",
@@ -109,6 +129,24 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /top:10%/);
     assert.match(html, /width:50%/);
     assert.match(html, /height:30%/);
+  });
+
+  test("renders crop handles for a selected image", () => {
+    const selection = setSelection(createSelectionState("normal"), ["image-1"]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([imageNode("image-1", { x: 10, y: 10, w: 30, h: 20 })]),
+        selection,
+        focusedNodeId: "image-1",
+        onNodeClick: () => undefined,
+        onCropHandlePointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-crop-handle="top"/);
+    assert.match(html, /data-crop-handle="right"/);
+    assert.match(html, /data-crop-handle="bottom"/);
+    assert.match(html, /data-crop-handle="left"/);
   });
 
   test("renders paragraph list markers", () => {

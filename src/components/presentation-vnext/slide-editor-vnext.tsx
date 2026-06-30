@@ -39,12 +39,14 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import {
   ChevronDown,
   ChevronUp,
   ClipboardPaste,
   Copy,
+  Edit3,
   FileDown,
   FileText,
   Group,
@@ -68,6 +70,7 @@ import type { ActionResult } from "@/lib/action-result";
 import type { SaveStatus } from "@/lib/presentation/save-status";
 import type {
   DeckV7,
+  ImageCrop,
   ImageAsset,
   LayoutBox,
   NodeSourceMetadata,
@@ -93,6 +96,7 @@ import type {
   PresentationDiagnostic,
   DiagnosticAction,
 } from "@/lib/presentation-vnext/diagnostics";
+import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
   updateSlideControls,
@@ -136,12 +140,21 @@ import {
 } from "@/lib/presentation-vnext/stage-guides";
 import { STAGE_CHROME_Z_INDEX } from "@/lib/presentation-vnext/stage-chrome";
 import {
+  fitCanvasToViewport,
+  type CanvasStageFit,
+  type StageFitSize,
+} from "@/lib/presentation-vnext/stage-fit";
+import {
   normalizeSelectionFrame,
   selectNodesInFrame,
   type SelectionFrame,
 } from "@/lib/presentation-vnext/selection-geometry";
 
-import { SlideCanvasVNext, type ResizeHandlePosition } from "./slide-canvas";
+import {
+  SlideCanvasVNext,
+  type CropHandlePosition,
+  type ResizeHandlePosition,
+} from "./slide-canvas";
 import {
   createSelectionState,
   selectNode,
@@ -164,6 +177,7 @@ import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
+import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 
 const TEMPLATE_REGISTRY = createDefaultTemplateRegistry();
 const TEMPLATE_OPTIONS = TEMPLATE_REGISTRY.all();
@@ -184,6 +198,19 @@ const TEXT_SLOT_KEYS = new Set<SlotKey>([
 ]);
 const FILMSTRIP_COLLAPSED_KEY = "slide-filmstrip-collapsed";
 const ZOOM_PERCENT_PRESETS = [200, 150, 125, 100, 75, 50, 25] as const;
+
+function isMobileInspectorViewport(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 1023px)").matches
+  );
+}
+
+function FocusTrapped({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useFocusTrap(ref);
+  return <div ref={ref}>{children}</div>;
+}
 
 export type SlideEditorVNextImageUploadResult = {
   src: string;
@@ -391,13 +418,46 @@ function defaultStyleBindingForNode(node: SlideChildNode): StyleBinding {
   return { ref: "surface.card" };
 }
 
-function canvasFrameStyle(deck: DeckV7, zoomPercent: number): CSSProperties {
+const STAGE_VIEWPORT_FALLBACK: StageFitSize = { width: 1120, height: 630 };
+const DESKTOP_INSPECTOR_OVERLAY_WIDTH = 352;
+
+function canvasAspectRatio(deck: DeckV7): number {
   const width = deck.canvas.width > 0 ? deck.canvas.width : 16;
   const height = deck.canvas.height > 0 ? deck.canvas.height : 9;
+  return width / height;
+}
+
+function canvasStageFit(
+  deck: DeckV7,
+  zoomPercent: number,
+  viewport: StageFitSize | null,
+): CanvasStageFit {
+  const safeViewport = viewport ?? STAGE_VIEWPORT_FALLBACK;
+  const rightOverlayWidth =
+    safeViewport.width >= 1024 ? DESKTOP_INSPECTOR_OVERLAY_WIDTH : 0;
+  return fitCanvasToViewport({
+    viewport: safeViewport,
+    aspectRatio: canvasAspectRatio(deck),
+    zoomPercent,
+    rightOverlayWidth,
+  });
+}
+
+function canvasFrameStyle(stageFit: CanvasStageFit): CSSProperties {
   return {
-    aspectRatio: `${width} / ${height}`,
-    maxWidth: `${1120 * (zoomPercent / 100)}px`,
-    width: "100%",
+    position: "absolute",
+    left: stageFit.frame.left,
+    top: stageFit.frame.top,
+    width: stageFit.frame.width,
+    height: stageFit.frame.height,
+  };
+}
+
+function stageScrollContentStyle(stageFit: CanvasStageFit): CSSProperties {
+  return {
+    position: "relative",
+    width: stageFit.scrollContentSize.width,
+    height: stageFit.scrollContentSize.height,
   };
 }
 
@@ -456,6 +516,11 @@ function clampFrame(frame: LayoutBox["frame"]): LayoutBox["frame"] {
     w,
     h,
   };
+}
+
+function clampCrop(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(95, Math.round(value * 10) / 10));
 }
 
 function resizeFrame(
@@ -960,19 +1025,95 @@ export function SlideEditorVNext({
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [stageAnnouncement, setStageAnnouncement] = useState("");
   const [stageZoomPercent, setStageZoomPercent] = useState(100);
+  const [stageViewportSize, setStageViewportSize] =
+    useState<StageFitSize | null>(null);
   const [filmstripCollapsed, setFilmstripCollapsed] = useState(() => {
     if (typeof localStorage === "undefined") return false;
     return localStorage.getItem(FILMSTRIP_COLLAPSED_KEY) === "true";
   });
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
-  const [speakerNotesOpen, setSpeakerNotesOpen] = useState(false);
+  const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
+  const [inspectorPanelRequest, setInspectorPanelRequest] = useState<{
+    panel: InspectorPanelId;
+    nonce: number;
+  } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const stageViewportRef = useRef<HTMLDivElement | null>(null);
   const [draggingStage, setDraggingStage] = useState(false);
   const [activeResizeHandle, setActiveResizeHandle] = useState<{
     nodeId: string;
     handle: ResizeHandlePosition;
   } | null>(null);
+  const [activeCropHandle, setActiveCropHandle] = useState<{
+    nodeId: string;
+    handle: CropHandlePosition;
+  } | null>(null);
+
+  function requestInspectorPanel(panel: InspectorPanelId) {
+    setInspectorPanelRequest((current) => ({
+      panel,
+      nonce: (current?.nonce ?? 0) + 1,
+    }));
+  }
+
+  function openMobileInspector(panel: InspectorPanelId = "slide") {
+    requestInspectorPanel(panel);
+    setInspectorSheetOpen(true);
+  }
+
+  function closeMobileInspector() {
+    setInspectorSheetOpen(false);
+  }
+
+  function handleNotesControlClick() {
+    setSelection(createSelectionState(selection.mode));
+    setInlineEditNodeId(null);
+    requestInspectorPanel("notes");
+    if (isMobileInspectorViewport()) {
+      setInspectorSheetOpen(true);
+      return;
+    }
+  }
+
+  useEffect(() => {
+    const node = stageViewportRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    let frameId: number | null = null;
+    const measure = () => {
+      const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      const paddingX =
+        Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.paddingRight);
+      const paddingY =
+        Number.parseFloat(style.paddingTop) +
+        Number.parseFloat(style.paddingBottom);
+      const next = {
+        width: Math.max(1, rect.width - paddingX),
+        height: Math.max(1, rect.height - paddingY),
+      };
+      setStageViewportSize((current) =>
+        current?.width === next.width && current.height === next.height
+          ? current
+          : next,
+      );
+    };
+    const scheduleMeasure = () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        measure();
+      });
+    };
+    scheduleMeasure();
+    const observer = new ResizeObserver(scheduleMeasure);
+    observer.observe(node);
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, []);
 
   function toggleFilmstripCollapsed() {
     setFilmstripCollapsed((prev) => {
@@ -1336,6 +1477,61 @@ export function SlideEditorVNext({
         }
         return null;
       });
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+
+  function handleCropHandlePointerDown(
+    nodeId: string,
+    handle: CropHandlePosition,
+    event: ReactPointerEvent,
+  ) {
+    if (!activeSlide || event.button !== 0) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node || node.type !== "image" || node.locked) return;
+    const rect = canvasRectFromEvent(event);
+    const frame = node.layout?.frame;
+    if (!rect || !frame || frame.w <= 0 || frame.h <= 0) return;
+    const start = pointPctFromEvent(event, rect);
+    const startCrop: ImageCrop = {
+      top: node.content.crop?.top ?? 0,
+      right: node.content.crop?.right ?? 0,
+      bottom: node.content.crop?.bottom ?? 0,
+      left: node.content.crop?.left ?? 0,
+    };
+
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveCropHandle({ nodeId, handle });
+    setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const point = pointPctFromEvent(moveEvent, rect);
+      const deltaX = ((point.x - start.x) / frame.w) * 100;
+      const deltaY = ((point.y - start.y) / frame.h) * 100;
+      const nextCrop: ImageCrop = { ...startCrop };
+      if (handle === "left") nextCrop.left = clampCrop(startCrop.left + deltaX);
+      if (handle === "right") {
+        nextCrop.right = clampCrop(startCrop.right - deltaX);
+      }
+      if (handle === "top") nextCrop.top = clampCrop(startCrop.top + deltaY);
+      if (handle === "bottom") {
+        nextCrop.bottom = clampCrop(startCrop.bottom - deltaY);
+      }
+      onDeckChange(
+        updateNodeContent(deck, activeSlide.id, nodeId, {
+          crop: nextCrop,
+        }),
+      );
+      setStageAnnouncement(`Cropping image ${handle}`);
+    };
+
+    const handlePointerUp = () => {
+      setActiveCropHandle(null);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
@@ -2135,7 +2331,9 @@ export function SlideEditorVNext({
     );
   }
 
-  const stageFrameStyle = canvasFrameStyle(deck, stageZoomPercent);
+  const stageFit = canvasStageFit(deck, stageZoomPercent, stageViewportSize);
+  const stageFrameStyle = canvasFrameStyle(stageFit);
+  const stageScrollStyle = stageScrollContentStyle(stageFit);
   const activeSlideName = slideDisplayName(activeSlide, activeSlideIndex);
   const selectedNodeSummary = selectedSummary(selectedIds.length);
   const diagnosticSummary = diagnosticsSummary(diagnostics.length);
@@ -2155,6 +2353,55 @@ export function SlideEditorVNext({
 
   const isDecorationSelected =
     selectedResolvedNode?.source === "themeDecoration";
+  const inspectorKey = `${inspectorPanelRequest?.panel ?? "auto"}-${inspectorPanelRequest?.nonce ?? 0}`;
+  const renderInspectorShell = () => (
+    <InspectorShell
+      key={inspectorKey}
+      initialPanel={inspectorPanelRequest?.panel}
+      activeSlide={activeSlide}
+      selectedNode={selectedNode}
+      selectedIds={selectedIds}
+      isDecorationSelected={isDecorationSelected}
+      diagnostics={diagnostics}
+      onUpdateControls={handleUpdateControls}
+      onUpdateProps={handleUpdateProps}
+      onUpdateSlideAttributes={handleUpdateSlideAttributes}
+      onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
+      onResetSlideLocalStyle={handleResetSlideLocalStyle}
+      onUpdateSlideSource={handleUpdateSlideSource}
+      onUpdateSelectedLayout={
+        handleUpdateSelectedLayout as Parameters<
+          typeof InspectorShell
+        >[0]["onUpdateSelectedLayout"]
+      }
+      onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
+      onUpdateSelectedContent={handleUpdateSelectedContent}
+      onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
+      assetResolver={resolveDeckAsset}
+      onReplaceImage={handleReplaceSelectedImageRequest}
+      onResetToTheme={handleResetToTheme}
+      onUpdateSelectedSource={handleUpdateSelectedSource}
+      onRefreshSelectedSource={handleRefreshSelectedSource}
+      onChangeStyleBinding={handleChangeStyleBinding}
+      onAlignSelection={handleAlignSelection}
+      onDistributeSelection={handleDistributeSelection}
+      onMatchSize={handleMatchSize}
+      onGroupSelection={handleGroupSelection}
+      onUngroupSelection={handleUngroupSelection}
+      onReorderSelection={handleReorderSelection}
+      onSelectLayer={handleSelectLayer}
+      onUpdateLayer={handleUpdateLayer}
+      onReorderLayer={handleReorderLayer}
+      onDetachDecoration={handleDetachDecoration}
+      onDiagnosticAction={handleDiagnosticAction}
+      TEMPLATE_OPTIONS={TEMPLATE_OPTIONS}
+      activeTemplate={activeTemplate}
+      activeLayoutId={activeLayoutId}
+      onReapplyTemplate={handleReapplyTemplate}
+      selectionMode={selection.mode}
+      onToggleSelectionMode={toggleSelectionMode}
+    />
+  );
 
   return (
     <div
@@ -2527,14 +2774,14 @@ export function SlideEditorVNext({
       {/* ------------------------------------------------------------------ */}
       {/* Editor surface (stage + inspector — rail moved to bottom filmstrip)  */}
       {/* ------------------------------------------------------------------ */}
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-ds-surface-recessed">
+      <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-ds-surface-recessed">
         {/* ------------------------------------------------------------------ */}
         {/* Main Stage                                                          */}
         {/* ------------------------------------------------------------------ */}
         <div
           data-slide-stage-shell="true"
           data-slide-toolbar-anchor="true"
-          className="relative h-full min-w-0 overflow-hidden bg-ds-surface-recessed"
+          className="relative z-0 h-full min-w-0 overflow-hidden bg-ds-surface-recessed"
           onClick={handleStageClick}
           onPointerDown={handleStagePointerDown}
         >
@@ -2584,115 +2831,128 @@ export function SlideEditorVNext({
           />
 
           {activeSlideTree ? (
-            <div className="grid h-full min-h-[360px] place-items-center overflow-auto p-6">
-              <div
-                ref={handleCanvasRef}
-                data-slide-stage-frame="true"
-                className="relative w-full min-w-[320px] max-w-[1120px]"
-                style={stageFrameStyle}
-              >
-                <SlideCanvasVNext
-                  slide={activeSlideTree}
-                  canvas={renderTree?.canvas}
-                  assetResolver={resolveDeckAsset}
-                  selection={selection}
-                  onNodeClick={handleNodeClick}
-                  onNodeDoubleClick={handleNodeDoubleClick}
-                  onNodePointerDown={handleNodePointerDown}
-                  onNodeFocus={handleNodeFocus}
-                  onNodeHoverChange={handleNodeHoverChange}
-                  onResizeHandlePointerDown={handleResizeHandlePointerDown}
-                  activeResizeHandle={activeResizeHandle}
-                  hiddenNodeIds={
-                    inlineEditNodeId ? new Set([inlineEditNodeId]) : undefined
-                  }
-                  hoveredNodeId={hoveredNodeId}
-                  focusedNodeId={focusedNodeId ?? firstSelectedId ?? null}
-                  className="rounded-ds-sm shadow-ds-xl ring-1 ring-ds-border-subtle"
-                />
-
-                {/* Inline text editor overlay */}
-                {inlineEditNodeId &&
-                  activeSlide &&
-                  canvasElement &&
-                  (() => {
-                    const editNode = findNodeById(
-                      activeSlide.children,
-                      inlineEditNodeId,
-                    );
-                    if (!editNode?.layout) return null;
-                    const canvasEl = canvasElement.querySelector(
-                      '[data-slide-canvas-vnext="true"]',
-                    );
-                    const canvasRect =
-                      canvasEl?.getBoundingClientRect() ??
-                      canvasElement.getBoundingClientRect();
-                    const paragraphs =
-                      editNode.type === "text"
-                        ? editNode.content.paragraphs
-                        : editNode.type === "shape" && editNode.content.text
-                          ? editNode.content.text.paragraphs
-                          : [{ id: `${inlineEditNodeId}-p-1`, text: "" }];
-                    const resolvedEditNode = activeSlideTree.nodes.find(
-                      (node) => node.id === inlineEditNodeId,
-                    );
-                    return (
-                      <InlineTextEditorVNext
-                        nodeId={inlineEditNodeId}
-                        initialParagraphs={paragraphs}
-                        frame={editNode.layout.frame}
-                        canvasRect={canvasRect}
-                        textStyle={resolveNodeFontCss(resolvedEditNode?.style)}
-                        autoHeight={editNode.layout.autoHeight === true}
-                        onCommit={handleInlineEditCommit}
-                        onCancel={handleInlineEditCancel}
-                        onTabNext={() => handleInlineEditTab(1)}
-                        onTabPrev={() => handleInlineEditTab(-1)}
-                      />
-                    );
-                  })()}
-
-                {stageGuides.length > 0 ? (
-                  <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{ zIndex: STAGE_CHROME_Z_INDEX.snapGuide }}
-                  >
-                    {stageGuides.map((guide, index) => (
-                      <span
-                        key={`${guide.axis}-${guide.positionPct}-${index}`}
-                        className="absolute bg-ds-accent-fill/70"
-                        style={
-                          guide.axis === "x"
-                            ? {
-                                left: `${guide.positionPct}%`,
-                                top: 0,
-                                width: 1,
-                                height: "100%",
-                              }
-                            : {
-                                left: 0,
-                                top: `${guide.positionPct}%`,
-                                width: "100%",
-                                height: 1,
-                              }
-                        }
-                      />
-                    ))}
-                  </div>
-                ) : null}
-                {marqueeFrame ? (
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute border border-ds-accent-border bg-ds-accent-surface/25"
-                    style={{
-                      left: `${marqueeFrame.x}%`,
-                      top: `${marqueeFrame.y}%`,
-                      width: `${marqueeFrame.w}%`,
-                      height: `${marqueeFrame.h}%`,
-                      zIndex: STAGE_CHROME_Z_INDEX.marquee,
-                    }}
+            <div
+              ref={stageViewportRef}
+              data-slide-stage-viewport="true"
+              className={cx(
+                "box-border h-full min-h-0 p-6",
+                stageFit.needsScroll ? "overflow-auto" : "overflow-hidden",
+              )}
+            >
+              <div style={stageScrollStyle}>
+                <div
+                  ref={handleCanvasRef}
+                  data-slide-stage-frame="true"
+                  className="relative"
+                  style={stageFrameStyle}
+                >
+                  <SlideCanvasVNext
+                    slide={activeSlideTree}
+                    canvas={renderTree?.canvas}
+                    assetResolver={resolveDeckAsset}
+                    selection={selection}
+                    onNodeClick={handleNodeClick}
+                    onNodeDoubleClick={handleNodeDoubleClick}
+                    onNodePointerDown={handleNodePointerDown}
+                    onNodeFocus={handleNodeFocus}
+                    onNodeHoverChange={handleNodeHoverChange}
+                    onResizeHandlePointerDown={handleResizeHandlePointerDown}
+                    onCropHandlePointerDown={handleCropHandlePointerDown}
+                    activeResizeHandle={activeResizeHandle}
+                    activeCropHandle={activeCropHandle}
+                    hiddenNodeIds={
+                      inlineEditNodeId ? new Set([inlineEditNodeId]) : undefined
+                    }
+                    hoveredNodeId={hoveredNodeId}
+                    focusedNodeId={focusedNodeId ?? firstSelectedId ?? null}
+                    className="rounded-ds-sm shadow-ds-xl ring-1 ring-ds-border-subtle"
                   />
-                ) : null}
+
+                  {/* Inline text editor overlay */}
+                  {inlineEditNodeId &&
+                    activeSlide &&
+                    canvasElement &&
+                    (() => {
+                      const editNode = findNodeById(
+                        activeSlide.children,
+                        inlineEditNodeId,
+                      );
+                      if (!editNode?.layout) return null;
+                      const canvasEl = canvasElement.querySelector(
+                        '[data-slide-canvas-vnext="true"]',
+                      );
+                      const canvasRect =
+                        canvasEl?.getBoundingClientRect() ??
+                        canvasElement.getBoundingClientRect();
+                      const paragraphs =
+                        editNode.type === "text"
+                          ? editNode.content.paragraphs
+                          : editNode.type === "shape" && editNode.content.text
+                            ? editNode.content.text.paragraphs
+                            : [{ id: `${inlineEditNodeId}-p-1`, text: "" }];
+                      const resolvedEditNode = activeSlideTree.nodes.find(
+                        (node) => node.id === inlineEditNodeId,
+                      );
+                      return (
+                        <InlineTextEditorVNext
+                          nodeId={inlineEditNodeId}
+                          initialParagraphs={paragraphs}
+                          frame={editNode.layout.frame}
+                          canvasRect={canvasRect}
+                          textStyle={resolveNodeFontCss(
+                            resolvedEditNode?.style,
+                          )}
+                          autoHeight={editNode.layout.autoHeight === true}
+                          onCommit={handleInlineEditCommit}
+                          onCancel={handleInlineEditCancel}
+                          onTabNext={() => handleInlineEditTab(1)}
+                          onTabPrev={() => handleInlineEditTab(-1)}
+                        />
+                      );
+                    })()}
+
+                  {stageGuides.length > 0 ? (
+                    <div
+                      className="pointer-events-none absolute inset-0"
+                      style={{ zIndex: STAGE_CHROME_Z_INDEX.snapGuide }}
+                    >
+                      {stageGuides.map((guide, index) => (
+                        <span
+                          key={`${guide.axis}-${guide.positionPct}-${index}`}
+                          className="absolute bg-ds-accent-fill/70"
+                          style={
+                            guide.axis === "x"
+                              ? {
+                                  left: `${guide.positionPct}%`,
+                                  top: 0,
+                                  width: 1,
+                                  height: "100%",
+                                }
+                              : {
+                                  left: 0,
+                                  top: `${guide.positionPct}%`,
+                                  width: "100%",
+                                  height: 1,
+                                }
+                          }
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  {marqueeFrame ? (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute border border-ds-accent-border bg-ds-accent-surface/25"
+                      style={{
+                        left: `${marqueeFrame.x}%`,
+                        top: `${marqueeFrame.y}%`,
+                        width: `${marqueeFrame.w}%`,
+                        height: `${marqueeFrame.h}%`,
+                        zIndex: STAGE_CHROME_Z_INDEX.marquee,
+                      }}
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : (
@@ -2706,51 +2966,77 @@ export function SlideEditorVNext({
         {/* Inspector Panel (tab-routed)                                        */}
         {/* ------------------------------------------------------------------ */}
         <div className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex">
-          <InspectorShell
-            activeSlide={activeSlide}
-            selectedNode={selectedNode}
-            selectedIds={selectedIds}
-            isDecorationSelected={isDecorationSelected}
-            diagnostics={diagnostics}
-            onUpdateControls={handleUpdateControls}
-            onUpdateProps={handleUpdateProps}
-            onUpdateSlideAttributes={handleUpdateSlideAttributes}
-            onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
-            onResetSlideLocalStyle={handleResetSlideLocalStyle}
-            onUpdateSlideSource={handleUpdateSlideSource}
-            onUpdateSelectedLayout={
-              handleUpdateSelectedLayout as Parameters<
-                typeof InspectorShell
-              >[0]["onUpdateSelectedLayout"]
-            }
-            onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
-            onUpdateSelectedContent={handleUpdateSelectedContent}
-            onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
-            assetResolver={resolveDeckAsset}
-            onReplaceImage={handleReplaceSelectedImageRequest}
-            onResetToTheme={handleResetToTheme}
-            onUpdateSelectedSource={handleUpdateSelectedSource}
-            onRefreshSelectedSource={handleRefreshSelectedSource}
-            onChangeStyleBinding={handleChangeStyleBinding}
-            onAlignSelection={handleAlignSelection}
-            onDistributeSelection={handleDistributeSelection}
-            onMatchSize={handleMatchSize}
-            onGroupSelection={handleGroupSelection}
-            onUngroupSelection={handleUngroupSelection}
-            onReorderSelection={handleReorderSelection}
-            onSelectLayer={handleSelectLayer}
-            onUpdateLayer={handleUpdateLayer}
-            onReorderLayer={handleReorderLayer}
-            onDetachDecoration={handleDetachDecoration}
-            onDiagnosticAction={handleDiagnosticAction}
-            TEMPLATE_OPTIONS={TEMPLATE_OPTIONS}
-            activeTemplate={activeTemplate}
-            activeLayoutId={activeLayoutId}
-            onReapplyTemplate={handleReapplyTemplate}
-            selectionMode={selection.mode}
-            onToggleSelectionMode={toggleSelectionMode}
-          />
+          {renderInspectorShell()}
         </div>
+
+        {activeSlide ? (
+          <div className="lg:hidden">
+            <button
+              type="button"
+              data-floating-panel="true"
+              aria-label="Edit slide"
+              aria-haspopup="dialog"
+              aria-expanded={inspectorSheetOpen}
+              onClick={() => openMobileInspector()}
+              className={cx(
+                "tiq-safe-fab fixed z-modal flex h-12 w-12 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow-ds-overlay transition-colors hover:bg-ds-accent-hover",
+                FOCUS_RING,
+              )}
+            >
+              <Edit3 aria-hidden="true" className="h-5 w-5" />
+            </button>
+
+            {inspectorSheetOpen ? (
+              <>
+                <div
+                  data-floating-panel="true"
+                  aria-hidden="true"
+                  onClick={closeMobileInspector}
+                  className="fixed inset-0 z-modal bg-ds-backdrop"
+                />
+                <FocusTrapped>
+                  <div
+                    data-floating-panel="true"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Slide inspector"
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.stopPropagation();
+                        closeMobileInspector();
+                      }
+                    }}
+                    className="tiq-mobile-sheet fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
+                  >
+                    <div className="relative flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-ds-border-subtle"
+                      />
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+                        Edit slide
+                      </p>
+                      <button
+                        type="button"
+                        aria-label="Close slide inspector"
+                        onClick={closeMobileInspector}
+                        className={cx(
+                          "tiq-touch-target flex h-7 w-7 items-center justify-center rounded-full text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                          FOCUS_RING,
+                        )}
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      {renderInspectorShell()}
+                    </div>
+                  </div>
+                </FocusTrapped>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -2788,27 +3074,8 @@ export function SlideEditorVNext({
         />
       )}
 
-      {speakerNotesOpen && activeSlide ? (
-        <section className="shrink-0 border-t border-ds-border-subtle bg-ds-surface px-3 py-2">
-          <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-[0.06em] text-ds-text-muted">
-            Notes
-            <textarea
-              rows={3}
-              value={activeSlide.notes ?? ""}
-              onChange={(event) =>
-                handleUpdateSlideAttributes({
-                  notes: event.currentTarget.value,
-                })
-              }
-              className="min-h-16 resize-y rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-2 text-xs normal-case tracking-normal text-ds-text-primary outline-none focus:border-ds-accent focus:ring-2 focus:ring-ds-focus-ring/20"
-              aria-label="Speaker notes"
-            />
-          </label>
-        </section>
-      ) : null}
-
       {/* Footer status bar */}
-      <footer className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-ds-border-subtle bg-ds-surface-chrome px-3 text-[11px] text-ds-text-muted">
+      <footer className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-transparent px-3 text-[11px] text-ds-text-muted">
         <div className="flex min-w-0 items-center gap-3">
           <span className="truncate">{selectedNodeSummary}</span>
         </div>
@@ -2849,11 +3116,11 @@ export function SlideEditorVNext({
           </Tooltip>
           <button
             type="button"
-            aria-pressed={speakerNotesOpen}
-            onClick={() => setSpeakerNotesOpen((open) => !open)}
+            aria-pressed={inspectorPanelRequest?.panel === "notes"}
+            onClick={handleNotesControlClick}
             className={cx(
               "flex h-7 items-center gap-1 rounded-ds-md px-2 text-[11px] font-semibold transition-colors",
-              speakerNotesOpen
+              inspectorPanelRequest?.panel === "notes"
                 ? "bg-ds-accent-surface text-ds-accent-text"
                 : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
               FOCUS_RING,

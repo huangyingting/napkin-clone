@@ -239,6 +239,54 @@ function MultiArrangePanel({
   );
 }
 
+function SingleArrangePanel({
+  onAlignSelection,
+  onReorderSelection,
+}: {
+  onAlignSelection: (mode: SelectionAlignMode) => void;
+  onReorderSelection: (kind: "forward" | "backward" | "front" | "back") => void;
+}) {
+  return (
+    <section className="flex flex-col gap-3 px-3 py-2.5">
+      <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+        Arrange
+      </h4>
+      <div className="grid grid-cols-3 gap-1.5">
+        <ActionButton onClick={() => onAlignSelection("left")}>
+          Left
+        </ActionButton>
+        <ActionButton onClick={() => onAlignSelection("center")}>
+          Center
+        </ActionButton>
+        <ActionButton onClick={() => onAlignSelection("right")}>
+          Right
+        </ActionButton>
+        <ActionButton onClick={() => onAlignSelection("top")}>Top</ActionButton>
+        <ActionButton onClick={() => onAlignSelection("middle")}>
+          Middle
+        </ActionButton>
+        <ActionButton onClick={() => onAlignSelection("bottom")}>
+          Bottom
+        </ActionButton>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <ActionButton onClick={() => onReorderSelection("front")}>
+          Bring front
+        </ActionButton>
+        <ActionButton onClick={() => onReorderSelection("back")}>
+          Send back
+        </ActionButton>
+        <ActionButton onClick={() => onReorderSelection("forward")}>
+          Forward
+        </ActionButton>
+        <ActionButton onClick={() => onReorderSelection("backward")}>
+          Backward
+        </ActionButton>
+      </div>
+    </section>
+  );
+}
+
 function RangeField({
   label,
   value,
@@ -780,6 +828,7 @@ export interface InspectorShellProps {
   // Mode
   selectionMode: "normal" | "layers";
   onToggleSelectionMode: () => void;
+  initialPanel?: InspectorPanelId;
 }
 
 export function InspectorShell({
@@ -821,6 +870,7 @@ export function InspectorShell({
   onReapplyTemplate,
   selectionMode,
   onToggleSelectionMode,
+  initialPanel,
 }: InspectorShellProps): JSX.Element {
   const nodeForRouting = isDecorationSelected ? null : (selectedNode ?? null);
   const multiSelect = selectedIds.length > 1;
@@ -834,8 +884,9 @@ export function InspectorShell({
     isDecorationSelected,
   );
 
-  const [activePanel, setActivePanel] =
-    useState<InspectorPanelId>(defaultPanel);
+  const [activePanel, setActivePanel] = useState<InspectorPanelId>(
+    initialPanel ?? defaultPanel,
+  );
 
   // Derive the effective panel: fall back to the default when the current
   // selection no longer exposes the previously-active panel.
@@ -847,6 +898,15 @@ export function InspectorShell({
   const tabOptions = panels.map((p) => ({
     value: p.id as string,
     label: p.label,
+    badge:
+      p.id === "diagnostics" && diagnostics.length > 0 ? (
+        <span
+          aria-label={`${diagnostics.length} diagnostics`}
+          className="rounded-full bg-ds-danger-surface px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-ds-danger-text"
+        >
+          {diagnostics.length}
+        </span>
+      ) : undefined,
   }));
   const inspectorTabId = (panelId: string) => `vnext-inspector-tab-${panelId}`;
   const inspectorPanelId = (panelId: string) =>
@@ -1065,6 +1125,10 @@ export function InspectorShell({
                   onResetToTheme={onResetToTheme}
                 />
               </div>
+              <SingleArrangePanel
+                onAlignSelection={onAlignSelection}
+                onReorderSelection={onReorderSelection}
+              />
               <NodeGeometryPanel
                 node={selectedNode}
                 onUpdateLayout={

@@ -6,6 +6,7 @@ export const STAGE_CHROME_Z_INDEX = {
   groupFrame: 2120,
   multiSelectionBounds: 2130,
   connectorAnchorPreview: 2200,
+  cropHandle: 2210,
   snapGuide: 2300,
   marquee: 2400,
   inlineEditor: 2500,

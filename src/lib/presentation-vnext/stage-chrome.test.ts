@@ -33,6 +33,9 @@ test("vNext stage chrome layers keep feedback above slide content", () => {
     STAGE_CHROME_Z_INDEX.multiSelectionBounds >
       STAGE_CHROME_Z_INDEX.selectedFrame,
   );
+  assert.ok(
+    STAGE_CHROME_Z_INDEX.cropHandle > STAGE_CHROME_Z_INDEX.multiSelectionBounds,
+  );
   assert.ok(STAGE_CHROME_Z_INDEX.marquee > STAGE_CHROME_Z_INDEX.snapGuide);
   assert.ok(STAGE_CHROME_Z_INDEX.inlineEditor > STAGE_CHROME_Z_INDEX.marquee);
 });

@@ -7,7 +7,7 @@
  * component is purely presentational.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { LayoutPanelLeft } from "lucide-react";
@@ -90,6 +90,18 @@ function SlideEditorOpenRecovery({
 }
 
 function SlideEditorOverlay({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    root.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(

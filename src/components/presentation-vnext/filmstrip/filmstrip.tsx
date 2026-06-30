@@ -16,6 +16,7 @@ import { Plus } from "lucide-react";
 
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
+import { SlideCanvasVNext } from "../slide-canvas";
 import { FilmstripSlide } from "./filmstrip-slide";
 import { useFilmstripDrag } from "./use-filmstrip-drag";
 
@@ -43,9 +44,15 @@ export function Filmstrip({
   onMoveSlide,
 }: FilmstripProps): JSX.Element {
   const [statusMessage, setStatusMessage] = useState("");
+  const canvasWidth =
+    renderTree.canvas.width > 0 ? renderTree.canvas.width : 16;
+  const canvasHeight =
+    renderTree.canvas.height > 0 ? renderTree.canvas.height : 9;
+  const thumbnailAspectRatio = `${canvasWidth} / ${canvasHeight}`;
 
   const { dragState, containerRef, onCellPointerDown } = useFilmstripDrag({
     onMoveSlide,
+    onSelectSlide,
   });
 
   function handleKeyDown(event: KeyboardEvent<HTMLOListElement>) {
@@ -123,22 +130,50 @@ export function Filmstrip({
   }
 
   return (
-    <div className="shrink-0 bg-ds-surface-sunken" aria-label="Slide filmstrip">
+    <div className="shrink-0 bg-transparent" aria-label="Slide filmstrip">
       <div aria-live="polite" className="sr-only">
         {statusMessage}
       </div>
+      {dragState.dragPreview ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-dropdown rotate-1 opacity-95 transition-transform duration-150 ease-out"
+          style={{
+            left: dragState.dragPreview.x,
+            top: dragState.dragPreview.y,
+            width: dragState.dragPreview.width,
+          }}
+        >
+          <div className="rounded-ds-sm shadow-ds-overlay">
+            <div
+              className="relative overflow-hidden rounded-ds-sm shadow-[0_0_0_2px_var(--ds-accent)]"
+              style={{ aspectRatio: thumbnailAspectRatio, width: "100%" }}
+            >
+              <SlideCanvasVNext
+                slide={renderTree.slides[dragState.dragPreview.index]!}
+                canvas={renderTree.canvas}
+                assetResolver={assetResolver}
+                preview
+              />
+              <span className="absolute bottom-1.5 left-1/2 flex h-7 min-w-7 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-2 text-sm font-bold tabular-nums text-ds-text-on-accent shadow-sm">
+                {dragState.dragPreview.index + 1}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div
         aria-hidden={collapsed}
         className={cx(
           "overflow-hidden transition-[max-height,opacity,transform] duration-200 ease-out motion-reduce:transition-none",
           collapsed
             ? "max-h-0 translate-y-1 opacity-0"
-            : "max-h-28 translate-y-0 border-t border-ds-border-subtle opacity-100",
+            : "max-h-[84px] translate-y-0 opacity-100",
         )}
       >
         <div
           className={cx(
-            "relative flex h-[104px] items-center gap-0 transition-opacity duration-150",
+            "relative flex h-[84px] items-center gap-0 transition-opacity duration-150",
             collapsed && "pointer-events-none opacity-0",
           )}
         >
@@ -148,7 +183,7 @@ export function Filmstrip({
             role="listbox"
             aria-label="Slides"
             aria-orientation="horizontal"
-            className="flex min-w-0 flex-1 gap-2 overflow-x-auto px-3 py-2"
+            className="flex min-w-0 flex-1 gap-2 overflow-x-auto px-3 py-1.5"
             onKeyDown={handleKeyDown}
             tabIndex={collapsed ? -1 : 0}
           >
@@ -174,8 +209,6 @@ export function Filmstrip({
                     isInteractive={!collapsed}
                     assetResolver={assetResolver}
                     onSelect={onSelectSlide}
-                    onMoveLeft={() => onMoveSlide(slideId, index - 1)}
-                    onMoveRight={() => onMoveSlide(slideId, index + 1)}
                     onDuplicate={() => onDuplicateSlide(slideId)}
                     onDelete={() => onDeleteSlide(slideId)}
                     onPointerDown={onCellPointerDown}

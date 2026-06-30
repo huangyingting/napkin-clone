@@ -63,7 +63,7 @@ layers are introduced.
 │   └────────────────────────────────────┘     │  Notes / Layers       │
 │                                              │  + vNext additions    │
 ├──────────────────────────────────────────────┴───────────────────────┤
-│  Bottom Filmstrip (104px)                                            │
+│  Bottom Filmstrip (84px)                                             │
 │  [ 1 ] [ 2 ] [ 3* ] [ 4 ] …  +Add   Dup   Del  |  Zoom  Notes       │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -454,11 +454,11 @@ slides.
 │ 2px top border (ds-border-subtle)                                           │
 │  [ ← ↑ ] [ 1 │ ████ ] [ 2 │ ████ ] [ 3* │ ████ ] [ 4 │ ████ ] [ + Add ]   │
 │  Drag handles                                        ↑ active               │
-│  height: 104px  |  overflow-x: auto  |  bg: ds-surface-sunken              │
+│  height: 84px   |  overflow-x: auto  |  bg: transparent                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Height:** 104 px (8 px padding top + bottom; 88 px for thumbnail + label).
+- **Height:** 84 px (compact vertical padding around a 72 px thumbnail).
 - **Each thumbnail cell:** 16:9 aspect thumbnail (width ~108 px at 16:9 = ~61 px
   tall), slide number label below, active slide ring `ring-ds-accent-border`,
   hover ring `ring-ds-border`.
@@ -888,25 +888,29 @@ stage-editing gaps have now been closed: focusable stage nodes, hover/focus
 visuals, locked-state visuals, multi-selection bounds, richer inline text
 commands, image insert/replace, connector endpoint resolution, targeted table
 operations, source metadata actions, and toolbar/inspector accessibility
-improvements. The remaining gaps below should be treated as implementation work,
-not changes to the target design.
+improvements. The tables below distinguish remaining runtime gaps from coverage
+or product/API follow-up; rows whose remaining gap is browser/component coverage
+are not blocking runtime implementation.
 
 ### Layout And Z-Order Gap Audit
 
 | Capability from legacy       | Current implementation state                                                                                                            | Remaining gap                                                                             |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Stage owns middle layout     | Implemented: the main editor body is a full middle stage surface rather than a flex row split by inspector                              | Add visual regression coverage at the 1280/1440/1920 breakpoints                          |
-| Floating desktop inspector   | Implemented: inspector is an `absolute right-4 top-4 bottom-4 z-panel` overlay, matching the legacy desktop shell contract              | Add mobile sheet/toggle parity if the v7 editor needs sub-`lg` inspector access           |
+| Floating desktop inspector   | Implemented: inspector is an `absolute right-4 top-4 bottom-4 z-panel` overlay, matching the legacy desktop shell contract              | Add visual coverage for inspector-open stage fit                                          |
+| Mobile inspector sheet       | Implemented: below `lg`, a `tiq-safe-fab` opens a `z-modal` bottom sheet with focus trap, backdrop, Escape close, and shared inspector  | Add mobile browser coverage                                                               |
 | Explicit stage chrome layers | Implemented in `src/lib/presentation-vnext/stage-chrome.ts` with legacy-equivalent selected/preselected/frame/guide/marquee ordering    | Keep new stage chrome additions routed through this module                                |
+| Stage chrome containment     | Implemented with an isolated stage stacking context so high numeric canvas chrome cannot draw over the `z-panel` inspector              | Add browser coverage for preselect/selection frames near the inspector edge               |
 | Selection/hover chrome       | Implemented as separate canvas overlay frames instead of node-owned outlines, so content z-order remains independent from editor chrome | Add browser coverage for overlapped nodes where selected/hover frames must remain visible |
 | Context toolbar stacking     | Implemented with the tooltip layer so it floats above stage frames/guides like legacy `StageFloatingToolbar`                            | Add interaction coverage during inspector transition/reflow                               |
 | Inline text editor stacking  | Implemented with the stage chrome inline-editor layer above marquee/guides                                                              | Add inline-edit visual coverage over selected/overlapped nodes                            |
+| Fit-based zoom semantics     | Implemented in `src/lib/presentation-vnext/stage-fit.ts`: 100% means fit-to-stage and only >100% zoom should create scroll              | Add browser coverage for 100%, 150%, and inspector-open zoom states                       |
 
 ### Stage Interaction Gaps
 
 | Capability from spec          | Current implementation state                                                               | Gap                                                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Hover pre-select ring         | Implemented with hovered node tracking and stage node hover outlines                       | Add visual regression coverage                                                                    |
+| Hover pre-select ring         | Implemented with hovered node tracking and separate stage overlay frames                   | Add visual regression coverage                                                                    |
 | Single selection visual state | Selected nodes render rings and resize handles; locked nodes render dashed/grey affordance | Tune final token names against the accepted design system                                         |
 | Multi-selection bbox          | Implemented as a combined multi-selection bounding box                                     | Add component/integration coverage                                                                |
 | Drag state                    | Pointer drag updates frames, shows guides, and suppresses toolbar immediately              | Add final move announcements with richer remaining-context copy                                   |
@@ -925,16 +929,16 @@ Relevant files:
 
 ### Inline Text Editing Gaps
 
-| Capability from spec | Current implementation state                                                     | Gap                                                                                                            |
-| -------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Double-click entry   | `onNodeDoubleClick`, `inlineEditNodeId`, and `hiddenNodeIds` are wired           | Entry path exists; add tests covering text and shape text entry                                                |
-| Font parity          | Inline editor uses shared `resolveNodeFontCss` mapping for resolved text styles  | Extend helper to consume theme-package font tokens directly if future render styles stop carrying concrete CSS |
-| Rich text runs       | Commit serialization stores basic runs; format commands use Range-based DOM ops  | Add full selection-aware run mutation tests and nested-list/link-edit coverage                                 |
-| Format commands      | Toolbar dispatches custom DOM events handled by local Range/Selection operations | Extract command helpers into a tested pure-ish DOM command module if complexity grows                          |
-| Lists and links      | Basic list/link commands and serialization exist                                 | Add link edit/removal, nested/indented list handling, and tests                                                |
-| Escape behavior      | Empty text cancels; non-empty text commits                                       | Reconfirm desired Escape semantics and align implementation with the final interaction contract                |
-| Auto-height          | `layout.autoHeight` exists and commit can update height                          | Add visual tests for growth, clamping, and shape text behavior                                                 |
-| Tab navigation       | Inline Tab/Shift+Tab moves between inline-editable nodes                         | Add reading-order tests and focus/caret restoration expectations                                               |
+| Capability from spec | Current implementation state                                                          | Gap                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Double-click entry   | `onNodeDoubleClick`, `inlineEditNodeId`, and `hiddenNodeIds` are wired                | Entry path exists; add tests covering text and shape text entry                                                |
+| Font parity          | Inline editor uses shared `resolveNodeFontCss` mapping for resolved text styles       | Extend helper to consume theme-package font tokens directly if future render styles stop carrying concrete CSS |
+| Rich text runs       | Commit serialization stores basic runs; format commands use Range-based DOM ops       | Add full selection-aware run mutation tests and nested-list/link-edit coverage                                 |
+| Format commands      | Toolbar dispatches custom DOM events handled by local Range/Selection operations      | Extract command helpers into a tested pure-ish DOM command module if complexity grows                          |
+| Lists and links      | Basic list commands, list indent/outdent, link apply/removal, and serialization exist | Add full DOM command tests                                                                                     |
+| Escape behavior      | Empty text cancels; non-empty text commits                                            | Reconfirm desired Escape semantics and align implementation with the final interaction contract                |
+| Auto-height          | `layout.autoHeight` exists and commit can update height                               | Add visual tests for growth, clamping, and shape text behavior                                                 |
+| Tab navigation       | Inline Tab/Shift+Tab moves between inline-editable nodes                              | Add reading-order tests and focus/caret restoration expectations                                               |
 
 Relevant files:
 
@@ -945,17 +949,17 @@ Relevant files:
 
 ### Context Toolbar Gaps
 
-| Capability from spec     | Current implementation state                                                                      | Gap                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Positioning engine       | Toolbar positions from selected node rects and tracks with RAF while visible                      | Add visual/browser coverage during inspector transitions                                               |
-| Design-system primitives | Tooltip, Popover, and ColorPicker are used; some local button/select wrappers remain              | Replace remaining local wrappers with `ToolbarButton`/`ToolbarMenuItem` when extracting toolbar groups |
-| Text group               | Bold/italic/underline/strike/list/align/color/font/link controls exist                            | Add link edit/removal, nested list behavior, and tests                                                 |
-| Image group              | Replace uses a file picker and writes `DeckV7.assets.images`; crop writes and renders crop values | Add interactive crop handles instead of numeric/default crop-only workflow                             |
-| Visual group             | Transparent background, style theme picker, and optional visual replacement port exist            | Add product visual picker implementation at the host layer and final per-channel rendering/export use  |
-| Connector group          | Straight/curved/step, arrowheads, color, width exist and render from endpoints                    | Polish routing/arrow menus into final segmented/menu primitives                                        |
-| Table group              | Add/delete row/column, header toggle, table style, and targeted row/column operations exist       | Add table-cell selection context if dedicated table-cell editing lands                                 |
-| Overflow menu            | `More` overflow includes lock/hide actions                                                        | Expand with duplicate/delete/more arrange actions if toolbar density requires it                       |
-| Keyboard access          | Arrow/Home/End/Escape toolbar key handling exists                                                 | Add focus-restoration tests                                                                            |
+| Capability from spec     | Current implementation state                                                                                                           | Gap                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Positioning engine       | Toolbar positions from selected node rects and tracks with RAF while visible                                                           | Add visual/browser coverage during inspector transitions                                               |
+| Design-system primitives | Tooltip, Popover, and ColorPicker are used; some local button/select wrappers remain                                                   | Replace remaining local wrappers with `ToolbarButton`/`ToolbarMenuItem` when extracting toolbar groups |
+| Text group               | Bold/italic/underline/strike/list indent/align/color/font/link apply/remove controls exist                                             | Add DOM command tests                                                                                  |
+| Image group              | Replace uses a file picker and writes `DeckV7.assets.images`; crop writes/renders values and selected images expose stage crop handles | Add browser coverage for drag-crop behavior                                                            |
+| Visual group             | Transparent background, style theme picker, and optional visual replacement port exist                                                 | Add product visual picker implementation at the host layer and final per-channel rendering/export use  |
+| Connector group          | Straight/curved/step, arrowheads, color, width exist and render from endpoints                                                         | Polish routing/arrow menus into final segmented/menu primitives                                        |
+| Table group              | Add/delete row/column, header toggle, table style, and targeted row/column operations exist                                            | Add table-cell selection context if dedicated table-cell editing lands                                 |
+| Overflow menu            | `More` overflow includes lock/hide actions                                                                                             | Expand with duplicate/delete/more arrange actions if toolbar density requires it                       |
+| Keyboard access          | Arrow/Home/End/Escape toolbar key handling exists                                                                                      | Add focus-restoration tests                                                                            |
 
 Relevant files:
 
@@ -973,6 +977,7 @@ Relevant files:
 | Announcements            | A live region announces selection, move, resize, and delete with remaining counts        | Tune final copy and add tests                                              |
 | Toolbar a11y             | Buttons have labels/title/tooltips; toolbar has role and roving key handling             | Add focus-restoration tests                                                |
 | Inspector tabs           | Tab ids and `aria-controls`/`aria-labelledby` are wired through `Tabs` and panel content | Add accessibility tests                                                    |
+| Diagnostics tab badge    | Diagnostics tabs render a count badge when diagnostics are active                        | Add browser coverage for long tab strips with badges                       |
 
 Relevant files:
 
@@ -983,16 +988,16 @@ Relevant files:
 
 ### Inspector Editing Gaps
 
-| Capability from spec                      | Current implementation state                                                                                     | Gap                                                                                                |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Text/Shape/Image/Visual/Line/Table panels | Generic content/local-style panels cover many fields                                                             | Split or deepen panel implementations so each panel matches the per-node UX in this spec           |
-| Image panel                               | Asset preview, replace picker, asset id, fit, alt, crop, adjustments exist                                       | Add interactive crop handles and reset behavior tests                                              |
-| Visual panel                              | Visual id, asset id, alt, transparent background, style theme, channel color overrides, and style binding exist  | Add product visual picker implementation at the host layer and document visual insertion flow      |
-| Line panel                                | Routing, endpoint coordinates, node-anchor endpoint binding, and connector style controls exist                  | Polish dash/arrow menus                                                                            |
-| Table panel                               | Column/row labels, cell text, targeted insert/delete, style menu, alternating row controls, header/caption exist | Add table-cell selection context if needed                                                         |
-| Arrange panel                             | Geometry, rotation, flip, aspect lock, z-index, lock/hidden exist                                                | Add fully grouped align/distribute controls for single and multi-select, plus focus/keyboard tests |
-| Source panel                              | Metadata fields, link status, mark updated, unlink, and relink exist                                             | True update-from-document and stale/orphan detection require document-block fetch/hash APIs        |
-| Effects panel                             | Opacity, shadow, blur/glow/glass, and blend mode controls exist                                                  | Ensure export/render parity for every supported effect                                             |
+| Capability from spec                      | Current implementation state                                                                                                  | Gap                                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Text/Shape/Image/Visual/Line/Table panels | Generic content/local-style panels cover many fields                                                                          | Split or deepen panel implementations so each panel matches the per-node UX in this spec      |
+| Image panel                               | Asset preview, replace picker, asset id, fit, alt, crop, adjustments, and stage crop handles exist                            | Add drag-crop and reset behavior tests                                                        |
+| Visual panel                              | Visual id, asset id, alt, transparent background, style theme, channel color overrides, and style binding exist               | Add product visual picker implementation at the host layer and document visual insertion flow |
+| Line panel                                | Routing, endpoint coordinates, node-anchor endpoint binding, and connector style controls exist                               | Polish dash/arrow menus                                                                       |
+| Table panel                               | Column/row labels, cell text, targeted insert/delete, style menu, alternating row controls, header/caption exist              | Add table-cell selection context if needed                                                    |
+| Arrange panel                             | Geometry, rotation, flip, aspect lock, z-index, lock/hidden, align, distribute, match-size, group, and z-order controls exist | Add focus/keyboard tests                                                                      |
+| Source panel                              | Metadata fields, link status, mark updated, unlink, and relink exist                                                          | True update-from-document and stale/orphan detection require document-block fetch/hash APIs   |
+| Effects panel                             | Opacity, shadow, blur/glow/glass, and blend mode controls exist                                                               | Ensure export/render parity for every supported effect                                        |
 
 Relevant files:
 
@@ -1004,16 +1009,17 @@ Relevant files:
 
 ### Bottom Filmstrip And Status Dock Gap Audit
 
-| Capability from spec / legacy | Current implementation state                                                                                                    | Remaining gap                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Collapsible rail transition   | Implemented as an animated `max-height`/opacity/translate rail shell with persisted collapsed state                             | Add browser coverage for transition/focus behavior                            |
-| Bottom dock controls          | Implemented inside the existing footer status bar as slide toggle, notes toggle, slide count label, zoom slider, zoom menu, Fit | Add visual coverage against the single-row footer layout                      |
-| Zoom range/presets            | Implemented with 25-200% range, 5% step, descending presets, and Fit action                                                     | Confirm product meaning of Fit if future stage auto-fit differs from 100%     |
-| Thumbnail action overlay      | Implemented for every thumbnail on active/hover/focus, including duplicate/delete and left/right reorder actions                | Add component/browser coverage for non-active hover actions                   |
-| Drag visual feedback          | Implemented with drag threshold, source dim/scale, drop indicator, and edge auto-scroll                                         | Add pointer-drag tests once a DOM-capable component test harness exists       |
-| Filmstrip keyboard            | Implemented with Arrow/Home/End navigation, Enter/Space select, Delete/Backspace focused-slide delete, and Alt+Arrow reordering | Add keyboard integration tests for focus restoration after delete/reorder     |
-| Add slide affordance          | Implemented with icon-only compact mode and `Add` text on wider screens                                                         | Add responsive visual coverage                                                |
-| Delete last slide             | Implemented with disabled delete buttons and a polite live-region keyboard guard for the final slide                            | Add visible toast/status feedback if the final product shell standardizes one |
+| Capability from spec / legacy | Current implementation state                                                                                                               | Remaining gap                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Collapsible rail transition   | Implemented as an animated transparent `max-height`/opacity/translate rail shell with persisted collapsed state                            | Add browser coverage for transition/focus behavior                            |
+| Bottom dock controls          | Implemented inside a transparent footer status row as slide toggle, inspector-routed Notes, slide count label, zoom slider, zoom menu, Fit | Add visual coverage against the single-row footer layout                      |
+| Zoom range/presets            | Implemented with 25-200% range, 5% step, descending presets, and Fit action                                                                | Confirm product meaning of Fit if future stage auto-fit differs from 100%     |
+| Thumbnail action overlay      | Implemented inside each thumbnail on hover/focus with duplicate/delete actions; reorder is drag/keyboard only                              | Add component/browser coverage for non-active hover actions                   |
+| Thumbnail sizing              | Implemented with cells sized to the ratio-fitted thumbnail frame, so active ring, badges, drag preview, and spacing match the canvas size  | Add visual coverage for dense decks, ratio changes, and horizontal overflow   |
+| Drag visual feedback          | Implemented with drag threshold, source dim/scale, drop indicator, floating drag preview, click-select fallback, and edge auto-scroll      | Add pointer-drag tests once a DOM-capable component test harness exists       |
+| Filmstrip keyboard            | Implemented with Arrow/Home/End navigation, Enter/Space select, Delete/Backspace focused-slide delete, and Alt+Arrow reordering            | Add keyboard integration tests for focus restoration after delete/reorder     |
+| Add slide affordance          | Implemented with icon-only compact mode and `Add` text on wider screens                                                                    | Add responsive visual coverage                                                |
+| Delete last slide             | Implemented with disabled delete buttons and a polite live-region keyboard guard for the final slide                                       | Add visible toast/status feedback if the final product shell standardizes one |
 
 Relevant files:
 
@@ -1052,57 +1058,19 @@ they can be implemented honestly in the v7 editor UI:
 
 ---
 
-## Implementation Blockers
+## Resolved Implementation Blockers
 
-The following issues must be resolved during implementation. They are not
-blocking the documentation, but they block specific implementation slices.
+The early implementation blockers below are now resolved in the current v7
+editor runtime. They remain documented here only as migration history.
 
-### 1. `SlideCanvasVNext` has no `hiddenNodeIds` prop
-
-The inline text editor needs to hide the rendered node while the overlay editor
-is active (to avoid double rendering). `SlideCanvasVNext` accepts no
-`hiddenNodeIds`/`hiddenElementIds` prop today. **Action:** add
-`hiddenNodeIds?: Set<string>` to `SlideCanvasVNextProps` and propagate to
-`slide-node-renderer.tsx`.
-
-### 2. `SlideCanvasVNext` container lacks `data-slide-toolbar-anchor="true"`
-
-The context toolbar positioning engine queries for
-`data-slide-toolbar-anchor="true"` to find the scroll container bounds. The v7
-stage `div` needs this attribute. **Action:** add
-`data-slide-toolbar-anchor="true"` to the stage canvas wrapper in the editor
-shell.
-
-### 3. No `onNodeDoubleClick` callback on `SlideCanvasVNext`
-
-The inline editor is triggered by double-click on a node. `SlideCanvasVNext`
-currently fires `onNodeClick` but not `onNodeDoubleClick`. **Action:** add
-`onNodeDoubleClick?: (nodeId: string, event: MouseEvent) => void` to the canvas
-props.
-
-### 4. `SlideChildNode` has no `autoHeight` / `minHeight` layout field
-
-The inline text editor needs to grow the text box when text overflows. The v7
-`LayoutBox` schema currently has `frame: { x, y, w, h }` + `zIndex`. **Action:**
-discuss with Trinity whether to add `autoHeight?: boolean` to `LayoutBox` or
-handle text overflow via a different strategy. See data-model/deck.md.
-
-### 5. Bottom filmstrip drag-to-reorder needs pixel-accurate bounds
-
-`moveSlide` requires a target index. Computing the correct index from pointer
-position requires reading the DOM bounding rects of filmstrip cells at drag
-time. The filmstrip must be in a stable scroll container with known cell widths.
-**Action:** filmstrip cells must have a `data-slide-index` attribute; the drag
-hook reads these via `querySelectorAll`.
-
-### 6. `ThemePackageV1` inline text font resolution
-
-`InlineTextEditorVNext` needs to render text in the same font as the v7 canvas.
-The v7 canvas uses CSS custom properties from `ThemePackageV1.tokens`. The inline
-editor must read these from the resolved node's `style` in the render tree, or
-from the theme package tokens, to avoid font-swap jank. **Action:** expose a
-`resolveNodeFontCss(node, themePackage)` helper (port of
-`src/lib/presentation/slide-fonts.ts` → `resolveElementFontCss`) for v7.
+| Former blocker                                  | Resolution                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `SlideCanvasVNext` lacked `hiddenNodeIds`       | Implemented and propagated to node rendering so inline edit can hide the canvas node |
+| Stage lacked `data-slide-toolbar-anchor="true"` | Implemented on the vNext stage shell for context toolbar positioning                 |
+| `SlideCanvasVNext` lacked `onNodeDoubleClick`   | Implemented and wired to inline text editing                                         |
+| `LayoutBox` lacked auto-height support          | `layout.autoHeight` is available and inline edit can commit height changes           |
+| Filmstrip drag required pixel bounds            | Filmstrip cells expose `data-slide-index` and drag reads cell rects                  |
+| Inline editor font resolution needed v7 helper  | `resolveNodeFontCss` is implemented and used by the inline editor                    |
 
 ---
 

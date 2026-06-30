@@ -42,6 +42,8 @@ export type ResizeHandlePosition =
   | "sw"
   | "w";
 
+export type CropHandlePosition = "top" | "right" | "bottom" | "left";
+
 const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
   "nw",
   "n",
@@ -51,6 +53,12 @@ const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
   "s",
   "sw",
   "w",
+];
+const CROP_HANDLES: readonly CropHandlePosition[] = [
+  "top",
+  "right",
+  "bottom",
+  "left",
 ];
 
 // ---------------------------------------------------------------------------
@@ -208,8 +216,16 @@ export interface SlideCanvasVNextProps {
     handle: ResizeHandlePosition,
     event: React.PointerEvent,
   ) => void;
+  /** Called when the user starts cropping a selected image. */
+  onCropHandlePointerDown?: (
+    nodeId: string,
+    handle: CropHandlePosition,
+    event: React.PointerEvent,
+  ) => void;
   /** Currently active resize handle, if any. */
   activeResizeHandle?: { nodeId: string; handle: ResizeHandlePosition } | null;
+  /** Currently active crop handle, if any. */
+  activeCropHandle?: { nodeId: string; handle: CropHandlePosition } | null;
   /**
    * Node ids to hide from the canvas (e.g., the node being inline-edited
    * is hidden while the overlay editor is active).
@@ -245,7 +261,9 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   onNodeFocus,
   onNodeHoverChange,
   onResizeHandlePointerDown,
+  onCropHandlePointerDown,
   activeResizeHandle,
+  activeCropHandle,
   hiddenNodeIds,
   hoveredNodeId,
   focusedNodeId,
@@ -263,6 +281,9 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
     : [];
   const selectedResizableNodes = selectedUserNodes.filter(
     (node) => node.locked !== true,
+  );
+  const selectedCroppableNodes = selectedResizableNodes.filter(
+    (node) => node.type === "image" && node.content.type === "image",
   );
   const preselectedUserNodes = !preview
     ? userNodes.filter(
@@ -411,6 +432,40 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             </div>
           ))
         : null}
+
+      {!preview && onCropHandlePointerDown
+        ? selectedCroppableNodes.map((node) => (
+            <div
+              key={`${node.id}-crop-overlay`}
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{
+                left: `${node.layout.frame.x}%`,
+                top: `${node.layout.frame.y}%`,
+                width: `${node.layout.frame.w}%`,
+                height: `${node.layout.frame.h}%`,
+                zIndex: STAGE_CHROME_Z_INDEX.cropHandle,
+              }}
+            >
+              {CROP_HANDLES.map((handle) => (
+                <span
+                  key={handle}
+                  data-crop-handle={handle}
+                  className={`pointer-events-auto absolute rounded-full border shadow-ds-sm ${
+                    activeCropHandle?.nodeId === node.id &&
+                    activeCropHandle.handle === handle
+                      ? "border-ds-accent-fill bg-ds-accent-fill"
+                      : "border-ds-accent-border bg-ds-surface"
+                  }`}
+                  style={cropHandleStyle(handle)}
+                  onPointerDown={(event) =>
+                    onCropHandlePointerDown(node.id, handle, event)
+                  }
+                />
+              ))}
+            </div>
+          ))
+        : null}
     </div>
   );
 });
@@ -476,6 +531,27 @@ function resizeHandleStyle(handle: ResizeHandlePosition): React.CSSProperties {
       ? { top: "100%" }
       : { top: "50%" };
   return { ...horizontal, ...vertical };
+}
+
+function cropHandleStyle(handle: CropHandlePosition): React.CSSProperties {
+  if (handle === "top" || handle === "bottom") {
+    return {
+      left: "50%",
+      top: handle === "top" ? 0 : "100%",
+      width: 34,
+      height: 7,
+      transform: "translate(-50%, -50%)",
+      cursor: "ns-resize",
+    };
+  }
+  return {
+    left: handle === "left" ? 0 : "100%",
+    top: "50%",
+    width: 7,
+    height: 34,
+    transform: "translate(-50%, -50%)",
+    cursor: "ew-resize",
+  };
 }
 
 // ---------------------------------------------------------------------------

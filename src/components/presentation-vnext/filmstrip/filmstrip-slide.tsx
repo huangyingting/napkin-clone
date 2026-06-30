@@ -8,7 +8,7 @@
  */
 
 import { type JSX } from "react";
-import { Copy, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Copy, Trash2 } from "lucide-react";
 
 import type { ResolvedSlideRenderTree } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
@@ -26,8 +26,6 @@ export interface FilmstripSlideProps {
   isInteractive?: boolean;
   assetResolver?: (id: string) => string | undefined;
   onSelect: (index: number) => void;
-  onMoveLeft: () => void;
-  onMoveRight: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onPointerDown: (
@@ -48,12 +46,18 @@ export function FilmstripSlide({
   isInteractive = true,
   assetResolver,
   onSelect,
-  onMoveLeft,
-  onMoveRight,
   onDuplicate,
   onDelete,
   onPointerDown,
 }: FilmstripSlideProps): JSX.Element {
+  const canvasWidth = canvas.width > 0 ? canvas.width : 16;
+  const canvasHeight = canvas.height > 0 ? canvas.height : 9;
+  const thumbnailAspectRatio = `${canvasWidth} / ${canvasHeight}`;
+  const thumbnailWidthPx = Math.max(
+    48,
+    Math.min(128, (72 * canvasWidth) / canvasHeight),
+  );
+
   return (
     <li
       role="option"
@@ -62,92 +66,88 @@ export function FilmstripSlide({
       data-slide-index={index}
       onPointerDown={(e) => onPointerDown(e, slideId, index)}
       className={cx(
-        "group relative shrink-0 cursor-pointer select-none rounded-[var(--ds-radius-sm,6px)] border p-1 transition-[opacity,transform,box-shadow,border-color]",
-        isActive
-          ? "border-ds-accent-border shadow-[0_0_0_2px_var(--ds-accent)]"
-          : "border-ds-border-subtle hover:border-ds-border",
+        "group relative grid h-[72px] shrink-0 cursor-pointer select-none place-items-center transition-[opacity,transform] duration-150 ease-out",
         isDragging && "scale-[0.98] opacity-40",
       )}
+      style={{ width: thumbnailWidthPx }}
     >
-      {/* Slide number */}
-      <span className="mb-1 block text-center text-[10px] font-medium text-ds-text-muted">
-        {index + 1}
-      </span>
-
-      {/* Thumbnail */}
-      <button
-        type="button"
-        aria-label={`Go to slide ${index + 1}`}
-        aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Delete Backspace"
-        disabled={!isInteractive}
-        tabIndex={isInteractive ? 0 : -1}
-        onClick={() => onSelect(index)}
-        className={cx("block w-full", FOCUS_RING)}
-      >
-        <SlideCanvasVNext
-          slide={slideTree}
-          canvas={canvas}
-          assetResolver={assetResolver}
-          preview
-        />
-      </button>
-
-      {/* Action overlay — shown on active slide, hover, or keyboard focus */}
       <div
-        className={cx(
-          "absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
-          isActive && "opacity-100",
-        )}
-        onPointerDown={(event) => event.stopPropagation()}
+        data-thumbnail-frame="true"
+        className="relative h-full w-full"
+        style={{
+          aspectRatio: thumbnailAspectRatio,
+        }}
       >
+        {/* Thumbnail */}
         <button
           type="button"
-          aria-label="Move slide left"
-          disabled={!isInteractive || index === 0}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMoveLeft();
-          }}
-          className="flex h-5 w-5 items-center justify-center rounded-[var(--ds-radius-sm,6px)] bg-ds-surface/90 text-ds-text-muted hover:text-ds-text-primary disabled:opacity-40"
-        >
-          <ChevronLeft size={10} aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Move slide right"
-          disabled={!isInteractive || index === totalSlides - 1}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMoveRight();
-          }}
-          className="flex h-5 w-5 items-center justify-center rounded-[var(--ds-radius-sm,6px)] bg-ds-surface/90 text-ds-text-muted hover:text-ds-text-primary disabled:opacity-40"
-        >
-          <ChevronRight size={10} aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Duplicate slide"
+          aria-label={`Go to slide ${index + 1}`}
+          aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Delete Backspace"
           disabled={!isInteractive}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDuplicate();
-          }}
-          className="flex h-5 w-5 items-center justify-center rounded-[var(--ds-radius-sm,6px)] bg-ds-surface/90 text-ds-text-muted hover:text-ds-text-primary disabled:opacity-40"
+          tabIndex={isInteractive ? 0 : -1}
+          onClick={() => onSelect(index)}
+          className={cx(
+            "block h-full w-full rounded-ds-sm text-left transition-transform duration-150 ease-out",
+            isDragging ? "cursor-grabbing" : "cursor-grab",
+            FOCUS_RING,
+          )}
         >
-          <Copy size={10} aria-hidden />
+          <span
+            className={cx(
+              "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm transition-shadow duration-150 ease-out",
+              isActive
+                ? "shadow-[0_0_0_2px_var(--ds-accent)]"
+                : "group-hover:shadow-[0_0_0_1px_var(--ds-border-subtle)]",
+            )}
+          >
+            <SlideCanvasVNext
+              slide={slideTree}
+              canvas={canvas}
+              assetResolver={assetResolver}
+              preview
+            />
+            <span className="absolute bottom-1 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-1.5 text-[11px] font-bold tabular-nums text-ds-text-on-accent shadow-sm">
+              {index + 1}
+            </span>
+          </span>
         </button>
-        <button
-          type="button"
-          aria-label="Delete slide"
-          disabled={!isInteractive || totalSlides <= 1}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="flex h-5 w-5 items-center justify-center rounded-[var(--ds-radius-sm,6px)] bg-ds-surface/90 text-ds-text-muted hover:text-ds-text-primary disabled:opacity-40"
+
+        {/* Action overlay — shown on hover or keyboard focus */}
+        <div
+          className="tiq-coarse-actions absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+          onPointerDown={(event) => event.stopPropagation()}
         >
-          <Trash2 size={10} aria-hidden />
-        </button>
+          <button
+            type="button"
+            aria-label={`Duplicate slide ${index + 1}`}
+            disabled={!isInteractive}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className={cx(
+              "tiq-touch-target flex h-6 w-6 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted shadow-sm backdrop-blur-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40",
+              FOCUS_RING,
+            )}
+          >
+            <Copy size={13} aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label={`Delete slide ${index + 1}`}
+            disabled={!isInteractive || totalSlides <= 1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className={cx(
+              "tiq-touch-target flex h-6 w-6 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted shadow-sm backdrop-blur-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40",
+              FOCUS_RING,
+            )}
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </div>
       </div>
     </li>
   );
