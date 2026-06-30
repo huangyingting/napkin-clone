@@ -184,6 +184,29 @@ describe("writeDeckWithCas", () => {
     assert.equal(calls.length, 0);
   });
 
+  test("rejects v7-shaped decks that still carry v6 slide elements", async () => {
+    const { db, calls } = makeDb({ updateCount: 1 });
+    const result = await writeDeckWithCas({
+      documentId: "doc-v7-elements",
+      deckJson: {
+        ...VALID_DECK_V7,
+        slides: [
+          {
+            ...VALID_DECK_V7.slides[0],
+            elements: [],
+          },
+        ],
+      },
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.equal(result.ok, false);
+    assert.match(result.ok === false ? result.error : "", /v6 field/);
+    assert.equal(calls.length, 0);
+  });
+
   test("rejects a structurally invalid v7 deck before writing", async () => {
     const { db, calls } = makeDb({ updateCount: 1 });
     const badV7 = { schemaVersion: 7, slides: "not-an-array" };

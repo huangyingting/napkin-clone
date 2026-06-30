@@ -42,6 +42,12 @@ import {
 } from "@/lib/presentation-vnext/open-deck";
 import { pickUndoFocusTarget } from "@/lib/presentation-vnext/deck-diff";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import {
+  SAVE_CONFLICT_AUTOSAVE_BLOCKED_MESSAGE,
+  hasUnresolvedDeckSaveConflict,
+  updateConflictLocalDeck,
+  type SlideEditorConflictStateV7,
+} from "@/lib/presentation-vnext/slide-editor-collaboration-state";
 
 /** State backing the v7 AI deck preview/diff surface. */
 export interface AiPreviewStateV7 {
@@ -109,10 +115,8 @@ export function useSlideEditorOpen({
   const [v7SaveError, setV7SaveError] = useState<string | null>(null);
   const [undoStackV7, setUndoStackV7] = useState<DeckV7[]>([]);
   const [redoStackV7, setRedoStackV7] = useState<DeckV7[]>([]);
-  const [conflictStateV7, setConflictStateV7] = useState<{
-    localDeck: DeckV7;
-    serverRevisionToken: string | null;
-  } | null>(null);
+  const [conflictStateV7, setConflictStateV7] =
+    useState<SlideEditorConflictStateV7 | null>(null);
   const [undoRedoFocusV7, setUndoRedoFocusV7] = useState<{
     nodeId: string;
     token: number;
@@ -409,6 +413,15 @@ export function useSlideEditorOpen({
 
   const handleDeckV7Change = useCallback(
     (updatedDeck: DeckV7) => {
+      if (hasUnresolvedDeckSaveConflict(conflictStateV7)) {
+        setConflictStateV7(
+          updateConflictLocalDeck(conflictStateV7, updatedDeck),
+        );
+        setDeckV7(updatedDeck);
+        setV7Dirty(true);
+        setV7SaveError(SAVE_CONFLICT_AUTOSAVE_BLOCKED_MESSAGE);
+        return;
+      }
       setUndoStackV7((stack) =>
         deckV7 ? [...stack, deckV7].slice(-50) : stack,
       );
@@ -418,10 +431,11 @@ export function useSlideEditorOpen({
       setV7SaveError(null);
       scheduleAutosaveV7(updatedDeck);
     },
-    [deckV7, scheduleAutosaveV7],
+    [conflictStateV7, deckV7, scheduleAutosaveV7],
   );
 
   const handleUndoV7 = useCallback(() => {
+    if (hasUnresolvedDeckSaveConflict(conflictStateV7)) return;
     setUndoStackV7((stack) => {
       const previous = stack.at(-1);
       if (!previous || !deckV7) return stack;
@@ -433,9 +447,10 @@ export function useSlideEditorOpen({
       scheduleAutosaveV7(previous);
       return stack.slice(0, -1);
     });
-  }, [deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
+  }, [conflictStateV7, deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
 
   const handleRedoV7 = useCallback(() => {
+    if (hasUnresolvedDeckSaveConflict(conflictStateV7)) return;
     setRedoStackV7((stack) => {
       const next = stack.at(-1);
       if (!next || !deckV7) return stack;
@@ -447,7 +462,7 @@ export function useSlideEditorOpen({
       scheduleAutosaveV7(next);
       return stack.slice(0, -1);
     });
-  }, [deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
+  }, [conflictStateV7, deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
 
   const handleOpenDialogApply = useCallback(
     ({
@@ -577,8 +592,10 @@ export function useSlideEditorOpen({
     handleUndoV7,
     handleRedoV7,
     undoRedoFocusV7,
-    canUndoV7: undoStackV7.length > 0,
-    canRedoV7: redoStackV7.length > 0,
+    canUndoV7:
+      !hasUnresolvedDeckSaveConflict(conflictStateV7) && undoStackV7.length > 0,
+    canRedoV7:
+      !hasUnresolvedDeckSaveConflict(conflictStateV7) && redoStackV7.length > 0,
     handleOpen,
     handleClose,
     aiEnabled,

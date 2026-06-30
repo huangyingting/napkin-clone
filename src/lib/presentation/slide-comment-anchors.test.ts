@@ -6,10 +6,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide } from "./deck";
+import type {
+  DeckV7,
+  SlideChildNode,
+  SlideNode,
+} from "@/lib/presentation-vnext/schema";
 import {
   floatAnchorToDeck,
   floatAnchorToSlide,
+  remapSlideCommentAnchorForMigration,
   resolveAnchorState,
   retargetAnchorSlide,
   retargetAnchorToSlideOnly,
@@ -20,35 +25,35 @@ import {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function slide(id: string, elementIds: string[] = []): Slide {
+function textNode(id: string): SlideChildNode {
   return {
     id,
-    index: 0,
-    title: "Slide",
-    bullets: [],
-    notes: "",
-    elements: elementIds.map((eid) => ({
-      id: eid,
-      kind: "text" as const,
-      content: { kind: "text" as const, text: "" },
-      zIndex: 0,
-      box: { x: 0, y: 0, w: 100, h: 10 },
-      designOverrides: {
-        textStyle: {
-          fontSize: 4.5,
-          bold: false,
-          italic: false,
-          align: "left" as const,
-        },
-      },
-    })),
+    type: "text",
+    role: "body",
+    layout: { frame: { x: 0, y: 0, w: 100, h: 10 }, zIndex: 0 },
+    style: { ref: "text.body" },
+    content: { paragraphs: [{ id: `${id}-p1`, text: "" }] },
   };
 }
 
-function deck(slides: Slide[]): Deck {
+function slide(id: string, elementIds: string[] = []): SlideNode {
   return {
-    slides: slides.map((s, i) => ({ ...s, index: i })),
-    design: { themeId: "default" },
+    id,
+    type: "slide",
+    template: { kind: "content" },
+    style: { ref: "slide.content" },
+    notes: "",
+    children: elementIds.map(textNode),
+  };
+}
+
+function deck(slides: SlideNode[]): DeckV7 {
+  return {
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: { images: {} },
+    slides,
   };
 }
 
@@ -107,12 +112,6 @@ test("resolveAnchorState: slideId and elementId both exist → attached", () => 
   );
 });
 
-test("resolveAnchorState: slide has no elements array, elementId null → attached", () => {
-  const s = { ...slide("sl-2"), elements: undefined };
-  const d = deck([s]);
-  assert.equal(resolveAnchorState(anchor({ slideId: "sl-2" }), d), "attached");
-});
-
 // ---------------------------------------------------------------------------
 // resolveAnchorState — orphaned
 // ---------------------------------------------------------------------------
@@ -133,8 +132,8 @@ test("resolveAnchorState: slideId exists but elementId not found → orphaned", 
   );
 });
 
-test("resolveAnchorState: slide has no elements, elementId specified → orphaned", () => {
-  const s = { ...slide("sl-1"), elements: undefined };
+test("resolveAnchorState: missing v7 node id → orphaned", () => {
+  const s = slide("sl-1");
   const d = deck([s]);
   assert.equal(
     resolveAnchorState(anchor({ slideId: "sl-1", elementId: "el-x" }), d),
@@ -282,4 +281,52 @@ test("retargetAnchorToSlideOnly: result resolves to attached even when elementId
   const a = anchor({ slideId: "sl-1", elementId: "el-a" });
   const retargeted = retargetAnchorToSlideOnly(a, "sl-2");
   assert.equal(resolveAnchorState(retargeted, d), "attached");
+});
+
+test("remapSlideCommentAnchorForMigration maps legacy slide and element ids to v7 ids", () => {
+  const result = remapSlideCommentAnchorForMigration(
+    {
+      slideId: "legacy slide",
+      elementId: "legacy node",
+      geometry: { x: 1, y: 2 },
+    },
+    {
+      slides: { "legacy slide": "legacy-slide" },
+      nodes: { "legacy node": "legacy-node" },
+    },
+  );
+
+  assert.deepEqual(result.anchor, {
+    slideId: "legacy-slide",
+    elementId: "legacy-node",
+    geometry: { x: 1, y: 2 },
+  });
+  assert.deepEqual(
+    result.diagnostics.map((diagnostic) => diagnostic.code),
+    ["slide-anchor-remapped", "node-anchor-remapped"],
+  );
+});
+
+test("remapSlideCommentAnchorForMigration floats dropped element anchors to the slide", () => {
+  const result = remapSlideCommentAnchorForMigration(
+    { slideId: "slide-1", elementId: "video-1", geometry: { x: 5, y: 6 } },
+    {
+      slides: { "slide-1": "slide-1" },
+      nodes: {},
+      dropped: [
+        {
+          kind: "node",
+          from: "video-1",
+          reason: 'Unsupported element kind "video".',
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(result.anchor, {
+    slideId: "slide-1",
+    elementId: null,
+    geometry: { x: 5, y: 6 },
+  });
+  assert.equal(result.diagnostics[0]?.code, "node-anchor-dropped");
 });

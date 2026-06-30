@@ -56,6 +56,7 @@ test("document editor view model serializes document state and share settings", 
   assert.equal(viewModel.canEdit, true);
   assert.equal(viewModel.canManage, true);
   assert.equal(viewModel.workspaceName, null);
+  assert.equal(viewModel.userId, "user-1");
   assertViewModelSerializable(viewModel);
 });
 
@@ -95,4 +96,71 @@ test("document editor view model derives workspace viewer capabilities", () => {
   assert.equal(viewModel.canManage, false);
   assert.equal(viewModel.workspaceName, "Team");
   assertViewModelSerializable(viewModel);
+});
+
+test("document editor view model remaps legacy slide comment anchors with v6 migration idMap", () => {
+  const viewModel = buildDocumentEditorViewModel({
+    userId: "user-1",
+    userName: "Ada",
+    document: {
+      id: "doc-1",
+      title: "Roadmap",
+      contentJson: null,
+      deckJson: {
+        schemaVersion: 6,
+        design: { themeId: "neutral" },
+        slides: [
+          {
+            id: "legacy slide",
+            elements: [
+              {
+                id: "legacy node",
+                kind: "text",
+                content: { text: "Legacy" },
+              },
+            ],
+          },
+        ],
+      },
+      isShared: false,
+      shareId: null,
+      slug: null,
+      shareExpiresAt: null,
+      shareEmbedEnabled: true,
+      sharePresentEnabled: true,
+      shareMetadataMode: "generic",
+      shareDiscoverable: false,
+      ownerId: "user-1",
+      workspaceId: null,
+      tags: [],
+      workspace: null,
+    },
+    initialComments: [
+      {
+        id: "comment-1",
+        body: "Pinned",
+        author: { id: "user-1", name: "Ada" },
+        createdAt: "2026-02-03T04:05:06.000Z",
+        resolved: false,
+        anchor: {
+          kind: "slide-element",
+          slideId: "legacy slide",
+          elementId: "legacy node",
+          geometry: { x: 10, y: 20 },
+        },
+        anchorType: null,
+        anchorText: null,
+        anchorNodeId: null,
+        replies: [],
+      },
+    ],
+    allTags: [],
+  });
+
+  assert.deepEqual(viewModel.initialComments[0]?.anchor, {
+    kind: "slide-element",
+    slideId: "legacy-slide",
+    elementId: "legacy-node",
+    geometry: { x: 10, y: 20 },
+  });
 });

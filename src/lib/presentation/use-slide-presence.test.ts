@@ -22,10 +22,12 @@ import {
   extractSlidePresencePeers,
   hasRemotePeers,
   presencePeerLabel,
+  sanitizeSlidePresencePayload,
   SLIDE_PRESENCE_AWARENESS_KEY,
   type SlidePresencePeer,
   type SlidePresencePayload,
 } from "./use-slide-presence";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,7 +41,7 @@ function makePayload(
     userName: "Alice",
     userId: "user-1",
     selectedSlideId: "slide-1",
-    selectedElementIds: [],
+    selectedNodeIds: [],
     editingMode: "browsing",
     ...overrides,
   };
@@ -61,6 +63,59 @@ function makeAwarenessStates(
   return map;
 }
 
+function makeDeck(): DeckV7 {
+  return {
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: { images: {} },
+    slides: [
+      {
+        id: "slide-1",
+        type: "slide",
+        template: { kind: "content" },
+        style: { ref: "slide.content" },
+        children: [
+          {
+            id: "node-1",
+            type: "text",
+            role: "body",
+            layout: { frame: { x: 0, y: 0, w: 20, h: 10 }, zIndex: 1 },
+            style: { ref: "text.body" },
+            content: { paragraphs: [{ id: "node-1-p1", text: "One" }] },
+          },
+          {
+            id: "hidden-node",
+            type: "shape",
+            hidden: true,
+            layout: { frame: { x: 10, y: 10, w: 20, h: 10 }, zIndex: 2 },
+            style: { ref: "surface.card" },
+            content: { shape: "rect" },
+          },
+          {
+            id: "group-1",
+            type: "group",
+            component: "custom",
+            hidden: true,
+            layout: { frame: { x: 20, y: 20, w: 20, h: 10 }, zIndex: 3 },
+            style: { ref: "surface.card" },
+            children: [
+              {
+                id: "group-child",
+                type: "text",
+                role: "body",
+                layout: { frame: { x: 0, y: 0, w: 20, h: 10 }, zIndex: 1 },
+                style: { ref: "text.body" },
+                content: { paragraphs: [{ id: "group-child-p1", text: "" }] },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // deriveSlidePresencePayload
 // ---------------------------------------------------------------------------
@@ -72,7 +127,7 @@ describe("deriveSlidePresencePayload (#406)", () => {
       userName: "Bob",
       userId: "user-42",
       selectedSlideId: "slide-5",
-      selectedElementIds: ["el-1", "el-2"],
+      selectedNodeIds: ["el-1", "el-2"],
       editingMode: "selecting",
     });
 
@@ -80,7 +135,7 @@ describe("deriveSlidePresencePayload (#406)", () => {
     assert.equal(payload.userName, "Bob");
     assert.equal(payload.userId, "user-42");
     assert.equal(payload.selectedSlideId, "slide-5");
-    assert.deepEqual(payload.selectedElementIds, ["el-1", "el-2"]);
+    assert.deepEqual(payload.selectedNodeIds, ["el-1", "el-2"]);
     assert.equal(payload.editingMode, "selecting");
   });
 
@@ -90,25 +145,25 @@ describe("deriveSlidePresencePayload (#406)", () => {
       userName: "Alice",
       userId: "user-1",
       selectedSlideId: null,
-      selectedElementIds: [],
+      selectedNodeIds: [],
       editingMode: "browsing",
     });
     assert.equal(payload.selectedSlideId, null);
   });
 
-  test("copies selectedElementIds into a new array (no shared reference)", () => {
+  test("copies selectedNodeIds into a new array (no shared reference)", () => {
     const ids = ["el-1", "el-2"];
     const payload = deriveSlidePresencePayload({
       documentId: "doc-1",
       userName: "Alice",
       userId: "user-1",
       selectedSlideId: "slide-1",
-      selectedElementIds: ids,
+      selectedNodeIds: ids,
       editingMode: "editing",
     });
     // Mutating the original should not affect the payload.
     ids.push("el-3");
-    assert.equal(payload.selectedElementIds.length, 2);
+    assert.equal(payload.selectedNodeIds.length, 2);
   });
 
   test("produces all three editing modes", () => {
@@ -118,7 +173,7 @@ describe("deriveSlidePresencePayload (#406)", () => {
         userName: "U",
         userId: "u",
         selectedSlideId: null,
-        selectedElementIds: [],
+        selectedNodeIds: [],
         editingMode: mode,
       });
       assert.equal(payload.editingMode, mode);
@@ -213,11 +268,45 @@ describe("extractSlidePresencePeers (#406)", () => {
     states.set(1, {
       [SLIDE_PRESENCE_AWARENESS_KEY]: {
         documentId: "doc-1",
-        // missing userName, userId, selectedSlideId, selectedElementIds, editingMode
+        // missing userName, userId, selectedSlideId, selectedNodeIds, editingMode
       },
     });
     const peers = extractSlidePresencePeers(states, 99, "doc-1");
     assert.equal(peers.length, 0);
+  });
+
+  test("filters stale v7 node ids and hidden nodes against the live deck", () => {
+    const states = makeAwarenessStates([
+      {
+        clientId: 10,
+        payload: makePayload({
+          selectedSlideId: "slide-1",
+          selectedNodeIds: [
+            "node-1",
+            "deleted-node",
+            "hidden-node",
+            "group-child",
+          ],
+        }),
+      },
+    ]);
+
+    const peers = extractSlidePresencePeers(states, 99, "doc-1", makeDeck());
+
+    assert.deepEqual(peers[0]?.selectedNodeIds, ["node-1"]);
+  });
+
+  test("clears stale slide ids and node ids when the slide is detached", () => {
+    const payload = sanitizeSlidePresencePayload(
+      makePayload({
+        selectedSlideId: "deleted-slide",
+        selectedNodeIds: ["node-1"],
+      }),
+      makeDeck(),
+    );
+
+    assert.equal(payload.selectedSlideId, null);
+    assert.deepEqual(payload.selectedNodeIds, []);
   });
 });
 
@@ -299,7 +388,7 @@ describe("offline / local-only mode (#406)", () => {
       userName: "Offline User",
       userId: "user-offline",
       selectedSlideId: null,
-      selectedElementIds: [],
+      selectedNodeIds: [],
       editingMode: "browsing",
     });
     assert.equal(local.documentId, "doc-local");

@@ -1,4 +1,9 @@
-import type { SlideCommentAnchor } from "@/lib/presentation/slide-comment-anchors";
+import {
+  remapSlideCommentAnchorForMigration,
+  type SlideCommentAnchor,
+  type SlideCommentAnchorMigrationDiagnostic,
+  type SlideCommentAnchorMigrationMap,
+} from "@/lib/presentation/slide-comment-anchors";
 
 export type CommentAnchorType = "text" | "visual" | "table";
 
@@ -265,4 +270,47 @@ export function commentAnchorToRecord(
         anchorGeometry: null,
       };
   }
+}
+
+export function remapCommentAnchorForDeckMigration(
+  anchor: CommentAnchor,
+  idMap: SlideCommentAnchorMigrationMap,
+): {
+  anchor: CommentAnchor;
+  diagnostics: SlideCommentAnchorMigrationDiagnostic[];
+} {
+  if (anchor.kind !== "slide" && anchor.kind !== "slide-element") {
+    return { anchor, diagnostics: [] };
+  }
+  const result = remapSlideCommentAnchorForMigration(
+    {
+      slideId: anchor.slideId,
+      elementId: anchor.kind === "slide-element" ? anchor.elementId : null,
+      geometry: anchor.geometry,
+    },
+    idMap,
+  );
+  const slideId = result.anchor.slideId;
+  if (!slideId) {
+    return { anchor: { kind: "deck" }, diagnostics: result.diagnostics };
+  }
+  if (result.anchor.elementId) {
+    return {
+      anchor: {
+        kind: "slide-element",
+        slideId,
+        elementId: result.anchor.elementId,
+        geometry: result.anchor.geometry ?? null,
+      },
+      diagnostics: result.diagnostics,
+    };
+  }
+  return {
+    anchor: {
+      kind: "slide",
+      slideId,
+      geometry: result.anchor.geometry ?? null,
+    },
+    diagnostics: result.diagnostics,
+  };
 }

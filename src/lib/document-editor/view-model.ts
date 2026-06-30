@@ -1,6 +1,10 @@
 import { documentCapabilities } from "@/lib/auth/document-permissions";
-import type { CommentThread } from "@/lib/comments";
+import {
+  remapCommentAnchorForDeckMigration,
+  type CommentThread,
+} from "@/lib/comments";
 import type { DocumentTag } from "@/lib/document/tags";
+import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
 
 export interface DocumentEditorViewModel {
   documentId: string;
@@ -18,6 +22,7 @@ export interface DocumentEditorViewModel {
   canEdit: boolean;
   canManage: boolean;
   workspaceName: string | null;
+  userId: string;
   userName: string;
   initialComments: CommentThread[];
   initialTags: DocumentTag[];
@@ -62,6 +67,23 @@ export function buildDocumentEditorViewModel({
 }): DocumentEditorViewModel {
   const { canEdit, canManage } = documentCapabilities(document, userId);
 
+  const openedDeck = openDeckFromJson(document.deckJson);
+  const migrationIdMap =
+    openedDeck.ok && openedDeck.source === "legacy-v6"
+      ? openedDeck.idMap
+      : undefined;
+  const remappedComments = migrationIdMap
+    ? initialComments.map((thread) => {
+        const remapped = remapCommentAnchorForDeckMigration(
+          thread.anchor,
+          migrationIdMap,
+        );
+        return remapped.anchor === thread.anchor
+          ? thread
+          : { ...thread, anchor: remapped.anchor };
+      })
+    : initialComments;
+
   return {
     documentId: document.id,
     initialTitle: document.title,
@@ -88,8 +110,9 @@ export function buildDocumentEditorViewModel({
     canEdit,
     canManage,
     workspaceName: document.workspace?.name ?? null,
+    userId,
     userName,
-    initialComments,
+    initialComments: remappedComments,
     initialTags: document.tags,
     allTags,
   };

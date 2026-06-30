@@ -2,14 +2,14 @@
  * Pure helpers for slide comment anchor semantics (Epic #380).
  *
  * A comment may carry an optional slide-level anchor that pins it to a
- * specific location inside a {@link Deck}. This module resolves and
+ * specific location inside a {@link DeckV7}. This module resolves and
  * manipulates those anchors without any I/O or React dependencies — fully
  * testable under `node --test`.
  *
  * Anchor resolution states:
  *  - `"deck"`     — no slideId; the comment floats at deck level.
- *  - `"attached"` — the referenced slide (and element, if any) still exists.
- *  - `"orphaned"` — the referenced slide or element no longer exists in the
+ *  - `"attached"` — the referenced slide (and node, if any) still exists.
+ *  - `"orphaned"` — the referenced slide or node no longer exists in the
  *                   deck (was deleted or its id changed).
  *  - `"unknown"`  — anchor data is present but the deck is unavailable, so
  *                   live resolution is impossible.
@@ -18,7 +18,7 @@
  * `anchorGeometry` stores a simple `{x, y}` point.
  */
 
-import type { Deck } from "./deck-core";
+import type { DeckV7, SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,8 +46,8 @@ export interface SlideCommentAnchor {
   /** Slide.id from deckJson. Null → deck-level comment. */
   slideId?: string | null;
   /**
-   * SlideElement.id within the slide. When present the comment is pinned to
-   * a specific element; absent means the comment is pinned to the slide.
+   * V7 SlideChildNode.id within the slide. The DB column is still named
+   * `elementId`, but the runtime value is a v7 node id.
    */
   elementId?: string | null;
   /**
@@ -69,6 +69,31 @@ export interface SlideCommentAnchor {
  */
 export type AnchorState = "deck" | "attached" | "orphaned" | "unknown";
 
+export type SlideCommentAnchorMigrationDiagnosticCode =
+  | "slide-anchor-remapped"
+  | "node-anchor-remapped"
+  | "slide-anchor-unmapped"
+  | "node-anchor-unmapped"
+  | "node-anchor-dropped";
+
+export interface SlideCommentAnchorMigrationDiagnostic {
+  code: SlideCommentAnchorMigrationDiagnosticCode;
+  from: string;
+  to?: string;
+  reason: string;
+}
+
+export interface SlideCommentAnchorMigrationMap {
+  slides: Record<string, string>;
+  nodes: Record<string, string>;
+  dropped?: readonly { kind: "node"; from: string; reason: string }[];
+}
+
+export interface SlideCommentAnchorMigrationResult {
+  anchor: SlideCommentAnchor;
+  diagnostics: SlideCommentAnchorMigrationDiagnostic[];
+}
+
 // ---------------------------------------------------------------------------
 // Resolution
 // ---------------------------------------------------------------------------
@@ -81,7 +106,7 @@ export type AnchorState = "deck" | "attached" | "orphaned" | "unknown";
  */
 export function resolveAnchorState(
   anchor: SlideCommentAnchor,
-  deck: Deck | null | undefined,
+  deck: DeckV7 | null | undefined,
 ): AnchorState {
   if (!anchor.slideId) {
     return "deck";
@@ -97,14 +122,100 @@ export function resolveAnchorState(
   }
 
   if (anchor.elementId) {
-    const elements = slide.elements ?? [];
-    const elementExists = elements.some((el) => el.id === anchor.elementId);
-    if (!elementExists) {
+    if (!findNodeById(slide.children, anchor.elementId)) {
       return "orphaned";
     }
   }
 
   return "attached";
+}
+
+function findNodeById(
+  nodes: readonly SlideChildNode[],
+  nodeId: string,
+): SlideChildNode | undefined {
+  for (const node of nodes) {
+    if (node.id === nodeId) return node;
+    if (node.type === "group") {
+      const found = findNodeById(node.children, nodeId);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+export function remapSlideCommentAnchorForMigration(
+  anchor: SlideCommentAnchor,
+  idMap: SlideCommentAnchorMigrationMap,
+): SlideCommentAnchorMigrationResult {
+  const diagnostics: SlideCommentAnchorMigrationDiagnostic[] = [];
+  let next: SlideCommentAnchor = { ...anchor };
+
+  if (anchor.slideId) {
+    const mappedSlideId = idMap.slides[anchor.slideId];
+    if (mappedSlideId) {
+      next = { ...next, slideId: mappedSlideId };
+      if (mappedSlideId !== anchor.slideId) {
+        diagnostics.push({
+          code: "slide-anchor-remapped",
+          from: anchor.slideId,
+          to: mappedSlideId,
+          reason: "Legacy slide id was rewritten during v7 migration.",
+        });
+      }
+    } else {
+      diagnostics.push({
+        code: "slide-anchor-unmapped",
+        from: anchor.slideId,
+        reason: "No migrated v7 slide id was emitted for this legacy slide id.",
+      });
+    }
+  }
+
+  if (anchor.elementId) {
+    const mappedNodeId = idMap.nodes[anchor.elementId];
+    if (mappedNodeId) {
+      next = { ...next, elementId: mappedNodeId };
+      if (mappedNodeId !== anchor.elementId) {
+        diagnostics.push({
+          code: "node-anchor-remapped",
+          from: anchor.elementId,
+          to: mappedNodeId,
+          reason: "Legacy element id was rewritten to a v7 node id.",
+        });
+      }
+    } else {
+      const dropped = idMap.dropped?.find(
+        (entry) => entry.kind === "node" && entry.from === anchor.elementId,
+      );
+      if (dropped) {
+        next = { ...next, elementId: null };
+        diagnostics.push({
+          code: "node-anchor-dropped",
+          from: anchor.elementId,
+          reason: `Legacy element was dropped during v7 migration: ${dropped.reason}`,
+        });
+      } else {
+        diagnostics.push({
+          code: "node-anchor-unmapped",
+          from: anchor.elementId,
+          reason:
+            "No migrated v7 node id was emitted for this legacy element id.",
+        });
+      }
+    }
+  }
+
+  return { anchor: next, diagnostics };
+}
+
+export function remapSlideCommentAnchorsForMigration(
+  anchors: readonly SlideCommentAnchor[],
+  idMap: SlideCommentAnchorMigrationMap,
+): SlideCommentAnchorMigrationResult[] {
+  return anchors.map((anchor) =>
+    remapSlideCommentAnchorForMigration(anchor, idMap),
+  );
 }
 
 // ---------------------------------------------------------------------------
