@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import type {
+  DocumentBlock,
+  DocumentTableBlock,
+  DocumentTextBlock,
+} from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 
 import {
   buildInsertables,
   buildSourceRefFromBlock,
+  insertableTableElement,
   insertableTextElement,
   type Insertable,
 } from "./document-insertable";
@@ -36,6 +41,30 @@ const FAKE_VISUAL = { type: "chart" } as unknown as Visual;
 
 function visual(visualId: string): DocumentBlock {
   return { kind: "visual", visualId, visual: FAKE_VISUAL };
+}
+
+function tableBlock(
+  overrides: Partial<DocumentTableBlock> = {},
+): DocumentTableBlock {
+  return {
+    kind: "table",
+    blockId: "table-1",
+    caption: "Pipeline",
+    columns: [
+      { id: "col-1", label: "Stage" },
+      { id: "col-2", label: "Value" },
+    ],
+    rows: [
+      {
+        id: "row-1",
+        cells: [
+          { text: "Qualified" },
+          { text: "$2M", runs: [{ text: "$2M", bold: true }] },
+        ],
+      },
+    ],
+    ...overrides,
+  };
 }
 
 function elementRole(element: unknown): string | undefined {
@@ -96,6 +125,41 @@ test("dedupes visuals by visualId keeping the first occurrence", () => {
     items.map((i) => (i.kind === "visual" ? i.visualId : null)),
     ["v1", "v2"],
   );
+});
+
+test("buildInsertables carries non-empty table blocks with stable metadata", () => {
+  const block = tableBlock();
+  const [item] = buildInsertables([block]);
+
+  assert.equal(item.kind, "table");
+  if (item.kind !== "table") return;
+  assert.equal(item.label, "Pipeline");
+  assert.equal(item.block, block);
+  assert.equal(item.blockId, "table-1");
+  assert.equal(item.contentHash, hashDocumentBlock(block));
+});
+
+test("buildInsertables labels captionless tables from columns", () => {
+  const tableWithoutCaption = tableBlock({
+    caption: undefined,
+    blockId: undefined,
+  });
+  const structuralTable = tableBlock({
+    caption: undefined,
+    columns: [],
+    rows: [],
+  });
+
+  const items = buildInsertables([tableWithoutCaption, structuralTable]);
+
+  assert.equal(items.length, 2);
+  assert.equal(items[0].kind, "table");
+  if (items[0].kind !== "table") return;
+  assert.equal(items[0].label, "Stage / Value");
+  assert.equal(items[0].blockId, undefined);
+  assert.equal(items[1].kind, "table");
+  if (items[1].kind !== "table") return;
+  assert.equal(items[1].label, "");
 });
 
 test("preserves document order across text and visuals", () => {
@@ -451,4 +515,52 @@ test("insertableVisualElement: defaults linkedAt to now when omitted", () => {
   const after = Date.now();
   const ts = Date.parse((el as any).source.linkedAt);
   assert.ok(ts >= before && ts <= after, "linkedAt should be near now");
+});
+
+test("insertableTableElement maps table content, runs, source, and overrides", () => {
+  const [item] = buildInsertables([tableBlock()]) as Extract<
+    ReturnType<typeof buildInsertables>[number],
+    { kind: "table" }
+  >[];
+
+  const el = insertableTableElement(item, {
+    id: "table-fixed",
+    box: { x: 1, y: 2, w: 3, h: 4 },
+    documentId: "doc-1",
+    linkedAt: "2026-06-01T00:00:00.000Z",
+  });
+
+  assert.equal(el.id, "table-fixed");
+  assert.equal(el.kind, "table");
+  assert.equal(el.role, "table");
+  assert.deepEqual(el.box, { x: 1, y: 2, w: 3, h: 4 });
+  assert.equal(el.content.caption, "Pipeline");
+  assert.deepEqual(el.content.columns, [
+    { id: "col-1", label: "Stage" },
+    { id: "col-2", label: "Value" },
+  ]);
+  assert.deepEqual(el.content.rows[0]?.cells[1]?.runs, [
+    { text: "$2M", bold: true },
+  ]);
+  assert.deepEqual(el.source, {
+    documentId: "doc-1",
+    blockId: "table-1",
+    contentHash: item.contentHash,
+    linkedAt: "2026-06-01T00:00:00.000Z",
+    blockKind: "table",
+  });
+});
+
+test("insertableTableElement omits source when table block ids are unavailable", () => {
+  const [item] = buildInsertables([
+    tableBlock({ blockId: undefined }),
+  ]) as Extract<
+    ReturnType<typeof buildInsertables>[number],
+    { kind: "table" }
+  >[];
+
+  const el = insertableTableElement(item, { documentId: "doc-1" });
+
+  assert.equal(el.source, undefined);
+  assert.deepEqual(el.box, { x: 12, y: 22, w: 76, h: 48 });
 });

@@ -171,6 +171,7 @@ test("dev doctor loads local env and returns the full check list", async () => {
 
 test("dev doctor CLI prints results and exits nonzero for missing fixture setup", (t) => {
   const root = fixtureRoot("dev-doctor-cli", t);
+  writeFileSync(join(root, ".env"), "AUTH_SECRET=local-secret\n");
 
   const result = spawnSync(
     process.execPath,
@@ -184,4 +185,5 @@ test("dev doctor CLI prints results and exits nonzero for missing fixture setup"
 
   assert.equal(result.status, 1);
   assert.match(result.stdout, /Doctor complete:/);
+  assert.match(result.stdout, /AUTH_SECRET is set \(redacted\)/);
 });

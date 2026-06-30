@@ -8,9 +8,8 @@ export const LINE_COVERAGE_STAGES = [
   {
     name: "Source unit line coverage",
     envKey: "SOURCE_LINE_COVERAGE_MIN",
-    // Temporary v7 backlog-closure gate; restore/increase after issues are addressed.
-    // Final hardening target: try for 100% once all issues are closed.
-    defaultMinimum: 95,
+    // Raised after v7 backlog closure; keep pushing toward 100% with meaningful tests.
+    defaultMinimum: 97,
     command: "node",
     args: ["--import", "tsx", "--test", "--experimental-test-coverage"],
     includes: ["src/**/*.ts", "src/**/*.tsx"],
@@ -25,7 +24,7 @@ export const LINE_COVERAGE_STAGES = [
   {
     name: "Script line coverage",
     envKey: "SCRIPT_LINE_COVERAGE_MIN",
-    defaultMinimum: 99,
+    defaultMinimum: 100,
     command: "node",
     args: ["--test", "--experimental-test-coverage"],
     includes: ["scripts/**/*.mjs"],

@@ -7,7 +7,11 @@ import {
   type SlideElement,
 } from "./deck";
 import type { MasterElement } from "./deck-core";
-import { resolveSlideRenderModel } from "./slide-render-model";
+import {
+  resolvedFillRepresentativeColor,
+  resolvedFillToCss,
+  resolveSlideRenderModel,
+} from "./slide-render-model";
 
 function shapeElement(id: string, zIndex: number): SlideElement {
   return {
@@ -463,4 +467,37 @@ test("resolveSlideRenderModel resolves table defaults and overrides", () => {
     assert.equal(tableStyle.headerTextStyle.color, "#eeeeee");
     assert.equal(tableStyle.headerTextStyle.weight, 700);
   }
+});
+
+test("resolvedFill helpers serialize gradients and representative colors", () => {
+  assert.equal(resolvedFillToCss("#ffffff"), "#ffffff");
+  assert.equal(resolvedFillRepresentativeColor("#123456"), "#123456");
+
+  const linear = {
+    type: "linearGradient" as const,
+    from: "#111111",
+    to: "#222222",
+    angle: 45,
+    stops: [{ color: "#111111" }, { color: "#222222", offset: 80 }],
+  };
+  assert.equal(
+    resolvedFillToCss(linear),
+    "linear-gradient(45deg, #111111, #222222 80%)",
+  );
+  assert.equal(resolvedFillRepresentativeColor(linear), "#111111");
+
+  const radial = {
+    type: "radialGradient" as const,
+    inner: "#f8fafc",
+    outer: "#0f172a",
+    cx: 25,
+    cy: 75,
+    rx: 40,
+    ry: 50,
+  };
+  assert.equal(
+    resolvedFillToCss(radial),
+    "radial-gradient(40% 50% at 25% 75%, #f8fafc, #0f172a)",
+  );
+  assert.equal(resolvedFillRepresentativeColor(radial), "#0f172a");
 });
