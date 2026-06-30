@@ -30,9 +30,14 @@ export type PresentationDiagnosticCode =
   | "theme-decoration-export-fallback"
   | "unsupported-export-feature"
   | "local-style-overrides"
+  | "source-link-stale"
+  | "source-link-orphan"
+  | "source-link-unlinked"
+  | "source-link-unknown"
   | "migration-id-rewrite"
   | "migration-dropped-node"
-  | "migration-unmapped-reference";
+  | "migration-unmapped-reference"
+  | "migration-unmapped-source-ref";
 
 export type DiagnosticSeverity = "info" | "warning" | "error" | "fatal";
 
@@ -43,7 +48,11 @@ export type DiagnosticAction =
   | "open-asset-panel"
   | "repair-ai-plan"
   | "remove-override"
-  | "replace-style-ref";
+  | "replace-style-ref"
+  | "refresh-source"
+  | "unlink-source"
+  | "relink-source"
+  | "open-source-review";
 
 export type PresentationDiagnostic = {
   code: PresentationDiagnosticCode;

@@ -8,7 +8,8 @@
  * `DiagnosticAction` enum from the spec:
  *
  *   reset-to-theme, choose-denser-layout, split-slide, open-asset-panel,
- *   repair-ai-plan, remove-override, replace-style-ref
+ *   repair-ai-plan, remove-override, replace-style-ref, refresh-source,
+ *   unlink-source, relink-source, open-source-review
  *
  * Purely prop-driven; callers handle the actual action routing.
  */
@@ -34,6 +35,10 @@ const ACTION_LABELS: Record<DiagnosticAction, string> = {
   "repair-ai-plan": "Repair AI plan",
   "remove-override": "Remove override",
   "replace-style-ref": "Replace style ref",
+  "refresh-source": "Refresh source",
+  "unlink-source": "Unlink source",
+  "relink-source": "Relink source",
+  "open-source-review": "Open Source Review",
 };
 
 // ---------------------------------------------------------------------------

@@ -96,6 +96,20 @@ import type {
   PresentationDiagnostic,
   DiagnosticAction,
 } from "@/lib/presentation-vnext/diagnostics";
+import type {
+  SourceBlockIndex,
+  SourceBlockIndexEntry,
+} from "@/lib/presentation-vnext/block-index";
+import {
+  classifyDeckSourceLinks,
+  refreshAllSafeSourceLinks,
+  refreshNodeSource,
+  relinkNodeSource,
+  sourceLinkDiagnostics,
+  sourceReviewItems,
+  unlinkNodeSource,
+  updateNodeSourceState,
+} from "@/lib/presentation-vnext/source-links";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
@@ -174,6 +188,7 @@ import {
 import { Filmstrip } from "./filmstrip/filmstrip";
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { SourceReviewPanel } from "./source-review-panel";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -260,6 +275,7 @@ export interface SlideEditorVNextProps {
   undoRedoFocus?: { nodeId: string; token: number } | null;
   onUploadImage?: (file: File) => Promise<SlideEditorVNextImageUploadResult>;
   onPickVisual?: () => Promise<SlideEditorVNextVisualPickResult | undefined>;
+  sourceBlockIndex?: SourceBlockIndex;
   onRefreshSource?: (args: {
     deck: DeckV7;
     slide: SlideNode;
@@ -940,6 +956,7 @@ export function SlideEditorVNext({
   undoRedoFocus = null,
   onUploadImage,
   onPickVisual,
+  sourceBlockIndex,
   onRefreshSource,
   onDeckChange,
   onSave,
@@ -1669,11 +1686,18 @@ export function SlideEditorVNext({
           diagnostic.code === "theme-decoration-export-fallback",
       )
     : [];
+  const sourceClassifications = sourceBlockIndex
+    ? classifyDeckSourceLinks(deck, sourceBlockIndex)
+    : [];
   const diagnostics = dedupeDiagnostics([
     ...boundaryDiagnostics,
     ...(renderTree?.diagnostics ?? []),
     ...exportDiagnostics,
+    ...sourceLinkDiagnostics(sourceClassifications),
   ]);
+  const sourceReview = sourceBlockIndex
+    ? sourceReviewItems(deck, sourceClassifications)
+    : [];
 
   // ---------------------------------------------------------------------------
   // Selected node data (from the persisted deck, not the resolved tree)
@@ -1685,6 +1709,13 @@ export function SlideEditorVNext({
   const selectedNode: SlideChildNode | undefined =
     activeSlide && firstSelectedId
       ? findNodeById(activeSlide.children, firstSelectedId)
+      : undefined;
+  const selectedSourceClassification =
+    activeSlide && firstSelectedId
+      ? sourceClassifications.find(
+          (item) =>
+            item.slideId === activeSlide.id && item.nodeId === firstSelectedId,
+        )
       : undefined;
 
   // Also find the selected resolved node to support decoration detach
@@ -2137,7 +2168,12 @@ export function SlideEditorVNext({
   }
 
   async function handleRefreshSelectedSource() {
-    if (!activeSlide || !selectedNode?.source || !onRefreshSource) return;
+    if (!activeSlide || !selectedNode?.source) return;
+    if (sourceBlockIndex) {
+      handleRefreshSourceAt(activeSlide.id, selectedNode.id);
+      return;
+    }
+    if (!onRefreshSource) return;
     const refreshed = await onRefreshSource({
       deck,
       slide: activeSlide,
@@ -2165,6 +2201,89 @@ export function SlideEditorVNext({
     onDeckChange(updated);
     setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
     focusSelectedNodeSoon(selectedNode.id);
+  }
+
+  function handleSelectSourceItem(slideId: string, nodeId: string) {
+    const slideIndex = deck.slides.findIndex((slide) => slide.id === slideId);
+    if (slideIndex === -1) return;
+    setActiveSlideIndex(slideIndex);
+    setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    focusSelectedNodeSoon(nodeId);
+  }
+
+  function handleRefreshSourceAt(slideId: string, nodeId: string) {
+    if (!sourceBlockIndex) return;
+    const now = new Date().toISOString();
+    const result = refreshNodeSource(
+      deck,
+      slideId,
+      nodeId,
+      sourceBlockIndex,
+      now,
+    );
+    if (result.status === "refreshed") {
+      onDeckChange(result.deck);
+      handleSelectSourceItem(slideId, nodeId);
+      setStageAnnouncement("Refreshed source-linked node");
+      return;
+    }
+    const checked = updateNodeSourceState(
+      result.deck,
+      slideId,
+      nodeId,
+      "unknown",
+      now,
+      result.reason,
+    );
+    onDeckChange(checked);
+    handleSelectSourceItem(slideId, nodeId);
+    setStageAnnouncement(`Skipped source refresh: ${result.reason}`);
+  }
+
+  function handleUnlinkSourceAt(slideId: string, nodeId: string) {
+    const updated = unlinkNodeSource(
+      deck,
+      slideId,
+      nodeId,
+      new Date().toISOString(),
+    );
+    onDeckChange(updated);
+    handleSelectSourceItem(slideId, nodeId);
+    setStageAnnouncement("Marked source link as unlinked");
+  }
+
+  function handleRelinkSourceAt(
+    slideId: string,
+    nodeId: string,
+    block: SourceBlockIndexEntry,
+  ) {
+    const result = relinkNodeSource(
+      deck,
+      slideId,
+      nodeId,
+      block,
+      new Date().toISOString(),
+    );
+    if (result.status === "refreshed") {
+      onDeckChange(result.deck);
+      handleSelectSourceItem(slideId, nodeId);
+      setStageAnnouncement(`Relinked node to ${block.displayLabel}`);
+      return;
+    }
+    setStageAnnouncement(`Skipped relink: ${result.reason}`);
+  }
+
+  function handleRefreshAllSources() {
+    if (!sourceBlockIndex) return;
+    const result = refreshAllSafeSourceLinks(
+      deck,
+      sourceBlockIndex,
+      new Date().toISOString(),
+    );
+    onDeckChange(result.deck);
+    setStageAnnouncement(
+      `Refreshed ${result.refreshed.length} source links; skipped ${result.skipped.length}.`,
+    );
   }
 
   function handleSelectLayer(nodeId: string) {
@@ -2355,6 +2474,27 @@ export function SlideEditorVNext({
     diagnostic: PresentationDiagnostic,
   ) {
     const targetNodeId = diagnostic.nodeId ?? firstSelectedId;
+    const targetSlideId = diagnostic.slideId ?? activeSlide?.id;
+    if (
+      (action === "refresh-source" ||
+        action === "unlink-source" ||
+        action === "relink-source" ||
+        action === "open-source-review") &&
+      targetSlideId &&
+      targetNodeId
+    ) {
+      if (action === "refresh-source") {
+        handleRefreshSourceAt(targetSlideId, targetNodeId);
+        return;
+      }
+      if (action === "unlink-source") {
+        handleUnlinkSourceAt(targetSlideId, targetNodeId);
+        return;
+      }
+      handleSelectSourceItem(targetSlideId, targetNodeId);
+      requestInspectorPanel("source");
+      return;
+    }
     if (!activeSlide || !targetNodeId) {
       if (action === "choose-denser-layout" && activeSlide) {
         handleUpdateControls({ density: "dense" });
@@ -2497,6 +2637,19 @@ export function SlideEditorVNext({
       onResetToTheme={handleResetToTheme}
       onUpdateSelectedSource={handleUpdateSelectedSource}
       onRefreshSelectedSource={handleRefreshSelectedSource}
+      onUnlinkSelectedSource={
+        activeSlide && selectedNode
+          ? () => handleUnlinkSourceAt(activeSlide.id, selectedNode.id)
+          : undefined
+      }
+      onRelinkSelectedSource={
+        activeSlide && selectedNode
+          ? (block) =>
+              handleRelinkSourceAt(activeSlide.id, selectedNode.id, block)
+          : undefined
+      }
+      selectedSourceClassification={selectedSourceClassification}
+      sourceBlocks={sourceBlockIndex?.blocks}
       onChangeStyleBinding={handleChangeStyleBinding}
       onAlignSelection={handleAlignSelection}
       onDistributeSelection={handleDistributeSelection}
@@ -2842,6 +2995,18 @@ export function SlideEditorVNext({
         >
           {exportError}
         </div>
+      ) : null}
+
+      {sourceBlockIndex ? (
+        <SourceReviewPanel
+          items={sourceReview}
+          sourceBlocks={sourceBlockIndex.blocks}
+          onSelect={handleSelectSourceItem}
+          onRefresh={handleRefreshSourceAt}
+          onUnlink={handleUnlinkSourceAt}
+          onRelink={handleRelinkSourceAt}
+          onRefreshAll={handleRefreshAllSources}
+        />
       ) : null}
 
       {shortcutHelpOpen ? (

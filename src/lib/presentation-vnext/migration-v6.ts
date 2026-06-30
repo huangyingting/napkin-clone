@@ -97,7 +97,7 @@ export interface MigrationDroppedIdentity {
 }
 
 export interface MigrationUnmappedReference {
-  kind: "connector-endpoint";
+  kind: "connector-endpoint" | "source-ref";
   from: string;
   reason: string;
   slideId: string;
@@ -392,12 +392,34 @@ function textContent(
   };
 }
 
-function sourceMetadata(source: unknown): SlideChildNode["source"] {
-  if (!isPlainObject(source)) return undefined;
+function sourceMetadata(
+  source: unknown,
+  recorder: MigrationRecorder,
+  slideId: string,
+  nodeId: string,
+): SlideChildNode["source"] {
+  if (source === undefined) return undefined;
+  if (!isPlainObject(source)) {
+    recorder.unmapped.push({
+      kind: "source-ref",
+      from: nodeId,
+      reason: "Source metadata is not an object.",
+      slideId,
+      nodeId,
+    });
+    return undefined;
+  }
   if (
     typeof source.documentId !== "string" ||
     typeof source.blockId !== "string"
   ) {
+    recorder.unmapped.push({
+      kind: "source-ref",
+      from: typeof source.blockId === "string" ? source.blockId : nodeId,
+      reason: "Source metadata is missing a documentId or blockId.",
+      slideId,
+      nodeId,
+    });
     return undefined;
   }
   const blockKind =
@@ -414,8 +436,50 @@ function sourceMetadata(source: unknown): SlideChildNode["source"] {
     ...(typeof source.contentHash === "string"
       ? { contentHash: source.contentHash }
       : {}),
+    ...(typeof source.blockRevision === "string"
+      ? { blockRevision: source.blockRevision }
+      : {}),
     ...(typeof source.linkedAt === "string"
       ? { linkedAt: source.linkedAt }
+      : {}),
+    ...(isPlainObject(source.display)
+      ? {
+          display: {
+            ...(typeof source.display.documentTitle === "string"
+              ? { documentTitle: source.display.documentTitle }
+              : {}),
+            ...(typeof source.display.blockLabel === "string"
+              ? { blockLabel: source.display.blockLabel }
+              : {}),
+            ...(typeof source.display.blockKindLabel === "string"
+              ? { blockKindLabel: source.display.blockKindLabel }
+              : {}),
+          },
+        }
+      : {}),
+    ...(isPlainObject(source.refresh) &&
+    (source.refresh.state === "fresh" ||
+      source.refresh.state === "stale" ||
+      source.refresh.state === "orphan" ||
+      source.refresh.state === "unlinked" ||
+      source.refresh.state === "unknown")
+      ? {
+          refresh: {
+            state: source.refresh.state,
+            ...(typeof source.refresh.checkedAt === "string"
+              ? { checkedAt: source.refresh.checkedAt }
+              : {}),
+            ...(typeof source.refresh.refreshedAt === "string"
+              ? { refreshedAt: source.refresh.refreshedAt }
+              : {}),
+            ...(typeof source.refresh.sourceHash === "string"
+              ? { sourceHash: source.refresh.sourceHash }
+              : {}),
+            ...(typeof source.refresh.reason === "string"
+              ? { reason: source.refresh.reason }
+              : {}),
+          },
+        }
       : {}),
     ...(source.unlinked === true ? { unlinked: true } : {}),
   };
@@ -425,11 +489,14 @@ function baseNode(
   element: Record<string, unknown>,
   id: string,
   fallbackZ: number,
+  recorder: MigrationRecorder,
+  slideId: string,
 ): Pick<
   SlideChildNode,
   "id" | "role" | "layout" | "locked" | "hidden" | "name" | "source"
 > {
   const role = validRole(element.role);
+  const source = sourceMetadata(element.source, recorder, slideId, id);
   return {
     id,
     ...(role ? { role } : {}),
@@ -437,9 +504,7 @@ function baseNode(
     ...(element.locked === true ? { locked: true } : {}),
     ...(element.hidden === true ? { hidden: true } : {}),
     ...(typeof element.name === "string" ? { name: element.name } : {}),
-    ...(sourceMetadata(element.source)
-      ? { source: sourceMetadata(element.source) }
-      : {}),
+    ...(source ? { source } : {}),
   };
 }
 
@@ -687,9 +752,11 @@ function buildNodeForKind(
 function migrateElement(
   element: unknown,
   index: number,
+  slideId: string,
   usedIds: Set<string>,
   usedAssetIds: Set<string>,
   images: Record<string, ImageAsset>,
+  recorder: MigrationRecorder,
   recordIdentity: (
     kind: MigrationIdentityKind,
     assignment: IdAssignment,
@@ -705,7 +772,7 @@ function migrateElement(
   const assignment = assignId(element.id, `node-${index + 1}`, usedIds);
   const id = assignment.id;
   const content = isPlainObject(element.content) ? element.content : {};
-  const base = baseNode(element, id, index + 1);
+  const base = baseNode(element, id, index + 1, recorder, slideId);
   const role = validRole(element.role);
 
   const built = buildNodeForKind(
@@ -929,9 +996,11 @@ export function migrateLegacyDeckV6(raw: unknown): MigrationResult {
             const migrated = migrateElement(
               element,
               elementIndex,
+              id,
               usedIds,
               usedAssetIds,
               images,
+              recorder,
               recordIdentity,
             );
             if (migrated.ok) {
@@ -1038,11 +1107,16 @@ export function migrateLegacyDeckV6(raw: unknown): MigrationResult {
   }
 
   for (const unmapped of recorder.unmapped) {
+    const isSourceRef = unmapped.kind === "source-ref";
     diagnostics.push(
       makeDiagnostic(
-        "migration-unmapped-reference",
+        isSourceRef
+          ? "migration-unmapped-source-ref"
+          : "migration-unmapped-reference",
         "warning",
-        `Connector "${unmapped.nodeId}" references "${unmapped.from}", which was not migrated.`,
+        isSourceRef
+          ? `Source metadata on "${unmapped.nodeId}" could not be migrated: ${unmapped.reason}`
+          : `Connector "${unmapped.nodeId}" references "${unmapped.from}", which was not migrated.`,
         {
           path: `slides.${unmapped.slideId}.nodes.${unmapped.nodeId}`,
           details: {

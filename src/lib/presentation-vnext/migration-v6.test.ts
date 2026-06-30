@@ -67,7 +67,19 @@ describe("migrateLegacyDeckV6 identity and shape coverage", () => {
                 blockId: "block-image",
                 blockKind: "image",
                 contentHash: "hash-1",
+                blockRevision: "rev-1",
                 linkedAt: "2026-06-30T00:00:00.000Z",
+                display: {
+                  documentTitle: "Source doc",
+                  blockLabel: "Image block",
+                  blockKindLabel: "Image",
+                },
+                refresh: {
+                  state: "stale",
+                  checkedAt: "2026-06-30T01:00:00.000Z",
+                  sourceHash: "hash-2",
+                  reason: "legacy stale marker",
+                },
                 unlinked: true,
               },
               content: {
@@ -206,7 +218,19 @@ describe("migrateLegacyDeckV6 identity and shape coverage", () => {
       assert.equal(text.layout?.zIndex, 3);
       assert.equal(text.source?.blockKind, "image");
       assert.equal(text.source?.contentHash, "hash-1");
+      assert.equal(text.source?.blockRevision, "rev-1");
       assert.equal(text.source?.linkedAt, "2026-06-30T00:00:00.000Z");
+      assert.deepEqual(text.source?.display, {
+        documentTitle: "Source doc",
+        blockLabel: "Image block",
+        blockKindLabel: "Image",
+      });
+      assert.deepEqual(text.source?.refresh, {
+        state: "stale",
+        checkedAt: "2026-06-30T01:00:00.000Z",
+        sourceHash: "hash-2",
+        reason: "legacy stale marker",
+      });
       assert.equal(text.source?.unlinked, true);
       assert.equal(text.content.fit, "fixed-box");
       assert.deepEqual(text.content.paragraphs[0].list, {
@@ -339,6 +363,12 @@ describe("migrateLegacyDeckV6 identity and shape coverage", () => {
     }
 
     assert.equal(result.idMap.sources["block-image"], "block-image");
+    assert.equal(
+      result.diagnostics.some(
+        (diagnostic) => diagnostic.code === "migration-unmapped-source-ref",
+      ),
+      true,
+    );
   });
 
   test("maps text semantic roles to v7 style references", () => {
