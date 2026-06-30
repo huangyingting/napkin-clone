@@ -14,6 +14,7 @@ persisted deck contract and the React components that render/edit slides.
 | [semantic-slide-design-system.md](semantic-slide-design-system.md)               | Implemented vNext semantic slide schema, theme packages, semantic templates, AI generation, and export. |
 | [v7-slide-editor-implementation-plan.md](v7-slide-editor-implementation-plan.md) | Concrete migration plan for making the v7 slide editor production-usable.                               |
 | [v7-slide-editor-github-issues.md](v7-slide-editor-github-issues.md)             | Ordered epic and GitHub issue backlog for the v7 legacy replacement release.                            |
+| [v7-blocker-audit.md](v7-blocker-audit.md)                                       | Grounded audit of the current vNext runtime against the release blocker matrix, mapped to child issues. |
 | [package-template-generation-plan.md](package-template-generation-plan.md)       | Planned package-template AI deck generation, semantic templates, and table element work.                |
 | [slide-editor.md](slide-editor.md)                                               | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.                 |
 | [slide-stage-interactions.md](slide-stage-interactions.md)                       | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior.                |
