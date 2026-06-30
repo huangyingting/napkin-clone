@@ -16,6 +16,8 @@ import {
   applyVnextShapeOp,
   applyVnextTableOp,
   applyVnextConnectorOp,
+  applyVnextImageOp,
+  applyVnextVisualOp,
   resolveExportSpecAssetSources,
 } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
@@ -24,6 +26,7 @@ import type {
   VnextPptxShapeOp,
   VnextPptxTableOp,
   VnextPptxConnectorOp,
+  VnextPptxVisualOp,
 } from "@/lib/presentation-vnext/pptx-export-adapter";
 import type {
   TextContent,
@@ -105,6 +108,49 @@ describe("resolveExportSpecAssetSources", () => {
     assert.equal(op.type, "image");
     if (op.type === "image") {
       assert.equal(op.assetId, "https://example.com/image.png");
+    }
+  });
+
+  test("turns visual registry asset ids into deterministic visual placeholders when no image source exists", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {},
+        visuals: {
+          "visual-asset-1": {
+            id: "visual-asset-1",
+            visualId: "doc-visual-1",
+            alt: "Registry visual",
+          },
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "visual-asset-1",
+              frame: { x: 0, y: 0, w: 100, h: 100 },
+              style: {},
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const op = resolved.slides[0].operations[0];
+    assert.equal(op.type, "visual");
+    if (op.type === "visual") {
+      assert.equal(op.assetId, undefined);
+      assert.equal(op.visualId, "doc-visual-1");
+      assert.equal(op.alt, "Registry visual");
     }
   });
 });
@@ -562,7 +608,6 @@ describe("applyVnextConnectorOp", () => {
 // applyVnextImageOp
 // ---------------------------------------------------------------------------
 
-import { applyVnextImageOp } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { VnextPptxImageOp } from "@/lib/presentation-vnext/pptx-export-adapter";
 
 describe("applyVnextImageOp", () => {
@@ -615,5 +660,71 @@ describe("applyVnextImageOp", () => {
     const opts = calls[0].args[0] as Record<string, unknown>;
     assert.equal(opts.altText, "A picture");
     assert.equal(opts.rotate, 30);
+  });
+
+  test("forwards crop as PPTX image sizing", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(
+      slide as never,
+      makeImageOp({
+        crop: { top: 10, right: 20, bottom: 30, left: 5 },
+      }),
+    );
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.deepEqual(opts.sizing, {
+      type: "crop",
+      x: "5%",
+      y: "10%",
+      w: "75%",
+      h: "60%",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextVisualOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextVisualOp", () => {
+  function makeVisualOp(
+    overrides: Partial<VnextPptxVisualOp> = {},
+  ): VnextPptxVisualOp {
+    return {
+      type: "visual",
+      id: "visual1",
+      visualId: "doc-visual-1",
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      channelColors: {
+        primary: "#111111",
+        secondary: "#222222",
+        accent: "#ffcc00",
+        muted: "#aaaaaa",
+      },
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("renders a deterministic placeholder with channel colors", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(slide as never, makeVisualOp());
+    const shapeCalls = calls.filter((call) => call.kind === "addShape");
+    assert.ok(shapeCalls.length >= 4);
+    const firstBar = shapeCalls[1].args[1] as Record<string, unknown>;
+    assert.deepEqual(firstBar.fill, { color: "111111" });
+    assert.ok(calls.some((call) => call.kind === "addText"));
+  });
+
+  test("uses image export when a visual asset source is available", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({ assetId: "https://example.com/visual.png" }),
+    );
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addImage");
   });
 });

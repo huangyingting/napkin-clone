@@ -19,13 +19,16 @@
 
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
 import type {
+  ImageFitMode,
   StyleObject,
   FillStyle,
 } from "@/lib/presentation-vnext/style-schema";
 import type {
   TextContent,
+  ImageCrop,
   TableContent,
 } from "@/lib/presentation-vnext/schema";
+import type { ResolvedVisualChannelColors } from "@/lib/presentation-vnext/visual-channel-colors";
 import type {
   ExportDeckSpec,
   ExportSlideSpec,
@@ -99,6 +102,8 @@ export type VnextPptxImageOp = {
   y: number;
   w: number;
   h: number;
+  fit?: ImageFitMode;
+  crop?: ImageCrop;
   alt?: string;
   rotation?: number;
   zIndex: number;
@@ -126,6 +131,8 @@ export type VnextPptxVisualOp = {
   y: number;
   w: number;
   h: number;
+  channelColors?: ResolvedVisualChannelColors;
+  transparentBackground?: boolean;
   alt?: string;
   rotation?: number;
   zIndex: number;
@@ -422,6 +429,8 @@ function convertImage(
     id: op.id,
     assetId: op.assetId,
     ...frame,
+    ...(op.fit !== undefined ? { fit: op.fit } : {}),
+    ...(op.crop !== undefined ? { crop: op.crop } : {}),
     ...(op.alt !== undefined ? { alt: op.alt } : {}),
     ...(op.rotation !== undefined ? { rotation: op.rotation } : {}),
     zIndex: op.zIndex,
@@ -478,6 +487,12 @@ function convertVisual(
     ...(op.assetId !== undefined ? { assetId: op.assetId } : {}),
     ...(op.visualId !== undefined ? { visualId: op.visualId } : {}),
     ...frame,
+    ...(op.channelColors !== undefined
+      ? { channelColors: op.channelColors }
+      : {}),
+    ...(op.transparentBackground !== undefined
+      ? { transparentBackground: op.transparentBackground }
+      : {}),
     ...(op.alt !== undefined ? { alt: op.alt } : {}),
     ...(op.rotation !== undefined ? { rotation: op.rotation } : {}),
     zIndex: op.zIndex,

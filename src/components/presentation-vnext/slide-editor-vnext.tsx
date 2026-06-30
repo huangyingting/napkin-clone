@@ -762,6 +762,38 @@ function defaultVisualNode(zIndex: number): SlideChildNode {
   };
 }
 
+function deckWithPickedVisualAsset(
+  deck: DeckV7,
+  picked: SlideEditorVNextVisualPickResult,
+): DeckV7 {
+  if (!picked.assetId) return deck;
+  const visualId = picked.visualId ?? picked.assetId;
+  return {
+    ...deck,
+    assets: {
+      ...deck.assets,
+      visuals: {
+        ...deck.assets.visuals,
+        [picked.assetId]: {
+          id: picked.assetId,
+          visualId,
+          ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
+        },
+      },
+    },
+  };
+}
+
+function visualContentPatchFromPick(
+  picked: SlideEditorVNextVisualPickResult,
+): Record<string, unknown> {
+  return {
+    ...(picked.visualId !== undefined ? { visualId: picked.visualId } : {}),
+    ...(picked.assetId !== undefined ? { assetId: picked.assetId } : {}),
+    ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
+  };
+}
+
 function defaultConnectorNode(zIndex: number): SlideChildNode {
   return {
     id: nodeFactoryId("connector"),
@@ -1239,8 +1271,27 @@ export function SlideEditorVNext({
     }
   }
 
-  function handleInsertVisual() {
-    handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
+  async function handleInsertVisual() {
+    if (!activeSlide) return;
+    if (!onPickVisual) {
+      handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
+      return;
+    }
+    const picked = await onPickVisual();
+    if (!picked) return;
+    const deckWithAsset = deckWithPickedVisualAsset(deck, picked);
+    const node = defaultVisualNode(nextZIndex(activeSlide));
+    if (node.type !== "visual") return;
+    const result = insertNode(deckWithAsset, activeSlide.id, {
+      ...node,
+      content: {
+        ...node.content,
+        ...visualContentPatchFromPick(picked),
+      },
+    });
+    onDeckChange(result.deck);
+    setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+    focusSelectedNodeSoon(result.nodeId);
   }
 
   async function handleReplaceSelectedVisual() {
@@ -1252,11 +1303,12 @@ export function SlideEditorVNext({
     const picked = await onPickVisual();
     if (!picked) return;
     onDeckChange(
-      updateNodeContent(deck, activeSlide.id, selectedNode.id, {
-        ...(picked.visualId !== undefined ? { visualId: picked.visualId } : {}),
-        ...(picked.assetId !== undefined ? { assetId: picked.assetId } : {}),
-        ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
-      }),
+      updateNodeContent(
+        deckWithPickedVisualAsset(deck, picked),
+        activeSlide.id,
+        selectedNode.id,
+        visualContentPatchFromPick(picked),
+      ),
     );
     setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
     focusSelectedNodeSoon(selectedNode.id);
@@ -1601,8 +1653,14 @@ export function SlideEditorVNext({
   }, [selectedIds, selectedNode?.type]);
 
   function resolveDeckAsset(assetId: string): string | undefined {
+    const visualAssetId = deck.assets.visuals?.[assetId]?.id;
     return (
-      deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src
+      deck.assets.images[assetId]?.src ??
+      deck.assets.files?.[assetId]?.src ??
+      (visualAssetId
+        ? (deck.assets.images[visualAssetId]?.src ??
+          deck.assets.files?.[visualAssetId]?.src)
+        : undefined)
     );
   }
 
@@ -2516,7 +2574,7 @@ export function SlideEditorVNext({
                     label: "Visual",
                     icon: <FileText size={13} aria-hidden />,
                     action: () => {
-                      handleInsertVisual();
+                      void handleInsertVisual();
                       setInsertMenuOpen(false);
                     },
                   },

@@ -8,6 +8,7 @@ import type {
   SlideChildNode,
   TextNode,
   ImageNode,
+  VisualNode,
   ShapeNode,
   TableNode,
   LayoutBox,
@@ -155,6 +156,23 @@ export function buildImageNode(
     }),
     style: buildStyleBinding("media.inline"),
     content: { assetId },
+    ...overrides,
+  };
+}
+
+export function buildVisualNode(
+  overrides: Partial<VisualNode> = {},
+): VisualNode {
+  return {
+    id: nextId("visual"),
+    type: "visual",
+    role: "visual",
+    layout: buildLayoutBox({
+      frame: { x: 50, y: 20, w: 45, h: 60 },
+      zIndex: 2,
+    }),
+    style: buildStyleBinding("chart.primary"),
+    content: { visualId: "visual-001" },
     ...overrides,
   };
 }

@@ -36,15 +36,26 @@ import {
   type VnextPptxShapeOp,
   type VnextPptxImageOp,
   type VnextPptxConnectorOp,
+  type VnextPptxVisualOp,
   type VnextPptxTableOp,
   type BuildVnextPptxSpecOptions,
 } from "./pptx-export-adapter";
+import { DEFAULT_VISUAL_CHANNEL_COLORS } from "./visual-channel-colors";
 
 const PPTX_MIME =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+type PptxCoord = number | `${number}%`;
 
 function deckAssetSource(deck: DeckV7, assetId: string): string | undefined {
-  return deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src;
+  const visualAssetId = deck.assets.visuals?.[assetId]?.id;
+  return (
+    deck.assets.images[assetId]?.src ??
+    deck.assets.files?.[assetId]?.src ??
+    (visualAssetId
+      ? (deck.assets.images[visualAssetId]?.src ??
+        deck.assets.files?.[visualAssetId]?.src)
+      : undefined)
+  );
 }
 
 export function resolveExportSpecAssetSources(
@@ -64,10 +75,19 @@ export function resolveExportSpecAssetSources(
           };
         }
         if (operation.type === "visual" && operation.assetId) {
+          const assetSource = deckAssetSource(deck, operation.assetId);
+          const visualAsset = deck.assets.visuals?.[operation.assetId];
+          const { assetId: originalAssetId, ...rest } = operation;
+          void originalAssetId;
           return {
-            ...operation,
-            assetId:
-              deckAssetSource(deck, operation.assetId) ?? operation.assetId,
+            ...rest,
+            ...(assetSource ? { assetId: assetSource } : {}),
+            ...(operation.visualId === undefined && visualAsset?.visualId
+              ? { visualId: visualAsset.visualId }
+              : {}),
+            ...(operation.alt === undefined && visualAsset?.alt
+              ? { alt: visualAsset.alt }
+              : {}),
           };
         }
         return operation;
@@ -247,15 +267,124 @@ export async function applyVnextImageOp(
   const source = assetId.startsWith("data:")
     ? { data: assetId }
     : { path: assetId };
+  const sizing = imageSizingOptions(op);
   slide.addImage({
     ...source,
     x,
     y,
     w,
     h,
+    ...(sizing !== undefined ? { sizing } : {}),
     ...(alt ? { altText: alt } : {}),
     ...(rotation !== undefined ? { rotate: rotation } : {}),
   });
+}
+
+function imageSizingOptions(op: VnextPptxImageOp):
+  | {
+      type: "contain" | "cover" | "crop";
+      w: PptxCoord;
+      h: PptxCoord;
+      x?: PptxCoord;
+      y?: PptxCoord;
+    }
+  | undefined {
+  const crop = op.crop;
+  const cropValues = crop ? [crop.top, crop.right, crop.bottom, crop.left] : [];
+  const hasCrop = cropValues.some((value) => value > 0);
+  if (crop && hasCrop) {
+    const visibleW = Math.max(0, 100 - crop.left - crop.right);
+    const visibleH = Math.max(0, 100 - crop.top - crop.bottom);
+    return {
+      type: "crop",
+      x: toPercentCoord(crop.left),
+      y: toPercentCoord(crop.top),
+      w: toPercentCoord(visibleW),
+      h: toPercentCoord(visibleH),
+    };
+  }
+  if (op.fit === "contain" || op.fit === "cover") {
+    return { type: op.fit, w: op.w, h: op.h };
+  }
+
+  function toPercentCoord(value: number): `${number}%` {
+    return `${value}%`;
+  }
+  return undefined;
+}
+
+export async function applyVnextVisualOp(
+  slide: PptxSlide,
+  op: VnextPptxVisualOp,
+): Promise<void> {
+  if (op.assetId) {
+    await applyVnextImageOp(slide, {
+      type: "image",
+      id: op.id,
+      assetId: op.assetId,
+      x: op.x,
+      y: op.y,
+      w: op.w,
+      h: op.h,
+      ...(op.alt !== undefined ? { alt: op.alt } : {}),
+      ...(op.rotation !== undefined ? { rotation: op.rotation } : {}),
+      zIndex: op.zIndex,
+    });
+    return;
+  }
+
+  const colors = {
+    ...DEFAULT_VISUAL_CHANNEL_COLORS,
+    ...op.channelColors,
+  };
+  const { x, y, w, h, rotation } = op;
+  const backgroundFill = op.transparentBackground
+    ? undefined
+    : { color: stripHash(colors.muted), transparency: 85 };
+  slide.addShape("rect" as Parameters<PptxSlide["addShape"]>[0], {
+    x,
+    y,
+    w,
+    h,
+    ...(backgroundFill ? { fill: backgroundFill } : {}),
+    line: { color: stripHash(colors.muted), transparency: 35 },
+    ...(rotation !== undefined ? { rotate: rotation } : {}),
+  });
+  const barW = w * 0.16;
+  const baseY = y + h * 0.72;
+  const bars = [
+    { color: colors.primary, height: h * 0.42, offset: 0.18 },
+    { color: colors.secondary, height: h * 0.3, offset: 0.4 },
+    { color: colors.accent, height: h * 0.54, offset: 0.62 },
+  ];
+  for (const bar of bars) {
+    slide.addShape("rect" as Parameters<PptxSlide["addShape"]>[0], {
+      x: x + w * bar.offset,
+      y: baseY - bar.height,
+      w: barW,
+      h: bar.height,
+      fill: { color: stripHash(bar.color) },
+      line: { color: stripHash(bar.color), transparency: 100 },
+      ...(rotation !== undefined ? { rotate: rotation } : {}),
+    });
+  }
+  slide.addText(op.alt ?? op.visualId ?? "Visual", {
+    x: x + w * 0.12,
+    y: y + h * 0.08,
+    w: w * 0.76,
+    h: h * 0.18,
+    fontSize: Math.max(8, Math.min(14, h * 5)),
+    color: stripHash(colors.primary),
+    bold: true,
+    align: "center",
+    ...(rotation !== undefined ? { rotate: rotation } : {}),
+  });
+}
+
+function stripHash(color: string): string {
+  return color.startsWith("#")
+    ? color.slice(1).toUpperCase()
+    : color.toUpperCase();
 }
 
 export function applyVnextConnectorOp(
@@ -341,7 +470,7 @@ async function applyOp(slide: PptxSlide, op: VnextPptxOp): Promise<void> {
       applyVnextConnectorOp(slide, op);
       break;
     case "visual":
-      // Visual ops require asset resolution at the call site; skipped here.
+      await applyVnextVisualOp(slide, op);
       break;
     case "tableShape":
       applyVnextTableOp(slide, op);

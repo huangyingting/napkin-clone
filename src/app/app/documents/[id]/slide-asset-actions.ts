@@ -95,5 +95,16 @@ export async function uploadSlideAsset(
     meta: metaResult.meta,
   });
 
-  return actionOk({ assetId: stored.assetId, url: stored.url });
+  return actionOk({
+    assetId: stored.assetId,
+    url: stored.url,
+    ...(dimensions.widthPx !== undefined
+      ? { widthPx: dimensions.widthPx }
+      : {}),
+    ...(dimensions.heightPx !== undefined
+      ? { heightPx: dimensions.heightPx }
+      : {}),
+    mimeType: metaResult.meta.mimeType,
+    contentHash: stored.checksum,
+  });
 }

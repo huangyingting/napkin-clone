@@ -54,11 +54,14 @@ export const ASSET_RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
  * Recognised locations:
  *  - `deck.slides[n].backgroundAssetId`
  *  - `deck.slides[n].elements[m].assetId`  (ImageElement)
+ *  - `deck.slides[n].children[*].content.assetId` (v7 image/visual nodes)
+ *  - `deck.assets.visuals[*].id` and visual registry keys
  */
 export function collectDeckAssetRefs(deckJson: unknown): Set<string> {
   const refs = new Set<string>();
   try {
     if (!isPlainObject(deckJson)) return refs;
+    collectVisualRegistryAssetRefs(deckJson.assets, refs);
     const slides = deckJson.slides;
     if (!Array.isArray(slides)) return refs;
     for (const slide of slides) {
@@ -70,16 +73,45 @@ export function collectDeckAssetRefs(deckJson: unknown): Set<string> {
         refs.add(slide.backgroundAssetId);
       }
       const elements = slide.elements;
-      if (!Array.isArray(elements)) continue;
-      for (const el of elements) {
-        if (!isPlainObject(el)) continue;
-        if (typeof el.assetId === "string" && el.assetId) {
-          refs.add(el.assetId);
-        }
-      }
+      collectAssetIdsFromNodeArray(elements, refs);
+      const children = slide.children;
+      collectAssetIdsFromNodeArray(children, refs);
     }
   } catch {
     // Safety net — must not throw.
+  }
+
+  function collectVisualRegistryAssetRefs(
+    assets: unknown,
+    refs: Set<string>,
+  ): void {
+    if (!isPlainObject(assets) || !isPlainObject(assets.visuals)) return;
+    for (const [assetId, visualRef] of Object.entries(assets.visuals)) {
+      if (assetId) refs.add(assetId);
+      if (isPlainObject(visualRef) && typeof visualRef.id === "string") {
+        refs.add(visualRef.id);
+      }
+    }
+  }
+
+  function collectAssetIdsFromNodeArray(
+    nodes: unknown,
+    refs: Set<string>,
+  ): void {
+    if (!Array.isArray(nodes)) return;
+    for (const node of nodes) {
+      if (!isPlainObject(node)) continue;
+      if (typeof node.assetId === "string" && node.assetId) {
+        refs.add(node.assetId);
+      }
+      if (isPlainObject(node.content)) {
+        const assetId = node.content.assetId;
+        if (typeof assetId === "string" && assetId) {
+          refs.add(assetId);
+        }
+      }
+      collectAssetIdsFromNodeArray(node.children, refs);
+    }
   }
   return refs;
 }

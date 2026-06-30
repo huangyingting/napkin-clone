@@ -57,6 +57,10 @@ export interface VisualGenerationActionPort {
 export interface UploadSlideAssetResult {
   assetId: string;
   url: string;
+  widthPx?: number;
+  heightPx?: number;
+  mimeType?: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  contentHash?: string;
 }
 
 export type UploadSlideAssetPort = (

@@ -13,6 +13,7 @@ import {
   buildMinimalThemePackage,
   buildTextNode,
   buildImageNode,
+  buildVisualNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 import type {
@@ -269,6 +270,71 @@ describe("resolveDeckRenderTree", () => {
     assert.ok(
       result.diagnostics.some((d) => d.code === "missing-asset"),
       "Expected missing-asset diagnostic",
+    );
+  });
+
+  test("enriches visual nodes from assets.visuals and keeps visual assets resolved", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const visualNode = buildVisualNode({
+      content: { assetId: "visual-asset-1" },
+    });
+    const deck = buildDeckV7(
+      [
+        {
+          ...slide,
+          children: [visualNode],
+        },
+      ],
+      {
+        assets: {
+          images: {},
+          visuals: {
+            "visual-asset-1": {
+              id: "visual-asset-1",
+              visualId: "doc-visual-1",
+              alt: "Document visual",
+            },
+          },
+        },
+      },
+    );
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const resolved = result.slides[0].nodes[0];
+    assert.equal(resolved.content.type, "visual");
+    if (resolved.content.type === "visual") {
+      assert.equal(resolved.content.content.visualId, "doc-visual-1");
+      assert.equal(resolved.content.content.alt, "Document visual");
+    }
+    assert.equal(
+      result.diagnostics.some((d) => d.code === "missing-asset"),
+      false,
+    );
+  });
+
+  test("emits diagnostics for unsupported visual channel colors", () => {
+    resetBuilderCounter();
+    const visualNode = buildVisualNode({
+      localStyle: {
+        visual: {
+          channelColors: {
+            primary: "#2563eb",
+            tertiary: "#111111",
+          },
+        },
+      },
+    });
+    const deck = buildDeckV7([
+      { ...buildCoverSlide(), children: [visualNode] },
+    ]);
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    assert.ok(
+      result.diagnostics.some(
+        (d) =>
+          d.code === "unsupported-export-feature" &&
+          d.details?.channel === "tertiary",
+      ),
+      "Expected unsupported channel diagnostic",
     );
   });
 

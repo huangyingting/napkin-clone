@@ -12,6 +12,8 @@ import {
   buildContentSlide,
   buildTableSlide,
   buildVisualSlide,
+  buildImageNode,
+  buildVisualNode,
   buildMinimalThemePackage,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
@@ -164,6 +166,75 @@ describe("buildExportSpec — additional operation types", () => {
     assert.ok(
       exportSpec.diagnostics.some((d) => d.code === "missing-asset"),
       "Expected missing-asset diagnostic carried from render tree",
+    );
+  });
+
+  test("image operations carry fit, crop, and alt text for export parity", () => {
+    resetBuilderCounter();
+    const imageNode = buildImageNode("img-001", {
+      content: {
+        assetId: "img-001",
+        fit: "contain",
+        crop: { top: 5, right: 10, bottom: 15, left: 20 },
+        alt: "Cropped product image",
+      },
+    });
+    const deck = buildDeckV7([{ ...buildCoverSlide(), children: [imageNode] }]);
+    const renderTree = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const exportSpec = buildExportSpec(renderTree);
+    const imageOp = exportSpec.slides[0].operations.find(
+      (op) => op.type === "image",
+    );
+    assert.ok(imageOp);
+    assert.equal(imageOp.type, "image");
+    if (imageOp.type === "image") {
+      assert.equal(imageOp.fit, "contain");
+      assert.deepEqual(imageOp.crop, {
+        top: 5,
+        right: 10,
+        bottom: 15,
+        left: 20,
+      });
+      assert.equal(imageOp.alt, "Cropped product image");
+    }
+  });
+
+  test("visual operations carry supported channel colors and filter unsupported channels", () => {
+    resetBuilderCounter();
+    const visualNode = buildVisualNode({
+      localStyle: {
+        visual: {
+          channelColors: {
+            primary: "#111111",
+            accent: "#ffcc00",
+            tertiary: "#00ff00",
+          },
+        },
+      },
+    });
+    const deck = buildDeckV7([
+      { ...buildCoverSlide(), children: [visualNode] },
+    ]);
+    const renderTree = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const exportSpec = buildExportSpec(renderTree);
+    const visualOp = exportSpec.slides[0].operations.find(
+      (op) => op.type === "visual",
+    );
+    assert.ok(visualOp);
+    assert.equal(visualOp.type, "visual");
+    if (visualOp.type === "visual") {
+      assert.deepEqual(visualOp.channelColors, {
+        primary: "#111111",
+        accent: "#ffcc00",
+      });
+      assert.equal("tertiary" in (visualOp.channelColors ?? {}), false);
+    }
+    assert.ok(
+      exportSpec.diagnostics.some(
+        (d) =>
+          d.code === "unsupported-export-feature" &&
+          d.details?.channel === "tertiary",
+      ),
     );
   });
 

@@ -185,6 +185,53 @@ test("#395: present-disabled share denies present access", () => {
   assert.ok(!decision.allow);
 });
 
+test("#1254: slide asset access allows protected public present/embed decisions", () => {
+  const document: SlideAssetDocument = {
+    ...makeDoc({ ownerId: "owner-1" }),
+    ...sharedDoc(),
+    deletedAt: null,
+  };
+
+  assert.deepEqual(
+    decideSlideAssetAccess({
+      asset: { id: "asset-1" },
+      document,
+      userId: null,
+      publicAssetAccess: { allow: true, via: "share-present" },
+    }),
+    { allow: true, via: "share-present" },
+  );
+  assert.deepEqual(
+    decideSlideAssetAccess({
+      asset: { id: "asset-1" },
+      document,
+      userId: null,
+      publicAssetAccess: { allow: true, via: "share-embed" },
+    }),
+    { allow: true, via: "share-embed" },
+  );
+});
+
+test("#1254: slide asset access diagnoses denied public asset requests", () => {
+  const document: SlideAssetDocument = {
+    ...makeDoc({ ownerId: "owner-1" }),
+    ...sharedDoc({ isShared: false }),
+    deletedAt: null,
+  };
+
+  const decision = decideSlideAssetAccess({
+    asset: { id: "asset-1" },
+    document,
+    userId: null,
+    publicAssetAccess: { allow: false, status: 403, reason: "forbidden" },
+  });
+  assert.deepEqual(decision, {
+    allow: false,
+    status: 403,
+    reason: "forbidden",
+  });
+});
+
 test("#395: embed-disabled share denies embed access", () => {
   const doc = sharedDoc({ shareEmbedEnabled: false });
   const decision = evaluateShareAccess(

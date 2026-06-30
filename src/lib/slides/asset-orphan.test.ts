@@ -101,6 +101,56 @@ test("#396: collectDeckAssetRefs ignores slides without asset refs", () => {
   assert.equal(refs.size, 0);
 });
 
+test("#1253: collectDeckAssetRefs extracts v7 image and visual node asset ids", () => {
+  const deck = {
+    schemaVersion: 7,
+    assets: { images: {}, visuals: {} },
+    slides: [
+      {
+        id: "s1",
+        children: [
+          { type: "image", id: "img", content: { assetId: "img-v7-1" } },
+          {
+            type: "group",
+            id: "group",
+            children: [
+              {
+                type: "visual",
+                id: "visual",
+                content: { assetId: "visual-v7-1" },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const refs = collectDeckAssetRefs(deck);
+  assert.ok(refs.has("img-v7-1"));
+  assert.ok(refs.has("visual-v7-1"));
+  assert.equal(refs.size, 2);
+});
+
+test("#1253: collectDeckAssetRefs preserves assets.visuals registry refs", () => {
+  const deck = {
+    schemaVersion: 7,
+    assets: {
+      images: {},
+      visuals: {
+        "visual-registry-key": {
+          id: "visual-registry-id",
+          visualId: "doc-visual-1",
+        },
+      },
+    },
+    slides: [{ id: "s1", children: [] }],
+  };
+  const refs = collectDeckAssetRefs(deck);
+  assert.ok(refs.has("visual-registry-key"));
+  assert.ok(refs.has("visual-registry-id"));
+  assert.equal(refs.size, 2);
+});
+
 // ---------------------------------------------------------------------------
 // markOrphanedAssets
 // ---------------------------------------------------------------------------
@@ -164,6 +214,55 @@ test("#396: markOrphanedAssets preserves assets referenced in version snapshots"
   assert.equal(count, 1);
   assert.ok(db.markedIds.includes("orphan-1"));
   assert.ok(!db.markedIds.includes("version-bg-1"));
+});
+
+test("#1253: markOrphanedAssets preserves assets referenced by v7 visual registry", async () => {
+  const db = makeMockDb({
+    deckJson: {
+      schemaVersion: 7,
+      assets: {
+        images: {},
+        visuals: {
+          "visual-asset-1": {
+            id: "visual-asset-1",
+            visualId: "doc-visual-1",
+          },
+        },
+      },
+      slides: [],
+    },
+    liveAssets: [{ id: "visual-asset-1" }, { id: "orphan-1" }],
+  });
+  const count = await markOrphanedAssets("doc-1", db);
+  assert.equal(count, 1);
+  assert.ok(db.markedIds.includes("orphan-1"));
+  assert.ok(!db.markedIds.includes("visual-asset-1"));
+});
+
+test("#1253: markOrphanedAssets preserves assets referenced by v7 visual nodes", async () => {
+  const db = makeMockDb({
+    deckJson: {
+      schemaVersion: 7,
+      assets: { images: {}, visuals: {} },
+      slides: [
+        {
+          id: "s1",
+          children: [
+            {
+              type: "visual",
+              id: "visual-1",
+              content: { assetId: "visual-node-asset" },
+            },
+          ],
+        },
+      ],
+    },
+    liveAssets: [{ id: "visual-node-asset" }, { id: "orphan-1" }],
+  });
+  const count = await markOrphanedAssets("doc-1", db);
+  assert.equal(count, 1);
+  assert.ok(db.markedIds.includes("orphan-1"));
+  assert.ok(!db.markedIds.includes("visual-node-asset"));
 });
 
 test("#396: markOrphanedAssets returns 0 when all assets are active", async () => {
