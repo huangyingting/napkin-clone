@@ -188,5 +188,13 @@ export function applyDiagnosticRepairAction(
         announcement: "Moved node to a new split slide.",
       };
     }
+    case "refresh-source":
+    case "unlink-source":
+    case "relink-source":
+    case "open-source-review":
+      return {
+        status: "noop",
+        reason: "Source diagnostics are handled by the source review flow.",
+      };
   }
 }

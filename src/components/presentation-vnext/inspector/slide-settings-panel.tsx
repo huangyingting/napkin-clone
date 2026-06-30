@@ -63,7 +63,12 @@ export function slideSourceWithPatch(
     ...(slide.source?.contentHash
       ? { contentHash: slide.source.contentHash }
       : {}),
+    ...(slide.source?.blockRevision
+      ? { blockRevision: slide.source.blockRevision }
+      : {}),
     ...(slide.source?.linkedAt ? { linkedAt: slide.source.linkedAt } : {}),
+    ...(slide.source?.display ? { display: slide.source.display } : {}),
+    ...(slide.source?.refresh ? { refresh: slide.source.refresh } : {}),
     ...(slide.source?.unlinked ? { unlinked: slide.source.unlinked } : {}),
     ...patch,
   };

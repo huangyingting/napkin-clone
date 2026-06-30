@@ -40,12 +40,14 @@ export type PresentationDiagnosticCode =
   | "migration-id-rewrite"
   | "migration-dropped-node"
   | "migration-unmapped-reference"
+  | "migration-unmapped-source-ref"
   | "migration-repair-required"
   | "migration-repair-applied"
   | "migration-repair-failed"
   | "stale-source"
   | "orphaned-source"
   | "missing-source-block"
+  | "unlinked-source"
   | "source-refresh-failed";
 
 export type DiagnosticSeverity = "info" | "warning" | "error" | "fatal";
@@ -150,7 +152,11 @@ export type DiagnosticActionType =
   | "open-asset-panel"
   | "remove-override"
   | "restore-decoration"
-  | "replace-style-ref";
+  | "replace-style-ref"
+  | "refresh-source"
+  | "unlink-source"
+  | "relink-source"
+  | "open-source-review";
 
 export type DiagnosticAction =
   | {
@@ -183,6 +189,26 @@ export type DiagnosticAction =
       type: "replace-style-ref";
       target?: DiagnosticTarget;
       payload?: { styleRef?: string };
+    }
+  | {
+      type: "refresh-source";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
+    }
+  | {
+      type: "unlink-source";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
+    }
+  | {
+      type: "relink-source";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
+    }
+  | {
+      type: "open-source-review";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
     };
 
 export type PresentationDiagnostic = {
@@ -233,6 +259,7 @@ export function categoryForDiagnosticCode(
     code === "stale-source" ||
     code === "orphaned-source" ||
     code === "missing-source-block" ||
+    code === "unlinked-source" ||
     code === "source-refresh-failed"
   ) {
     return "source";

@@ -33,6 +33,10 @@ const ACTION_LABELS: Record<DiagnosticActionType, string> = {
   "remove-override": "Remove override",
   "restore-decoration": "Restore decoration",
   "replace-style-ref": "Replace style ref",
+  "refresh-source": "Refresh source",
+  "unlink-source": "Unlink source",
+  "relink-source": "Relink source",
+  "open-source-review": "Open Source Review",
 };
 
 // ---------------------------------------------------------------------------
