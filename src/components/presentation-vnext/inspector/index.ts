@@ -11,6 +11,7 @@
  * - {@link LocalStylePanel}    — local style patch editing controls.
  * - {@link NodeSourcePanel}    — source metadata controls.
  * - {@link LayersPanel}        — slide layer list controls.
+ * - {@link InspectorShell}     — tab strip + panel router for the full inspector.
  */
 
 export { StyleBindingPanel } from "./style-binding-panel";
@@ -42,3 +43,6 @@ export type { NodeSourcePanelProps } from "./node-source-panel";
 
 export { LayersPanel } from "./layers-panel";
 export type { LayersPanelProps } from "./layers-panel";
+
+export { InspectorShell } from "./inspector-shell";
+export type { InspectorShellProps } from "./inspector-shell";

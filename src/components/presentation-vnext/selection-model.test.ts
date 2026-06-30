@@ -249,3 +249,85 @@ test("selectedNodeIds returns array of selected ids", () => {
   state = selectNode(state, "n1");
   assert.deepEqual(selectedNodeIds(state), ["n1"]);
 });
+
+// ---------------------------------------------------------------------------
+// UI context: context toolbar visibility (from slide editor UI spec §Context
+// Toolbar States)
+// ---------------------------------------------------------------------------
+
+test("context toolbar is hidden when no nodes are selected (hasSelection=false)", () => {
+  const state = createSelectionState();
+  assert.equal(
+    hasSelection(state),
+    false,
+    "Toolbar should be hidden — nothing selected",
+  );
+});
+
+test("context toolbar is visible when exactly one node is selected", () => {
+  const state = selectNode(createSelectionState(), "n1");
+  assert.equal(
+    hasSelection(state),
+    true,
+    "Toolbar should be visible — node selected",
+  );
+  assert.equal(selectionSize(state), 1);
+});
+
+test("context toolbar shows multi-select group when 2+ nodes are selected", () => {
+  let state = createSelectionState();
+  state = selectNode(state, "n1");
+  state = selectNode(state, "n2", true);
+  assert.ok(
+    selectionSize(state) >= 2,
+    "Multi-select group should trigger at 2+ nodes",
+  );
+});
+
+test("clearing selection hides context toolbar", () => {
+  let state = selectNode(createSelectionState(), "n1");
+  assert.equal(hasSelection(state), true);
+  state = clearSelection(state);
+  assert.equal(hasSelection(state), false, "Toolbar should hide after clear");
+});
+
+// ---------------------------------------------------------------------------
+// UI context: locked/hidden nodes not excluded from selection state
+// (hiding/locking is enforced at dispatch time, not in selection model)
+// ---------------------------------------------------------------------------
+
+test("isSelectable returns true for a locked user node in normal mode", () => {
+  const locked = { ...userNode("n-locked"), locked: true } as ReturnType<
+    typeof userNode
+  >;
+  assert.equal(isSelectable(locked, "normal"), true);
+});
+
+test("isSelectable returns true for a hidden user node in normal mode", () => {
+  const hidden = { ...userNode("n-hidden"), hidden: true } as ReturnType<
+    typeof userNode
+  >;
+  assert.equal(isSelectable(hidden, "normal"), true);
+});
+
+// ---------------------------------------------------------------------------
+// UI context: layers mode unlocks theme decorations for the Layers panel
+// ---------------------------------------------------------------------------
+
+test("in layers mode selectable nodes include decorations appended after user nodes", () => {
+  const slide = mockSlide(
+    [userNode("u1"), userNode("u2")],
+    [decorationNode("d1"), decorationNode("d2")],
+  );
+  const nodes = getSelectableNodes(slide, "layers");
+  const ids = nodes.map((n) => n.id);
+  assert.deepEqual(ids.slice(0, 2), ["u1", "u2"], "user nodes first");
+  assert.deepEqual(ids.slice(2), ["d1", "d2"], "decorations appended after");
+});
+
+test("switching from normal to layers mode preserves existing selection", () => {
+  let state = selectNode(createSelectionState("normal"), "u1");
+  state = setSelectionMode(state, "layers");
+  assert.equal(state.mode, "layers");
+  assert.ok(isSelected(state, "u1"), "selection preserved after mode switch");
+});

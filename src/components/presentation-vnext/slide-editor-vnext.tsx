@@ -30,6 +30,7 @@
  */
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -41,7 +42,6 @@ import {
 } from "react";
 import {
   ChevronDown,
-  ChevronUp,
   ClipboardPaste,
   Copy,
   FileDown,
@@ -55,7 +55,6 @@ import {
   Spline,
   Square,
   Table2,
-  Trash2,
   Type,
   Ungroup,
   Undo2,
@@ -146,18 +145,10 @@ import {
   selectedNodeIds,
   type SelectionState,
 } from "./selection-model";
-import {
-  SlideControlsPanel,
-  SlideSettingsPanel,
-  NodeGeometryPanel,
-  NodeContentPanel,
-  LocalStylePanel,
-  NodeSourcePanel,
-  LayersPanel,
-  StyleBindingPanel,
-  LocalOverrideBadge,
-  DiagnosticsPanel,
-} from "./inspector";
+import { InspectorShell } from "./inspector";
+import { ContextToolbar } from "./toolbar/context-toolbar";
+import { Filmstrip } from "./filmstrip/filmstrip";
+import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 
 const TEMPLATE_REGISTRY = createDefaultTemplateRegistry();
@@ -262,7 +253,17 @@ function layoutFramesExcluding(
 }
 
 function defaultStyleBindingForNode(node: SlideChildNode): StyleBinding {
-  if (node.type === "text") return { ref: textStyleRef(node.role) };
+  if (node.type === "text") {
+    const role = node.role;
+    let ref: StyleBinding["ref"] = "text.body";
+    if (role === "title") ref = "text.title";
+    else if (role === "subtitle") ref = "text.subtitle";
+    else if (role === "kicker") ref = "text.kicker";
+    else if (role === "caption") ref = "text.caption";
+    else if (role === "quote") ref = "text.quote";
+    else if (role === "metric") ref = "text.metric";
+    return { ref };
+  }
   if (node.type === "image") return { ref: "media.inline" };
   if (node.type === "visual") return { ref: "chart.primary" };
   if (node.type === "connector") return { ref: "connector.primary" };
@@ -586,11 +587,46 @@ export function SlideEditorVNext({
 }: SlideEditorVNextProps): JSX.Element {
   const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
   const editorRootRef = useRef<HTMLDivElement | null>(null);
+  const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const handleCanvasRef = useCallback((el: HTMLDivElement | null) => {
+    setCanvasElement(el);
+  }, []);
   const suppressStageClickRef = useRef(false);
   const themePackages = listThemePackagesV7();
 
   // Export error surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Insert dropdown open state
+  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+  const insertMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close insert dropdown on click-outside or Escape
+  useEffect(() => {
+    if (!insertMenuOpen) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (
+        insertMenuRef.current &&
+        !insertMenuRef.current.contains(e.target as Node)
+      ) {
+        setInsertMenuOpen(false);
+      }
+    }
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setInsertMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [insertMenuOpen]);
+
+  // Inline text editing state
+  const [inlineEditNodeId, setInlineEditNodeId] = useState<string | null>(null);
 
   async function handleExportPptx() {
     if (!onExportPptx) return;
@@ -659,30 +695,6 @@ export function SlideEditorVNext({
     const result = insertBlankSlide(deck, activeSlideIndex + 1);
     onDeckChange(result.deck);
     setActiveSlideIndex(activeSlideIndex + 1);
-    setSelection(createSelectionState(selection.mode));
-  }
-
-  function handleDuplicateSlide() {
-    if (!activeSlide) return;
-    const result = duplicateSlide(deck, activeSlide.id);
-    onDeckChange(result.deck);
-    if (result.index >= 0) setActiveSlideIndex(result.index);
-    setSelection(createSelectionState(selection.mode));
-  }
-
-  function handleDeleteSlide() {
-    if (!activeSlide) return;
-    const result = deleteSlide(deck, activeSlide.id);
-    onDeckChange(result.deck);
-    setActiveSlideIndex(result.index);
-    setSelection(createSelectionState(selection.mode));
-  }
-
-  function handleMoveSlide(delta: number) {
-    if (!activeSlide) return;
-    const result = moveSlide(deck, activeSlide.id, activeSlideIndex + delta);
-    onDeckChange(result.deck);
-    if (result.index >= 0) setActiveSlideIndex(result.index);
     setSelection(createSelectionState(selection.mode));
   }
 
@@ -755,7 +767,47 @@ export function SlideEditorVNext({
   }
 
   function handleNodeClick(nodeId: string, event: MouseEvent) {
+    // Commit any active inline edit when clicking a different node
+    if (inlineEditNodeId && inlineEditNodeId !== nodeId) {
+      setInlineEditNodeId(null);
+    }
     setSelection((s) => selectNode(s, nodeId, event.shiftKey || event.metaKey));
+  }
+
+  function handleNodeDoubleClick(nodeId: string, _event: MouseEvent) {
+    if (!activeSlide) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node) return;
+    // Only text and shape (with text) nodes are inline-editable
+    if (node.type === "text" || node.type === "shape") {
+      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+      setInlineEditNodeId(nodeId);
+    }
+  }
+
+  function handleInlineEditCommit(
+    nodeId: string,
+    paragraphs: import("@/lib/presentation-vnext/schema").Paragraph[],
+  ) {
+    if (!activeSlide) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node) return;
+    if (node.type === "text") {
+      onDeckChange(
+        updateNodeContent(deck, activeSlide.id, nodeId, { paragraphs }),
+      );
+    } else if (node.type === "shape") {
+      onDeckChange(
+        updateNodeContent(deck, activeSlide.id, nodeId, {
+          text: { paragraphs },
+        }),
+      );
+    }
+    setInlineEditNodeId(null);
+  }
+
+  function handleInlineEditCancel() {
+    setInlineEditNodeId(null);
   }
 
   function handleStageClick(e: MouseEvent) {
@@ -980,6 +1032,8 @@ export function SlideEditorVNext({
   }
 
   function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    // Don't intercept keys when inline editing is active (inline editor handles them)
+    if (inlineEditNodeId) return;
     if (isEditableTarget(event.target)) return;
     if (!activeSlide) return;
     if (event.key === "Escape") {
@@ -990,6 +1044,15 @@ export function SlideEditorVNext({
       }
       event.preventDefault();
       return;
+    }
+
+    // Enter key enters inline edit mode on the selected text/shape node
+    if (event.key === "Enter" && selectedIds.length === 1 && selectedNode) {
+      if (selectedNode.type === "text" || selectedNode.type === "shape") {
+        setInlineEditNodeId(selectedNode.id);
+        event.preventDefault();
+        return;
+      }
     }
 
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "v") {
@@ -1315,6 +1378,92 @@ export function SlideEditorVNext({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {/* Insert dropdown */}
+          <div ref={insertMenuRef} className="relative">
+            <button
+              type="button"
+              aria-label="Insert element"
+              aria-haspopup="true"
+              aria-expanded={insertMenuOpen}
+              disabled={!activeSlide}
+              onClick={() => setInsertMenuOpen((o) => !o)}
+              className="flex h-8 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover disabled:opacity-40"
+            >
+              <Plus size={13} aria-hidden="true" />
+              Insert
+              <ChevronDown size={12} aria-hidden="true" />
+            </button>
+            {insertMenuOpen && (
+              <div
+                className="absolute left-0 top-full z-dropdown mt-1 min-w-[140px] overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface-overlay py-1 shadow-ds-popover"
+                role="menu"
+              >
+                {[
+                  {
+                    label: "Text",
+                    icon: <Type size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertText();
+                      setInsertMenuOpen(false);
+                    },
+                  },
+                  {
+                    label: "Shape",
+                    icon: <Square size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertShape();
+                      setInsertMenuOpen(false);
+                    },
+                  },
+                  {
+                    label: "Image",
+                    icon: <ImageIcon size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertImage();
+                      setInsertMenuOpen(false);
+                    },
+                  },
+                  {
+                    label: "Visual",
+                    icon: <FileText size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertVisual();
+                      setInsertMenuOpen(false);
+                    },
+                  },
+                  {
+                    label: "Connector",
+                    icon: <Spline size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertConnector();
+                      setInsertMenuOpen(false);
+                    },
+                  },
+                  {
+                    label: "Table",
+                    icon: <Table2 size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertTable();
+                      setInsertMenuOpen(false);
+                    },
+                  },
+                ].map(({ label, icon, action }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="menuitem"
+                    onClick={action}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Theme picker */}
           <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
             Theme
             <select
@@ -1334,94 +1483,13 @@ export function SlideEditorVNext({
               ))}
             </select>
           </label>
+
           <div
             className="mx-1 h-5 w-px bg-ds-border-subtle"
             aria-hidden="true"
           />
-          <button
-            type="button"
-            onClick={() => setShortcutHelpOpen(true)}
-            aria-label="Keyboard shortcuts"
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
-          >
-            <Keyboard size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onUndo}
-            aria-label="Undo"
-            disabled={!canUndo}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Undo2 size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onRedo}
-            aria-label="Redo"
-            disabled={!canRedo}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Redo2 size={14} aria-hidden="true" />
-          </button>
-          <div
-            className="mx-1 h-5 w-px bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-          <button
-            type="button"
-            onClick={handleInsertText}
-            aria-label="Insert text"
-            disabled={!activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Type size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleInsertShape}
-            aria-label="Insert shape"
-            disabled={!activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Square size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleInsertTable}
-            aria-label="Insert table"
-            disabled={!activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Table2 size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleInsertImage}
-            aria-label="Insert image"
-            disabled={!activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <ImageIcon size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleInsertVisual}
-            aria-label="Insert visual"
-            disabled={!activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <FileText size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleInsertConnector}
-            aria-label="Insert connector"
-            disabled={!activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Spline size={14} aria-hidden="true" />
-          </button>
+
+          {/* Clipboard */}
           <button
             type="button"
             onClick={handleCopyNodes}
@@ -1440,6 +1508,8 @@ export function SlideEditorVNext({
           >
             <ClipboardPaste size={14} aria-hidden="true" />
           </button>
+
+          {/* Group/Ungroup */}
           <button
             type="button"
             onClick={
@@ -1463,6 +1533,48 @@ export function SlideEditorVNext({
               <Group size={14} aria-hidden="true" />
             )}
           </button>
+
+          <div
+            className="mx-1 h-5 w-px bg-ds-border-subtle"
+            aria-hidden="true"
+          />
+
+          {/* Keyboard shortcuts */}
+          <button
+            type="button"
+            onClick={() => setShortcutHelpOpen(true)}
+            aria-label="Keyboard shortcuts"
+            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+          >
+            <Keyboard size={14} aria-hidden="true" />
+          </button>
+
+          {/* Undo / Redo */}
+          <button
+            type="button"
+            onClick={onUndo}
+            aria-label="Undo"
+            disabled={!canUndo}
+            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+          >
+            <Undo2 size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onRedo}
+            aria-label="Redo"
+            disabled={!canRedo}
+            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+          >
+            <Redo2 size={14} aria-hidden="true" />
+          </button>
+
+          <div
+            className="mx-1 h-5 w-px bg-ds-border-subtle"
+            aria-hidden="true"
+          />
+
+          {/* Save / Export / Close */}
           {onSave ? (
             <button
               type="button"
@@ -1552,124 +1664,80 @@ export function SlideEditorVNext({
       ) : null}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Editor surface (rail + stage + inspector)                           */}
+      {/* Editor surface (stage + inspector — rail moved to bottom filmstrip)  */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* ------------------------------------------------------------------ */}
-        {/* Slide Rail                                                          */}
-        {/* ------------------------------------------------------------------ */}
-        <nav
-          aria-label="Slides"
-          className="flex w-[156px] shrink-0 flex-col overflow-hidden border-r border-ds-border-subtle bg-ds-surface-sunken"
-        >
-          <div className="flex h-10 shrink-0 items-center justify-between border-b border-ds-border-subtle px-3">
-            <span className="text-xs font-semibold text-ds-text-secondary">
-              Slides
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Add slide"
-                onClick={handleInsertSlide}
-                className="flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-hover hover:text-ds-text-primary"
-              >
-                <Plus size={13} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label="Duplicate slide"
-                onClick={handleDuplicateSlide}
-                disabled={!activeSlide}
-                className="flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-              >
-                <Copy size={13} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label="Delete slide"
-                onClick={handleDeleteSlide}
-                disabled={!activeSlide || deck.slides.length <= 1}
-                className="flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-              >
-                <Trash2 size={13} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
-            {renderTree?.slides.map((slideTree, index) => (
-              <div
-                key={slideTree.id}
-                className={`group relative w-full overflow-hidden rounded-ds-sm border bg-ds-surface p-1 text-left transition-shadow ${
-                  index === activeSlideIndex
-                    ? "border-ds-accent-border shadow-ds-focus-ring"
-                    : "border-ds-border-subtle hover:border-ds-border"
-                }`}
-              >
-                <button
-                  type="button"
-                  aria-label={`Slide ${index + 1}`}
-                  aria-current={index === activeSlideIndex ? "true" : undefined}
-                  onClick={() => {
-                    setActiveSlideIndex(index);
-                    setSelection(createSelectionState(selection.mode));
-                  }}
-                  className="block w-full text-left"
-                >
-                  <span className="mb-1 block text-[10px] font-medium text-ds-text-muted">
-                    {index + 1}
-                  </span>
-                  <SlideCanvasVNext
-                    slide={slideTree}
-                    canvas={renderTree.canvas}
-                    assetResolver={resolveDeckAsset}
-                    preview
-                  />
-                </button>
-                {index === activeSlideIndex ? (
-                  <span className="absolute right-1 top-1 flex gap-0.5">
-                    <button
-                      type="button"
-                      aria-label="Move slide up"
-                      disabled={index === 0}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleMoveSlide(-1);
-                      }}
-                      className="flex h-5 w-5 items-center justify-center rounded-ds-sm bg-ds-surface/90 text-ds-text-muted hover:text-ds-text-primary disabled:opacity-40"
-                    >
-                      <ChevronUp size={12} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Move slide down"
-                      disabled={index === deck.slides.length - 1}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleMoveSlide(1);
-                      }}
-                      className="flex h-5 w-5 items-center justify-center rounded-ds-sm bg-ds-surface/90 text-ds-text-muted hover:text-ds-text-primary disabled:opacity-40"
-                    >
-                      <ChevronDown size={12} aria-hidden="true" />
-                    </button>
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </nav>
-
         {/* ------------------------------------------------------------------ */}
         {/* Main Stage                                                          */}
         {/* ------------------------------------------------------------------ */}
         <div
           data-slide-stage-shell="true"
+          data-slide-toolbar-anchor="true"
           className="relative min-w-0 flex-1 overflow-hidden bg-ds-surface-recessed"
           onClick={handleStageClick}
           onPointerDown={handleStagePointerDown}
         >
+          {/* Context / Popover Toolbar */}
+          <ContextToolbar
+            selectedIds={selectedIds}
+            selectedNode={selectedNode}
+            isInlineEditing={inlineEditNodeId !== null}
+            isDragging={stageGuides.length > 0}
+            isDecorationSelected={isDecorationSelected}
+            onDelete={() => {
+              if (!activeSlide) return;
+              onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
+              setSelection((s) => clearSelection(s));
+            }}
+            onDuplicate={() => {
+              if (!activeSlide) return;
+              const result = duplicateNodes(deck, activeSlide.id, selectedIds);
+              onDeckChange(result.deck);
+              if (result.duplicatedIds.length > 0) {
+                setSelection((s) =>
+                  setSelectedNodeIds(s, result.duplicatedIds),
+                );
+              }
+            }}
+            onGroup={handleGroupSelection}
+            onUngroup={handleUngroupSelection}
+            onBringForward={() => {
+              if (!activeSlide || selectedIds.length === 0) return;
+              let updated = deck;
+              selectedIds.forEach((id) => {
+                const node = findNodeById(activeSlide.children, id);
+                const currentZ = node?.layout?.zIndex ?? 0;
+                updated = reorderZIndex(
+                  updated,
+                  activeSlide.id,
+                  id,
+                  currentZ + 1,
+                );
+              });
+              onDeckChange(updated);
+            }}
+            onSendBackward={() => {
+              if (!activeSlide || selectedIds.length === 0) return;
+              let updated = deck;
+              selectedIds.forEach((id) => {
+                const node = findNodeById(activeSlide.children, id);
+                const currentZ = node?.layout?.zIndex ?? 0;
+                updated = reorderZIndex(
+                  updated,
+                  activeSlide.id,
+                  id,
+                  currentZ - 1,
+                );
+              });
+              onDeckChange(updated);
+            }}
+            onDetachDecoration={handleDetachDecoration}
+          />
+
           {activeSlideTree ? (
             <div className="grid h-full min-h-[360px] place-items-center overflow-auto p-6">
               <div
+                ref={handleCanvasRef}
                 data-slide-stage-frame="true"
                 className="relative w-full min-w-[320px] max-w-[1120px]"
                 style={stageFrameStyle}
@@ -1680,10 +1748,49 @@ export function SlideEditorVNext({
                   assetResolver={resolveDeckAsset}
                   selection={selection}
                   onNodeClick={handleNodeClick}
+                  onNodeDoubleClick={handleNodeDoubleClick}
                   onNodePointerDown={handleNodePointerDown}
                   onResizeHandlePointerDown={handleResizeHandlePointerDown}
+                  hiddenNodeIds={
+                    inlineEditNodeId ? new Set([inlineEditNodeId]) : undefined
+                  }
                   className="rounded-ds-sm shadow-ds-xl ring-1 ring-ds-border-subtle"
                 />
+
+                {/* Inline text editor overlay */}
+                {inlineEditNodeId &&
+                  activeSlide &&
+                  canvasElement &&
+                  (() => {
+                    const editNode = findNodeById(
+                      activeSlide.children,
+                      inlineEditNodeId,
+                    );
+                    if (!editNode?.layout) return null;
+                    const canvasEl = canvasElement.querySelector(
+                      '[data-slide-canvas-vnext="true"]',
+                    );
+                    const canvasRect =
+                      canvasEl?.getBoundingClientRect() ??
+                      canvasElement.getBoundingClientRect();
+                    const paragraphs =
+                      editNode.type === "text"
+                        ? editNode.content.paragraphs
+                        : editNode.type === "shape" && editNode.content.text
+                          ? editNode.content.text.paragraphs
+                          : [{ id: `${inlineEditNodeId}-p-1`, text: "" }];
+                    return (
+                      <InlineTextEditorVNext
+                        nodeId={inlineEditNodeId}
+                        initialParagraphs={paragraphs}
+                        frame={editNode.layout.frame}
+                        canvasRect={canvasRect}
+                        onCommit={handleInlineEditCommit}
+                        onCancel={handleInlineEditCancel}
+                      />
+                    );
+                  })()}
+
                 {stageGuides.length > 0 ? (
                   <div className="pointer-events-none absolute inset-0">
                     {stageGuides.map((guide, index) => (
@@ -1724,178 +1831,86 @@ export function SlideEditorVNext({
               </div>
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-ds-text-muted text-sm">
+            <div className="flex h-full items-center justify-center text-sm text-ds-text-muted">
               No slide selected
             </div>
           )}
         </div>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Inspector Panel                                                     */}
+        {/* Inspector Panel (tab-routed)                                        */}
         {/* ------------------------------------------------------------------ */}
-        <aside
-          aria-label="Inspector"
-          className="flex w-[320px] shrink-0 flex-col gap-0 overflow-y-auto border-l border-ds-border-subtle bg-ds-surface"
-        >
-          {/* Mode toggle */}
-          <div className="flex items-center justify-between border-b border-ds-border-subtle px-3 py-2">
-            <span className="text-xs font-medium text-ds-text-primary">
-              {selection.mode === "layers" ? "Layers mode" : "Inspector"}
-            </span>
-            <button
-              type="button"
-              onClick={toggleSelectionMode}
-              className={`rounded-ds-sm px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                selection.mode === "layers"
-                  ? "bg-ds-accent-surface text-ds-accent-text"
-                  : "text-ds-text-muted hover:text-ds-text-secondary"
-              }`}
-              aria-pressed={selection.mode === "layers"}
-            >
-              Layers
-            </button>
-          </div>
-
-          {/* Slide controls — always visible for the active slide */}
-          {activeSlide && (
-            <>
-              <section className="flex flex-col gap-1.5 px-3 py-2.5">
-                <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
-                  Template
-                </h4>
-                <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-                  Kind
-                  <select
-                    value={activeSlide.template.kind}
-                    onChange={(event) =>
-                      handleReapplyTemplate(
-                        event.currentTarget.value as SemanticTemplateKind,
-                      )
-                    }
-                    className="rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary"
-                  >
-                    {TEMPLATE_OPTIONS.map((template) => (
-                      <option key={template.kind} value={template.kind}>
-                        {template.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {activeTemplate ? (
-                  <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-                    Layout
-                    <select
-                      value={activeLayoutId ?? activeTemplate.layouts[0]?.id}
-                      onChange={(event) =>
-                        handleReapplyTemplate(
-                          activeSlide.template.kind,
-                          event.currentTarget.value,
-                        )
-                      }
-                      className="rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary"
-                    >
-                      {activeTemplate.layouts.map((layout) => (
-                        <option key={layout.id} value={layout.id}>
-                          {layout.id}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-              </section>
-              <SlideControlsPanel
-                controls={activeSlide.controls}
-                props={activeSlide.props}
-                onUpdateControls={handleUpdateControls}
-                onUpdateProps={handleUpdateProps}
-              />
-              <SlideSettingsPanel
-                slide={activeSlide}
-                onUpdateSlide={handleUpdateSlideAttributes}
-                onUpdateSource={handleUpdateSlideSource}
-                onUpdateLocalStyle={handleUpdateSlideLocalStyle}
-                onResetLocalStyle={handleResetSlideLocalStyle}
-              />
-              <LayersPanel
-                nodes={activeSlide.children}
-                selectedIds={selectedIds}
-                onSelectNode={handleSelectLayer}
-                onUpdateNode={handleUpdateLayer}
-              />
-            </>
-          )}
-
-          {/* Node inspector — shown when a user node is selected */}
-          {selectedNode && !isDecorationSelected && (
-            <>
-              <div className="mx-3 h-px bg-ds-border-subtle" />
-              <div className="px-3 py-2">
-                <LocalOverrideBadge
-                  localStyle={selectedNode.localStyle}
-                  onResetToTheme={handleResetToTheme}
-                />
-              </div>
-              <NodeGeometryPanel
-                node={selectedNode}
-                onUpdateLayout={handleUpdateSelectedLayout}
-                onUpdateAttributes={handleUpdateSelectedAttributes}
-              />
-              <NodeContentPanel
-                node={selectedNode}
-                onUpdateContent={handleUpdateSelectedContent}
-              />
-              <LocalStylePanel
-                node={selectedNode}
-                onUpdateLocalStyle={handleUpdateSelectedLocalStyle}
-              />
-              <NodeSourcePanel
-                node={selectedNode}
-                onUpdateSource={handleUpdateSelectedSource}
-              />
-              <StyleBindingPanel
-                role={selectedNode.role}
-                binding={selectedNode.style}
-                onChangeStyleBinding={handleChangeStyleBinding}
-              />
-            </>
-          )}
-
-          {/* Decoration inspector — shown in layers mode when a decoration is selected */}
-          {isDecorationSelected && (
-            <>
-              <div className="mx-3 h-px bg-ds-border-subtle" />
-              <section className="flex flex-col gap-2 px-3 py-2.5">
-                <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
-                  Theme Decoration
-                </h4>
-                <p className="text-xs text-ds-text-secondary">
-                  This element is generated by the theme package and follows
-                  theme changes. Detach it to make independent edits.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleDetachDecoration}
-                  className="self-start rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-3 py-1 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-surface-raised"
-                >
-                  Detach from theme
-                </button>
-              </section>
-            </>
-          )}
-
-          {/* Diagnostics — shown when there are diagnostics for the active deck */}
-          {diagnostics.length > 0 && (
-            <>
-              <div className="mx-3 h-px bg-ds-border-subtle" />
-              <DiagnosticsPanel
-                diagnostics={diagnostics}
-                onAction={handleDiagnosticAction}
-                hideInfo={false}
-              />
-            </>
-          )}
-        </aside>
+        <InspectorShell
+          activeSlide={activeSlide}
+          selectedNode={selectedNode}
+          selectedIds={selectedIds}
+          isDecorationSelected={isDecorationSelected}
+          diagnostics={diagnostics}
+          onUpdateControls={handleUpdateControls}
+          onUpdateProps={handleUpdateProps}
+          onUpdateSlideAttributes={handleUpdateSlideAttributes}
+          onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
+          onResetSlideLocalStyle={handleResetSlideLocalStyle}
+          onUpdateSlideSource={handleUpdateSlideSource}
+          onUpdateSelectedLayout={
+            handleUpdateSelectedLayout as Parameters<
+              typeof InspectorShell
+            >[0]["onUpdateSelectedLayout"]
+          }
+          onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
+          onUpdateSelectedContent={handleUpdateSelectedContent}
+          onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
+          onResetToTheme={handleResetToTheme}
+          onUpdateSelectedSource={handleUpdateSelectedSource}
+          onChangeStyleBinding={handleChangeStyleBinding}
+          onSelectLayer={handleSelectLayer}
+          onUpdateLayer={handleUpdateLayer}
+          onDetachDecoration={handleDetachDecoration}
+          onDiagnosticAction={handleDiagnosticAction}
+          TEMPLATE_OPTIONS={TEMPLATE_OPTIONS}
+          activeTemplate={activeTemplate}
+          activeLayoutId={activeLayoutId}
+          onReapplyTemplate={handleReapplyTemplate}
+          selectionMode={selection.mode}
+          onToggleSelectionMode={toggleSelectionMode}
+        />
       </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Bottom Filmstrip                                                     */}
+      {/* ------------------------------------------------------------------ */}
+      {renderTree && (
+        <Filmstrip
+          renderTree={renderTree}
+          activeSlideIndex={activeSlideIndex}
+          assetResolver={resolveDeckAsset}
+          onSelectSlide={(index) => {
+            setActiveSlideIndex(index);
+            setSelection(createSelectionState(selection.mode));
+            setInlineEditNodeId(null);
+          }}
+          onInsertSlide={handleInsertSlide}
+          onDuplicateSlide={(slideId) => {
+            const result = duplicateSlide(deck, slideId);
+            onDeckChange(result.deck);
+            if (result.index >= 0) setActiveSlideIndex(result.index);
+            setSelection(createSelectionState(selection.mode));
+          }}
+          onDeleteSlide={(slideId) => {
+            const result = deleteSlide(deck, slideId);
+            onDeckChange(result.deck);
+            setActiveSlideIndex(result.index);
+            setSelection(createSelectionState(selection.mode));
+          }}
+          onMoveSlide={(slideId, targetIndex) => {
+            const result = moveSlide(deck, slideId, targetIndex);
+            onDeckChange(result.deck);
+            if (result.index >= 0) setActiveSlideIndex(result.index);
+          }}
+        />
+      )}
+
+      {/* Footer status bar */}
       <footer className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-ds-border-subtle bg-ds-surface-chrome px-3 text-[11px] text-ds-text-muted">
         <div className="flex min-w-0 items-center gap-3">
           <span className="truncate">

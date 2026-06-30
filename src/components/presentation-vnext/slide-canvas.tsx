@@ -190,6 +190,8 @@ export interface SlideCanvasVNextProps {
   selection?: SelectionState;
   /** Called when the user clicks a node. */
   onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user double-clicks a node (used to enter inline edit mode). */
+  onNodeDoubleClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when the user starts dragging a node. */
   onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
   /** Called when the user starts resizing a selected node. */
@@ -198,6 +200,11 @@ export interface SlideCanvasVNextProps {
     handle: ResizeHandlePosition,
     event: React.PointerEvent,
   ) => void;
+  /**
+   * Node ids to hide from the canvas (e.g., the node being inline-edited
+   * is hidden while the overlay editor is active).
+   */
+  hiddenNodeIds?: ReadonlySet<string>;
   /** True when rendered at reduced size (thumbnail rail, next-slide preview). */
   preview?: boolean;
   /** Optional extra CSS class applied to the outer canvas container. */
@@ -219,8 +226,10 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   assetResolver,
   selection,
   onNodeClick,
+  onNodeDoubleClick,
   onNodePointerDown,
   onResizeHandlePointerDown,
+  hiddenNodeIds,
   preview = false,
   className,
 }: SlideCanvasVNextProps): JSX.Element {
@@ -237,6 +246,12 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const handleNodeClick = onNodeClick
     ? (nodeId: string, event: React.MouseEvent) => {
         onNodeClick(nodeId, event);
+      }
+    : undefined;
+
+  const handleNodeDoubleClick = onNodeDoubleClick
+    ? (nodeId: string, event: React.MouseEvent) => {
+        onNodeDoubleClick(nodeId, event);
       }
     : undefined;
 
@@ -257,6 +272,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           assetResolver={assetResolver}
           preview={preview}
+          hidden={hiddenNodeIds?.has(node.id)}
           // Decorations are never interactive in the normal canvas
         />
       ))}
@@ -268,9 +284,11 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           selected={selection ? isSelected(selection, node.id) : false}
           onClick={handleNodeClick}
+          onDoubleClick={handleNodeDoubleClick}
           onPointerDown={preview ? undefined : onNodePointerDown}
           assetResolver={assetResolver}
           preview={preview}
+          hidden={hiddenNodeIds?.has(node.id)}
         />
       ))}
 

@@ -526,6 +526,8 @@ export interface SlideNodeRendererProps {
   node: ResolvedRenderNode;
   /** Called when the node is clicked (editor usage). */
   onClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the node is double-clicked (enter inline edit mode). */
+  onDoubleClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when pointer drag starts on the node (editor usage). */
   onPointerDown?: (nodeId: string, event: React.PointerEvent) => void;
   /** When true, renders a selection ring around the node. */
@@ -537,6 +539,11 @@ export interface SlideNodeRendererProps {
   assetResolver?: (id: string) => string | undefined;
   /** When true, renders this node at reduced visual fidelity (e.g. thumbnail). */
   preview?: boolean;
+  /**
+   * When true, hides this node from the canvas (used while inline editing
+   * overlays the node so the live render and the editor don't double-render).
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -550,10 +557,12 @@ export interface SlideNodeRendererProps {
 export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   node,
   onClick,
+  onDoubleClick,
   onPointerDown,
   selected = false,
   assetResolver,
   preview = false,
+  hidden = false,
 }: SlideNodeRendererProps): JSX.Element | null {
   const { layout, style, content } = node;
 
@@ -575,12 +584,18 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
           outlineOffset: "1px",
         }
       : {}),
+    // Hide when inline editor is active for this node
+    ...(hidden ? { visibility: "hidden" } : {}),
   };
 
   const textCss = textStyleToCss(style.text);
 
   function handleClick(e: React.MouseEvent) {
     onClick?.(node.id, e);
+  }
+
+  function handleDoubleClick(e: React.MouseEvent) {
+    onDoubleClick?.(node.id, e);
   }
 
   function handlePointerDown(e: React.PointerEvent) {
@@ -596,6 +611,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       data-node-source={node.source}
       style={{ ...containerStyle, ...textCss }}
       onClick={onClick ? handleClick : undefined}
+      onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
       onPointerDown={onPointerDown ? handlePointerDown : undefined}
       aria-hidden={node.source === "themeDecoration" ? true : undefined}
     >

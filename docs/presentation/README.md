@@ -18,6 +18,13 @@ persisted deck contract and the React components that render/edit slides.
 | [slide-stage-interactions.md](slide-stage-interactions.md)                       | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior.                |
 | [rendering-and-export.md](rendering-and-export.md)                               | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics.                |
 
+## VNext UI Design
+
+The detailed UI design for the v7/vNext migration lives in its own subsystem
+directory:
+
+- [../presentation-vnext/slide-editor-ui-v7.md](../presentation-vnext/slide-editor-ui-v7.md) — V7 slide editor UI design spec (top toolbar, context toolbar, right inspector, bottom filmstrip, inline editing, component inventory, a11y, flows, verification).
+
 ## Related Contracts
 
 - [../data-model/deck.md](../data-model/deck.md) for the persisted deck JSON

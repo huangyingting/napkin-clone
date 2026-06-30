@@ -632,3 +632,235 @@ describe("updateLocalStyle deep merge", () => {
     assert.equal(node?.localStyle?.text?.color, "#ff0000");
   });
 });
+
+// ---------------------------------------------------------------------------
+// UI-flow: slide reordering (filmstrip drag, nav buttons)
+// ---------------------------------------------------------------------------
+
+describe("moveSlide — UI navigation flows", () => {
+  test("moves first slide to last position (drag to end)", () => {
+    const deck = makeTestDeck();
+    const firstId = deck.slides[0].id;
+    const result = moveSlide(deck, firstId, deck.slides.length);
+    assert.equal(result.deck.slides[result.deck.slides.length - 1].id, firstId);
+    assert.equal(result.index, deck.slides.length - 1);
+  });
+
+  test("moves last slide to first position (drag to start)", () => {
+    const deck = makeTestDeck();
+    const lastId = deck.slides[deck.slides.length - 1].id;
+    const result = moveSlide(deck, lastId, 0);
+    assert.equal(result.deck.slides[0].id, lastId);
+    assert.equal(result.index, 0);
+  });
+
+  test("clamps target index to valid range (toIndex > slides.length)", () => {
+    const deck = makeTestDeck();
+    const firstId = deck.slides[0].id;
+    const result = moveSlide(deck, firstId, 9999);
+    assert.equal(result.deck.slides[result.deck.slides.length - 1].id, firstId);
+  });
+
+  test("clamps target index to 0 when toIndex < 0", () => {
+    const deck = makeTestDeck();
+    const lastId = deck.slides[deck.slides.length - 1].id;
+    const result = moveSlide(deck, lastId, -5);
+    assert.equal(result.deck.slides[0].id, lastId);
+    assert.equal(result.index, 0);
+  });
+
+  test("no-op move (same index) keeps slides unchanged", () => {
+    const deck = makeTestDeck();
+    const firstId = deck.slides[0].id;
+    const result = moveSlide(deck, firstId, 0);
+    assert.equal(result.deck.slides[0].id, firstId);
+    assert.equal(result.deck.slides.length, deck.slides.length);
+  });
+
+  test("returns index -1 for unknown slideId", () => {
+    const deck = makeTestDeck();
+    const result = moveSlide(deck, "nonexistent", 0);
+    assert.equal(result.index, -1);
+    assert.strictEqual(result.deck, deck);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI-flow: insertBlankSlide index clamping
+// ---------------------------------------------------------------------------
+
+describe("insertBlankSlide — boundary index handling", () => {
+  test("clamps negative atIndex to 0", () => {
+    const deck = makeTestDeck();
+    const result = insertBlankSlide(deck, -1);
+    assert.equal(result.deck.slides[0].id, result.slideId);
+  });
+
+  test("clamps atIndex > slides.length to slides.length (appends)", () => {
+    const deck = makeTestDeck();
+    const result = insertBlankSlide(deck, 9999);
+    assert.equal(
+      result.deck.slides[result.deck.slides.length - 1].id,
+      result.slideId,
+    );
+  });
+
+  test("returns a unique slideId each call", () => {
+    const deck = makeTestDeck();
+    const r1 = insertBlankSlide(deck);
+    const r2 = insertBlankSlide(r1.deck);
+    assert.notEqual(r1.slideId, r2.slideId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI-flow: duplicateSlide name suffix
+// ---------------------------------------------------------------------------
+
+describe("duplicateSlide — name handling", () => {
+  test("appends ' Copy' to named slide", () => {
+    const deck = makeTestDeck();
+    const slideId = deck.slides[0].id;
+    const named = updateSlideAttributes(deck, slideId, { name: "Intro" });
+    const result = duplicateSlide(named, slideId);
+    assert.equal(result.deck.slides[result.index].name, "Intro Copy");
+  });
+
+  test("duplicate of unnamed slide has no name", () => {
+    const deck = makeTestDeck();
+    const slideId = deck.slides[0].id;
+    const result = duplicateSlide(deck, slideId);
+    assert.equal(result.deck.slides[result.index].name, undefined);
+  });
+
+  test("duplicate is inserted immediately after the source slide", () => {
+    const deck = makeTestDeck();
+    const slideId = deck.slides[0].id;
+    const result = duplicateSlide(deck, slideId);
+    assert.equal(result.index, 1);
+    assert.equal(result.deck.slides[0].id, slideId);
+    assert.equal(result.deck.slides[1].id, result.slideId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI-flow: updateNodeContent for inline text editor commit
+// ---------------------------------------------------------------------------
+
+describe("updateNodeContent — inline text editor commit", () => {
+  test("commits multi-paragraph content from inline editor", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const textNodeId = slide.children.find((n) => n.type === "text")!.id;
+    const paragraphs = [
+      { id: "p1", text: "Updated first paragraph" },
+      { id: "p2", text: "Updated second paragraph" },
+    ];
+    const updated = updateNodeContent(deck, slide.id, textNodeId, {
+      paragraphs,
+    });
+    const node = updated.slides[0].children.find(
+      (n) => n.id === textNodeId,
+    ) as any;
+    assert.deepEqual(node.content.paragraphs, paragraphs);
+  });
+
+  test("commits shape inline text (content.text)", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const updated = updateNodeContent(deck, slide.id, nodeId, {
+      text: { paragraphs: [{ id: "p1", text: "Shape label" }] },
+    });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId) as any;
+    assert.equal(node.content.text?.paragraphs[0].text, "Shape label");
+  });
+
+  test("preserves other content fields when patching paragraphs", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const textNodeId = slide.children.find((n) => n.type === "text")!.id;
+    // First, add a fit field
+    const withFit = updateNodeContent(deck, slide.id, textNodeId, {
+      fit: "shrink-to-fit",
+    });
+    // Now commit paragraph content
+    const committed = updateNodeContent(withFit, slide.id, textNodeId, {
+      paragraphs: [{ id: "p1", text: "New text" }],
+    });
+    const node = committed.slides[0].children.find(
+      (n) => n.id === textNodeId,
+    ) as any;
+    assert.equal(node.content.fit, "shrink-to-fit");
+    assert.equal(node.content.paragraphs[0].text, "New text");
+  });
+
+  test("does not mutate original deck on commit", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const originalContent = (slide.children[0] as any).content;
+    updateNodeContent(deck, slide.id, nodeId, {
+      paragraphs: [{ id: "p-new", text: "mutate check" }],
+    });
+    // Original content must be unchanged
+    assert.deepEqual(
+      (deck.slides[0].children[0] as any).content,
+      originalContent,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI-flow: updateLocalStyle for context toolbar / inspector style commands
+// ---------------------------------------------------------------------------
+
+describe("updateLocalStyle — toolbar-driven style patches", () => {
+  test("applies color from text color picker", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const updated = updateLocalStyle(deck, slide.id, nodeId, {
+      text: { color: "#cc3344" },
+    });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId);
+    assert.equal(node?.localStyle?.text?.color, "#cc3344");
+  });
+
+  test("applies font size from font size picker", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const updated = updateLocalStyle(deck, slide.id, nodeId, {
+      text: { fontSizePt: 28 },
+    });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId);
+    assert.equal(node?.localStyle?.text?.fontSizePt, 28);
+  });
+
+  test("applies fill color from shape fill picker", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const updated = updateLocalStyle(deck, slide.id, nodeId, {
+      fill: { type: "solid", color: "#abcdef" },
+    });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId);
+    assert.equal((node?.localStyle?.fill as any)?.color, "#abcdef");
+  });
+
+  test("sequential toolbar commands accumulate style overrides", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const step1 = updateLocalStyle(deck, slide.id, nodeId, {
+      text: { fontSizePt: 24 },
+    });
+    const step2 = updateLocalStyle(step1, slide.id, nodeId, {
+      text: { color: "#ff0000" },
+    });
+    const node = step2.slides[0].children.find((n) => n.id === nodeId);
+    assert.equal(node?.localStyle?.text?.fontSizePt, 24);
+    assert.equal(node?.localStyle?.text?.color, "#ff0000");
+  });
+});
