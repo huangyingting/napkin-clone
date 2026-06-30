@@ -96,8 +96,8 @@ export function FilmstripSlide({
             className={cx(
               "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm ring-offset-1 ring-offset-ds-surface-base transition-[box-shadow] duration-150 ease-out",
               isActive
-                ? "ring-2 ring-ds-accent"
-                : "group-hover:ring-1 group-hover:ring-ds-border-subtle",
+                ? "ring-2 ring-ds-accent ring-inset"
+                : "group-hover:ring-1 group-hover:ring-ds-border-subtle group-hover:ring-inset",
             )}
           >
             <SlideCanvasVNext

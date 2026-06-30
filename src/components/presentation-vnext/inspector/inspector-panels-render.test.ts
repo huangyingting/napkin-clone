@@ -369,14 +369,11 @@ describe("inspector panels render and wire controls", () => {
       makeDiagnostic("missing-asset", "error", "Missing asset", {
         action: { type: "open-asset-panel" },
       }),
-      makeDiagnostic(
-        "unsupported-export-feature",
-        "warning",
-        "Unsupported",
-        { action: { type: "replace-style-ref" } },
-      ),
+      makeDiagnostic("unsupported-export-feature", "warning", "Unsupported", {
+        action: { type: "replace-style-ref" },
+      }),
       makeDiagnostic("invalid-schema-version", "fatal", "Fatal", {
-        action: { type: "repair-ai-plan" },
+        action: { type: "open-source-review" },
       }),
     ];
     const element = DiagnosticsPanel({
@@ -396,7 +393,10 @@ describe("inspector panels render and wire controls", () => {
     assert.match(render(filtered), /Missing asset/);
     assert.doesNotMatch(render(filtered), /Info/);
     assert.ok(invokeHandlers(element) >= 3);
-    assert.deepEqual(actions[0], ["repair-ai-plan", "invalid-schema-version"]);
+    assert.deepEqual(actions[0], [
+      "open-source-review",
+      "invalid-schema-version",
+    ]);
   });
 
   test("LayersPanel renders nested layer labels and empty state", () => {

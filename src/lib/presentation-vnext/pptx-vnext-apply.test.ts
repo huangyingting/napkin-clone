@@ -209,6 +209,68 @@ describe("resolveExportSpecAssetSources", () => {
       assert.equal(op.alt, "Rendered chart");
     }
   });
+
+  test("resolves visual asset ids through file assets and preserves unresolved operations", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {},
+        files: {
+          "visual-file": {
+            id: "visual-file",
+            src: "data:image/svg+xml;base64,PHN2Zy8+",
+          },
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "visual-file",
+              visualId: "chart-1",
+              frame: { x: 0, y: 0, w: 50, h: 50 },
+              style: {},
+              zIndex: 1,
+            },
+            {
+              type: "image",
+              id: "image-missing",
+              assetId: "missing-image",
+              frame: { x: 50, y: 0, w: 50, h: 50 },
+              style: {},
+              zIndex: 2,
+            },
+            {
+              type: "text",
+              id: "text-1",
+              frame: { x: 0, y: 50, w: 100, h: 10 },
+              style: {},
+              content: { paragraphs: [{ id: "p1", text: "Copy" }] },
+              zIndex: 3,
+            },
+          ],
+        },
+      ],
+    });
+
+    const [visualOp, missingImageOp, textOp] = resolved.slides[0].operations;
+    assert.equal(visualOp.type, "visual");
+    if (visualOp.type === "visual") {
+      assert.equal(visualOp.assetId, "data:image/svg+xml;base64,PHN2Zy8+");
+    }
+    assert.equal(missingImageOp.type, "image");
+    if (missingImageOp.type === "image") {
+      assert.equal(missingImageOp.assetId, "missing-image");
+    }
+    assert.equal(textOp.type, "text");
+  });
 });
 
 // ---------------------------------------------------------------------------
