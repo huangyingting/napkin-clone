@@ -40,9 +40,21 @@ export const E2E_PROFILE_FIXTURE = {
   shareId: "e2efixtureshare01",
   slug: "e2e-fixture-deck",
   slideTitleText: "Release Gate Fixture Slide",
+  slideTwoTitleText: "Seeded Navigation Slide",
   slideBodyText: "Deterministic deck for the E2E release gate.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
+  dashboardDocuments: {
+    alphaFavorite: {
+      id: "e2e-dashboard-alpha-favorite",
+      title: "Alpha Favorite Deterministic Dashboard",
+    },
+    betaTagged: {
+      id: "e2e-dashboard-beta-tagged",
+      title: "Beta Tagged Deterministic Dashboard",
+    },
+  },
+  dashboardTag: { name: "Release Gate", slug: "release-gate" },
 } as const;
 
 const F = E2E_PROFILE_FIXTURE;
@@ -138,6 +150,21 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
             fitMode: "contain",
             box: { x: 68, y: 26, w: 26, h: 26 },
             zIndex: 2,
+          }),
+        ],
+      }),
+      buildSlide({
+        id: "e2e-fixture-slide-2",
+        title: F.slideTwoTitleText,
+        notes: "Use this seeded slide to verify presentation navigation.",
+        elements: [
+          buildTextElement({
+            id: "fixture-slide2-title",
+            role: "title",
+            text: F.slideTwoTitleText,
+            box: { x: 6, y: 6, w: 88, h: 14 },
+            zIndex: 0,
+            style: { fontSize: 6, bold: true, italic: false, align: "left" },
           }),
         ],
       }),
