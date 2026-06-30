@@ -20,6 +20,7 @@ persisted deck contract and the React components that render/edit slides.
 | [slide-stage-interactions.md](slide-stage-interactions.md)                       | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior.                |
 | [rendering-and-export.md](rendering-and-export.md)                               | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics.                |
 | [render-export-support-matrix.md](render-export-support-matrix.md)               | Current v7 render/export support, fallbacks, diagnostics, and representative parity fixtures.           |
+| [v7-default-editor-rollout-checklist.md](v7-default-editor-rollout-checklist.md) | Final v7 default-editor rollout gates, verification status, and explicit non-goals.                     |
 
 ## VNext UI Design
 

@@ -9,7 +9,9 @@ import {
   styleObjectToContainerCss,
 } from "./slide-node-renderer";
 import { createSelectionState, setSelection } from "./selection-model";
+import { Filmstrip } from "./filmstrip/filmstrip";
 import type {
+  ResolvedDeckRenderTree,
   ResolvedNodeContent,
   ResolvedRenderNode,
   ResolvedSlideRenderTree,
@@ -314,6 +316,97 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /data-node-chrome-frame="activeGroup"/);
   });
 
+  test("renders a deterministic dense stage chrome regression signature", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "overlap-image",
+      "overlap-connector",
+    ]);
+    const denseSlide: ResolvedSlideRenderTree = {
+      ...slide([
+        textNode("overlap-text", { x: 18, y: 18, w: 42, h: 14 }),
+        imageNode("overlap-image", { x: 34, y: 24, w: 34, h: 24 }),
+        renderNode("overlap-connector", {
+          type: "connector",
+          content: {
+            from: { kind: "point", point: { x: 0, y: 50 } },
+            to: { kind: "point", point: { x: 100, y: 50 } },
+            routing: "elbow",
+          },
+        }),
+        textNode("inline-edit-source", { x: 20, y: 54, w: 48, h: 10 }),
+      ]),
+      background: {
+        fill: { type: "solid", color: "#f8fafc" },
+        decorationLevel: "expressive",
+      },
+      decorations: [
+        textNode(
+          "decoration-grid",
+          { x: 0, y: 0, w: 100, h: 100 },
+          {
+            source: "themeDecoration",
+            role: "themeDecoration",
+            layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: -80 },
+          },
+        ),
+      ],
+      chrome: [
+        textNode(
+          "deck-chrome-watermark",
+          { x: 12, y: 42, w: 76, h: 14 },
+          {
+            source: "deckChrome",
+            chromeKind: "watermark",
+            layout: { frame: { x: 12, y: 42, w: 76, h: 14 }, zIndex: -30 },
+          },
+        ),
+        textNode(
+          "deck-chrome-footer",
+          { x: 6, y: 91, w: 88, h: 5 },
+          {
+            source: "deckChrome",
+            chromeKind: "footer",
+            layout: { frame: { x: 6, y: 91, w: 88, h: 5 }, zIndex: 900 },
+          },
+        ),
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: denseSlide,
+        selection,
+        hoveredNodeId: "overlap-text",
+        focusedNodeId: "overlap-image",
+        hiddenNodeIds: new Set(["inline-edit-source"]),
+        onNodeClick: () => undefined,
+        onCropHandlePointerDown: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.ok(
+      html.indexOf("decoration-grid") < html.indexOf("deck-chrome-watermark"),
+    );
+    assert.ok(
+      html.indexOf("deck-chrome-watermark") < html.indexOf("overlap-text"),
+    );
+    assert.ok(
+      html.indexOf("overlap-connector") < html.indexOf("deck-chrome-footer"),
+    );
+    assert.match(html, /data-node-chrome-frame="preselected"/);
+    assert.match(html, /data-node-chrome-frame="selected"/);
+    assert.match(html, /border-dashed border-ds-accent-border/);
+    assert.match(html, /data-crop-handle="top"/);
+    assert.match(html, /data-rotation-handle="true"/);
+    assert.match(html, /data-connector-endpoint="from"/);
+    assert.match(
+      html,
+      /data-node-id="inline-edit-source"[^>]*visibility:hidden/,
+    );
+  });
+
   test("places connector endpoint handles from node-anchor bindings", () => {
     const selection = setSelection(createSelectionState("normal"), [
       "connector-anchors",
@@ -591,6 +684,92 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /bg.png/);
     assert.match(deckHtml, /deck-canvas/);
     assert.equal(missingDeckHtml, "");
+  });
+
+  test("renders deterministic filmstrip thumbnail coverage for editor layout regressions", () => {
+    const renderTree: ResolvedDeckRenderTree = {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      theme: {
+        packageId: "test-package",
+        tokens: {
+          colors: {
+            canvas: { fill: "#ffffff", text: "#111111", mutedText: "#64748b" },
+            surface: { fill: "#ffffff", text: "#111111", mutedText: "#64748b" },
+            accent: { fill: "#2563eb", text: "#ffffff" },
+          },
+          fonts: { heading: "Inter", body: "Inter" },
+        },
+      },
+      diagnostics: [],
+      slides: [
+        {
+          ...slide([
+            textNode("filmstrip-title", { x: 10, y: 10, w: 80, h: 12 }),
+          ]),
+          id: "filmstrip-title-slide",
+        },
+        {
+          ...slide([
+            textNode("filmstrip-overlap-a", { x: 18, y: 20, w: 42, h: 18 }),
+            textNode("filmstrip-overlap-b", { x: 36, y: 30, w: 42, h: 18 }),
+          ]),
+          id: "filmstrip-dense",
+          chrome: [
+            textNode(
+              "deck-chrome-pageNumber",
+              { x: 80, y: 91, w: 14, h: 5 },
+              {
+                source: "deckChrome",
+                chromeKind: "pageNumber",
+                layout: { frame: { x: 80, y: 91, w: 14, h: 5 }, zIndex: 910 },
+              },
+            ),
+          ],
+        },
+        {
+          ...slide([
+            imageNode("filmstrip-image", { x: 12, y: 18, w: 76, h: 48 }),
+          ]),
+          id: "filmstrip-image-slide",
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      createElement(Filmstrip, {
+        renderTree,
+        activeSlideIndex: 1,
+        collapsed: false,
+        onSelectSlide: () => undefined,
+        onInsertSlide: () => undefined,
+        onDuplicateSlide: () => undefined,
+        onDeleteSlide: () => undefined,
+        onMoveSlide: () => undefined,
+      }),
+    );
+    const collapsedHtml = renderToStaticMarkup(
+      createElement(Filmstrip, {
+        renderTree,
+        activeSlideIndex: 1,
+        collapsed: true,
+        onSelectSlide: () => undefined,
+        onInsertSlide: () => undefined,
+        onDuplicateSlide: () => undefined,
+        onDeleteSlide: () => undefined,
+        onMoveSlide: () => undefined,
+      }),
+    );
+
+    assert.match(html, /aria-label="Slide filmstrip"/);
+    assert.match(html, /role="listbox"/);
+    assert.match(html, /data-slide-index="0"/);
+    assert.match(html, /data-slide-index="1"/);
+    assert.match(html, /data-slide-index="2"/);
+    assert.match(html, /Go to slide 2/);
+    assert.match(html, /deck-chrome-pageNumber/);
+    assert.match(html, /aria-label="Add slide"/);
+    assert.match(collapsedHtml, /aria-hidden="true"/);
+    assert.match(collapsedHtml, /tabindex="-1"/);
   });
 });
 

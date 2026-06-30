@@ -14,6 +14,7 @@ import {
   buildVisualSlide,
   buildImageNode,
   buildVisualNode,
+  buildTextNode,
   buildMinimalThemePackage,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
@@ -112,6 +113,101 @@ describe("buildExportSpec", () => {
     assert.ok(ids.includes("deck-chrome-pageNumber"));
     assert.ok(
       ids.indexOf("deck-chrome-footer") < ids.indexOf("deck-chrome-pageNumber"),
+    );
+  });
+
+  test("operations keep theme decorations, background chrome, and foreground chrome in parity order", () => {
+    resetBuilderCounter();
+    const userNode = buildTextNode({
+      id: "export-user-node",
+      layout: { frame: { x: 20, y: 30, w: 60, h: 12 }, zIndex: 2 },
+    });
+    const deck = buildDeckV7(
+      [
+        {
+          ...buildContentSlide(),
+          props: {
+            decoration: "default",
+            chrome: "default",
+          },
+          children: [userNode],
+        },
+      ],
+      {
+        chrome: {
+          watermark: {
+            enabled: true,
+            text: "Draft",
+            layout: { frame: { x: 10, y: 40, w: 80, h: 20 }, zIndex: -40 },
+          },
+          footer: { enabled: true, text: "Footer" },
+          pageNumber: { enabled: true },
+        },
+      },
+    );
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "export-bg": {
+          id: "export-bg",
+          component: "shape",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: -80 },
+          style: { fill: { type: "solid", color: "#eff6ff" } },
+        },
+      },
+    });
+
+    const exportSpec = buildExportSpec(resolveDeckRenderTree(deck, pkg));
+
+    assert.deepEqual(
+      exportSpec.slides[0].operations.map((op) => op.id),
+      [
+        "decoration-export-bg",
+        "deck-chrome-watermark",
+        "export-user-node",
+        "deck-chrome-footer",
+        "deck-chrome-pageNumber",
+      ],
+    );
+  });
+
+  test("detached deck chrome is exported once through the user-owned node", () => {
+    resetBuilderCounter();
+    const detachedFooter = buildTextNode({
+      id: "detached-footer-node",
+      role: "caption",
+      layout: { frame: { x: 6, y: 91, w: 88, h: 5 }, zIndex: 900 },
+      content: { paragraphs: [{ id: "detached-footer-p0", text: "Footer" }] },
+    });
+    const deck = buildDeckV7(
+      [
+        {
+          ...buildContentSlide(),
+          children: [detachedFooter],
+          props: {
+            deckChrome: {
+              footer: {
+                mode: "detached",
+                nodeId: "detached-footer-node",
+              },
+            },
+          },
+        },
+      ],
+      {
+        chrome: {
+          footer: { enabled: true, text: "Footer" },
+        },
+      },
+    );
+
+    const ids = buildExportSpec(
+      resolveDeckRenderTree(deck, buildMinimalThemePackage()),
+    ).slides[0].operations.map((op) => op.id);
+
+    assert.deepEqual(
+      ids.filter((id) => id.includes("footer")),
+      ["detached-footer-node"],
     );
   });
 
