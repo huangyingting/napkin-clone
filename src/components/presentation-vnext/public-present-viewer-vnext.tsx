@@ -17,7 +17,8 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import type { DeckV7, PresentationDiagnostic } from "@/lib/presentation-vnext";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";

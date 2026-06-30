@@ -16,12 +16,17 @@ import {
   applyVnextShapeOp,
   applyVnextTableOp,
   applyVnextConnectorOp,
+  applyVnextImageOp,
+  applyVnextPptxSpec,
+  exportDeckV7AsPPTX,
   resolveExportSpecAssetSources,
 } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type {
+  VnextPptxDeckSpec,
   VnextPptxTextOp,
   VnextPptxShapeOp,
+  VnextPptxImageOp,
   VnextPptxTableOp,
   VnextPptxConnectorOp,
 } from "@/lib/presentation-vnext/pptx-export-adapter";
@@ -29,7 +34,12 @@ import type {
   TextContent,
   TableContent,
 } from "@/lib/presentation-vnext/schema";
-import { buildDeckV7, buildImageAsset } from "@/test/builders/deck-v7";
+import {
+  buildCoverSlide,
+  buildDeckV7,
+  buildImageAsset,
+  buildMinimalThemePackage,
+} from "@/test/builders/deck-v7";
 
 // ---------------------------------------------------------------------------
 // Mock slide target
@@ -106,6 +116,68 @@ describe("resolveExportSpecAssetSources", () => {
     if (op.type === "image") {
       assert.equal(op.assetId, "https://example.com/image.png");
     }
+  });
+
+  test("resolves visual asset ids through file assets and preserves unresolved operations", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {},
+        files: {
+          "visual-file": {
+            id: "visual-file",
+            src: "data:image/svg+xml;base64,PHN2Zy8+",
+          },
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "visual-file",
+              visualId: "chart-1",
+              frame: { x: 0, y: 0, w: 50, h: 50 },
+              style: {},
+              zIndex: 1,
+            },
+            {
+              type: "image",
+              id: "image-missing",
+              assetId: "missing-image",
+              frame: { x: 50, y: 0, w: 50, h: 50 },
+              style: {},
+              zIndex: 2,
+            },
+            {
+              type: "text",
+              id: "text-1",
+              frame: { x: 0, y: 50, w: 100, h: 10 },
+              style: {},
+              content: { paragraphs: [{ id: "p1", text: "Copy" }] },
+              zIndex: 3,
+            },
+          ],
+        },
+      ],
+    });
+
+    const [visualOp, missingImageOp, textOp] = resolved.slides[0].operations;
+    assert.equal(visualOp.type, "visual");
+    if (visualOp.type === "visual") {
+      assert.equal(visualOp.assetId, "data:image/svg+xml;base64,PHN2Zy8+");
+    }
+    assert.equal(missingImageOp.type, "image");
+    if (missingImageOp.type === "image") {
+      assert.equal(missingImageOp.assetId, "missing-image");
+    }
+    assert.equal(textOp.type, "text");
   });
 });
 
@@ -562,9 +634,6 @@ describe("applyVnextConnectorOp", () => {
 // applyVnextImageOp
 // ---------------------------------------------------------------------------
 
-import { applyVnextImageOp } from "@/lib/presentation-vnext/pptx-vnext-apply";
-import type { VnextPptxImageOp } from "@/lib/presentation-vnext/pptx-export-adapter";
-
 describe("applyVnextImageOp", () => {
   function makeImageOp(
     overrides: Partial<VnextPptxImageOp> = {},
@@ -615,5 +684,118 @@ describe("applyVnextImageOp", () => {
     const opts = calls[0].args[0] as Record<string, unknown>;
     assert.equal(opts.altText, "A picture");
     assert.equal(opts.rotate, 30);
+  });
+});
+
+describe("applyVnextPptxSpec", () => {
+  test("assembles slides with every vnext op type and speaker notes", async () => {
+    const spec: VnextPptxDeckSpec = {
+      layout: "LAYOUT_WIDE",
+      slideW: 13.333,
+      slideH: 7.5,
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background", fill: "FFFFFF" },
+          notes: "Speaker notes",
+          ops: [
+            {
+              type: "text",
+              id: "text-1",
+              x: 0.5,
+              y: 0.5,
+              w: 4,
+              h: 0.5,
+              content: { paragraphs: [{ id: "p1", text: "Title" }] },
+              textStyle: { color: "111111", fontSize: 24 },
+              zIndex: 1,
+            },
+            {
+              type: "shape",
+              id: "shape-1",
+              shape: "roundRect",
+              x: 0.5,
+              y: 1.25,
+              w: 3,
+              h: 1,
+              fill: "DDEEFF",
+              text: { paragraphs: [{ id: "p2", text: "Label" }] },
+              textStyle: { color: "111111", align: "center" },
+              zIndex: 2,
+            },
+            {
+              type: "image",
+              id: "image-empty",
+              assetId: "",
+              x: 4,
+              y: 1,
+              w: 1,
+              h: 1,
+              zIndex: 3,
+            },
+            {
+              type: "connector",
+              id: "connector-1",
+              from: {},
+              to: {},
+              x: 0.5,
+              y: 3,
+              w: 3,
+              h: 0,
+              stroke: { color: "333333", widthPt: 1 },
+              zIndex: 4,
+            },
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "chart-asset",
+              visualId: "chart-1",
+              x: 5,
+              y: 1,
+              w: 2,
+              h: 1,
+              zIndex: 5,
+            },
+            {
+              type: "tableShape",
+              id: "table-1",
+              x: 0.5,
+              y: 4,
+              w: 5,
+              h: 1.5,
+              table: {
+                columns: [{ id: "c1", label: "Name" }],
+                rows: [{ id: "r1", cells: [{ text: "Alpha" }] }],
+                header: true,
+              },
+              headerFill: "003399",
+              rowFill: "EEF3FF",
+              textStyle: { fontFace: "Inter", fontSize: 10 },
+              zIndex: 6,
+            },
+          ],
+        },
+      ],
+    };
+
+    const blob = await applyVnextPptxSpec(spec);
+
+    assert.ok(blob instanceof Blob);
+    assert.equal(
+      blob.type,
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    );
+    assert.ok(blob.size > 0);
+  });
+
+  test("exports a simple DeckV7 through the high-level PPTX pipeline", async () => {
+    const blob = await exportDeckV7AsPPTX(
+      buildDeckV7([buildCoverSlide()]),
+      buildMinimalThemePackage(),
+    );
+
+    assert.ok(blob instanceof Blob);
+    assert.ok(blob.size > 0);
   });
 });

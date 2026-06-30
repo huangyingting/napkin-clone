@@ -16,14 +16,12 @@ import { useCallback, useState } from "react";
 import { PresentModeVNext } from "@/components/presentation-vnext/present-mode-vnext";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import type { DeckFetchPort } from "@/lib/action-ports";
-import {
-  createBlankDeckV7,
-  decideDeckOpen,
-  resolveThemePackageForDeck,
-  type DeckV7,
-  type PresentationDiagnostic,
-  type ThemePackageV1,
-} from "@/lib/presentation-vnext";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
+import { decideDeckOpen } from "@/lib/presentation-vnext/open-deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
+import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 
 interface PresentButtonProps {
   documentId: string;

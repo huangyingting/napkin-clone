@@ -16,7 +16,7 @@ export interface LayersPanelProps {
   onReorderNode?: (nodeId: string, targetIndex: number) => void;
 }
 
-function layerLabel(node: SlideChildNode): string {
+export function layerLabel(node: SlideChildNode): string {
   if (node.name) return node.name;
   if (node.type === "text") {
     const text = node.content.paragraphs[0]?.text.trim();
@@ -30,7 +30,7 @@ function layerLabel(node: SlideChildNode): string {
   return "Group";
 }
 
-function flattenLayers(
+export function flattenLayers(
   nodes: readonly SlideChildNode[],
   depth = 0,
 ): { node: SlideChildNode; depth: number }[] {

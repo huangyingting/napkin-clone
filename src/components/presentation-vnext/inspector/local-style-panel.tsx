@@ -11,26 +11,28 @@ export interface LocalStylePanelProps {
   onUpdateLocalStyle: (patch: StylePatch) => void;
 }
 
-function solidFillColor(localStyle: StylePatch | undefined): string {
+export function solidFillColor(localStyle: StylePatch | undefined): string {
   const fill = localStyle?.fill;
   return fill?.type === "solid" && typeof fill.color === "string"
     ? fill.color
     : "#ffffff";
 }
 
-function strokeColor(localStyle: StylePatch | undefined): string {
+export function strokeColor(localStyle: StylePatch | undefined): string {
   return typeof localStyle?.stroke?.color === "string"
     ? localStyle.stroke.color
     : "#111111";
 }
 
-function connectorStrokeColor(localStyle: StylePatch | undefined): string {
+export function connectorStrokeColor(
+  localStyle: StylePatch | undefined,
+): string {
   return typeof localStyle?.connector?.stroke?.color === "string"
     ? localStyle.connector.stroke.color
     : "#111111";
 }
 
-function tableFillColor(
+export function tableFillColor(
   fill: StylePatch["table"] extends { headerFill?: infer F } ? F : unknown,
   fallback: string,
 ): string {

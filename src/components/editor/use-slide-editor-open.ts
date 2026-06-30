@@ -33,15 +33,15 @@ import {
   type SlideAutosaveScheduler,
 } from "@/lib/presentation/slide-autosave-scheduler";
 import { bucketCount, emitProductTelemetry } from "@/lib/telemetry/product";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
 import {
-  createBlankDeckV7,
   decideDeckOpen,
   openAiGeneratedDeck,
   openDeckFromJson,
-  pickUndoFocusTarget,
-  type DeckV7,
-  type PresentationDiagnostic,
-} from "@/lib/presentation-vnext";
+} from "@/lib/presentation-vnext/open-deck";
+import { pickUndoFocusTarget } from "@/lib/presentation-vnext/deck-diff";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 /** State backing the v7 AI deck preview/diff surface. */
 export interface AiPreviewStateV7 {

@@ -21,12 +21,10 @@ import type { DocumentBlock } from "@/lib/content/document-blocks";
 import type { DeckActionPort, SlideAssetActionPort } from "@/lib/action-ports";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
-import {
-  exportDeckV7AsPPTX,
-  openDeckFromJson,
-  resolveThemePackageForDeck,
-  type PresentationDiagnostic,
-} from "@/lib/presentation-vnext";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
+import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext/pptx-vnext-apply";
+import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import { downloadBlob } from "@/lib/visual/export";
 

@@ -14,6 +14,25 @@ export interface NodeGeometryPanelProps {
   onUpdateAttributes: (patch: { locked?: boolean; hidden?: boolean }) => void;
 }
 
+export function nextFrameForPatch(
+  layout: LayoutBox,
+  patch: Partial<LayoutBox["frame"]>,
+): LayoutBox["frame"] {
+  const frame = layout.frame;
+  const nextFrame = { ...frame, ...patch };
+  if (layout.constraints?.preserveAspectRatio) {
+    const aspect = frame.w / frame.h;
+    if (Number.isFinite(aspect) && aspect > 0) {
+      if (patch.w !== undefined && patch.h === undefined) {
+        nextFrame.h = patch.w / aspect;
+      } else if (patch.h !== undefined && patch.w === undefined) {
+        nextFrame.w = patch.h * aspect;
+      }
+    }
+  }
+  return nextFrame;
+}
+
 function NumberField({
   id,
   label,
@@ -62,18 +81,7 @@ export function NodeGeometryPanel({
   const frame = layout.frame;
 
   function updateFrame(patch: Partial<LayoutBox["frame"]>) {
-    const nextFrame = { ...frame, ...patch };
-    if (currentLayout.constraints?.preserveAspectRatio) {
-      const aspect = frame.w / frame.h;
-      if (Number.isFinite(aspect) && aspect > 0) {
-        if (patch.w !== undefined && patch.h === undefined) {
-          nextFrame.h = patch.w / aspect;
-        } else if (patch.h !== undefined && patch.w === undefined) {
-          nextFrame.w = patch.h * aspect;
-        }
-      }
-    }
-    onUpdateLayout({ frame: nextFrame });
+    onUpdateLayout({ frame: nextFrameForPatch(currentLayout, patch) });
   }
 
   return (

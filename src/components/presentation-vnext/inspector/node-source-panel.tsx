@@ -21,31 +21,44 @@ const BLOCK_KIND_OPTIONS: NonNullable<NodeSourceMetadata["blockKind"]>[] = [
   "image",
 ];
 
-export function NodeSourcePanel({
-  node,
-  onUpdateSource,
-  onRefreshSource,
-}: NodeSourcePanelProps): JSX.Element {
-  const source = node.source;
+export function sourceStatus(
+  source: NodeSourceMetadata | undefined,
+): "Standalone" | "Unlinked" | "Linked" | "Draft link" {
   const hasLink = Boolean(source?.documentId || source?.blockId);
-  const status = !source
+  return !source
     ? "Standalone"
     : source.unlinked
       ? "Unlinked"
       : hasLink
         ? "Linked"
         : "Draft link";
+}
+
+export function sourceWithPatch(
+  source: NodeSourceMetadata | undefined,
+  patch: Partial<NodeSourceMetadata>,
+): NodeSourceMetadata {
+  return {
+    documentId: source?.documentId ?? "",
+    blockId: source?.blockId ?? "",
+    ...(source?.blockKind ? { blockKind: source.blockKind } : {}),
+    ...(source?.contentHash ? { contentHash: source.contentHash } : {}),
+    ...(source?.linkedAt ? { linkedAt: source.linkedAt } : {}),
+    ...(source?.unlinked ? { unlinked: source.unlinked } : {}),
+    ...patch,
+  };
+}
+
+export function NodeSourcePanel({
+  node,
+  onUpdateSource,
+  onRefreshSource,
+}: NodeSourcePanelProps): JSX.Element {
+  const source = node.source;
+  const status = sourceStatus(source);
 
   function updateSource(patch: Partial<NodeSourceMetadata>) {
-    onUpdateSource({
-      documentId: source?.documentId ?? "",
-      blockId: source?.blockId ?? "",
-      ...(source?.blockKind ? { blockKind: source.blockKind } : {}),
-      ...(source?.contentHash ? { contentHash: source.contentHash } : {}),
-      ...(source?.linkedAt ? { linkedAt: source.linkedAt } : {}),
-      ...(source?.unlinked ? { unlinked: source.unlinked } : {}),
-      ...patch,
-    });
+    onUpdateSource(sourceWithPatch(source, patch));
   }
 
   return (
