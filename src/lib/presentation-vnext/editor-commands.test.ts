@@ -644,6 +644,56 @@ describe("groupNodes", () => {
     assert.equal(grouped.type, "group");
   });
 
+  test("creates group bounds and z-index from selected children", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const children: SlideChildNode[] = [
+      {
+        id: "group-bound-a",
+        type: "text",
+        role: "body",
+        layout: { frame: { x: 12, y: 18, w: 20, h: 10 }, zIndex: 3 },
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: "group-bound-a-p1", text: "A" }] },
+      },
+      {
+        id: "group-bound-b",
+        type: "text",
+        role: "body",
+        layout: { frame: { x: 40, y: 10, w: 25, h: 30 }, zIndex: 7 },
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: "group-bound-b-p1", text: "B" }] },
+      },
+    ];
+    const withChildren = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, ...children] }
+          : candidate,
+      ),
+    };
+
+    const updated = groupNodes(
+      withChildren,
+      slide.id,
+      children.map((node) => node.id),
+      "group-bounds",
+      { ref: "surface.card" },
+    );
+    const grouped = findNode(updated.slides[0].children, "group-bounds");
+
+    assert.equal(grouped?.type, "group");
+    if (grouped?.type === "group") {
+      assert.deepEqual(grouped.layout?.frame, { x: 12, y: 10, w: 53, h: 30 });
+      assert.equal(grouped.layout?.zIndex, 7);
+      assert.deepEqual(
+        grouped.children.map((node) => node.id),
+        ["group-bound-a", "group-bound-b"],
+      );
+    }
+  });
+
   test("returns unchanged deck if no matching nodes", () => {
     const deck = makeTestDeck();
     const slide = deck.slides[0];
