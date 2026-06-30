@@ -58,7 +58,7 @@ export function profilePresentPath(): string {
   return `/present/${profileShareSegment()}`;
 }
 
-/** Public embed-mode path for the seeded deck. */
+/** Public embeddable present-mode path for the seeded deck. */
 export function profilePresentEmbedPath(): string {
   return `/embed/${profileShareSegment()}`;
 }

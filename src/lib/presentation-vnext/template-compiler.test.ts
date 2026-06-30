@@ -16,6 +16,7 @@ import {
 } from "@/lib/presentation-vnext/template-compiler";
 import { repairAiDeckPlan } from "@/lib/presentation-vnext/ai-plan-repair";
 import type { AiSlideSpec } from "@/lib/presentation-vnext/ai-plan-schema";
+import type { SemanticTemplateV1 } from "@/lib/presentation-vnext/template-registry";
 
 describe("SEMANTIC_TEMPLATE_KINDS", () => {
   test("contains all 27 documented kinds", () => {
@@ -203,6 +204,267 @@ describe("compileSlide", () => {
     };
     const { slide } = compileSlide(spec, template);
     assert.equal(slide.notes, "Remember to pause here.");
+  });
+
+  test("materialises all blueprint node types and emits diagnostics for unknown nodes", () => {
+    resetIdCounter();
+    const layout = {
+      frame: { x: 0, y: 0, w: 20, h: 10 },
+      zIndex: 1,
+    };
+    const template: SemanticTemplateV1 = {
+      schemaVersion: 1,
+      kind: "content",
+      label: "All nodes",
+      version: "1.0.0",
+      group: "explain",
+      intent: "Exercise every blueprint node type.",
+      slots: {} as SemanticTemplateV1["slots"],
+      supports: {
+        tone: ["technical"],
+        density: ["dense"],
+        emphasis: ["data"],
+      },
+      layouts: [
+        {
+          id: "all-nodes",
+          density: ["dense"],
+          emphasis: ["data"],
+          root: {
+            type: "slide",
+            style: { ref: "slide.content" },
+            children: [
+              {
+                type: "text",
+                role: "body",
+                slot: "body",
+                layout,
+                style: { ref: "text.body" },
+              },
+              {
+                type: "text",
+                role: "metric",
+                slot: "stat",
+                layout,
+                style: { ref: "text.metric" },
+              },
+              {
+                type: "image",
+                role: "image",
+                slot: "imagePrompt",
+                layout,
+                style: { ref: "media.inline" },
+              },
+              {
+                type: "visual",
+                role: "visual",
+                slot: "visualId",
+                layout,
+                style: { ref: "chart.primary" },
+              },
+              {
+                type: "table",
+                role: "table",
+                slot: "table",
+                layout,
+                style: { ref: "surface.table" },
+              },
+              {
+                type: "shape",
+                role: "callout",
+                layout,
+                style: { ref: "surface.callout" },
+                content: { type: "text", text: "Static shape" },
+              },
+              {
+                type: "group",
+                component: "custom",
+                role: "card",
+                layout,
+                style: { ref: "surface.card" },
+              },
+              {
+                type: "video" as never,
+                role: "visual",
+                layout,
+                style: { ref: "surface.card" },
+              },
+            ],
+          },
+        },
+      ],
+      selection: {
+        priority: 1,
+        bestFor: "coverage",
+        signals: [],
+      },
+    };
+    const spec: AiSlideSpec = {
+      kind: "content",
+      tone: "technical",
+      density: "dense",
+      emphasis: "data",
+      slots: {
+        body: { type: "paragraph", paragraphs: ["One", "Two"] },
+        stat: { type: "metric", value: "42", label: "Answer" },
+        imagePrompt: { type: "image", assetId: "img-1", alt: "Hero image" },
+        visualId: { type: "visual", visualId: "chart-1" },
+        table: {
+          type: "table",
+          columns: ["Metric"],
+          rows: [["NPS"]],
+          caption: "Metrics",
+        },
+      },
+      speakerNotes: "All nodes note",
+    };
+
+    const { slide, diagnostics } = compileSlide(spec, template, 3);
+
+    assert.deepEqual(slide.controls, {
+      tone: "technical",
+      density: "dense",
+      emphasis: "data",
+    });
+    assert.equal(slide.template.layoutId, "all-nodes");
+    assert.equal(slide.notes, "All nodes note");
+    assert.equal(slide.children.length, 7);
+
+    const [paragraph, metric, image, visual, table, shape, group] =
+      slide.children;
+    assert.equal(paragraph?.type, "text");
+    if (paragraph?.type === "text") {
+      assert.deepEqual(
+        paragraph.content.paragraphs.map((item) => item.text),
+        ["One", "Two"],
+      );
+    }
+    assert.equal(metric?.type, "text");
+    if (metric?.type === "text") {
+      assert.equal(metric.content.paragraphs[0]?.text, "42");
+    }
+    assert.equal(image?.type, "image");
+    if (image?.type === "image") {
+      assert.equal(image.content.assetId, "img-1");
+      assert.equal(image.content.alt, "Hero image");
+    }
+    assert.equal(visual?.type, "visual");
+    if (visual?.type === "visual") {
+      assert.equal(visual.content.visualId, "chart-1");
+    }
+    assert.equal(table?.type, "table");
+    if (table?.type === "table") {
+      assert.equal(table.content.caption, "Metrics");
+      assert.equal(table.content.header, true);
+    }
+    assert.equal(shape?.type, "shape");
+    if (shape?.type === "shape") {
+      assert.equal(shape.content.text?.paragraphs[0]?.text, "Static shape");
+    }
+    assert.equal(group?.type, "group");
+    if (group?.type === "group") {
+      assert.equal(group.children[0]?.type, "shape");
+    }
+    assert.ok(
+      diagnostics.some(
+        (diagnostic) => diagnostic.code === "unknown-template-kind",
+      ),
+    );
+  });
+
+  test("falls back to placeholders when slots do not match blueprint content", () => {
+    resetIdCounter();
+    const layout = {
+      frame: { x: 0, y: 0, w: 10, h: 10 },
+      zIndex: 1,
+    };
+    const template: SemanticTemplateV1 = {
+      schemaVersion: 1,
+      kind: "content",
+      label: "Fallbacks",
+      version: "1.0.0",
+      group: "explain",
+      intent: "Exercise fallback placeholder materialization.",
+      slots: {} as SemanticTemplateV1["slots"],
+      supports: { tone: [], density: [], emphasis: [] },
+      layouts: [
+        {
+          id: "fallbacks",
+          density: [],
+          emphasis: [],
+          root: {
+            type: "slide",
+            style: { ref: "slide.content" },
+            children: [
+              {
+                type: "text",
+                role: "body",
+                slot: "body",
+                layout,
+                style: { ref: "text.body" },
+                content: { type: "text", text: "Static fallback" },
+              },
+              {
+                type: "image",
+                role: "image",
+                slot: "imagePrompt",
+                layout,
+                style: { ref: "media.inline" },
+              },
+              {
+                type: "visual",
+                role: "visual",
+                slot: "visualId",
+                layout,
+                style: { ref: "chart.primary" },
+              },
+              {
+                type: "table",
+                role: "table",
+                slot: "table",
+                layout,
+                style: { ref: "surface.table" },
+              },
+            ],
+          },
+        },
+      ],
+      selection: { priority: 1, bestFor: "fallbacks", signals: [] },
+    };
+    const spec: AiSlideSpec = {
+      kind: "content",
+      slots: {
+        body: { type: "image", assetId: undefined },
+        imagePrompt: { type: "paragraph", paragraphs: ["Wrong type"] },
+        visualId: { type: "image", assetId: "visual-as-image" },
+        table: { type: "shortText", text: "Wrong type" },
+      },
+    };
+
+    const { slide } = compileSlide(spec, template);
+    const [text, image, visual, table] = slide.children;
+
+    assert.equal(text?.type, "text");
+    if (text?.type === "text") {
+      assert.equal(text.content.paragraphs[0]?.text, "Static fallback");
+    }
+    assert.equal(image?.type, "image");
+    if (image?.type === "image") {
+      assert.equal(image.content.assetId, "placeholder");
+    }
+    assert.equal(visual?.type, "visual");
+    if (visual?.type === "visual") {
+      assert.equal(visual.content.assetId, "visual-as-image");
+    }
+    assert.equal(table?.type, "table");
+    if (table?.type === "table") {
+      assert.deepEqual(table.content.columns, [
+        { id: "col-0", label: "Column 1" },
+      ]);
+      assert.deepEqual(table.content.rows, [
+        { id: "row-0", cells: [{ text: "" }] },
+      ]);
+    }
   });
 });
 

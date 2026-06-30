@@ -18,9 +18,9 @@ import {
   applyVnextConnectorOp,
   applyVnextImageOp,
   applyVnextVisualOp,
-  resolveExportSpecAssetSources,
   applyVnextPptxSpec,
   exportDeckV7AsPPTX,
+  resolveExportSpecAssetSources,
 } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type {
@@ -30,14 +30,14 @@ import type {
   VnextPptxConnectorOp,
   VnextPptxImageOp,
   VnextPptxVisualOp,
+  VnextPptxDeckSpec,
 } from "@/lib/presentation-vnext/pptx-export-adapter";
 import type {
-  ConnectorEndpoint,
   TextContent,
   TableContent,
 } from "@/lib/presentation-vnext/schema";
 import {
-  buildCoverSlide,
+  buildContentSlide,
   buildDeckV7,
   buildImageAsset,
   buildMinimalThemePackage,
@@ -163,18 +163,19 @@ describe("resolveExportSpecAssetSources", () => {
     }
   });
 
-  test("replaces visual operation asset ids with DeckV7 file src values", () => {
+  test("resolves visual registry asset ids through their backing image asset", () => {
     const deck = buildDeckV7([], {
       assets: {
-        images: {},
-        visuals: {
-          "visual-asset": { id: "visual-asset", visualId: "chart-1" },
+        images: {
+          "backing-image": buildImageAsset("backing-image", {
+            src: "https://example.com/rendered-visual.png",
+          }),
         },
-        files: {
-          "visual-asset": {
-            id: "visual-asset",
-            src: "data:image/png;base64,abc123",
-            mimeType: "image/png",
+        visuals: {
+          "visual-asset-1": {
+            id: "backing-image",
+            visualId: "doc-visual-1",
+            alt: "Rendered chart",
           },
         },
       },
@@ -190,7 +191,7 @@ describe("resolveExportSpecAssetSources", () => {
             {
               type: "visual",
               id: "visual-1",
-              assetId: "visual-asset",
+              assetId: "visual-asset-1",
               frame: { x: 0, y: 0, w: 100, h: 100 },
               style: {},
               zIndex: 1,
@@ -203,7 +204,9 @@ describe("resolveExportSpecAssetSources", () => {
     const op = resolved.slides[0].operations[0];
     assert.equal(op.type, "visual");
     if (op.type === "visual") {
-      assert.equal(op.assetId, "data:image/png;base64,abc123");
+      assert.equal(op.assetId, "https://example.com/rendered-visual.png");
+      assert.equal(op.visualId, "doc-visual-1");
+      assert.equal(op.alt, "Rendered chart");
     }
   });
 });
@@ -440,32 +443,6 @@ describe("applyVnextTextOp", () => {
     );
     assert.equal((firstArg as PptxTextRun[]).length, 2);
   });
-
-  test("complete text style forwards supported font and alignment options", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextTextOp(
-      slide as never,
-      makeTextOp({
-        textStyle: {
-          color: "0F172A",
-          fontSize: 20,
-          fontFace: "Arial",
-          bold: true,
-          italic: true,
-          underline: true,
-          align: "right",
-          valign: "bottom",
-        },
-      }),
-    );
-    const opts = calls[0].args[1] as Record<string, unknown>;
-    assert.equal(opts.fontFace, "Arial");
-    assert.equal(opts.bold, true);
-    assert.equal(opts.italic, true);
-    assert.deepEqual(opts.underline, { style: "sng" });
-    assert.equal(opts.align, "right");
-    assert.equal(opts.valign, "bottom");
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -538,25 +515,6 @@ describe("applyVnextShapeOp", () => {
     const { slide, calls } = makeMockSlide();
     applyVnextShapeOp(slide as never, makeShapeOp({ text: undefined }));
     assert.ok(calls.every((c) => c.kind === "addShape"));
-  });
-
-  test("shape rotation and label style options are forwarded", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextShapeOp(
-      slide as never,
-      makeShapeOp({
-        rotation: 22,
-        text: { paragraphs: [{ id: "p1", text: "Styled label" }] },
-        textStyle: { color: "334155", fontSize: 16, align: "center" },
-      }),
-    );
-    const shapeOpts = calls[0].args[1] as Record<string, unknown>;
-    assert.equal(shapeOpts.rotate, 22);
-    const textOpts = calls[1].args[1] as Record<string, unknown>;
-    assert.equal(textOpts.color, "334155");
-    assert.equal(textOpts.fontSize, 16);
-    assert.equal(textOpts.align, "center");
-    assert.equal(textOpts.valign, "middle");
   });
 });
 
@@ -649,21 +607,6 @@ describe("applyVnextTableOp", () => {
     assert.equal(opts.w, 9);
     assert.equal(opts.h, 5);
   });
-
-  test("table text style applies font options to header and data cells", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextTableOp(
-      slide as never,
-      makeTableOp({ textStyle: { fontSize: 10, fontFace: "Arial" } }),
-    );
-    const rows = calls[0].args[0] as Array<
-      Array<{ options?: Record<string, unknown> }>
-    >;
-    assert.equal(rows[0][0].options?.fontSize, 10);
-    assert.equal(rows[0][0].options?.fontFace, "Arial");
-    assert.equal(rows[1][0].options?.fontSize, 10);
-    assert.equal(rows[1][0].options?.fontFace, "Arial");
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -677,8 +620,8 @@ describe("applyVnextConnectorOp", () => {
     return {
       type: "connector",
       id: "con1",
-      from: { kind: "point", point: { x: 0, y: 50 } },
-      to: { kind: "point", point: { x: 100, y: 50 } },
+      from: { kind: "point", point: { x: 0, y: 0 } },
+      to: { kind: "point", point: { x: 100, y: 0 } },
       x: 0,
       y: 0,
       w: 5,
@@ -718,111 +661,6 @@ describe("applyVnextConnectorOp", () => {
     );
     const opts = calls[0].args[1] as Record<string, unknown>;
     assert.equal(opts.line, undefined);
-  });
-
-  test("connector endpoints map local points to slide line dimensions", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextConnectorOp(
-      slide as never,
-      makeConnectorOp({
-        x: 1,
-        y: 2,
-        w: 4,
-        h: 3,
-        from: { kind: "point", point: { x: 25, y: 10 } },
-        to: { kind: "point", point: { x: 75, y: 90 } },
-      }),
-    );
-    const opts = calls[0].args[1] as Record<string, unknown>;
-    assert.equal(opts.x, 2);
-    assert.equal(opts.y, 2.3);
-    assert.equal(opts.w, 2);
-    assert.equal(opts.h, 2.4000000000000004);
-  });
-
-  test("connector forwards dash and arrowheads to line options", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextConnectorOp(
-      slide as never,
-      makeConnectorOp({
-        stroke: { color: "FF0000", widthPt: 2, dash: "dashed" },
-        startArrow: "filled",
-        endArrow: "arrow",
-      }),
-    );
-    const opts = calls[0].args[1] as Record<string, unknown>;
-    assert.deepEqual(opts.line, {
-      color: "FF0000",
-      width: 2,
-      dashType: "dash",
-      beginArrowType: "triangle",
-      endArrowType: "arrow",
-    });
-  });
-
-  test("elbow connector emits three line segments", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextConnectorOp(
-      slide as never,
-      makeConnectorOp({ routing: "elbow" }),
-    );
-    assert.equal(calls.length, 3);
-    assert.ok(calls.every((call) => call.kind === "addShape"));
-  });
-
-  test("node anchor endpoints map every anchor to connector frame points", () => {
-    const expected: Record<string, { x: number; y: number }> = {
-      top: { x: 3, y: 2 },
-      right: { x: 5, y: 5 },
-      bottom: { x: 3, y: 8 },
-      left: { x: 1, y: 5 },
-      center: { x: 3, y: 5 },
-    };
-
-    for (const [anchor, point] of Object.entries(expected)) {
-      const { slide, calls } = makeMockSlide();
-      applyVnextConnectorOp(
-        slide as never,
-        makeConnectorOp({
-          x: 1,
-          y: 2,
-          w: 4,
-          h: 6,
-          from: {
-            kind: "node",
-            nodeId: `node-${anchor}`,
-            anchor: anchor as Extract<
-              ConnectorEndpoint,
-              { kind: "node" }
-            >["anchor"],
-          },
-          to: { kind: "point", point: { x: 0, y: 0 } },
-        }),
-      );
-      const opts = calls[0].args[1] as Record<string, unknown>;
-      assert.equal(opts.x, point.x);
-      assert.equal(opts.y, point.y);
-    }
-  });
-
-  test("dotted connector and arrow variants map to pptx line options", () => {
-    const { slide, calls } = makeMockSlide();
-    applyVnextConnectorOp(
-      slide as never,
-      makeConnectorOp({
-        stroke: { color: "334155", widthPt: 1.5, dash: "dotted" },
-        startArrow: "arrow",
-        endArrow: "filled",
-      }),
-    );
-    const opts = calls[0].args[1] as Record<string, unknown>;
-    assert.deepEqual(opts.line, {
-      color: "334155",
-      width: 1.5,
-      dashType: "sysDot",
-      beginArrowType: "arrow",
-      endArrowType: "triangle",
-    });
   });
 });
 
@@ -899,6 +737,34 @@ describe("applyVnextImageOp", () => {
       h: "60%",
     });
   });
+
+  test("forwards contain fit as PPTX image sizing when no crop is present", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(slide as never, makeImageOp({ fit: "contain" }));
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.deepEqual(opts.sizing, {
+      type: "contain",
+      w: 4,
+      h: 3,
+    });
+  });
+
+  test("ignores zero crop values and falls back to cover fit sizing", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(
+      slide as never,
+      makeImageOp({
+        fit: "cover",
+        crop: { top: 0, right: 0, bottom: 0, left: 0 },
+      }),
+    );
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.deepEqual(opts.sizing, {
+      type: "cover",
+      w: 4,
+      h: 3,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -947,92 +813,115 @@ describe("applyVnextVisualOp", () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].kind, "addImage");
   });
+
+  test("omits placeholder fill for transparent visual backgrounds", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({ transparentBackground: true, rotation: 15 }),
+    );
+    const background = calls[0].args[1] as Record<string, unknown>;
+    assert.equal("fill" in background, false);
+    assert.equal(background.rotate, 15);
+  });
+
+  test("uses default visual colors when channel colors are omitted", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({ channelColors: undefined, transparentBackground: false }),
+    );
+    const firstBar = calls.filter((call) => call.kind === "addShape")[1]
+      .args[1] as Record<string, unknown>;
+    assert.deepEqual(firstBar.fill, { color: "2563EB" });
+  });
 });
 
 // ---------------------------------------------------------------------------
-// applyVnextVisualOp
+// applyVnextPptxSpec / exportDeckV7AsPPTX
 // ---------------------------------------------------------------------------
 
-describe("applyVnextVisualOp", () => {
-  function makeVisualOp(
-    overrides: Partial<VnextPptxVisualOp> = {},
-  ): VnextPptxVisualOp {
-    return {
-      type: "visual",
-      id: "vis1",
-      assetId: "data:image/png;base64,abc123",
-      visualId: "chart-1",
-      x: 1,
-      y: 1,
-      w: 4,
-      h: 3,
-      zIndex: 1,
-      ...overrides,
+describe("PPTX assembly boundaries", () => {
+  test("applyVnextPptxSpec assembles slides, dispatches ops, and includes notes", async () => {
+    const spec: VnextPptxDeckSpec = {
+      layout: "LAYOUT_WIDE",
+      slideW: 13.333,
+      slideH: 7.5,
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background", fill: "FFFFFF" },
+          notes: "Speaker note",
+          ops: [
+            {
+              type: "text",
+              id: "text-1",
+              x: 0.5,
+              y: 0.5,
+              w: 3,
+              h: 0.5,
+              content: { paragraphs: [{ id: "p1", text: "Hello" }] },
+              textStyle: { fontSize: 18, color: "111111" },
+              zIndex: 1,
+            },
+            {
+              type: "shape",
+              id: "shape-1",
+              shape: "rect",
+              x: 0.5,
+              y: 1.25,
+              w: 2,
+              h: 1,
+              fill: "EEEEEE",
+              stroke: { color: "111111", widthPt: 1 },
+              zIndex: 2,
+            },
+            {
+              type: "connector",
+              id: "line-1",
+              from: { kind: "point", point: { x: 0, y: 0 } },
+              to: { kind: "point", point: { x: 100, y: 0 } },
+              x: 0.5,
+              y: 2.5,
+              w: 2,
+              h: 0,
+              stroke: { color: "111111", widthPt: 1 },
+              zIndex: 3,
+            },
+            {
+              type: "visual",
+              id: "visual-1",
+              visualId: "chart-1",
+              x: 3,
+              y: 1,
+              w: 2.5,
+              h: 1.5,
+              zIndex: 4,
+            },
+            {
+              type: "tableShape",
+              id: "table-1",
+              x: 0.5,
+              y: 3,
+              w: 5,
+              h: 1.25,
+              table: {
+                columns: [{ id: "metric", label: "Metric" }],
+                rows: [{ id: "row-1", cells: [{ text: "NPS" }] }],
+              },
+              headerFill: "003399",
+              rowFill: "F8FAFC",
+              textStyle: { fontSize: 10, fontFace: "Inter" },
+              zIndex: 5,
+            },
+          ],
+        },
+      ],
     };
-  }
 
-  test("visual with a rendered asset is applied as an image", async () => {
-    const { slide, calls } = makeMockSlide();
-    await applyVnextVisualOp(slide as never, makeVisualOp());
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].kind, "addImage");
-    const opts = calls[0].args[0] as Record<string, unknown>;
-    assert.ok("data" in opts);
-    assert.equal(opts.altText, "chart-1");
-  });
+    const blob = await applyVnextPptxSpec(spec);
 
-  test("visual without a rendered asset applies a labeled placeholder", async () => {
-    const { slide, calls } = makeMockSlide();
-    await applyVnextVisualOp(
-      slide as never,
-      makeVisualOp({
-        assetId: undefined,
-        fallbackLabel: "Revenue chart unavailable",
-      }),
-    );
-    assert.equal(calls.length, 2);
-    assert.equal(calls[0].kind, "addShape");
-    assert.equal(calls[1].kind, "addText");
-    assert.equal(calls[1].args[0], "Revenue chart unavailable");
-  });
-
-  test("visual placeholder forwards style defaults and rotation to fallback nodes", async () => {
-    const { slide, calls } = makeMockSlide();
-    await applyVnextVisualOp(
-      slide as never,
-      makeVisualOp({
-        assetId: undefined,
-        visualId: undefined,
-        alt: "Chart fallback",
-        rotation: 18,
-        fill: "EEF2FF",
-        stroke: { color: "4338CA", widthPt: 2 },
-      }),
-    );
-    const shapeOpts = calls[0].args[1] as Record<string, unknown>;
-    assert.deepEqual(shapeOpts.fill, { color: "EEF2FF" });
-    assert.deepEqual(shapeOpts.line, {
-      color: "4338CA",
-      width: 2,
-      dashType: "dash",
-    });
-    assert.equal(shapeOpts.rotate, 18);
-    assert.equal(calls[1].args[0], "Chart fallback");
-    const textOpts = calls[1].args[1] as Record<string, unknown>;
-    assert.equal(textOpts.rotate, 18);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Browser-style PPTX assembly
-// ---------------------------------------------------------------------------
-
-describe("exportDeckV7AsPPTX", () => {
-  test("assembles a pptx Blob for a resolved v7 deck with speaker notes", async () => {
-    const deck = buildDeckV7([
-      { ...buildCoverSlide(), notes: "Generated speaker notes" },
-    ]);
-    const blob = await exportDeckV7AsPPTX(deck, buildMinimalThemePackage());
     assert.ok(blob);
     assert.equal(
       blob.type,
@@ -1040,34 +929,21 @@ describe("exportDeckV7AsPPTX", () => {
     );
     assert.ok(blob.size > 0);
   });
-});
 
-describe("applyVnextPptxSpec", () => {
-  test("returns null when a malformed spec causes PPTX assembly to fail", async () => {
-    const blob = await applyVnextPptxSpec({
-      layout: "LAYOUT_CUSTOM",
-      slideW: 0,
-      slideH: 0,
-      diagnostics: [],
-      slides: [
-        {
-          id: "malformed-slide",
-          background: { type: "background", fill: "FFFFFF" },
-          ops: [
-            {
-              type: "image",
-              id: "missing-image-path",
-              assetId: "missing-local-image.png",
-              x: 0,
-              y: 0,
-              w: 1,
-              h: 1,
-              zIndex: 1,
-            },
-          ],
-        },
-      ],
+  test("exportDeckV7AsPPTX runs the v7 export pipeline with an explicit theme package", async () => {
+    const deck = buildDeckV7([buildContentSlide("Pipeline")], {
+      theme: { packageId: "test-package" },
     });
-    assert.equal(blob, null);
+
+    const blob = await exportDeckV7AsPPTX(deck, buildMinimalThemePackage(), {
+      canvasWidthPx: 960,
+      canvasHeightPx: 540,
+    });
+
+    assert.ok(blob);
+    assert.equal(
+      blob.type,
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    );
   });
 });

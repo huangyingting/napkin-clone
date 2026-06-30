@@ -122,12 +122,53 @@ async function main() {
     },
     update: { name: F.dashboardTag.name },
     create: {
-      id: F.dashboardTag.id,
       ownerId: owner.id,
       name: F.dashboardTag.name,
       slug: F.dashboardTag.slug,
     },
-    select: { id: true },
+  });
+
+  await prisma.document.upsert({
+    where: { id: F.dashboardDocuments.alphaFavorite.id },
+    update: {
+      title: F.dashboardDocuments.alphaFavorite.title,
+      content: F.dashboardDocuments.alphaFavorite.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: true,
+      deletedAt: null,
+      tags: { set: [] },
+    },
+    create: {
+      id: F.dashboardDocuments.alphaFavorite.id,
+      title: F.dashboardDocuments.alphaFavorite.title,
+      content: F.dashboardDocuments.alphaFavorite.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: true,
+    },
+  });
+
+  await prisma.document.upsert({
+    where: { id: F.dashboardDocuments.betaTagged.id },
+    update: {
+      title: F.dashboardDocuments.betaTagged.title,
+      content: F.dashboardDocuments.betaTagged.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: false,
+      deletedAt: null,
+      tags: { set: [{ id: dashboardTag.id }] },
+    },
+    create: {
+      id: F.dashboardDocuments.betaTagged.id,
+      title: F.dashboardDocuments.betaTagged.title,
+      content: F.dashboardDocuments.betaTagged.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: false,
+      tags: { connect: { id: dashboardTag.id } },
+    },
   });
 
   // -------------------------------------------------------------------------
@@ -173,7 +214,6 @@ async function main() {
       sharePresentEnabled: true,
       shareExpiresAt: null,
       deletedAt: null,
-      favorite: false,
       tags: { set: [{ id: dashboardTag.id }] },
     },
     create: {
@@ -188,56 +228,7 @@ async function main() {
       isShared: true,
       shareEmbedEnabled: true,
       sharePresentEnabled: true,
-      tags: { connect: [{ id: dashboardTag.id }] },
-    },
-  });
-
-  await prisma.document.upsert({
-    where: { id: F.dashboardDocuments.alphaFavorite.id },
-    update: {
-      title: F.dashboardDocuments.alphaFavorite.title,
-      content: F.dashboardDocuments.alphaFavorite.content,
-      ownerId: owner.id,
-      workspaceId: F.workspaceId,
-      favorite: true,
-      isShared: false,
-      shareId: null,
-      slug: null,
-      deletedAt: null,
-      tags: { set: [] },
-    },
-    create: {
-      id: F.dashboardDocuments.alphaFavorite.id,
-      title: F.dashboardDocuments.alphaFavorite.title,
-      content: F.dashboardDocuments.alphaFavorite.content,
-      ownerId: owner.id,
-      workspaceId: F.workspaceId,
-      favorite: true,
-    },
-  });
-
-  await prisma.document.upsert({
-    where: { id: F.dashboardDocuments.betaTagged.id },
-    update: {
-      title: F.dashboardDocuments.betaTagged.title,
-      content: F.dashboardDocuments.betaTagged.content,
-      ownerId: owner.id,
-      workspaceId: F.workspaceId,
-      favorite: false,
-      isShared: false,
-      shareId: null,
-      slug: null,
-      deletedAt: null,
-      tags: { set: [{ id: dashboardTag.id }] },
-    },
-    create: {
-      id: F.dashboardDocuments.betaTagged.id,
-      title: F.dashboardDocuments.betaTagged.title,
-      content: F.dashboardDocuments.betaTagged.content,
-      ownerId: owner.id,
-      workspaceId: F.workspaceId,
-      favorite: false,
-      tags: { connect: [{ id: dashboardTag.id }] },
+      tags: { connect: { id: dashboardTag.id } },
     },
   });
 

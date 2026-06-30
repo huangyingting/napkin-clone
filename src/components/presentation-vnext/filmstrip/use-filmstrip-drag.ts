@@ -76,7 +76,6 @@ export function useFilmstripDrag({
     if (event.button !== 0) return;
     const container = containerRef.current;
     if (!container) return;
-    const activeContainer: HTMLOListElement = container;
 
     const startClientX = event.clientX;
     const startClientY = event.clientY;
@@ -100,7 +99,7 @@ export function useFilmstripDrag({
 
     const cells = () =>
       Array.from(
-        activeContainer.querySelectorAll<HTMLLIElement>("[data-slide-index]"),
+        container.querySelectorAll<HTMLLIElement>("[data-slide-index]"),
       );
 
     function getTargetIndex(clientX: number, clientY: number): number | null {
@@ -124,11 +123,13 @@ export function useFilmstripDrag({
     }
 
     function maybeAutoScroll(clientX: number) {
-      const rect = activeContainer.getBoundingClientRect();
+      const currentContainer = containerRef.current;
+      if (!currentContainer) return;
+      const rect = currentContainer.getBoundingClientRect();
       if (clientX < rect.left + AUTO_SCROLL_ZONE_PX) {
-        activeContainer.scrollLeft -= AUTO_SCROLL_STEP_PX;
+        currentContainer.scrollLeft -= AUTO_SCROLL_STEP_PX;
       } else if (clientX > rect.right - AUTO_SCROLL_ZONE_PX) {
-        activeContainer.scrollLeft += AUTO_SCROLL_STEP_PX;
+        currentContainer.scrollLeft += AUTO_SCROLL_STEP_PX;
       }
     }
 
@@ -162,7 +163,7 @@ export function useFilmstripDrag({
           };
       setDragState({ ...dragStateRef.current });
       // Update visual indicator via CSS attribute on container
-      activeContainer.setAttribute("data-drag-target", String(idx));
+      container?.setAttribute("data-drag-target", String(idx));
     }
 
     function cleanupDrag() {
@@ -173,7 +174,7 @@ export function useFilmstripDrag({
         dragPreview: null,
       };
       setDragState({ ...dragStateRef.current });
-      activeContainer.removeAttribute("data-drag-target");
+      container?.removeAttribute("data-drag-target");
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerCancel);

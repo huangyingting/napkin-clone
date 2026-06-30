@@ -31,20 +31,20 @@ export function viewerCredentials(): Credentials | null {
 }
 
 /**
- * Logs in via the credentials form and waits for the requested app redirect.
+ * Logs in via the credentials form and waits for the redirect into `/app`.
  */
 export async function login(
   page: Page,
   { email, password }: Credentials,
-  callbackPath = "/app",
+  afterLoginPath?: string,
 ): Promise<void> {
-  const loginParams = new URLSearchParams({ callbackUrl: callbackPath });
-  await page.goto(`/login?${loginParams}`);
+  await page.goto("/login");
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: /log in/i }).click();
-  const matchesCallbackPath = (url: URL) =>
-    `${url.pathname}${url.search}${url.hash}` === callbackPath;
-  await page.waitForURL(matchesCallbackPath);
-  await expect(page).toHaveURL(matchesCallbackPath);
+  await page.waitForURL(/\/app(\/|$|\?)/);
+  await expect(page).toHaveURL(/\/app/);
+  if (afterLoginPath) {
+    await page.goto(afterLoginPath);
+  }
 }

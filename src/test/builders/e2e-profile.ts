@@ -39,29 +39,27 @@ export const E2E_PROFILE_FIXTURE = {
   visualId: "e2efixturevisual000000001",
   shareId: "e2efixtureshare01",
   slug: "e2e-fixture-deck",
+  slideTitleText: "Release Gate Fixture Slide",
+  slideTwoTitleText: "Release Gate Fixture Details",
+  slideBodyText: "Deterministic deck for the E2E release gate.",
+  documentBodyText: "E2E fixture document body for the release gate profile.",
+  documentTitle: "E2E Fixture Deck",
   dashboardTag: {
-    id: "e2efixturedashboardtag01",
     name: "Release Gate",
     slug: "release-gate",
   },
   dashboardDocuments: {
     alphaFavorite: {
-      id: "e2efixturealpha000000001",
+      id: "e2efixturedashboardalpha01",
       title: "Alpha favorite deterministic dashboard",
-      content: "Favorite dashboard document for deterministic E2E filtering.",
+      content: "Alpha favorite deterministic dashboard content.",
     },
     betaTagged: {
-      id: "e2efixturebeta0000000001",
+      id: "e2efixturedashboardbeta001",
       title: "Beta tagged deterministic dashboard",
-      content: "Tagged dashboard document for deterministic E2E filtering.",
+      content: "Beta tagged deterministic dashboard content.",
     },
   },
-  slideTitleText: "Release Gate Fixture Slide",
-  slideTwoTitleText: "Release Gate Fixture Slide Two",
-  slideBodyText: "Deterministic deck for the E2E release gate.",
-  slideTwoBodyText: "Second seeded slide for deterministic navigation.",
-  documentBodyText: "E2E fixture document body for the release gate profile.",
-  documentTitle: "E2E Fixture Deck",
 } as const;
 
 const F = E2E_PROFILE_FIXTURE;
@@ -124,7 +122,6 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
     slides: [
       buildSlide({
         id: "e2e-fixture-slide-1",
-        index: 0,
         title: F.slideTitleText,
         notes: "",
         designOverrides: {
@@ -163,32 +160,31 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
       }),
       buildSlide({
         id: "e2e-fixture-slide-2",
-        index: 1,
         title: F.slideTwoTitleText,
         notes: "Use this seeded slide to verify presentation navigation.",
         designOverrides: {
-          background: { type: "solid", color: { value: "#ffffff" } },
+          background: { type: "solid", color: { value: "#f8fafc" } },
         },
         elements: [
           buildTextElement({
-            id: "fixture-title-two",
+            id: "fixture-detail-title",
             role: "title",
             text: F.slideTwoTitleText,
-            box: { x: 6, y: 6, w: 88, h: 14 },
+            box: { x: 6, y: 8, w: 88, h: 14 },
             zIndex: 0,
-            style: { fontSize: 6, bold: true, italic: false, align: "left" },
+            style: { fontSize: 5, bold: true, italic: false, align: "left" },
           }),
           buildBulletsElement({
-            id: "fixture-bullets-two",
+            id: "fixture-detail-bullets",
             bullets: [
-              F.slideTwoBodyText,
-              "Share, embed, and export stay in sync",
+              "Navigation stays deterministic.",
+              "Exports include a second seeded slide.",
             ],
             items: [
-              { text: F.slideTwoBodyText },
-              { text: "Share, embed, and export stay in sync" },
+              { text: "Navigation stays deterministic." },
+              { text: "Exports include a second seeded slide." },
             ],
-            box: { x: 8, y: 26, w: 76, h: 50 },
+            box: { x: 8, y: 28, w: 76, h: 42 },
             zIndex: 1,
             style: { fontSize: 4, bold: false, italic: false, align: "left" },
           }),
@@ -219,8 +215,6 @@ export function buildE2EProfileFixtureDescriptor(opts: {
     privateAssetPath: opts.privateAssetPath,
     slideTitleText: F.slideTitleText,
     slideTwoTitleText: F.slideTwoTitleText,
-    dashboardTag: F.dashboardTag,
-    dashboardDocuments: F.dashboardDocuments,
     seededAt: opts.seededAt,
   };
 }
