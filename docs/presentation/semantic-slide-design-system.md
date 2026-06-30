@@ -315,7 +315,12 @@ type ImageAsset = {
   alt?: string;
   widthPx?: number;
   heightPx?: number;
-  mimeType?: "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml";
+  mimeType?:
+    | "image/png"
+    | "image/jpeg"
+    | "image/gif"
+    | "image/webp"
+    | "image/svg+xml";
   contentHash?: string;
   origin?: AssetOrigin;
 };

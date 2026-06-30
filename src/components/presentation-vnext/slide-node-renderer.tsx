@@ -17,6 +17,7 @@ import type {
   ResolvedNodeContent,
 } from "@/lib/presentation-vnext/render-tree";
 import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
+import { visualChannelColorWithDefaults } from "@/lib/presentation-vnext/visual-channel-colors";
 import type {
   TextContent,
   TextRun,
@@ -552,21 +553,72 @@ function TableNodeContent({
 
 function VisualNodeContent({
   assetId,
+  visualId,
   alt,
+  transparentBackground,
+  style,
   assetResolver,
 }: {
   assetId?: string;
+  visualId?: string;
   alt?: string;
+  transparentBackground?: boolean;
+  style: StyleObject;
   assetResolver?: (id: string) => string | undefined;
 }): JSX.Element {
   const src = assetId ? assetResolver?.(assetId) : undefined;
   if (!src) {
+    const colors = visualChannelColorWithDefaults(style.visual?.channelColors);
+    const isTransparent =
+      transparentBackground ?? style.visual?.transparentBackground ?? false;
+    const backgroundColor = isTransparent ? "transparent" : `${colors.muted}22`;
     return (
       <div
-        className="flex h-full w-full items-center justify-center bg-ds-surface-2 text-xs text-ds-text-muted"
-        aria-label={alt ?? "Visual placeholder"}
+        className="flex h-full w-full items-center justify-center overflow-hidden rounded-ds-sm border text-xs"
+        aria-label={alt ?? visualId ?? "Visual placeholder"}
+        style={{
+          backgroundColor,
+          borderColor: colors.muted,
+          color: colors.primary,
+        }}
       >
-        <span aria-hidden="true">📊</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 120 80"
+          className="h-full w-full"
+          preserveAspectRatio="none"
+        >
+          <rect
+            x="14"
+            y="18"
+            width="18"
+            height="44"
+            rx="4"
+            fill={colors.primary}
+          />
+          <rect
+            x="51"
+            y="31"
+            width="18"
+            height="31"
+            rx="4"
+            fill={colors.secondary}
+          />
+          <rect
+            x="88"
+            y="10"
+            width="18"
+            height="52"
+            rx="4"
+            fill={colors.accent}
+          />
+          <path
+            d="M12 68 H108"
+            stroke={colors.muted}
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
       </div>
     );
   }
@@ -905,7 +957,10 @@ function renderContent(
       return (
         <VisualNodeContent
           assetId={content.content.assetId}
+          visualId={content.content.visualId}
           alt={content.content.alt}
+          transparentBackground={content.content.transparentBackground}
+          style={style}
           assetResolver={assetResolver}
         />
       );

@@ -327,6 +327,14 @@ export function NodeContentPanel({
               </label>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => onUpdateContent({ crop: undefined })}
+            disabled={node.content.crop === undefined}
+            className="self-start rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+          >
+            Reset crop
+          </button>
         </>
       ) : null}
       {node.type === "visual" ? (

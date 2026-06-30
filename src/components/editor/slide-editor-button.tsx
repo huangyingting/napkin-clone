@@ -121,7 +121,7 @@ function SlideVisualPickerOverlay({
   onCancel,
 }: {
   options: Extract<DocumentBlock, { kind: "visual" }>[];
-  onPick: (visualId: string) => void;
+  onPick: (value: { visualId: string; alt?: string }) => void;
   onCancel: () => void;
 }) {
   if (typeof document === "undefined") return null;
@@ -151,7 +151,14 @@ function SlideVisualPickerOverlay({
               <button
                 key={option.visualId}
                 type="button"
-                onClick={() => onPick(option.visualId)}
+                onClick={() =>
+                  onPick({
+                    visualId: option.visualId,
+                    ...(option.visual.title
+                      ? { alt: option.visual.title }
+                      : {}),
+                  })
+                }
                 className="rounded-ds-sm border border-ds-border-subtle px-3 py-2 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
               >
                 <span className="font-mono">{option.visualId}</span>
@@ -252,7 +259,7 @@ export function SlideEditorButton({
   );
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
   const visualPickerResolverRef = useRef<
-    ((value: { visualId?: string } | undefined) => void) | null
+    ((value: { visualId?: string; alt?: string } | undefined) => void) | null
   >(null);
 
   const handleExportV7Pptx = useCallback(async () => {
@@ -287,6 +294,18 @@ export function SlideEditorButton({
       return {
         src: result.data.url,
         assetId: result.data.assetId,
+        ...(result.data.widthPx !== undefined
+          ? { widthPx: result.data.widthPx }
+          : {}),
+        ...(result.data.heightPx !== undefined
+          ? { heightPx: result.data.heightPx }
+          : {}),
+        ...(result.data.mimeType !== undefined
+          ? { mimeType: result.data.mimeType }
+          : {}),
+        ...(result.data.contentHash !== undefined
+          ? { contentHash: result.data.contentHash }
+          : {}),
       };
     },
     [documentId, slideAssetPort],
@@ -355,13 +374,17 @@ export function SlideEditorButton({
 
   const handlePickV7Visual = useCallback(async () => {
     if (visualBlocks.length === 0) return undefined;
-    return await new Promise<{ visualId?: string } | undefined>((resolve) => {
-      visualPickerResolverRef.current = resolve;
-      setVisualPickerOpen(true);
-    });
+    return await new Promise<{ visualId?: string; alt?: string } | undefined>(
+      (resolve) => {
+        visualPickerResolverRef.current = resolve;
+        setVisualPickerOpen(true);
+      },
+    );
   }, [visualBlocks.length]);
 
-  function resolveVisualPicker(value: { visualId?: string } | undefined) {
+  function resolveVisualPicker(
+    value: { visualId?: string; alt?: string } | undefined,
+  ) {
     visualPickerResolverRef.current?.(value);
     visualPickerResolverRef.current = null;
     setVisualPickerOpen(false);
@@ -453,7 +476,7 @@ export function SlideEditorButton({
       {visualPickerOpen ? (
         <SlideVisualPickerOverlay
           options={visualBlocks}
-          onPick={(visualId) => resolveVisualPicker({ visualId })}
+          onPick={(value) => resolveVisualPicker(value)}
           onCancel={() => resolveVisualPicker(undefined)}
         />
       ) : null}

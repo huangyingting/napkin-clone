@@ -16,6 +16,7 @@ import {
   buildDeckV7,
   buildCoverSlide,
   buildContentSlide,
+  buildImageNode,
   buildTableSlide,
   buildSlideV7,
   buildMinimalThemePackage,
@@ -223,6 +224,72 @@ describe("buildVnextPptxSpec — table conversion", () => {
     assert.ok("table" in tableOp);
     const t = tableOp as { table: { columns: unknown[] } };
     assert.ok(Array.isArray(t.table.columns));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Image and visual asset fidelity
+// ---------------------------------------------------------------------------
+
+describe("buildVnextPptxSpec — E05 image and visual fidelity", () => {
+  test("image fit and crop metadata are preserved for the PPTX applier", () => {
+    resetBuilderCounter();
+    const imageNode = buildImageNode("img-001", {
+      content: {
+        assetId: "img-001",
+        fit: "cover",
+        crop: { top: 8, right: 6, bottom: 4, left: 2 },
+        alt: "Hero crop",
+      },
+    });
+    const deck = buildDeckV7([{ ...buildCoverSlide(), children: [imageNode] }]);
+    const renderTree = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    const imageOp = pptx.slides[0].ops.find((op) => op.type === "image");
+    assert.ok(imageOp);
+    assert.equal(imageOp.type, "image");
+    if (imageOp.type === "image") {
+      assert.equal(imageOp.fit, "cover");
+      assert.deepEqual(imageOp.crop, {
+        top: 8,
+        right: 6,
+        bottom: 4,
+        left: 2,
+      });
+      assert.equal(imageOp.alt, "Hero crop");
+    }
+  });
+
+  test("visual channel colors are preserved for PPTX export", () => {
+    resetBuilderCounter();
+    const visualNode = buildVisualNode({
+      localStyle: {
+        visual: {
+          channelColors: {
+            primary: "#0f172a",
+            secondary: "#475569",
+            accent: "#f97316",
+          },
+        },
+      },
+    });
+    const deck = buildDeckV7([
+      { ...buildCoverSlide(), children: [visualNode] },
+    ]);
+    const renderTree = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    const visualOp = pptx.slides[0].ops.find((op) => op.type === "visual");
+    assert.ok(visualOp);
+    assert.equal(visualOp.type, "visual");
+    if (visualOp.type === "visual") {
+      assert.deepEqual(visualOp.channelColors, {
+        primary: "#0f172a",
+        secondary: "#475569",
+        accent: "#f97316",
+      });
+    }
   });
 });
 

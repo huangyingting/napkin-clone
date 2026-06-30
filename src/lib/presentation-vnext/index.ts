@@ -73,6 +73,17 @@ export type {
   ThemeTokens,
 } from "./style-schema";
 export { resolveToken } from "./style-schema";
+export type {
+  SupportedVisualColorChannel,
+  ResolvedVisualChannelColors,
+} from "./visual-channel-colors";
+export {
+  SUPPORTED_VISUAL_COLOR_CHANNELS,
+  DEFAULT_VISUAL_CHANNEL_COLORS,
+  isSupportedVisualColorChannel,
+  normalizeVisualChannelColors,
+  visualChannelColorWithDefaults,
+} from "./visual-channel-colors";
 
 // Style registry
 export { STYLE_REFS, isStyleRef } from "./style-registry";

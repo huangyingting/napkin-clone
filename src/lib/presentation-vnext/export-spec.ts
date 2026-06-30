@@ -10,8 +10,13 @@
  */
 
 import type { NodeId, CanvasSpec } from "./types";
-import type { TextContent, TableContent, ConnectorEndpoint } from "./schema";
-import type { StyleObject, FillStyle } from "./style-schema";
+import type {
+  ImageCrop,
+  TextContent,
+  TableContent,
+  ConnectorEndpoint,
+} from "./schema";
+import type { ImageFitMode, StyleObject, FillStyle } from "./style-schema";
 import type {
   ResolvedDeckRenderTree,
   ResolvedSlideRenderTree,
@@ -19,6 +24,10 @@ import type {
 } from "./render-tree";
 import { DiagnosticCollector } from "./diagnostics";
 import type { PresentationDiagnostic } from "./diagnostics";
+import {
+  normalizeVisualChannelColors,
+  type ResolvedVisualChannelColors,
+} from "./visual-channel-colors";
 
 // ---------------------------------------------------------------------------
 // Export operation types
@@ -56,6 +65,8 @@ export type ExportImageOperation = {
   assetId: string;
   frame: { x: number; y: number; w: number; h: number };
   style: StyleObject;
+  fit?: ImageFitMode;
+  crop?: ImageCrop;
   alt?: string;
   rotation?: number;
   zIndex: number;
@@ -79,6 +90,8 @@ export type ExportVisualOperation = {
   visualId?: string;
   frame: { x: number; y: number; w: number; h: number };
   style: StyleObject;
+  channelColors?: ResolvedVisualChannelColors;
+  transparentBackground?: boolean;
   alt?: string;
   rotation?: number;
   zIndex: number;
@@ -182,7 +195,8 @@ function nodeToOperations(
           zIndex,
         },
       ];
-    case "image":
+    case "image": {
+      const fit = node.content.content.fit ?? style.image?.fit;
       return [
         {
           type: "image",
@@ -190,6 +204,10 @@ function nodeToOperations(
           assetId: node.content.content.assetId,
           frame,
           style,
+          ...(fit ? { fit } : {}),
+          ...(node.content.content.crop
+            ? { crop: node.content.content.crop }
+            : {}),
           ...(node.content.content.alt
             ? { alt: node.content.content.alt }
             : {}),
@@ -197,6 +215,7 @@ function nodeToOperations(
           zIndex,
         },
       ];
+    }
     case "shape":
       return [
         {
@@ -227,7 +246,13 @@ function nodeToOperations(
           zIndex,
         },
       ];
-    case "visual":
+    case "visual": {
+      const channelColors = normalizeVisualChannelColors(
+        style.visual?.channelColors,
+      ).colors;
+      const transparentBackground =
+        node.content.content.transparentBackground ??
+        style.visual?.transparentBackground;
       return [
         {
           type: "visual",
@@ -240,6 +265,10 @@ function nodeToOperations(
             : {}),
           frame,
           style,
+          ...(Object.keys(channelColors).length > 0 ? { channelColors } : {}),
+          ...(transparentBackground !== undefined
+            ? { transparentBackground }
+            : {}),
           ...(node.content.content.alt
             ? { alt: node.content.content.alt }
             : {}),
@@ -247,6 +276,7 @@ function nodeToOperations(
           zIndex,
         },
       ];
+    }
     case "table":
       // Table compiles into a tableShape operation for export
       return [

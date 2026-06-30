@@ -33,6 +33,7 @@ import type {
 import { resolveNodeStyle, resolveTheme } from "./style-resolver";
 import { DiagnosticCollector } from "./diagnostics";
 import type { StyleObject } from "./style-schema";
+import { normalizeVisualChannelColors } from "./visual-channel-colors";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -109,6 +110,24 @@ function resolveChildNode(
     for (const d of diagnostics) dc.add(d);
   }
 
+  if (node.type === "visual") {
+    const { unsupportedChannels } = normalizeVisualChannelColors(
+      resolvedStyle.visual?.channelColors,
+    );
+    for (const channel of unsupportedChannels) {
+      dc.warning(
+        "unsupported-export-feature",
+        `Visual node "${node.id}" uses unsupported channel color "${channel}"; render and export ignore it`,
+        {
+          nodeId: node.id,
+          slideId: slide.id,
+          path: `slides.${slide.id}.nodes.${node.id}.style.visual.channelColors.${channel}`,
+          details: { channel },
+        },
+      );
+    }
+  }
+
   // Resolve layout
   const layout = node.layout;
   const resolvedLayout = {
@@ -174,7 +193,23 @@ function resolveChildNode(
       content = { type: "table", content: node.content };
       break;
     case "visual":
-      content = { type: "visual", content: node.content };
+      if (node.content.assetId) {
+        const visualAsset = deck.assets.visuals?.[node.content.assetId];
+        content = {
+          type: "visual",
+          content: {
+            ...node.content,
+            ...(visualAsset?.visualId && node.content.visualId === undefined
+              ? { visualId: visualAsset.visualId }
+              : {}),
+            ...(visualAsset?.alt && node.content.alt === undefined
+              ? { alt: visualAsset.alt }
+              : {}),
+          },
+        };
+      } else {
+        content = { type: "visual", content: node.content };
+      }
       break;
     default: {
       void (node as never);
