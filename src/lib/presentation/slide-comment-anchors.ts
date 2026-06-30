@@ -69,31 +69,6 @@ export interface SlideCommentAnchor {
  */
 export type AnchorState = "deck" | "attached" | "orphaned" | "unknown";
 
-export type SlideCommentAnchorMigrationDiagnosticCode =
-  | "slide-anchor-remapped"
-  | "node-anchor-remapped"
-  | "slide-anchor-unmapped"
-  | "node-anchor-unmapped"
-  | "node-anchor-dropped";
-
-export interface SlideCommentAnchorMigrationDiagnostic {
-  code: SlideCommentAnchorMigrationDiagnosticCode;
-  from: string;
-  to?: string;
-  reason: string;
-}
-
-export interface SlideCommentAnchorMigrationMap {
-  slides: Record<string, string>;
-  nodes: Record<string, string>;
-  dropped?: readonly { kind: "node"; from: string; reason: string }[];
-}
-
-export interface SlideCommentAnchorMigrationResult {
-  anchor: SlideCommentAnchor;
-  diagnostics: SlideCommentAnchorMigrationDiagnostic[];
-}
-
 // ---------------------------------------------------------------------------
 // Resolution
 // ---------------------------------------------------------------------------
@@ -142,80 +117,6 @@ function findNodeById(
     }
   }
   return undefined;
-}
-
-export function remapSlideCommentAnchorForMigration(
-  anchor: SlideCommentAnchor,
-  idMap: SlideCommentAnchorMigrationMap,
-): SlideCommentAnchorMigrationResult {
-  const diagnostics: SlideCommentAnchorMigrationDiagnostic[] = [];
-  let next: SlideCommentAnchor = { ...anchor };
-
-  if (anchor.slideId) {
-    const mappedSlideId = idMap.slides[anchor.slideId];
-    if (mappedSlideId) {
-      next = { ...next, slideId: mappedSlideId };
-      if (mappedSlideId !== anchor.slideId) {
-        diagnostics.push({
-          code: "slide-anchor-remapped",
-          from: anchor.slideId,
-          to: mappedSlideId,
-          reason: "Legacy slide id was rewritten during v7 migration.",
-        });
-      }
-    } else {
-      diagnostics.push({
-        code: "slide-anchor-unmapped",
-        from: anchor.slideId,
-        reason: "No migrated v7 slide id was emitted for this legacy slide id.",
-      });
-    }
-  }
-
-  if (anchor.elementId) {
-    const mappedNodeId = idMap.nodes[anchor.elementId];
-    if (mappedNodeId) {
-      next = { ...next, elementId: mappedNodeId };
-      if (mappedNodeId !== anchor.elementId) {
-        diagnostics.push({
-          code: "node-anchor-remapped",
-          from: anchor.elementId,
-          to: mappedNodeId,
-          reason: "Legacy element id was rewritten to a v7 node id.",
-        });
-      }
-    } else {
-      const dropped = idMap.dropped?.find(
-        (entry) => entry.kind === "node" && entry.from === anchor.elementId,
-      );
-      if (dropped) {
-        next = { ...next, elementId: null };
-        diagnostics.push({
-          code: "node-anchor-dropped",
-          from: anchor.elementId,
-          reason: `Legacy element was dropped during v7 migration: ${dropped.reason}`,
-        });
-      } else {
-        diagnostics.push({
-          code: "node-anchor-unmapped",
-          from: anchor.elementId,
-          reason:
-            "No migrated v7 node id was emitted for this legacy element id.",
-        });
-      }
-    }
-  }
-
-  return { anchor: next, diagnostics };
-}
-
-export function remapSlideCommentAnchorsForMigration(
-  anchors: readonly SlideCommentAnchor[],
-  idMap: SlideCommentAnchorMigrationMap,
-): SlideCommentAnchorMigrationResult[] {
-  return anchors.map((anchor) =>
-    remapSlideCommentAnchorForMigration(anchor, idMap),
-  );
 }
 
 // ---------------------------------------------------------------------------

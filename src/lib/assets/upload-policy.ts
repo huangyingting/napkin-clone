@@ -121,13 +121,7 @@ export function validateAssetMagicBytes(
   if (sniffed === null) {
     return { ok: false, error: { code: "signature_mismatch" } };
   }
-  const equivalent =
-    (declaredMime === "application/font-woff" && sniffed === "font/woff") ||
-    (declaredMime === "application/font-woff2" && sniffed === "font/woff2") ||
-    (declaredMime === "application/x-font-ttf" && sniffed === "font/ttf") ||
-    (declaredMime === "application/x-font-otf" && sniffed === "font/otf");
-  /* node:coverage ignore next 3 -- mismatch and alias branches are asserted; tsx maps this conditional as uncovered. */
-  if (declaredMime !== sniffed && !equivalent) {
+  if (declaredMime !== sniffed) {
     return { ok: false, error: { code: "signature_mismatch" } };
   }
   return { ok: true };

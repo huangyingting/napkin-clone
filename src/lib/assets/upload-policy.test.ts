@@ -108,30 +108,22 @@ describe("asset upload policy validation", () => {
     }
   });
 
-  it("sniffs WEBP content and accepts legacy font MIME aliases", () => {
+  it("sniffs WEBP content and rejects mismatched font MIME aliases", () => {
     const webp = Buffer.from("RIFF0000WEBP");
     assert.equal(sniffAssetMime(webp), "image/webp");
     assert.deepEqual(validateAssetMagicBytes("image/webp", webp), { ok: true });
 
-    assert.deepEqual(
-      validateAssetMagicBytes("application/font-woff", Buffer.from("wOFF")),
-      { ok: true },
-    );
-    assert.deepEqual(
-      validateAssetMagicBytes("application/font-woff2", Buffer.from("wOF2")),
-      { ok: true },
-    );
-    assert.deepEqual(
-      validateAssetMagicBytes(
-        "application/x-font-ttf",
-        new Uint8Array([0x00, 0x01, 0x00, 0x00]),
-      ),
-      { ok: true },
-    );
-    assert.deepEqual(
-      validateAssetMagicBytes("application/x-font-otf", Buffer.from("OTTO")),
-      { ok: true },
-    );
+    for (const [declaredMime, bytes] of [
+      ["application/font-woff", Buffer.from("wOFF")],
+      ["application/font-woff2", Buffer.from("wOF2")],
+      ["application/x-font-ttf", new Uint8Array([0x00, 0x01, 0x00, 0x00])],
+      ["application/x-font-otf", Buffer.from("OTTO")],
+    ] as const) {
+      assert.deepEqual(validateAssetMagicBytes(declaredMime, bytes), {
+        ok: false,
+        error: { code: "signature_mismatch" },
+      });
+    }
   });
 
   it("rejects mismatched signatures and returns empty dimensions for unsupported images", () => {

@@ -71,8 +71,6 @@ test("presentation-vnext barrel exposes the stable runtime surface", () => {
     "createBlankDeckV7",
     "openDeckFromJson",
     "looksLikeDeckV7",
-    "looksLikeLegacyDeckV6",
-    "migrateLegacyDeckV6",
     "buildVnextPptxSpec",
     "textContentToPptxRuns",
     "vnextShapeToName",

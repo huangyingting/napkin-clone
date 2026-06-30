@@ -382,7 +382,7 @@ export {
 // Native v7 starter decks
 export { createBlankDeckV7 } from "./empty-deck";
 
-// Open-deck boundary helper (v7 runtime parse + one-time legacy migration path)
+// Open-deck boundary helper (current DeckV7 runtime parse)
 export type { OpenDeckResult, DeckOpenDecision } from "./open-deck";
 export {
   openDeckFromJson,
@@ -390,14 +390,6 @@ export {
   decideDeckOpen,
   looksLikeDeckV7,
 } from "./open-deck";
-export { looksLikeLegacyDeckV6, migrateLegacyDeckV6 } from "./migration-v6";
-export type {
-  MigrationDroppedIdentity,
-  MigrationIdMap,
-  MigrationIdentityKind,
-  MigrationRewrite,
-  MigrationUnmappedReference,
-} from "./migration-v6";
 
 // Undo/redo focus targeting (structural diff of committed deck snapshots)
 export type { DeckNodeDiff } from "./deck-diff";

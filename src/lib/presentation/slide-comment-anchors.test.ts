@@ -14,7 +14,6 @@ import type {
 import {
   floatAnchorToDeck,
   floatAnchorToSlide,
-  remapSlideCommentAnchorForMigration,
   resolveAnchorState,
   retargetAnchorSlide,
   retargetAnchorToSlideOnly,
@@ -281,52 +280,4 @@ test("retargetAnchorToSlideOnly: result resolves to attached even when elementId
   const a = anchor({ slideId: "sl-1", elementId: "el-a" });
   const retargeted = retargetAnchorToSlideOnly(a, "sl-2");
   assert.equal(resolveAnchorState(retargeted, d), "attached");
-});
-
-test("remapSlideCommentAnchorForMigration maps legacy slide and element ids to v7 ids", () => {
-  const result = remapSlideCommentAnchorForMigration(
-    {
-      slideId: "legacy slide",
-      elementId: "legacy node",
-      geometry: { x: 1, y: 2 },
-    },
-    {
-      slides: { "legacy slide": "legacy-slide" },
-      nodes: { "legacy node": "legacy-node" },
-    },
-  );
-
-  assert.deepEqual(result.anchor, {
-    slideId: "legacy-slide",
-    elementId: "legacy-node",
-    geometry: { x: 1, y: 2 },
-  });
-  assert.deepEqual(
-    result.diagnostics.map((diagnostic) => diagnostic.code),
-    ["slide-anchor-remapped", "node-anchor-remapped"],
-  );
-});
-
-test("remapSlideCommentAnchorForMigration floats dropped element anchors to the slide", () => {
-  const result = remapSlideCommentAnchorForMigration(
-    { slideId: "slide-1", elementId: "video-1", geometry: { x: 5, y: 6 } },
-    {
-      slides: { "slide-1": "slide-1" },
-      nodes: {},
-      dropped: [
-        {
-          kind: "node",
-          from: "video-1",
-          reason: 'Unsupported element kind "video".',
-        },
-      ],
-    },
-  );
-
-  assert.deepEqual(result.anchor, {
-    slideId: "slide-1",
-    elementId: null,
-    geometry: { x: 5, y: 6 },
-  });
-  assert.equal(result.diagnostics[0]?.code, "node-anchor-dropped");
 });

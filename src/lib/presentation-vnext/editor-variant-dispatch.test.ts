@@ -87,11 +87,10 @@ describe("openDeckFromJson — open helper variant behaviour", () => {
     assert.equal(result.deck.schemaVersion, 7);
   });
 
-  test("v6 input: migrates before entering runtime", () => {
+  test("v6 input: rejects superseded deck payloads", () => {
     const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(result.ok);
-    assert.equal(result.source, "legacy-v6");
-    assert.equal(result.deck.schemaVersion, 7);
+    assert.ok(!result.ok);
+    assert.match(result.error, /Expected schemaVersion 7/);
   });
 
   test("unknown input: returns ok=false", () => {

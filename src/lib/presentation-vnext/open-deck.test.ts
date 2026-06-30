@@ -7,7 +7,6 @@ import {
   openDeckFromJson,
   looksLikeDeckV7,
 } from "./open-deck";
-import { safeParseDeckV7 } from "./validation";
 
 // ---------------------------------------------------------------------------
 // Minimal v7 fixture
@@ -119,161 +118,6 @@ describe("openDeckFromJson — v7 pass-through", () => {
 });
 
 // ---------------------------------------------------------------------------
-// openDeckFromJson — legacy schemas
-// ---------------------------------------------------------------------------
-
-describe("openDeckFromJson — legacy schemas", () => {
-  test("migrates a v6 deck to valid DeckV7", () => {
-    const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(result.ok);
-    assert.equal(result.source, "legacy-v6");
-    assert.equal(result.deck.schemaVersion, 7);
-    assert.equal(result.deck.slides[0].children[0].type, "text");
-    assert.equal(result.idMap?.slides.s1, "s1");
-    assert.equal(result.idMap?.nodes.e1, "e1");
-    assert.equal(result.idMap?.sources["block-1"], "block-1");
-    assert.equal(result.diagnostics[0]?.message.includes("migrated"), true);
-  });
-
-  test("migrated v6 decks are save-ready v7 without legacy-only fields", () => {
-    const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(result.ok);
-    assert.equal(result.source, "legacy-v6");
-
-    const validation = safeParseDeckV7(result.deck);
-    assert.ok(
-      validation.success,
-      !validation.success ? validation.errors.join("; ") : "",
-    );
-    assert.equal("design" in result.deck, false);
-    assert.equal("masters" in result.deck, false);
-    assert.equal(
-      "elements" in (result.deck.slides[0] as Record<string, unknown>),
-      false,
-    );
-  });
-
-  test("migrates rewritten v6 ids with old-to-new idMap and connector remap", () => {
-    const legacy = {
-      schemaVersion: 6,
-      id: "deck 1",
-      canvas: { format: "16:9" },
-      design: { themeId: "default" },
-      slides: [
-        {
-          id: "slide 1",
-          title: "Mapped slide",
-          elements: [
-            {
-              id: "target node",
-              kind: "text",
-              role: "body",
-              box: { x: 10, y: 10, w: 20, h: 10 },
-              content: { text: "Target" },
-              source: {
-                documentId: "doc-1",
-                blockId: "source-block",
-                blockKind: "text",
-              },
-            },
-            {
-              id: "connector 1",
-              kind: "connector",
-              box: { x: 10, y: 30, w: 40, h: 10 },
-              content: {
-                start: { elementId: "target node", anchor: "right" },
-                end: { elementId: "missing node", anchor: "left" },
-              },
-            },
-            {
-              id: "image node",
-              kind: "image",
-              box: { x: 10, y: 45, w: 20, h: 20 },
-              content: {
-                assetId: "asset one",
-                src: "https://example.com/image.png",
-                alt: "Image",
-              },
-            },
-          ],
-        },
-      ],
-    };
-
-    const result = openDeckFromJson(legacy);
-    assert.ok(result.ok);
-    assert.equal(result.deck.id, "deck-1");
-    assert.equal(result.deck.slides[0].id, "slide-1");
-    assert.equal(result.idMap?.decks["deck 1"], "deck-1");
-    assert.equal(result.idMap?.slides["slide 1"], "slide-1");
-    assert.equal(result.idMap?.nodes["target node"], "target-node");
-    assert.equal(result.idMap?.nodes["connector 1"], "connector-1");
-    assert.equal(result.idMap?.assets["asset one"], "asset-one");
-    assert.equal(result.idMap?.themes.default, "clarity");
-    assert.equal(result.idMap?.sources["source-block"], "source-block");
-    const connector = result.deck.slides[0].children.find(
-      (node) => node.type === "connector",
-    );
-    assert.equal(connector?.type, "connector");
-    if (connector?.type === "connector") {
-      assert.deepEqual(connector.content.from, {
-        kind: "node",
-        nodeId: "target-node",
-        anchor: "right",
-      });
-      assert.deepEqual(connector.content.to, {
-        kind: "point",
-        point: { x: 100, y: 50 },
-      });
-    }
-    assert.ok(
-      result.diagnostics.some(
-        (diagnostic) => diagnostic.code === "migration-id-rewrite",
-      ),
-    );
-    assert.ok(
-      result.diagnostics.some(
-        (diagnostic) => diagnostic.code === "migration-unmapped-reference",
-      ),
-    );
-  });
-
-  test("rejects a v6 deck with no slides", () => {
-    const noSlides = { ...MINIMAL_V6, slides: [] };
-    const result = openDeckFromJson(noSlides);
-    assert.ok(!result.ok);
-    assert.equal(result.diagnostics[0]?.severity, "fatal");
-  });
-
-  describe("decideDeckOpen", () => {
-    test("starts blank only for absent deck JSON", () => {
-      assert.deepEqual(decideDeckOpen(null), { mode: "blank" });
-      assert.deepEqual(decideDeckOpen(undefined), { mode: "blank" });
-    });
-
-    test("routes invalid non-empty input to recovery instead of blank", () => {
-      const result = decideDeckOpen({ schemaVersion: 7, slides: [] });
-      assert.equal(result.mode, "recovery");
-      if (result.mode === "recovery") {
-        assert.match(result.error, /v7 deck validation failed/);
-        assert.ok(
-          (result.errors ?? []).some((error) => error.includes("slides")),
-        );
-      }
-    });
-
-    test("routes failed v6 migration to recovery with fatal diagnostics", () => {
-      const result = decideDeckOpen({ ...MINIMAL_V6, slides: [] });
-      assert.equal(result.mode, "recovery");
-      if (result.mode === "recovery") {
-        assert.match(result.error, /no slides to migrate/i);
-        assert.equal(result.diagnostics[0]?.severity, "fatal");
-      }
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
 // openDeckFromJson — unknown / missing version
 // ---------------------------------------------------------------------------
 
@@ -290,9 +134,47 @@ describe("openDeckFromJson — unknown schema version", () => {
     assert.ok(!result.ok);
   });
 
+  test("returns ok=false for superseded v6 deck payloads", () => {
+    const result = openDeckFromJson(MINIMAL_V6);
+    assert.ok(!result.ok);
+    assert.match(result.error, /Expected schemaVersion 7/);
+    assert.deepEqual(result.diagnostics, []);
+  });
+
   test("returns ok=false for a string schemaVersion", () => {
     const result = openDeckFromJson({ schemaVersion: "7", slides: [] });
     assert.ok(!result.ok);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decideDeckOpen
+// ---------------------------------------------------------------------------
+
+describe("decideDeckOpen", () => {
+  test("starts blank only for absent deck JSON", () => {
+    assert.deepEqual(decideDeckOpen(null), { mode: "blank" });
+    assert.deepEqual(decideDeckOpen(undefined), { mode: "blank" });
+  });
+
+  test("routes invalid non-empty v7 input to recovery instead of blank", () => {
+    const result = decideDeckOpen({ schemaVersion: 7, slides: [] });
+    assert.equal(result.mode, "recovery");
+    if (result.mode === "recovery") {
+      assert.match(result.error, /v7 deck validation failed/);
+      assert.ok(
+        (result.errors ?? []).some((error) => error.includes("slides")),
+      );
+    }
+  });
+
+  test("routes superseded v6 input to recovery", () => {
+    const result = decideDeckOpen(MINIMAL_V6);
+    assert.equal(result.mode, "recovery");
+    if (result.mode === "recovery") {
+      assert.match(result.error, /Expected schemaVersion 7/);
+      assert.deepEqual(result.diagnostics, []);
+    }
   });
 });
 

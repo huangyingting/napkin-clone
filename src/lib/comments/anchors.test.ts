@@ -8,7 +8,6 @@ import {
   durableBlockIdFromAnchorRecord,
   normalizeAnchorText,
   normalizeAnchorType,
-  remapCommentAnchorForDeckMigration,
   sanitizeAnchorGeometry,
   slideAnchorFromRecord,
   slideAnchorToRecord,
@@ -259,59 +258,4 @@ test("validateAnchorGeometry accepts bounds and rejects invalid values", () => {
 test("sanitizeAnchorGeometry drops non-objects and out-of-range values", () => {
   assert.equal(sanitizeAnchorGeometry("bad"), null);
   assert.equal(sanitizeAnchorGeometry({ x: 50, y: 101 }), null);
-});
-
-test("remapCommentAnchorForDeckMigration maps legacy slide-element anchors to DeckV7 ids", () => {
-  const result = remapCommentAnchorForDeckMigration(
-    {
-      kind: "slide-element",
-      slideId: "legacy slide",
-      elementId: "legacy element",
-      geometry: { x: 10, y: 20 },
-    },
-    {
-      slides: { "legacy slide": "slide-v7" },
-      nodes: { "legacy element": "node-v7" },
-    },
-  );
-
-  assert.deepEqual(result.anchor, {
-    kind: "slide-element",
-    slideId: "slide-v7",
-    elementId: "node-v7",
-    geometry: { x: 10, y: 20 },
-  });
-  assert.deepEqual(
-    result.diagnostics.map((diagnostic) => diagnostic.code),
-    ["slide-anchor-remapped", "node-anchor-remapped"],
-  );
-});
-
-test("remapCommentAnchorForDeckMigration turns dropped element anchors into slide anchors", () => {
-  const result = remapCommentAnchorForDeckMigration(
-    {
-      kind: "slide-element",
-      slideId: "slide-1",
-      elementId: "unsupported-video",
-      geometry: null,
-    },
-    {
-      slides: { "slide-1": "slide-1" },
-      nodes: {},
-      dropped: [
-        {
-          kind: "node",
-          from: "unsupported-video",
-          reason: 'Unsupported element kind "video".',
-        },
-      ],
-    },
-  );
-
-  assert.deepEqual(result.anchor, {
-    kind: "slide",
-    slideId: "slide-1",
-    geometry: null,
-  });
-  assert.equal(result.diagnostics[0]?.code, "node-anchor-dropped");
 });

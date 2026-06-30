@@ -98,7 +98,6 @@ src/lib/presentation-vnext/
   render-tree.ts
   render-resolver.ts
   export-spec.ts
-  migration-v6.ts
 
 src/components/presentation-vnext/
   slide-canvas.tsx

@@ -3,16 +3,11 @@
  *
  * `openDeckFromJson` is the single entry point for loading deck JSON at editor,
  * present-mode, and public-render boundaries. It accepts valid DeckV7 payloads
- * directly and performs one-time legacy v6 migration before the editor runtime
- * sees the deck.
+ * directly and rejects superseded payload shapes before the editor runtime sees
+ * the deck.
  */
 
 import type { PresentationDiagnostic } from "./diagnostics";
-import {
-  migrateLegacyDeckV6,
-  looksLikeLegacyDeckV6,
-  type MigrationIdMap,
-} from "./migration-v6";
 import { safeParseDeckV7 } from "./validation";
 import type { DeckV7 } from "./schema";
 
@@ -24,15 +19,8 @@ export type OpenDeckResult =
   | {
       ok: true;
       deck: DeckV7;
-      source: "v7" | "legacy-v6";
+      source: "v7";
       diagnostics: PresentationDiagnostic[];
-      /**
-       * Old→new identity mapping, present only for `legacy-v6` opens. Lets
-       * downstream consumers (comment / source-anchor migration) remap
-       * references that pointed at rewritten ids. Absent for `v7` pass-through,
-       * which never rewrites ids.
-       */
-      idMap?: MigrationIdMap;
     }
   | {
       ok: false;
@@ -56,10 +44,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 /**
- * Opens deck JSON from any persisted shape.
+ * Opens current DeckV7 JSON.
  *
- * Accepts v7 decks directly.
- * Returns `{ ok: false }` for anything that cannot be interpreted.
+ * Returns `{ ok: false }` for superseded, malformed, or unknown payload shapes.
  */
 export function openDeckFromJson(raw: unknown): OpenDeckResult {
   if (!isPlainObject(raw)) {
@@ -72,7 +59,6 @@ export function openDeckFromJson(raw: unknown): OpenDeckResult {
 
   const version = raw.schemaVersion;
 
-  // v7 — validate and return directly, no migration
   if (version === 7) {
     const result = safeParseDeckV7(raw);
     if (result.success) {
@@ -86,35 +72,9 @@ export function openDeckFromJson(raw: unknown): OpenDeckResult {
     };
   }
 
-  if (version === 6 || looksLikeLegacyDeckV6(raw)) {
-    const migrated = migrateLegacyDeckV6(raw);
-    if (migrated.ok) {
-      return {
-        ok: true,
-        deck: migrated.deck,
-        source: "legacy-v6",
-        diagnostics: migrated.diagnostics,
-        idMap: migrated.idMap,
-      };
-    }
-    return {
-      ok: false,
-      error: migrated.error,
-      errors: migrated.errors,
-      diagnostics: migrated.diagnostics,
-    };
-  }
-
-  // Unknown / missing / legacy schema version — attempt v7 parse for a useful error
-  const result = safeParseDeckV7(raw);
-  if (result.success) {
-    return { ok: true, deck: result.data, source: "v7", diagnostics: [] };
-  }
-
   return {
     ok: false,
     error: `Unrecognised deck schema (version=${String(version)}). Expected schemaVersion 7.`,
-    errors: result.errors,
     diagnostics: [],
   };
 }
@@ -148,7 +108,7 @@ export function openAiGeneratedDeck(raw: unknown): OpenDeckResult {
  *
  * - `blank`: there is genuinely no deck to open (null/undefined input), so the
  *   editor starts from an explicit, guarded blank deck.
- * - `open`: the candidate is a valid v7 deck (or a migratable v6 deck).
+ * - `open`: the candidate is a valid DeckV7 payload.
  * - `recovery`: the candidate is non-empty but could not be opened, so the
  *   editor must show a recovery surface with diagnostics — never a blank deck.
  */
@@ -157,9 +117,8 @@ export type DeckOpenDecision =
   | {
       mode: "open";
       deck: DeckV7;
-      source: "v7" | "legacy-v6";
+      source: "v7";
       diagnostics: PresentationDiagnostic[];
-      idMap?: MigrationIdMap;
     }
   | {
       mode: "recovery";
@@ -188,7 +147,6 @@ export function decideDeckOpen(raw: unknown): DeckOpenDecision {
       deck: result.deck,
       source: result.source,
       diagnostics: result.diagnostics,
-      idMap: result.idMap,
     };
   }
   return {
