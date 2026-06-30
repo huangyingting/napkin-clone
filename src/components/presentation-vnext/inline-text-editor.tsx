@@ -27,6 +27,7 @@ import {
   INLINE_TEXT_COMMAND_EVENT_V7,
   type InlineTextCommandPayload,
 } from "@/lib/presentation-vnext/inline-text-commands";
+import { STAGE_CHROME_Z_INDEX } from "@/lib/presentation-vnext/stage-chrome";
 import {
   mergeRunsV7,
   shouldStoreRunsV7,
@@ -345,7 +346,7 @@ export function InlineTextEditorVNext({
     outline: "none",
     cursor: "text",
     // Keep text transparent so it layers exactly over the canvas render
-    zIndex: 20,
+    zIndex: STAGE_CHROME_Z_INDEX.inlineEditor,
     boxSizing: "border-box",
     padding: "inherit",
     // Match canvas font as best possible via inheritance

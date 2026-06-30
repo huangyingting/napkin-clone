@@ -73,7 +73,21 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
 
     assert.match(html, /aria-disabled="true"/);
-    assert.match(html, /outline:2px dashed/);
+    assert.match(html, /data-node-chrome-frame="selected"/);
+    assert.match(html, /border:2px dashed var\(--ds-border, #9ca3af\)/);
+  });
+
+  test("renders hover chrome as a separate preselection frame", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([textNode("hovered", { x: 10, y: 10, w: 20, h: 10 })]),
+        hoveredNodeId: "hovered",
+        onNodeClick: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-node-chrome-frame="preselected"/);
+    assert.match(html, /border:1.5px solid var\(--ds-border, #cbd5e1\)/);
   });
 
   test("renders a multi-selection bounding box", () => {

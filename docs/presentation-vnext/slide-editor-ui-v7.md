@@ -50,8 +50,8 @@ layers are introduced.
 │  Deck title | Insert group | Theme picker | Undo/Redo | Save | Close │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                              │                       │
-│  Stage (flex-1)                              │  Right Inspector      │
-│                                              │  (320px, resizable)   │
+│  Stage (flex-1)                              │  Inspector overlay    │
+│                                              │  (right-4, 320px)     │
 │   ┌────────────────────────────────────┐     │                       │
 │   │  Context / Popover Toolbar         │     │  Context-aware panel  │
 │   │  (floats above selection, portal)  │     │  router:              │
@@ -68,11 +68,11 @@ layers are introduced.
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-The current v7 editor has the slide rail on the **left** (156 px vertical
-column). This migration moves it to a **bottom horizontal filmstrip** to match
-the legacy editor's structural intent (the legacy `SlideRail` in
-`shell-components.tsx` is a collapsible horizontal strip with `max-h-32`). The
-left column space becomes fully available to the stage.
+The legacy editor keeps the stage as the owning layout surface and floats the
+desktop inspector on top of it (`absolute right-4 z-panel`) instead of letting
+the inspector resize the stage. The v7 editor should preserve that contract:
+top toolbar and bottom filmstrip/status chrome are fixed-height siblings, while
+the stage remains the full middle surface and owns floating stage chrome.
 
 ---
 
@@ -891,6 +891,17 @@ operations, source metadata actions, and toolbar/inspector accessibility
 improvements. The remaining gaps below should be treated as implementation work,
 not changes to the target design.
 
+### Layout And Z-Order Gap Audit
+
+| Capability from legacy       | Current implementation state                                                                                                            | Remaining gap                                                                             |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Stage owns middle layout     | Implemented: the main editor body is a full middle stage surface rather than a flex row split by inspector                              | Add visual regression coverage at the 1280/1440/1920 breakpoints                          |
+| Floating desktop inspector   | Implemented: inspector is an `absolute right-4 top-4 bottom-4 z-panel` overlay, matching the legacy desktop shell contract              | Add mobile sheet/toggle parity if the v7 editor needs sub-`lg` inspector access           |
+| Explicit stage chrome layers | Implemented in `src/lib/presentation-vnext/stage-chrome.ts` with legacy-equivalent selected/preselected/frame/guide/marquee ordering    | Keep new stage chrome additions routed through this module                                |
+| Selection/hover chrome       | Implemented as separate canvas overlay frames instead of node-owned outlines, so content z-order remains independent from editor chrome | Add browser coverage for overlapped nodes where selected/hover frames must remain visible |
+| Context toolbar stacking     | Implemented with the tooltip layer so it floats above stage frames/guides like legacy `StageFloatingToolbar`                            | Add interaction coverage during inspector transition/reflow                               |
+| Inline text editor stacking  | Implemented with the stage chrome inline-editor layer above marquee/guides                                                              | Add inline-edit visual coverage over selected/overlapped nodes                            |
+
 ### Stage Interaction Gaps
 
 | Capability from spec          | Current implementation state                                                               | Gap                                                                                               |
@@ -990,6 +1001,26 @@ Relevant files:
 - `src/components/presentation-vnext/inspector/local-style-panel.tsx`
 - `src/components/presentation-vnext/inspector/node-geometry-panel.tsx`
 - `src/components/presentation-vnext/inspector/node-source-panel.tsx`
+
+### Bottom Filmstrip And Status Dock Gap Audit
+
+| Capability from spec / legacy | Current implementation state                                                                                                    | Remaining gap                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Collapsible rail transition   | Implemented as an animated `max-height`/opacity/translate rail shell with persisted collapsed state                             | Add browser coverage for transition/focus behavior                            |
+| Bottom dock controls          | Implemented inside the existing footer status bar as slide toggle, notes toggle, slide count label, zoom slider, zoom menu, Fit | Add visual coverage against the single-row footer layout                      |
+| Zoom range/presets            | Implemented with 25-200% range, 5% step, descending presets, and Fit action                                                     | Confirm product meaning of Fit if future stage auto-fit differs from 100%     |
+| Thumbnail action overlay      | Implemented for every thumbnail on active/hover/focus, including duplicate/delete and left/right reorder actions                | Add component/browser coverage for non-active hover actions                   |
+| Drag visual feedback          | Implemented with drag threshold, source dim/scale, drop indicator, and edge auto-scroll                                         | Add pointer-drag tests once a DOM-capable component test harness exists       |
+| Filmstrip keyboard            | Implemented with Arrow/Home/End navigation, Enter/Space select, Delete/Backspace focused-slide delete, and Alt+Arrow reordering | Add keyboard integration tests for focus restoration after delete/reorder     |
+| Add slide affordance          | Implemented with icon-only compact mode and `Add` text on wider screens                                                         | Add responsive visual coverage                                                |
+| Delete last slide             | Implemented with disabled delete buttons and a polite live-region keyboard guard for the final slide                            | Add visible toast/status feedback if the final product shell standardizes one |
+
+Relevant files:
+
+- `src/components/presentation-vnext/filmstrip/filmstrip.tsx`
+- `src/components/presentation-vnext/filmstrip/filmstrip-slide.tsx`
+- `src/components/presentation-vnext/filmstrip/use-filmstrip-drag.ts`
+- `src/components/presentation-vnext/slide-editor-vnext.tsx`
 
 ### Verification Gaps
 

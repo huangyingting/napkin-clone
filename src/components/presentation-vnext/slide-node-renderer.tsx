@@ -769,22 +769,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   ].filter(Boolean);
 
   const isLocked = node.locked === true;
-  const outlineStyle: React.CSSProperties = selected
-    ? isLocked
-      ? {
-          outline: "2px dashed var(--ds-border, #9ca3af)",
-          outlineOffset: "1px",
-        }
-      : {
-          outline: "2px solid var(--ds-accent-fill, #6366f1)",
-          outlineOffset: "1px",
-        }
-    : hovered || focused
-      ? {
-          outline: "1px solid var(--ds-border, #cbd5e1)",
-          outlineOffset: "1px",
-        }
-      : {};
 
   const containerStyle: React.CSSProperties = {
     ...frameToCss(layout.frame),
@@ -797,7 +781,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     ...styleObjectToContainerCss(style, assetResolver),
     boxSizing: "border-box",
     cursor: onClick ? (isLocked ? "not-allowed" : "pointer") : "default",
-    ...outlineStyle,
     // Hide when inline editor is active for this node
     ...(hidden ? { visibility: "hidden" } : {}),
   };
@@ -835,6 +818,9 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       data-node-id={node.id}
       data-node-type={node.type}
       data-node-source={node.source}
+      data-node-selected={selected ? "true" : undefined}
+      data-node-hovered={hovered ? "true" : undefined}
+      data-node-focused={focused ? "true" : undefined}
       style={{ ...containerStyle, ...textCss }}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? tabIndex : undefined}

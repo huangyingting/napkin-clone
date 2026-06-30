@@ -506,7 +506,7 @@ export function ContextToolbar({
       position={position}
       role="toolbar"
       aria-label="Context toolbar"
-      layer="dropdown"
+      layer="tooltip"
       elevation="overlay"
       closeOnClickAway={false}
       closeOnEscape={false}

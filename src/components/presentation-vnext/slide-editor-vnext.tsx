@@ -42,6 +42,7 @@ import {
 } from "react";
 import {
   ChevronDown,
+  ChevronUp,
   ClipboardPaste,
   Copy,
   FileDown,
@@ -49,11 +50,13 @@ import {
   Group,
   Keyboard,
   Image as ImageIcon,
+  LayoutPanelLeft,
   Plus,
   Redo2,
   Save,
   Spline,
   Square,
+  StickyNote,
   Table2,
   Type,
   Ungroup,
@@ -131,6 +134,7 @@ import {
   snapFrameToStageGuides,
   type StageGuide,
 } from "@/lib/presentation-vnext/stage-guides";
+import { STAGE_CHROME_Z_INDEX } from "@/lib/presentation-vnext/stage-chrome";
 import {
   normalizeSelectionFrame,
   selectNodesInFrame,
@@ -157,6 +161,9 @@ import {
 import { Filmstrip } from "./filmstrip/filmstrip";
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { Popover } from "@/components/ui/popover";
+import { Tooltip } from "@/components/ui/tooltip";
+import { cx, FOCUS_RING } from "@/components/ui/tokens";
 
 const TEMPLATE_REGISTRY = createDefaultTemplateRegistry();
 const TEMPLATE_OPTIONS = TEMPLATE_REGISTRY.all();
@@ -175,6 +182,8 @@ const TEXT_SLOT_KEYS = new Set<SlotKey>([
   "statLabel",
   "caption",
 ]);
+const FILMSTRIP_COLLAPSED_KEY = "slide-filmstrip-collapsed";
+const ZOOM_PERCENT_PRESETS = [200, 150, 125, 100, 75, 50, 25] as const;
 
 export type SlideEditorVNextImageUploadResult = {
   src: string;
@@ -603,10 +612,15 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const src = typeof reader.result === "string" ? reader.result : "";
-      src ? resolve(src) : reject(new Error("empty image data"));
+      if (src) {
+        resolve(src);
+      } else {
+        reject(new Error("empty image data"));
+      }
     };
-    reader.onerror = () =>
+    reader.onerror = () => {
       reject(reader.error ?? new Error("image read failed"));
+    };
     reader.readAsDataURL(file);
   });
 }
@@ -946,6 +960,11 @@ export function SlideEditorVNext({
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [stageAnnouncement, setStageAnnouncement] = useState("");
   const [stageZoomPercent, setStageZoomPercent] = useState(100);
+  const [filmstripCollapsed, setFilmstripCollapsed] = useState(() => {
+    if (typeof localStorage === "undefined") return false;
+    return localStorage.getItem(FILMSTRIP_COLLAPSED_KEY) === "true";
+  });
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [speakerNotesOpen, setSpeakerNotesOpen] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
@@ -954,6 +973,21 @@ export function SlideEditorVNext({
     nodeId: string;
     handle: ResizeHandlePosition;
   } | null>(null);
+
+  function toggleFilmstripCollapsed() {
+    setFilmstripCollapsed((prev) => {
+      const next = !prev;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(FILMSTRIP_COLLAPSED_KEY, String(next));
+      }
+      return next;
+    });
+  }
+
+  function setFooterZoom(percent: number) {
+    setStageZoomPercent(percent);
+    setZoomMenuOpen(false);
+  }
 
   function handleInsertSlide() {
     const result = insertBlankSlide(deck, activeSlideIndex + 1);
@@ -2493,14 +2527,14 @@ export function SlideEditorVNext({
       {/* ------------------------------------------------------------------ */}
       {/* Editor surface (stage + inspector — rail moved to bottom filmstrip)  */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-ds-surface-recessed">
         {/* ------------------------------------------------------------------ */}
         {/* Main Stage                                                          */}
         {/* ------------------------------------------------------------------ */}
         <div
           data-slide-stage-shell="true"
           data-slide-toolbar-anchor="true"
-          className="relative min-w-0 flex-1 overflow-hidden bg-ds-surface-recessed"
+          className="relative h-full min-w-0 overflow-hidden bg-ds-surface-recessed"
           onClick={handleStageClick}
           onPointerDown={handleStagePointerDown}
         >
@@ -2619,7 +2653,10 @@ export function SlideEditorVNext({
                   })()}
 
                 {stageGuides.length > 0 ? (
-                  <div className="pointer-events-none absolute inset-0">
+                  <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{ zIndex: STAGE_CHROME_Z_INDEX.snapGuide }}
+                  >
                     {stageGuides.map((guide, index) => (
                       <span
                         key={`${guide.axis}-${guide.positionPct}-${index}`}
@@ -2652,6 +2689,7 @@ export function SlideEditorVNext({
                       top: `${marqueeFrame.y}%`,
                       width: `${marqueeFrame.w}%`,
                       height: `${marqueeFrame.h}%`,
+                      zIndex: STAGE_CHROME_Z_INDEX.marquee,
                     }}
                   />
                 ) : null}
@@ -2667,50 +2705,52 @@ export function SlideEditorVNext({
         {/* ------------------------------------------------------------------ */}
         {/* Inspector Panel (tab-routed)                                        */}
         {/* ------------------------------------------------------------------ */}
-        <InspectorShell
-          activeSlide={activeSlide}
-          selectedNode={selectedNode}
-          selectedIds={selectedIds}
-          isDecorationSelected={isDecorationSelected}
-          diagnostics={diagnostics}
-          onUpdateControls={handleUpdateControls}
-          onUpdateProps={handleUpdateProps}
-          onUpdateSlideAttributes={handleUpdateSlideAttributes}
-          onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
-          onResetSlideLocalStyle={handleResetSlideLocalStyle}
-          onUpdateSlideSource={handleUpdateSlideSource}
-          onUpdateSelectedLayout={
-            handleUpdateSelectedLayout as Parameters<
-              typeof InspectorShell
-            >[0]["onUpdateSelectedLayout"]
-          }
-          onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
-          onUpdateSelectedContent={handleUpdateSelectedContent}
-          onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
-          assetResolver={resolveDeckAsset}
-          onReplaceImage={handleReplaceSelectedImageRequest}
-          onResetToTheme={handleResetToTheme}
-          onUpdateSelectedSource={handleUpdateSelectedSource}
-          onRefreshSelectedSource={handleRefreshSelectedSource}
-          onChangeStyleBinding={handleChangeStyleBinding}
-          onAlignSelection={handleAlignSelection}
-          onDistributeSelection={handleDistributeSelection}
-          onMatchSize={handleMatchSize}
-          onGroupSelection={handleGroupSelection}
-          onUngroupSelection={handleUngroupSelection}
-          onReorderSelection={handleReorderSelection}
-          onSelectLayer={handleSelectLayer}
-          onUpdateLayer={handleUpdateLayer}
-          onReorderLayer={handleReorderLayer}
-          onDetachDecoration={handleDetachDecoration}
-          onDiagnosticAction={handleDiagnosticAction}
-          TEMPLATE_OPTIONS={TEMPLATE_OPTIONS}
-          activeTemplate={activeTemplate}
-          activeLayoutId={activeLayoutId}
-          onReapplyTemplate={handleReapplyTemplate}
-          selectionMode={selection.mode}
-          onToggleSelectionMode={toggleSelectionMode}
-        />
+        <div className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex">
+          <InspectorShell
+            activeSlide={activeSlide}
+            selectedNode={selectedNode}
+            selectedIds={selectedIds}
+            isDecorationSelected={isDecorationSelected}
+            diagnostics={diagnostics}
+            onUpdateControls={handleUpdateControls}
+            onUpdateProps={handleUpdateProps}
+            onUpdateSlideAttributes={handleUpdateSlideAttributes}
+            onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
+            onResetSlideLocalStyle={handleResetSlideLocalStyle}
+            onUpdateSlideSource={handleUpdateSlideSource}
+            onUpdateSelectedLayout={
+              handleUpdateSelectedLayout as Parameters<
+                typeof InspectorShell
+              >[0]["onUpdateSelectedLayout"]
+            }
+            onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
+            onUpdateSelectedContent={handleUpdateSelectedContent}
+            onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
+            assetResolver={resolveDeckAsset}
+            onReplaceImage={handleReplaceSelectedImageRequest}
+            onResetToTheme={handleResetToTheme}
+            onUpdateSelectedSource={handleUpdateSelectedSource}
+            onRefreshSelectedSource={handleRefreshSelectedSource}
+            onChangeStyleBinding={handleChangeStyleBinding}
+            onAlignSelection={handleAlignSelection}
+            onDistributeSelection={handleDistributeSelection}
+            onMatchSize={handleMatchSize}
+            onGroupSelection={handleGroupSelection}
+            onUngroupSelection={handleUngroupSelection}
+            onReorderSelection={handleReorderSelection}
+            onSelectLayer={handleSelectLayer}
+            onUpdateLayer={handleUpdateLayer}
+            onReorderLayer={handleReorderLayer}
+            onDetachDecoration={handleDetachDecoration}
+            onDiagnosticAction={handleDiagnosticAction}
+            TEMPLATE_OPTIONS={TEMPLATE_OPTIONS}
+            activeTemplate={activeTemplate}
+            activeLayoutId={activeLayoutId}
+            onReapplyTemplate={handleReapplyTemplate}
+            selectionMode={selection.mode}
+            onToggleSelectionMode={toggleSelectionMode}
+          />
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -2720,6 +2760,7 @@ export function SlideEditorVNext({
         <Filmstrip
           renderTree={renderTree}
           activeSlideIndex={activeSlideIndex}
+          collapsed={filmstripCollapsed}
           assetResolver={resolveDeckAsset}
           onSelectSlide={(index) => {
             setActiveSlideIndex(index);
@@ -2744,10 +2785,6 @@ export function SlideEditorVNext({
             onDeckChange(result.deck);
             if (result.index >= 0) setActiveSlideIndex(result.index);
           }}
-          zoomPercent={stageZoomPercent}
-          onZoomChange={setStageZoomPercent}
-          notesOpen={speakerNotesOpen}
-          onToggleNotes={() => setSpeakerNotesOpen((open) => !open)}
         />
       )}
 
@@ -2771,15 +2808,133 @@ export function SlideEditorVNext({
       ) : null}
 
       {/* Footer status bar */}
-      <footer className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-ds-border-subtle bg-ds-surface-chrome px-3 text-[11px] text-ds-text-muted">
+      <footer className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-ds-border-subtle bg-ds-surface-chrome px-3 text-[11px] text-ds-text-muted">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="truncate">
+          <span className="truncate">{selectedNodeSummary}</span>
+        </div>
+        <div className="flex min-w-0 items-center justify-center gap-1.5">
+          <Tooltip
+            label={
+              filmstripCollapsed
+                ? "Show slide thumbnails"
+                : "Hide slide thumbnails"
+            }
+            side="top"
+          >
+            <button
+              type="button"
+              aria-label={
+                filmstripCollapsed
+                  ? "Show slide thumbnails"
+                  : "Hide slide thumbnails"
+              }
+              aria-pressed={!filmstripCollapsed}
+              onClick={toggleFilmstripCollapsed}
+              className={cx(
+                "flex h-7 items-center gap-1.5 rounded-ds-md px-2 text-[11px] font-semibold transition-colors",
+                !filmstripCollapsed
+                  ? "bg-ds-accent-surface text-ds-accent-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
+                FOCUS_RING,
+              )}
+            >
+              <LayoutPanelLeft size={13} aria-hidden />
+              Slides
+              {filmstripCollapsed ? (
+                <ChevronUp size={11} aria-hidden />
+              ) : (
+                <ChevronDown size={11} aria-hidden />
+              )}
+            </button>
+          </Tooltip>
+          <button
+            type="button"
+            aria-pressed={speakerNotesOpen}
+            onClick={() => setSpeakerNotesOpen((open) => !open)}
+            className={cx(
+              "flex h-7 items-center gap-1 rounded-ds-md px-2 text-[11px] font-semibold transition-colors",
+              speakerNotesOpen
+                ? "bg-ds-accent-surface text-ds-accent-text"
+                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
+              FOCUS_RING,
+            )}
+          >
+            <StickyNote size={13} aria-hidden />
+            Notes
+          </button>
+          <span className="hidden truncate font-medium text-ds-text-muted sm:inline">
             Slide {Math.min(activeSlideIndex + 1, deck.slides.length)} of{" "}
             {deck.slides.length}
           </span>
-          <span className="truncate">{selectedNodeSummary}</span>
+          <div
+            className="mx-1 hidden h-5 w-px bg-ds-border-subtle sm:block"
+            aria-hidden="true"
+          />
+          <input
+            type="range"
+            min={25}
+            max={200}
+            step={5}
+            value={stageZoomPercent}
+            onChange={(event) =>
+              setStageZoomPercent(Number(event.currentTarget.value))
+            }
+            aria-label="Slide zoom"
+            className="w-24 accent-ds-accent sm:w-32"
+          />
+          <Popover
+            open={zoomMenuOpen}
+            onClose={() => setZoomMenuOpen(false)}
+            aria-label="Zoom presets"
+            placement="top"
+            className="w-20 p-1"
+            trigger={
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={zoomMenuOpen}
+                onClick={() => setZoomMenuOpen((open) => !open)}
+                className={cx(
+                  "h-7 min-w-14 rounded-ds-md px-2 text-[11px] font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                  FOCUS_RING,
+                )}
+              >
+                {stageZoomPercent}%
+              </button>
+            }
+          >
+            <div className="flex flex-col">
+              {ZOOM_PERCENT_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setFooterZoom(preset)}
+                  className={cx(
+                    "rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                    preset === stageZoomPercent
+                      ? "bg-ds-state-hover text-ds-text-primary"
+                      : "text-ds-text-secondary",
+                    FOCUS_RING,
+                  )}
+                >
+                  {preset}%
+                </button>
+              ))}
+              <div className="my-1 border-t border-ds-border-subtle" />
+              <button
+                type="button"
+                onClick={() => setFooterZoom(100)}
+                className={cx(
+                  "rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                  FOCUS_RING,
+                )}
+              >
+                Fit
+              </button>
+            </div>
+          </Popover>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex min-w-0 shrink-0 items-center justify-end gap-3">
           {saveStatus === "error" && onSave ? (
             <button
               type="button"

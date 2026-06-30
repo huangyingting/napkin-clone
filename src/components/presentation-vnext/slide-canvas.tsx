@@ -23,6 +23,10 @@ import type {
 } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
 import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
+import {
+  STAGE_CHROME_Z_INDEX,
+  selectionFrameChrome,
+} from "@/lib/presentation-vnext/stage-chrome";
 
 import { SlideNodeRenderer } from "./slide-node-renderer";
 import type { SelectionState } from "./selection-model";
@@ -260,6 +264,15 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const selectedResizableNodes = selectedUserNodes.filter(
     (node) => node.locked !== true,
   );
+  const preselectedUserNodes = !preview
+    ? userNodes.filter(
+        (node) =>
+          !selectedUserNodes.some(
+            (selectedNode) => selectedNode.id === node.id,
+          ) &&
+          (hoveredNodeId === node.id || focusedNodeId === node.id),
+      )
+    : [];
   const multiSelectionFrame =
     selectedUserNodes.length > 1 ? boundsForNodes(selectedUserNodes) : null;
 
@@ -331,15 +344,36 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
         })(),
       )}
 
+      {!preview
+        ? preselectedUserNodes.map((node) => (
+            <NodeChromeFrame
+              key={`${node.id}-preselected-frame`}
+              node={node}
+              variant="preselected"
+            />
+          ))
+        : null}
+
+      {!preview
+        ? selectedUserNodes.map((node) => (
+            <NodeChromeFrame
+              key={`${node.id}-selected-frame`}
+              node={node}
+              variant="selected"
+            />
+          ))
+        : null}
+
       {!preview && multiSelectionFrame ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute z-raised border border-dashed border-ds-accent-border bg-ds-accent-surface/10"
+          className="pointer-events-none absolute border border-dashed border-ds-accent-border bg-ds-accent-surface/10"
           style={{
             left: `${multiSelectionFrame.x}%`,
             top: `${multiSelectionFrame.y}%`,
             width: `${multiSelectionFrame.w}%`,
             height: `${multiSelectionFrame.h}%`,
+            zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
           }}
         />
       ) : null}
@@ -349,12 +383,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-resize-overlay`}
               aria-hidden="true"
-              className="pointer-events-none absolute z-raised"
+              className="pointer-events-none absolute"
               style={{
                 left: `${node.layout.frame.x}%`,
                 top: `${node.layout.frame.y}%`,
                 width: `${node.layout.frame.w}%`,
                 height: `${node.layout.frame.h}%`,
+                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame,
               }}
             >
               {RESIZE_HANDLES.map((handle) => (
@@ -379,6 +414,40 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
     </div>
   );
 });
+
+function NodeChromeFrame({
+  node,
+  variant,
+}: {
+  node: ResolvedRenderNode;
+  variant: "selected" | "preselected";
+}) {
+  const chrome = selectionFrameChrome(variant);
+  const isLocked = node.locked === true;
+  const color =
+    variant === "selected"
+      ? isLocked
+        ? "var(--ds-border, #9ca3af)"
+        : "var(--ds-accent-fill, #6366f1)"
+      : "var(--ds-border, #cbd5e1)";
+  return (
+    <div
+      aria-hidden="true"
+      data-node-chrome-frame={variant}
+      data-node-id={node.id}
+      className="pointer-events-none absolute box-border"
+      style={{
+        left: `${node.layout.frame.x}%`,
+        top: `${node.layout.frame.y}%`,
+        width: `${node.layout.frame.w}%`,
+        height: `${node.layout.frame.h}%`,
+        border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
+        opacity: chrome.opacity,
+        zIndex: chrome.zIndex,
+      }}
+    />
+  );
+}
 
 function boundsForNodes(
   nodes: readonly ResolvedRenderNode[],

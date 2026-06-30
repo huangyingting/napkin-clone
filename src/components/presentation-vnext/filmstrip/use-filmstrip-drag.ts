@@ -10,6 +10,10 @@
 
 import { useRef, useState, type RefObject } from "react";
 
+const DRAG_THRESHOLD_PX = 4;
+const AUTO_SCROLL_ZONE_PX = 32;
+const AUTO_SCROLL_STEP_PX = 14;
+
 export interface UseFilmstripDragOptions {
   /** Called when a slide should be moved to a new index. */
   onMoveSlide: (slideId: string, targetIndex: number) => void;
@@ -58,13 +62,16 @@ export function useFilmstripDrag({
     const container = containerRef.current;
     if (!container) return;
 
-    event.preventDefault();
+    const startClientX = event.clientX;
+    const startClientY = event.clientY;
+    let moved = false;
+
     dragStateRef.current = {
-      isDragging: true,
+      isDragging: false,
       dragSourceIndex: slideIndex,
-      dragTargetIndex: slideIndex,
+      dragTargetIndex: null,
     };
-    setDragState({ ...dragStateRef.current });
+    event.currentTarget.setPointerCapture(event.pointerId);
 
     const cells = () =>
       Array.from(
@@ -80,8 +87,28 @@ export function useFilmstripDrag({
       return allCells.length;
     }
 
+    function maybeAutoScroll(clientX: number) {
+      const rect = container.getBoundingClientRect();
+      if (clientX < rect.left + AUTO_SCROLL_ZONE_PX) {
+        container.scrollLeft -= AUTO_SCROLL_STEP_PX;
+      } else if (clientX > rect.right - AUTO_SCROLL_ZONE_PX) {
+        container.scrollLeft += AUTO_SCROLL_STEP_PX;
+      }
+    }
+
     function handlePointerMove(moveEvent: PointerEvent) {
+      const movement = Math.hypot(
+        moveEvent.clientX - startClientX,
+        moveEvent.clientY - startClientY,
+      );
+      if (!moved && movement < DRAG_THRESHOLD_PX) {
+        return;
+      }
+      moved = true;
+      moveEvent.preventDefault();
       const idx = getTargetIndex(moveEvent.clientX);
+      maybeAutoScroll(moveEvent.clientX);
+      dragStateRef.current.isDragging = true;
       dragStateRef.current.dragTargetIndex = idx;
       setDragState({ ...dragStateRef.current });
       // Update visual indicator via CSS attribute on container
@@ -102,6 +129,11 @@ export function useFilmstripDrag({
     }
 
     function handlePointerUp(upEvent: PointerEvent) {
+      if (!moved) {
+        cleanupDrag();
+        return;
+      }
+      upEvent.preventDefault();
       const targetIndex = getTargetIndex(upEvent.clientX);
       if (targetIndex !== slideIndex) {
         onMoveSlide(slideId, targetIndex);
