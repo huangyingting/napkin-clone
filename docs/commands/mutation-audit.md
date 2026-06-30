@@ -1,6 +1,8 @@
 # Mutation Audit: Document Visuals and Deck Artifacts
 
+**Type:** Reference  
 **Status:** Accepted  
+**Last updated:** 2026-07-01  
 **Date:** 2026-06-23  
 **Issue:** #437 / Epic #436 — Cross-surface command envelope for document visuals and deck artifacts  
 **Authors:** Switch (Frontend Dev)
@@ -81,8 +83,8 @@ The command routing rule is:
     "surface": "document.deckJson",
     "category": "slide-command",
     "currentEntryPoints": [
-      "src/lib/presentation/slide-commands.ts::executeCommand",
-      "src/lib/presentation/slide-commands.ts::commitCommand"
+      "src/lib/presentation-vnext/editor-commands.ts",
+      "src/components/presentation-vnext/slide-editor-vnext.tsx"
     ],
     "persistence": [
       "src/app/app/documents/[id]/actions.ts::saveDeckJson",
@@ -112,8 +114,9 @@ The command routing rule is:
     "surface": "slide.element.source",
     "category": "slide-command",
     "currentEntryPoints": [
-      "src/components/presentation/slide-editor/use-slide-source-link-commands.ts",
-      "src/lib/presentation/slide-command-source-ref-executor.ts::executeSourceRefFamilyCommand"
+      "src/lib/presentation-vnext/source-links.ts",
+      "src/components/presentation-vnext/source-review-panel.tsx",
+      "src/components/presentation-vnext/slide-editor-vnext.tsx"
     ],
     "persistence": "saveDeckJson/saveDeckPatch through deckJson",
     "busDisposition": "wrapped as UPDATE_ELEMENT_SOURCE / REMOVE_SOURCE_ELEMENT commands"
@@ -221,16 +224,17 @@ This is not user intent.
 
 ### 4. `deckJson`
 
-Deck mutations already have the right shape:
+Deck mutations already have the right separation:
 
-- `src/lib/presentation/slide-commands.ts::executeCommand` is the pure deck
-  executor;
-- `commitCommand` is the existing history/autosave adapter;
+- `src/lib/presentation-vnext/editor-commands.ts` owns pure DeckV7 mutations;
+- `src/components/presentation-vnext/slide-editor-vnext.tsx` owns editor state,
+  history, and autosave handoff;
 - `saveDeckJson` and `saveDeckPatch` are the persistence endpoints guarded by
   document capability checks and revision tokens.
 
 **Audit decision:** the new envelope must wrap this layer, not fork it.
-`SlideCommand` stays the payload for deck/slide surfaces.
+Deck command payloads remain domain-specific; the envelope owns addressing,
+schema version, actor, coalescing, and revision metadata.
 
 ### 5. Slide assets
 
@@ -251,14 +255,15 @@ for the visual/deck executor introduced in Epic #436.
 
 ### 7. Source refs on slide elements
 
-Source-link refresh, unlink, relink, and orphan removal **are now routed through
-dedicated deck commands** (Epic #494). The editor handlers
-`src/components/presentation/slide-editor.tsx::{handleUpdateFromSource,handleUnlinkSource,handleRelinkSource,handleRemoveOrphaned}`
-build typed `SlideCommand` payloads and commit them via `commitCommand`:
+Source-link refresh, unlink, relink, and orphan dismissal route through DeckV7
+source-link helpers and editor command handlers. The active surfaces are
+`src/lib/presentation-vnext/source-links.ts`,
+`src/components/presentation-vnext/source-review-panel.tsx`, and
+`src/components/presentation-vnext/slide-editor-vnext.tsx`:
 
-- `UPDATE_ELEMENT_SOURCE` — re-applies fresh text/runs (text), re-activates,
-  unlinks, or repoints the element-level `source`;
-- `REMOVE_SOURCE_ELEMENT` — explicit, user-initiated orphan removal.
+- refresh updates node source metadata and content where safe;
+- unlink/relink updates node source metadata explicitly;
+- dismiss hides source issues without deleting authored slide nodes.
 
 The pure executor owns the source-ref semantics, emits `element.update` /
 `element.remove` `DeckPatch` records, and preserves geometry/style/z-order plus

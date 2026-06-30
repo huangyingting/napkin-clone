@@ -1,7 +1,8 @@
 # Privacy DSAR Runbook
 
+**Type:** Runbook  
 **Status:** Current  
-**Last updated:** 2026-06-25
+**Last updated:** 2026-07-01
 
 `src/lib/privacy/personal-data-inventory.ts` is the authoritative personal-data
 inventory. Its drift test compares every Prisma model field in

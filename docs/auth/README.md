@@ -1,7 +1,8 @@
 # Authentication And Account Lifecycle
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-07-01
 
 This subsystem covers sign-in, account creation, provider linking, account
 settings, self-serve recovery, email verification, export, and deletion. Route

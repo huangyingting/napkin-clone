@@ -1,451 +1,301 @@
-# Current Deck Model
+# DeckV7 Persisted Contract
 
+**Type:** Contract  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
-This document defines the current `Document.deckJson` contract. The deck schema
-is development-authoritative: payloads that do not match the current shape are
-rejected instead of repaired or upgraded at runtime.
+This document defines the current `Document.deckJson` contract. Persisted decks
+must be DeckV7 JSON. Runtime open, save, render, and export paths reject
+superseded payload shapes instead of repairing or upgrading them.
 
-## Source Of Truth
+## Source Anchors
 
-`Document.deckJson` stores a complete `Deck` JSON object. It is independent of
+- `src/lib/presentation-vnext/schema.ts` — DeckV7 TypeScript contract.
+- `src/lib/presentation-vnext/validation.ts` — `safeParseDeckV7` schema gate.
+- `src/lib/presentation-vnext/open-deck.ts` — editor/public open boundary.
+- `src/lib/document/deck-cas-writer.ts` — validated compare-and-swap writes.
+- `src/lib/presentation-vnext/editor-commands.ts` — immutable deck mutations.
+- `src/lib/presentation-vnext/render-resolver.ts` — resolved render tree.
+- `src/lib/presentation-vnext/export-spec.ts` — DOM-free export operations.
+
+## Contract Boundary
+
+`Document.deckJson` stores a complete `DeckV7` object. It is independent of
 `Document.contentJson`; document edits and deck edits persist through separate
-write paths.
+write paths. Document content can seed or refresh deck content, but a saved deck
+is its own authored artifact.
 
-`Document.contentJson` can derive a fresh deck, but once saved, the deck is its
-own authored artifact. Sync from document is an explicit editor action.
+The only accepted persisted deck version is `schemaVersion: 7`.
+
+```ts
+type DeckV7 = {
+  schemaVersion: 7;
+  id?: DeckId;
+  title?: string;
+  canvas: CanvasSpec;
+  theme: DeckThemeBinding;
+  chrome?: DeckChromeConfig;
+  assets: DeckAssetRegistry;
+  slides: SlideNode[];
+  metadata?: DeckMetadata;
+};
+```
+
+Unknown top-level keys are rejected. Fields from earlier deck shapes such as
+`elements`, `masters`, `customTemplates`, `design`, and `defaultMasterId` are
+not valid DeckV7 fields.
 
 ## Schema Gate
 
-The current deck version is exported from
-`src/lib/presentation/deck.ts` as `CURRENT_DECK_SCHEMA_VERSION`.
+`safeParseDeckV7` validates unknown input without mutating it. It returns typed
+data only when the full structure is valid.
 
-`safeParseDeck` / `validateDeck` in
-`src/lib/presentation/deck-schema.ts` enforce the persisted shape:
+The gate enforces these deck-level rules:
 
-- `Deck.schemaVersion` must be the current version.
-- `Deck.canvas.format` is required and is the deck-level slide format.
-- `Deck.design.themeId` is required and is the presentation theme selector.
-- `Deck.masters[]` and `Deck.defaultMasterId` are required; the default master
-  id must reference an existing master.
-- `Deck.slides[]` must be present and validated in order.
-- Every slide must carry `id`, `index`, `title`, and `elements`. `notes`,
-  `masterId`, `templateId`, `designOverrides`, and `source` are optional.
-- `Slide.elements` must be an array. It is the authoritative render/export
-  surface.
-- Every element stores kind-specific payload under `content`, and
-  `content.kind` must match the element `kind`.
-- Text elements carry `content.paragraphs[]`, the canonical paragraph model for
-  plain text, bullets, and numbered lists.
-- Removed v5 fields are rejected, including top-level `themeId`,
-  `customTokenSet`, `slideFormat`, `layouts`, and slide-level `bullets`,
-  `bulletRuns`, `visualIds`, `layout`, `elementsDerived`, `masterRef`, and
-  `sourceSectionId`.
-- `BaseElement.layoutSlot`, `PlaceholderElement`, `BulletsElement`, and
-  flat kind payload fields are no longer supported in persisted decks.
-- `SourceRef.blockKind` is required and must be `"text"`, `"visual"`, or
-  `"table"`.
-- Serialized deck JSON strings are persisted-schema drift, not supported
-  persisted input.
+- `schemaVersion` must be `7`.
+- `canvas` must be an object with `format`, positive `width` and `height`, and
+  `unit: "percent"`.
+- `canvas.format` must be `"16:9"`, `"4:3"`, `"square"`, or `"custom"`.
+- `theme.packageId` must be a non-empty string.
+- `assets.images` must be an object; other registries are optional.
+- `slides` must be a non-empty array.
+- Deck, slide, and node ids must be valid non-empty ASCII ids with max length 128.
+- Slide and child-node ids share one deck-wide uniqueness set.
 
-There is no deck migration shim. A schema bump means fixtures, generators, and
-persisted development data must be updated to the new shape. Current decks use
-schema v6.
+Repair is not performed by validation. Import, paste, AI-plan, and authoring
+boundaries must normalize external or partial input before it reaches
+`safeParseDeckV7`.
 
-## v6 Vocabulary
+## Open Boundary
 
-| Term                 | Current meaning                                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                                                       |
-| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                                                          |
-| `SlideMaster`        | Deck-owned global shared chrome: background treatment and locked background/foreground master elements.                                                |
-| `SlideTemplate`      | Creation or explicit-reapply blueprint for system, theme, and custom templates. Templates materialize elements and are not normal render dependencies. |
-| `Slide`              | Authored page instance with metadata, optional template provenance, optional slide design overrides, and elements.                                     |
-| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.                                               |
-| `MasterElement`      | Locked shared chrome element from a master, identified by `masterChromeKind` and rendered by its layer band.                                           |
-| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.                                                |
-| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                                                             |
+`openDeckFromJson` is the single open boundary for editor, present-mode, public
+render, and AI-apply handoff. It accepts valid DeckV7 payloads directly and
+returns `ok: false` for malformed, missing, unknown, or superseded schema
+versions.
 
-The current schema uses presentation-native vocabulary. Superseded names such
-as top-level `themeId`, `customTokenSet`, `slideFormat`, `layouts`, slide
-`layout`, slide `visualIds`, slide `bullets`, and layout placeholders are not
-accepted persisted deck fields.
+`decideDeckOpen` distinguishes three editor-start cases:
 
-## Deck Shape
+| Mode       | Input condition                                      | Runtime behavior                                     |
+| ---------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| `blank`    | `null` or `undefined` deck candidate                 | Start from an explicit blank deck.                   |
+| `open`     | Valid DeckV7 payload                                 | Use the validated deck directly.                     |
+| `recovery` | Non-empty payload that fails open or DeckV7 validate | Surface recovery diagnostics; do not silently blank. |
 
-The persisted object is shaped as:
+There is no runtime migration shim for older deck payloads.
+
+## Canvas
+
+DeckV7 uses percent-coordinate canvas geometry. `CanvasSpec` carries the slide
+format and dimensions, and render/export code converts frames to pixels or
+inches at the boundary that needs those units.
 
 ```ts
-type Deck = {
-  schemaVersion: 6;
-  canvas: { format: SlideFormat };
-  design: PresentationDesign;
-  masters: SlideMaster[];
-  defaultMasterId: string;
-  customTemplates?: SlideTemplate[];
-  slides: Slide[];
-  deckContentHash?: string;
-};
-
-type PresentationDesign = {
-  themeId: string;
-  themeOverrides?: Record<string, unknown>;
+type CanvasSpec = {
+  format: "16:9" | "4:3" | "square" | "custom";
+  width: number;
+  height: number;
+  unit: "percent";
+  safeArea?: InsetsPct;
 };
 ```
 
-`canvas` owns geometry. `design` owns global visual language. `masters` own live
-shared chrome. `customTemplates` stores deck-local `SlideTemplate` blueprints,
-including installed theme package templates (`source: "theme"`) and user-created
-custom templates (`source: "custom"`). Older generic built-in templates live in
-code as `source: "system"`. `slides[]` owns authored page content.
+## Theme And Chrome
 
-`SlideTemplate` is the common template model across system, theme-package, and
-custom sources:
+`DeckThemeBinding` selects the runtime theme package and optional overrides.
+Theme packages provide tokens, style refs, semantic templates, and decorations.
 
 ```ts
-type SlideTemplate = {
-  id: string;
-  name: string;
-  category: "title" | "section" | "content" | "media" | "comparison" | "blank";
-  source?: "system" | "theme" | "custom";
-  semanticKind?: string;
-  layoutFamily?: string;
-  styleMode?: "fixed" | "theme-aware";
-  accepts?: string[];
-  capacity?: object;
-  bindings?: Array<{
-    slot: string;
-    target: string;
-    elementRole?: string;
-    elementIndex?: number;
-  }>;
-  defaultMasterId?: string;
-  slideDesignDefaults?: SlideDesignOverrides;
-  elements: SlideTemplateElement[];
+type DeckThemeBinding = {
+  packageId: ThemePackageId;
+  packageVersion?: ThemeVersion;
+  brandKitId?: string;
+  overrides?: ThemeOverridePatch;
 };
 ```
 
-`source` is the template origin. `semanticKind` labels the presentation intent
-(`detail`, `comparison`, `timeline`, etc.) when known. `layoutFamily`,
-`accepts`, `capacity`, and `bindings` describe the template's fillable content
-contract. `styleMode` says whether a template is fixed (`custom` and legacy
-system templates by default) or theme-aware (`theme` package templates).
+Deck-level chrome is stored in `DeckV7.chrome` or in
+`DeckThemeBinding.overrides.chrome`. Supported chrome slots are:
 
-## Slide Content Model
+- `logo`
+- `footer`
+- `pageNumber`
+- `watermark`
+- `border`
+- `safeArea`
 
-### `Slide.elements[]`
+Slides can opt into chrome behavior through `SlideProps.chrome` and can override
+individual deck chrome slots through `SlideProps.deckChrome` using modes
+`inherit`, `disabled`, `detached`, or `override`.
 
-`elements[]` is the current slide content model. Renderers, exporters, and the
-stage editor consume positioned elements directly.
+## Asset Registry
 
-Supported element kinds are defined in `src/lib/presentation/deck.ts`:
+`DeckAssetRegistry` keeps deck-local asset references. Images are required;
+fonts, visuals, and files are optional.
+
+```ts
+type DeckAssetRegistry = {
+  images: Record<AssetId, ImageAsset>;
+  fonts?: Record<AssetId, FontAsset>;
+  visuals?: Record<AssetId, VisualAssetRef>;
+  files?: Record<AssetId, FileAsset>;
+};
+```
+
+Image nodes reference `assets.images`. Visual nodes may reference a visual
+registry entry or carry a direct `visualId`. Export resolution may resolve visual
+registry entries through backing image/file assets, but unresolved references
+produce diagnostics rather than being silently rewritten in persisted JSON.
+
+## Slide Model
+
+Each slide is itself a node with `type: "slide"`. Slide content lives in
+`children`, not in `elements`.
+
+```ts
+type SlideNode = BaseNode & {
+  type: "slide";
+  template: SlideTemplateBinding;
+  controls?: SlideControls;
+  props?: SlideProps;
+  children: SlideChildNode[];
+  notes?: string;
+};
+```
+
+Slide validation rejects keys outside the DeckV7 slide schema. In particular,
+`slides[].elements` is rejected.
+
+Slide template bindings identify semantic intent and optional layout id. Normal
+render/export consumes materialized slide children; it does not synthesize
+content from older flat slide fields at render time.
+
+## Child Node Model
+
+Supported child node types are:
 
 - `text`
-- `visual`
 - `image`
 - `shape`
 - `connector`
 - `table`
+- `visual`
+- `group`
 
-Each element has stable identity, geometry, z-order, optional presentation
-`role`, optional element-level `source`, kind-specific `content`, and local
-`designOverrides`.
+All child nodes may carry stable identity, semantic role, layout, style binding,
+local style, hidden/locked state, accessibility metadata, and source metadata.
+Renderable nodes require a valid `layout` before they can resolve into the
+render tree.
 
-`TextElement.content.paragraphs[]` is the canonical text payload. Plain
-paragraphs omit `listType`; bulleted and numbered paragraphs set `listType` and
-optional `indent`. `content.text` is the compact text string, and `content.runs`
-/ paragraph `runs` carry inline rich text.
+Key content rules:
 
-`ShapeElement` uses `kind: "shape"` and `content.shape` of `"rect"`,
-`"ellipse"`, `"line"`, `"triangle"`, `"diamond"`, `"circle"`, or
-`"square"`. Shape fills are normally color refs
-(`{ token }` or `{ value }`), but `designOverrides.fill` may also carry a
-two-stop radial fill:
+- Text nodes store `content.paragraphs[]`; run text must concatenate exactly to
+  paragraph text.
+- Image nodes require a non-empty `content.assetId`.
+- Shape nodes require a supported `content.shape`; `shape: "path"` requires a
+  non-empty `path` string.
+- Connector nodes require object `from` and `to` endpoints of kind `point` or
+  `node`.
+- Table nodes accept 1-8 columns and 1-20 rows; every row must have exactly one
+  cell per column.
+- Visual nodes must provide `assetId` or `visualId`.
+- Group nodes require a supported `component`, a non-empty `children` array, and
+  nesting depth no greater than 4.
 
-```ts
-type RadialGradientFill = {
-  type: "radialGradient";
-  inner: ColorRef;
-  outer: ColorRef;
-  cx?: number;
-  cy?: number;
-  r?: number;
-};
-```
+## Source Metadata
 
-`cx`, `cy`, and `r` are percentages in the 0-100 range. Shape effects are
-currently limited to glass presets on non-line shapes:
+Slides and child nodes may carry `source` metadata that links deck content back
+to document blocks or visual assets.
 
 ```ts
-type ElementEffect = {
-  kind: "glass";
-  intensity: "light" | "medium" | "strong";
-};
-```
-
-Glass is a clipped material effect: rectangles use the element radius, ellipses
-use an ellipse clip, and triangles use a triangle clip. Text does not carry a
-glass or blur effect directly; templates should layer editable text above a
-glass shape. SVG/PNG export preserves radial/glass styling, while PPTX export
-rasterizes radial/glass shapes when browser rasterization APIs are available.
-
-`ImageElement.designOverrides.maskShape` accepts `"none"`, `"rect"`,
-`"circle"`, `"ellipse"`, `"rounded"`, `"diamond"`, and `"triangle"`. Image
-masking remains an image style only; image elements do not carry glass/blur
-effects.
-
-`TableElement` is a first-class v6 element. It uses `kind: "table"` and optional
-`role: "table"`. The persisted content shape is:
-
-```ts
-type TableElementContent = {
-  kind: "table";
-  columns: Array<{ id: string; label: string; width?: number }>;
-  rows: Array<{ id: string; cells: Array<{ text: string; runs?: TextRun[] }> }>;
-  header?: boolean;
-  caption?: string;
-};
-```
-
-Persisted tables accept 1-8 columns and 1-20 rows. Column ids and row ids must
-be unique and stable; editing a label or cell text must not regenerate them.
-Every row must carry exactly one cell per column. Schema validation rejects
-mismatched cell counts instead of normalizing persisted data. AI generation,
-import, and paste boundaries may repair incoming tables before they reach
-`safeParseDeck`.
-
-Table styling lives in `designOverrides.tableStyle` and is table-level only:
-`headerFill`, `rowFill`, `alternateRowFill`, `borderColor`, `borderWidth`,
-`textStyle`, and `headerTextStyle`. Individual cells do not carry style blocks;
-cell `runs` preserve existing inline `TextRun` formatting where available.
-
-The editor treats tables as whole elements on the canvas: selection, drag,
-resize, z-order/layer visibility, and duplicate/delete work like other element
-kinds. Cell content, row/column add/remove, header flag, caption, and table
-style edits live in the table inspector panel.
-
-Templates are blueprints. Applying or creating from a template materializes real
-typed elements with `content`; `Slide.templateId` is provenance only. Template
-elements may carry the same scalar presentation fields used by slide elements,
-including `opacity`, `rotation`, `locked`, and `name`, so package templates can
-preserve authored decorative layers when they materialize.
-
-Masters are live deck data, not creation-time blueprints. The current product
-uses the deck-wide global master resolved from `Deck.defaultMasterId` (falling
-back to the first master). `Slide.masterId` remains in the persisted type for
-now but is not used by current render, editor, or template flows. Master
-elements are locked chrome and render in separate layer bands around slide
-content:
-
-```text
-theme/master/slide background
-  -> master background elements
-  -> slide elements
-  -> master foreground elements
-```
-
-Master and slide element z-indexes are sorted inside their own layer bands, not
-merged into one cross-layer z-index space.
-
-Every `MasterElement` must carry a `masterChromeKind` identity marker. This is
-the master chrome identity; `role` is only the theme/style role. Valid master
-chrome combinations are:
-
-| `masterChromeKind` | `kind`  | `role`       | `layer`      |
-| ------------------ | ------- | ------------ | ------------ |
-| `logo`             | `image` | `logo`       | `foreground` |
-| `footer`           | `text`  | `footer`     | `foreground` |
-| `pageNumber`       | `text`  | `pageNumber` | `foreground` |
-| `watermark`        | `text`  | `background` | `background` |
-
-Normal `Slide.elements[]` must not contain `masterChromeKind`; slide editing
-cannot select or mutate master chrome. Master chrome is configured through the
-deck-level Masters popover and rendered/exported through the shared render
-model.
-
-### Document-derived metadata
-
-Slides keep only metadata such as `title`, optional `notes`, optional
-`templateId`, optional `masterId`, and optional slide `source`. Render content
-lives in `elements[]`. The current renderer resolves the deck-wide master from
-`Deck.defaultMasterId`; package application still normalizes `Slide.masterId` to
-the package default master for provenance and future per-slide master support.
-
-### Provenance
-
-Element-level `source` links preserve the document block or visual an element
-came from. `Slide.source.sectionId` is the heading-derived key used to match
-document-derived slides even when the on-slide title has been edited.
-
-## Design Overrides And Resolution
-
-Persisted design values are partial overrides. Resetting a local style means
-removing the local key so the resolver can inherit again; resolved concrete
-values are not copied back into lower layers.
-
-The current runtime resolves deck state in these stages:
-
-```text
-Deck.design theme/themeOverrides
-  -> SlideMaster background/chrome
-  -> SlideTemplate materialization at create or reapply time
-  -> Slide.designOverrides
-  -> SlideElement.designOverrides
-  -> ResolvedSlideRenderModel
-```
-
-`SlideTemplate` participates only when a slide is created or explicitly
-reapplied. Normal render/export does not look up `Slide.templateId` to derive
-content.
-
-Slide and master backgrounds support these current background treatments:
-
-```ts
-type BackgroundTreatment =
-  | { type: "solid"; color: ColorRef }
-  | { type: "gradient"; from: ColorRef; to: ColorRef; angle?: number }
-  | {
-      type: "radialGradient";
-      inner: ColorRef;
-      outer: ColorRef;
-      cx?: number;
-      cy?: number;
-      r?: number;
-    }
-  | { type: "image"; url: string; assetId?: string };
-```
-
-## Source References
-
-Slide elements may carry `source` when they are linked to document text or a
-document visual.
-
-```ts
-type SourceRef = {
-  documentId: string;
-  blockId: string;
+type NodeSourceMetadata = {
+  documentId?: string;
+  blockId?: string;
+  blockKind?: "text" | "visual" | "table" | "image";
   contentHash?: string;
-  linkedAt: string;
+  blockRevision?: string;
+  linkedAt?: string;
+  display?: SourceDisplayMetadata;
+  refresh?: SourceRefreshMetadata;
   unlinked?: boolean;
-  blockKind: "text" | "visual" | "table";
+  extra?: Record<string, JsonValue>;
 };
 ```
 
-The block kind is explicit. Refresh, staleness detection, and dependency health
-checks never infer a missing kind.
+`refresh.state` is one of `fresh`, `stale`, `orphan`, `unlinked`, or `unknown`.
+Source-link classification and refresh logic live in
+`src/lib/presentation-vnext/source-links.ts`; validation only checks the shape.
 
-`source.blockId` is durable: for text refs it is the document block
-`bid`/`blockId`; for visual refs it is the durable `visualId`. It is never a live
-Lexical `NodeKey`.
+## Mutations
 
-Source-link helpers live in:
+DeckV7 editor commands are immutable. Each command receives a `DeckV7` and
+returns a new `DeckV7`; resolved styles are not written back into nodes.
 
-- `src/lib/presentation/source-link-staleness.ts`
-- `src/lib/document/source-ref-model.ts`
-- `src/components/presentation/slide-editor.tsx`
-- `src/lib/presentation/deck-source-refs.ts`
+Command families include:
 
-## Deck Creation Paths
+- slide insert, duplicate, delete, move, and template apply;
+- slide controls, attributes, local style, source metadata, and chrome updates;
+- node insert, paste, content, layout, attributes, source metadata, style
+  binding, local style, grouping, z-order, and deletion;
+- asset metadata updates.
 
-### Derive From Document
-
-`buildDeckFromBlocks` converts collected document blocks into v6 slides with
-positioned elements, presentation roles, and `content`. Editor and present-mode
-derivations pass the document id so derived title, body, and visual elements
-also carry element-level `source`; pure public fallbacks do not invent source
-refs when no document id is available.
-
-### Generate With AI
-
-AI output may be sparse while it is still model output. Before it can be saved or
-shown as a deck, `normalizeGeneratedDeck` assigns the current theme/layout and
-current elements. Final output must pass `safeParseDeck`.
-
-Generated table elements are repaired with stricter slide-friendly limits than
-the persisted schema: 2-4 columns, 2-6 rows, and bounded cell text. Overflow is
-appended to the current slide notes. Empty or underspecified generated tables
-are rejected or downgraded to bullets before validation.
-
-Generated decks materialize authored v6 elements and pass `safeParseDeck`
-before they are returned.
-
-### Templates And Manual Authoring
-
-Template slides and direct editor commands create current `elements[]`.
-Element content edits target `element.content`; formatting edits target
-`element.designOverrides`; source actions target `element.source`.
-
-## Editor Open And Sync
-
-`pickFreshestDeck(fetchedRaw, cachedRaw, baseDeck)` chooses the editor seed:
-
-1. freshly fetched server deck;
-2. cached last-known deck from the component;
-3. freshly derived base deck from the current Lexical state.
-
-Each raw candidate is validated directly with `safeParseDeck`. Serialized JSON
-strings are rejected as persisted-schema drift and surfaced by schema audit
-rather than parsed at runtime.
-
-The slide editor receives the full current `documentBlocks` list. Text-only
-block lists are not used as a substitute for visual/source-ref workflows.
-
-Sync from document uses `mergeDeckFromDocument`:
-
-- document-derived slide elements can be re-materialized from fresh content;
-- hand-authored slides preserve elements;
-- active `source` elements can refresh content or content hashes in place;
-- missing source blocks are surfaced as orphaned/stale links and are not silently
-  deleted.
+Command output must still pass the DeckV7 schema gate before persistence.
 
 ## Persistence And Revision Tokens
 
-Deck saves go through server actions in `src/app/app/documents/[id]/actions.ts`
-and service functions in `src/lib/document/persistence-service.ts`.
+Deck writes go through server actions and `writeDeckWithCas`.
 
-| Path            | Payload                           | Token                           | Result                                                          |
-| --------------- | --------------------------------- | ------------------------------- | --------------------------------------------------------------- |
-| `saveDeckJson`  | Whole current deck                | Required compare-and-swap token | success, conflict, or validation error                          |
-| `saveDeckPatch` | `DeckPatch[]` from slide commands | Required compare-and-swap token | success, conflict, whole-deck retry signal, or validation error |
+The CAS writer:
 
-Missing or stale tokens are conflicts. Successful writes mint a fresh
-`deckRevisionToken` and may snapshot a `DocumentVersion` according to the
-snapshot throttle.
+1. validates the submitted value with `safeParseDeckV7`;
+2. serializes the parsed DeckV7 payload;
+3. rejects payloads over the deck JSON byte limit;
+4. writes with `deckRevisionToken` compare-and-swap when a client token is
+   supplied;
+5. mints a fresh revision token on success.
 
-Unsupported patch replay returns the existing literal `{ ok: "fallback" }` from
-the API. That value means "retry with a whole-deck save"; it is not an old-data
-compatibility path.
+Validation failures return `ok: false` and report schema telemetry. CAS misses
+return `ok: "conflict"` with the server revision token. No save path accepts an
+older deck shape as a compatibility fallback.
 
 ## Render And Export
 
-Rendering and export paths resolve a shared render model from v6 deck state:
+`resolveDeckRenderTree` converts `DeckV7` plus a loaded theme package into the
+resolved render tree consumed by React renderers, public viewers, and export
+spec builders.
 
-- `src/lib/presentation/slide-render-model.ts`
-- `src/components/presentation/slide-canvas.tsx`
-- `src/lib/presentation/export/deck-export-spec.ts`
-- `src/lib/visual/export-preflight.ts`
+The resolver:
 
-They do not synthesize elements from flat slide fields at render time.
+- excludes hidden nodes;
+- orders user nodes by ascending `zIndex` with stable tree-order ties;
+- injects theme decorations separately from user nodes;
+- filters decoration and chrome by slide props;
+- resolves style tokens before returning;
+- emits diagnostics for unresolved assets, style refs, token refs, and unsafe
+  export fallbacks.
+
+`buildExportSpec` converts the resolved tree into DOM-free operations:
+background, text, shape, image, connector, visual, and tableShape. Browser/PPTX
+adapters perform file-generation side effects after this pure spec step.
 
 ## Invariants
 
-1. Persisted decks must pass `safeParseDeck`.
-2. Persisted slides must carry `elements[]`.
-3. Text elements use `content.paragraphs[]` as authoritative text/list content.
-4. Source refs must carry explicit `blockKind`.
-5. Render/export paths consume the resolved render model.
-6. Document sync uses slide/element `source`, not slide-level derived flags.
-7. Hand-authored slides preserve their element geometry and style across sync.
+1. `Document.deckJson` must be valid DeckV7 JSON.
+2. Runtime open/save paths reject superseded deck payload shapes.
+3. Deck repair happens before validation, not inside validation.
+4. Slide content lives in `SlideNode.children`.
+5. Render/export paths consume resolved render trees, not persisted local style
+   fragments directly.
+6. Commands are immutable and write authored deck state only.
+7. Source metadata is structured, optional, and never inferred from missing
+   fields.
 8. Deck persistence is guarded by revision-token CAS.
 
 ## Primary Tests
 
-- `src/lib/presentation/deck-schema.test.ts`
-- `src/lib/presentation/deck.test.ts`
-- `src/lib/presentation/package-template-materializer.test.ts`
-- `src/lib/presentation/deck-merge.test.ts`
-- `src/lib/presentation/source-link-staleness.test.ts`
-- `src/lib/presentation/save-conflict.test.ts`
-- `src/lib/presentation/export/deck-export.test.ts`
-- `src/lib/visual/export-preflight.test.ts`
+- `src/lib/presentation-vnext/validation.test.ts`
+- `src/lib/presentation-vnext/open-deck.test.ts`
+- `src/lib/presentation-vnext/editor-commands.test.ts`
+- `src/lib/presentation-vnext/render-resolver.test.ts`
+- `src/lib/presentation-vnext/export-spec.test.ts`
+- `src/lib/presentation-vnext/pptx-export-adapter.test.ts`
+- `src/lib/document/deck-cas-writer.test.ts`

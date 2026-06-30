@@ -1,6 +1,8 @@
 # Command Envelope Spec
 
+**Type:** Contract  
 **Status:** Accepted  
+**Last updated:** 2026-07-01  
 **Date:** 2026-06-23  
 **Issue:** #438 / Epic #436 — Cross-surface command envelope for document visuals and deck artifacts  
 **Authors:** Switch (Frontend Dev)
@@ -10,7 +12,7 @@
 ## Purpose
 
 Define one serializable envelope for command traffic across document-adjacent
-surfaces without replacing the existing deck command executor.
+surfaces without mixing transport metadata into each domain executor.
 
 The envelope standardizes:
 
@@ -127,14 +129,17 @@ Current supported ops:
 
 ### Deck payloads
 
-Deck commands are **wrapped, not redefined**:
+Deck command envelopes validate addressing and optimistic-lock metadata. The
+DeckV7 mutation semantics remain owned by the presentation-vnext editor command
+layer:
 
 ```ts
-type DeckCommandEnvelope = CommandEnvelope<SlideCommand>;
+type DeckCommandEnvelope<P = unknown> = CommandEnvelope<P>;
 ```
 
-That keeps `src/lib/presentation/slide-commands.ts` as the canonical deck
-executor and patch producer.
+`acceptDeckCommandEnvelope` validates `target.surface === "deck"` and the
+submitted `documentId`. Command execution remains outside the envelope parser;
+DeckV7 mutations are implemented in `src/lib/presentation-vnext/editor-commands.ts`.
 
 ---
 

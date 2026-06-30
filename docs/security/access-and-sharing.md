@@ -1,5 +1,6 @@
 # Access Control And Public Sharing
 
+**Type:** Contract  
 **Status:** Current  
 **Last updated:** 2026-06-29
 

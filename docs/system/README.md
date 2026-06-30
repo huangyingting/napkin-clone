@@ -1,7 +1,8 @@
 # System Docs
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-07-01
 
 These documents describe cross-subsystem architecture contracts. If a design
 changes during development, update the relevant contract so it continues to
@@ -45,10 +46,10 @@ Operational material lives under [../operations/](../operations/README.md).
   visuals.
 - `Visual` rows are a derived projection of visual nodes in `contentJson`.
 - `Document.deckJson` is the source of truth for slides.
-- Persisted decks must use the current deck schema version and carry
-  `Slide.elements[]`.
-- Render, export, and editor surfaces read slide elements directly; they do not
-  synthesize old slide shapes at runtime.
+- Persisted decks must be current DeckV7 payloads with slide content under
+  `SlideNode.children`.
+- Render, export, and editor surfaces consume DeckV7 nodes directly; they do not
+  synthesize old deck shapes at runtime.
 - Deck saves are guarded by revision-token compare-and-swap.
 - Collaboration websocket upgrades require authorization.
 

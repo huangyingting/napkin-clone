@@ -1,7 +1,8 @@
 # Domain Identity And Payload Naming
 
+**Type:** Reference  
 **Status:** Current
-**Last updated:** 2026-06-25
+**Last updated:** 2026-07-01
 
 This guide defines current naming vocabulary only. It does not change persisted
 database columns or JSON payload shapes.
@@ -18,7 +19,7 @@ and must not cross persistence boundaries.
 | `LexicalNodeKey`         | Live Lexical `NodeKey`.                                        | No         |
 | `VisualId`               | Durable visual id (`Visual.id` / visual node `visualId`).      | Yes        |
 | `SlideId`                | Durable slide id in `Document.deckJson`.                       | Yes        |
-| `SlideElementId`         | Durable element id in `Slide.elements[]`.                      | Yes        |
+| `SlideNodeId`            | Durable slide child node id in `SlideNode.children[]`.         | Yes        |
 | `AssetId`                | Durable uploaded `Asset` row id.                               | Yes        |
 | `WorkspaceId` / `UserId` | Durable workspace/user database ids.                           | Yes        |
 
@@ -39,10 +40,8 @@ interfaces just to adopt them.
 
 Comment anchors keep their historical `anchorNodeId` DB column, but current code
 treats that value as a durable document block/visual id. It is not a live Lexical
-`NodeKey`. Use the explicit adapters in:
-
-- `src/lib/presentation/deck-source-refs.ts`
-- `src/lib/comments/anchors.ts`
+`NodeKey`. Use the explicit adapters in `src/lib/presentation-vnext/source-links.ts`
+and `src/lib/comments/anchors.ts`.
 
 ## AssetReference vs ResolvedAssetUrl
 
@@ -75,7 +74,7 @@ Result-shape conventions:
 - Use `ok: true | false` with `data` / `error` for public action results
   (`ActionResult<T>`).
 - Use `success: true | false` for parser/schema validation results when that is
-  the existing API (`safeParseDeck` and similar validators).
+  the existing API (`safeParseDeckV7` and similar validators).
 - Use `valid: boolean` only for predicate-like validation summaries.
 - Use `payload` for raw request/body content before validation; use `data` for
   validated or returned domain data.

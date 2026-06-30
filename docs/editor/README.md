@@ -1,17 +1,17 @@
 # Editor Architecture
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-07-01
 
-These documents describe the interactive editor surfaces and the slide styling
-architecture used by those surfaces.
+These documents describe the Lexical document editor and editor-owned comment
+UX. Presentation theme, slide editor, rendering, and export behavior belong to
+the presentation subsystem.
 
-| Document                                                           | Scope                                                                                           |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| [comments-and-anchors.md](comments-and-anchors.md)                 | Comment threads, text/visual anchors, slide anchors, and lifecycle behavior.                    |
-| [lexical-editor.md](lexical-editor.md)                             | Lexical editor selection model, tool registry, visual lifecycle, and deck autosave UX.          |
-| [theme-layout.md](theme-layout.md)                                 | Slide token cascade, masters, layouts, and style override resolution.                           |
-| [presentation-theme-authoring.md](presentation-theme-authoring.md) | Global presentation theme contract, semantic roles, reset-to-inherited, and authoring workflow. |
+| Document                                           | Type         | Scope                                                                          |
+| -------------------------------------------------- | ------------ | ------------------------------------------------------------------------------ |
+| [lexical-editor.md](lexical-editor.md)             | Architecture | Lexical editor selection model, tool registry, visual lifecycle, and autosave. |
+| [comments-and-anchors.md](comments-and-anchors.md) | Design       | Comment threads, text/visual anchors, slide anchors, and lifecycle behavior.   |
 
 ## Related Contracts
 
@@ -19,5 +19,7 @@ architecture used by those surfaces.
 - [../data-model/visual-mirror.md](../data-model/visual-mirror.md) for visual persistence.
 - [../presentation/slide-editor.md](../presentation/slide-editor.md) for the
   slide editor runtime.
+- [../presentation/theme-packages.md](../presentation/theme-packages.md) for
+  slide theme packages, semantic templates, and style resolution.
 - [../presentation/rendering-and-export.md](../presentation/rendering-and-export.md)
   for present mode and export behavior.

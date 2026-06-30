@@ -1,5 +1,6 @@
 # Document Persistence Service
 
+**Type:** Architecture  
 **Status:** Current  
 **Last updated:** 2026-06-26
 
@@ -62,7 +63,7 @@ history to the most recent entries.
 
 Deck writes go through `writeDeckWithCas`:
 
-1. Parse with `safeParseDeck`.
+1. Parse with `safeParseDeckV7`.
 2. Reject oversized serialized deck JSON.
 3. Generate a new revision token.
 4. Update `Document.deckJson` only when the caller's expected token matches.

@@ -1,26 +1,27 @@
 # Slide Stage Interactions
 
-**Status:** Current design target  
-**Last updated:** 2026-06-26
+**Type:** Design  
+**Status:** Current  
+**Last updated:** 2026-07-01
 
 This document defines how the slide editor stage should choose, preview, select,
-move, resize, and edit elements when many elements overlap. It is the interaction
-contract for `SlideStageEditor`, not the persisted deck schema.
+move, resize, and edit DeckV7 nodes when many nodes overlap. It is the
+interaction contract for the vNext slide editor stage, not the persisted deck
+schema.
 
 ## Source Files
 
-| Area                         | Source                                                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Stage UI/controller          | [`src/components/presentation/slide-stage-editor.tsx`](../../src/components/presentation/slide-stage-editor.tsx) |
-| Semantic hit testing         | [`src/lib/presentation/stage-hit-test.ts`](../../src/lib/presentation/stage-hit-test.ts)                         |
-| Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../src/lib/presentation/stage-targeting.ts)                       |
-| Chrome layering              | [`src/lib/presentation/stage-chrome.ts`](../../src/lib/presentation/stage-chrome.ts)                             |
-| Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../src/lib/presentation/stage-interaction.ts)                   |
-| Media hit geometry           | [`src/lib/presentation/media-hit-geometry.ts`](../../src/lib/presentation/media-hit-geometry.ts)                 |
-| Text hit geometry            | [`src/lib/presentation/text-hit-geometry.ts`](../../src/lib/presentation/text-hit-geometry.ts)                   |
-| Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../src/lib/presentation/canvas-a11y.ts)                               |
-| Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../src/lib/presentation/connector-geometry.ts)                 |
-| Element fitting              | [`src/lib/presentation/text-element-fit.ts`](../../src/lib/presentation/text-element-fit.ts)                     |
+| Area                  | Source                                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Stage UI/controller   | [`src/components/presentation-vnext/slide-editor-vnext.tsx`](../../src/components/presentation-vnext/slide-editor-vnext.tsx)           |
+| Read-only canvas      | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                       |
+| Node renderer         | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)         |
+| Selection model       | [`src/components/presentation-vnext/selection-model.ts`](../../src/components/presentation-vnext/selection-model.ts)                   |
+| Selection geometry    | [`src/lib/presentation-vnext/selection-geometry.ts`](../../src/lib/presentation-vnext/selection-geometry.ts)                           |
+| Stage chrome layering | [`src/lib/presentation-vnext/stage-chrome.ts`](../../src/lib/presentation-vnext/stage-chrome.ts)                                       |
+| Stage fit             | [`src/lib/presentation-vnext/stage-fit.ts`](../../src/lib/presentation-vnext/stage-fit.ts)                                             |
+| Stage guides          | [`src/lib/presentation-vnext/stage-guides.ts`](../../src/lib/presentation-vnext/stage-guides.ts)                                       |
+| Context toolbar       | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx) |
 
 ## Goals
 
@@ -343,10 +344,12 @@ Implementation guidance:
 4. Hit testing is pure and covered by DOM-free tests.
 5. Visual frames render above slide elements but never intercept pointer events.
 6. Connector/line hit testing is distance based, not bounding-box based.
-7. `SlideCanvas` remains read-only; all interaction logic lives in the stage.
+7. `SlideCanvasVNext` remains read-only; all interaction logic lives in the stage.
 
 ## Primary Tests
 
-- [`src/lib/presentation/stage-hit-test.test.ts`](../../src/lib/presentation/stage-hit-test.test.ts)
-- [`src/lib/presentation/stage-interaction.test.ts`](../../src/lib/presentation/stage-interaction.test.ts)
-- [`src/lib/presentation/canvas-a11y.test.ts`](../../src/lib/presentation/canvas-a11y.test.ts)
+- [`src/components/presentation-vnext/selection-model.test.ts`](../../src/components/presentation-vnext/selection-model.test.ts)
+- [`src/lib/presentation-vnext/selection-geometry.test.ts`](../../src/lib/presentation-vnext/selection-geometry.test.ts)
+- [`src/lib/presentation-vnext/stage-chrome.test.ts`](../../src/lib/presentation-vnext/stage-chrome.test.ts)
+- [`src/lib/presentation-vnext/stage-fit.test.ts`](../../src/lib/presentation-vnext/stage-fit.test.ts)
+- [`src/lib/presentation-vnext/stage-guides.test.ts`](../../src/lib/presentation-vnext/stage-guides.test.ts)

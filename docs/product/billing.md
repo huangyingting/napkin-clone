@@ -1,5 +1,6 @@
 # Billing And Entitlements
 
+**Type:** Contract  
 **Status:** Current  
 **Last updated:** 2026-06-26
 

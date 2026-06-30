@@ -1,5 +1,6 @@
 # Database Persistence
 
+**Type:** Architecture  
 **Status:** Current  
 **Last updated:** 2026-06-26
 

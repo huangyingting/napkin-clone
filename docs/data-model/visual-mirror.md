@@ -1,6 +1,8 @@
 # Visual Mirror Contract
 
+**Type:** Contract  
 **Status:** Accepted  
+**Last updated:** 2026-07-01  
 **Date:** 2026-06-23  
 **Issue:** [#449 — Document the contentJson-to-Visual mirror contract](https://github.com/huangyingting/Napkin-Clone/issues/449)  
 **Authors:** Tank (Backend Dev)

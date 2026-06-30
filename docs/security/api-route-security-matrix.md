@@ -1,5 +1,6 @@
 # API Route Security Matrix
 
+**Type:** Reference  
 **Epic:** #495 — API Security and Public Surface Governance
 **Issue:** #509
 **Status:** Current — enforced by `src/app/api/api-route-security-matrix.test.ts`

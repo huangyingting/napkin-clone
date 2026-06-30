@@ -1,14 +1,15 @@
 # AI Architecture
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-07-01
 
 These documents describe AI-backed generation flows and their quota/credit
 boundaries.
 
-| Document                       | Scope                                                                               |
-| ------------------------------ | ----------------------------------------------------------------------------------- |
-| [generation.md](generation.md) | Visual generation, deck generation, Azure calls, quota, credits, and normalization. |
+| Document                       | Type         | Scope                                                                               |
+| ------------------------------ | ------------ | ----------------------------------------------------------------------------------- |
+| [generation.md](generation.md) | Architecture | Visual generation, deck generation, Azure calls, quota, credits, and normalization. |
 
 ## Related Docs
 

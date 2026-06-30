@@ -1,5 +1,6 @@
 # Document Table Support Plan
 
+**Type:** Plan  
 **Status:** Planned  
 **Last updated:** 2026-06-29
 

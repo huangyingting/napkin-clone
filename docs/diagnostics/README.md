@@ -1,7 +1,8 @@
 # Diagnostics and Logging
 
+**Type:** Reference  
 **Status:** Current  
-**Last updated:** 2026-06-25
+**Last updated:** 2026-07-01
 
 TextIQ uses layered diagnostics:
 

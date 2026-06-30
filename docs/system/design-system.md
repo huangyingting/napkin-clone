@@ -1,5 +1,6 @@
 # Design System Boundary
 
+**Type:** Design  
 **Status:** Current  
 **Last updated:** 2026-06-25
 

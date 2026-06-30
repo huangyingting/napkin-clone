@@ -1,18 +1,19 @@
 # Security Docs
 
+**Type:** Contract  
 **Status:** Current
-**Last updated:** 2026-06-25
+**Last updated:** 2026-07-01
 
 Security docs cover authorization, public access, share-link behavior, and HTTP
 surface governance. They are the contract for routes and server actions that
 decide who may see or mutate a document.
 
-| Document                                                     | Scope                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| [access-and-sharing.md](access-and-sharing.md)               | Document capabilities, workspace roles, public share/embed/present links, and route behavior.    |
-| [workspaces.md](workspaces.md)                               | Workspace roles, capabilities, invite links, member removal, and document handoff behavior.      |
-| [api-route-security-matrix.md](api-route-security-matrix.md) | Authoritative classification of every `src/app/api/**/route.ts` route, enforced by a guard test. |
-| [page-route-access-surface.md](page-route-access-surface.md) | Typed manifest for app/page surfaces, auth pages, share routes, and public proxy exclusions.     |
+| Document                                                     | Type      | Scope                                                                                           |
+| ------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------- |
+| [access-and-sharing.md](access-and-sharing.md)               | Contract  | Document capabilities, workspace roles, public share/embed/present links, and route behavior.   |
+| [workspaces.md](workspaces.md)                               | Contract  | Workspace roles, capabilities, invite links, member removal, and document handoff behavior.     |
+| [api-route-security-matrix.md](api-route-security-matrix.md) | Reference | Authoritative classification of every `src/app/api/**/route.ts` route, enforced by guard tests. |
+| [page-route-access-surface.md](page-route-access-surface.md) | Reference | Typed manifest for app/page surfaces, auth pages, share routes, and public proxy exclusions.    |
 
 ## API Surface Governance
 

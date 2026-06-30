@@ -1,5 +1,7 @@
 # Release Gate and Readiness Checklist
 
+**Type:** Runbook  
+**Last updated:** 2026-07-01  
 **Epic:** #455 — System stabilization and release readiness for document visuals  
 **Issue:** #456  
 **Status:** Active gate — review before every foundation release wave
@@ -144,14 +146,14 @@ The following subsystems have dedicated test files that must stay green:
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Block identity (#430)                | `src/lib/lexical/block-id.test.ts`                                                                                                                                                      |
 | Visual mirror diff (#448)            | `src/lib/visual/mirror-diff.test.ts`, `mirror-repair.test.ts`                                                                                                                           |
-| Command envelope (#436)              | `src/lib/commands/`, `src/lib/presentation/slide-commands*.test.ts`                                                                                                                     |
-| Deck save / conflict (#376)          | `src/lib/presentation/save-conflict.test.ts`, `deck-revision-token.test.ts`                                                                                                             |
+| Command envelope (#436)              | `src/lib/commands/`, `src/lib/presentation-vnext/editor-commands*.test.ts`                                                                                                              |
+| Deck save / conflict (#376)          | `src/lib/document/deck-cas-writer.test.ts`, `src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts`                                                                       |
 | Export preflight (#416)              | `src/lib/visual/export-preflight.test.ts`                                                                                                                                               |
 | Authorization                        | `src/lib/auth/document-permissions.test.ts`, `authz-regression.test.ts`                                                                                                                 |
 | API surface governance (#495)        | `src/app/api/api-route-security-matrix.test.ts`, `src/lib/api/errors.test.ts`, `src/lib/diagnostics/api-abuse.test.ts`, `src/app/api/slide-assets/[documentId]/[...path]/route.test.ts` |
 | Structured diagnostics (#460)        | `src/lib/diagnostics/error-codes.test.ts`                                                                                                                                               |
-| Performance budgets (#461)           | `src/lib/presentation/perf-budgets.test.ts`                                                                                                                                             |
-| Autosave / conflict hardening (#459) | `src/lib/presentation/autosave-hardening.test.ts`                                                                                                                                       |
+| Performance budgets (#461)           | `scripts/perf-budgets.test.mjs`, `scripts/slide-editor-size-budget.test.mjs`                                                                                                            |
+| Autosave / conflict hardening (#459) | `src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts`, `src/lib/document/deck-cas-writer.test.ts`                                                                       |
 | A11y helpers (#462)                  | `src/lib/a11y/a11y-helpers.test.ts`                                                                                                                                                     |
 
 ---
@@ -259,13 +261,13 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Accessibility flows
 
-| #    | Flow                                               | Owner | Notes                                                                                                                                                                                                                                                                                                                                   |
-| ---- | -------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-1 | VisualRenderer role=img + aria-label               | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                  |
-| AC-2 | Decorative canvas elements aria-hidden             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                  |
-| AC-3 | Icon-only toolbar controls labelled                | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                  |
-| AC-4 | Modal dialog semantics                             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                  |
-| AC-5 | Canvas keyboard resize / traversal / announcements | **A** | Keyboard resize, deterministic traversal (roving tabindex), focus restoration, and `aria-live` announcements ship (#530–#535); pure logic covered by `canvas-a11y.test.ts`. Remaining accepted limitations are tracked as connector free-draw (#930) and rotation (#931) in [ADR 0002](../system/0002-canvas-keyboard-accessibility.md) |
+| #    | Flow                                               | Owner | Notes                                                                                                                                                                                                                                                                                                                   |
+| ---- | -------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1 | VisualRenderer role=img + aria-label               | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
+| AC-2 | Decorative canvas elements aria-hidden             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
+| AC-3 | Icon-only toolbar controls labelled                | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
+| AC-4 | Modal dialog semantics                             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
+| AC-5 | Canvas keyboard resize / traversal / announcements | **A** | Keyboard resize, deterministic traversal (roving tabindex), focus restoration, and `aria-live` announcements ship (#530–#535). Remaining accepted limitations are tracked as connector free-draw (#930) and rotation (#931) in [Slide canvas keyboard accessibility](../system/slide-canvas-keyboard-accessibility.md). |
 
 ---
 
@@ -285,7 +287,7 @@ For each flow below, check the indicated owner: **A** = automated test,
 - A flow marked **M** (manual smoke) failed: document the failure and its risk level;
   the responsible engineer signs off that it is safe to proceed.
 - A known canvas keyboard limitation (**D**) is present: confirm it is recorded in
-  `a11y-helpers.test.ts`, in [ADR 0002 — Canvas keyboard accessibility](../system/0002-canvas-keyboard-accessibility.md),
+  `a11y-helpers.test.ts`, in [Slide canvas keyboard accessibility](../system/slide-canvas-keyboard-accessibility.md),
   and the deferred-risk list. The R1–R3 keyboard parity work (resize, traversal,
   focus restoration, announcements) now ships (#530–#535, covered by
   `canvas-a11y.test.ts`); only the accepted A1 (connector free-draw) and A2
@@ -311,16 +313,16 @@ Before each foundation release wave:
 
 ## Part 5 — Cross-references
 
-| Related issue | Area                                                                                                                                                                                                              |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                      |
-| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                   |
-| #436          | Command envelope — `slide-commands.ts`, `commands/`                                                                                                                                                               |
-| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                         |
-| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                      |
-| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                     |
-| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                                                                                      |
-| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                |
-| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/persisted-schema-repair.md`                                                                                                            |
-| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [ADR 0002](../system/0002-canvas-keyboard-accessibility.md)        |
-| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/decisions.md), `npm run docs:check` |
+| Related issue | Area                                                                                                                                                                                                                                            |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                                                    |
+| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                                                 |
+| #436          | Command envelope — `commands/`, `presentation-vnext/editor-commands.ts`                                                                                                                                                                         |
+| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                                                       |
+| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                                                    |
+| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                                                   |
+| #461          | Performance budgets — `scripts/perf-budgets.mjs`, `scripts/check-next-build-constraints.mjs`                                                                                                                                                    |
+| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                                              |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/persisted-schema-repair.md`                                                                                                                                          |
+| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [slide canvas keyboard accessibility decision](../system/slide-canvas-keyboard-accessibility.md) |
+| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/decisions.md), `npm run docs:check`                               |

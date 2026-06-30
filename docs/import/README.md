@@ -1,7 +1,8 @@
 # Document Import Pipeline
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 The import subsystem parses uploaded `.md`, `.html`, `.docx`, `.pptx`, and
 `.pdf` files into Markdown-compatible text that can be converted into the

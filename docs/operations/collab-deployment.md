@@ -1,5 +1,9 @@
 # Collaboration server — deployment & scaling
 
+**Type:** Runbook  
+**Status:** Current  
+**Last updated:** 2026-07-01
+
 Real-time collaborative editing (multiple cursors, presence, conflict-free
 merges) is powered by a self-hosted Yjs websocket sync server,
 [`scripts/collab-server.mjs`](../../scripts/collab-server.mjs). The browser editor
@@ -353,7 +357,7 @@ transport plus short-term history — not the system of record — so a collab-l
 failure never loses a saved document.
 
 > **Decision record:** the formal trade-off analysis and the chosen path live in
-> [ADR 0001 — Realtime collaboration scaling and durability](../system/0001-realtime-scaling.md).
+> [Realtime collaboration scaling and durability](../system/realtime-collaboration-scaling.md).
 
 ## Eviction recovery snapshot (best-effort)
 

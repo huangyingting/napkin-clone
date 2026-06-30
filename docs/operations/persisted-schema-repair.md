@@ -1,6 +1,9 @@
 # Persisted-schema repair playbook
 
-**Epic:** #493 — Persisted schema and cross-projection consistency gates
+**Type:** Runbook  
+**Status:** Current  
+**Last updated:** 2026-07-01  
+**Epic:** #493 — Persisted schema and cross-projection consistency gates  
 **Issue:** #504 — Schema parse-failure telemetry + repair playbook
 
 This playbook is the operator's guide for diagnosing and repairing persisted

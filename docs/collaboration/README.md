@@ -1,7 +1,8 @@
 # Collaboration Runtime
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 This subsystem covers the application-level collaboration contract: Yjs room
 identity, client readiness, degraded local-only mode, title sync, presence, and

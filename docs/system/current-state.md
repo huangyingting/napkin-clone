@@ -1,7 +1,8 @@
 # TextIQ — Current Architecture State
 
+**Type:** Architecture  
 **Status:** Current  
-**Date:** 2026-06-29  
+**Last updated:** 2026-07-01  
 **Purpose:** Current system design map
 
 > This document is the high-level map. Topic-level contracts live in flat
@@ -90,7 +91,7 @@ The failure window where a synced edit may not reach the DB:
 zero-loss delivery is not guaranteed. The eviction snapshot is **best-effort
 recovery only** — `contentJson` (client autosave) is canonical. The scaling /
 durability path is recorded in
-[ADR 0001 — Realtime collaboration scaling and durability](0001-realtime-scaling.md).
+[Realtime collaboration scaling and durability](realtime-collaboration-scaling.md).
 
 ---
 
@@ -141,18 +142,19 @@ mirror. This guards against partial-mirror edge cases.
 **Source files:**  
 `src/lib/document/persistence-service.ts` (`persistDeck`, `patchDeck`)  
 `src/app/app/documents/[id]/actions.ts` (`saveDeckJson`, `saveDeckPatch`)  
-`src/lib/presentation/deck-schema.ts`  
-`src/lib/presentation/deck.ts`  
-`src/lib/presentation/slide-commands.ts`
+`src/lib/document/deck-cas-writer.ts`  
+`src/lib/presentation-vnext/schema.ts`  
+`src/lib/presentation-vnext/validation.ts`  
+`src/lib/presentation-vnext/editor-commands.ts`
 
 ### 4.1 Storage
 
 `Document.deckJson` holds the entire deck as a single JSON column, separate
 from `contentJson`. Deck edits never modify `contentJson` and vice versa.
 `Document.deckRevisionToken` is a random token used for optimistic CAS locking.
-Persisted decks must carry the current `schemaVersion`, a deck-level `themeId`,
-and each slide must carry `elements[]`; renderers and exporters read elements
-directly.
+Persisted decks must be valid DeckV7 JSON (`schemaVersion: 7`). Each slide is a
+`SlideNode` with authored content in `children`; renderers and exporters consume
+the resolved DeckV7 render tree.
 
 ### 4.2 Write paths
 
@@ -164,8 +166,8 @@ directly.
 Both write paths use revision-token compare-and-swap. Missing or stale tokens
 are conflicts; successful writes mint a new token.
 
-See [data-model/deck.md](../data-model/deck.md) for the full deck schema and sync
-contract.
+See [data-model/deck.md](../data-model/deck.md) for the full DeckV7 schema and
+sync contract.
 
 ### 4.3 Version snapshots
 
@@ -328,17 +330,16 @@ reflect the restored content.
 `src/lib/commands/command-envelope.ts`  
 `src/lib/commands/visual-command-adapter.ts`  
 `src/lib/commands/visual-commands.ts`  
-`src/lib/presentation/slide-commands.ts`
+`src/lib/presentation-vnext/editor-commands.ts`
 
 There is **no runtime command bus** and no `command-bus.ts` module. Commands are
 serializable `CommandEnvelope` records executed by **pure executors** behind thin
 adapters:
 
-- **Deck/slide commands** are defined as `SlideCommand` variants in
-  `src/lib/presentation/slide-commands.ts`. UI handlers call `commitCommand()`,
-  which wraps the pure `executeCommand()` and returns the new deck plus
-  `DeckPatch[]`. Patches are persisted via the `saveDeckPatch` server action and
-  re-applied by `applyPatch` in `patchDeck` under a revision-token CAS.
+- **Deck/slide commands** are immutable DeckV7 transforms in
+  `src/lib/presentation-vnext/editor-commands.ts`. The vNext slide editor owns
+  UI state, history, and autosave handoff, then persists validated DeckV7 JSON
+  through the deck CAS writer.
 - **Visual commands** are defined as `VisualCommandPayload` ops in
   `src/lib/commands/visual-commands.ts`. UI surfaces call `applyVisualCommand()`
   in `src/lib/commands/visual-command-adapter.ts`, which builds a validated
@@ -391,36 +392,36 @@ durable command log yet.
 
 ## Architecture Documents
 
-| Document                                                                           | Status   | Notes                                                     |
-| ---------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
-| [../ai/generation.md](../ai/generation.md)                                         | Current  | AI generation request flow and validation contracts       |
-| [../auth/README.md](../auth/README.md)                                             | Current  | Authentication and account lifecycle                      |
-| [../collaboration/README.md](../collaboration/README.md)                           | Current  | Collaboration room model and runtime readiness            |
-| [../data-model/deck.md](../data-model/deck.md)                                     | Current  | Deck schema, slide elements, source refs, and persistence |
-| [../data-model/database-persistence.md](../data-model/database-persistence.md)     | Current  | Prisma provider resolution and relational model           |
-| [../data-model/document-persistence.md](../data-model/document-persistence.md)     | Current  | Document save transactions and version restore            |
-| [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                   | Current  | Visual projection contract                                |
-| [../documents/README.md](../documents/README.md)                                   | Current  | Document creation, listing, search, tags, and trash       |
-| [../editor/comments-and-anchors.md](../editor/comments-and-anchors.md)             | Current  | Comment threads and document/slide anchors                |
-| [../editor/lexical-editor.md](../editor/lexical-editor.md)                         | Current  | Editor surfaces, visual lifecycle, and deck autosave UX   |
-| [../editor/theme-layout.md](../editor/theme-layout.md)                             | Current  | Slide token cascade, masters, layouts, and overrides      |
-| [../import/README.md](../import/README.md)                                         | Current  | Document import validation, parsing, and abuse controls   |
-| [../localization/README.md](../localization/README.md)                             | Current  | Localization catalogs, locale resolution, and activation  |
-| [../presentation/assets.md](../presentation/assets.md)                             | Current  | Slide asset upload, serving, references, and cleanup      |
-| [../presentation/slide-editor.md](../presentation/slide-editor.md)                 | Current  | Slide editor runtime and interaction boundaries           |
-| [../presentation/rendering-and-export.md](../presentation/rendering-and-export.md) | Current  | Shared rendering, present mode, and export pipeline       |
-| [../product/billing.md](../product/billing.md)                                     | Current  | Plan entitlements, providers, and AI credits              |
-| [../product/brand-studio.md](../product/brand-studio.md)                           | Current  | Saved brand styles and brand asset lifecycle              |
-| [../public-render/README.md](../public-render/README.md)                           | Current  | Public render resolver, metadata, and asset access        |
-| [../security/access-and-sharing.md](../security/access-and-sharing.md)             | Current  | Document permissions, public links, and asset access      |
-| [../security/workspaces.md](../security/workspaces.md)                             | Current  | Workspace roles, invites, and membership behavior         |
-| [../visual/README.md](../visual/README.md)                                         | Current  | Visual schema, registry, rendering, and export support    |
-| [../commands/command-envelope.md](../commands/command-envelope.md)                 | Current  | Cross-surface command envelope                            |
-| [../commands/mutation-audit.md](../commands/mutation-audit.md)                     | Current  | Mutation inventory and routing decisions                  |
-| [subsystem-map.md](subsystem-map.md)                                               | Current  | Code subsystem to documentation coverage map              |
-| [decisions.md](decisions.md)                                                       | Current  | ADR index, supersession status, and source-drift rule     |
-| [0001-realtime-scaling.md](0001-realtime-scaling.md)                               | Accepted | ADR: realtime collaboration scaling and durability        |
-| [0002-canvas-keyboard-accessibility.md](0002-canvas-keyboard-accessibility.md)     | Accepted | ADR: canvas keyboard accessibility decisions              |
-| [../operations/collab-deployment.md](../operations/collab-deployment.md)           | Current  | Collaboration deployment and scaling                      |
-| [../operations/release-gate.md](../operations/release-gate.md)                     | Current  | Release readiness checklist                               |
-| [../operations/resource-limits.md](../operations/resource-limits.md)               | Current  | Resource limit inventory and budget helpers               |
+| Document                                                                           | Status   | Notes                                                    |
+| ---------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- |
+| [../ai/generation.md](../ai/generation.md)                                         | Current  | AI generation request flow and validation contracts      |
+| [../auth/README.md](../auth/README.md)                                             | Current  | Authentication and account lifecycle                     |
+| [../collaboration/README.md](../collaboration/README.md)                           | Current  | Collaboration room model and runtime readiness           |
+| [../data-model/deck.md](../data-model/deck.md)                                     | Current  | DeckV7 schema, source refs, rendering, and persistence   |
+| [../data-model/database-persistence.md](../data-model/database-persistence.md)     | Current  | Prisma provider resolution and relational model          |
+| [../data-model/document-persistence.md](../data-model/document-persistence.md)     | Current  | Document save transactions and version restore           |
+| [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                   | Current  | Visual projection contract                               |
+| [../documents/README.md](../documents/README.md)                                   | Current  | Document creation, listing, search, tags, and trash      |
+| [../editor/comments-and-anchors.md](../editor/comments-and-anchors.md)             | Current  | Comment threads and document/slide anchors               |
+| [../editor/lexical-editor.md](../editor/lexical-editor.md)                         | Current  | Editor surfaces, visual lifecycle, and deck autosave UX  |
+| [../presentation/theme-packages.md](../presentation/theme-packages.md)             | Current  | Theme packages, semantic templates, styles, and chrome   |
+| [../import/README.md](../import/README.md)                                         | Current  | Document import validation, parsing, and abuse controls  |
+| [../localization/README.md](../localization/README.md)                             | Current  | Localization catalogs, locale resolution, and activation |
+| [../presentation/assets.md](../presentation/assets.md)                             | Current  | Slide asset upload, serving, references, and cleanup     |
+| [../presentation/slide-editor.md](../presentation/slide-editor.md)                 | Current  | Slide editor runtime and interaction boundaries          |
+| [../presentation/rendering-and-export.md](../presentation/rendering-and-export.md) | Current  | Shared rendering, present mode, and export pipeline      |
+| [../product/billing.md](../product/billing.md)                                     | Current  | Plan entitlements, providers, and AI credits             |
+| [../product/brand-studio.md](../product/brand-studio.md)                           | Current  | Saved brand styles and brand asset lifecycle             |
+| [../public-render/README.md](../public-render/README.md)                           | Current  | Public render resolver, metadata, and asset access       |
+| [../security/access-and-sharing.md](../security/access-and-sharing.md)             | Current  | Document permissions, public links, and asset access     |
+| [../security/workspaces.md](../security/workspaces.md)                             | Current  | Workspace roles, invites, and membership behavior        |
+| [../visual/README.md](../visual/README.md)                                         | Current  | Visual schema, registry, rendering, and export support   |
+| [../commands/command-envelope.md](../commands/command-envelope.md)                 | Current  | Cross-surface command envelope                           |
+| [../commands/mutation-audit.md](../commands/mutation-audit.md)                     | Current  | Mutation inventory and routing decisions                 |
+| [subsystem-map.md](subsystem-map.md)                                               | Current  | Code subsystem to documentation coverage map             |
+| [decisions.md](decisions.md)                                                       | Current  | ADR index, supersession status, and source-drift rule    |
+| [realtime-collaboration-scaling.md](realtime-collaboration-scaling.md)             | Accepted | ADR: realtime collaboration scaling and durability       |
+| [slide-canvas-keyboard-accessibility.md](slide-canvas-keyboard-accessibility.md)   | Accepted | ADR: canvas keyboard accessibility decisions             |
+| [../operations/collab-deployment.md](../operations/collab-deployment.md)           | Current  | Collaboration deployment and scaling                     |
+| [../operations/release-gate.md](../operations/release-gate.md)                     | Current  | Release readiness checklist                              |
+| [../operations/resource-limits.md](../operations/resource-limits.md)               | Current  | Resource limit inventory and budget helpers              |

@@ -1,5 +1,6 @@
 # Architecture Decision Records
 
+**Type:** Reference  
 **Status:** Current  
 **Last updated:** 2026-06-25
 
@@ -10,10 +11,10 @@ when source behavior materially changes.
 
 ## Index
 
-| ADR                                                                                                | Status   | Supersedes | Superseded by | Related docs                                                                                                           |
-| -------------------------------------------------------------------------------------------------- | -------- | ---------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [0001 — Realtime collaboration scaling and durability](0001-realtime-scaling.md)                   | Accepted | —          | —             | [Collab deployment](../operations/collab-deployment.md), [current state](current-state.md)                             |
-| [0002 — Canvas keyboard accessibility for the slide editor](0002-canvas-keyboard-accessibility.md) | Accepted | —          | —             | [Slide-stage interactions](../presentation/slide-stage-interactions.md), [release gate](../operations/release-gate.md) |
+| ADR                                                                                | Status   | Supersedes | Superseded by | Related docs                                                                                                           |
+| ---------------------------------------------------------------------------------- | -------- | ---------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [Realtime collaboration scaling and durability](realtime-collaboration-scaling.md) | Accepted | —          | —             | [Collab deployment](../operations/collab-deployment.md), [current state](current-state.md)                             |
+| [Slide canvas keyboard accessibility](slide-canvas-keyboard-accessibility.md)      | Accepted | —          | —             | [Slide-stage interactions](../presentation/slide-stage-interactions.md), [release gate](../operations/release-gate.md) |
 
 ## Drift rule
 

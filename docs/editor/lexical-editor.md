@@ -1,5 +1,9 @@
 # Editor architecture & usage
 
+**Type:** Architecture  
+**Status:** Current  
+**Last updated:** 2026-07-01
+
 The document editor pairs a Lexical rich-text surface with **visual blocks**
 (flowcharts, mind maps, charts, …) and a set of **context-aware surfaces**
 (a floating text toolbar, a mobile bottom sheet, a `+`/`/` insert menu, and a

@@ -1,5 +1,6 @@
 # Resource Limits And Budgets
 
+**Type:** Contract  
 **Status:** Current  
 **Last updated:** 2026-06-26
 

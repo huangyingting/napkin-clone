@@ -1,5 +1,6 @@
 # Slide Editor Runtime
 
+**Type:** Architecture  
 **Status:** Current  
 **Last updated:** 2026-06-29
 
@@ -12,25 +13,21 @@ and pointer state rules, see
 
 ## Source Files
 
-| Area               | Source                                                                                                           |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Editor shell       | [`src/components/presentation/slide-editor.tsx`](../../src/components/presentation/slide-editor.tsx)             |
-| Stage interactions | [`src/components/presentation/slide-stage-editor.tsx`](../../src/components/presentation/slide-stage-editor.tsx) |
-| Stage hit testing  | [`src/lib/presentation/stage-hit-test.ts`](../../src/lib/presentation/stage-hit-test.ts)                         |
-| Stage targeting    | [`src/lib/presentation/stage-targeting.ts`](../../src/lib/presentation/stage-targeting.ts)                       |
-| Stage chrome       | [`src/lib/presentation/stage-chrome.ts`](../../src/lib/presentation/stage-chrome.ts)                             |
-| Select-under       | [`src/lib/presentation/stage-select-under.ts`](../../src/lib/presentation/stage-select-under.ts)                 |
-| Stage decisions    | [`src/lib/presentation/stage-interaction.ts`](../../src/lib/presentation/stage-interaction.ts)                   |
-| Media hit geometry | [`src/lib/presentation/media-hit-geometry.ts`](../../src/lib/presentation/media-hit-geometry.ts)                 |
-| Text hit geometry  | [`src/lib/presentation/text-hit-geometry.ts`](../../src/lib/presentation/text-hit-geometry.ts)                   |
-| Read-only canvas   | [`src/components/presentation/slide-canvas.tsx`](../../src/components/presentation/slide-canvas.tsx)             |
-| Inspector          | [`src/components/presentation/slide-inspector.tsx`](../../src/components/presentation/slide-inspector.tsx)       |
-| Layer list         | [`src/components/presentation/layer-list.tsx`](../../src/components/presentation/layer-list.tsx)                 |
-| Text style toolbar | [`src/components/presentation/text-style-bar.tsx`](../../src/components/presentation/text-style-bar.tsx)         |
-| Deck commands      | [`src/lib/presentation/slide-commands.ts`](../../src/lib/presentation/slide-commands.ts)                         |
-| Deck mutations     | [`src/lib/presentation/deck-mutations.ts`](../../src/lib/presentation/deck-mutations.ts)                         |
-| Patch autosave     | [`src/lib/presentation/patch-autosave.ts`](../../src/lib/presentation/patch-autosave.ts)                         |
-| Slide presence     | [`src/lib/presentation/use-slide-presence.ts`](../../src/lib/presentation/use-slide-presence.ts)                 |
+| Area               | Source                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Editor shell       | [`src/components/presentation-vnext/slide-editor-vnext.tsx`](../../src/components/presentation-vnext/slide-editor-vnext.tsx)               |
+| Read-only canvas   | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                           |
+| Node renderer      | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)             |
+| Inspector          | [`src/components/presentation-vnext/inspector/inspector-shell.tsx`](../../src/components/presentation-vnext/inspector/inspector-shell.tsx) |
+| Context toolbar    | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx)     |
+| Filmstrip          | [`src/components/presentation-vnext/filmstrip/filmstrip.tsx`](../../src/components/presentation-vnext/filmstrip/filmstrip.tsx)             |
+| Stage fit          | [`src/lib/presentation-vnext/stage-fit.ts`](../../src/lib/presentation-vnext/stage-fit.ts)                                                 |
+| Stage chrome       | [`src/lib/presentation-vnext/stage-chrome.ts`](../../src/lib/presentation-vnext/stage-chrome.ts)                                           |
+| Stage guides       | [`src/lib/presentation-vnext/stage-guides.ts`](../../src/lib/presentation-vnext/stage-guides.ts)                                           |
+| Selection geometry | [`src/lib/presentation-vnext/selection-geometry.ts`](../../src/lib/presentation-vnext/selection-geometry.ts)                               |
+| Deck commands      | [`src/lib/presentation-vnext/editor-commands.ts`](../../src/lib/presentation-vnext/editor-commands.ts)                                     |
+| Source links       | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                           |
+| Presence state     | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)   |
 
 ## Ownership Model
 
@@ -142,9 +139,12 @@ at thumbnail, editor, present, and export sizes.
 
 ## Keyboard Accessibility
 
-The canvas is fully keyboard operable (ADR 0002; issues #530–#535). The pure
-decision logic lives in `src/lib/presentation/canvas-a11y.ts` (unit-tested by
-`canvas-a11y.test.ts`); the editors keep only thin wiring.
+The canvas is fully keyboard operable (see
+[slide canvas keyboard accessibility](../system/slide-canvas-keyboard-accessibility.md);
+issues #530–#535). Pure
+selection, geometry, stage-fit, and stage-guide helpers live under
+`src/lib/presentation-vnext/` and `src/components/presentation-vnext/`; the
+editor shell keeps thin wiring around those helpers.
 
 - **Move:** Arrow nudges the selection by `1%`, Shift+Arrow by `5%`.
 - **Resize:** Alt+Arrow resizes by `1%`, Alt+Shift+Arrow by `5%` — Right/Down
@@ -215,12 +215,11 @@ permanent `Name` input — element naming lives in `Layers`.
 - slide `designOverrides.background` and accent updates;
 - image upload through the slide asset action when `documentId` is available.
 
-Deck-level master chrome is not edited in the right inspector. The top toolbar
-`Deck chrome` popover owns global logo, footer, page number, and watermark
-configuration. Those controls update locked `Deck.masters[].elements[]` records
-identified by `masterChromeKind`. The slide stage renders those elements but
-normal slide editing hit-testing, selection, clipboard, z-order, and layer-list
-mutations operate only on `Slide.elements[]`.
+Deck-level chrome is not edited in the right inspector. The top toolbar
+`Deck chrome` popover owns global logo, footer, page number, watermark, border,
+and safe-area configuration. Those controls update DeckV7 chrome state; normal
+slide editing hit-testing, selection, clipboard, z-order, and layer-list
+mutations operate only on slide child nodes.
 
 The inspector must not infer missing context. If a workflow requires full source
 document blocks or document id, those values are passed by `SlideEditor`.
@@ -299,7 +298,7 @@ Sync from document uses `mergeDeckFromDocument`:
 
 - document-derived slide content can be re-materialized from fresh document
   content when source provenance still points at the same document section;
-- hand-authored slides preserve their `elements[]`;
+- hand-authored slides preserve their `children`;
 - active `source` elements can refresh content or content hashes in place;
 - orphaned source blocks are surfaced to the user instead of being silently
   removed.
@@ -313,19 +312,15 @@ refs must carry explicit `blockKind`.
 2. `SlideStageEditor`, `SlideInspector`, and `LayerList` are controlled views.
 3. `SlideCanvas` is shared and read-only.
 4. Element geometry stays in percentage units.
-5. Element content, design, and source-link edits write v6 element fields.
+5. Node content, local style, and source-link edits write DeckV7 node fields.
 6. Autosave writes through the same patch/whole-deck retry pipeline.
 7. Conflicts are resolved by revision token, not by presence.
 
 ## Primary Tests
 
-- [`src/lib/presentation/slide-commands.deck.test.ts`](../../src/lib/presentation/slide-commands.deck.test.ts)
-- [`src/lib/presentation/slide-commands.slide.test.ts`](../../src/lib/presentation/slide-commands.slide.test.ts)
-- [`src/lib/presentation/slide-commands.element.test.ts`](../../src/lib/presentation/slide-commands.element.test.ts)
-- [`src/lib/presentation/deck-mutations.test.ts`](../../src/lib/presentation/deck-mutations.test.ts)
-- [`src/lib/presentation/patch-autosave.test.ts`](../../src/lib/presentation/patch-autosave.test.ts)
-- [`src/lib/presentation/autosave-hardening.test.ts`](../../src/lib/presentation/autosave-hardening.test.ts)
-- [`src/lib/presentation/deck-merge.test.ts`](../../src/lib/presentation/deck-merge.test.ts)
-- [`src/lib/presentation/source-link-staleness.test.ts`](../../src/lib/presentation/source-link-staleness.test.ts)
-- [`src/lib/presentation/use-slide-presence.test.ts`](../../src/lib/presentation/use-slide-presence.test.ts)
+- [`src/lib/presentation-vnext/editor-commands.test.ts`](../../src/lib/presentation-vnext/editor-commands.test.ts)
+- [`src/lib/presentation-vnext/source-links.test.ts`](../../src/lib/presentation-vnext/source-links.test.ts)
+- [`src/lib/presentation-vnext/stage-chrome.test.ts`](../../src/lib/presentation-vnext/stage-chrome.test.ts)
+- [`src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts)
+- [`src/components/presentation-vnext/slide-canvas-render.test.ts`](../../src/components/presentation-vnext/slide-canvas-render.test.ts)
 - [`e2e/slides-smoke.spec.ts`](../../e2e/slides-smoke.spec.ts)

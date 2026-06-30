@@ -1,55 +1,77 @@
 # TextIQ Documentation
 
+**Type:** Reference  
 **Status:** Current  
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-01
 
-This folder documents the current design of the TextIQ editor, visual mirror,
-and slide deck system. The project is still in development, so these docs treat
-the current schema as authoritative.
+This folder documents the current runtime architecture, persisted contracts,
+product behavior, operational runbooks, and forward plans for TextIQ. Source
+code, tests, and schemas remain authoritative; docs explain the current system
+and name where future work belongs.
 
 Database migration commands in README/package scripts are normal Prisma schema
-workflow and are not runtime payload readers.
+workflow. They are not runtime compatibility readers for superseded JSON
+payloads.
 
 ## Start Here
 
-| Document                                             | Purpose                                                                         |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [system/current-state.md](system/current-state.md)   | System-wide runtime architecture and write paths.                               |
-| [system/subsystem-map.md](system/subsystem-map.md)   | Code subsystem to documentation coverage map.                                   |
-| [system/README.md](system/README.md)                 | Cross-subsystem contracts, invariants, naming, and ADR index.                   |
-| [operations/README.md](operations/README.md)         | Deployment, release gates, and operational runbooks.                            |
-| [editor/lexical-editor.md](editor/lexical-editor.md) | Lexical editor surfaces, tool registry, visual lifecycle, and deck autosave UX. |
+| Document                                           | Type         | Purpose                                                  |
+| -------------------------------------------------- | ------------ | -------------------------------------------------------- |
+| [system/current-state.md](system/current-state.md) | Architecture | System-wide runtime architecture and write paths.        |
+| [system/subsystem-map.md](system/subsystem-map.md) | Reference    | Code subsystem to documentation ownership map.           |
+| [data-model/deck.md](data-model/deck.md)           | Contract     | Current DeckV7 `Document.deckJson` persisted contract.   |
+| [presentation/README.md](presentation/README.md)   | Architecture | Slide editor, rendering, present mode, and export index. |
+| [operations/README.md](operations/README.md)       | Runbook      | Deployment, release gates, and operational entry points. |
+
+## Document Types
+
+| Type           | Use for                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `Architecture` | Current runtime boundaries, ownership, data flow, and cross-module invariants.          |
+| `Contract`     | Persisted schemas, command envelopes, route matrices, APIs, and validation rules.       |
+| `Design`       | Product behavior, UI surfaces, interaction rules, and authoring workflows.              |
+| `Plan`         | Future work with current state, target state, phases, non-goals, and acceptance checks. |
+| `Runbook`      | Operational steps, diagnosis, repair, release, deployment, and incident procedures.     |
+| `Reference`    | Inventories, support matrices, coverage maps, and source-to-doc lookup tables.          |
+
+Plans live inside the owning subsystem as `*-plan.md`. Current architecture and
+contracts must not depend on plan documents for behavior.
 
 ## Subsystems
 
-| Section                                   | Contains                                                  |
-| ----------------------------------------- | --------------------------------------------------------- |
-| [system/](system/README.md)               | System map, invariants, design system, naming, and ADRs.  |
-| [ai/](ai/README.md)                       | AI-assisted generation contracts.                         |
-| [auth/](auth/README.md)                   | Authentication, recovery, account settings, and deletion. |
-| [collaboration/](collaboration/README.md) | Yjs room model, readiness, presence, and room access.     |
-| [data-model/](data-model/README.md)       | Deck JSON and visual mirror contracts.                    |
-| [documents/](documents/README.md)         | Document creation, listing, search, tags, and trash.      |
-| [editor/](editor/README.md)               | Lexical editor and slide theme/layout architecture.       |
-| [import/](import/README.md)               | Document import parsing, validation, and abuse controls.  |
-| [localization/](localization/README.md)   | Typed catalogs, locale resolution, and activation gate.   |
-| [presentation/](presentation/README.md)   | Slide editor runtime, present mode, and export pipeline.  |
-| [product/](product/README.md)             | Brand styles, billing plans, and credits.                 |
-| [public-render/](public-render/README.md) | Public share/embed/present/asset render resolution.       |
-| [security/](security/README.md)           | Permissions, sharing, route matrix, and public surface.   |
-| [visual/](visual/README.md)               | Visual schemas, kind registry, rendering, and export.     |
-| [commands/](commands/README.md)           | Command envelope and mutation routing inventory.          |
-| [diagnostics/](diagnostics/README.md)     | Logging scopes, diagnostic codes, and telemetry layers.   |
-| [operations/](operations/README.md)       | Collaboration deployment and release readiness.           |
+| Section                                   | Owns                                                     | Common doc types                     |
+| ----------------------------------------- | -------------------------------------------------------- | ------------------------------------ |
+| [system/](system/README.md)               | Cross-subsystem architecture, invariants, ADRs, naming.  | Architecture, Reference, ADR         |
+| [data-model/](data-model/README.md)       | Persisted JSON contracts and database projections.       | Contract, Architecture               |
+| [presentation/](presentation/README.md)   | Slide editor runtime, DeckV7 rendering, present/export.  | Architecture, Design, Contract, Plan |
+| [editor/](editor/README.md)               | Lexical document editor and editor-owned comment UX.     | Architecture, Design                 |
+| [documents/](documents/README.md)         | Document creation, listing, tags, search, trash.         | Architecture, Plan                   |
+| [visual/](visual/README.md)               | Visual schemas, registry, rendering, transform/export.   | Contract, Architecture               |
+| [ai/](ai/README.md)                       | AI-assisted document/deck generation and quota flow.     | Architecture, Contract               |
+| [commands/](commands/README.md)           | Command envelopes, mutation routing, mutation inventory. | Contract, Reference                  |
+| [public-render/](public-render/README.md) | Public share/embed/present rendering and metadata.       | Architecture, Security               |
+| [security/](security/README.md)           | Permissions, sharing, route policy, public surfaces.     | Contract, Reference                  |
+| [auth/](auth/README.md)                   | Authentication, account lifecycle, settings, deletion.   | Architecture, Runbook                |
+| [collaboration/](collaboration/README.md) | Yjs rooms, readiness, presence, collaboration access.    | Architecture, Runbook                |
+| [import/](import/README.md)               | Document import parsing, validation, normalization.      | Architecture, Contract               |
+| [localization/](localization/README.md)   | Typed catalogs, locale resolution, activation gate.      | Architecture                         |
+| [product/](product/README.md)             | Billing, entitlements, Brand Studio, product policy.     | Architecture, Contract               |
+| [diagnostics/](diagnostics/README.md)     | Logging scopes, diagnostic codes, telemetry layers.      | Reference, Contract                  |
+| [operations/](operations/README.md)       | Runtime configuration, release, repair, privacy, QA.     | Runbook, Reference                   |
 
 ## Documentation Rules
 
-- Document current behavior and current design only.
+- Document current behavior and current design in Architecture, Contract, and
+  Design docs.
 - Do not document superseded payload shapes as supported runtime behavior.
-- When a schema is tightened, update the relevant contract document and tests in
-  the same change.
-- Prefer links to source files for implementation detail, but keep the docs
-  readable without opening code.
+- Put future or incomplete work in a `Plan` document owned by the subsystem that
+  will implement it.
+- When a schema is tightened, update the relevant Contract doc and tests in the
+  same change.
+- Keep subsystem directories flat: Markdown files live directly under
+  `docs/<subsystem>/`.
+- Prefer links to source files for implementation detail, but keep docs readable
+  without opening code.
 - Material source behavior changes must amend the relevant ADR or supersede it
   with a new ADR; see the [ADR index](system/decisions.md).
 
@@ -59,8 +81,14 @@ Before treating a docs update as done, run the relevant code checks when the
 docs describe executable behavior:
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
 npm run docs:check
+npm run typecheck
+npm run test:subsystem -- <subsystem>
+```
+
+For broad documentation reshapes, also run:
+
+```bash
+npm run import-graph:check
+rg "<deleted-doc-or-symbol>" docs src
 ```

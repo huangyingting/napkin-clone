@@ -1,7 +1,8 @@
 # Document Management
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 This subsystem covers document creation, duplication, dashboard listing,
 search, tags, favorites, trash, and dashboard-load maintenance. Editor content
@@ -24,9 +25,9 @@ and deck shapes are documented in [../data-model/](../data-model/README.md).
 
 ## Plans
 
-| Document                                       | Scope                                                                                     |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [table-support-plan.md](table-support-plan.md) | Planned first-class document table blocks, Lexical table editing, import, and slide flow. |
+| Document                                       | Type | Scope                                                                                     |
+| ---------------------------------------------- | ---- | ----------------------------------------------------------------------------------------- |
+| [table-support-plan.md](table-support-plan.md) | Plan | Planned first-class document table blocks, Lexical table editing, import, and slide flow. |
 
 ## Creation Paths
 

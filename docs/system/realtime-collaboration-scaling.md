@@ -1,5 +1,9 @@
 # 1. Realtime collaboration scaling and durability
 
+**Type:** ADR
+
+**Last updated:** 2026-07-01
+
 - **Status:** Accepted
 - **Date:** 2026-06-23
 - **Epic:** #492 — Collaboration Durability and Realtime Operations Hardening

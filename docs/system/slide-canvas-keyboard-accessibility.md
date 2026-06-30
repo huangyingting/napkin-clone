@@ -1,5 +1,9 @@
 # 2. Canvas keyboard accessibility for the slide editor
 
+**Type:** ADR
+
+**Last updated:** 2026-07-01
+
 - **Status:** Accepted — R1–R3 implemented (canvas keyboard accessibility wave,
   issues #530–#535); A1 partially implemented; A2 deferred
 - **Date:** 2026-06-23
@@ -10,12 +14,11 @@
 
 ## Context
 
-The slide editor canvas (`SlideStageEditor`,
-`src/components/presentation/slide-stage-editor.tsx`; editor shell
-`src/components/presentation/slide-editor.tsx`) is the primary authoring surface
-for decks. It is pointer-first: elements are moved and resized by dragging, and
-connectors are drawn by dragging endpoints onto element anchors. The release
-gate has long tracked a deferred-risk item for this surface —
+The vNext slide editor stage (`src/components/presentation-vnext/slide-editor-vnext.tsx`
+plus the shared DeckV7 canvas) is the primary authoring surface for decks. It is
+pointer-first: nodes are moved and resized by dragging, and connectors are drawn
+by targeting node anchors. The release gate has long tracked a deferred-risk
+item for this surface —
 `docs/operations/release-gate.md` row **AC-5 "Canvas drag/resize keyboard
 parity" (Owner: D / deferred)** — without a written decision recording exactly
 which keyboard interactions are required for the next accessibility bar and
@@ -80,10 +83,10 @@ re-pointed at this ADR.
 - **R1 — Keyboard resize parity.** ✅ **Implemented** (#530). A keyboard user can
   resize a selected element with **Alt+Arrow** (`1%`) / **Alt+Shift+Arrow**
   (`5%`), mirroring the nudge step model; Right/Down grow the right/bottom edge,
-  Left/Up shrink them. Clamping (min size + canvas bounds) lives in the pure
-  `resizeBoxByStep` helper (`src/lib/presentation/canvas-a11y.ts`) and applies
-  via `SET_ELEMENT_BOXES`. Without this, keyboard-only users could not perform a
-  core authoring action (WCAG 2.1.1 Keyboard).
+  Left/Up shrink them. Clamping (min size + canvas bounds) belongs in pure stage
+  geometry helpers and applies through DeckV7 node layout updates. Without this,
+  keyboard-only users could not perform a core authoring action (WCAG 2.1.1
+  Keyboard).
 - **R2 — Deterministic selection traversal + focus restoration.** ✅
   **Implemented** (#531, #532). **Tab / Shift+Tab** select the next / previous
   element in a deterministic reading order (`orderedElementIds` +
@@ -140,14 +143,13 @@ These limitations remain recorded as release-gate **AC-5** warnings (Part 3 of
 - The release gate's AC-5 item now points at this ADR; R1–R3 ship and AC-5 is a
   narrowed warning covering only the accepted A1 (free-draw, #930) / A2
   (rotation, #931) limitations.
-- R1–R3 are additive to the existing keyboard model and the pure helpers that
-  back it (`elementAccessibleName`, the nudge/step logic, and the new
-  `canvas-a11y.ts` module), implemented and unit-tested
-  (`src/lib/presentation/canvas-a11y.test.ts`) without changing the persisted
-  deck schema.
+- R1–R3 are additive to the existing keyboard model and pure helper coverage for
+  accessible names, nudge/step geometry, selection, and stage state. They do not
+  change the persisted DeckV7 schema.
 - Automated a11y assertions continue to cover the helper-level guarantees
   (`src/lib/a11y/a11y-helpers.test.ts`, `element-accessible-name.test.ts`); the
-  resize/traversal/announcement logic is now covered by `canvas-a11y.test.ts`.
+  resize/traversal/announcement logic is covered by focused presentation stage
+  tests.
 
 ## Implementation issues (delivered)
 

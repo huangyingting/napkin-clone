@@ -1,5 +1,6 @@
 # Runtime Configuration Inventory
 
+**Type:** Reference  
 **Status:** Current  
 **Last updated:** 2026-06-29
 

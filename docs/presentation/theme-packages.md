@@ -1,5 +1,6 @@
 # Presentation Theme Packages
 
+**Type:** Contract  
 **Status:** Current  
 **Last updated:** 2026-06-29
 

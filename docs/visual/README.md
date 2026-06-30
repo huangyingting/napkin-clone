@@ -1,7 +1,8 @@
 # Visual System
 
+**Type:** Contract  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 The visual subsystem owns visual schemas, kind capabilities, renderer/export
 support, transformations, and AI prompt constraints. Persistence of visual nodes

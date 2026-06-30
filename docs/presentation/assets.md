@@ -1,33 +1,35 @@
 # Slide Assets
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-07-01
 
 This document defines the slide image asset lifecycle: upload, storage, serving,
 resolution, export behavior, and cleanup.
 
 ## Source Files
 
-| Area                    | Source                                                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Upload server action    | [`src/app/app/documents/[id]/slide-asset-actions.ts`](../../src/app/app/documents/%5Bid%5D/slide-asset-actions.ts)                   |
-| Protected serving route | [`src/app/api/slide-assets/[documentId]/[...path]/route.ts`](../../src/app/api/slide-assets/%5BdocumentId%5D/%5B...path%5D/route.ts) |
-| Validation              | [`src/lib/slides/asset-upload.ts`](../../src/lib/slides/asset-upload.ts)                                                             |
-| Storage adapter         | [`src/lib/slides/asset-storage.ts`](../../src/lib/slides/asset-storage.ts)                                                           |
-| Resolver                | [`src/lib/slides/asset-resolver.ts`](../../src/lib/slides/asset-resolver.ts)                                                         |
-| Orphan cleanup          | [`src/lib/slides/asset-orphan.ts`](../../src/lib/slides/asset-orphan.ts)                                                             |
-| Inspector upload UI     | [`src/components/presentation/slide-inspector.tsx`](../../src/components/presentation/slide-inspector.tsx)                           |
+| Area                           | Source                                                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Upload server action           | [`src/app/app/documents/[id]/slide-asset-actions.ts`](../../src/app/app/documents/%5Bid%5D/slide-asset-actions.ts)                               |
+| Protected serving route        | [`src/app/api/slide-assets/[documentId]/[...path]/route.ts`](../../src/app/api/slide-assets/%5BdocumentId%5D/%5B...path%5D/route.ts)             |
+| Validation                     | [`src/lib/slides/asset-upload.ts`](../../src/lib/slides/asset-upload.ts)                                                                         |
+| Storage adapter                | [`src/lib/slides/asset-storage.ts`](../../src/lib/slides/asset-storage.ts)                                                                       |
+| Resolver                       | [`src/lib/slides/asset-resolver.ts`](../../src/lib/slides/asset-resolver.ts)                                                                     |
+| Orphan cleanup                 | [`src/lib/slides/asset-orphan.ts`](../../src/lib/slides/asset-orphan.ts)                                                                         |
+| Inspector image controls       | [`src/components/presentation-vnext/inspector/node-content-panel.tsx`](../../src/components/presentation-vnext/inspector/node-content-panel.tsx) |
+| Context toolbar image controls | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx)           |
 
 ## Data Flow
 
 ```text
-SlideInspector file input
+Slide editor image replace flow
   -> uploadSlideAsset(documentId, FormData)
   -> validate MIME/size/checksum
   -> write bytes through AssetStorageAdapter
   -> create/deduplicate Asset row
   -> return { assetId, url }
-  -> persist assetId on ImageElement or Slide.backgroundAssetId
+  -> persist assetId in DeckV7 assets and image node content
 ```
 
 Assets are document-scoped. The returned URL is a protected route under
@@ -35,10 +37,10 @@ Assets are document-scoped. The returned URL is a protected route under
 
 Vocabulary:
 
-- `AssetReference` means persisted identity, such as `ImageElement.assetId` or
-  `Slide.backgroundAssetId`.
-- `ResolvedAssetUrl` means a derived display URL, such as `ImageElement.src` or
-  `Slide.backgroundImage`.
+- `AssetReference` means persisted identity, such as `ImageNode.content.assetId`
+  or an entry in `DeckV7.assets.images` / `DeckV7.assets.visuals`.
+- `ResolvedAssetUrl` means a derived display URL returned by upload, storage,
+  or asset resolver code.
 
 ## Upload Validation
 
@@ -101,12 +103,12 @@ Slide renderers and export paths use the asset resolver contract:
 
 `assetId` can appear in:
 
-- `ImageElement.assetId`;
-- `Slide.backgroundAssetId`.
+- `ImageNode.content.assetId`;
+- `VisualNode.content.assetId`;
+- `DeckV7.assets.visuals[*].id` when a visual asset points at a rendered image.
 
-`ImageElement.src` and `Slide.backgroundImage` are cached resolved URLs for
-rendering. Server/export paths should resolve from asset ids when available
-instead of treating cached URLs as authoritative.
+Server/export paths should resolve from asset ids when available instead of
+treating cached URLs as authoritative.
 
 ## Cleanup
 
@@ -145,4 +147,4 @@ producing a blank image.
 - [`src/lib/slides/asset-orphan.test.ts`](../../src/lib/slides/asset-orphan.test.ts)
 - [`src/lib/slides/upload-action.test.ts`](../../src/lib/slides/upload-action.test.ts)
 - [`src/lib/slides/missing-asset-font.test.ts`](../../src/lib/slides/missing-asset-font.test.ts)
-- [`src/lib/presentation/background-asset.test.ts`](../../src/lib/presentation/background-asset.test.ts)
+- [`src/lib/assets/upload-policy.test.ts`](../../src/lib/assets/upload-policy.test.ts)

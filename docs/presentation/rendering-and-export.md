@@ -1,75 +1,74 @@
 # Presentation Rendering And Export
 
+**Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 This document describes how authored decks render in the editor, present mode,
 public viewers, and export pipeline. For the deck JSON shape, see
 [../data-model/deck.md](../data-model/deck.md). For theme/layout resolution,
-see [../editor/theme-layout.md](../editor/theme-layout.md).
+see [theme-packages.md](theme-packages.md).
 
 ## Source Files
 
-| Area                     | Source                                                                                                                 |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Shared slide canvas      | [`src/components/presentation/slide-canvas.tsx`](../../src/components/presentation/slide-canvas.tsx)                   |
-| Resolved render model    | [`src/lib/presentation/slide-render-model.ts`](../../src/lib/presentation/slide-render-model.ts)                       |
-| In-app present mode      | [`src/components/presentation/present-mode.tsx`](../../src/components/presentation/present-mode.tsx)                   |
-| Public present viewer    | [`src/components/presentation/public-present-viewer.tsx`](../../src/components/presentation/public-present-viewer.tsx) |
-| Slide format geometry    | [`src/lib/presentation/slide-format.ts`](../../src/lib/presentation/slide-format.ts)                                   |
-| Style cascade            | [`src/lib/presentation/style-cascade.ts`](../../src/lib/presentation/style-cascade.ts)                                 |
-| Deck export specs        | [`src/lib/presentation/export/deck-export.ts`](../../src/lib/presentation/export/deck-export.ts)                       |
-| Export preflight         | [`src/lib/visual/export-preflight.ts`](../../src/lib/visual/export-preflight.ts)                                       |
-| PPTX native visual specs | [`src/lib/visual/pptx-shapes.ts`](../../src/lib/visual/pptx-shapes.ts)                                                 |
-| PPTX applier             | [`src/lib/visual/pptx-apply.ts`](../../src/lib/visual/pptx-apply.ts)                                                   |
+| Area                  | Source                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared slide canvas   | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                               |
+| Node renderer         | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)                 |
+| Render resolver       | [`src/lib/presentation-vnext/render-resolver.ts`](../../src/lib/presentation-vnext/render-resolver.ts)                                         |
+| Render tree contract  | [`src/lib/presentation-vnext/render-tree.ts`](../../src/lib/presentation-vnext/render-tree.ts)                                                 |
+| In-app present mode   | [`src/components/presentation-vnext/present-mode-vnext.tsx`](../../src/components/presentation-vnext/present-mode-vnext.tsx)                   |
+| Public present viewer | [`src/components/presentation-vnext/public-present-viewer-vnext.tsx`](../../src/components/presentation-vnext/public-present-viewer-vnext.tsx) |
+| Export spec builder   | [`src/lib/presentation-vnext/export-spec.ts`](../../src/lib/presentation-vnext/export-spec.ts)                                                 |
+| PPTX spec adapter     | [`src/lib/presentation-vnext/pptx-export-adapter.ts`](../../src/lib/presentation-vnext/pptx-export-adapter.ts)                                 |
+| PPTX applier          | [`src/lib/presentation-vnext/pptx-vnext-apply.ts`](../../src/lib/presentation-vnext/pptx-vnext-apply.ts)                                       |
 
 ## Rendering Contract
 
-`SlideCanvas` renders one slide from `resolveSlideRenderModel(deck, slide)`. It
-is shared by:
+`SlideCanvasVNext` renders one slide from a `ResolvedSlideRenderTree`. It is
+shared by:
 
 - the editor stage;
 - the thumbnail rail;
 - in-app present mode;
 - public present/share viewers.
 
-The render model resolves canvas format/dimensions, background, accent, token
-defaults, master background elements, slide elements, master foreground
-elements, flat rendered element order, and concrete per-element design metadata
-before React rendering.
-Design token refs and partial overrides are resolved before reaching React or
-export appliers; renderers do not receive unresolved color refs, theme ids, or
-template blueprints.
-Normal rendering order is:
+`resolveDeckRenderTree` resolves canvas metadata, slide background, user nodes,
+theme decorations, deck chrome, style tokens, asset diagnostics, and concrete
+node styles before React rendering. Renderers and export appliers do not receive
+unresolved token refs or theme package blueprints. Normal rendering order is:
 
 ```text
-theme/master/slide background
-  -> master background elements
-  -> slide elements
-  -> master foreground elements
+slide background
+  -> theme decorations / deck chrome background layers
+  -> user slide nodes
+  -> deck chrome foreground layers
 ```
 
-Master elements are locked shared chrome and are not selectable in normal slide
-editing mode.
+Theme decorations and deck chrome are resolved separately from authored user
+nodes, so normal slide editing does not select or mutate them unless an explicit
+command detaches them.
 
 Supported element rendering:
 
-| Element     | Runtime behavior                                                                                    |
-| ----------- | --------------------------------------------------------------------------------------------------- |
-| `text`      | `content.paragraphs`, rich text runs, fit mode, alignment, rotation, opacity, and design overrides. |
-| `visual`    | Looks up the referenced `Visual` in the provided visual map and renders through `VisualRenderer`.   |
-| `image`     | Renders data URL, remote URL, or asset-resolved URL; empty image treatment depends on `editable`.   |
-| `shape`     | Renders rect/ellipse/line/triangle with stroke, radius, label, shadow, opacity, and rotation.       |
-| `connector` | Resolves free/bound endpoints and renders straight/elbow connector geometry.                        |
-| `table`     | Renders a clipped grid with optional header, caption, alternating rows, borders, and cell runs.     |
+| Node        | Runtime behavior                                                                                |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| `text`      | Paragraph content, rich text runs, fit mode, role/style binding, local style, and rotation.     |
+| `visual`    | Renders visual placeholders or resolved visual image assets with channel-color defaults.        |
+| `image`     | Renders deck image assets with fit/crop/alt metadata and missing-asset diagnostics.             |
+| `shape`     | Renders shape geometry, optional text content, fill/stroke/effect style, opacity, and rotation. |
+| `connector` | Resolves point/node endpoints and renders straight/elbow/curved connector intent.               |
+| `table`     | Renders a clipped grid with optional header, caption, alternating rows, borders, and cell runs. |
+| `group`     | Renders nested child nodes in group-local order while preserving group lock/selection metadata. |
 
-Renderers do not synthesize elements from flat slide fields. A stored slide must
-already carry current `elements[]`.
+Renderers do not synthesize nodes from flat slide fields. A stored deck must
+already be valid DeckV7 with slide content under `SlideNode.children`.
 
 ## Present Mode
 
-`PresentMode` is a full-screen, portal-mounted surface for the authenticated app.
-It renders the current slide through `SlideCanvas` and adds presentation chrome:
+`PresentModeVNext` is a full-screen, portal-mounted surface for the authenticated
+app. It renders the current slide through the shared DeckV7 canvas and adds
+presentation chrome:
 
 - keyboard navigation: arrows, space, page keys, home/end;
 - click and touch navigation;
@@ -84,8 +83,8 @@ It renders the current slide through `SlideCanvas` and adds presentation chrome:
 The present surface fits the active slide format into the available viewport via
 `fitAspectRatio` and `slideAspectRatio`. It does not mutate the deck.
 
-Public present/share viewers use the same rendering primitive so public output
-tracks in-app rendering.
+Public present/share viewers use the same vNext rendering primitive so public
+output tracks in-app rendering.
 
 ## Export Pipeline
 
@@ -93,17 +92,19 @@ The PPTX export path is split into a pure spec builder and a browser/PPTX
 applier.
 
 ```text
-Deck + Visual map
-  -> buildDeckSpecs(deck, visuals)
-  -> DeckSlideSpec[]
-  -> exportDeckAsPPTX(...)
+DeckV7 + ThemePackageV1
+  -> resolveDeckRenderTree
+  -> buildExportSpec
+  -> buildVnextPptxSpec
+  -> applyVnextPptxSpec / exportDeckV7AsPPTX
   -> PptxGenJS file Blob
 ```
 
-`buildDeckSpecs` is DOM-free and unit tested. It consumes the same resolved
-slide render model order as `SlideCanvas`, converts percentage element boxes
-into physical slide units, and emits operations such as text, bullets, shape,
-image, connector, native visual, and visual image retry.
+`buildExportSpec` is DOM-free and unit tested. It consumes the same resolved
+render tree order as `SlideCanvasVNext`, converts resolved nodes into export
+operations, and carries diagnostics forward. `buildVnextPptxSpec` converts those
+operations into inch-based PPTX operations; `applyVnextPptxSpec` owns PptxGenJS
+side effects.
 
 Table export is deliberately compiled into deterministic shape and text
 operations for the first version. Each table cell emits a shape fill/border op
@@ -113,14 +114,13 @@ the table element box. Cell `runs` are passed through the same rich-text export
 path used by text elements. Native PPTX table output is a future optimization,
 not the current fidelity path.
 
-`exportDeckAsPPTX` applies those descriptors with PptxGenJS. Visual elements use
-`visualToNativeSpecs` when native PPTX output is available. Otherwise the applier
-can request an SVG/PNG image for the visual and embed that image.
+Visual operations use a rendered asset when one is available and otherwise emit
+a deterministic placeholder with channel colors and diagnostics.
 
 ## Preflight
 
-`runExportPreflight(deck, options)` inspects the current deck before export and
-returns fatal errors plus fidelity warnings.
+Presentation export diagnostics are produced while resolving and building export
+specs. Callers surface fatal errors and fidelity warnings before download.
 
 Current diagnostic categories:
 
@@ -196,10 +196,31 @@ Visual export has two tiers:
 
 Preflight warnings describe expected fidelity changes before the export starts.
 
+## Support Matrix
+
+| Category               | Product render behavior                                      | PPTX export behavior                                                                            | Diagnostics                                           |
+| ---------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Slide backgrounds      | Solid, gradient, pattern, and image fills render.            | Solid supported; gradients/patterns use deterministic color fallback; image fill has no fill.   | Yes for PPTX fallbacks.                               |
+| Text                   | Paragraphs, runs, alignment, rotation, and local style.      | Text boxes/runs, font face, size, color, bold/italic/underline, alignment, rotation.            | Missing tokens diagnose.                              |
+| Images                 | Asset-resolved image render with fit/crop surface rules.     | URL/data/file source embeds as image with alt text and rotation.                                | Missing assets diagnose before export.                |
+| Visuals                | Asset-backed visuals render; unresolved visuals placeholder. | Rendered visual asset embeds as image; visual-id-only nodes use a labeled placeholder.          | Placeholder and unsupported visual channels diagnose. |
+| Shapes                 | Core shapes render; path fallback styling is deterministic.  | Core shapes map to PptxGenJS shapes; unknown/path shapes fall back to rect.                     | Unsupported fills/effects diagnose.                   |
+| Connectors             | Straight, elbow, and curved SVG paths with dash/arrows.      | Straight and elbow preserve endpoints, dash, stroke, and arrows; curved uses straight fallback. | Curved routing diagnoses.                             |
+| Tables                 | Header/body rows, fills, alternate rows, borders, text.      | Native PPTX table operation with header/row fill and text style.                                | Unsupported table fills diagnose.                     |
+| Decorations/chrome     | Theme decorations and chrome render outside user nodes.      | Decoration/chrome nodes export in render order; unsupported styles diagnose as style fallbacks. | Yes when fallback is lossy.                           |
+| Effects                | Blur, glass, glow render in CSS where supported.             | Effects are not native in PPTX and use deterministic style fallback.                            | Yes.                                                  |
+| Blend/clip/image masks | Product CSS behavior where implemented.                      | Not native in current PPTX adapter unless represented by image asset.                           | Diagnostic required when user-visible.                |
+
+Representative checks live in `src/lib/presentation-vnext/render-export-parity.test.ts`,
+`src/lib/presentation-vnext/pptx-export-adapter.test.ts`, and
+`src/lib/public-render/presentation.test.ts`. New DeckV7 node kinds, styles,
+effects, or chrome layers must update render behavior, export behavior,
+diagnostics, and focused tests together.
+
 ## Invariants
 
-1. `SlideCanvas` is the shared runtime renderer.
-2. Render/export code consumes `resolveSlideRenderModel` inputs.
+1. `SlideCanvasVNext` is the shared runtime renderer.
+2. Render/export code consumes `resolveDeckRenderTree` output.
 3. Export specs are pure and testable without DOM/PptxGenJS.
 4. Browser/PPTX appliers consume specs and own file-generation side effects.
 5. Preflight runs before export and reports stable diagnostic codes.
@@ -207,11 +228,11 @@ Preflight warnings describe expected fidelity changes before the export starts.
 
 ## Primary Tests
 
-- [`src/lib/presentation/export/rendering-regression.test.ts`](../../src/lib/presentation/export/rendering-regression.test.ts)
-- [`src/lib/presentation/export/deck-export.test.ts`](../../src/lib/presentation/export/deck-export.test.ts)
-- [`src/lib/visual/export-preflight.test.ts`](../../src/lib/visual/export-preflight.test.ts)
-- [`src/lib/visual/pptx-shapes.test.ts`](../../src/lib/visual/pptx-shapes.test.ts)
-- [`src/lib/visual/export-fidelity.test.ts`](../../src/lib/visual/export-fidelity.test.ts)
-- [`src/lib/presentation/stage-fit.test.ts`](../../src/lib/presentation/stage-fit.test.ts)
+- [`src/lib/presentation-vnext/render-resolver.test.ts`](../../src/lib/presentation-vnext/render-resolver.test.ts)
+- [`src/lib/presentation-vnext/export-spec.test.ts`](../../src/lib/presentation-vnext/export-spec.test.ts)
+- [`src/lib/presentation-vnext/pptx-export-adapter.test.ts`](../../src/lib/presentation-vnext/pptx-export-adapter.test.ts)
+- [`src/lib/presentation-vnext/pptx-vnext-apply.test.ts`](../../src/lib/presentation-vnext/pptx-vnext-apply.test.ts)
+- [`src/lib/presentation-vnext/render-export-parity.test.ts`](../../src/lib/presentation-vnext/render-export-parity.test.ts)
+- [`src/components/presentation-vnext/slide-canvas-render.test.ts`](../../src/components/presentation-vnext/slide-canvas-render.test.ts)
 - [`e2e/slides-smoke.spec.ts`](../../e2e/slides-smoke.spec.ts)
 - [`e2e/public-pages.spec.ts`](../../e2e/public-pages.spec.ts)
