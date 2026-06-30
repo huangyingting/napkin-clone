@@ -46,18 +46,18 @@ export const E2E_PROFILE_FIXTURE = {
   },
   dashboardDocuments: {
     alphaFavorite: {
-      id: "e2efixturedashboardalpha01",
+      id: "e2efixturealpha000000001",
       title: "Alpha favorite deterministic dashboard",
-      content: "Favorite dashboard fixture used by the E2E release gate.",
+      content: "Favorite dashboard document for deterministic E2E filtering.",
     },
     betaTagged: {
-      id: "e2efixturedashboardbeta01",
+      id: "e2efixturebeta0000000001",
       title: "Beta tagged deterministic dashboard",
-      content: "Tagged dashboard fixture used by the E2E release gate.",
+      content: "Tagged dashboard document for deterministic E2E filtering.",
     },
   },
   slideTitleText: "Release Gate Fixture Slide",
-  slideTwoTitleText: "Release Gate Fixture Follow-up",
+  slideTwoTitleText: "Release Gate Fixture Slide Two",
   slideBodyText: "Deterministic deck for the E2E release gate.",
   slideTwoBodyText: "Second seeded slide for deterministic navigation.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
@@ -171,7 +171,7 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
         },
         elements: [
           buildTextElement({
-            id: "fixture-title-2",
+            id: "fixture-title-two",
             role: "title",
             text: F.slideTwoTitleText,
             box: { x: 6, y: 6, w: 88, h: 14 },
@@ -179,7 +179,7 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
             style: { fontSize: 6, bold: true, italic: false, align: "left" },
           }),
           buildBulletsElement({
-            id: "fixture-bullets-2",
+            id: "fixture-bullets-two",
             bullets: [
               F.slideTwoBodyText,
               "Share, embed, and export stay in sync",

@@ -40,7 +40,10 @@ export const NODE_SHAPES = [
 export type NodeShape = (typeof NODE_SHAPES)[number];
 
 /** Connector line styles. `straight` is the default. */
-export const EDGE_STYLES = ["straight", "curved"] as const; /* node:coverage disable */
+export const EDGE_STYLES = [
+  "straight",
+  "curved",
+] as const; /* node:coverage disable */
 
 export type EdgeStyle = (typeof EDGE_STYLES)[number];
 

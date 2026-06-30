@@ -311,32 +311,33 @@ content/source).
 ## E08 — Render, Present, Public, Prototype, And Export Parity (#1268–#1273)
 
 Single-render-tree consumption is **implemented across all surfaces** (editor,
-present, public, embed, prototype HTML, PPTX). Gaps: the PPTX **visual** op is a
-no-op at apply time, connectors flatten to a plain line, and there is **no written
-support-matrix doc** or cross-surface parity test.
+present, public, embed, prototype HTML, PPTX). PPTX visual ops now export
+rendered assets or a labeled placeholder fallback, connectors preserve endpoint,
+dash, arrow, and straight/elbow routing, and the written support matrix plus
+cross-surface parity fixture are in place.
 
 ### Required-behavior status
 
-| #   | Required behavior                                                                                    | Status          | Anchors / gap                                                                                                                                                                                                                |
-| --- | ---------------------------------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | All surfaces consume `resolveDeckRenderTree` or documented adapter                                   | **implemented** | present `present-mode-vnext.tsx:80`; public `public-present-viewer-vnext.tsx:69`; PPTX `pptx-vnext-apply.ts:423-437`; prototype `render-html.ts:18,257`                                                                      |
-| 2   | Every content type has explicit render/export behavior                                               | **partial**     | `render-resolver.ts:153-197` + `export-spec.ts:170-266` cover all types; gap: `pptx-vnext-apply.ts:344` skips the `visual` op ("requires asset resolution at call site")                                                     |
-| 3   | PPTX support matrix for fills/typography/images/visuals/connectors/tables/effects/decorations/chrome | **partial**     | Fills/typography/images/tables covered with fallback diagnostics (`pptx-export-adapter.ts:258-513`); visual apply skipped; connector → flat line loses arrowheads (`pptx-vnext-apply.ts:266-274`); **no written matrix doc** |
-| 4   | Unsupported effects produce diagnostics before export                                                | **implemented** | `export-spec.ts:153-161`; `pptx-export-adapter.ts:336-351` (glass/blur/glow) + gradient/pattern/image-fill fallbacks                                                                                                         |
-| 5   | Public/embed open v7 via boundary + resolve theme                                                    | **implemented** | `public-render/presentation.ts:41-56` (`openDeckFromJson` + `resolveThemePackageForDeck`)                                                                                                                                    |
-| 6   | Public routes use protected asset resolution                                                         | **implemented** | `api/slide-assets/[documentId]/[...path]/route.ts`; viewer resolves inline protected `src`                                                                                                                                   |
-| 7   | Theme fallback diagnostics travel to user surfaces                                                   | **partial**     | Model + editor surface them (`presentation.ts:50-54`, `slide-editor-button.tsx:241-244`); public viewer doesn't forward the `diagnostics` field                                                                              |
+| #   | Required behavior                                                                                    | Status          | Anchors / gap                                                                                                                                    |
+| --- | ---------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | All surfaces consume `resolveDeckRenderTree` or documented adapter                                   | **implemented** | present `present-mode-vnext.tsx:80`; public `public-present-viewer-vnext.tsx:69`; PPTX `pptx-vnext-apply.ts:566`; prototype `render-html.ts:251` |
+| 2   | Every content type has explicit render/export behavior                                               | **implemented** | `render-resolver.ts:153-197`, `export-spec.ts:170-266`, `pptx-export-adapter.ts`, and `pptx-vnext-apply.ts` cover all current content types.     |
+| 3   | PPTX support matrix for fills/typography/images/visuals/connectors/tables/effects/decorations/chrome | **implemented** | Fills/typography/images/visuals/connectors/tables/effects have support/fallback diagnostics plus `render-export-support-matrix.md`.              |
+| 4   | Unsupported effects produce diagnostics before export                                                | **implemented** | `export-spec.ts:153-161`; `pptx-export-adapter.ts:265-390` (fills/effects/visual channels)                                                       |
+| 5   | Public/embed open v7 via boundary + resolve theme                                                    | **implemented** | `public-render/presentation.ts:41-56` (`openDeckFromJson` + `resolveThemePackageForDeck`)                                                        |
+| 6   | Public routes use protected asset resolution                                                         | **implemented** | `api/slide-assets/[documentId]/[...path]/route.ts`; viewer resolves inline protected `src`                                                       |
+| 7   | Theme fallback diagnostics travel to user surfaces                                                   | **implemented** | Public model carries open/theme diagnostics (`presentation.ts:50-54`); editor surfaces boundary diagnostics (`slide-editor-button.tsx:241-244`). |
 
 ### Child-issue dispositions
 
-| Issue                                                     | Disposition                                                           | Note (anchors)                                                                                                                  |
-| --------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| #1268 V7-047 — parity support matrix + fixtures           | **partial → gap:** write support-matrix doc                           | fixtures exist (`prototypes/slide-themes/decks/*`, test builders); expected `docs/presentation/render-export-support-matrix.md` |
-| #1269 V7-048 — align present/public/embed routes          | **implemented → verify**                                              | `public-render/presentation.ts:38-57`                                                                                           |
-| #1270 V7-049 — PPTX adapter coverage for core node types  | **partial → gap:** implement visual apply; improve connector fidelity | `pptx-vnext-apply.ts:344,266-274`                                                                                               |
-| #1271 V7-050 — export diagnostics for unsupported effects | **implemented → verify**                                              | `export-spec.ts:153-161`, `pptx-export-adapter.ts:258-351`                                                                      |
-| #1272 V7-051 — prototype HTML uses product render tree    | **implemented → verify**                                              | `render-html.ts:18,257`                                                                                                         |
-| #1273 V7-052 — representative parity checks               | **partial → gap:** add cross-surface equivalence test                 | per-surface unit tests exist; no editor/present/public/PPTX parity assertion                                                    |
+| Issue                                                     | Disposition     | Note (anchors)                                                                                               |
+| --------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------ |
+| #1268 V7-047 — parity support matrix + fixtures           | **implemented** | `docs/presentation/render-export-support-matrix.md`; `render-export-parity.test.ts`; prototype deck fixtures |
+| #1269 V7-048 — align present/public/embed routes          | **implemented** | `public-render/presentation.ts:38-57`; focused public render boundary tests                                  |
+| #1270 V7-049 — PPTX adapter coverage for core node types  | **implemented** | visual apply/fallback and connector endpoint/dash/arrow coverage in PPTX tests                               |
+| #1271 V7-050 — export diagnostics for unsupported effects | **implemented** | effect, fill, visual-channel, placeholder, and curved-routing diagnostics                                    |
+| #1272 V7-051 — prototype HTML uses product render tree    | **implemented** | `render-html.ts` exports a product-render-tree HTML path verified by parity tests                            |
+| #1273 V7-052 — representative parity checks               | **implemented** | representative editor/present/public/prototype/PPTX parity test fixture                                      |
 
 ---
 
@@ -442,12 +443,12 @@ typecheck `npm run typecheck`, E2E `npm run test:e2e` (Playwright).
 | #1265 | V7-044   | E07  | implemented → verify | local override visibility + reset              |
 | #1266 | V7-045   | E07  | partial → gap        | emit decoration/style-ref/overflow diagnostics |
 | #1267 | V7-046   | E07  | partial → gap        | align decorations w/ chrome; fix detach        |
-| #1268 | V7-047   | E08  | partial → gap        | write render/export support-matrix doc         |
-| #1269 | V7-048   | E08  | implemented → verify | present/public/embed on v7 boundary            |
-| #1270 | V7-049   | E08  | partial → gap        | PPTX visual apply; connector fidelity          |
-| #1271 | V7-050   | E08  | implemented → verify | unsupported-effect export diagnostics          |
-| #1272 | V7-051   | E08  | implemented → verify | prototype HTML uses product render tree        |
-| #1273 | V7-052   | E08  | partial → gap        | cross-surface parity equivalence test          |
+| #1268 | V7-047   | E08  | implemented          | render/export support-matrix doc + fixtures    |
+| #1269 | V7-048   | E08  | implemented          | present/public/embed on v7 boundary            |
+| #1270 | V7-049   | E08  | implemented          | PPTX visual apply; connector fidelity          |
+| #1271 | V7-050   | E08  | implemented          | unsupported-effect export diagnostics          |
+| #1272 | V7-051   | E08  | implemented          | prototype HTML uses product render tree        |
+| #1273 | V7-052   | E08  | implemented          | cross-surface parity equivalence test          |
 | #1274 | V7-053   | E09  | missing → build      | v6→v7 anchor id map + DeckV7 typing            |
 | #1275 | V7-054   | E09  | partial → gap        | wire presence into v7; node-id guard           |
 | #1276 | V7-055   | E09  | partial → gap        | command history focus + conflict guard         |

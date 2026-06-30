@@ -114,12 +114,13 @@ async function main() {
   });
 
   const dashboardTag = await prisma.tag.upsert({
-    where: { id: F.dashboardTag.id },
-    update: {
-      ownerId: owner.id,
-      name: F.dashboardTag.name,
-      slug: F.dashboardTag.slug,
+    where: {
+      ownerId_slug: {
+        ownerId: owner.id,
+        slug: F.dashboardTag.slug,
+      },
     },
+    update: { name: F.dashboardTag.name },
     create: {
       id: F.dashboardTag.id,
       ownerId: owner.id,
@@ -172,6 +173,7 @@ async function main() {
       sharePresentEnabled: true,
       shareExpiresAt: null,
       deletedAt: null,
+      favorite: false,
       tags: { set: [{ id: dashboardTag.id }] },
     },
     create: {
@@ -186,7 +188,7 @@ async function main() {
       isShared: true,
       shareEmbedEnabled: true,
       sharePresentEnabled: true,
-      tags: { connect: { id: dashboardTag.id } },
+      tags: { connect: [{ id: dashboardTag.id }] },
     },
   });
 
@@ -196,7 +198,7 @@ async function main() {
       title: F.dashboardDocuments.alphaFavorite.title,
       content: F.dashboardDocuments.alphaFavorite.content,
       ownerId: owner.id,
-      workspaceId: null,
+      workspaceId: F.workspaceId,
       favorite: true,
       isShared: false,
       shareId: null,
@@ -209,6 +211,7 @@ async function main() {
       title: F.dashboardDocuments.alphaFavorite.title,
       content: F.dashboardDocuments.alphaFavorite.content,
       ownerId: owner.id,
+      workspaceId: F.workspaceId,
       favorite: true,
     },
   });
@@ -219,7 +222,7 @@ async function main() {
       title: F.dashboardDocuments.betaTagged.title,
       content: F.dashboardDocuments.betaTagged.content,
       ownerId: owner.id,
-      workspaceId: null,
+      workspaceId: F.workspaceId,
       favorite: false,
       isShared: false,
       shareId: null,
@@ -232,8 +235,9 @@ async function main() {
       title: F.dashboardDocuments.betaTagged.title,
       content: F.dashboardDocuments.betaTagged.content,
       ownerId: owner.id,
+      workspaceId: F.workspaceId,
       favorite: false,
-      tags: { connect: { id: dashboardTag.id } },
+      tags: { connect: [{ id: dashboardTag.id }] },
     },
   });
 
