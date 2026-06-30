@@ -32,6 +32,10 @@ const ACTION_LABELS: Record<DiagnosticActionType, string> = {
   "open-asset-panel": "Open asset panel",
   "remove-override": "Remove override",
   "replace-style-ref": "Replace style ref",
+  "refresh-source": "Refresh source",
+  "unlink-source": "Unlink source",
+  "relink-source": "Relink source",
+  "open-source-review": "Open Source Review",
 };
 
 // ---------------------------------------------------------------------------
