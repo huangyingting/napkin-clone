@@ -228,6 +228,32 @@ describe("resolveNodeStyle", () => {
     );
   });
 
+  test("errors when a style ref exists without a default variant", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    const themeBinding = buildThemeBinding();
+    const { style, diagnostics } = resolveNodeStyle(
+      { ref: "text.body" },
+      themeBinding,
+      {
+        ...pkg,
+        styles: {
+          ...pkg.styles,
+          "text.body": { compact: { text: { fontSizePt: 13 } } },
+        },
+      },
+    );
+
+    assert.deepEqual(style, {});
+    assert.ok(
+      diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-style-default" &&
+          diagnostic.action?.type === "replace-style-ref",
+      ),
+    );
+  });
+
   test("applies deck-level token overrides to resolved theme", async () => {
     resetBuilderCounter();
     const pkg = buildMinimalThemePackage();

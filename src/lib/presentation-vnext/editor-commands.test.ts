@@ -119,6 +119,36 @@ describe("insertSlide", () => {
     assert.equal(result.deck.slides[1].template.layoutId, "content-dense");
   });
 
+  test("insertTemplateSlide clamps position and re-identifies colliding template ids", () => {
+    resetIdCounter();
+    const registry = createDefaultTemplateRegistry();
+    const template = registry.get("content")!;
+    const deck = buildDeckV7([
+      {
+        ...buildContentSlide("Existing content"),
+        id: "slide-0007",
+        children: [
+          buildTextNode({
+            id: "title-0003",
+            slot: "title",
+            content: { paragraphs: [{ id: "p1", text: "Existing" }] },
+          }),
+        ],
+      },
+    ]);
+    const spec: AiSlideSpec = {
+      kind: "content",
+      slots: { title: { type: "shortText", text: "Inserted content" } },
+    };
+
+    const result = insertTemplateSlide(deck, spec, template, -10);
+
+    assert.equal(result.index, 0);
+    assert.equal(result.slideId, "slide-0007-copy");
+    assert.equal(result.deck.slides[0].id, "slide-0007-copy");
+    assert.equal(result.deck.slides[0].children[1].id, "title-0003-copy");
+  });
+
   test("does not mutate original deck", () => {
     resetIdCounter();
     const deck = makeTestDeck();
@@ -180,6 +210,29 @@ describe("slide management", () => {
     assert.equal(deck.slides[0].children[0].id, nodeId);
   });
 
+  test("splitNodeToSlide returns no-op result for missing slide or node targets", () => {
+    const deck = makeTestDeck();
+    const missingSlide = splitNodeToSlide(deck, "missing-slide", "node-1");
+    const missingNode = splitNodeToSlide(
+      deck,
+      deck.slides[0].id,
+      "missing-node",
+    );
+
+    assert.deepEqual(missingSlide, {
+      deck,
+      slideId: "",
+      nodeId: "node-1",
+      index: -1,
+    });
+    assert.deepEqual(missingNode, {
+      deck,
+      slideId: "",
+      nodeId: "missing-node",
+      index: -1,
+    });
+  });
+
   test("deleteSlide keeps at least one slide", () => {
     const deck = makeTestDeck();
     const oneSlide = deleteSlide(deck, deck.slides[0].id).deck;
@@ -194,6 +247,14 @@ describe("slide management", () => {
     const result = moveSlide(deck, secondId, 0);
 
     assert.equal(result.deck.slides[0].id, secondId);
+    assert.equal(result.index, 0);
+  });
+
+  test("deleteSlide returns the first index when the slide is missing", () => {
+    const deck = makeTestDeck();
+    const result = deleteSlide(deck, "missing-slide");
+
+    assert.strictEqual(result.deck, deck);
     assert.equal(result.index, 0);
   });
 });
@@ -215,6 +276,16 @@ describe("updateSlideControls", () => {
     const slideId = deck.slides[0].id;
     const updated = updateSlideControls(deck, slideId, { tone: "confident" });
     assert.equal(updated.slides[1].controls, deck.slides[1].controls);
+  });
+
+  test("ignores controls for unknown slides", () => {
+    const deck = makeTestDeck();
+    const updated = updateSlideControls(deck, "missing-slide", {
+      density: "dense",
+    });
+
+    assert.strictEqual(updated.slides[0], deck.slides[0]);
+    assert.strictEqual(updated.slides[1], deck.slides[1]);
   });
 });
 
@@ -258,6 +329,25 @@ describe("slide metadata and local style", () => {
 
     const cleared = updateSlideSourceMetadata(withSource, slideId, undefined);
     assert.equal(cleared.slides[0].source, undefined);
+  });
+
+  test("ignores slide metadata updates for unknown slides", () => {
+    const deck = makeTestDeck();
+    const attributes = updateSlideAttributes(deck, "missing-slide", {
+      name: "Ignored",
+    });
+    const localStyle = updateSlideLocalStyle(deck, "missing-slide", {
+      fill: { type: "solid", color: "#fff" },
+    });
+    const source = updateSlideSourceMetadata(deck, "missing-slide", {
+      documentId: "doc-1",
+      blockId: "block-1",
+      blockKind: "text",
+    });
+
+    assert.strictEqual(attributes.slides[0], deck.slides[0]);
+    assert.strictEqual(localStyle.slides[0], deck.slides[0]);
+    assert.strictEqual(source.slides[0], deck.slides[0]);
   });
 });
 
@@ -321,6 +411,29 @@ describe("insertNode and pasteNodes", () => {
     assert.equal(result.deck.slides[0].children.at(-1)?.id, "inserted-text");
   });
 
+  test("insertNode re-identifies colliding nodes and ignores missing slides", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const source = slide.children[0];
+    const inserted = insertNode(deck, slide.id, source);
+    const missingSlide = insertNode(deck, "missing-slide", {
+      id: "orphan-node",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "p1", text: "Orphan" }] },
+    });
+
+    assert.equal(inserted.nodeId, `${source.id}-copy`);
+    assert.equal(
+      inserted.deck.slides[0].children.at(-1)?.id,
+      `${source.id}-copy`,
+    );
+    assert.equal(missingSlide.nodeId, "orphan-node");
+    assert.strictEqual(missingSlide.deck.slides[0], deck.slides[0]);
+  });
+
   test("pasteNodes re-identifies pasted nodes and offsets their frames", () => {
     const deck = makeTestDeck();
     const slide = deck.slides[0];
@@ -333,6 +446,20 @@ describe("insertNode and pasteNodes", () => {
     assert.ok(pasted);
     assert.notEqual(pasted.id, source.id);
     assert.equal(pasted.layout?.frame.x, source.layout!.frame.x + 2);
+  });
+
+  test("pasteNodes returns empty no-op result for empty input or missing slides", () => {
+    const deck = makeTestDeck();
+    const empty = pasteNodes(deck, deck.slides[0].id, []);
+    const missingSlide = pasteNodes(deck, "missing-slide", [
+      deck.slides[0].children[0],
+    ]);
+
+    assert.deepEqual(empty, { deck, nodeIds: [] });
+    assert.deepEqual(missingSlide.nodeIds, [
+      `${deck.slides[0].children[0].id}-copy`,
+    ]);
+    assert.strictEqual(missingSlide.deck.slides[0], deck.slides[0]);
   });
 });
 
@@ -376,6 +503,42 @@ describe("moveNodesBy", () => {
     assert.equal(node?.layout?.frame.x, original.x + 1);
     assert.equal(node?.layout?.frame.y, original.y - 1);
   });
+
+  test("moveNodesBy clamps movement and ignores locked or missing targets", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const free = slide.children[0];
+    const locked: SlideChildNode = {
+      ...buildTextNode({
+        id: "locked-node",
+        layout: { frame: { x: 10, y: 10, w: 20, h: 10 }, zIndex: 3 },
+      }),
+      locked: true,
+    };
+    const withLocked = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, locked] }
+          : candidate,
+      ),
+    };
+    const updated = moveNodesBy(withLocked, slide.id, [free.id, locked.id], {
+      x: 200,
+      y: 200,
+    });
+    const moved = findNode(updated.slides[0].children, free.id);
+    const stillLocked = findNode(updated.slides[0].children, locked.id);
+    const missingSlide = moveNodesBy(deck, "missing-slide", [free.id], {
+      x: 1,
+      y: 1,
+    });
+
+    assert.equal(moved?.layout?.frame.x, 100 - free.layout!.frame.w);
+    assert.equal(moved?.layout?.frame.y, 100 - free.layout!.frame.h);
+    assert.deepEqual(stillLocked?.layout?.frame, locked.layout?.frame);
+    assert.strictEqual(missingSlide, deck);
+  });
 });
 
 describe("deleteNodes", () => {
@@ -389,6 +552,23 @@ describe("deleteNodes", () => {
       updated.slides[0].children.some((node) => node.id === nodeId),
       false,
     );
+  });
+
+  test("deleteNodes no-ops for empty selection and expands group deletion", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const group = groupNodes(
+      deck,
+      slide.id,
+      slide.children.map((node) => node.id),
+      "delete-group",
+      { ref: "surface.card" },
+    );
+    const empty = deleteNodes(deck, slide.id, []);
+    const deletedGroup = deleteNodes(group, slide.id, ["delete-group"]);
+
+    assert.strictEqual(empty, deck);
+    assert.equal(deletedGroup.slides[0].children.length, 0);
   });
 
   test("repairs connector node bindings before deleting target nodes", () => {
@@ -475,6 +655,48 @@ describe("deleteNodes", () => {
       });
     }
   });
+
+  test("keeps connector endpoint bindings when target layout is unavailable", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const noLayoutTarget: SlideChildNode = {
+      id: "no-layout-target",
+      type: "text",
+      role: "body",
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "no-layout-p1", text: "No layout" }] },
+    };
+    const connector: SlideChildNode = {
+      id: "no-layout-connector",
+      type: "connector",
+      role: "connector",
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: noLayoutTarget.id, anchor: "left" },
+        to: { kind: "node", nodeId: noLayoutTarget.id, anchor: "right" },
+      },
+    };
+    const withConnector = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? {
+              ...candidate,
+              children: [...candidate.children, noLayoutTarget, connector],
+            }
+          : candidate,
+      ),
+    };
+
+    const updated = deleteNodes(withConnector, slide.id, [noLayoutTarget.id]);
+    const repaired = findNode(updated.slides[0].children, connector.id);
+
+    assert.equal(repaired?.type, "connector");
+    if (repaired?.type === "connector") {
+      assert.deepEqual(repaired.content.from, connector.content.from);
+      assert.deepEqual(repaired.content.to, connector.content.to);
+    }
+  });
 });
 
 describe("duplicateNodes", () => {
@@ -535,6 +757,26 @@ describe("duplicateNodes", () => {
         [child.id, result.duplicatedIds[0]],
       );
     }
+  });
+
+  test("duplicateNodes no-ops for empty, missing slide, and missing node selections", () => {
+    const deck = makeTestDeck();
+
+    assert.deepEqual(duplicateNodes(deck, deck.slides[0].id, []), {
+      deck,
+      duplicatedIds: [],
+    });
+    assert.deepEqual(duplicateNodes(deck, "missing-slide", ["text-1"]), {
+      deck,
+      duplicatedIds: [],
+    });
+    assert.deepEqual(
+      duplicateNodes(deck, deck.slides[0].id, ["missing-node"]),
+      {
+        deck,
+        duplicatedIds: [],
+      },
+    );
   });
 });
 
@@ -924,6 +1166,25 @@ describe("detachDecoration", () => {
 
     assert.equal(updated.theme.overrides?.disabledDecorations, undefined);
   });
+
+  test("restoreThemeDecoration preserves remaining disabled decorations", () => {
+    const deck = buildDeckV7([buildCoverSlide()], {
+      theme: {
+        packageId: "test-package",
+        overrides: {
+          disabledDecorations: ["bg-corner", "grid"],
+          tokens: { colors: { accent: { fill: "#f97316" } } },
+        },
+      },
+    });
+
+    const updated = restoreThemeDecoration(deck, "bg-corner");
+
+    assert.deepEqual(updated.theme.overrides?.disabledDecorations, ["grid"]);
+    assert.deepEqual(updated.theme.overrides?.tokens, {
+      colors: { accent: { fill: "#f97316" } },
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1191,6 +1452,25 @@ describe("updateLocalStyle — toolbar-driven style patches", () => {
     });
     const node = updated.slides[0].children.find((n) => n.id === nodeId);
     assert.equal((node?.localStyle?.fill as any)?.color, "#abcdef");
+  });
+
+  test("replaces local style keys when patch value is primitive or undefined", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const withLocal = updateLocalStyle(deck, slide.id, nodeId, {
+      opacity: 0.5,
+      shadow: { xPt: 0, yPt: 1, blurPt: 8, color: "#000000" },
+    });
+    const updated = updateLocalStyle(withLocal, slide.id, nodeId, {
+      opacity: undefined,
+      shadow: undefined,
+    });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.equal(node?.localStyle?.opacity, undefined);
+    assert.equal(node?.localStyle?.shadow, undefined);
+    assert.ok("opacity" in (node?.localStyle ?? {}));
   });
 
   test("sequential toolbar commands accumulate style overrides", () => {
