@@ -1,80 +1,743 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><title>02 · Brutalist Bold</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#0c0c0c;--ink:#f4f4f0;--accent:#ff3b1f;--lime:#d8ff00;--surf:#161616;--muted:#7a7a7a;--line:#2a2a2a;--ab:"Archivo Black";--ar:"Archivo",sans-serif;--mo:"Space Mono",monospace}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#2a2a2a;font-family:var(--ar);padding:30px;display:flex;flex-direction:column;align-items:center;gap:26px}
-.slide{width:1280px;height:720px;background:var(--bg);color:var(--ink);position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.pad{position:absolute;inset:0;padding:58px 70px;display:flex;flex-direction:column}.z{position:relative;z-index:2}
-.kind{position:absolute;top:24px;left:46px;font:700 10px var(--mo);letter-spacing:.32em;text-transform:uppercase;color:var(--muted)}
-.num{position:absolute;bottom:24px;right:46px;font:900 16px var(--ar);color:var(--accent)}
-.foot{position:absolute;bottom:24px;left:46px;font:700 10px var(--mo);letter-spacing:.2em;color:var(--muted)}
-h1{font:400 132px/.84 var(--ab);text-transform:uppercase;letter-spacing:-.03em}h2{font:900 60px/.92 var(--ar);text-transform:uppercase}h3{font:800 24px var(--ar)}
-.tag{font:700 12px var(--mo);letter-spacing:.28em;text-transform:uppercase;color:var(--accent)}
-p{font:400 17px/1.55 var(--ar);color:#b5b5af;max-width:58ch}.sm{font-size:13px;color:#8a8a85}
-.row{display:flex}.col{flex-direction:column}.bt{justify-content:space-between}.cn{justify-content:center}.ac{align-items:center}.g{gap:24px}.fill{flex:1}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:22px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.box{background:var(--surf);border:2px solid var(--line);padding:24px}.acc{background:var(--accent);color:#000;border:none}.lim{background:var(--lime);color:#000;border:none}
-.stat{font:400 84px/1 var(--ab);color:var(--accent)}.dots{background-image:radial-gradient(var(--accent) 1.5px,transparent 1.5px);background-size:14px 14px}
-table{width:100%;border-collapse:collapse;font:600 15px var(--ar)}th{text-align:left;padding:13px;border-bottom:3px solid var(--accent);text-transform:uppercase;font:700 11px var(--mo);letter-spacing:.16em}td{padding:13px;border-bottom:1px solid var(--line)}
-ul{list-style:none}li{padding:7px 0 7px 26px;position:relative;font:600 17px var(--ar);color:#ccc}li:before{content:"›";position:absolute;left:0;color:var(--accent);font:900 20px var(--ab)}
-.ph{background:repeating-linear-gradient(45deg,#1c1c1c,#1c1c1c 14px,#121212 14px,#121212 28px)}
-.arr{color:var(--accent);font:900 28px var(--ab)}
-</style></head><body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>02 · Brutalist Bold</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0c0c0c;
+        --ink: #f4f4f0;
+        --accent: #ff3b1f;
+        --lime: #d8ff00;
+        --surf: #161616;
+        --muted: #7a7a7a;
+        --line: #2a2a2a;
+        --ab: "Archivo Black";
+        --ar: "Archivo", sans-serif;
+        --mo: "Space Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #2a2a2a;
+        font-family: var(--ar);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+      }
+      .slide {
+        width: 1280px;
+        height: 720px;
+        background: var(--bg);
+        color: var(--ink);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+      .pad {
+        position: absolute;
+        inset: 0;
+        padding: 58px 70px;
+        display: flex;
+        flex-direction: column;
+      }
+      .z {
+        position: relative;
+        z-index: 2;
+      }
+      .kind {
+        position: absolute;
+        top: 24px;
+        left: 46px;
+        font: 700 10px var(--mo);
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .num {
+        position: absolute;
+        bottom: 24px;
+        right: 46px;
+        font: 900 16px var(--ar);
+        color: var(--accent);
+      }
+      .foot {
+        position: absolute;
+        bottom: 24px;
+        left: 46px;
+        font: 700 10px var(--mo);
+        letter-spacing: 0.2em;
+        color: var(--muted);
+      }
+      h1 {
+        font: 400 132px/0.84 var(--ab);
+        text-transform: uppercase;
+        letter-spacing: -0.03em;
+      }
+      h2 {
+        font: 900 60px/0.92 var(--ar);
+        text-transform: uppercase;
+      }
+      h3 {
+        font: 800 24px var(--ar);
+      }
+      .tag {
+        font: 700 12px var(--mo);
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      p {
+        font: 400 17px/1.55 var(--ar);
+        color: #b5b5af;
+        max-width: 58ch;
+      }
+      .sm {
+        font-size: 13px;
+        color: #8a8a85;
+      }
+      .row {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .bt {
+        justify-content: space-between;
+      }
+      .cn {
+        justify-content: center;
+      }
+      .ac {
+        align-items: center;
+      }
+      .g {
+        gap: 24px;
+      }
+      .fill {
+        flex: 1;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .g4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      .box {
+        background: var(--surf);
+        border: 2px solid var(--line);
+        padding: 24px;
+      }
+      .acc {
+        background: var(--accent);
+        color: #000;
+        border: none;
+      }
+      .lim {
+        background: var(--lime);
+        color: #000;
+        border: none;
+      }
+      .stat {
+        font: 400 84px/1 var(--ab);
+        color: var(--accent);
+      }
+      .dots {
+        background-image: radial-gradient(
+          var(--accent) 1.5px,
+          transparent 1.5px
+        );
+        background-size: 14px 14px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 600 15px var(--ar);
+      }
+      th {
+        text-align: left;
+        padding: 13px;
+        border-bottom: 3px solid var(--accent);
+        text-transform: uppercase;
+        font: 700 11px var(--mo);
+        letter-spacing: 0.16em;
+      }
+      td {
+        padding: 13px;
+        border-bottom: 1px solid var(--line);
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 7px 0 7px 26px;
+        position: relative;
+        font: 600 17px var(--ar);
+        color: #ccc;
+      }
+      li:before {
+        content: "›";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font: 900 20px var(--ab);
+      }
+      .ph {
+        background: repeating-linear-gradient(
+          45deg,
+          #1c1c1c,
+          #1c1c1c 14px,
+          #121212 14px,
+          #121212 28px
+        );
+      }
+      .arr {
+        color: var(--accent);
+        font: 900 28px var(--ab);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <div
+        class="dots"
+        style="
+          position: absolute;
+          right: 0;
+          top: 0;
+          width: 360px;
+          height: 360px;
+          opacity: 0.5;
+        "
+      ></div>
+      <div class="kind">Cover</div>
+      <div class="pad z">
+        <div class="row bt ac">
+          <span class="tag">Studio Showe</span
+          ><span class="tag">VOL.02 · 2026</span>
+        </div>
+        <div class="fill cn col" style="justify-content: center">
+          <h1>Porto<br /><span style="color: var(--accent)">folio.</span></h1>
+        </div>
+        <div class="row bt ac">
+          <p style="max-width: 36ch">
+            Creative systems for brands that refuse to whisper.
+          </p>
+          <span
+            class="box acc"
+            style="padding: 8px 16px; font: 700 13px var(--mo)"
+            >PRESENTED BY GRETA</span
+          >
+        </div>
+      </div>
+      <div class="num">01</div>
+    </section>
 
-<section class="slide"><div class="dots" style="position:absolute;right:0;top:0;width:360px;height:360px;opacity:.5"></div><div class="kind">Cover</div><div class="pad z"><div class="row bt ac"><span class="tag">Studio Showe</span><span class="tag">VOL.02 · 2026</span></div><div class="fill cn col" style="justify-content:center"><h1>Porto<br><span style="color:var(--accent)">folio.</span></h1></div><div class="row bt ac"><p style="max-width:36ch">Creative systems for brands that refuse to whisper.</p><span class="box acc" style="padding:8px 16px;font:700 13px var(--mo)">PRESENTED BY GRETA</span></div></div><div class="num">01</div></section>
+    <section class="slide">
+      <div class="kind">Agenda</div>
+      <div class="pad z g">
+        <h2>Agenda</h2>
+        <div class="g2 fill">
+          <div class="box row g ac">
+            <span class="stat" style="font-size: 60px">01</span>
+            <h3>The brief</h3>
+          </div>
+          <div class="box row g ac">
+            <span class="stat" style="font-size: 60px">02</span>
+            <h3>The work</h3>
+          </div>
+          <div class="box row g ac">
+            <span class="stat" style="font-size: 60px">03</span>
+            <h3>The numbers</h3>
+          </div>
+          <div class="box row g ac">
+            <span class="stat" style="font-size: 60px">04</span>
+            <h3>The ask</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">02</div>
+    </section>
 
-<section class="slide"><div class="kind">Agenda</div><div class="pad z g"><h2>Agenda</h2><div class="g2 fill"><div class="box row g ac"><span class="stat" style="font-size:60px">01</span><h3>The brief</h3></div><div class="box row g ac"><span class="stat" style="font-size:60px">02</span><h3>The work</h3></div><div class="box row g ac"><span class="stat" style="font-size:60px">03</span><h3>The numbers</h3></div><div class="box row g ac"><span class="stat" style="font-size:60px">04</span><h3>The ask</h3></div></div></div><div class="num">02</div></section>
+    <section class="slide acc">
+      <div
+        class="dots"
+        style="
+          position: absolute;
+          left: 0;
+          bottom: 0;
+          width: 300px;
+          height: 300px;
+          background-image: radial-gradient(#000 1.5px, transparent 1.5px);
+          opacity: 0.4;
+        "
+      ></div>
+      <div class="kind" style="color: #000">Section</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="tag" style="color: #000">/ Part 01</span>
+        <h1 style="color: #000">The<br />Brief</h1>
+      </div>
+      <div class="num" style="color: #000">03</div>
+    </section>
 
-<section class="slide acc"><div class="dots" style="position:absolute;left:0;bottom:0;width:300px;height:300px;background-image:radial-gradient(#000 1.5px,transparent 1.5px);opacity:.4"></div><div class="kind" style="color:#000">Section</div><div class="pad z cn col" style="justify-content:center"><span class="tag" style="color:#000">/ Part 01</span><h1 style="color:#000">The<br>Brief</h1></div><div class="num" style="color:#000">03</div></section>
+    <section class="slide">
+      <div class="kind">Executive Summary</div>
+      <div class="pad z g">
+        <h2>Summary</h2>
+        <div class="g3">
+          <div class="box acc">
+            <span class="tag" style="color: #000">Mission</span>
+            <h3 style="margin-top: 10px">Dominate the deck</h3>
+          </div>
+          <div class="box lim">
+            <span class="tag" style="color: #000">Reach</span>
+            <h3 style="margin-top: 10px">4.1M views</h3>
+          </div>
+          <div class="box">
+            <span class="tag">Goal</span>
+            <h3 style="margin-top: 10px">3× pipeline</h3>
+          </div>
+        </div>
+        <p>
+          A loud, uncompromising rebrand built to convert raw attention into
+          revenue.
+        </p>
+      </div>
+      <div class="num">04</div>
+    </section>
 
-<section class="slide"><div class="kind">Executive Summary</div><div class="pad z g"><h2>Summary</h2><div class="g3"><div class="box acc"><span class="tag" style="color:#000">Mission</span><h3 style="margin-top:10px">Dominate the deck</h3></div><div class="box lim"><span class="tag" style="color:#000">Reach</span><h3 style="margin-top:10px">4.1M views</h3></div><div class="box"><span class="tag">Goal</span><h3 style="margin-top:10px">3× pipeline</h3></div></div><p>A loud, uncompromising rebrand built to convert raw attention into revenue.</p></div><div class="num">04</div></section>
+    <section class="slide">
+      <div class="kind">Content</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="tag">/ overview</span>
+          <h2 style="margin: 14px 0">What we<br />do</h2>
+          <ul>
+            <li>Identity systems</li>
+            <li>Pitch decks</li>
+            <li>Motion & web</li>
+            <li>Campaign art</li>
+          </ul>
+        </div>
+        <div class="ph fill" style="height: 480px"></div>
+      </div>
+      <div class="num">05</div>
+    </section>
 
-<section class="slide"><div class="kind">Content</div><div class="pad z g2 ac"><div><span class="tag">/ overview</span><h2 style="margin:14px 0">What we<br>do</h2><ul><li>Identity systems</li><li>Pitch decks</li><li>Motion & web</li><li>Campaign art</li></ul></div><div class="ph fill" style="height:480px"></div></div><div class="num">05</div></section>
+    <section class="slide">
+      <div class="kind">Detail</div>
+      <div class="pad z g">
+        <span class="tag">/ detail</span>
+        <h2>Type at scale</h2>
+        <div class="g2 fill ac">
+          <p>
+            Archivo Black at 130px sets the tone — type becomes architecture,
+            not ornament. Negative space carries the punch.
+          </p>
+          <h1 style="font-size: 200px; color: var(--accent)">Aa</h1>
+        </div>
+      </div>
+      <div class="num">06</div>
+    </section>
 
-<section class="slide"><div class="kind">Detail</div><div class="pad z g"><span class="tag">/ detail</span><h2>Type at scale</h2><div class="g2 fill ac"><p>Archivo Black at 130px sets the tone — type becomes architecture, not ornament. Negative space carries the punch.</p><h1 style="font-size:200px;color:var(--accent)">Aa</h1></div></div><div class="num">06</div></section>
+    <section class="slide">
+      <div class="kind">Quote</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h2 style="text-align: center; max-width: 18ch">
+          "Loud is a strategy, not an accident."
+        </h2>
+        <span
+          class="box lim"
+          style="margin-top: 24px; padding: 8px 18px; font: 700 12px var(--mo)"
+          >— GRETA</span
+        >
+      </div>
+      <div class="num">07</div>
+    </section>
 
-<section class="slide"><div class="kind">Quote</div><div class="pad z cn col ac" style="justify-content:center"><h2 style="text-align:center;max-width:18ch">"Loud is a strategy, not an accident."</h2><span class="box lim" style="margin-top:24px;padding:8px 18px;font:700 12px var(--mo)">— GRETA</span></div><div class="num">07</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #000">Big Stat</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <div style="font: 400 260px var(--ab); color: #000; line-height: 0.9">
+          4.1M
+        </div>
+        <h3 style="color: #000">total impressions</h3>
+      </div>
+      <div class="num" style="color: #000">08</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#000">Big Stat</div><div class="pad z cn col ac" style="justify-content:center"><div style="font:400 260px var(--ab);color:#000;line-height:.9">4.1M</div><h3 style="color:#000">total impressions</h3></div><div class="num" style="color:#000">08</div></section>
+    <section class="slide">
+      <div class="kind">Metric Row</div>
+      <div class="pad z g">
+        <h2>Numbers</h2>
+        <div class="g4 fill">
+          <div class="box col cn">
+            <div class="stat">4.1M</div>
+            <p class="sm">views</p>
+          </div>
+          <div class="box col cn" style="background: var(--lime); color: #000">
+            <div class="stat" style="color: #000">3×</div>
+            <p class="sm" style="color: #000">pipeline</p>
+          </div>
+          <div class="box col cn">
+            <div class="stat">28</div>
+            <p class="sm">brands</p>
+          </div>
+          <div class="box col cn">
+            <div class="stat">92%</div>
+            <p class="sm">retention</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">09</div>
+    </section>
 
-<section class="slide"><div class="kind">Metric Row</div><div class="pad z g"><h2>Numbers</h2><div class="g4 fill"><div class="box col cn"><div class="stat">4.1M</div><p class="sm">views</p></div><div class="box col cn" style="background:var(--lime);color:#000"><div class="stat" style="color:#000">3×</div><p class="sm" style="color:#000">pipeline</p></div><div class="box col cn"><div class="stat">28</div><p class="sm">brands</p></div><div class="box col cn"><div class="stat">92%</div><p class="sm">retention</p></div></div></div><div class="num">09</div></section>
+    <section class="slide">
+      <div class="kind">Insight</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="tag">/ insight</span>
+        <h2 style="max-width: 16ch; margin-top: 12px">
+          Attention is the only currency that
+          <span style="color: var(--accent)">compounds.</span>
+        </h2>
+      </div>
+      <div class="num">10</div>
+    </section>
 
-<section class="slide"><div class="kind">Insight</div><div class="pad z cn col" style="justify-content:center"><span class="tag">/ insight</span><h2 style="max-width:16ch;margin-top:12px">Attention is the only currency that <span style="color:var(--accent)">compounds.</span></h2></div><div class="num">10</div></section>
+    <section class="slide">
+      <div class="kind">Evidence</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="tag">/ proof</span>
+          <h2 style="margin: 12px 0">Bold wins</h2>
+          <p>
+            Campaigns built on bold systems outperformed safe ones by 3×
+            click-through rate.
+          </p>
+        </div>
+        <div class="box acc cn ac">
+          <div class="stat" style="color: #000; font-size: 160px">3×</div>
+        </div>
+      </div>
+      <div class="num">11</div>
+    </section>
 
-<section class="slide"><div class="kind">Evidence</div><div class="pad z g2 ac"><div><span class="tag">/ proof</span><h2 style="margin:12px 0">Bold wins</h2><p>Campaigns built on bold systems outperformed safe ones by 3× click-through rate.</p></div><div class="box acc cn ac"><div class="stat" style="color:#000;font-size:160px">3×</div></div></div><div class="num">11</div></section>
+    <section class="slide">
+      <div class="kind">Table</div>
+      <div class="pad z g">
+        <h2>Deliverables</h2>
+        <table>
+          <tr>
+            <th>Item</th>
+            <th>Format</th>
+            <th>Qty</th>
+            <th>Cost</th>
+          </tr>
+          <tr>
+            <td>Brand kit</td>
+            <td>Vector</td>
+            <td>1</td>
+            <td>$60k</td>
+          </tr>
+          <tr>
+            <td>Pitch deck</td>
+            <td>27 slides</td>
+            <td>1</td>
+            <td>$40k</td>
+          </tr>
+          <tr>
+            <td>Web</td>
+            <td>Responsive</td>
+            <td>1</td>
+            <td>$120k</td>
+          </tr>
+        </table>
+      </div>
+      <div class="num">12</div>
+    </section>
 
-<section class="slide"><div class="kind">Table</div><div class="pad z g"><h2>Deliverables</h2><table><tr><th>Item</th><th>Format</th><th>Qty</th><th>Cost</th></tr><tr><td>Brand kit</td><td>Vector</td><td>1</td><td>$60k</td></tr><tr><td>Pitch deck</td><td>27 slides</td><td>1</td><td>$40k</td></tr><tr><td>Web</td><td>Responsive</td><td>1</td><td>$120k</td></tr></table></div><div class="num">12</div></section>
+    <section class="slide">
+      <div class="kind">Comparison</div>
+      <div class="pad z g">
+        <h2>Before / after</h2>
+        <div class="g2 fill">
+          <div class="box">
+            <span class="tag" style="color: #888">Before</span>
+            <h2 style="margin-top: 14px; font-size: 42px">QUIET</h2>
+            <p>Ignored. Forgotten.</p>
+          </div>
+          <div class="box acc">
+            <span class="tag" style="color: #000">After</span>
+            <h2 style="margin-top: 14px; font-size: 42px">LOUD</h2>
+            <p style="color: #000">Seen. Remembered.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">13</div>
+    </section>
 
-<section class="slide"><div class="kind">Comparison</div><div class="pad z g"><h2>Before / after</h2><div class="g2 fill"><div class="box"><span class="tag" style="color:#888">Before</span><h2 style="margin-top:14px;font-size:42px">QUIET</h2><p>Ignored. Forgotten.</p></div><div class="box acc"><span class="tag" style="color:#000">After</span><h2 style="margin-top:14px;font-size:42px">LOUD</h2><p style="color:#000">Seen. Remembered.</p></div></div></div><div class="num">13</div></section>
+    <section class="slide">
+      <div class="kind">Matrix</div>
+      <div class="pad z g">
+        <h2>Priority matrix</h2>
+        <div class="g2 fill" style="grid-template-rows: 1fr 1fr">
+          <div class="box acc cn ac"><h3>Rebrand</h3></div>
+          <div class="box cn ac"><h3>Audit</h3></div>
+          <div class="box cn ac"><h3>Refresh</h3></div>
+          <div class="box cn ac" style="color: #666">
+            <h3 style="color: #666">Hold</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">14</div>
+    </section>
 
-<section class="slide"><div class="kind">Matrix</div><div class="pad z g"><h2>Priority matrix</h2><div class="g2 fill" style="grid-template-rows:1fr 1fr"><div class="box acc cn ac"><h3>Rebrand</h3></div><div class="box cn ac"><h3>Audit</h3></div><div class="box cn ac"><h3>Refresh</h3></div><div class="box cn ac" style="color:#666"><h3 style="color:#666">Hold</h3></div></div></div><div class="num">14</div></section>
+    <section class="slide">
+      <div class="kind">Framework</div>
+      <div class="pad z g">
+        <h2>3 pillars</h2>
+        <div class="g3 fill">
+          <div class="box">
+            <div class="stat" style="font-size: 54px">01</div>
+            <h3>Bold</h3>
+          </div>
+          <div class="box lim">
+            <div class="stat" style="font-size: 54px; color: #000">02</div>
+            <h3>Clear</h3>
+          </div>
+          <div class="box">
+            <div class="stat" style="font-size: 54px">03</div>
+            <h3>Fast</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">15</div>
+    </section>
 
-<section class="slide"><div class="kind">Framework</div><div class="pad z g"><h2>3 pillars</h2><div class="g3 fill"><div class="box"><div class="stat" style="font-size:54px">01</div><h3>Bold</h3></div><div class="box lim"><div class="stat" style="font-size:54px;color:#000">02</div><h3>Clear</h3></div><div class="box"><div class="stat" style="font-size:54px">03</div><h3>Fast</h3></div></div></div><div class="num">15</div></section>
+    <section class="slide">
+      <div class="kind">Process</div>
+      <div class="pad z g">
+        <h2>Process</h2>
+        <div
+          class="row ac fill cn g"
+          style="font: 400 40px var(--ab); text-transform: uppercase"
+        >
+          <span>Brief</span><span class="arr">→</span><span>Build</span
+          ><span class="arr">→</span><span>Ship</span>
+        </div>
+      </div>
+      <div class="num">16</div>
+    </section>
 
-<section class="slide"><div class="kind">Process</div><div class="pad z g"><h2>Process</h2><div class="row ac fill cn g" style="font:400 40px var(--ab);text-transform:uppercase"><span>Brief</span><span class="arr">→</span><span>Build</span><span class="arr">→</span><span>Ship</span></div></div><div class="num">16</div></section>
+    <section class="slide">
+      <div class="kind">Timeline</div>
+      <div class="pad z g">
+        <h2>Timeline</h2>
+        <div class="g4 fill">
+          <div class="box">
+            <h3 style="color: var(--accent)">Q1</h3>
+            <p class="sm">Brief</p>
+          </div>
+          <div class="box">
+            <h3 style="color: var(--accent)">Q2</h3>
+            <p class="sm">Build</p>
+          </div>
+          <div class="box">
+            <h3 style="color: var(--accent)">Q3</h3>
+            <p class="sm">Launch</p>
+          </div>
+          <div class="box">
+            <h3 style="color: var(--accent)">Q4</h3>
+            <p class="sm">Scale</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">17</div>
+    </section>
 
-<section class="slide"><div class="kind">Timeline</div><div class="pad z g"><h2>Timeline</h2><div class="g4 fill"><div class="box"><h3 style="color:var(--accent)">Q1</h3><p class="sm">Brief</p></div><div class="box"><h3 style="color:var(--accent)">Q2</h3><p class="sm">Build</p></div><div class="box"><h3 style="color:var(--accent)">Q3</h3><p class="sm">Launch</p></div><div class="box"><h3 style="color:var(--accent)">Q4</h3><p class="sm">Scale</p></div></div></div><div class="num">17</div></section>
+    <section class="slide">
+      <div class="kind">Roadmap</div>
+      <div class="pad z g">
+        <h2>Roadmap</h2>
+        <div class="g3 fill">
+          <div class="box">
+            <span class="tag">Now</span>
+            <ul style="margin-top: 12px">
+              <li>Identity</li>
+            </ul>
+          </div>
+          <div class="box acc">
+            <span class="tag" style="color: #000">Next</span>
+            <ul style="margin-top: 12px">
+              <li>Web</li>
+            </ul>
+          </div>
+          <div class="box">
+            <span class="tag">Later</span>
+            <ul style="margin-top: 12px">
+              <li>Global</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">18</div>
+    </section>
 
-<section class="slide"><div class="kind">Roadmap</div><div class="pad z g"><h2>Roadmap</h2><div class="g3 fill"><div class="box"><span class="tag">Now</span><ul style="margin-top:12px"><li>Identity</li></ul></div><div class="box acc"><span class="tag" style="color:#000">Next</span><ul style="margin-top:12px"><li>Web</li></ul></div><div class="box"><span class="tag">Later</span><ul style="margin-top:12px"><li>Global</li></ul></div></div></div><div class="num">18</div></section>
+    <section class="slide">
+      <div class="kind">Architecture</div>
+      <div class="pad z g">
+        <h2>System</h2>
+        <div class="g3 fill ac cn">
+          <div class="box cn ac"><h3>Core</h3></div>
+          <span class="arr">→</span>
+          <div class="box acc cn ac"><h3>Engine</h3></div>
+        </div>
+      </div>
+      <div class="num">19</div>
+    </section>
 
-<section class="slide"><div class="kind">Architecture</div><div class="pad z g"><h2>System</h2><div class="g3 fill ac cn"><div class="box cn ac"><h3>Core</h3></div><span class="arr">→</span><div class="box acc cn ac"><h3>Engine</h3></div></div></div><div class="num">19</div></section>
+    <section class="slide">
+      <div class="kind">Case Study</div>
+      <div class="pad z g2 ac">
+        <div class="ph fill" style="height: 480px"></div>
+        <div>
+          <span class="tag">/ case</span>
+          <h2 style="margin: 12px 0">Salford</h2>
+          <p>Startup deck that closed a seed round in 6 weeks.</p>
+          <div class="stat" style="margin-top: 16px">$4M</div>
+        </div>
+      </div>
+      <div class="num">20</div>
+    </section>
 
-<section class="slide"><div class="kind">Case Study</div><div class="pad z g2 ac"><div class="ph fill" style="height:480px"></div><div><span class="tag">/ case</span><h2 style="margin:12px 0">Salford</h2><p>Startup deck that closed a seed round in 6 weeks.</p><div class="stat" style="margin-top:16px">$4M</div></div></div><div class="num">20</div></section>
+    <section class="slide">
+      <div class="kind">Risks</div>
+      <div class="pad z g">
+        <h2>Risks</h2>
+        <div class="g2 fill">
+          <div class="box">
+            <h3>Over-loud</h3>
+            <p>Dial tone per channel.</p>
+          </div>
+          <div class="box">
+            <h3>Cost</h3>
+            <p>Phase the spend.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">21</div>
+    </section>
 
-<section class="slide"><div class="kind">Risks</div><div class="pad z g"><h2>Risks</h2><div class="g2 fill"><div class="box"><h3>Over-loud</h3><p>Dial tone per channel.</p></div><div class="box"><h3>Cost</h3><p>Phase the spend.</p></div></div></div><div class="num">21</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #000">Recommendation</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="tag" style="color: #000">/ do this</span>
+        <h2 style="color: #000; max-width: 16ch">
+          Commit. Go loud. Ship in Q3.
+        </h2>
+      </div>
+      <div class="num" style="color: #000">22</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#000">Recommendation</div><div class="pad z cn col" style="justify-content:center"><span class="tag" style="color:#000">/ do this</span><h2 style="color:#000;max-width:16ch">Commit. Go loud. Ship in Q3.</h2></div><div class="num" style="color:#000">22</div></section>
+    <section class="slide">
+      <div class="kind">Pricing</div>
+      <div class="pad z g">
+        <h2>Pricing</h2>
+        <div class="g3 fill">
+          <div class="box col">
+            <h3>Lite</h3>
+            <div class="stat" style="font-size: 58px">$40k</div>
+          </div>
+          <div class="box acc col">
+            <h3>Pro</h3>
+            <div class="stat" style="font-size: 58px; color: #000">$120k</div>
+          </div>
+          <div class="box col">
+            <h3>Max</h3>
+            <div class="stat" style="font-size: 58px">$260k</div>
+          </div>
+        </div>
+      </div>
+      <div class="num">23</div>
+    </section>
 
-<section class="slide"><div class="kind">Pricing</div><div class="pad z g"><h2>Pricing</h2><div class="g3 fill"><div class="box col"><h3>Lite</h3><div class="stat" style="font-size:58px">$40k</div></div><div class="box acc col"><h3>Pro</h3><div class="stat" style="font-size:58px;color:#000">$120k</div></div><div class="box col"><h3>Max</h3><div class="stat" style="font-size:58px">$260k</div></div></div></div><div class="num">23</div></section>
+    <section class="slide">
+      <div class="kind">Team</div>
+      <div class="pad z g">
+        <h2>Team</h2>
+        <div class="g4 fill ac">
+          <div class="cn col ac g">
+            <div class="ph" style="width: 96px; height: 96px"></div>
+            <h3>Greta</h3>
+          </div>
+          <div class="cn col ac g">
+            <div class="ph" style="width: 96px; height: 96px"></div>
+            <h3>Mercer</h3>
+          </div>
+          <div class="cn col ac g">
+            <div class="ph" style="width: 96px; height: 96px"></div>
+            <h3>Avery</h3>
+          </div>
+          <div class="cn col ac g">
+            <div class="ph" style="width: 96px; height: 96px"></div>
+            <h3>Phyllis</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">24</div>
+    </section>
 
-<section class="slide"><div class="kind">Team</div><div class="pad z g"><h2>Team</h2><div class="g4 fill ac"><div class="cn col ac g"><div class="ph" style="width:96px;height:96px"></div><h3>Greta</h3></div><div class="cn col ac g"><div class="ph" style="width:96px;height:96px"></div><h3>Mercer</h3></div><div class="cn col ac g"><div class="ph" style="width:96px;height:96px"></div><h3>Avery</h3></div><div class="cn col ac g"><div class="ph" style="width:96px;height:96px"></div><h3>Phyllis</h3></div></div></div><div class="num">24</div></section>
+    <section class="slide ph">
+      <div class="kind" style="color: #fff">Visual Focus</div>
+      <div class="pad z col" style="justify-content: flex-end">
+        <h1>Be Bold.</h1>
+      </div>
+      <div class="num">25</div>
+    </section>
 
-<section class="slide ph"><div class="kind" style="color:#fff">Visual Focus</div><div class="pad z col" style="justify-content:flex-end"><h1>Be Bold.</h1></div><div class="num">25</div></section>
+    <section class="slide">
+      <div
+        class="dots"
+        style="position: absolute; inset: 0; opacity: 0.15"
+      ></div>
+      <div class="kind">Closing</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h1>Thanks.</h1>
+        <span class="tag" style="margin-top: 14px">hello@studioshowe.com</span>
+      </div>
+      <div class="num">26</div>
+    </section>
 
-<section class="slide"><div class="dots" style="position:absolute;inset:0;opacity:.15"></div><div class="kind">Closing</div><div class="pad z cn col ac" style="justify-content:center"><h1>Thanks.</h1><span class="tag" style="margin-top:14px">hello@studioshowe.com</span></div><div class="num">26</div></section>
-
-<section class="slide"><div class="kind">Appendix</div><div class="pad z g"><h2>Appendix</h2><ul><li>Source data · 2025</li><li>Methodology notes</li><li>Pricing schedule</li></ul></div><div class="num">27</div></section>
-
-</body></html>
+    <section class="slide">
+      <div class="kind">Appendix</div>
+      <div class="pad z g">
+        <h2>Appendix</h2>
+        <ul>
+          <li>Source data · 2025</li>
+          <li>Methodology notes</li>
+          <li>Pricing schedule</li>
+        </ul>
+      </div>
+      <div class="num">27</div>
+    </section>
+  </body>
+</html>

@@ -1,84 +1,771 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><title>06 · Iridescent Gradient</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Mono&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#0a0a14;--ink:#f6f6ff;--mut:#9a9ab8;--line:rgba(255,255,255,.12);--sr:"Sora",sans-serif;--mo:"Space Mono",monospace;--ir:linear-gradient(120deg,#ff5ec7,#7b5cff,#22d3ee,#7bff9e)}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#040409;font-family:var(--sr);padding:30px;display:flex;flex-direction:column;align-items:center;gap:26px}
-.slide{width:1280px;height:720px;background:#0a0a14;color:var(--ink);position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7)}
-.iri{position:absolute;inset:0;background:conic-gradient(from 180deg at 60% 40%,#ff5ec7,#7b5cff,#22d3ee,#7bff9e,#ff5ec7);filter:blur(80px);opacity:.5}
-.veil{position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 0%,transparent,#0a0a14 70%)}
-.pad{position:absolute;inset:0;padding:58px 72px;display:flex;flex-direction:column}.z{position:relative;z-index:3}
-.kind{position:absolute;top:24px;left:48px;font:400 10px var(--mo);letter-spacing:.3em;text-transform:uppercase;color:var(--mut);z-index:4}
-.num{position:absolute;bottom:24px;right:48px;font:400 12px var(--mo);color:var(--mut);z-index:4}
-h1{font:800 100px/.94 var(--sr);letter-spacing:-.04em}h2{font:700 50px/1 var(--sr);letter-spacing:-.02em}h3{font:600 22px var(--sr)}
-.tag{font:400 11px var(--mo);letter-spacing:.26em;text-transform:uppercase;color:#22d3ee}
-.gr{background:var(--ir);-webkit-background-clip:text;background-clip:text;color:transparent}
-p{font:400 16px/1.6 var(--sr);color:#bcbcdc;max-width:58ch}.sm{font-size:13px;color:#9a9ab8}
-.row{display:flex}.col{flex-direction:column}.bt{justify-content:space-between}.cn{justify-content:center}.ac{align-items:center}.g{gap:22px}.fill{flex:1}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.glass{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:18px;padding:24px;backdrop-filter:blur(10px)}.acc{background:var(--ir);color:#0a0a14;border:none}
-.stat{font:800 70px/1 var(--sr)}.pill{display:inline-flex;padding:6px 16px;border:1px solid var(--line);border-radius:30px;font:400 11px var(--mo);letter-spacing:.16em;text-transform:uppercase;color:#22d3ee}
-.rule{height:1px;background:var(--line)}
-.chip{display:inline-block;border-radius:30px;background:var(--ir);padding:9px 20px;font:600 13px var(--sr);color:#0a0a14}
-table{width:100%;border-collapse:collapse;font:400 15px var(--sr)}th{text-align:left;padding:13px;border-bottom:1px solid #7b5cff;font:400 10px var(--mo);letter-spacing:.16em;text-transform:uppercase;color:var(--mut)}td{padding:13px;border-bottom:1px solid var(--line)}
-ul{list-style:none}li{padding:8px 0 8px 26px;position:relative;color:#bcbcdc}li:before{content:"◆";position:absolute;left:0;color:#ff5ec7;font-size:11px;top:11px}
-.ph{background:var(--ir);border-radius:18px;position:relative;overflow:hidden}.ph:after{content:"";position:absolute;inset:1px;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.4),transparent 60%);border-radius:17px}
-.arr{font-size:22px}.arr.gr2{background:var(--ir);-webkit-background-clip:text;color:transparent}
-</style></head><body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>06 · Iridescent Gradient</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0a0a14;
+        --ink: #f6f6ff;
+        --mut: #9a9ab8;
+        --line: rgba(255, 255, 255, 0.12);
+        --sr: "Sora", sans-serif;
+        --mo: "Space Mono", monospace;
+        --ir: linear-gradient(120deg, #ff5ec7, #7b5cff, #22d3ee, #7bff9e);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #040409;
+        font-family: var(--sr);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+      }
+      .slide {
+        width: 1280px;
+        height: 720px;
+        background: #0a0a14;
+        color: var(--ink);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+      }
+      .iri {
+        position: absolute;
+        inset: 0;
+        background: conic-gradient(
+          from 180deg at 60% 40%,
+          #ff5ec7,
+          #7b5cff,
+          #22d3ee,
+          #7bff9e,
+          #ff5ec7
+        );
+        filter: blur(80px);
+        opacity: 0.5;
+      }
+      .veil {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          120% 120% at 50% 0%,
+          transparent,
+          #0a0a14 70%
+        );
+      }
+      .pad {
+        position: absolute;
+        inset: 0;
+        padding: 58px 72px;
+        display: flex;
+        flex-direction: column;
+      }
+      .z {
+        position: relative;
+        z-index: 3;
+      }
+      .kind {
+        position: absolute;
+        top: 24px;
+        left: 48px;
+        font: 400 10px var(--mo);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--mut);
+        z-index: 4;
+      }
+      .num {
+        position: absolute;
+        bottom: 24px;
+        right: 48px;
+        font: 400 12px var(--mo);
+        color: var(--mut);
+        z-index: 4;
+      }
+      h1 {
+        font: 800 100px/0.94 var(--sr);
+        letter-spacing: -0.04em;
+      }
+      h2 {
+        font: 700 50px/1 var(--sr);
+        letter-spacing: -0.02em;
+      }
+      h3 {
+        font: 600 22px var(--sr);
+      }
+      .tag {
+        font: 400 11px var(--mo);
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: #22d3ee;
+      }
+      .gr {
+        background: var(--ir);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      p {
+        font: 400 16px/1.6 var(--sr);
+        color: #bcbcdc;
+        max-width: 58ch;
+      }
+      .sm {
+        font-size: 13px;
+        color: #9a9ab8;
+      }
+      .row {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .bt {
+        justify-content: space-between;
+      }
+      .cn {
+        justify-content: center;
+      }
+      .ac {
+        align-items: center;
+      }
+      .g {
+        gap: 22px;
+      }
+      .fill {
+        flex: 1;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .g4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 24px;
+        backdrop-filter: blur(10px);
+      }
+      .acc {
+        background: var(--ir);
+        color: #0a0a14;
+        border: none;
+      }
+      .stat {
+        font: 800 70px/1 var(--sr);
+      }
+      .pill {
+        display: inline-flex;
+        padding: 6px 16px;
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        font: 400 11px var(--mo);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #22d3ee;
+      }
+      .rule {
+        height: 1px;
+        background: var(--line);
+      }
+      .chip {
+        display: inline-block;
+        border-radius: 30px;
+        background: var(--ir);
+        padding: 9px 20px;
+        font: 600 13px var(--sr);
+        color: #0a0a14;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 400 15px var(--sr);
+      }
+      th {
+        text-align: left;
+        padding: 13px;
+        border-bottom: 1px solid #7b5cff;
+        font: 400 10px var(--mo);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--mut);
+      }
+      td {
+        padding: 13px;
+        border-bottom: 1px solid var(--line);
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 8px 0 8px 26px;
+        position: relative;
+        color: #bcbcdc;
+      }
+      li:before {
+        content: "◆";
+        position: absolute;
+        left: 0;
+        color: #ff5ec7;
+        font-size: 11px;
+        top: 11px;
+      }
+      .ph {
+        background: var(--ir);
+        border-radius: 18px;
+        position: relative;
+        overflow: hidden;
+      }
+      .ph:after {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        background: radial-gradient(
+          circle at 30% 20%,
+          rgba(255, 255, 255, 0.4),
+          transparent 60%
+        );
+        border-radius: 17px;
+      }
+      .arr {
+        font-size: 22px;
+      }
+      .arr.gr2 {
+        background: var(--ir);
+        -webkit-background-clip: text;
+        color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <div class="iri"></div>
+      <div class="veil"></div>
+      <div class="kind">Cover</div>
+      <div class="pad z">
+        <div class="row bt ac">
+          <span class="tag">Salford & Co.</span
+          ><span class="pill">Pitch Deck</span>
+        </div>
+        <div class="fill col" style="justify-content: center">
+          <h1 class="gr">Startup</h1>
+          <p style="margin-top: 12px">
+            A business presentation engineered for momentum.
+          </p>
+        </div>
+        <div class="row bt ac">
+          <span class="chip">Pitch Deck</span
+          ><span class="tag">Daniel Gallego · 2027</span>
+        </div>
+      </div>
+      <div class="num">01</div>
+    </section>
 
-<section class="slide"><div class="iri"></div><div class="veil"></div><div class="kind">Cover</div><div class="pad z"><div class="row bt ac"><span class="tag">Salford & Co.</span><span class="pill">Pitch Deck</span></div><div class="fill col" style="justify-content:center"><h1 class="gr">Startup</h1><p style="margin-top:12px">A business presentation engineered for momentum.</p></div><div class="row bt ac"><span class="chip">Pitch Deck</span><span class="tag">Daniel Gallego · 2027</span></div></div><div class="num">01</div></section>
+    <section class="slide">
+      <div class="kind">Agenda</div>
+      <div class="pad z g">
+        <h2>Agenda</h2>
+        <div class="rule"></div>
+        <div class="g2 fill">
+          <div class="glass row g ac">
+            <span class="stat gr">01</span>
+            <h3>Problem</h3>
+          </div>
+          <div class="glass row g ac">
+            <span class="stat gr">02</span>
+            <h3>Solution</h3>
+          </div>
+          <div class="glass row g ac">
+            <span class="stat gr">03</span>
+            <h3>Traction</h3>
+          </div>
+          <div class="glass row g ac">
+            <span class="stat gr">04</span>
+            <h3>Raise</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">02</div>
+    </section>
 
-<section class="slide"><div class="kind">Agenda</div><div class="pad z g"><h2>Agenda</h2><div class="rule"></div><div class="g2 fill"><div class="glass row g ac"><span class="stat gr">01</span><h3>Problem</h3></div><div class="glass row g ac"><span class="stat gr">02</span><h3>Solution</h3></div><div class="glass row g ac"><span class="stat gr">03</span><h3>Traction</h3></div><div class="glass row g ac"><span class="stat gr">04</span><h3>Raise</h3></div></div></div><div class="num">02</div></section>
+    <section class="slide">
+      <div class="iri" style="opacity: 0.7"></div>
+      <div class="veil"></div>
+      <div class="kind">Section</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="pill">Part 01</span>
+        <h1 style="margin-top: 14px">
+          The<br /><span class="gr">Problem</span>
+        </h1>
+      </div>
+      <div class="num">03</div>
+    </section>
 
-<section class="slide"><div class="iri" style="opacity:.7"></div><div class="veil"></div><div class="kind">Section</div><div class="pad z col" style="justify-content:center"><span class="pill">Part 01</span><h1 style="margin-top:14px">The<br><span class="gr">Problem</span></h1></div><div class="num">03</div></section>
+    <section class="slide">
+      <div class="kind">Executive Summary</div>
+      <div class="pad z g">
+        <h2>Summary</h2>
+        <div class="rule"></div>
+        <div class="g3 fill">
+          <div class="glass col">
+            <span class="tag">Market</span>
+            <div class="stat gr">$40B</div>
+            <p class="sm">TAM</p>
+          </div>
+          <div class="glass col">
+            <span class="tag">Growth</span>
+            <div class="stat gr">22%</div>
+            <p class="sm">MoM</p>
+          </div>
+          <div class="glass col">
+            <span class="tag">Raise</span>
+            <div class="stat gr">$8M</div>
+            <p class="sm">Series A</p>
+          </div>
+        </div>
+        <p>We turn fragmented workflows into one shimmering pipeline.</p>
+      </div>
+      <div class="num">04</div>
+    </section>
 
-<section class="slide"><div class="kind">Executive Summary</div><div class="pad z g"><h2>Summary</h2><div class="rule"></div><div class="g3 fill"><div class="glass col"><span class="tag">Market</span><div class="stat gr">$40B</div><p class="sm">TAM</p></div><div class="glass col"><span class="tag">Growth</span><div class="stat gr">22%</div><p class="sm">MoM</p></div><div class="glass col"><span class="tag">Raise</span><div class="stat gr">$8M</div><p class="sm">Series A</p></div></div><p>We turn fragmented workflows into one shimmering pipeline.</p></div><div class="num">04</div></section>
+    <section class="slide">
+      <div class="kind">Content</div>
+      <div class="pad z g2 fill ac">
+        <div>
+          <span class="tag">Overview</span>
+          <h2 style="margin: 14px 0">The product</h2>
+          <ul>
+            <li>One unified pipeline</li>
+            <li>Real-time sync</li>
+            <li>Zero config</li>
+            <li>AI-native</li>
+          </ul>
+        </div>
+        <div class="ph" style="height: 460px"></div>
+      </div>
+      <div class="num">05</div>
+    </section>
 
-<section class="slide"><div class="kind">Content</div><div class="pad z g2 fill ac"><div><span class="tag">Overview</span><h2 style="margin:14px 0">The product</h2><ul><li>One unified pipeline</li><li>Real-time sync</li><li>Zero config</li><li>AI-native</li></ul></div><div class="ph" style="height:460px"></div></div><div class="num">05</div></section>
+    <section class="slide">
+      <div class="kind">Detail</div>
+      <div class="pad z g2 ac">
+        <p style="font-size: 19px">
+          Holographic by design — gradients carry hierarchy, glass carries
+          depth. Every surface signals momentum.
+        </p>
+        <h1 class="gr" style="font-size: 200px">Aa</h1>
+      </div>
+      <div class="num">06</div>
+    </section>
 
-<section class="slide"><div class="kind">Detail</div><div class="pad z g2 ac"><p style="font-size:19px">Holographic by design — gradients carry hierarchy, glass carries depth. Every surface signals momentum.</p><h1 class="gr" style="font-size:200px">Aa</h1></div><div class="num">06</div></section>
+    <section class="slide">
+      <div class="kind">Quote</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h2 style="text-align: center; max-width: 20ch">
+          "Speed is the only moat that compounds."
+        </h2>
+        <span class="tag" style="margin-top: 22px">Daniel Gallego · CEO</span>
+      </div>
+      <div class="num">07</div>
+    </section>
 
-<section class="slide"><div class="kind">Quote</div><div class="pad z cn col ac" style="justify-content:center"><h2 style="text-align:center;max-width:20ch">"Speed is the only moat that compounds."</h2><span class="tag" style="margin-top:22px">Daniel Gallego · CEO</span></div><div class="num">07</div></section>
+    <section class="slide">
+      <div class="iri"></div>
+      <div class="veil"></div>
+      <div class="kind">Big Stat</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <span class="tag">monthly growth</span>
+        <div class="stat" style="font-size: 220px; color: #fff">22%</div>
+        <p>compounding month over month</p>
+      </div>
+      <div class="num">08</div>
+    </section>
 
-<section class="slide"><div class="iri"></div><div class="veil"></div><div class="kind">Big Stat</div><div class="pad z cn col ac" style="justify-content:center"><span class="tag">monthly growth</span><div class="stat" style="font-size:220px;color:#fff">22%</div><p>compounding month over month</p></div><div class="num">08</div></section>
+    <section class="slide">
+      <div class="kind">Metric Row</div>
+      <div class="pad z g">
+        <h2>Traction</h2>
+        <div class="rule"></div>
+        <div class="g4 fill">
+          <div class="glass">
+            <div class="stat gr">12k</div>
+            <p class="sm">users</p>
+          </div>
+          <div class="glass">
+            <div class="stat gr">22%</div>
+            <p class="sm">MoM</p>
+          </div>
+          <div class="glass">
+            <div class="stat gr">$1.2M</div>
+            <p class="sm">ARR</p>
+          </div>
+          <div class="glass">
+            <div class="stat gr">3%</div>
+            <p class="sm">churn</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">09</div>
+    </section>
 
-<section class="slide"><div class="kind">Metric Row</div><div class="pad z g"><h2>Traction</h2><div class="rule"></div><div class="g4 fill"><div class="glass"><div class="stat gr">12k</div><p class="sm">users</p></div><div class="glass"><div class="stat gr">22%</div><p class="sm">MoM</p></div><div class="glass"><div class="stat gr">$1.2M</div><p class="sm">ARR</p></div><div class="glass"><div class="stat gr">3%</div><p class="sm">churn</p></div></div></div><div class="num">09</div></section>
+    <section class="slide">
+      <div class="kind">Insight</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="pill">Insight</span>
+        <h2 class="gr" style="max-width: 18ch; margin-top: 14px">
+          Workflows want to be one thing, not ten.
+        </h2>
+      </div>
+      <div class="num">10</div>
+    </section>
 
-<section class="slide"><div class="kind">Insight</div><div class="pad z col" style="justify-content:center"><span class="pill">Insight</span><h2 class="gr" style="max-width:18ch;margin-top:14px">Workflows want to be one thing, not ten.</h2></div><div class="num">10</div></section>
+    <section class="slide">
+      <div class="kind">Evidence</div>
+      <div class="pad z g2 fill ac">
+        <div>
+          <span class="tag">Proof</span>
+          <h2 style="margin: 12px 0">Beta data</h2>
+          <p>Teams shipped 3.5× faster after switching.</p>
+        </div>
+        <div class="glass cn ac">
+          <div class="stat gr" style="font-size: 120px">3.5×</div>
+        </div>
+      </div>
+      <div class="num">11</div>
+    </section>
 
-<section class="slide"><div class="kind">Evidence</div><div class="pad z g2 fill ac"><div><span class="tag">Proof</span><h2 style="margin:12px 0">Beta data</h2><p>Teams shipped 3.5× faster after switching.</p></div><div class="glass cn ac"><div class="stat gr" style="font-size:120px">3.5×</div></div></div><div class="num">11</div></section>
+    <section class="slide">
+      <div class="kind">Table</div>
+      <div class="pad z g">
+        <h2>Unit economics</h2>
+        <table>
+          <tr>
+            <th>Metric</th>
+            <th>Now</th>
+            <th>Target</th>
+          </tr>
+          <tr>
+            <td>CAC</td>
+            <td>$220</td>
+            <td>$140</td>
+          </tr>
+          <tr>
+            <td>LTV</td>
+            <td>$3.1k</td>
+            <td>$5k</td>
+          </tr>
+          <tr>
+            <td>Payback</td>
+            <td>7mo</td>
+            <td>4mo</td>
+          </tr>
+        </table>
+      </div>
+      <div class="num">12</div>
+    </section>
 
-<section class="slide"><div class="kind">Table</div><div class="pad z g"><h2>Unit economics</h2><table><tr><th>Metric</th><th>Now</th><th>Target</th></tr><tr><td>CAC</td><td>$220</td><td>$140</td></tr><tr><td>LTV</td><td>$3.1k</td><td>$5k</td></tr><tr><td>Payback</td><td>7mo</td><td>4mo</td></tr></table></div><div class="num">12</div></section>
+    <section class="slide">
+      <div class="kind">Comparison</div>
+      <div class="pad z g">
+        <h2>Legacy vs us</h2>
+        <div class="g2 fill">
+          <div class="glass">
+            <span class="pill">Legacy</span>
+            <h3 style="margin-top: 12px">Slow, siloed</h3>
+          </div>
+          <div class="glass acc">
+            <span class="pill" style="color: #0a0a14; border-color: #0a0a14"
+              >Salford</span
+            >
+            <h3 style="margin-top: 12px; color: #0a0a14">Fast, fused</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">13</div>
+    </section>
 
-<section class="slide"><div class="kind">Comparison</div><div class="pad z g"><h2>Legacy vs us</h2><div class="g2 fill"><div class="glass"><span class="pill">Legacy</span><h3 style="margin-top:12px">Slow, siloed</h3></div><div class="glass acc"><span class="pill" style="color:#0a0a14;border-color:#0a0a14">Salford</span><h3 style="margin-top:12px;color:#0a0a14">Fast, fused</h3></div></div></div><div class="num">13</div></section>
+    <section class="slide">
+      <div class="kind">Matrix</div>
+      <div class="pad z g">
+        <h2>2×2</h2>
+        <div class="g2 fill" style="grid-template-rows: 1fr 1fr">
+          <div class="glass acc cn ac"><h3 style="color: #0a0a14">Us</h3></div>
+          <div class="glass cn ac"><h3>Niche</h3></div>
+          <div class="glass cn ac"><h3>Legacy</h3></div>
+          <div class="glass cn ac"><h3 style="color: #9a9ab8">Dead</h3></div>
+        </div>
+      </div>
+      <div class="num">14</div>
+    </section>
 
-<section class="slide"><div class="kind">Matrix</div><div class="pad z g"><h2>2×2</h2><div class="g2 fill" style="grid-template-rows:1fr 1fr"><div class="glass acc cn ac"><h3 style="color:#0a0a14">Us</h3></div><div class="glass cn ac"><h3>Niche</h3></div><div class="glass cn ac"><h3>Legacy</h3></div><div class="glass cn ac"><h3 style="color:#9a9ab8">Dead</h3></div></div></div><div class="num">14</div></section>
+    <section class="slide">
+      <div class="kind">Framework</div>
+      <div class="pad z g">
+        <h2>Flywheel</h2>
+        <div class="g3 fill">
+          <div class="glass">
+            <span class="stat gr">01</span>
+            <h3>Adopt</h3>
+          </div>
+          <div class="glass">
+            <span class="stat gr">02</span>
+            <h3>Expand</h3>
+          </div>
+          <div class="glass">
+            <span class="stat gr">03</span>
+            <h3>Refer</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">15</div>
+    </section>
 
-<section class="slide"><div class="kind">Framework</div><div class="pad z g"><h2>Flywheel</h2><div class="g3 fill"><div class="glass"><span class="stat gr">01</span><h3>Adopt</h3></div><div class="glass"><span class="stat gr">02</span><h3>Expand</h3></div><div class="glass"><span class="stat gr">03</span><h3>Refer</h3></div></div></div><div class="num">15</div></section>
+    <section class="slide">
+      <div class="kind">Process</div>
+      <div class="pad z g">
+        <h2>Process</h2>
+        <div class="rule"></div>
+        <div class="row ac fill cn g">
+          <h3>Sign up</h3>
+          <span class="arr gr2">→</span>
+          <h3>Sync</h3>
+          <span class="arr gr2">→</span>
+          <h3>Ship</h3>
+        </div>
+      </div>
+      <div class="num">16</div>
+    </section>
 
-<section class="slide"><div class="kind">Process</div><div class="pad z g"><h2>Process</h2><div class="rule"></div><div class="row ac fill cn g"><h3>Sign up</h3><span class="arr gr2">→</span><h3>Sync</h3><span class="arr gr2">→</span><h3>Ship</h3></div></div><div class="num">16</div></section>
+    <section class="slide">
+      <div class="kind">Timeline</div>
+      <div class="pad z g">
+        <h2>Roadmap to A</h2>
+        <div class="rule"></div>
+        <div class="g4 fill">
+          <div class="glass">
+            <h3 class="gr">Q1</h3>
+            <p class="sm">Beta</p>
+          </div>
+          <div class="glass">
+            <h3 class="gr">Q2</h3>
+            <p class="sm">GA</p>
+          </div>
+          <div class="glass">
+            <h3 class="gr">Q3</h3>
+            <p class="sm">Scale</p>
+          </div>
+          <div class="glass">
+            <h3 class="gr">Q4</h3>
+            <p class="sm">Raise</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">17</div>
+    </section>
 
-<section class="slide"><div class="kind">Timeline</div><div class="pad z g"><h2>Roadmap to A</h2><div class="rule"></div><div class="g4 fill"><div class="glass"><h3 class="gr">Q1</h3><p class="sm">Beta</p></div><div class="glass"><h3 class="gr">Q2</h3><p class="sm">GA</p></div><div class="glass"><h3 class="gr">Q3</h3><p class="sm">Scale</p></div><div class="glass"><h3 class="gr">Q4</h3><p class="sm">Raise</p></div></div></div><div class="num">17</div></section>
+    <section class="slide">
+      <div class="kind">Roadmap</div>
+      <div class="pad z g">
+        <h2>Product</h2>
+        <div class="g3 fill">
+          <div class="glass">
+            <span class="pill">Now</span>
+            <ul>
+              <li>Core sync</li>
+            </ul>
+          </div>
+          <div class="glass acc">
+            <span class="pill" style="color: #0a0a14; border-color: #0a0a14"
+              >Next</span
+            >
+            <ul>
+              <li>AI agents</li>
+            </ul>
+          </div>
+          <div class="glass">
+            <span class="pill">Later</span>
+            <ul>
+              <li>Marketplace</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">18</div>
+    </section>
 
-<section class="slide"><div class="kind">Roadmap</div><div class="pad z g"><h2>Product</h2><div class="g3 fill"><div class="glass"><span class="pill">Now</span><ul><li>Core sync</li></ul></div><div class="glass acc"><span class="pill" style="color:#0a0a14;border-color:#0a0a14">Next</span><ul><li>AI agents</li></ul></div><div class="glass"><span class="pill">Later</span><ul><li>Marketplace</li></ul></div></div></div><div class="num">18</div></section>
+    <section class="slide">
+      <div class="kind">Architecture</div>
+      <div class="pad z g">
+        <h2>Stack</h2>
+        <div class="g3 fill ac cn">
+          <div class="glass cn ac"><h3>App</h3></div>
+          <span class="arr gr2">→</span>
+          <div class="glass acc cn ac">
+            <h3 style="color: #0a0a14">Engine</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">19</div>
+    </section>
 
-<section class="slide"><div class="kind">Architecture</div><div class="pad z g"><h2>Stack</h2><div class="g3 fill ac cn"><div class="glass cn ac"><h3>App</h3></div><span class="arr gr2">→</span><div class="glass acc cn ac"><h3 style="color:#0a0a14">Engine</h3></div></div></div><div class="num">19</div></section>
+    <section class="slide">
+      <div class="kind">Case Study</div>
+      <div class="pad z g2 fill ac">
+        <div class="ph" style="height: 460px"></div>
+        <div>
+          <span class="tag">Case</span>
+          <h2 style="margin: 12px 0">Northwind</h2>
+          <p>Cut deploy time 70%.</p>
+          <div class="stat gr" style="margin-top: 14px">−70%</div>
+        </div>
+      </div>
+      <div class="num">20</div>
+    </section>
 
-<section class="slide"><div class="kind">Case Study</div><div class="pad z g2 fill ac"><div class="ph" style="height:460px"></div><div><span class="tag">Case</span><h2 style="margin:12px 0">Northwind</h2><p>Cut deploy time 70%.</p><div class="stat gr" style="margin-top:14px">−70%</div></div></div><div class="num">20</div></section>
+    <section class="slide">
+      <div class="kind">Risks</div>
+      <div class="pad z g">
+        <h2>Risks</h2>
+        <div class="g2 fill">
+          <div class="glass">
+            <h3>Big incumbents</h3>
+            <p class="sm">Move faster.</p>
+          </div>
+          <div class="glass">
+            <h3>Burn</h3>
+            <p class="sm">18mo runway.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">21</div>
+    </section>
 
-<section class="slide"><div class="kind">Risks</div><div class="pad z g"><h2>Risks</h2><div class="g2 fill"><div class="glass"><h3>Big incumbents</h3><p class="sm">Move faster.</p></div><div class="glass"><h3>Burn</h3><p class="sm">18mo runway.</p></div></div></div><div class="num">21</div></section>
+    <section class="slide">
+      <div class="iri" style="opacity: 0.6"></div>
+      <div class="veil"></div>
+      <div class="kind">Recommendation</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="pill">Ask</span>
+        <h2 class="gr" style="max-width: 18ch; margin-top: 12px">
+          Raise $8M to triple GTM.
+        </h2>
+      </div>
+      <div class="num">22</div>
+    </section>
 
-<section class="slide"><div class="iri" style="opacity:.6"></div><div class="veil"></div><div class="kind">Recommendation</div><div class="pad z col" style="justify-content:center"><span class="pill">Ask</span><h2 class="gr" style="max-width:18ch;margin-top:12px">Raise $8M to triple GTM.</h2></div><div class="num">22</div></section>
+    <section class="slide">
+      <div class="kind">Pricing</div>
+      <div class="pad z g">
+        <h2>Pricing</h2>
+        <div class="g3 fill">
+          <div class="glass col">
+            <h3>Free</h3>
+            <div class="stat gr">$0</div>
+          </div>
+          <div class="glass acc col">
+            <h3>Pro</h3>
+            <div class="stat" style="color: #0a0a14">$29</div>
+          </div>
+          <div class="glass col">
+            <h3>Team</h3>
+            <div class="stat gr">$99</div>
+          </div>
+        </div>
+      </div>
+      <div class="num">23</div>
+    </section>
 
-<section class="slide"><div class="kind">Pricing</div><div class="pad z g"><h2>Pricing</h2><div class="g3 fill"><div class="glass col"><h3>Free</h3><div class="stat gr">$0</div></div><div class="glass acc col"><h3>Pro</h3><div class="stat" style="color:#0a0a14">$29</div></div><div class="glass col"><h3>Team</h3><div class="stat gr">$99</div></div></div></div><div class="num">23</div></section>
+    <section class="slide">
+      <div class="kind">Team</div>
+      <div class="pad z g">
+        <h2>Founders</h2>
+        <div class="g4 fill">
+          <div class="glass col ac g">
+            <div
+              class="ph"
+              style="width: 84px; height: 84px; border-radius: 50%"
+            ></div>
+            <h3>Daniel</h3>
+          </div>
+          <div class="glass col ac g">
+            <div
+              class="ph"
+              style="width: 84px; height: 84px; border-radius: 50%"
+            ></div>
+            <h3>Mia</h3>
+          </div>
+          <div class="glass col ac g">
+            <div
+              class="ph"
+              style="width: 84px; height: 84px; border-radius: 50%"
+            ></div>
+            <h3>Kofi</h3>
+          </div>
+          <div class="glass col ac g">
+            <div
+              class="ph"
+              style="width: 84px; height: 84px; border-radius: 50%"
+            ></div>
+            <h3>Yui</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">24</div>
+    </section>
 
-<section class="slide"><div class="kind">Team</div><div class="pad z g"><h2>Founders</h2><div class="g4 fill"><div class="glass col ac g"><div class="ph" style="width:84px;height:84px;border-radius:50%"></div><h3>Daniel</h3></div><div class="glass col ac g"><div class="ph" style="width:84px;height:84px;border-radius:50%"></div><h3>Mia</h3></div><div class="glass col ac g"><div class="ph" style="width:84px;height:84px;border-radius:50%"></div><h3>Kofi</h3></div><div class="glass col ac g"><div class="ph" style="width:84px;height:84px;border-radius:50%"></div><h3>Yui</h3></div></div></div><div class="num">24</div></section>
+    <section class="slide ph">
+      <div class="kind" style="color: #0a0a14">Visual Focus</div>
+      <div class="pad z col" style="justify-content: flex-end">
+        <h1 style="color: #0a0a14">Momentum.</h1>
+      </div>
+      <div class="num" style="color: #0a0a14">25</div>
+    </section>
 
-<section class="slide ph"><div class="kind" style="color:#0a0a14">Visual Focus</div><div class="pad z col" style="justify-content:flex-end"><h1 style="color:#0a0a14">Momentum.</h1></div><div class="num" style="color:#0a0a14">25</div></section>
+    <section class="slide">
+      <div class="iri"></div>
+      <div class="veil"></div>
+      <div class="kind">Closing</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h1 class="gr">Let's build.</h1>
+        <p style="margin-top: 12px">daniel@salford.co</p>
+      </div>
+      <div class="num">26</div>
+    </section>
 
-<section class="slide"><div class="iri"></div><div class="veil"></div><div class="kind">Closing</div><div class="pad z cn col ac" style="justify-content:center"><h1 class="gr">Let's build.</h1><p style="margin-top:12px">daniel@salford.co</p></div><div class="num">26</div></section>
-
-<section class="slide"><div class="kind">Appendix</div><div class="pad z g"><h2>Appendix</h2><div class="rule"></div><ul><li>Cohort model</li><li>Cap table</li><li>Tech notes</li></ul></div><div class="num">27</div></section>
-
-</body></html>
+    <section class="slide">
+      <div class="kind">Appendix</div>
+      <div class="pad z g">
+        <h2>Appendix</h2>
+        <div class="rule"></div>
+        <ul>
+          <li>Cohort model</li>
+          <li>Cap table</li>
+          <li>Tech notes</li>
+        </ul>
+      </div>
+      <div class="num">27</div>
+    </section>
+  </body>
+</html>

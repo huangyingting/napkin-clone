@@ -49,13 +49,18 @@ export function profileDocPath(): string {
 }
 
 /** Public `<slug>-<shareId>` URL segment for the seeded share links. */
-function profileShareSegment(): string {
+export function profileShareSegment(): string {
   return `${E2E_PROFILE_FIXTURE.slug}-${E2E_PROFILE_FIXTURE.shareId}`;
 }
 
 /** Public present-mode path for the seeded deck. */
 export function profilePresentPath(): string {
   return `/present/${profileShareSegment()}`;
+}
+
+/** Public embed-mode path for the seeded deck. */
+export function profilePresentEmbedPath(): string {
+  return `/embed/${profileShareSegment()}`;
 }
 
 /** Protected slide-asset URL for the seeded image asset (public/shared doc). */
