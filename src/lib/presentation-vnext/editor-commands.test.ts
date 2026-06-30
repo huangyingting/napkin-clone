@@ -1142,8 +1142,26 @@ describe("detachDecoration", () => {
     );
     assert.equal(extras.length, 1);
     assert.equal((extras[0] as any).type, "shape");
+    assert.deepEqual(updated.theme.overrides?.disabledDecorations, [
+      "deco-bg-01",
+    ]);
   });
 
+  test("normalizes resolved decoration ids before disabling theme recipes", () => {
+    const deck = makeTestDeck();
+    const updated = detachDecoration(
+      deck,
+      deck.slides[0].id,
+      "decoration-corner",
+      { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 0 },
+      {},
+    );
+
+    assert.deepEqual(updated.theme.overrides?.disabledDecorations, ["corner"]);
+  });
+});
+
+describe("decoration commands", () => {
   test("disables the source decoration recipe when detaching a resolved decoration", () => {
     const deck = makeTestDeck();
     const slide = deck.slides[0];

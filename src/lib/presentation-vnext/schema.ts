@@ -15,6 +15,7 @@ import type {
   IsoDateTime,
   CanvasSpec,
   FramePct,
+  InsetsPct,
   PointPct,
   JsonValue,
   DeepPartial,
@@ -106,6 +107,7 @@ export type ThemeOverridePatch = {
   tokens?: DeepPartial<ThemeTokens>;
   styles?: Partial<Record<StyleRef, Record<string, Partial<StylePatch>>>>;
   disabledDecorations?: string[];
+  chrome?: Partial<DeckChromeConfig>;
 };
 
 export type DeckThemeBinding = {
@@ -515,6 +517,7 @@ export type SlideControls = {
 export type SlideProps = {
   decoration?: "none" | "subtle" | "default" | "expressive";
   chrome?: "default" | "minimal" | "none";
+  deckChrome?: SlideDeckChromeOverrides;
 };
 
 export type SlideNode = BaseNode & {
@@ -527,6 +530,110 @@ export type SlideNode = BaseNode & {
 };
 
 // ---------------------------------------------------------------------------
+// Deck chrome
+// ---------------------------------------------------------------------------
+
+export type DeckChromeKind =
+  | "logo"
+  | "footer"
+  | "pageNumber"
+  | "watermark"
+  | "border"
+  | "safeArea";
+
+export type DeckChromeLayer = "background" | "foreground";
+
+export type DeckChromeBase = {
+  enabled?: boolean;
+  layout?: LayoutBox;
+  style?: StylePatch;
+  layer?: DeckChromeLayer;
+};
+
+export type DeckChromeLogoPlacement =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+export type DeckChromeLogoSize = "small" | "medium" | "large";
+
+export type DeckChromeLogo = DeckChromeBase & {
+  assetId?: AssetId;
+  alt?: string;
+  placement?: DeckChromeLogoPlacement;
+  size?: DeckChromeLogoSize;
+};
+
+export type DeckChromeTextAlign = "left" | "center" | "right";
+
+export type DeckChromeFooter = DeckChromeBase & {
+  text?: string;
+  align?: DeckChromeTextAlign;
+};
+
+export type DeckChromePageNumberFormat = "number" | "number-total";
+export type DeckChromePageNumberPlacement =
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
+
+export type DeckChromePageNumber = DeckChromeBase & {
+  format?: DeckChromePageNumberFormat;
+  placement?: DeckChromePageNumberPlacement;
+};
+
+export type DeckChromeWatermarkLayout = "center" | "diagonal";
+export type DeckChromeWatermarkSize = "small" | "medium" | "large";
+
+export type DeckChromeWatermark = DeckChromeBase & {
+  text?: string;
+  opacity?: number;
+  layoutMode?: DeckChromeWatermarkLayout;
+  size?: DeckChromeWatermarkSize;
+};
+
+export type DeckChromeBorder = DeckChromeBase & {
+  color?: string;
+  widthPt?: number;
+};
+
+export type DeckChromeSafeArea = DeckChromeBase & {
+  insets?: InsetsPct;
+  color?: string;
+  widthPt?: number;
+};
+
+export type DeckChromeConfig = {
+  logo?: DeckChromeLogo;
+  footer?: DeckChromeFooter;
+  pageNumber?: DeckChromePageNumber;
+  watermark?: DeckChromeWatermark;
+  border?: DeckChromeBorder;
+  safeArea?: DeckChromeSafeArea;
+};
+
+export type SlideDeckChromeOverrideMode =
+  | "inherit"
+  | "disabled"
+  | "detached"
+  | "override";
+
+export type SlideDeckChromeOverride<TChrome> =
+  | { mode: "inherit" }
+  | { mode: "disabled" }
+  | { mode: "detached"; nodeId?: NodeId }
+  | { mode: "override"; value: Partial<TChrome> };
+
+export type SlideDeckChromeOverrides = {
+  logo?: SlideDeckChromeOverride<DeckChromeLogo>;
+  footer?: SlideDeckChromeOverride<DeckChromeFooter>;
+  pageNumber?: SlideDeckChromeOverride<DeckChromePageNumber>;
+  watermark?: SlideDeckChromeOverride<DeckChromeWatermark>;
+  border?: SlideDeckChromeOverride<DeckChromeBorder>;
+  safeArea?: SlideDeckChromeOverride<DeckChromeSafeArea>;
+};
+
+// ---------------------------------------------------------------------------
 // Top-level deck
 // ---------------------------------------------------------------------------
 
@@ -536,6 +643,7 @@ export type DeckV7 = {
   title?: string;
   canvas: CanvasSpec;
   theme: DeckThemeBinding;
+  chrome?: DeckChromeConfig;
   assets: DeckAssetRegistry;
   slides: SlideNode[];
   metadata?: DeckMetadata;

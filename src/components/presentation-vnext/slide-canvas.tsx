@@ -7,7 +7,9 @@
  * Rendering order (spec §Render Tree):
  *   1. Slide background fill.
  *   2. Theme decoration nodes (behind user nodes) — not selectable in normal mode.
- *   3. User nodes ordered by ascending zIndex with stable tree-order ties.
+ *   3. Background deck chrome such as watermarks.
+ *   4. User nodes ordered by ascending zIndex with stable tree-order ties.
+ *   5. Foreground deck chrome such as logo/footer/page number/border.
  *
  * The canvas is `position: relative` with an aspect ratio driven by the
  * `canvas` spec.  All children are positioned absolutely in canvas-percent
@@ -327,6 +329,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
 
   // Flatten groups for rendering (children positioned in slide-relative space)
   const decorationNodes = flattenNodes(slide.decorations);
+  const chromeNodes = flattenNodes(slide.chrome);
+  const backgroundChromeNodes = chromeNodes
+    .filter((node) => (node.layout.zIndex ?? 0) < 0)
+    .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
+  const foregroundChromeNodes = chromeNodes
+    .filter((node) => (node.layout.zIndex ?? 0) >= 0)
+    .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
   const userNodes = flattenNodes(slide.nodes);
   const selectedUserNodes = selection
     ? userNodes.filter((node) => isSelected(selection, node.id))
@@ -395,6 +404,17 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
         />
       ))}
 
+      {/* Background deck chrome — non-interactive outside layers mode */}
+      {backgroundChromeNodes.map((node) => (
+        <SlideNodeRenderer
+          key={node.id}
+          node={node}
+          assetResolver={assetResolver}
+          preview={preview}
+          hidden={hiddenNodeIds?.has(node.id)}
+        />
+      ))}
+
       {/* User nodes */}
       {userNodes.map((node) =>
         (() => {
@@ -435,6 +455,17 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           );
         })(),
       )}
+
+      {/* Foreground deck chrome — rendered above user nodes and aria-hidden */}
+      {foregroundChromeNodes.map((node) => (
+        <SlideNodeRenderer
+          key={node.id}
+          node={node}
+          assetResolver={assetResolver}
+          preview={preview}
+          hidden={hiddenNodeIds?.has(node.id)}
+        />
+      ))}
 
       {!preview
         ? preselectedUserNodes.map((node) => (
@@ -774,8 +805,8 @@ export interface DeckCanvasVNextProps {
  * Renders the active slide from a `ResolvedDeckRenderTree`.
  *
  * This component is intentionally minimal: it selects the active slide and
- * delegates to `SlideCanvasVNext`.  Thumbnail rails and deck-level chrome are
- * left to the consuming layout so this canvas stays composable.
+ * delegates to `SlideCanvasVNext`, which renders the resolved theme decoration,
+ * user-node, and deck chrome layers.
  */
 export function DeckCanvasVNext({
   deck,

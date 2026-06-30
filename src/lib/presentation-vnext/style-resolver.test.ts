@@ -126,6 +126,47 @@ describe("validateThemePackage", () => {
       assert.ok(result.diagnostics.some((d) => d.code === "missing-token"));
     }
   });
+
+  test("rejects invalid package deck chrome defaults", () => {
+    const pkg = buildMinimalThemePackage("bad-chrome-package", {
+      chrome: {
+        footer: {
+          enabled: true,
+          text: "Footer",
+          layout: { zIndex: 900 },
+        },
+      },
+    } as unknown as Parameters<typeof buildMinimalThemePackage>[1]);
+    const result = validateThemePackage(pkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes("layout.frame"),
+        ),
+      );
+    }
+  });
+
+  test("rejects invalid package safe-area chrome insets", () => {
+    const pkg = buildMinimalThemePackage("bad-safe-area-package", {
+      chrome: {
+        safeArea: {
+          enabled: true,
+          insets: { top: "bad", right: 5, bottom: 5, left: 5 },
+        },
+      },
+    } as unknown as Parameters<typeof buildMinimalThemePackage>[1]);
+    const result = validateThemePackage(pkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes("safeArea.insets.top"),
+        ),
+      );
+    }
+  });
 });
 
 describe("resolveNodeStyle", () => {

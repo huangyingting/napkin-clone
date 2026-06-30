@@ -920,6 +920,9 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     ...styleObjectToContainerCss(style, assetResolver),
     boxSizing: "border-box",
     cursor: onClick ? (isLocked ? "not-allowed" : "pointer") : "default",
+    ...(node.source === "themeDecoration" || node.source === "deckChrome"
+      ? { pointerEvents: "none" }
+      : {}),
     // Hide when inline editor is active for this node
     ...(hidden ? { visibility: "hidden" } : {}),
   };
@@ -986,7 +989,11 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       onFocus={interactive ? handleFocus : undefined}
       onPointerEnter={interactive ? handlePointerEnter : undefined}
       onPointerLeave={interactive ? handlePointerLeave : undefined}
-      aria-hidden={node.source === "themeDecoration" ? true : undefined}
+      aria-hidden={
+        node.source === "themeDecoration" || node.source === "deckChrome"
+          ? true
+          : undefined
+      }
     >
       {inner}
     </div>

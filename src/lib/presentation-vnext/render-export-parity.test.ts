@@ -105,6 +105,11 @@ function buildParityDeck(): DeckV7 {
   return buildDeckV7([slide], {
     title: "Render/export parity fixture",
     theme: { packageId: "neutral" },
+    chrome: {
+      footer: { enabled: true, text: "TextIQ confidential" },
+      pageNumber: { enabled: true, format: "number-total" },
+      border: { enabled: true, color: "#2563eb", widthPt: 1 },
+    },
     assets: {
       images: {
         "img-parity": {
@@ -145,6 +150,13 @@ function surfaceSignature(tree: ResolvedDeckRenderTree) {
     decorations: slide.decorations.map((node) => ({
       id: node.id,
       type: node.content.type,
+      zIndex: node.layout.zIndex,
+    })),
+    chrome: slide.chrome.map((node) => ({
+      id: node.id,
+      type: node.content.type,
+      source: node.source,
+      chromeKind: node.chromeKind,
       zIndex: node.layout.zIndex,
     })),
   }));
@@ -294,6 +306,14 @@ test("PPTX parity fixture covers representative core node operations", () => {
   const connectorOp = ops.find((op) => op.type === "connector");
   assert.equal(connectorOp?.routing, "elbow");
   assert.equal(connectorOp?.endArrow, "filled");
+  assert.ok(
+    ops.some((op) => op.id === "deck-chrome-footer"),
+    "PPTX spec includes deck chrome footer",
+  );
+  assert.ok(
+    ops.some((op) => op.id === "deck-chrome-pageNumber"),
+    "PPTX spec includes deck chrome page number",
+  );
   assert.equal(
     pptx.diagnostics.some((diagnostic) => diagnostic.code === "missing-asset"),
     false,
@@ -391,6 +411,7 @@ test("export spec flattens grouped nodes after decorations and reports unknown c
           decorationLevel: "subtle",
         },
         decorations: [decorationNode],
+        chrome: [],
         nodes: [groupNode, unknownNode],
         notes: "Manual export notes",
       },

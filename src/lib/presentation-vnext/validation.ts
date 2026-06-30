@@ -234,6 +234,264 @@ function validateLayoutConstraints(
 }
 
 // ---------------------------------------------------------------------------
+// Deck chrome
+// ---------------------------------------------------------------------------
+
+const DECK_CHROME_KINDS = [
+  "logo",
+  "footer",
+  "pageNumber",
+  "watermark",
+  "border",
+  "safeArea",
+] as const;
+
+function validateStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input !== undefined && !isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+  }
+}
+
+function validateInsetsPct(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of ["top", "right", "bottom", "left"] as const) {
+    if (!isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
+function validateChromeItem(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+  allowedSpecificKeys: readonly string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set([
+    "enabled",
+    "layout",
+    "style",
+    "layer",
+    ...allowedSpecificKeys,
+  ]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known chrome field`);
+    }
+  }
+  if (input.enabled !== undefined && typeof input.enabled !== "boolean") {
+    fail(errors, `${ctx}.enabled must be a boolean`);
+  }
+  if (
+    input.layer !== undefined &&
+    input.layer !== "background" &&
+    input.layer !== "foreground"
+  ) {
+    fail(errors, `${ctx}.layer must be background or foreground`);
+  }
+  if (input.layout !== undefined) {
+    validateLayoutBox(input.layout, `${ctx}.layout`, errors);
+  }
+  validateStylePatch(input.style, `${ctx}.style`, errors);
+}
+
+function validateEnumValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  ctx: string,
+  errors: string[],
+): void {
+  if (value !== undefined && !allowed.includes(value as T)) {
+    fail(errors, `${ctx} must be one of: ${allowed.join(", ")}`);
+  }
+}
+
+function validateOptionalString(
+  value: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (value !== undefined && typeof value !== "string") {
+    fail(errors, `${ctx} must be a string`);
+  }
+}
+
+function validateOptionalFiniteNumber(
+  value: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (value !== undefined && !isFiniteNumber(value)) {
+    fail(errors, `${ctx} must be a finite number`);
+  }
+}
+
+export function validateDeckChromeConfig(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (
+      !DECK_CHROME_KINDS.includes(key as (typeof DECK_CHROME_KINDS)[number])
+    ) {
+      fail(errors, `${ctx}.${key} is not a known chrome slot`);
+    }
+  }
+  if (input.logo !== undefined) {
+    validateChromeItem(input.logo, `${ctx}.logo`, errors, [
+      "assetId",
+      "alt",
+      "placement",
+      "size",
+    ]);
+    if (isPlainObject(input.logo)) {
+      validateOptionalString(input.logo.assetId, `${ctx}.logo.assetId`, errors);
+      validateOptionalString(input.logo.alt, `${ctx}.logo.alt`, errors);
+      validateEnumValue(
+        input.logo.placement,
+        ["top-left", "top-right", "bottom-left", "bottom-right"],
+        `${ctx}.logo.placement`,
+        errors,
+      );
+      validateEnumValue(
+        input.logo.size,
+        ["small", "medium", "large"],
+        `${ctx}.logo.size`,
+        errors,
+      );
+    }
+  }
+  if (input.footer !== undefined) {
+    validateChromeItem(input.footer, `${ctx}.footer`, errors, [
+      "text",
+      "align",
+    ]);
+    if (isPlainObject(input.footer)) {
+      validateOptionalString(input.footer.text, `${ctx}.footer.text`, errors);
+      validateEnumValue(
+        input.footer.align,
+        ["left", "center", "right"],
+        `${ctx}.footer.align`,
+        errors,
+      );
+    }
+  }
+  if (input.pageNumber !== undefined) {
+    validateChromeItem(input.pageNumber, `${ctx}.pageNumber`, errors, [
+      "format",
+      "placement",
+    ]);
+    if (isPlainObject(input.pageNumber)) {
+      validateEnumValue(
+        input.pageNumber.format,
+        ["number", "number-total"],
+        `${ctx}.pageNumber.format`,
+        errors,
+      );
+      validateEnumValue(
+        input.pageNumber.placement,
+        ["bottom-left", "bottom-center", "bottom-right"],
+        `${ctx}.pageNumber.placement`,
+        errors,
+      );
+    }
+  }
+  if (input.watermark !== undefined) {
+    validateChromeItem(input.watermark, `${ctx}.watermark`, errors, [
+      "text",
+      "opacity",
+      "layoutMode",
+      "size",
+    ]);
+    if (isPlainObject(input.watermark)) {
+      validateOptionalString(
+        input.watermark.text,
+        `${ctx}.watermark.text`,
+        errors,
+      );
+      validateOptionalFiniteNumber(
+        input.watermark.opacity,
+        `${ctx}.watermark.opacity`,
+        errors,
+      );
+      validateEnumValue(
+        input.watermark.layoutMode,
+        ["center", "diagonal"],
+        `${ctx}.watermark.layoutMode`,
+        errors,
+      );
+      validateEnumValue(
+        input.watermark.size,
+        ["small", "medium", "large"],
+        `${ctx}.watermark.size`,
+        errors,
+      );
+    }
+  }
+  if (input.border !== undefined) {
+    validateChromeItem(input.border, `${ctx}.border`, errors, [
+      "color",
+      "widthPt",
+    ]);
+    if (isPlainObject(input.border)) {
+      validateOptionalString(input.border.color, `${ctx}.border.color`, errors);
+      validateOptionalFiniteNumber(
+        input.border.widthPt,
+        `${ctx}.border.widthPt`,
+        errors,
+      );
+    }
+  }
+  if (input.safeArea !== undefined) {
+    validateChromeItem(input.safeArea, `${ctx}.safeArea`, errors, [
+      "insets",
+      "color",
+      "widthPt",
+    ]);
+    if (isPlainObject(input.safeArea)) {
+      validateOptionalString(
+        input.safeArea.color,
+        `${ctx}.safeArea.color`,
+        errors,
+      );
+      validateOptionalFiniteNumber(
+        input.safeArea.widthPt,
+        `${ctx}.safeArea.widthPt`,
+        errors,
+      );
+      if (input.safeArea.insets !== undefined) {
+        validateInsetsPct(
+          input.safeArea.insets,
+          `${ctx}.safeArea.insets`,
+          errors,
+        );
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Style binding
 // ---------------------------------------------------------------------------
 
@@ -738,6 +996,72 @@ const SLIDE_EMPHASIS = [
   "quote",
   "action",
 ] as const;
+const SLIDE_DECORATION_LEVELS = ["none", "subtle", "default", "expressive"];
+const SLIDE_CHROME_LEVELS = ["default", "minimal", "none"];
+const SLIDE_CHROME_OVERRIDE_MODES = [
+  "inherit",
+  "disabled",
+  "detached",
+  "override",
+];
+
+function validateSlideProps(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  if (
+    input.decoration !== undefined &&
+    !SLIDE_DECORATION_LEVELS.includes(input.decoration as string)
+  ) {
+    fail(errors, `${ctx}.decoration is not a known decoration level`);
+  }
+  if (
+    input.chrome !== undefined &&
+    !SLIDE_CHROME_LEVELS.includes(input.chrome as string)
+  ) {
+    fail(errors, `${ctx}.chrome is not a known chrome level`);
+  }
+  if (input.deckChrome !== undefined) {
+    if (!isPlainObject(input.deckChrome)) {
+      fail(errors, `${ctx}.deckChrome must be an object`);
+    } else {
+      for (const [kind, override] of Object.entries(input.deckChrome)) {
+        if (
+          !DECK_CHROME_KINDS.includes(
+            kind as (typeof DECK_CHROME_KINDS)[number],
+          )
+        ) {
+          fail(errors, `${ctx}.deckChrome.${kind} is not a known chrome slot`);
+          continue;
+        }
+        if (!isPlainObject(override)) {
+          fail(errors, `${ctx}.deckChrome.${kind} must be an object`);
+          continue;
+        }
+        if (!SLIDE_CHROME_OVERRIDE_MODES.includes(override.mode as string)) {
+          fail(errors, `${ctx}.deckChrome.${kind}.mode is not supported`);
+        }
+        if (override.mode === "override") {
+          if (!isPlainObject(override.value)) {
+            fail(errors, `${ctx}.deckChrome.${kind}.value must be an object`);
+          } else {
+            validateDeckChromeConfig(
+              { [kind]: override.value },
+              `${ctx}.deckChrome.${kind}.value`,
+              errors,
+            );
+          }
+        }
+      }
+    }
+  }
+}
 
 const SLIDE_V7_KEYS = new Set([
   "id",
@@ -828,6 +1152,8 @@ function validateSlideNode(
     }
   }
 
+  validateSlideProps(input.props, `${ctx}.props`, errors);
+
   if (input.style !== undefined) {
     validateStyleBinding(input.style, `${ctx}.style`, errors);
   }
@@ -860,6 +1186,7 @@ const DECK_V7_KEYS = new Set([
   "title",
   "canvas",
   "theme",
+  "chrome",
   "assets",
   "slides",
   "metadata",
@@ -905,7 +1232,14 @@ function validateDeckV7(input: unknown, errors: string[]): Partial<DeckV7> {
     input.theme.packageId.length === 0
   ) {
     fail(errors, "Deck.theme.packageId must be a non-empty string");
+  } else if (isPlainObject(input.theme.overrides)) {
+    validateDeckChromeConfig(
+      input.theme.overrides.chrome,
+      "Deck.theme.overrides.chrome",
+      errors,
+    );
   }
+  validateDeckChromeConfig(input.chrome, "Deck.chrome", errors);
 
   if (!Array.isArray(input.slides)) {
     fail(errors, "Deck.slides must be an array");

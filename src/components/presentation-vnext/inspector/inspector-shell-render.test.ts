@@ -232,12 +232,14 @@ function renderInspector({
   return renderToStaticMarkup(
     createElement(InspectorShell, {
       activeSlide,
+      deckChrome: undefined,
       selectedNode,
       selectedIds: selectedIds ?? (selectedNode ? [selectedNode.id] : []),
       isDecorationSelected,
       diagnostics,
       onUpdateControls: noop,
       onUpdateProps: noop,
+      onUpdateDeckChrome: noop,
       onUpdateSlideAttributes: noop,
       onUpdateSlideLocalStyle: noop,
       onResetSlideLocalStyle: noop,

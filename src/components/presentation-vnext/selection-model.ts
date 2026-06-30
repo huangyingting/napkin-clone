@@ -2,9 +2,9 @@
  * Selection model for the vNext presentation canvas.
  *
  * Key rules:
- * - In "normal" editing mode, theme decorations (`source: "themeDecoration"`)
- *   are excluded from selection.
- * - In "layers" mode all resolved nodes (including decorations) are selectable,
+ * - In "normal" editing mode, generated nodes (`source: "themeDecoration"` or
+ *   `"deckChrome"`) are excluded from selection.
+ * - In "layers" mode all resolved nodes (including decorations/chrome) are selectable,
  *   enabling explicit decoration detach/inspect workflows.
  * - Selection state is a simple set of node ids; the model is immutable —
  *   every mutating function returns a new `SelectionState`.
@@ -35,7 +35,7 @@ export type SelectionState = {
 /**
  * Returns `true` when `node` may be selected in the given `mode`.
  *
- * - `"normal"`: theme decorations (`source === "themeDecoration"`) are never
+ * - `"normal"`: generated decorations/chrome are never
  *   selectable.
  * - `"layers"`: every resolved node is selectable regardless of source.
  */
@@ -43,7 +43,12 @@ export function isSelectable(
   node: ResolvedRenderNode,
   mode: SelectionMode = "normal",
 ): boolean {
-  if (mode === "normal" && node.source === "themeDecoration") return false;
+  if (
+    mode === "normal" &&
+    (node.source === "themeDecoration" || node.source === "deckChrome")
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -55,7 +60,7 @@ export function isSelectable(
  * Returns the ordered list of selectable nodes from a resolved slide.
  *
  * In `"normal"` mode only user nodes are returned (decoration-free).
- * In `"layers"` mode decorations are appended after user nodes.
+ * In `"layers"` mode decorations and deck chrome are appended after user nodes.
  */
 export function getSelectableNodes(
   slide: ResolvedSlideRenderTree,
@@ -63,7 +68,7 @@ export function getSelectableNodes(
 ): ResolvedRenderNode[] {
   const userNodes = slide.nodes.filter((n) => isSelectable(n, mode));
   if (mode === "layers") {
-    return [...userNodes, ...slide.decorations];
+    return [...userNodes, ...slide.decorations, ...slide.chrome];
   }
   return userNodes;
 }

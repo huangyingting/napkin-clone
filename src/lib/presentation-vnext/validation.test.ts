@@ -48,6 +48,41 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts current deck chrome schema", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()], {
+      chrome: {
+        logo: { enabled: true, assetId: "img-001" },
+        footer: { enabled: true, text: "Footer", align: "center" },
+        pageNumber: { enabled: true, format: "number-total" },
+        watermark: { enabled: true, text: "Draft", opacity: 0.2 },
+        border: { enabled: true, color: "#111111", widthPt: 1 },
+        safeArea: {
+          enabled: true,
+          insets: { top: 5, right: 5, bottom: 5, left: 5 },
+        },
+      },
+    });
+
+    const result = safeParseDeckV7(deck);
+    assert.ok(result.success);
+  });
+
+  test("rejects invalid deck chrome contracts", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      chrome: {
+        footer: { enabled: "yes" },
+        safeArea: { insets: { top: 1, right: 1, bottom: 1, left: "bad" } },
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((error) => /Deck\.chrome/.test(error)));
+    }
+  });
+
   test("rejects non-object input", () => {
     const result = safeParseDeckV7("not-an-object");
     assert.ok(!result.success);
@@ -528,6 +563,53 @@ describe("safeParseDeckV7", () => {
     assert.ok(!result.success);
     if (!result.success) {
       assert.ok(result.errors.some((e) => /tone/.test(e)));
+    }
+  });
+
+  test("rejects invalid deck chrome enum and scalar values", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()], {
+      chrome: {
+        logo: { enabled: true, assetId: "img-001", size: "huge" },
+        footer: { enabled: true, text: 42, align: "wide" },
+        pageNumber: { enabled: true, format: "roman", placement: "top-left" },
+        watermark: {
+          enabled: true,
+          text: "Draft",
+          layoutMode: "tilted",
+          size: "giant",
+          opacity: "faint",
+        },
+        border: { enabled: true, color: 123, widthPt: "thick" },
+        safeArea: { enabled: true, color: false, widthPt: "thin" },
+      },
+    } as unknown as Parameters<typeof buildDeckV7>[1]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((e) => /logo\.size/.test(e)));
+      assert.ok(result.errors.some((e) => /footer\.align/.test(e)));
+      assert.ok(result.errors.some((e) => /pageNumber\.format/.test(e)));
+      assert.ok(result.errors.some((e) => /watermark\.opacity/.test(e)));
+      assert.ok(result.errors.some((e) => /border\.widthPt/.test(e)));
+      assert.ok(result.errors.some((e) => /safeArea\.color/.test(e)));
+    }
+  });
+
+  test("rejects slide deck chrome override without an object value", () => {
+    resetBuilderCounter();
+    const slide = {
+      ...buildCoverSlide(),
+      props: {
+        deckChrome: {
+          footer: { mode: "override" },
+        },
+      },
+    } as unknown as SlideNode;
+    const result = safeParseDeckV7(buildDeckV7([slide]));
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((e) => /footer\.value/.test(e)));
     }
   });
 

@@ -18,6 +18,7 @@ import type {
   TableContent,
   VisualContent,
   LayoutBox,
+  DeckChromeKind,
 } from "./schema";
 import type { ResolvedTheme } from "./style-resolver";
 import type { PresentationDiagnostic } from "./diagnostics";
@@ -55,7 +56,8 @@ export type ResolvedRenderNode = {
   style: StyleObject;
   content: ResolvedNodeContent;
   children?: ResolvedRenderNode[];
-  source: "user" | "themeDecoration";
+  source: "user" | "themeDecoration" | "deckChrome";
+  chromeKind?: DeckChromeKind;
   locked?: boolean;
 };
 
@@ -76,6 +78,7 @@ export type ResolvedSlideRenderTree = {
   id: NodeId;
   background: ResolvedSlideBackground;
   decorations: ResolvedRenderNode[];
+  chrome: ResolvedRenderNode[];
   nodes: ResolvedRenderNode[];
   notes?: string;
 };

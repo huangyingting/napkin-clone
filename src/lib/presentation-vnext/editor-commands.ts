@@ -19,9 +19,12 @@ import type {
   ShapeContent,
   StyleBinding,
   SlideControls,
+  DeckChromeConfig,
+  DeckChromeKind,
   TextContent,
 } from "./schema";
 import type { StylePatch } from "./style-schema";
+import type { ResolvedRenderNode } from "./render-tree";
 import type { AiSlideSpec } from "./ai-plan-schema";
 import type { SemanticTemplateV1 } from "./template-registry";
 import { compileSlide } from "./template-compiler";
@@ -794,6 +797,19 @@ export function setThemePackage(
   };
 }
 
+export function updateDeckChrome(
+  deck: DeckV7,
+  patch: Partial<DeckChromeConfig>,
+): DeckV7 {
+  return {
+    ...deck,
+    chrome: {
+      ...(deck.chrome ?? {}),
+      ...patch,
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Update node content (type-erased for flexibility — caller supplies typed patch)
 // ---------------------------------------------------------------------------
@@ -1239,6 +1255,81 @@ export function detachDecoration(
       },
     },
   };
+}
+
+function detachedNodeFromResolved(
+  node: ResolvedRenderNode,
+  id: string,
+): SlideChildNode | null {
+  const { framePx: _framePx, ...layout } = node.layout;
+  const base = {
+    id,
+    role: node.role,
+    layout,
+    localStyle: node.style as StylePatch,
+    locked: false,
+  };
+  switch (node.content.type) {
+    case "text":
+      return {
+        ...base,
+        type: "text",
+        style: { ref: "text.caption" },
+        content: node.content.content,
+      };
+    case "image":
+      return {
+        ...base,
+        type: "image",
+        style: { ref: "media.inline" },
+        content: node.content.content,
+      };
+    case "shape": {
+      const strokeOnlyChrome =
+        node.chromeKind === "border" || node.chromeKind === "safeArea";
+      return {
+        ...base,
+        type: "shape",
+        style: { ref: "surface.card" },
+        localStyle: strokeOnlyChrome
+          ? {
+              ...(node.style as StylePatch),
+              fill: { type: "solid", color: "transparent" },
+              radius: { allPt: 0 },
+            }
+          : (node.style as StylePatch),
+        content: node.content.content,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+export function detachDeckChrome(
+  deck: DeckV7,
+  slideId: string,
+  chromeKind: DeckChromeKind,
+  node: ResolvedRenderNode,
+): DeckV7 {
+  const detachedId = `detached-chrome-${chromeKind}-${Date.now().toString(36)}`;
+  const detachedNode = detachedNodeFromResolved(node, detachedId);
+  if (!detachedNode) return deck;
+
+  return mapSlides(deck, (slide) => {
+    if (slide.id !== slideId) return slide;
+    return {
+      ...slide,
+      props: {
+        ...(slide.props ?? {}),
+        deckChrome: {
+          ...(slide.props?.deckChrome ?? {}),
+          [chromeKind]: { mode: "detached", nodeId: detachedId },
+        },
+      },
+      children: [...slide.children, detachedNode],
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

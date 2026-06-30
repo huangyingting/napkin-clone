@@ -93,6 +93,28 @@ describe("buildExportSpec", () => {
     assert.deepEqual(exportIds, resolvedIds);
   });
 
+  test("operations include deck chrome in deterministic render order", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildContentSlide()], {
+      chrome: {
+        watermark: { enabled: true, text: "Draft" },
+        footer: { enabled: true, text: "Footer" },
+        pageNumber: { enabled: true },
+      },
+    });
+    const renderTree = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const exportSpec = buildExportSpec(renderTree);
+    const ids = exportSpec.slides[0].operations.map((op) => op.id);
+    const firstUserId = renderTree.slides[0].nodes[0].id;
+
+    assert.ok(ids.indexOf("deck-chrome-watermark") < ids.indexOf(firstUserId));
+    assert.ok(ids.indexOf("deck-chrome-footer") > ids.indexOf(firstUserId));
+    assert.ok(ids.includes("deck-chrome-pageNumber"));
+    assert.ok(
+      ids.indexOf("deck-chrome-footer") < ids.indexOf("deck-chrome-pageNumber"),
+    );
+  });
+
   test("emits warnings for glass effect (unsupported export)", () => {
     resetBuilderCounter();
     const slide = buildCoverSlide();

@@ -45,6 +45,49 @@ describe("migrateLegacyDeckV6 identity and shape coverage", () => {
       deckContentHash: "content-hash-1",
       canvas: { format: "4:3" },
       design: { themeId: "ocean" },
+      defaultMasterId: "master-main",
+      masters: [
+        {
+          id: "master-main",
+          name: "Main master",
+          elements: [
+            {
+              id: "master-logo",
+              kind: "image",
+              masterChromeKind: "logo",
+              box: { x: 4, y: 4, w: 12, h: 7 },
+              content: {
+                src: "https://example.com/logo.png",
+                alt: "Brand logo",
+              },
+            },
+            {
+              id: "master-footer",
+              kind: "text",
+              masterChromeKind: "footer",
+              box: { x: 6, y: 91, w: 88, h: 5 },
+              content: { text: "Legacy footer" },
+              designOverrides: { textStyle: { align: "center" } },
+            },
+            {
+              id: "master-page-number",
+              kind: "text",
+              masterChromeKind: "pageNumber",
+              box: { x: 76, y: 91, w: 18, h: 5 },
+              content: { text: "{{pageNumber}} / {{pageCount}}" },
+            },
+            {
+              id: "master-watermark",
+              kind: "text",
+              masterChromeKind: "watermark",
+              box: { x: 10, y: 42, w: 80, h: 16 },
+              rotation: -28,
+              opacity: 0.22,
+              content: { text: "Draft" },
+            },
+          ],
+        },
+      ],
       slides: [
         {
           id: "slide-rich",
@@ -198,6 +241,15 @@ describe("migrateLegacyDeckV6 identity and shape coverage", () => {
     assert.equal(result.deck.canvas.format, "4:3");
     assert.equal(result.deck.theme.packageId, "ocean");
     assert.equal(result.deck.metadata?.contentHash, "content-hash-1");
+    assert.equal(result.deck.chrome?.logo?.assetId, "master-logo-asset");
+    assert.equal(
+      result.deck.assets.images["master-logo-asset"]?.alt,
+      "Brand logo",
+    );
+    assert.equal(result.deck.chrome?.footer?.text, "Legacy footer");
+    assert.equal(result.deck.chrome?.pageNumber?.format, "number-total");
+    assert.equal(result.deck.chrome?.watermark?.layoutMode, "diagonal");
+    assert.equal(result.deck.chrome?.watermark?.layout?.zIndex, -20);
     const slide = result.deck.slides[0];
     assert.ok(slide);
     assert.equal(slide.template.kind, "agenda");

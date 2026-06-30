@@ -49,14 +49,25 @@ function decorationNode(id: string): ResolvedRenderNode {
   };
 }
 
+function chromeNode(id: string): ResolvedRenderNode {
+  return {
+    ...decorationNode(id),
+    role: "background",
+    source: "deckChrome",
+    chromeKind: "watermark",
+  };
+}
+
 function mockSlide(
   userNodes: ResolvedRenderNode[],
   decorations: ResolvedRenderNode[] = [],
+  chrome: ResolvedRenderNode[] = [],
 ): ResolvedSlideRenderTree {
   return {
     id: "slide-1",
     background: { fill: undefined, decorationLevel: "default" },
     decorations,
+    chrome,
     nodes: userNodes,
   };
 }
@@ -75,6 +86,11 @@ test("isSelectable returns false for themeDecoration nodes in normal mode", () =
 
 test("isSelectable returns true for themeDecoration nodes in layers mode", () => {
   assert.equal(isSelectable(decorationNode("d1"), "layers"), true);
+});
+
+test("isSelectable returns false for deckChrome nodes in normal mode", () => {
+  assert.equal(isSelectable(chromeNode("c1"), "normal"), false);
+  assert.equal(isSelectable(chromeNode("c1"), "layers"), true);
 });
 
 test("isSelectable defaults to normal mode when mode is omitted", () => {
@@ -98,12 +114,16 @@ test("getSelectableNodes returns only user nodes in normal mode", () => {
   );
 });
 
-test("getSelectableNodes returns user nodes and decorations in layers mode", () => {
-  const slide = mockSlide([userNode("n1")], [decorationNode("d1")]);
+test("getSelectableNodes returns user nodes, decorations, and chrome in layers mode", () => {
+  const slide = mockSlide(
+    [userNode("n1")],
+    [decorationNode("d1")],
+    [chromeNode("c1")],
+  );
   const nodes = getSelectableNodes(slide, "layers");
   assert.deepEqual(
     nodes.map((n) => n.id),
-    ["n1", "d1"],
+    ["n1", "d1", "c1"],
   );
 });
 
