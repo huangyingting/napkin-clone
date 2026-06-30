@@ -146,7 +146,7 @@ export function Filmstrip({
         >
           <div className="rounded-ds-sm shadow-ds-overlay">
             <div
-              className="relative overflow-hidden rounded-ds-sm ring-2 ring-ds-accent ring-inset"
+              className="relative overflow-hidden rounded-ds-sm ring-2 ring-ds-accent"
               style={{ aspectRatio: thumbnailAspectRatio, width: "100%" }}
             >
               <SlideCanvasVNext

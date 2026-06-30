@@ -40,20 +40,24 @@ export const E2E_PROFILE_FIXTURE = {
   shareId: "e2efixtureshare01",
   slug: "e2e-fixture-deck",
   slideTitleText: "Release Gate Fixture Slide",
-  slideTwoTitleText: "Release Gate Fixture Follow-up",
+  slideTwoTitleText: "Release Gate Fixture Slide Two",
   slideBodyText: "Deterministic deck for the E2E release gate.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
   dashboardTag: {
-    name: "release-gate",
+    name: "Release Gate",
     slug: "release-gate",
   },
   dashboardDocuments: {
     alphaFavorite: {
+      id: "e2efixturealpha000000001",
       title: "Alpha favorite deterministic dashboard",
+      content: "Favorite dashboard document for deterministic E2E filtering.",
     },
     betaTagged: {
+      id: "e2efixturebeta0000000001",
       title: "Beta tagged deterministic dashboard",
+      content: "Tagged dashboard document for deterministic E2E filtering.",
     },
   },
 } as const;
@@ -163,7 +167,7 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
         },
         elements: [
           buildTextElement({
-            id: "fixture-second-title",
+            id: "fixture-title-two",
             role: "title",
             text: F.slideTwoTitleText,
             box: { x: 6, y: 6, w: 88, h: 14 },
@@ -171,10 +175,10 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
             style: { fontSize: 6, bold: true, italic: false, align: "left" },
           }),
           buildBulletsElement({
-            id: "fixture-second-bullets",
-            bullets: ["Second seeded slide for navigation coverage."],
-            items: [{ text: "Second seeded slide for navigation coverage." }],
-            box: { x: 8, y: 26, w: 80, h: 50 },
+            id: "fixture-bullets-two",
+            bullets: ["Second deterministic slide"],
+            items: [{ text: "Second deterministic slide" }],
+            box: { x: 8, y: 26, w: 56, h: 50 },
             zIndex: 1,
             style: { fontSize: 4, bold: false, italic: false, align: "left" },
           }),

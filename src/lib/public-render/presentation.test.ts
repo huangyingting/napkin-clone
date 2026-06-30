@@ -4,6 +4,9 @@ import { test } from "node:test";
 import {
   buildDeckV7,
   buildCoverSlide,
+  buildImageAsset,
+  buildImageNode,
+  buildSlideV7,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 
@@ -77,4 +80,40 @@ test("buildPublicPresentationModelAny returns the v7-only model", () => {
   assert.equal(model.title, "vNext deck");
   assert.equal(model.deckV7.schemaVersion, 7);
   assert.equal(model.attribution.ownerName, "Alex");
+});
+
+test("buildPublicPresentationModel keeps v7 protected asset references instead of contentJson fallback", () => {
+  resetBuilderCounter();
+  const assetSrc = "/api/slide-assets/doc-1/uploads/protected.png";
+  const v7Deck = buildDeckV7(
+    [
+      buildSlideV7("visual-focus", [
+        buildImageNode("protected-img", { id: "protected-image-node" }),
+      ]),
+    ],
+    {
+      theme: { packageId: "neutral" },
+      assets: {
+        images: {
+          "protected-img": buildImageAsset("protected-img", {
+            src: assetSrc,
+            alt: "Protected upload",
+          }),
+        },
+      },
+    },
+  );
+  const model = buildPublicPresentationModel({
+    title: "Protected public deck",
+    contentJson: {
+      slides: [{ id: "legacy-slide", elements: [{ id: "legacy-image" }] }],
+    },
+    deckJson: v7Deck,
+    owner: { name: "Ava", plan: "pro" },
+  });
+
+  assert.equal(model.deckV7.schemaVersion, 7);
+  assert.equal(model.deckV7.slides[0].children[0]?.id, "protected-image-node");
+  assert.equal(model.deckV7.assets.images["protected-img"]?.src, assetSrc);
+  assert.equal(model.themePackage.id, "neutral");
 });

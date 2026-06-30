@@ -58,9 +58,9 @@ export function profilePresentPath(): string {
   return `/present/${profileShareSegment()}`;
 }
 
-/** Chrome-free public present-mode embed path for the seeded deck. */
+/** Public embed-mode path for the seeded deck. */
 export function profilePresentEmbedPath(): string {
-  return `/present/${profileShareSegment()}/embed`;
+  return `/embed/${profileShareSegment()}`;
 }
 
 /** Protected slide-asset URL for the seeded image asset (public/shared doc). */
