@@ -14,6 +14,12 @@ import { expect, test } from "@playwright/test";
  */
 const UNKNOWN_SHARE_ID = "playwright-nonexistent-share-id";
 
+/** Slug-prefixed form that mirrors the real `<slug>-<shareId>` URL shape. */
+const SLUG_PREFIXED_SHARE_ID = "some-doc-slug-playwright-nonexistent-share-id";
+
+/** Malformed share id with characters that cannot match any stored share. */
+const MALFORMED_SHARE_ID = "!!!invalid-share-id!!!";
+
 test.describe("share/present fallback", () => {
   test("unknown /share link renders the not-found fallback", async ({
     page,
@@ -40,5 +46,56 @@ test.describe("share/present fallback", () => {
     const response = await page.goto(`/embed/${UNKNOWN_SHARE_ID}`);
 
     expect(response?.status()).toBe(404);
+  });
+
+  test("unknown /present/<share>/embed renders the not-found fallback", async ({
+    page,
+  }) => {
+    // `/present/[shareId]/embed` is a distinct sub-route not covered above.
+    const response = await page.goto(`/present/${UNKNOWN_SHARE_ID}/embed`);
+
+    expect(response?.status()).toBe(404);
+    // The embed sub-route goes through the same notFound() path as /present
+    // and /embed, so the 404 page must render.
+    await expect(page.getByText(/not found|404/i).first()).toBeVisible();
+  });
+
+  test("slug-prefixed unknown share ID resolves to the safe 404 fallback without leaking content", async ({
+    page,
+  }) => {
+    // Real public links use `<slug>-<shareId>`; ensure a plausible-looking
+    // but non-existent slug-prefixed ID still returns 404 and does not leak.
+    const response = await page.goto(`/present/${SLUG_PREFIXED_SHARE_ID}`);
+
+    expect(response?.status()).toBe(404);
+    await expect(page.getByText(/not found|404/i).first()).toBeVisible();
+  });
+
+  test("malformed share ID resolves to the safe 404 fallback without leaking content", async ({
+    page,
+  }) => {
+    const response = await page.goto(
+      `/share/${encodeURIComponent(MALFORMED_SHARE_ID)}`,
+    );
+
+    expect(response?.status()).toBe(404);
+    await expect(page.getByText(/not found|404/i).first()).toBeVisible();
+  });
+
+  test("fallback 404 page does not render document editor or presentation regions", async ({
+    page,
+  }) => {
+    await page.goto(`/present/${UNKNOWN_SHARE_ID}`);
+
+    // Neither the document editor nor the presentation overlay should appear.
+    await expect(
+      page.getByRole("region", { name: "Presentation" }),
+    ).toHaveCount(0);
+    // The editor toolbar contains the "Export document" button — must be absent.
+    await expect(
+      page.getByRole("button", { name: "Export document" }),
+    ).toHaveCount(0);
+    // No document title input (editor landmark).
+    await expect(page.getByLabel(/document title/i)).toHaveCount(0);
   });
 });

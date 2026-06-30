@@ -20,6 +20,7 @@ import {
   normalizeTextParagraphs,
   type Deck,
   type ImageElement,
+  type ShapeElement,
   type SlideElement,
 } from "@/lib/presentation/deck";
 import { isPrimarilyCjk } from "@/lib/presentation/slide-fonts";
@@ -178,6 +179,18 @@ function imageNeedsRasterFallback(el: ImageElement): boolean {
   return false;
 }
 
+function shapeNeedsRasterFallback(el: ShapeElement): boolean {
+  const design = el.designOverrides;
+  const fill = design?.fill;
+  return Boolean(
+    design?.effect ||
+    (fill &&
+      typeof fill === "object" &&
+      "type" in fill &&
+      (fill.type === "radialGradient" || fill.type === "linearGradient")),
+  );
+}
+
 /** Returns true when the string looks like a remote (http/https) URL. */
 function isRemoteUrl(src: string): boolean {
   return src.startsWith("http://") || src.startsWith("https://");
@@ -297,6 +310,26 @@ function checkImageElement(
       });
     }
   }
+}
+
+function checkShapeElement(
+  el: ShapeElement,
+  slideIndex: number,
+  target: PreflightTarget,
+  diagnostics: PreflightDiagnostic[],
+): void {
+  if (target !== "pptx" || !shapeNeedsRasterFallback(el)) return;
+  const fill = el.designOverrides?.fill;
+  const fillType =
+    fill && typeof fill === "object" && "type" in fill ? fill.type : undefined;
+  diagnostics.push({
+    severity: "warning",
+    code: "raster-fallback",
+    message: `Slide ${slideIndex + 1}: shape element will be rasterised in PPTX (gradient fill/shape effect).`,
+    slideIndex,
+    elementId: el.id,
+    detail: el.designOverrides?.effect?.kind ?? fillType ?? "radialGradient",
+  });
 }
 
 /**
@@ -500,6 +533,8 @@ export function runExportPreflight(
     for (const el of elements) {
       if (el.kind === "image") {
         checkImageElement(el, i, target, diagnostics);
+      } else if (el.kind === "shape") {
+        checkShapeElement(el, i, target, diagnostics);
       }
     }
 

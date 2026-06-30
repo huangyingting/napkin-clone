@@ -95,7 +95,7 @@ export function accessibleName(el: A11yElement): string | null {
 /**
  * Assert that an element has a non-empty accessible name.
  */
-export function assertHasAccessibleName(
+function assertHasAccessibleName(
   el: A11yElement,
   context = "element",
 ): A11yAssertionResult {

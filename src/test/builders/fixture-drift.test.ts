@@ -479,4 +479,9 @@ test("E2E profile builders are the seed/spec single source of truth", () => {
     "asset-1",
   );
   assert.equal(safeParseDeck(deck).success, true);
+  assert.equal(deck.slides.length, 2);
+  assert.equal(
+    deck.slides[1].title,
+    e2eProfile.E2E_PROFILE_FIXTURE.slideTwoTitleText,
+  );
 });

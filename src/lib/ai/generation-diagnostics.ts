@@ -6,13 +6,7 @@ import {
 } from "@/lib/diagnostics/error-codes";
 import redaction from "@/lib/log-redaction-core.cjs";
 
-export const GENERATION_FAILURE_STAGES = [
-  "json-extract",
-  "repair",
-  "validation",
-] as const;
-
-export type GenerationFailureStage = (typeof GENERATION_FAILURE_STAGES)[number];
+export type GenerationFailureStage = "json-extract" | "repair" | "validation";
 
 export interface GenerationFailureContext {
   pipeline: "visual" | "deck";

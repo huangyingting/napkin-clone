@@ -1,0 +1,3416 @@
+{
+  "schemaVersion": 7,
+  "id": "preview-clarity",
+  "title": "Swiss Minimal Grid semantic template preview",
+  "canvas": {
+    "format": "16:9",
+    "width": 100,
+    "height": 56.25,
+    "unit": "percent"
+  },
+  "theme": {
+    "packageId": "clarity",
+    "packageVersion": "1.0.0"
+  },
+  "assets": {
+    "images": {}
+  },
+  "slides": [
+    {
+      "id": "clarity-cover",
+      "type": "slide",
+      "template": {
+        "kind": "cover",
+        "layoutId": "cover-default"
+      },
+      "style": {
+        "ref": "slide.cover"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0001",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 28,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0002",
+                "text": "cover"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0003",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 35,
+              "w": 80,
+              "h": 18
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0004",
+                "text": "cover template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "subtitle-0005",
+          "role": "subtitle",
+          "slot": "subtitle",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 55,
+              "w": 80,
+              "h": 8
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0006",
+                "text": "A native v7 semantic preview generated from slots."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Cover preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-agenda",
+      "type": "slide",
+      "template": {
+        "kind": "agenda",
+        "layoutId": "agenda-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0008",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0009",
+                "text": "agenda"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000a",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 14,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000b",
+                "text": "agenda template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-000c",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 30,
+              "w": 84,
+              "h": 60
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-000d",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 32,
+                  "w": 40,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-000e",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-000f",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 42,
+                  "w": 40,
+                  "h": 20
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-000g",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Agenda preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-section",
+      "type": "slide",
+      "template": {
+        "kind": "section",
+        "layoutId": "section-default"
+      },
+      "style": {
+        "ref": "slide.section"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-000i",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 35,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000j",
+                "text": "section"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000k",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 42,
+              "w": 80,
+              "h": 16
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000l",
+                "text": "section template"
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Section Divider preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-executive-summary",
+      "type": "slide",
+      "template": {
+        "kind": "executive-summary",
+        "layoutId": "exec-summary-airy"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-000n",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 7,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000o",
+                "text": "executive summary"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000p",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 13,
+              "w": 84,
+              "h": 16
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000q",
+                "text": "executive summary template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-000r",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 32,
+              "w": 84,
+              "h": 58
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000s",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-000t",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-000u",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Executive Summary preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-content",
+      "type": "slide",
+      "template": {
+        "kind": "content",
+        "layoutId": "content-airy"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-000w",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000x",
+                "text": "content"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000y",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 14,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000z",
+                "text": "content template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-0010",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 32,
+              "w": 84,
+              "h": 58
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0011",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0012",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0013",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Content preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-detail",
+      "type": "slide",
+      "template": {
+        "kind": "detail",
+        "layoutId": "detail-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0015",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0016",
+                "text": "detail"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0017",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0018",
+                "text": "detail template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "body-0019",
+          "role": "body",
+          "slot": "body",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001a",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Detail preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-quote",
+      "type": "slide",
+      "template": {
+        "kind": "quote",
+        "layoutId": "quote-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "quote-001c",
+          "role": "quote",
+          "slot": "quote",
+          "layout": {
+            "frame": {
+              "x": 12,
+              "y": 25,
+              "w": 76,
+              "h": 32
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.quote"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001d",
+                "text": "Design is the contract between structure and attention."
+              }
+            ]
+          }
+        },
+        {
+          "id": "attribution-001e",
+          "role": "attribution",
+          "slot": "attribution",
+          "layout": {
+            "frame": {
+              "x": 12,
+              "y": 60,
+              "w": 76,
+              "h": 8
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001f",
+                "text": "TextIQ prototype"
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Quote preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-big-stat",
+      "type": "slide",
+      "template": {
+        "kind": "big-stat",
+        "layoutId": "big-stat-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-001h",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 12,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001i",
+                "text": "big stat"
+              }
+            ]
+          }
+        },
+        {
+          "id": "metric-001j",
+          "role": "metric",
+          "slot": "stat",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 22,
+              "w": 80,
+              "h": 28
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.metric"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001k",
+                "text": "72%"
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-001l",
+          "role": "label",
+          "slot": "statLabel",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 52,
+              "w": 80,
+              "h": 10
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001m",
+                "text": "Faster review cycles"
+              }
+            ]
+          }
+        },
+        {
+          "id": "caption-001n",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 64,
+              "w": 80,
+              "h": 8
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001o",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Big Stat preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-metric-row",
+      "type": "slide",
+      "template": {
+        "kind": "metric-row",
+        "layoutId": "metric-row-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-001q",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001r",
+                "text": "metric row template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-001s",
+          "role": "card",
+          "slot": "metrics",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 30,
+              "w": 84,
+              "h": 52
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "metricCard",
+          "children": [
+            {
+              "id": "metric-001t",
+              "role": "metric",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 35,
+                  "w": 20,
+                  "h": 20
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.metric"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-001u",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Metric Row preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-insight",
+      "type": "slide",
+      "template": {
+        "kind": "insight",
+        "layoutId": "insight-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-001w",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 10,
+              "w": 80,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001x",
+                "text": "insight"
+              }
+            ]
+          }
+        },
+        {
+          "id": "callout-001y",
+          "role": "callout",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 18,
+              "w": 84,
+              "h": 36
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.callout"
+          },
+          "type": "shape",
+          "content": {
+            "shape": "rect"
+          }
+        },
+        {
+          "id": "title-001z",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 12,
+              "y": 22,
+              "w": 76,
+              "h": 28
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0020",
+                "text": "insight template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "body-0021",
+          "role": "body",
+          "slot": "body",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 58,
+              "w": 80,
+              "h": 30
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0022",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Insight preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-evidence",
+      "type": "slide",
+      "template": {
+        "kind": "evidence",
+        "layoutId": "evidence-text"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0024",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0025",
+                "text": "evidence"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0026",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0027",
+                "text": "evidence template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-0028",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0029",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002a",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002b",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Evidence preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-table",
+      "type": "slide",
+      "template": {
+        "kind": "table",
+        "layoutId": "table-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-002d",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002e",
+                "text": "table template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "table-002f",
+          "role": "table",
+          "slot": "table",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.table"
+          },
+          "type": "table",
+          "content": {
+            "columns": [
+              {
+                "id": "col-0",
+                "label": "Layer"
+              },
+              {
+                "id": "col-1",
+                "label": "Owner"
+              },
+              {
+                "id": "col-2",
+                "label": "Output"
+              }
+            ],
+            "rows": [
+              {
+                "id": "row-0",
+                "cells": [
+                  {
+                    "text": "Template"
+                  },
+                  {
+                    "text": "Registry"
+                  },
+                  {
+                    "text": "SlideNode"
+                  }
+                ]
+              },
+              {
+                "id": "row-1",
+                "cells": [
+                  {
+                    "text": "Theme"
+                  },
+                  {
+                    "text": "Package"
+                  },
+                  {
+                    "text": "Resolved style"
+                  }
+                ]
+              },
+              {
+                "id": "row-2",
+                "cells": [
+                  {
+                    "text": "Preview"
+                  },
+                  {
+                    "text": "Renderer"
+                  },
+                  {
+                    "text": "HTML"
+                  }
+                ]
+              }
+            ],
+            "caption": "Native v7 table slot sample",
+            "header": true
+          }
+        },
+        {
+          "id": "caption-002g",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 86,
+              "w": 84,
+              "h": 6
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002h",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Table preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-comparison",
+      "type": "slide",
+      "template": {
+        "kind": "comparison",
+        "layoutId": "comparison-two-col"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-002j",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002k",
+                "text": "comparison template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-002l",
+          "role": "label",
+          "slot": "leftTitle",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 40,
+              "h": 8
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002m",
+                "text": "Current state"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-002n",
+          "role": "bullet",
+          "slot": "leftBullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 32,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002o",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002p",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002q",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-002r",
+          "role": "label",
+          "slot": "rightTitle",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 22,
+              "w": 40,
+              "h": 8
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002s",
+                "text": "Target state"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-002t",
+          "role": "bullet",
+          "slot": "rightBullets",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 32,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 5
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002u",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002v",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002w",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Comparison preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-matrix",
+      "type": "slide",
+      "template": {
+        "kind": "matrix",
+        "layoutId": "matrix-2x2"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-002y",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002z",
+                "text": "matrix template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-0030",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 20,
+              "w": 84,
+              "h": 72
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-0031",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 24,
+                  "w": 36,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0032",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-0033",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 34,
+                  "w": 36,
+                  "h": 16
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0034",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Matrix preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-framework",
+      "type": "slide",
+      "template": {
+        "kind": "framework",
+        "layoutId": "framework-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0036",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0037",
+                "text": "framework"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0038",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0039",
+                "text": "framework template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-003a",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 58
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-003b",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 30,
+                  "w": 24,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003c",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-003d",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 40,
+                  "w": 24,
+                  "h": 20
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003e",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "caption-003f",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 88,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-003g",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Framework preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-process",
+      "type": "slide",
+      "template": {
+        "kind": "process",
+        "layoutId": "process-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-003i",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-003j",
+                "text": "process template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-003k",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-003l",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 30,
+                  "w": 18,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003m",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-003n",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 40,
+                  "w": 18,
+                  "h": 20
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003o",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Process preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-timeline",
+      "type": "slide",
+      "template": {
+        "kind": "timeline",
+        "layoutId": "timeline-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-003q",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-003r",
+                "text": "timeline template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-003s",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "timeline",
+          "children": [
+            {
+              "id": "label-003t",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 28,
+                  "w": 18,
+                  "h": 6
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.caption"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003u",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "title-003v",
+              "role": "title",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 36,
+                  "w": 18,
+                  "h": 8
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003w",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-003x",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 46,
+                  "w": 18,
+                  "h": 16
+                },
+                "zIndex": 3
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003y",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Timeline preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-roadmap",
+      "type": "slide",
+      "template": {
+        "kind": "roadmap",
+        "layoutId": "roadmap-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0040",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0041",
+                "text": "roadmap"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0042",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0043",
+                "text": "roadmap template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-0044",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-0045",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 30,
+                  "w": 20,
+                  "h": 7
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0046",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-0047",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 39,
+                  "w": 20,
+                  "h": 18
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0048",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Roadmap preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-architecture",
+      "type": "slide",
+      "template": {
+        "kind": "architecture",
+        "layoutId": "architecture-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-004a",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004b",
+                "text": "architecture template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "image-004c",
+          "role": "image",
+          "slot": "imagePrompt",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 20,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "media.hero"
+          },
+          "type": "image",
+          "content": {
+            "assetId": "placeholder",
+            "alt": "Generated placeholder"
+          }
+        },
+        {
+          "id": "caption-004d",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 86,
+              "w": 84,
+              "h": 6
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004e",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Architecture preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-case-study",
+      "type": "slide",
+      "template": {
+        "kind": "case-study",
+        "layoutId": "case-study-split"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-004g",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004h",
+                "text": "case study"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-004i",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004j",
+                "text": "case study template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-004k",
+          "role": "label",
+          "slot": "leftTitle",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 40,
+              "h": 7
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004l",
+                "text": "Current state"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-004m",
+          "role": "bullet",
+          "slot": "leftBullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 35,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004n",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-004o",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-004p",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-004q",
+          "role": "label",
+          "slot": "rightTitle",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 26,
+              "w": 40,
+              "h": 7
+            },
+            "zIndex": 5
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004r",
+                "text": "Target state"
+              }
+            ]
+          }
+        },
+        {
+          "id": "body-004s",
+          "role": "body",
+          "slot": "rightBody",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 35,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 6
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004t",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Case Study preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-risks",
+      "type": "slide",
+      "template": {
+        "kind": "risks",
+        "layoutId": "risks-table"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-004v",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004w",
+                "text": "risks template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "table-004x",
+          "role": "table",
+          "slot": "table",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 84,
+              "h": 70
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.table"
+          },
+          "type": "table",
+          "content": {
+            "columns": [
+              {
+                "id": "col-0",
+                "label": "Layer"
+              },
+              {
+                "id": "col-1",
+                "label": "Owner"
+              },
+              {
+                "id": "col-2",
+                "label": "Output"
+              }
+            ],
+            "rows": [
+              {
+                "id": "row-0",
+                "cells": [
+                  {
+                    "text": "Template"
+                  },
+                  {
+                    "text": "Registry"
+                  },
+                  {
+                    "text": "SlideNode"
+                  }
+                ]
+              },
+              {
+                "id": "row-1",
+                "cells": [
+                  {
+                    "text": "Theme"
+                  },
+                  {
+                    "text": "Package"
+                  },
+                  {
+                    "text": "Resolved style"
+                  }
+                ]
+              },
+              {
+                "id": "row-2",
+                "cells": [
+                  {
+                    "text": "Preview"
+                  },
+                  {
+                    "text": "Renderer"
+                  },
+                  {
+                    "text": "HTML"
+                  }
+                ]
+              }
+            ],
+            "caption": "Native v7 table slot sample",
+            "header": true
+          }
+        }
+      ],
+      "notes": "Risks preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-recommendation",
+      "type": "slide",
+      "template": {
+        "kind": "recommendation",
+        "layoutId": "recommendation-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-004z",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 15,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0050",
+                "text": "recommendation"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0051",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 22,
+              "w": 80,
+              "h": 20
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0052",
+                "text": "recommendation template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-0053",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 46,
+              "w": 80,
+              "h": 44
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0054",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0055",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0056",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Recommendation preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-pricing",
+      "type": "slide",
+      "template": {
+        "kind": "pricing",
+        "layoutId": "pricing-cards"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0058",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0059",
+                "text": "pricing"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-005a",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005b",
+                "text": "pricing template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-005c",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-005d",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 32,
+                  "w": 20,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005e",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "metric-005f",
+              "role": "metric",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 42,
+                  "w": 20,
+                  "h": 12
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.metric"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005g",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-005h",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 56,
+                  "w": 20,
+                  "h": 20
+                },
+                "zIndex": 3
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005i",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Pricing preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-team",
+      "type": "slide",
+      "template": {
+        "kind": "team",
+        "layoutId": "team-cards"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-005k",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005l",
+                "text": "team"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-005m",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005n",
+                "text": "team template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-005o",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-005p",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 50,
+                  "w": 22,
+                  "h": 7
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005q",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "caption-005r",
+              "role": "caption",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 58,
+                  "w": 22,
+                  "h": 6
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.caption"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005s",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Team preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-visual-focus",
+      "type": "slide",
+      "template": {
+        "kind": "visual-focus",
+        "layoutId": "visual-focus-hero"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "image-005u",
+          "role": "image",
+          "slot": "imagePrompt",
+          "layout": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 100,
+              "h": 82
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "media.hero"
+          },
+          "type": "image",
+          "content": {
+            "assetId": "placeholder",
+            "alt": "Generated placeholder"
+          }
+        },
+        {
+          "id": "title-005v",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 74,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005w",
+                "text": "visual focus template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "caption-005x",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 88,
+              "w": 84,
+              "h": 6
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005y",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Visual Focus preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-closing",
+      "type": "slide",
+      "template": {
+        "kind": "closing",
+        "layoutId": "closing-default"
+      },
+      "style": {
+        "ref": "slide.cover"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0060",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 28,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0061",
+                "text": "closing"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0062",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 35,
+              "w": 80,
+              "h": 18
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0063",
+                "text": "closing template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "subtitle-0064",
+          "role": "subtitle",
+          "slot": "subtitle",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 56,
+              "w": 80,
+              "h": 10
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0065",
+                "text": "A native v7 semantic preview generated from slots."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Closing preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "clarity-appendix",
+      "type": "slide",
+      "template": {
+        "kind": "appendix",
+        "layoutId": "appendix-text"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-0067",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0068",
+                "text": "appendix template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "body-0069",
+          "role": "body",
+          "slot": "body",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 84,
+              "h": 70
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-006a",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Appendix preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    }
+  ],
+  "metadata": {
+    "extra": {
+      "source": "prototypes/slide-themes/theme-packages-v7.ts"
+    }
+  }
+}

@@ -4,10 +4,16 @@ import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { LexicalCollaboration } from "@lexical/react/LexicalCollaborationContext";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import type { EditorThemeClasses, Klass, LexicalNode } from "lexical";
+import type {
+  EditorState,
+  EditorThemeClasses,
+  Klass,
+  LexicalNode,
+} from "lexical";
 import { SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +42,6 @@ import {
   saveDocumentLexical,
 } from "./actions";
 import { uploadSlideAsset } from "./slide-asset-actions";
-import { listBrands } from "../../brands/actions";
 import { BlockSparkPlugin } from "./block-spark";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
@@ -160,21 +165,32 @@ function RoutedSlideEditorButton({
   initialDeckJson: unknown;
   initialContentJson?: string | null;
 }) {
+  const [editor] = useLexicalComposerContext();
+  const [liveContentJson, setLiveContentJson] = useState<string | null>(
+    initialContentJson ?? null,
+  );
   const { openSlideEditor, closeSlideEditor } = useRightSurface();
   const deckPort = useMemo(
     () => ({ fetchDeckJson, saveDeckJson, saveDeckPatch }),
     [],
   );
-  const brandPort = useMemo(() => ({ listBrands }), []);
   const slideAssetPort = useMemo(() => ({ uploadSlideAsset }), []);
+
+  useEffect(() => {
+    const serialize = (state: EditorState) => {
+      setLiveContentJson(JSON.stringify(state.toJSON()));
+    };
+    return editor.registerUpdateListener(({ editorState }) => {
+      serialize(editorState);
+    });
+  }, [editor]);
 
   return (
     <SlideEditorButton
       documentId={documentId}
       initialDeckJson={initialDeckJson}
-      initialContentJson={initialContentJson}
+      initialContentJson={liveContentJson}
       deckPort={deckPort}
-      brandPort={brandPort}
       slideAssetPort={slideAssetPort}
       onOpenRightSurface={openSlideEditor}
       onCloseRightSurface={closeSlideEditor}

@@ -9,12 +9,16 @@
  * `@/lib/ai/use-deck-generation`.
  */
 
-import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
+import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import type { Deck } from "@/lib/presentation/deck";
+import {
+  isThemePackageId,
+  type ThemePackageId,
+} from "@/lib/presentation/theme-packages";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
-export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
+export type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 
 /**
  * Classifies a failed deck-generation request:
@@ -43,8 +47,23 @@ export interface DeckGenerateError {
 }
 
 /** Result of a deck-generation request: a usable deck or a classified error. */
+export interface DeckGenerationResponseMetadata {
+  requestedGenerationMode?: "package-template" | "vnext";
+  generationMode?: "package-template" | "vnext";
+  fallback?: boolean;
+  tableSlideCount?: number;
+  schemaValid?: boolean;
+  themePackageId?: ThemePackageId;
+  selectedKindCounts?: Record<string, number>;
+}
+
 export type DeckGenerateResult =
-  | { ok: true; deck: Deck; truncated: boolean }
+  | {
+      ok: true;
+      deckV7: DeckV7;
+      truncated: boolean;
+      metadata?: DeckGenerationResponseMetadata;
+    }
   | { ok: false; error: string; errorKind: DeckGenerateErrorKind };
 
 const FALLBACK_REQUEST_ERROR =
@@ -85,6 +104,9 @@ function isEmptyOutline400(payload: unknown): boolean {
 export function buildDeckGenerationBody(
   contentJson: unknown,
   options: DeckGenerationOptions = {},
+  request?: {
+    themePackageId?: ThemePackageId;
+  },
 ): Record<string, unknown> {
   const opts: Record<string, unknown> = {};
   if (options.length) opts.length = options.length;
@@ -101,32 +123,102 @@ export function buildDeckGenerationBody(
   if (Object.keys(opts).length > 0) {
     body.options = opts;
   }
+  if (request?.themePackageId !== undefined) {
+    body.themePackageId = request.themePackageId;
+  }
   return body;
 }
 
 /* node:coverage ignore start */
 /* Coverage rationale: response parser JSDoc is documentation-only; parser branches are asserted. */
 /**
- * Validate a `{ deck, truncated }` response payload. Returns the parsed deck and
- * the `truncated` flag, or `null` when the payload is missing/invalid. The deck
- * is validated through {@link safeParseDeck} so only a schema-valid deck (the
- * same contract the open path expects) is ever surfaced.
+ * Validate a `{ deck, truncated }` response payload. Returns the parsed DeckV7
+ * and the `truncated` flag, or `null` when the payload is missing/invalid.
  */
 /* node:coverage ignore stop */
-export function parseDeckResponse(
-  payload: unknown,
-): { deck: Deck; truncated: boolean } | null {
+function parseGenerationMode(
+  value: unknown,
+): "package-template" | "vnext" | undefined {
+  return value === "package-template" || value === "vnext" ? value : undefined;
+}
+
+function parseKindCounts(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const counts: Record<string, number> = {};
+  for (const [key, count] of Object.entries(value)) {
+    if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
+      counts[key] = count;
+    }
+  }
+  return Object.keys(counts).length > 0 ? counts : undefined;
+}
+
+function parseDeckResponseMetadata(
+  value: unknown,
+): DeckGenerationResponseMetadata | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const raw = value as Record<string, unknown>;
+  const metadata: DeckGenerationResponseMetadata = {};
+  const requestedGenerationMode = parseGenerationMode(
+    raw.requestedGenerationMode,
+  );
+  if (requestedGenerationMode) {
+    metadata.requestedGenerationMode = requestedGenerationMode;
+  }
+  const generationMode = parseGenerationMode(raw.generationMode);
+  if (generationMode) {
+    metadata.generationMode = generationMode;
+  }
+  if (typeof raw.fallback === "boolean") {
+    metadata.fallback = raw.fallback;
+  }
+  if (typeof raw.tableSlideCount === "number" && raw.tableSlideCount >= 0) {
+    metadata.tableSlideCount = raw.tableSlideCount;
+  }
+  if (typeof raw.schemaValid === "boolean") {
+    metadata.schemaValid = raw.schemaValid;
+  }
+  if (isThemePackageId(raw.themePackageId)) {
+    metadata.themePackageId = raw.themePackageId;
+  }
+  const selectedKindCounts = parseKindCounts(raw.selectedKindCounts);
+  if (selectedKindCounts) {
+    metadata.selectedKindCounts = selectedKindCounts;
+  }
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+export function parseDeckResponse(payload: unknown): {
+  deckV7: DeckV7;
+  truncated: boolean;
+  metadata?: DeckGenerationResponseMetadata;
+} | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
-  const result = safeParseDeck((payload as { deck?: unknown }).deck);
-  if (!result.success) {
-    return null;
+  const rawDeck = (payload as { deck?: unknown }).deck;
+  const truncated = (payload as { truncated?: unknown }).truncated === true;
+  const metadata = parseDeckResponseMetadata(
+    (payload as { metadata?: unknown }).metadata,
+  );
+  const metaField = metadata ? { metadata } : {};
+
+  if (
+    rawDeck !== null &&
+    typeof rawDeck === "object" &&
+    !Array.isArray(rawDeck) &&
+    (rawDeck as Record<string, unknown>).schemaVersion === 7
+  ) {
+    const v7Result = safeParseDeckV7(rawDeck);
+    if (!v7Result.success) return null;
+    return { deckV7: v7Result.data, truncated, ...metaField };
   }
-  return {
-    deck: result.data,
-    truncated: (payload as { truncated?: unknown }).truncated === true,
-  };
+
+  return null;
 }
 
 /** True when a thrown fetch error is an abort (client cancel or timeout). */
@@ -148,13 +240,18 @@ export async function requestDeckGeneration(
   options: DeckGenerationOptions = {},
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
+  request?: {
+    themePackageId?: ThemePackageId;
+  },
 ): Promise<DeckGenerateResult> {
   let response: Response;
   try {
     response = await fetchImpl("/api/generate-deck", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildDeckGenerationBody(contentJson, options)),
+      body: JSON.stringify(
+        buildDeckGenerationBody(contentJson, options, request),
+      ),
       signal,
     });
   } catch (error) {
@@ -206,5 +303,10 @@ export async function requestDeckGeneration(
   if (!parsed) {
     return { ok: false, error: BAD_PAYLOAD_ERROR, errorKind: "other" };
   }
-  return { ok: true, deck: parsed.deck, truncated: parsed.truncated };
+  return {
+    ok: true,
+    deckV7: parsed.deckV7,
+    truncated: parsed.truncated,
+    ...(parsed.metadata ? { metadata: parsed.metadata } : {}),
+  };
 }

@@ -44,7 +44,8 @@ The current deck version is exported from
   `sourceSectionId`.
 - `BaseElement.layoutSlot`, `PlaceholderElement`, `BulletsElement`, and
   flat kind payload fields are no longer supported in persisted decks.
-- `SourceRef.blockKind` is required and must be either `"text"` or `"visual"`.
+- `SourceRef.blockKind` is required and must be `"text"`, `"visual"`, or
+  `"table"`.
 - Serialized deck JSON strings are persisted-schema drift, not supported
   persisted input.
 
@@ -54,17 +55,17 @@ schema v6.
 
 ## v6 Vocabulary
 
-| Term                 | Current meaning                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                   |
-| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                      |
-| `SlideMaster`        | Deck-owned global shared chrome: background treatment and locked background/foreground master elements.            |
-| `SlideTemplate`      | Creation or explicit-reapply blueprint. Templates materialize elements and are not normal render dependencies.     |
-| `Slide`              | Authored page instance with metadata, optional template provenance, optional slide design overrides, and elements. |
-| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.           |
-| `MasterElement`      | Locked shared chrome element from a master, identified by `masterChromeKind` and rendered by its layer band.       |
-| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.            |
-| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                         |
+| Term                 | Current meaning                                                                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Deck.canvas`        | Deck-wide slide format and page geometry source.                                                                                                       |
+| `PresentationDesign` | The selected presentation theme plus optional deck-level theme overrides under `Deck.design`.                                                          |
+| `SlideMaster`        | Deck-owned global shared chrome: background treatment and locked background/foreground master elements.                                                |
+| `SlideTemplate`      | Creation or explicit-reapply blueprint for system, theme, and custom templates. Templates materialize elements and are not normal render dependencies. |
+| `Slide`              | Authored page instance with metadata, optional template provenance, optional slide design overrides, and elements.                                     |
+| `SlideElement`       | Authoritative authored content element with geometry, role, content, source, and local design overrides.                                               |
+| `MasterElement`      | Locked shared chrome element from a master, identified by `masterChromeKind` and rendered by its layer band.                                           |
+| `designOverrides`    | Persisted partial design override at slide or element level; absent keys inherit from the higher layer.                                                |
+| `Resolved*Design`    | Runtime-only concrete design metadata produced by render/export resolvers.                                                                             |
 
 The current schema uses presentation-native vocabulary. Superseded names such
 as top-level `themeId`, `customTokenSet`, `slideFormat`, `layouts`, slide
@@ -94,10 +95,42 @@ type PresentationDesign = {
 ```
 
 `canvas` owns geometry. `design` owns global visual language. `masters` own live
-shared chrome. `customTemplates` stores deck-local template blueprints,
-including installed theme package templates (`theme:*:*`) and user-created
-custom templates (`custom-*`). Older generic built-in templates live in code.
-`slides[]` owns authored page content.
+shared chrome. `customTemplates` stores deck-local `SlideTemplate` blueprints,
+including installed theme package templates (`source: "theme"`) and user-created
+custom templates (`source: "custom"`). Older generic built-in templates live in
+code as `source: "system"`. `slides[]` owns authored page content.
+
+`SlideTemplate` is the common template model across system, theme-package, and
+custom sources:
+
+```ts
+type SlideTemplate = {
+  id: string;
+  name: string;
+  category: "title" | "section" | "content" | "media" | "comparison" | "blank";
+  source?: "system" | "theme" | "custom";
+  semanticKind?: string;
+  layoutFamily?: string;
+  styleMode?: "fixed" | "theme-aware";
+  accepts?: string[];
+  capacity?: object;
+  bindings?: Array<{
+    slot: string;
+    target: string;
+    elementRole?: string;
+    elementIndex?: number;
+  }>;
+  defaultMasterId?: string;
+  slideDesignDefaults?: SlideDesignOverrides;
+  elements: SlideTemplateElement[];
+};
+```
+
+`source` is the template origin. `semanticKind` labels the presentation intent
+(`detail`, `comparison`, `timeline`, etc.) when known. `layoutFamily`,
+`accepts`, `capacity`, and `bindings` describe the template's fillable content
+contract. `styleMode` says whether a template is fixed (`custom` and legacy
+system templates by default) or theme-aware (`theme` package templates).
 
 ## Slide Content Model
 
@@ -123,6 +156,44 @@ Each element has stable identity, geometry, z-order, optional presentation
 paragraphs omit `listType`; bulleted and numbered paragraphs set `listType` and
 optional `indent`. `content.text` is the compact text string, and `content.runs`
 / paragraph `runs` carry inline rich text.
+
+`ShapeElement` uses `kind: "shape"` and `content.shape` of `"rect"`,
+`"ellipse"`, `"line"`, `"triangle"`, `"diamond"`, `"circle"`, or
+`"square"`. Shape fills are normally color refs
+(`{ token }` or `{ value }`), but `designOverrides.fill` may also carry a
+two-stop radial fill:
+
+```ts
+type RadialGradientFill = {
+  type: "radialGradient";
+  inner: ColorRef;
+  outer: ColorRef;
+  cx?: number;
+  cy?: number;
+  r?: number;
+};
+```
+
+`cx`, `cy`, and `r` are percentages in the 0-100 range. Shape effects are
+currently limited to glass presets on non-line shapes:
+
+```ts
+type ElementEffect = {
+  kind: "glass";
+  intensity: "light" | "medium" | "strong";
+};
+```
+
+Glass is a clipped material effect: rectangles use the element radius, ellipses
+use an ellipse clip, and triangles use a triangle clip. Text does not carry a
+glass or blur effect directly; templates should layer editable text above a
+glass shape. SVG/PNG export preserves radial/glass styling, while PPTX export
+rasterizes radial/glass shapes when browser rasterization APIs are available.
+
+`ImageElement.designOverrides.maskShape` accepts `"none"`, `"rect"`,
+`"circle"`, `"ellipse"`, `"rounded"`, `"diamond"`, and `"triangle"`. Image
+masking remains an image style only; image elements do not carry glass/blur
+effects.
 
 `TableElement` is a first-class v6 element. It uses `kind: "table"` and optional
 `role: "table"`. The persisted content shape is:
@@ -228,6 +299,23 @@ Deck.design theme/themeOverrides
 reapplied. Normal render/export does not look up `Slide.templateId` to derive
 content.
 
+Slide and master backgrounds support these current background treatments:
+
+```ts
+type BackgroundTreatment =
+  | { type: "solid"; color: ColorRef }
+  | { type: "gradient"; from: ColorRef; to: ColorRef; angle?: number }
+  | {
+      type: "radialGradient";
+      inner: ColorRef;
+      outer: ColorRef;
+      cx?: number;
+      cy?: number;
+      r?: number;
+    }
+  | { type: "image"; url: string; assetId?: string };
+```
+
 ## Source References
 
 Slide elements may carry `source` when they are linked to document text or a
@@ -240,7 +328,7 @@ type SourceRef = {
   contentHash?: string;
   linkedAt: string;
   unlinked?: boolean;
-  blockKind: "text" | "visual";
+  blockKind: "text" | "visual" | "table";
 };
 ```
 
@@ -355,7 +443,7 @@ They do not synthesize elements from flat slide fields at render time.
 
 - `src/lib/presentation/deck-schema.test.ts`
 - `src/lib/presentation/deck.test.ts`
-- `src/lib/presentation/deck-layout-assign.test.ts`
+- `src/lib/presentation/package-template-materializer.test.ts`
 - `src/lib/presentation/deck-merge.test.ts`
 - `src/lib/presentation/source-link-staleness.test.ts`
 - `src/lib/presentation/save-conflict.test.ts`

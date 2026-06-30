@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>03 · Swiss Minimal Grid</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #ededea;
+        --ink: #0a0a0a;
+        --accent: #0042ff;
+        --surf: #fff;
+        --muted: #9a9a96;
+        --line: #cfcfca;
+        --sg: "Space Grotesk", sans-serif;
+        --mo: "IBM Plex Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #23231f;
+        font-family: var(--sg);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+      }
+      .slide {
+        width: 1280px;
+        height: 720px;
+        background: var(--bg);
+        color: var(--ink);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      }
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px);
+        background-size: 64px 64px;
+        opacity: 0.4;
+      }
+      .pad {
+        position: absolute;
+        inset: 0;
+        padding: 56px 72px;
+        display: flex;
+        flex-direction: column;
+      }
+      .z {
+        position: relative;
+        z-index: 2;
+      }
+      .kind {
+        position: absolute;
+        top: 24px;
+        left: 48px;
+        font: 500 10px var(--mo);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .num {
+        position: absolute;
+        bottom: 24px;
+        right: 48px;
+        font: 500 12px var(--mo);
+        color: var(--muted);
+      }
+      .foot {
+        position: absolute;
+        bottom: 24px;
+        left: 48px;
+        font: 500 10px var(--mo);
+        letter-spacing: 0.18em;
+        color: var(--muted);
+      }
+      h1 {
+        font: 700 100px/0.92 var(--sg);
+        letter-spacing: -0.04em;
+      }
+      h2 {
+        font: 600 50px/1 var(--sg);
+        letter-spacing: -0.02em;
+      }
+      h3 {
+        font: 600 22px var(--sg);
+      }
+      .tag {
+        font: 500 11px var(--mo);
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      p {
+        font: 400 16px/1.6 var(--sg);
+        color: #555;
+        max-width: 58ch;
+      }
+      .sm {
+        font-size: 13px;
+        color: #777;
+      }
+      .row {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .bt {
+        justify-content: space-between;
+      }
+      .cn {
+        justify-content: center;
+      }
+      .ac {
+        align-items: center;
+      }
+      .g {
+        gap: 24px;
+      }
+      .fill {
+        flex: 1;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--line);
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+      }
+      .g4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: var(--line);
+      }
+      .cell {
+        background: var(--surf);
+        padding: 26px;
+      }
+      .acc {
+        background: var(--accent);
+        color: #fff;
+      }
+      .stat {
+        font: 600 70px/1 var(--sg);
+        letter-spacing: -0.03em;
+      }
+      .bl {
+        color: var(--accent);
+      }
+      .rule {
+        height: 2px;
+        background: var(--ink);
+      }
+      .thin {
+        height: 1px;
+        background: var(--line);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 400 15px var(--mo);
+      }
+      th {
+        text-align: left;
+        padding: 13px;
+        border-bottom: 2px solid var(--ink);
+        font: 500 10px var(--mo);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      td {
+        padding: 13px;
+        border-bottom: 1px solid var(--line);
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 8px 0 8px 28px;
+        position: relative;
+        font: 400 16px var(--sg);
+        color: #444;
+      }
+      li:before {
+        content: "/";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font: 500 16px var(--mo);
+      }
+      .ph {
+        background: #c4c4be;
+        position: relative;
+        overflow: hidden;
+      }
+      .ph:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          transparent,
+          rgba(0, 66, 255, 0.15)
+        );
+      }
+      .sq {
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+      }
+      .arr {
+        color: var(--accent);
+        font: 500 22px var(--mo);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Cover</div>
+      <div class="pad z">
+        <div class="row bt ac">
+          <span class="tag">Warner & Spencer</span
+          ><span class="tag">2026 / 01</span>
+        </div>
+        <div class="fill col" style="justify-content: center">
+          <div class="row ac g">
+            <span class="sq"></span><span class="tag">Brand</span>
+          </div>
+          <h1>Brand<br />Guidelines</h1>
+        </div>
+        <div class="rule"></div>
+        <div class="row bt ac" style="margin-top: 20px">
+          <p class="sm">A precise visual system for a measured brand.</p>
+          <span class="sm">September 2026</span>
+        </div>
+      </div>
+      <div class="num">01</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Agenda</div>
+      <div class="pad z g">
+        <h2>Agenda</h2>
+        <div class="rule"></div>
+        <div class="g2 fill">
+          <div class="cell row g ac">
+            <span class="stat bl">01</span>
+            <h3>Foundations</h3>
+          </div>
+          <div class="cell row g ac">
+            <span class="stat bl">02</span>
+            <h3>Application</h3>
+          </div>
+          <div class="cell row g ac">
+            <span class="stat bl">03</span>
+            <h3>Voice</h3>
+          </div>
+          <div class="cell row g ac">
+            <span class="stat bl">04</span>
+            <h3>Rollout</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">02</div>
+    </section>
+
+    <section class="slide acc">
+      <div class="kind" style="color: #cdd9ff">Section</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="tag" style="color: #cdd9ff">Section 01</span>
+        <h1 style="color: #fff">Foundations</h1>
+        <p style="color: #cdd9ff">
+          Grid, type, and color — the structural baseline.
+        </p>
+      </div>
+      <div class="num" style="color: #cdd9ff">03</div>
+    </section>
+
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Executive Summary</div>
+      <div class="pad z g">
+        <h2>Summary</h2>
+        <div class="rule"></div>
+        <div class="g3 fill">
+          <div class="cell col">
+            <span class="sq"></span>
+            <h3 style="margin: 10px 0">Clarity</h3>
+            <p class="sm">One grid, one type, one voice.</p>
+          </div>
+          <div class="cell col">
+            <span class="sq"></span>
+            <h3 style="margin: 10px 0">Scale</h3>
+            <p class="sm">12 markets, single system.</p>
+          </div>
+          <div class="cell col">
+            <span class="sq"></span>
+            <h3 style="margin: 10px 0">Speed</h3>
+            <p class="sm">Templates ship in days.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">04</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Content</div>
+      <div class="pad z g2 fill">
+        <div class="cell col cn">
+          <span class="tag">Overview</span>
+          <h2 style="margin: 14px 0">The system</h2>
+          <ul>
+            <li>8-column grid</li>
+            <li>Modular scale</li>
+            <li>Single accent</li>
+            <li>Mono captions</li>
+          </ul>
+        </div>
+        <div class="ph"></div>
+      </div>
+      <div class="num">05</div>
+    </section>
+
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Detail</div>
+      <div class="pad z g">
+        <span class="tag">Detail</span>
+        <h2>Type scale</h2>
+        <div class="rule"></div>
+        <div class="row bt ac fill">
+          <h1 style="font-size: 140px">Aa</h1>
+          <div class="col" style="gap: 8px">
+            <h2>Display 100</h2>
+            <h3>Heading 22</h3>
+            <p>Body 16 — Space Grotesk</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">06</div>
+    </section>
+
+    <section class="slide acc">
+      <div class="kind" style="color: #cdd9ff">Quote</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <h2 style="color: #fff; max-width: 20ch">
+          "The grid is freedom, not constraint."
+        </h2>
+        <span class="tag" style="color: #cdd9ff; margin-top: 20px"
+          >— Studio principle</span
+        >
+      </div>
+      <div class="num" style="color: #cdd9ff">07</div>
+    </section>
+
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Big Stat</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <div class="stat bl" style="font-size: 240px">98</div>
+        <p>brand consistency score</p>
+      </div>
+      <div class="num">08</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Metric Row</div>
+      <div class="pad z g">
+        <h2>Metrics</h2>
+        <div class="rule"></div>
+        <div class="g4 fill">
+          <div class="cell">
+            <div class="stat">8</div>
+            <p class="sm">columns</p>
+          </div>
+          <div class="cell">
+            <div class="stat">12</div>
+            <p class="sm">markets</p>
+          </div>
+          <div class="cell">
+            <div class="stat">1</div>
+            <p class="sm">accent</p>
+          </div>
+          <div class="cell">
+            <div class="stat">98%</div>
+            <p class="sm">adoption</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">09</div>
+    </section>
+
+    <section class="slide acc">
+      <div class="kind" style="color: #cdd9ff">Insight</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="tag" style="color: #cdd9ff">Insight</span>
+        <h2 style="color: #fff; max-width: 18ch; margin-top: 12px">
+          Constraints make brands recognisable.
+        </h2>
+      </div>
+      <div class="num" style="color: #cdd9ff">10</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Evidence</div>
+      <div class="pad z g2 fill">
+        <div class="cell col cn">
+          <span class="tag">Evidence</span>
+          <h2 style="margin: 12px 0">A/B test</h2>
+          <p class="sm">
+            Grid-aligned layouts read 24% faster in eye-tracking.
+          </p>
+        </div>
+        <div class="cell cn ac">
+          <div class="stat bl" style="font-size: 120px">24%</div>
+        </div>
+      </div>
+      <div class="num">11</div>
+    </section>
+
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Table</div>
+      <div class="pad z g">
+        <h2>Spec sheet</h2>
+        <table>
+          <tr>
+            <th>Token</th>
+            <th>Value</th>
+            <th>Use</th>
+          </tr>
+          <tr>
+            <td>grid</td>
+            <td>8 col</td>
+            <td>layout</td>
+          </tr>
+          <tr>
+            <td>accent</td>
+            <td>#0042ff</td>
+            <td>emphasis</td>
+          </tr>
+          <tr>
+            <td>body</td>
+            <td>16/26</td>
+            <td>text</td>
+          </tr>
+        </table>
+      </div>
+      <div class="num">12</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Comparison</div>
+      <div class="pad z g">
+        <h2>Old / new</h2>
+        <div class="rule"></div>
+        <div class="g2 fill">
+          <div class="cell">
+            <span class="tag" style="color: #999">Old</span>
+            <h3 style="margin-top: 12px">5 fonts, 3 grids</h3>
+          </div>
+          <div class="cell acc">
+            <span class="tag" style="color: #cdd9ff">New</span>
+            <h3 style="margin-top: 12px; color: #fff">1 font, 1 grid</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">13</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Matrix</div>
+      <div class="pad z g">
+        <h2>Brand matrix</h2>
+        <div class="g2 fill" style="grid-template-rows: 1fr 1fr">
+          <div class="cell acc cn ac"><h3 style="color: #fff">Core</h3></div>
+          <div class="cell cn ac"><h3>Sub</h3></div>
+          <div class="cell cn ac"><h3>Co-brand</h3></div>
+          <div class="cell cn ac"><h3 style="color: #999">Legacy</h3></div>
+        </div>
+      </div>
+      <div class="num">14</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Framework</div>
+      <div class="pad z g">
+        <h2>Pillars</h2>
+        <div class="g3 fill">
+          <div class="cell col">
+            <span class="sq"></span>
+            <h3 style="margin-top: 10px">Order</h3>
+          </div>
+          <div class="cell col">
+            <span class="sq"></span>
+            <h3 style="margin-top: 10px">Contrast</h3>
+          </div>
+          <div class="cell col">
+            <span class="sq"></span>
+            <h3 style="margin-top: 10px">Space</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">15</div>
+    </section>
+
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Process</div>
+      <div class="pad z g">
+        <h2>Process</h2>
+        <div class="rule"></div>
+        <div class="row ac fill cn g">
+          <h3>Audit</h3>
+          <span class="arr">→</span>
+          <h3>Define</h3>
+          <span class="arr">→</span>
+          <h3>Build</h3>
+          <span class="arr">→</span>
+          <h3>Ship</h3>
+        </div>
+      </div>
+      <div class="num">16</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Timeline</div>
+      <div class="pad z g">
+        <h2>Timeline</h2>
+        <div class="thin"></div>
+        <div class="g4 fill">
+          <div class="cell">
+            <span class="sq"></span>
+            <h3 class="bl" style="margin-top: 8px">Q1</h3>
+          </div>
+          <div class="cell">
+            <span class="sq"></span>
+            <h3 class="bl" style="margin-top: 8px">Q2</h3>
+          </div>
+          <div class="cell">
+            <span class="sq"></span>
+            <h3 class="bl" style="margin-top: 8px">Q3</h3>
+          </div>
+          <div class="cell">
+            <span class="sq"></span>
+            <h3 class="bl" style="margin-top: 8px">Q4</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">17</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Roadmap</div>
+      <div class="pad z g">
+        <h2>Roadmap</h2>
+        <div class="g3 fill">
+          <div class="cell">
+            <span class="tag">Now</span>
+            <ul>
+              <li>Tokens</li>
+            </ul>
+          </div>
+          <div class="cell acc">
+            <span class="tag" style="color: #cdd9ff">Next</span>
+            <ul>
+              <li>Web</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <span class="tag">Later</span>
+            <ul>
+              <li>Global</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">18</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Architecture</div>
+      <div class="pad z g">
+        <h2>Architecture</h2>
+        <div class="g3 fill ac">
+          <div class="cell cn ac"><h3>Tokens</h3></div>
+          <div class="cell acc cn ac"><h3 style="color: #fff">System</h3></div>
+          <div class="cell cn ac"><h3>Output</h3></div>
+        </div>
+      </div>
+      <div class="num">19</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Case Study</div>
+      <div class="pad z g2 fill">
+        <div class="ph"></div>
+        <div class="cell col cn">
+          <span class="tag">Case</span>
+          <h2 style="margin: 12px 0">Spencer</h2>
+          <p class="sm">Unified 12 markets on one grid.</p>
+          <div class="stat bl" style="margin-top: 14px">12×</div>
+        </div>
+      </div>
+      <div class="num">20</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Risks</div>
+      <div class="pad z g">
+        <h2>Risks</h2>
+        <div class="g2 fill">
+          <div class="cell">
+            <h3>Rigidity</h3>
+            <p class="sm">Allow breakouts.</p>
+          </div>
+          <div class="cell">
+            <h3>Adoption</h3>
+            <p class="sm">Ship templates.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">21</div>
+    </section>
+
+    <section class="slide acc">
+      <div class="kind" style="color: #cdd9ff">Recommendation</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="tag" style="color: #cdd9ff">Recommend</span>
+        <h2 style="color: #fff; max-width: 20ch">
+          Adopt the 8-column system company-wide.
+        </h2>
+      </div>
+      <div class="num" style="color: #cdd9ff">22</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Pricing</div>
+      <div class="pad z g">
+        <h2>Tiers</h2>
+        <div class="g3 fill">
+          <div class="cell col">
+            <h3>Starter</h3>
+            <div class="stat" style="font-size: 50px">$5k</div>
+          </div>
+          <div class="cell acc col">
+            <h3 style="color: #fff">Team</h3>
+            <div class="stat" style="font-size: 50px; color: #fff">$20k</div>
+          </div>
+          <div class="cell col">
+            <h3>Scale</h3>
+            <div class="stat" style="font-size: 50px">$60k</div>
+          </div>
+        </div>
+      </div>
+      <div class="num">23</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Team</div>
+      <div class="pad z g">
+        <h2>Team</h2>
+        <div class="g4 fill">
+          <div class="cell col ac g">
+            <div class="ph" style="width: 80px; height: 80px"></div>
+            <h3>Warner</h3>
+          </div>
+          <div class="cell col ac g">
+            <div class="ph" style="width: 80px; height: 80px"></div>
+            <h3>Spencer</h3>
+          </div>
+          <div class="cell col ac g">
+            <div class="ph" style="width: 80px; height: 80px"></div>
+            <h3>Reed</h3>
+          </div>
+          <div class="cell col ac g">
+            <div class="ph" style="width: 80px; height: 80px"></div>
+            <h3>Vale</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">24</div>
+    </section>
+
+    <section class="slide ph">
+      <div class="kind" style="color: #fff">Visual Focus</div>
+      <div class="pad z col" style="justify-content: flex-end">
+        <h1 style="color: #fff">Order.</h1>
+      </div>
+      <div class="num" style="color: #fff">25</div>
+    </section>
+
+    <section class="slide acc">
+      <div class="kind" style="color: #cdd9ff">Closing</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h1 style="color: #fff">Thank you</h1>
+        <p style="color: #cdd9ff; margin-top: 12px">hello@warnerspencer.com</p>
+      </div>
+      <div class="num" style="color: #cdd9ff">26</div>
+    </section>
+
+    <section class="slide">
+      <div class="grid"></div>
+      <div class="kind">Appendix</div>
+      <div class="pad z g">
+        <h2>Appendix</h2>
+        <div class="thin"></div>
+        <ul>
+          <li>Grid spec sheet</li>
+          <li>Color tokens</li>
+          <li>Eye-tracking data</li>
+        </ul>
+      </div>
+      <div class="num">27</div>
+    </section>
+  </body>
+</html>

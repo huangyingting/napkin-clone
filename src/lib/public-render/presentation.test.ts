@@ -2,93 +2,118 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
-  type Deck,
-  type Slide,
-  type SlideElement,
-} from "@/lib/presentation/deck";
+  buildDeckV7,
+  buildCoverSlide,
+  buildImageAsset,
+  buildImageNode,
+  buildSlideV7,
+  resetBuilderCounter,
+} from "@/test/builders/deck-v7";
 
-import { buildPublicPresentationModel } from "./presentation";
+import {
+  buildPublicPresentationModel,
+  buildPublicPresentationModelAny,
+} from "./presentation";
 
-function visualElement(id: string, visualId: string): SlideElement {
-  return {
-    id,
-    kind: "visual",
-    role: "visual",
-    content: { kind: "visual", visualId },
-    zIndex: 0,
-    box: { x: 0, y: 0, w: 50, h: 50 },
-  } as unknown as SlideElement;
-}
-
-function slide(partial: Partial<Slide>): Slide {
-  return {
-    id: "slide-1",
-    index: 0,
-    title: "Slide",
-    notes: "",
-    ...partial,
-  } as unknown as Slide;
-}
-
-function deck(slides: Slide[]): Deck {
-  return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    canvas: { format: "16:9" },
-    design: { themeId: "default" },
-    masters: [{ id: "master-default", name: "Default", elements: [] }],
-    defaultMasterId: "master-default",
-    slides,
-  } as unknown as Deck;
-}
-
-function contentWithVisual(visualId: string): unknown {
-  return {
-    root: {
-      children: [{ type: "visual", visualId, visual: { type: "flowchart" } }],
-      direction: "ltr",
-      format: "",
-      indent: 0,
-      type: "root",
-      version: 1,
-    },
-  };
-}
-
-test("buildPublicPresentationModel strips orphan visual references from persisted decks", () => {
+test("buildPublicPresentationModel carries valid v7 deckJson", () => {
+  resetBuilderCounter();
+  const v7Deck = buildDeckV7([buildCoverSlide()], {
+    theme: { packageId: "ocean" },
+  });
   const model = buildPublicPresentationModel({
     title: "Public deck",
-    contentJson: contentWithVisual("keep"),
-    deckJson: deck([
-      slide({
-        elements: [
-          visualElement("el-keep", "keep"),
-          visualElement("el-gone", "gone"),
-        ],
-      }),
-    ]),
-    owner: { name: null, plan: "free" },
-  });
-
-  assert.equal(model.title, "Public deck");
-  assert.deepEqual(Object.keys(model.visuals), ["keep"]);
-  assert.deepEqual(
-    model.deck.slides[0].elements?.map((element) => element.id),
-    ["el-keep"],
-  );
-  assert.equal(model.attribution.ownerName, "Document owner");
-});
-
-test("buildPublicPresentationModel falls back to a block-derived deck when persisted deck is invalid", () => {
-  const model = buildPublicPresentationModel({
-    title: "Fallback deck",
-    contentJson: contentWithVisual("vis-1"),
-    deckJson: { schemaVersion: -1 },
+    contentJson: { root: { children: [] } },
+    deckJson: v7Deck,
     owner: { name: "Ava", plan: "free" },
   });
 
-  assert.equal(model.title, "Fallback deck");
-  assert.ok(model.deck.slides.length > 0);
-  assert.deepEqual(Object.keys(model.visuals), ["vis-1"]);
+  assert.equal(model.title, "Public deck");
+  assert.equal(model.deckV7.schemaVersion, 7);
+  assert.equal(model.themePackage.id, v7Deck.theme.packageId);
+  assert.equal(model.deckV7.slides[0].id, v7Deck.slides[0].id);
   assert.equal(model.attribution.ownerName, "Ava");
+});
+
+test("buildPublicPresentationModel resolves runtime v7 theme package fallback diagnostics", () => {
+  resetBuilderCounter();
+  const v7Deck = buildDeckV7([buildCoverSlide()], {
+    theme: { packageId: "missing-package" },
+  });
+  const model = buildPublicPresentationModel({
+    title: "Public deck",
+    contentJson: { root: { children: [] } },
+    deckJson: v7Deck,
+    owner: { name: "Ava", plan: "free" },
+  });
+
+  assert.equal(model.themePackage.id, "neutral");
+  assert.equal(model.diagnostics[0]?.code, "unknown-theme-package");
+});
+
+test("buildPublicPresentationModel exposes recovery for invalid deckJson", () => {
+  const model = buildPublicPresentationModel({
+    title: "Fallback deck",
+    contentJson: { root: { children: [] } },
+    deckJson: { schemaVersion: -1 },
+    owner: { name: null, plan: "free" },
+  });
+
+  assert.equal(model.title, "Fallback deck");
+  assert.equal(
+    model.recovery?.error.includes("Unrecognised deck schema"),
+    true,
+  );
+  assert.equal(model.recovery?.validationErrors?.length, 1);
+  assert.equal(model.attribution.ownerName, "Document owner");
+});
+
+test("buildPublicPresentationModelAny returns the v7-only model", () => {
+  resetBuilderCounter();
+  const v7Deck = buildDeckV7([buildCoverSlide()]);
+  const model = buildPublicPresentationModelAny({
+    title: "vNext deck",
+    contentJson: { root: { children: [] } },
+    deckJson: v7Deck,
+    owner: { name: "Alex", plan: "pro" },
+  });
+
+  assert.equal(model.title, "vNext deck");
+  assert.equal(model.deckV7.schemaVersion, 7);
+  assert.equal(model.attribution.ownerName, "Alex");
+});
+
+test("buildPublicPresentationModel keeps v7 protected asset references instead of contentJson fallback", () => {
+  resetBuilderCounter();
+  const assetSrc = "/api/slide-assets/doc-1/uploads/protected.png";
+  const v7Deck = buildDeckV7(
+    [
+      buildSlideV7("visual-focus", [
+        buildImageNode("protected-img", { id: "protected-image-node" }),
+      ]),
+    ],
+    {
+      theme: { packageId: "neutral" },
+      assets: {
+        images: {
+          "protected-img": buildImageAsset("protected-img", {
+            src: assetSrc,
+            alt: "Protected upload",
+          }),
+        },
+      },
+    },
+  );
+  const model = buildPublicPresentationModel({
+    title: "Protected public deck",
+    contentJson: {
+      slides: [{ id: "legacy-slide", elements: [{ id: "legacy-image" }] }],
+    },
+    deckJson: v7Deck,
+    owner: { name: "Ava", plan: "pro" },
+  });
+
+  assert.equal(model.deckV7.schemaVersion, 7);
+  assert.equal(model.deckV7.slides[0].children[0]?.id, "protected-image-node");
+  assert.equal(model.deckV7.assets.images["protected-img"]?.src, assetSrc);
+  assert.equal(model.themePackage.id, "neutral");
 });

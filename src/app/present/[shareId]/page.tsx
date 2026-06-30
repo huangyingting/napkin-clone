@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
+import { PublicPresentViewerVNext } from "@/components/presentation-vnext/public-present-viewer-vnext";
 import { publicShareBudgetExceeded } from "@/app/public-abuse";
 import { app as appEnv } from "@/lib/env";
 import { buildPublicMetadata } from "@/lib/public-render/metadata";
@@ -57,10 +57,11 @@ export default async function PresentPage({
   const { presentation } = result;
 
   return (
-    <PublicPresentViewer
-      deck={presentation.deck}
-      visuals={presentation.visuals}
+    <PublicPresentViewerVNext
+      deck={presentation.deckV7}
+      themePackage={presentation.themePackage}
       title={presentation.title}
+      recovery={presentation.recovery}
       showAttribution={presentation.attribution.showAttribution}
     />
   );

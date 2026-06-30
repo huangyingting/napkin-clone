@@ -1,6 +1,6 @@
 import type { SlideCommentAnchor } from "@/lib/presentation/slide-comment-anchors";
 
-export type CommentAnchorType = "text" | "visual";
+export type CommentAnchorType = "text" | "visual" | "table";
 
 export type AnchorPoint = {
   x: number;
@@ -19,7 +19,7 @@ export type TextCommentAnchor = {
 
 export type DocumentBlockCommentAnchor = {
   kind: "document-block";
-  blockKind: "visual";
+  blockKind: "visual" | "table";
   text: string | null;
   nodeId: string | null;
 };
@@ -76,7 +76,9 @@ export function durableBlockIdFromAnchorRecord(
 export function normalizeAnchorType(
   value: string | null,
 ): CommentAnchorType | null {
-  return value === "text" || value === "visual" ? value : null;
+  return value === "text" || value === "visual" || value === "table"
+    ? value
+    : null;
 }
 
 export function normalizeAnchorText(value: string, maxLength: number): string {
@@ -196,10 +198,10 @@ export function commentAnchorFromRecord(
       nodeId: durableBlockIdFromAnchorRecord(record),
     };
   }
-  if (anchorType === "visual") {
+  if (anchorType === "visual" || anchorType === "table") {
     return {
       kind: "document-block",
-      blockKind: "visual",
+      blockKind: anchorType,
       text: record.anchorText ?? null,
       nodeId: durableBlockIdFromAnchorRecord(record),
     };
@@ -228,7 +230,7 @@ export function commentAnchorToRecord(
       /* Coverage rationale: visual block anchor DTO object is asserted; tsx maps the literal tail as uncovered. */
       /* node:coverage ignore next 8 */
       return {
-        anchorType: "visual",
+        anchorType: anchor.blockKind,
         anchorText: anchor.text,
         anchorNodeId: anchorNodeIdFromDurableBlockId(anchor.nodeId),
         slideId: null,

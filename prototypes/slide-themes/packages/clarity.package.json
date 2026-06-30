@@ -1,0 +1,454 @@
+{
+  "schemaVersion": 1,
+  "id": "clarity",
+  "version": "1.0.0",
+  "name": "Swiss Minimal Grid",
+  "tagline": "Light, gridded brand systems with precise blue emphasis.",
+  "tokens": {
+    "colors": {
+      "canvas": {
+        "fill": "#ededea",
+        "text": "#0a0a0a",
+        "mutedText": "#8d8d87"
+      },
+      "surface": {
+        "fill": "#ffffff",
+        "text": "#0a0a0a",
+        "mutedText": "#8d8d87",
+        "border": "#cfcfca"
+      },
+      "accent": {
+        "fill": "#0042ff",
+        "text": "#ffffff"
+      }
+    },
+    "fonts": {
+      "heading": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+      "body": "'JetBrains Mono', 'Noto Sans SC', monospace",
+      "mono": "'JetBrains Mono', 'Noto Sans SC', monospace"
+    },
+    "radii": {
+      "card": 0,
+      "pill": 999
+    }
+  },
+  "styles": {
+    "slide.cover": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "solid",
+            "color": "#ededea"
+          },
+          "chrome": "minimal",
+          "decoration": "expressive"
+        }
+      }
+    },
+    "slide.content": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "pattern",
+            "kind": "grid",
+            "color": "rgba(10,10,10,.12)",
+            "background": {
+              "token": "colors.canvas.fill"
+            },
+            "spacingPct": 8,
+            "strokeWidthPct": 0.12
+          },
+          "chrome": "default",
+          "decoration": "default"
+        }
+      }
+    },
+    "slide.section": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "linearGradient",
+            "from": "#ededea",
+            "to": "#ffffff",
+            "angle": 135
+          },
+          "chrome": "minimal",
+          "decoration": "expressive"
+        }
+      }
+    },
+    "text.title": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 38,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 800,
+          "lineHeight": 1.04
+        }
+      },
+      "large": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 52,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 800,
+          "lineHeight": 0.98
+        }
+      }
+    },
+    "text.subtitle": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 18,
+          "color": {
+            "token": "colors.canvas.mutedText"
+          },
+          "weight": 400,
+          "lineHeight": 1.36
+        }
+      }
+    },
+    "text.body": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 15,
+          "color": {
+            "token": "colors.surface.text"
+          },
+          "weight": 400,
+          "lineHeight": 1.45
+        }
+      },
+      "small": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 12,
+          "color": {
+            "token": "colors.surface.mutedText"
+          },
+          "weight": 400,
+          "lineHeight": 1.35
+        }
+      }
+    },
+    "text.kicker": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 11,
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "weight": 700,
+          "lineHeight": 1.12,
+          "letterSpacingEm": 0.2,
+          "textTransform": "uppercase"
+        }
+      }
+    },
+    "text.caption": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 10,
+          "color": {
+            "token": "colors.canvas.mutedText"
+          },
+          "weight": 500,
+          "lineHeight": 1.25
+        }
+      }
+    },
+    "text.quote": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 27,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 600,
+          "lineHeight": 1.28,
+          "italic": true
+        }
+      }
+    },
+    "text.metric": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 48,
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "weight": 800,
+          "lineHeight": 0.95
+        }
+      }
+    },
+    "surface.card": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.surface.border"
+          },
+          "widthPt": 1
+        },
+        "radius": {
+          "allPt": 0
+        },
+        "shadow": {
+          "xPt": 0,
+          "yPt": 10,
+          "blurPt": 24,
+          "color": "#000000",
+          "opacity": 0.18
+        }
+      }
+    },
+    "surface.callout": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "widthPt": 1.4
+        },
+        "radius": {
+          "allPt": 4
+        }
+      }
+    },
+    "surface.table": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.surface.border"
+          },
+          "widthPt": 1
+        },
+        "table": {
+          "headerFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.accent.fill"
+            }
+          },
+          "rowFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.surface.fill"
+            }
+          },
+          "alternateRowFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.canvas.fill"
+            }
+          },
+          "border": {
+            "color": {
+              "token": "colors.surface.border"
+            },
+            "widthPt": 1
+          },
+          "text": {
+            "fontFamily": {
+              "token": "fonts.body"
+            },
+            "fontSizePt": 10.5,
+            "color": {
+              "token": "colors.surface.text"
+            }
+          },
+          "headerText": {
+            "fontFamily": {
+              "token": "fonts.body"
+            },
+            "fontSizePt": 10.5,
+            "color": {
+              "token": "colors.accent.text"
+            },
+            "weight": 700
+          }
+        }
+      }
+    },
+    "media.hero": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "image": {
+          "fit": "cover",
+          "radiusPct": 0
+        },
+        "radius": {
+          "allPt": 0
+        }
+      }
+    },
+    "media.inline": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "image": {
+          "fit": "contain",
+          "radiusPct": 0
+        },
+        "radius": {
+          "allPt": 2
+        }
+      }
+    },
+    "chart.primary": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.accent.fill"
+          }
+        },
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 11,
+          "color": {
+            "token": "colors.surface.text"
+          }
+        }
+      }
+    },
+    "connector.primary": {
+      "default": {
+        "connector": {
+          "stroke": {
+            "color": {
+              "token": "colors.accent.fill"
+            },
+            "widthPt": 1.6
+          },
+          "routing": "straight"
+        }
+      }
+    },
+    "decoration.background": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": "#0042ff"
+        },
+        "opacity": 0.16
+      }
+    }
+  },
+  "decorations": {
+    "grid": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "grid",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "h": 100
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "pattern",
+          "kind": "grid",
+          "color": "#cfcfca",
+          "spacingPct": 6.25,
+          "strokeWidthPct": 0.1
+        },
+        "opacity": 0.42
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    },
+    "accentRule": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "accentRule",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 8,
+          "y": 90,
+          "w": 22,
+          "h": 0.6
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "solid",
+          "color": "#0042ff"
+        }
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    }
+  }
+}

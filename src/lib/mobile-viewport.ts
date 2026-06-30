@@ -18,7 +18,7 @@ export interface WindowViewportLike {
   visualViewport?: VisualViewportLike | null;
 }
 
-export const MOBILE_VIEWPORT_CSS_VARS = {
+const MOBILE_VIEWPORT_CSS_VARS = {
   height: "--tiq-viewport-height",
   width: "--tiq-viewport-width",
   offsetTop: "--tiq-viewport-offset-top",

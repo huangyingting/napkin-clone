@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>27-Type Deck Styles · Index</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=JetBrains+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0d0d10;
+        --mut: #7a7a85;
+        font-family: "Sora", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #0d0d10;
+        color: #f4f4f6;
+        padding: 60px 8vw;
+      }
+      h1 {
+        font: 800 52px/1 "Sora";
+        letter-spacing: -0.03em;
+      }
+      p {
+        color: var(--mut);
+        margin-top: 14px;
+        max-width: 60ch;
+        line-height: 1.6;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+        margin-top: 48px;
+      }
+      .card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid #22222a;
+        border-radius: 16px;
+        overflow: hidden;
+        background: #15151b;
+        transition: 0.2s;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: #5b6cff;
+      }
+      .bar {
+        height: 120px;
+        display: flex;
+        align-items: flex-end;
+        padding: 18px 22px;
+        font: 800 30px "Sora";
+      }
+      .meta {
+        padding: 18px 22px;
+      }
+      .tag {
+        font: 400 11px "JetBrains Mono";
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--mut);
+      }
+      h3 {
+        font: 600 22px "Sora";
+        margin-top: 4px;
+      }
+      .t1 {
+        background: linear-gradient(135deg, #f3ede1, #2f3d8f);
+        color: #191510;
+      }
+      .t2 {
+        background: linear-gradient(135deg, #0c0c0c, #ff3b1f);
+        color: #fff;
+      }
+      .t3 {
+        background: linear-gradient(135deg, #ededea, #0042ff);
+        color: #0a0a0a;
+      }
+      .t4 {
+        background: linear-gradient(135deg, #f5e500, #ff2d2d);
+        color: #0b0b0b;
+      }
+      .t5 {
+        background: linear-gradient(135deg, #05060d, #5b6cff);
+        color: #fff;
+      }
+      .t6 {
+        background: conic-gradient(
+          from 180deg,
+          #ff5ec7,
+          #7b5cff,
+          #22d3ee,
+          #7bff9e,
+          #ff5ec7
+        );
+        color: #0a0a14;
+      }
+      .t7 {
+        background: linear-gradient(135deg, #3a0d12, #c9a24a);
+        color: #f6ece2;
+      }
+      .t8 {
+        background: #06080a;
+        color: #39ff88;
+        font-family: "JetBrains Mono";
+      }
+    </style>
+  </head>
+  <body>
+    <h1>27-Type Deck Styles</h1>
+    <p>
+      Eight universal presentation systems. Each HTML file contains all 27 slide
+      types — cover, agenda, section, executive-summary, content, detail, quote,
+      big-stat, metric-row, insight, evidence, table, comparison, matrix,
+      framework, process, timeline, roadmap, architecture, case-study, risks,
+      recommendation, pricing, team, visual-focus, closing, appendix.
+    </p>
+    <div class="grid">
+      <a class="card" href="01-editorial-serif-luxe.html"
+        ><div class="bar t1">Brand Collaboration</div>
+        <div class="meta">
+          <span class="tag">01 · Editorial Serif Luxe</span>
+          <h3>Cream · Cobalt · Gold</h3>
+        </div></a
+      >
+      <a class="card" href="02-brutalist-bold.html"
+        ><div class="bar t2">PORTOFOLIO.</div>
+        <div class="meta">
+          <span class="tag">02 · Brutalist Bold</span>
+          <h3>Black · Red · Lime</h3>
+        </div></a
+      >
+      <a class="card" href="03-swiss-minimal-grid.html"
+        ><div class="bar t3">Brand Guidelines</div>
+        <div class="meta">
+          <span class="tag">03 · Swiss Minimal Grid</span>
+          <h3>Light · Blue · Mono</h3>
+        </div></a
+      >
+      <a class="card" href="04-vibrant-pop.html"
+        ><div class="bar t4">CREATIVE BRIEF</div>
+        <div class="meta">
+          <span class="tag">04 · Vibrant Pop</span>
+          <h3>Yellow · Red · Blue</h3>
+        </div></a
+      >
+      <a class="card" href="05-dark-aurora-corporate.html"
+        ><div class="bar t5">business report</div>
+        <div class="meta">
+          <span class="tag">05 · Dark Aurora Corporate</span>
+          <h3>Navy · Glass · Glow</h3>
+        </div></a
+      >
+      <a class="card" href="06-iridescent-gradient.html"
+        ><div class="bar t6">Startup</div>
+        <div class="meta">
+          <span class="tag">06 · Iridescent Gradient</span>
+          <h3>Holographic · Glass</h3>
+        </div></a
+      >
+      <a class="card" href="07-luxe-maroon-magazine.html"
+        ><div class="bar t7">PORTfolio</div>
+        <div class="meta">
+          <span class="tag">07 · Luxe Maroon Magazine</span>
+          <h3>Maroon · Gold · Script</h3>
+        </div></a
+      >
+      <a class="card" href="08-tech-terminal-mono.html"
+        ><div class="bar t8">› CREATIVE BRIEF</div>
+        <div class="meta">
+          <span class="tag">08 · Tech Terminal Mono</span>
+          <h3>Neon · Grid · Mono</h3>
+        </div></a
+      >
+    </div>
+  </body>
+</html>

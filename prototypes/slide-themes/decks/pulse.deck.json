@@ -1,1275 +1,3416 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
+  "id": "preview-pulse",
+  "title": "Tech Terminal Mono semantic template preview",
   "canvas": {
-    "format": "16:9"
+    "format": "16:9",
+    "width": 100,
+    "height": 56.25,
+    "unit": "percent"
   },
-  "design": {
-    "themeId": "pro-pulse",
-    "themeOverrides": {
-      "tokenSet": {
-        "id": "pro-pulse",
-        "name": "Pulse",
-        "colors": {
-          "slideBg": "#ffffff",
-          "surface": "#fff0f5",
-          "accent": "#ec2d6f",
-          "onBg": "#190a14",
-          "onSurface": "#3a1226",
-          "onAccent": "#ffffff",
-          "muted": "#9a6f84"
-        },
-        "typography": {
-          "fontFamily": "'Manrope', system-ui, sans-serif",
-          "headingFontFamily": "'Space Grotesk', system-ui, sans-serif",
-          "scale": {
-            "h1": 40,
-            "h2": 32,
-            "h3": 22,
-            "body": 16,
-            "list": 15,
-            "footer": 10
-          },
-          "roles": {
-            "title": {
-              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
-              "fontSize": 40,
-              "color": "#190a14",
-              "weight": 800,
-              "align": "left",
-              "lineHeight": 1.05
-            },
-            "sectionTitle": {
-              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
-              "fontSize": 34,
-              "color": "#190a14",
-              "weight": 800,
-              "align": "left",
-              "lineHeight": 1.05
-            },
-            "subtitle": {
-              "fontFamily": "'Manrope', system-ui, sans-serif",
-              "fontSize": 20,
-              "color": "#9a6f84",
-              "weight": 400,
-              "align": "left",
-              "lineHeight": 1.3
-            },
-            "body": {
-              "fontFamily": "'Manrope', system-ui, sans-serif",
-              "fontSize": 16,
-              "color": "#3a1226",
-              "weight": 400,
-              "align": "left",
-              "lineHeight": 1.45
-            },
-            "bullet": {
-              "fontFamily": "'Manrope', system-ui, sans-serif",
-              "fontSize": 15,
-              "color": "#3a1226",
-              "weight": 400,
-              "align": "left",
-              "lineHeight": 1.5
-            },
-            "quote": {
-              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
-              "fontSize": 26,
-              "color": "#190a14",
-              "weight": 600,
-              "italic": true,
-              "align": "left",
-              "lineHeight": 1.3
-            },
-            "caption": {
-              "fontFamily": "'Manrope', system-ui, sans-serif",
-              "fontSize": 11,
-              "color": "#9a6f84",
-              "weight": 500,
-              "align": "left"
-            },
-            "label": {
-              "fontFamily": "'Space Grotesk', system-ui, sans-serif",
-              "fontSize": 11,
-              "color": "#ec2d6f",
-              "weight": 700,
-              "align": "left"
-            },
-            "footer": {
-              "fontFamily": "'Manrope', system-ui, sans-serif",
-              "fontSize": 9,
-              "color": "#9a6f84",
-              "weight": 500,
-              "align": "left"
-            },
-            "pageNumber": {
-              "fontFamily": "'Manrope', system-ui, sans-serif",
-              "fontSize": 9,
-              "color": "#9a6f84",
-              "weight": 600,
-              "align": "right"
-            }
-          }
-        },
-        "spacing": {
-          "slidePaddingPt": 40,
-          "gridUnitPt": 6
-        },
-        "shape": {
-          "cornerRadiusPt": 4,
-          "shadowCss": "0 16px 34px rgba(236,45,111,0.22)",
-          "fill": "#ec2d6f"
-        },
-        "defaultBackground": {
-          "type": "gradient",
-          "from": "#ffffff",
-          "to": "#fff4f8",
-          "angle": 135
-        }
-      }
-    }
+  "theme": {
+    "packageId": "pulse",
+    "packageVersion": "1.0.0"
   },
-  "masters": [
-    {
-      "id": "master-pulse",
-      "name": "Pulse Master",
-      "background": {
-        "type": "gradient",
-        "from": {
-          "value": "#ffffff"
-        },
-        "to": {
-          "value": "#fff4f8"
-        },
-        "angle": 135
-      },
-      "elements": [
-        {
-          "id": "footer",
-          "kind": "text",
-          "role": "footer",
-          "box": {
-            "x": 5,
-            "y": 93.5,
-            "w": 60,
-            "h": 4
-          },
-          "zIndex": 0,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 1.7,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#9a6f84",
-              "fontId": "space-grotesk"
-            }
-          },
-          "locked": true,
-          "layer": "foreground",
-          "masterChromeKind": "footer",
-          "content": {
-            "kind": "text",
-            "text": "PULSE",
-            "paragraphs": [
-              {
-                "text": "PULSE"
-              }
-            ]
-          }
-        },
-        {
-          "id": "page-number",
-          "kind": "text",
-          "role": "pageNumber",
-          "box": {
-            "x": 88,
-            "y": 93.5,
-            "w": 7,
-            "h": 4
-          },
-          "zIndex": 0,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 1.7,
-              "bold": true,
-              "italic": false,
-              "align": "right",
-              "color": "#9a6f84",
-              "fontId": "manrope"
-            }
-          },
-          "locked": true,
-          "layer": "foreground",
-          "masterChromeKind": "pageNumber",
-          "content": {
-            "kind": "text",
-            "text": "{{pageNumber}}",
-            "paragraphs": [
-              {
-                "text": "{{pageNumber}}"
-              }
-            ]
-          }
-        }
-      ]
-    }
-  ],
-  "defaultMasterId": "master-pulse",
+  "assets": {
+    "images": {}
+  },
   "slides": [
     {
       "id": "pulse-cover",
-      "index": 0,
-      "title": "Pulse",
-      "notes": "",
-      "templateId": "title",
-      "elements": [
+      "type": "slide",
+      "template": {
+        "kind": "cover",
+        "layoutId": "cover-default"
+      },
+      "style": {
+        "ref": "slide.cover"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
         {
-          "id": "s-1",
-          "kind": "shape",
-          "opacity": 0.9,
-          "rotation": 12,
-          "box": {
-            "x": 60,
-            "y": -10,
-            "w": 55,
-            "h": 80
+          "id": "kicker-0001",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 28,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
           },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "value": "#ff7a18"
-            }
+          "style": {
+            "ref": "text.kicker"
           },
-          "locked": true,
-          "name": "Wedge",
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "triangle"
-          }
-        },
-        {
-          "id": "s-2",
-          "kind": "shape",
-          "opacity": 0.9,
-          "box": {
-            "x": 74,
-            "y": 50,
-            "w": 30,
-            "h": 52
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#ec2d6f"
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "s-3",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 36,
-            "w": 14,
-            "h": 1.6
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#ec2d6f"
-            }
-          },
-          "locked": true,
-          "name": "Bar",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-4",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 8,
-            "y": 28,
-            "w": 50,
-            "h": 5
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.2,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "verticalAlign": "middle",
-              "color": "#ec2d6f",
-              "fontId": "space-grotesk"
-            }
-          },
-          "name": "Kicker",
-          "content": {
-            "kind": "text",
-            "text": "LAUNCH 2026",
             "paragraphs": [
               {
-                "text": "LAUNCH 2026"
+                "id": "para-0002",
+                "text": "cover"
               }
             ]
           }
         },
         {
-          "id": "t-5",
-          "kind": "text",
+          "id": "title-0003",
           "role": "title",
-          "box": {
-            "x": 7.5,
-            "y": 40,
-            "w": 64,
-            "h": 28
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 35,
+              "w": 80,
+              "h": 18
+            },
+            "zIndex": 2
           },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 10,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 0.98,
-              "color": "#190a14",
-              "fontId": "space-grotesk"
-            }
+          "style": {
+            "ref": "text.title"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "Move at the\nspeed of want",
             "paragraphs": [
               {
-                "text": "Move at the\nspeed of want"
+                "id": "para-0004",
+                "text": "cover template"
               }
             ]
           }
         },
         {
-          "id": "t-6",
-          "kind": "text",
+          "id": "subtitle-0005",
           "role": "subtitle",
-          "box": {
-            "x": 8,
-            "y": 72,
-            "w": 52,
-            "h": 8
+          "slot": "subtitle",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 55,
+              "w": 80,
+              "h": 8
+            },
+            "zIndex": 3
           },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.4,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "color": "#9a6f84",
-              "fontId": "manrope"
-            }
+          "style": {
+            "ref": "text.subtitle"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "The growth engine for ambitious brands.",
             "paragraphs": [
               {
-                "text": "The growth engine for ambitious brands."
+                "id": "para-0006",
+                "text": "A native v7 semantic preview generated from slots."
               }
             ]
           }
         }
-      ]
+      ],
+      "notes": "Cover preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-agenda",
+      "type": "slide",
+      "template": {
+        "kind": "agenda",
+        "layoutId": "agenda-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0008",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0009",
+                "text": "agenda"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000a",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 14,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000b",
+                "text": "agenda template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-000c",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 30,
+              "w": 84,
+              "h": 60
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-000d",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 32,
+                  "w": 40,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-000e",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-000f",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 42,
+                  "w": 40,
+                  "h": 20
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-000g",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Agenda preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
     },
     {
       "id": "pulse-section",
-      "index": 1,
-      "title": "Big idea",
-      "notes": "",
-      "templateId": "title",
-      "designOverrides": {
-        "background": {
-          "type": "solid",
-          "color": {
-            "value": "#ec2d6f"
-          }
-        }
+      "type": "slide",
+      "template": {
+        "kind": "section",
+        "layoutId": "section-default"
       },
-      "elements": [
+      "style": {
+        "ref": "slide.section"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
         {
-          "id": "s-7",
-          "kind": "shape",
-          "box": {
-            "x": 0,
-            "y": 0,
-            "w": 100,
-            "h": 100
+          "id": "kicker-000i",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 35,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
           },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "value": "#ec2d6f"
-            }
+          "style": {
+            "ref": "text.kicker"
           },
-          "locked": true,
-          "name": "Field",
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-8",
-          "kind": "shape",
-          "opacity": 0.85,
-          "rotation": -8,
-          "box": {
-            "x": -12,
-            "y": 40,
-            "w": 50,
-            "h": 70
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#ff7a18"
-            }
-          },
-          "locked": true,
-          "name": "Wedge",
-          "content": {
-            "kind": "shape",
-            "shape": "triangle"
-          }
-        },
-        {
-          "id": "s-9",
-          "kind": "shape",
-          "opacity": 0.6,
-          "box": {
-            "x": 72,
-            "y": 8,
-            "w": 34,
-            "h": 56
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#7b2ff7"
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-a",
-          "kind": "text",
-          "box": {
-            "x": 9,
-            "y": 26,
-            "w": 30,
-            "h": 8
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#ffe0ec",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "THE BIG IDEA",
             "paragraphs": [
               {
-                "text": "THE BIG IDEA"
+                "id": "para-000j",
+                "text": "section"
               }
             ]
           }
         },
         {
-          "id": "t-b",
-          "kind": "text",
-          "role": "sectionTitle",
-          "box": {
-            "x": 8.5,
-            "y": 34,
-            "w": 78,
-            "h": 30
+          "id": "title-000k",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 42,
+              "w": 80,
+              "h": 16
+            },
+            "zIndex": 2
           },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 9.5,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 0.98,
-              "color": "#ffffff",
-              "fontId": "space-grotesk"
-            }
+          "style": {
+            "ref": "text.title"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "Attention is\nthe new oil",
             "paragraphs": [
               {
-                "text": "Attention is\nthe new oil"
+                "id": "para-000l",
+                "text": "section template"
               }
             ]
           }
         }
-      ]
+      ],
+      "notes": "Section Divider preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-executive-summary",
+      "type": "slide",
+      "template": {
+        "kind": "executive-summary",
+        "layoutId": "exec-summary-airy"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-000n",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 7,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000o",
+                "text": "executive summary"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000p",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 13,
+              "w": 84,
+              "h": 16
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000q",
+                "text": "executive summary template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-000r",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 32,
+              "w": 84,
+              "h": 58
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000s",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-000t",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-000u",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Executive Summary preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
     },
     {
       "id": "pulse-content",
-      "index": 2,
-      "title": "Playbook",
-      "notes": "",
-      "templateId": "content",
-      "elements": [
+      "type": "slide",
+      "template": {
+        "kind": "content",
+        "layoutId": "content-airy"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
         {
-          "id": "s-c",
-          "kind": "shape",
-          "opacity": 0.18,
-          "box": {
-            "x": 80,
-            "y": 70,
-            "w": 26,
-            "h": 42
-          },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "value": "#ff7a18"
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-d",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 40,
-            "h": 5
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.2,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "verticalAlign": "middle",
-              "color": "#ec2d6f",
-              "fontId": "space-grotesk"
-            }
-          },
-          "name": "Kicker",
-          "content": {
-            "kind": "text",
-            "text": "PLAYBOOK",
-            "paragraphs": [
-              {
-                "text": "PLAYBOOK"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-e",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 8,
-            "y": 17,
-            "w": 54,
-            "h": 12
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.05,
-              "color": "#190a14",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Three moves that compound",
-            "paragraphs": [
-              {
-                "text": "Three moves that compound"
-              }
-            ]
-          }
-        },
-        {
-          "id": "t-f",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 8,
-            "y": 33,
-            "w": 44,
-            "h": 48
-          },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.3,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.55,
-              "paragraphSpacing": 1.8,
-              "color": "#3a1226",
-              "fontId": "manrope"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Hook fast — earn the first three seconds.\nLoop value — make sharing the default.\nCompound trust — show receipts, every time.",
-            "paragraphs": [
-              {
-                "text": "Hook fast — earn the first three seconds.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Loop value — make sharing the default.",
-                "listType": "bullet"
-              },
-              {
-                "text": "Compound trust — show receipts, every time.",
-                "listType": "bullet"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-g",
-          "kind": "shape",
-          "box": {
-            "x": 56,
-            "y": 24,
-            "w": 38,
-            "h": 54
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#fff0f5"
+          "id": "kicker-000w",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 5
             },
-            "radius": 8
+            "zIndex": 1
           },
-          "locked": true,
-          "name": "Card",
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
           "content": {
-            "kind": "shape",
+            "paragraphs": [
+              {
+                "id": "para-000x",
+                "text": "content"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-000y",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 14,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-000z",
+                "text": "content template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-0010",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 32,
+              "w": 84,
+              "h": 58
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0011",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0012",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0013",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Content preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-detail",
+      "type": "slide",
+      "template": {
+        "kind": "detail",
+        "layoutId": "detail-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0015",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0016",
+                "text": "detail"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0017",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0018",
+                "text": "detail template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "body-0019",
+          "role": "body",
+          "slot": "body",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001a",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Detail preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-quote",
+      "type": "slide",
+      "template": {
+        "kind": "quote",
+        "layoutId": "quote-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "quote-001c",
+          "role": "quote",
+          "slot": "quote",
+          "layout": {
+            "frame": {
+              "x": 12,
+              "y": 25,
+              "w": 76,
+              "h": 32
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.quote"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001d",
+                "text": "Design is the contract between structure and attention."
+              }
+            ]
+          }
+        },
+        {
+          "id": "attribution-001e",
+          "role": "attribution",
+          "slot": "attribution",
+          "layout": {
+            "frame": {
+              "x": 12,
+              "y": 60,
+              "w": 76,
+              "h": 8
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001f",
+                "text": "TextIQ prototype"
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Quote preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-big-stat",
+      "type": "slide",
+      "template": {
+        "kind": "big-stat",
+        "layoutId": "big-stat-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-001h",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 12,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001i",
+                "text": "big stat"
+              }
+            ]
+          }
+        },
+        {
+          "id": "metric-001j",
+          "role": "metric",
+          "slot": "stat",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 22,
+              "w": 80,
+              "h": 28
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.metric"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001k",
+                "text": "72%"
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-001l",
+          "role": "label",
+          "slot": "statLabel",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 52,
+              "w": 80,
+              "h": 10
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001m",
+                "text": "Faster review cycles"
+              }
+            ]
+          }
+        },
+        {
+          "id": "caption-001n",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 64,
+              "w": 80,
+              "h": 8
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001o",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Big Stat preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-metric-row",
+      "type": "slide",
+      "template": {
+        "kind": "metric-row",
+        "layoutId": "metric-row-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-001q",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001r",
+                "text": "metric row template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-001s",
+          "role": "card",
+          "slot": "metrics",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 30,
+              "w": 84,
+              "h": 52
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "metricCard",
+          "children": [
+            {
+              "id": "metric-001t",
+              "role": "metric",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 35,
+                  "w": 20,
+                  "h": 20
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.metric"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-001u",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Metric Row preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-insight",
+      "type": "slide",
+      "template": {
+        "kind": "insight",
+        "layoutId": "insight-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-001w",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 10,
+              "w": 80,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-001x",
+                "text": "insight"
+              }
+            ]
+          }
+        },
+        {
+          "id": "callout-001y",
+          "role": "callout",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 18,
+              "w": 84,
+              "h": 36
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.callout"
+          },
+          "type": "shape",
+          "content": {
             "shape": "rect"
           }
         },
         {
-          "id": "s-h",
-          "kind": "shape",
-          "box": {
-            "x": 58,
-            "y": 26,
-            "w": 12,
-            "h": 18
+          "id": "title-001z",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 12,
+              "y": 22,
+              "w": 76,
+              "h": 28
+            },
+            "zIndex": 3
           },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#ec2d6f"
-            }
+          "style": {
+            "ref": "text.title"
           },
-          "locked": true,
-          "name": "Tab",
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "triangle"
+            "paragraphs": [
+              {
+                "id": "para-0020",
+                "text": "insight template"
+              }
+            ]
           }
         },
         {
-          "id": "img-i",
-          "kind": "image",
+          "id": "body-0021",
+          "role": "body",
+          "slot": "body",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 58,
+              "w": 80,
+              "h": 30
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0022",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Insight preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-evidence",
+      "type": "slide",
+      "template": {
+        "kind": "evidence",
+        "layoutId": "evidence-text"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0024",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0025",
+                "text": "evidence"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0026",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0027",
+                "text": "evidence template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-0028",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0029",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002a",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002b",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Evidence preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-table",
+      "type": "slide",
+      "template": {
+        "kind": "table",
+        "layoutId": "table-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-002d",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002e",
+                "text": "table template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "table-002f",
+          "role": "table",
+          "slot": "table",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.table"
+          },
+          "type": "table",
+          "content": {
+            "columns": [
+              {
+                "id": "col-0",
+                "label": "Layer"
+              },
+              {
+                "id": "col-1",
+                "label": "Owner"
+              },
+              {
+                "id": "col-2",
+                "label": "Output"
+              }
+            ],
+            "rows": [
+              {
+                "id": "row-0",
+                "cells": [
+                  {
+                    "text": "Template"
+                  },
+                  {
+                    "text": "Registry"
+                  },
+                  {
+                    "text": "SlideNode"
+                  }
+                ]
+              },
+              {
+                "id": "row-1",
+                "cells": [
+                  {
+                    "text": "Theme"
+                  },
+                  {
+                    "text": "Package"
+                  },
+                  {
+                    "text": "Resolved style"
+                  }
+                ]
+              },
+              {
+                "id": "row-2",
+                "cells": [
+                  {
+                    "text": "Preview"
+                  },
+                  {
+                    "text": "Renderer"
+                  },
+                  {
+                    "text": "HTML"
+                  }
+                ]
+              }
+            ],
+            "caption": "Native v7 table slot sample",
+            "header": true
+          }
+        },
+        {
+          "id": "caption-002g",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 86,
+              "w": 84,
+              "h": 6
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002h",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Table preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-comparison",
+      "type": "slide",
+      "template": {
+        "kind": "comparison",
+        "layoutId": "comparison-two-col"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-002j",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002k",
+                "text": "comparison template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-002l",
+          "role": "label",
+          "slot": "leftTitle",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 40,
+              "h": 8
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002m",
+                "text": "Current state"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-002n",
+          "role": "bullet",
+          "slot": "leftBullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 32,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002o",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002p",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002q",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "label-002r",
+          "role": "label",
+          "slot": "rightTitle",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 22,
+              "w": 40,
+              "h": 8
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002s",
+                "text": "Target state"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-002t",
+          "role": "bullet",
+          "slot": "rightBullets",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 32,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 5
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002u",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002v",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-002w",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Comparison preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-matrix",
+      "type": "slide",
+      "template": {
+        "kind": "matrix",
+        "layoutId": "matrix-2x2"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-002y",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-002z",
+                "text": "matrix template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-0030",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 20,
+              "w": 84,
+              "h": 72
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-0031",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 24,
+                  "w": 36,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0032",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-0033",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 34,
+                  "w": 36,
+                  "h": 16
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0034",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Matrix preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-framework",
+      "type": "slide",
+      "template": {
+        "kind": "framework",
+        "layoutId": "framework-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0036",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0037",
+                "text": "framework"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0038",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0039",
+                "text": "framework template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-003a",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 58
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-003b",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 30,
+                  "w": 24,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003c",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-003d",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 40,
+                  "w": 24,
+                  "h": 20
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003e",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "caption-003f",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 88,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 4
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-003g",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Framework preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-process",
+      "type": "slide",
+      "template": {
+        "kind": "process",
+        "layoutId": "process-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-003i",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-003j",
+                "text": "process template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-003k",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-003l",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 30,
+                  "w": 18,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003m",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-003n",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 40,
+                  "w": 18,
+                  "h": 20
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003o",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Process preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-timeline",
+      "type": "slide",
+      "template": {
+        "kind": "timeline",
+        "layoutId": "timeline-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-003q",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 8,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-003r",
+                "text": "timeline template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-003s",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "timeline",
+          "children": [
+            {
+              "id": "label-003t",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 28,
+                  "w": 18,
+                  "h": 6
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.caption"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003u",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "title-003v",
+              "role": "title",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 36,
+                  "w": 18,
+                  "h": 8
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003w",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-003x",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 46,
+                  "w": 18,
+                  "h": 16
+                },
+                "zIndex": 3
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-003y",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Timeline preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-roadmap",
+      "type": "slide",
+      "template": {
+        "kind": "roadmap",
+        "layoutId": "roadmap-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0040",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0041",
+                "text": "roadmap"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-0042",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0043",
+                "text": "roadmap template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-0044",
+          "role": "card",
+          "slot": "steps",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-0045",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 30,
+                  "w": 20,
+                  "h": 7
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0046",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-0047",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 39,
+                  "w": 20,
+                  "h": 18
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-0048",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Roadmap preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-architecture",
+      "type": "slide",
+      "template": {
+        "kind": "architecture",
+        "layoutId": "architecture-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-004a",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004b",
+                "text": "architecture template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "image-004c",
           "role": "image",
-          "box": {
-            "x": 59,
-            "y": 33,
-            "w": 32,
-            "h": 40
+          "slot": "imagePrompt",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 20,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 2
           },
-          "zIndex": 10,
-          "designOverrides": {
-            "radius": 6,
-            "fitMode": "cover"
+          "style": {
+            "ref": "media.hero"
           },
+          "type": "image",
           "content": {
-            "kind": "image",
-            "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22%23e9e9ee%22%2F%3E%3Cpath%20d%3D%22M300%20270l70-70%2055%2055%2040-40%2075%2075%22%20fill%3D%22none%22%20stroke%3D%22%2394949f%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22165%22%20r%3D%2226%22%20fill%3D%22%2394949f%22%2F%3E%3C%2Fsvg%3E",
-            "alt": "Image placeholder"
+            "assetId": "placeholder",
+            "alt": "Generated placeholder"
+          }
+        },
+        {
+          "id": "caption-004d",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 86,
+              "w": 84,
+              "h": 6
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004e",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
           }
         }
-      ]
+      ],
+      "notes": "Architecture preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
     },
     {
-      "id": "pulse-twocol",
-      "index": 3,
-      "title": "Plans",
-      "notes": "",
-      "templateId": "two-column",
-      "elements": [
+      "id": "pulse-case-study",
+      "type": "slide",
+      "template": {
+        "kind": "case-study",
+        "layoutId": "case-study-split"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
         {
-          "id": "t-j",
-          "kind": "text",
+          "id": "kicker-004g",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-004h",
+                "text": "case study"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-004i",
           "role": "title",
-          "box": {
-            "x": 8,
-            "y": 12,
-            "w": 70,
-            "h": 8
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 5.4,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#190a14",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Pick your speed",
-            "paragraphs": [
-              {
-                "text": "Pick your speed"
-              }
-            ]
-          }
-        },
-        {
-          "id": "s-k",
-          "kind": "shape",
-          "box": {
-            "x": 8,
-            "y": 26,
-            "w": 40,
-            "h": 56
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#fff0f5"
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 12
             },
-            "radius": 8
+            "zIndex": 2
           },
-          "locked": true,
-          "name": "Left card",
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "rect"
+            "paragraphs": [
+              {
+                "id": "para-004j",
+                "text": "case study template"
+              }
+            ]
           }
         },
         {
-          "id": "s-l",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 26,
-            "w": 40,
-            "h": 56
-          },
-          "zIndex": 8,
-          "designOverrides": {
-            "fill": {
-              "value": "#ec2d6f"
+          "id": "label-004k",
+          "role": "label",
+          "slot": "leftTitle",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 40,
+              "h": 7
             },
-            "radius": 8
+            "zIndex": 3
           },
-          "locked": true,
-          "name": "Right card",
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-m",
-          "kind": "shape",
-          "box": {
-            "x": 52,
-            "y": 26,
-            "w": 40,
-            "h": 1.5
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "fill": {
-              "value": "#ff7a18"
-            }
-          },
-          "locked": true,
-          "name": "Highlight",
-          "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "t-n",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 11,
-            "y": 30,
-            "w": 34,
-            "h": 6
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.8,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#ec2d6f",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "STARTER",
             "paragraphs": [
               {
-                "text": "STARTER"
+                "id": "para-004l",
+                "text": "Current state"
               }
             ]
           }
         },
         {
-          "id": "t-o",
-          "kind": "text",
+          "id": "bullet-004m",
           "role": "bullet",
-          "box": {
-            "x": 11,
-            "y": 36,
-            "w": 34,
-            "h": 42
+          "slot": "leftBullets",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 35,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 4
           },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.6,
-              "paragraphSpacing": 1.6,
-              "color": "#3a1226",
-              "fontId": "manrope"
-            }
+          "style": {
+            "ref": "text.body"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "Core analytics\n3 campaigns / month\nEmail support",
             "paragraphs": [
               {
-                "text": "Core analytics",
-                "listType": "bullet"
+                "id": "para-004n",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
               },
               {
-                "text": "3 campaigns / month",
-                "listType": "bullet"
+                "id": "para-004o",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
               },
               {
-                "text": "Email support",
-                "listType": "bullet"
+                "id": "para-004p",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
               }
             ]
           }
         },
         {
-          "id": "t-p",
-          "kind": "text",
+          "id": "label-004q",
           "role": "label",
-          "box": {
-            "x": 55,
-            "y": 30,
-            "w": 34,
-            "h": 6
+          "slot": "rightTitle",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 26,
+              "w": 40,
+              "h": 7
+            },
+            "zIndex": 5
           },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.8,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#ffffff",
-              "fontId": "space-grotesk"
-            }
+          "style": {
+            "ref": "text.subtitle"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "SCALE — POPULAR",
             "paragraphs": [
               {
-                "text": "SCALE — POPULAR"
+                "id": "para-004r",
+                "text": "Target state"
               }
             ]
           }
         },
         {
-          "id": "t-q",
-          "kind": "text",
-          "role": "bullet",
-          "box": {
-            "x": 55,
-            "y": 36,
-            "w": 34,
-            "h": 42
+          "id": "body-004s",
+          "role": "body",
+          "slot": "rightBody",
+          "layout": {
+            "frame": {
+              "x": 52,
+              "y": 35,
+              "w": 40,
+              "h": 56
+            },
+            "zIndex": 6
           },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.1,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "lineHeight": 1.6,
-              "paragraphSpacing": 1.6,
-              "color": "#ffe0ec",
-              "fontId": "manrope"
-            }
+          "style": {
+            "ref": "text.body"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "Predictive analytics\nUnlimited campaigns\nDedicated strategist",
             "paragraphs": [
               {
-                "text": "Predictive analytics",
-                "listType": "bullet"
-              },
-              {
-                "text": "Unlimited campaigns",
-                "listType": "bullet"
-              },
-              {
-                "text": "Dedicated strategist",
-                "listType": "bullet"
+                "id": "para-004t",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
               }
             ]
           }
         }
-      ]
+      ],
+      "notes": "Case Study preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
     },
     {
-      "id": "pulse-stat",
-      "index": 4,
-      "title": "Result",
-      "notes": "",
-      "templateId": "title",
-      "elements": [
+      "id": "pulse-risks",
+      "type": "slide",
+      "template": {
+        "kind": "risks",
+        "layoutId": "risks-table"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
         {
-          "id": "s-r",
-          "kind": "shape",
-          "opacity": 0.16,
-          "rotation": 10,
-          "box": {
-            "x": 58,
-            "y": 24,
-            "w": 48,
-            "h": 70
+          "id": "title-004v",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
           },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "value": "#ff7a18"
-            }
+          "style": {
+            "ref": "text.title"
           },
-          "locked": true,
-          "name": "Wedge",
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "triangle"
-          }
-        },
-        {
-          "id": "t-s",
-          "kind": "text",
-          "role": "label",
-          "box": {
-            "x": 8,
-            "y": 24,
-            "w": 50,
-            "h": 5
-          },
-          "zIndex": 9,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 2.2,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "verticalAlign": "middle",
-              "color": "#ec2d6f",
-              "fontId": "space-grotesk"
-            }
-          },
-          "name": "Kicker",
-          "content": {
-            "kind": "text",
-            "text": "AVERAGE RESULT",
             "paragraphs": [
               {
-                "text": "AVERAGE RESULT"
+                "id": "para-004w",
+                "text": "risks template"
               }
             ]
           }
         },
         {
-          "id": "t-t",
-          "kind": "text",
-          "box": {
-            "x": 7.5,
-            "y": 30,
-            "w": 60,
-            "h": 26
+          "id": "table-004x",
+          "role": "table",
+          "slot": "table",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 84,
+              "h": 70
+            },
+            "zIndex": 2
           },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 17,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#ec2d6f",
-              "fontId": "space-grotesk"
-            }
+          "style": {
+            "ref": "surface.table"
           },
+          "type": "table",
           "content": {
-            "kind": "text",
-            "text": "+212%",
+            "columns": [
+              {
+                "id": "col-0",
+                "label": "Layer"
+              },
+              {
+                "id": "col-1",
+                "label": "Owner"
+              },
+              {
+                "id": "col-2",
+                "label": "Output"
+              }
+            ],
+            "rows": [
+              {
+                "id": "row-0",
+                "cells": [
+                  {
+                    "text": "Template"
+                  },
+                  {
+                    "text": "Registry"
+                  },
+                  {
+                    "text": "SlideNode"
+                  }
+                ]
+              },
+              {
+                "id": "row-1",
+                "cells": [
+                  {
+                    "text": "Theme"
+                  },
+                  {
+                    "text": "Package"
+                  },
+                  {
+                    "text": "Resolved style"
+                  }
+                ]
+              },
+              {
+                "id": "row-2",
+                "cells": [
+                  {
+                    "text": "Preview"
+                  },
+                  {
+                    "text": "Renderer"
+                  },
+                  {
+                    "text": "HTML"
+                  }
+                ]
+              }
+            ],
+            "caption": "Native v7 table slot sample",
+            "header": true
+          }
+        }
+      ],
+      "notes": "Risks preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-recommendation",
+      "type": "slide",
+      "template": {
+        "kind": "recommendation",
+        "layoutId": "recommendation-default"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-004z",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 15,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
             "paragraphs": [
               {
-                "text": "+212%"
+                "id": "para-0050",
+                "text": "recommendation"
               }
             ]
           }
         },
         {
-          "id": "t-u",
-          "kind": "text",
-          "role": "subtitle",
-          "box": {
-            "x": 8,
-            "y": 60,
-            "w": 64,
-            "h": 10
+          "id": "title-0051",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 22,
+              "w": 80,
+              "h": 20
+            },
+            "zIndex": 2
           },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.6,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "color": "#3a1226",
-              "fontId": "manrope"
-            }
+          "style": {
+            "ref": "text.title"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "qualified pipeline in the first ninety days.",
             "paragraphs": [
               {
-                "text": "qualified pipeline in the first ninety days."
+                "id": "para-0052",
+                "text": "recommendation template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "bullet-0053",
+          "role": "bullet",
+          "slot": "bullets",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 46,
+              "w": 80,
+              "h": 44
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0054",
+                "text": "Compile semantic slots into node trees",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0055",
+                "text": "Resolve visual style from the v7 theme package",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
+              },
+              {
+                "id": "para-0056",
+                "text": "Render the shared DeckV7 preview path",
+                "list": {
+                  "kind": "bullet",
+                  "indent": 0
+                }
               }
             ]
           }
         }
-      ]
+      ],
+      "notes": "Recommendation preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-pricing",
+      "type": "slide",
+      "template": {
+        "kind": "pricing",
+        "layoutId": "pricing-cards"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-0058",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0059",
+                "text": "pricing"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-005a",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005b",
+                "text": "pricing template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-005c",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 28,
+              "w": 84,
+              "h": 62
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-005d",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 32,
+                  "w": 20,
+                  "h": 8
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005e",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "metric-005f",
+              "role": "metric",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 42,
+                  "w": 20,
+                  "h": 12
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.metric"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005g",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "body-005h",
+              "role": "body",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 56,
+                  "w": 20,
+                  "h": 20
+                },
+                "zIndex": 3
+              },
+              "style": {
+                "ref": "text.body"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005i",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Pricing preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-team",
+      "type": "slide",
+      "template": {
+        "kind": "team",
+        "layoutId": "team-cards"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "kicker-005k",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 5
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.kicker"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005l",
+                "text": "team"
+              }
+            ]
+          }
+        },
+        {
+          "id": "title-005m",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 12,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005n",
+                "text": "team template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "card-005o",
+          "role": "card",
+          "slot": "cards",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 26,
+              "w": 84,
+              "h": 64
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "surface.card"
+          },
+          "type": "group",
+          "component": "cardGrid",
+          "children": [
+            {
+              "id": "label-005p",
+              "role": "label",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 50,
+                  "w": 22,
+                  "h": 7
+                },
+                "zIndex": 1
+              },
+              "style": {
+                "ref": "text.subtitle"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005q",
+                    "text": ""
+                  }
+                ]
+              }
+            },
+            {
+              "id": "caption-005r",
+              "role": "caption",
+              "layout": {
+                "frame": {
+                  "x": 10,
+                  "y": 58,
+                  "w": 22,
+                  "h": 6
+                },
+                "zIndex": 2
+              },
+              "style": {
+                "ref": "text.caption"
+              },
+              "type": "text",
+              "content": {
+                "paragraphs": [
+                  {
+                    "id": "para-005s",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Team preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-visual-focus",
+      "type": "slide",
+      "template": {
+        "kind": "visual-focus",
+        "layoutId": "visual-focus-hero"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "image-005u",
+          "role": "image",
+          "slot": "imagePrompt",
+          "layout": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 100,
+              "h": 82
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "media.hero"
+          },
+          "type": "image",
+          "content": {
+            "assetId": "placeholder",
+            "alt": "Generated placeholder"
+          }
+        },
+        {
+          "id": "title-005v",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 74,
+              "w": 84,
+              "h": 14
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005w",
+                "text": "visual focus template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "caption-005x",
+          "role": "caption",
+          "slot": "caption",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 88,
+              "w": 84,
+              "h": 6
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.caption"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-005y",
+                "text": "Generated from DeckV7, ThemePackageV1, and the semantic template registry."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Visual Focus preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
     },
     {
       "id": "pulse-closing",
-      "index": 5,
-      "title": "Go",
-      "notes": "",
-      "templateId": "title",
-      "designOverrides": {
-        "background": {
-          "type": "solid",
-          "color": {
-            "value": "#190a14"
-          }
-        }
+      "type": "slide",
+      "template": {
+        "kind": "closing",
+        "layoutId": "closing-default"
       },
-      "elements": [
+      "style": {
+        "ref": "slide.cover"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "airy",
+        "emphasis": "balanced"
+      },
+      "children": [
         {
-          "id": "s-v",
-          "kind": "shape",
-          "box": {
-            "x": 0,
-            "y": 0,
-            "w": 100,
-            "h": 100
+          "id": "kicker-0060",
+          "role": "kicker",
+          "slot": "kicker",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 28,
+              "w": 80,
+              "h": 6
+            },
+            "zIndex": 1
           },
-          "zIndex": 1,
-          "designOverrides": {
-            "fill": {
-              "value": "#190a14"
-            }
+          "style": {
+            "ref": "text.kicker"
           },
-          "locked": true,
-          "name": "Field",
+          "type": "text",
           "content": {
-            "kind": "shape",
-            "shape": "rect"
-          }
-        },
-        {
-          "id": "s-w",
-          "kind": "shape",
-          "opacity": 0.9,
-          "rotation": 8,
-          "box": {
-            "x": 55,
-            "y": 20,
-            "w": 55,
-            "h": 80
-          },
-          "zIndex": 2,
-          "designOverrides": {
-            "fill": {
-              "value": "#ec2d6f"
-            }
-          },
-          "locked": true,
-          "name": "Wedge",
-          "content": {
-            "kind": "shape",
-            "shape": "triangle"
-          }
-        },
-        {
-          "id": "s-x",
-          "kind": "shape",
-          "opacity": 0.9,
-          "box": {
-            "x": 12,
-            "y": 60,
-            "w": 20,
-            "h": 34
-          },
-          "zIndex": 3,
-          "designOverrides": {
-            "fill": {
-              "value": "#ff7a18"
-            }
-          },
-          "locked": true,
-          "name": "Orb",
-          "content": {
-            "kind": "shape",
-            "shape": "ellipse"
-          }
-        },
-        {
-          "id": "t-y",
-          "kind": "text",
-          "role": "title",
-          "box": {
-            "x": 9,
-            "y": 36,
-            "w": 60,
-            "h": 16
-          },
-          "zIndex": 10,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 10,
-              "bold": true,
-              "italic": false,
-              "align": "left",
-              "color": "#ffffff",
-              "fontId": "space-grotesk"
-            }
-          },
-          "content": {
-            "kind": "text",
-            "text": "Ready? Go.",
             "paragraphs": [
               {
-                "text": "Ready? Go."
+                "id": "para-0061",
+                "text": "closing"
               }
             ]
           }
         },
         {
-          "id": "t-z",
-          "kind": "text",
-          "role": "subtitle",
-          "box": {
-            "x": 9.5,
-            "y": 58,
-            "w": 50,
-            "h": 8
+          "id": "title-0062",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 35,
+              "w": 80,
+              "h": 18
+            },
+            "zIndex": 2
           },
-          "zIndex": 11,
-          "designOverrides": {
-            "textStyle": {
-              "fontSize": 3.2,
-              "bold": false,
-              "italic": false,
-              "align": "left",
-              "color": "#ffb3cd",
-              "fontId": "manrope"
-            }
+          "style": {
+            "ref": "text.title"
           },
+          "type": "text",
           "content": {
-            "kind": "text",
-            "text": "hello@pulse.co  ·  pulse.co",
             "paragraphs": [
               {
-                "text": "hello@pulse.co  ·  pulse.co"
+                "id": "para-0063",
+                "text": "closing template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "subtitle-0064",
+          "role": "subtitle",
+          "slot": "subtitle",
+          "layout": {
+            "frame": {
+              "x": 10,
+              "y": 56,
+              "w": 80,
+              "h": 10
+            },
+            "zIndex": 3
+          },
+          "style": {
+            "ref": "text.subtitle"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0065",
+                "text": "A native v7 semantic preview generated from slots."
               }
             ]
           }
         }
-      ]
+      ],
+      "notes": "Closing preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
+    },
+    {
+      "id": "pulse-appendix",
+      "type": "slide",
+      "template": {
+        "kind": "appendix",
+        "layoutId": "appendix-text"
+      },
+      "style": {
+        "ref": "slide.content"
+      },
+      "controls": {
+        "tone": "neutral",
+        "density": "normal",
+        "emphasis": "balanced"
+      },
+      "children": [
+        {
+          "id": "title-0067",
+          "role": "title",
+          "slot": "title",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 6,
+              "w": 84,
+              "h": 12
+            },
+            "zIndex": 1
+          },
+          "style": {
+            "ref": "text.title"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-0068",
+                "text": "appendix template"
+              }
+            ]
+          }
+        },
+        {
+          "id": "body-0069",
+          "role": "body",
+          "slot": "body",
+          "layout": {
+            "frame": {
+              "x": 8,
+              "y": 22,
+              "w": 84,
+              "h": 70
+            },
+            "zIndex": 2
+          },
+          "style": {
+            "ref": "text.body"
+          },
+          "type": "text",
+          "content": {
+            "paragraphs": [
+              {
+                "id": "para-006a",
+                "text": "Semantic slides keep layout, content, and theme styling separate so previews exercise the same path as the editor."
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Appendix preview generated from the native v7 template registry.",
+      "props": {
+        "decoration": "default",
+        "chrome": "default"
+      }
     }
-  ]
+  ],
+  "metadata": {
+    "extra": {
+      "source": "prototypes/slide-themes/theme-packages-v7.ts"
+    }
+  }
 }

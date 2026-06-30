@@ -2,10 +2,8 @@
  * Deck-source extraction (issue #263).
  *
  * Turns a serialised Lexical document (`contentJson`) plus the document's
- * visuals into the exact `{ outline, visualInventory }` shape that
- * {@link generateDeck} consumes. The route handler can therefore do:
- *
- *   generateDeck(buildDeckSource(contentJson, visuals), { complete });
+ * visuals into the exact `{ outline, visualInventory }` shape consumed by the
+ * package-template deck generator.
  *
  * Responsibilities:
  *   - reuse the pure {@link collectDocumentBlocks} walk (and the rich-text runs
@@ -21,10 +19,10 @@
  * Like its siblings under `@/lib/ai`, this module is intentionally free of any
  * network, DOM, or React dependencies so it can be unit tested under
  * `node --test`. It never throws on malformed/empty input — the empty-outline
- * concern belongs to {@link generateDeck}.
+ * concern belongs to the deck generation route.
  */
 
-import type { GenerateDeckInput } from "@/lib/ai/generate-deck";
+import type { DeckVisualInventoryItem } from "@/lib/ai/deck-generation-options";
 import {
   AI_GENERATION_INPUT_MAX_CHARS as MAX_INPUT_CHARS,
   AI_VISUAL_INVENTORY_MAX_ITEMS,
@@ -37,19 +35,14 @@ import {
 } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 
-/** One entry in the inventory the model may reference (mirrors generateDeck). */
-type DeckVisualInventoryItem = GenerateDeckInput["visualInventory"][number];
-
 /**
- * The structured source `generateDeck` consumes, plus truncation metadata so
+ * The structured source the package-template generator consumes, plus truncation metadata so
  * callers (the route, the UI) can notify the user when the document outline was
- * deterministically trimmed to fit {@link MAX_INPUT_CHARS}. `generateDeck`
- * itself only reads `outline` + `visualInventory` and ignores the rest.
+ * deterministically trimmed to fit {@link MAX_INPUT_CHARS}.
  */
-export interface DeckGenerationSource extends Pick<
-  GenerateDeckInput,
-  "outline" | "visualInventory"
-> {
+export interface DeckGenerationSource {
+  outline: string;
+  visualInventory: DeckVisualInventoryItem[];
   /** True when the outline was trimmed to fit the input budget. */
   truncated: boolean;
   /** Length (chars) of the full serialised outline before truncation. */

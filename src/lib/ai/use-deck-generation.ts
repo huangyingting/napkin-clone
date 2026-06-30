@@ -23,8 +23,9 @@ import {
   type DeckGenerateResult,
   type DeckGenerationOptions,
 } from "@/lib/ai/deck-generation-request";
+import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 import { useGenerationStatus } from "@/lib/ai/use-generation-status";
-import type { Deck } from "@/lib/presentation/deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import {
   bucketBytes,
   bucketDurationMs,
@@ -46,6 +47,9 @@ export interface UseDeckGenerationResult {
   generate: (
     contentJson: unknown,
     options?: DeckGenerationOptions,
+    request?: {
+      themePackageId?: ThemePackageId;
+    },
   ) => Promise<DeckGenerateResult>;
   /** Current lifecycle status. */
   status: DeckGenerationStatus;
@@ -55,8 +59,8 @@ export interface UseDeckGenerationResult {
   showEta: boolean;
   /** ETA hint string, e.g. "~10–15 s". */
   etaHint: string;
-  /** The generated deck on success, else `null`. */
-  deck: Deck | null;
+  /** The generated v7 deck on success, else `null`. */
+  deckV7: DeckV7 | null;
   /** Whether the source outline was trimmed to fit the input budget. */
   truncated: boolean;
   /** The classified error on failure, else `null`. */
@@ -73,7 +77,7 @@ export interface UseDeckGenerationResult {
  */
 export function useDeckGeneration(): UseDeckGenerationResult {
   const [status, setStatus] = useState<DeckGenerationStatus>("idle");
-  const [deck, setDeck] = useState<Deck | null>(null);
+  const [deckV7, setDeckV7] = useState<DeckV7 | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState<DeckGenerateError | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -86,7 +90,7 @@ export function useDeckGeneration(): UseDeckGenerationResult {
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus("idle");
-    setDeck(null);
+    setDeckV7(null);
     setTruncated(false);
     setError(null);
   }, []);
@@ -95,13 +99,16 @@ export function useDeckGeneration(): UseDeckGenerationResult {
     async (
       contentJson: unknown,
       options: DeckGenerationOptions = {},
+      request?: {
+        themePackageId?: ThemePackageId;
+      },
     ): Promise<DeckGenerateResult> => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
       setStatus("loading");
-      setDeck(null);
+      setDeckV7(null);
       setTruncated(false);
       setError(null);
       const serializedLength =
@@ -121,6 +128,7 @@ export function useDeckGeneration(): UseDeckGenerationResult {
         options,
         fetch,
         controller.signal,
+        request,
       );
 
       // A newer request (or a reset) superseded this one — ignore the result.
@@ -134,10 +142,10 @@ export function useDeckGeneration(): UseDeckGenerationResult {
           durationBucket: bucketDurationMs(performance.now() - startedAt),
           inputSizeBucket,
           optionLength: options.length ?? "default",
-          slideCount: result.deck.slides.length,
+          slideCount: result.deckV7.slides.length,
           truncated: result.truncated,
         });
-        setDeck(result.deck);
+        setDeckV7(result.deckV7);
         setTruncated(result.truncated);
         setStatus("success");
       } else {
@@ -161,7 +169,7 @@ export function useDeckGeneration(): UseDeckGenerationResult {
     stage: stageLabel,
     showEta,
     etaHint,
-    deck,
+    deckV7,
     truncated,
     error,
     reset,

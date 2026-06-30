@@ -109,8 +109,8 @@ New slides carry semantic role identity up front:
   `bullet`, and `visual`.
 - The `+ Add` templates (`slide-templates.ts`) stamp materialized elements with
   roles such as `title`, `subtitle`, `body`, `caption`, and `visual`.
-- Generated deck normalization (`deck-layout-assign.ts`) preserves or repairs
-  element-first slides without adding an application-layer enrichment pass.
+- Package-template materialization (`package-template-materializer.ts`) fills
+  semantic template slots into role-bearing theme template elements.
 
 The role vocabulary lives in
 `src/lib/presentation/presentation-role-primitives.ts`, and the element field is

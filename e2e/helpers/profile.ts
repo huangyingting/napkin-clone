@@ -5,7 +5,7 @@ import {
   fixturePngBuffer,
 } from "@/test/builders/e2e-profile";
 
-export { E2E_PROFILE_FIXTURE, fixtureAssetChecksum, fixturePngBuffer };
+export { E2E_PROFILE_FIXTURE, fixturePngBuffer };
 
 /**
  * Deterministic E2E profile fixture (Epic #517, issue #518).
@@ -58,8 +58,8 @@ export function profilePresentPath(): string {
   return `/present/${profileShareSegment()}`;
 }
 
-/** Public embed path for the seeded deck. */
-export function profileEmbedPath(): string {
+/** Public embed-mode path for the seeded deck. */
+export function profilePresentEmbedPath(): string {
   return `/embed/${profileShareSegment()}`;
 }
 

@@ -105,7 +105,59 @@ test("parseGenerateDeckPayload builds a payload with outline and options", () =>
   assert.equal(result.ok, true);
   assert.equal(result.payload.options.length, "medium");
   assert.equal(result.payload.options.tone, "direct");
+  assert.equal(result.payload.generationMode, "package-template");
+  assert.equal(result.payload.themePackageId, "clarity");
   assert.match(result.payload.outline, /Roadmap/);
+});
+
+test("parseGenerateDeckPayload accepts package-template request fields", () => {
+  const result = parseGenerateDeckPayload({
+    contentJson: buildContentJson([
+      buildParagraphNode([buildTextNode("Roadmap")]),
+    ]),
+    generationMode: "package-template",
+    themePackageId: "noir",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.payload.generationMode, "package-template");
+  assert.equal(result.payload.themePackageId, "noir");
+});
+
+test("parseGenerateDeckPayload defaults package-template mode to clarity package", () => {
+  const result = parseGenerateDeckPayload({
+    contentJson: buildContentJson([
+      buildParagraphNode([buildTextNode("Roadmap")]),
+    ]),
+    generationMode: "package-template",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.payload.themePackageId, "clarity");
+});
+
+test("parseGenerateDeckPayload rejects invalid package-template request fields", () => {
+  assert.deepEqual(
+    parseGenerateDeckPayload({
+      contentJson: buildContentJson([
+        buildParagraphNode([buildTextNode("Roadmap")]),
+      ]),
+      generationMode: "magic",
+    }),
+    {
+      ok: false,
+      status: 400,
+      message: '`generationMode` must be "package-template".',
+    },
+  );
+  assert.deepEqual(
+    parseGenerateDeckPayload({
+      contentJson: buildContentJson([
+        buildParagraphNode([buildTextNode("Roadmap")]),
+      ]),
+      generationMode: "package-template",
+      themePackageId: "unknown",
+    }),
+    { ok: false, status: 400, message: "`themePackageId` is invalid." },
+  );
 });
 
 test("visualsFromContent indexes visual blocks by id", () => {

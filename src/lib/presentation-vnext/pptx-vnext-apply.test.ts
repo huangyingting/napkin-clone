@@ -1,0 +1,1073 @@
+/**
+ * Unit tests for the v7 PPTX applier.
+ *
+ * Pure helpers (`textContentToPptxRuns`, `vnextShapeToName`) are tested
+ * directly. Op appliers are tested via a minimal mock slide that records calls
+ * so PptxGenJS is not needed at test time.
+ */
+
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  textContentToPptxRuns,
+  vnextShapeToName,
+  applyVnextTextOp,
+  applyVnextShapeOp,
+  applyVnextTableOp,
+  applyVnextConnectorOp,
+  applyVnextImageOp,
+  applyVnextVisualOp,
+  resolveExportSpecAssetSources,
+  applyVnextPptxSpec,
+  exportDeckV7AsPPTX,
+} from "@/lib/presentation-vnext/pptx-vnext-apply";
+import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
+import type {
+  VnextPptxTextOp,
+  VnextPptxShapeOp,
+  VnextPptxTableOp,
+  VnextPptxConnectorOp,
+  VnextPptxImageOp,
+  VnextPptxVisualOp,
+} from "@/lib/presentation-vnext/pptx-export-adapter";
+import type {
+  ConnectorEndpoint,
+  TextContent,
+  TableContent,
+} from "@/lib/presentation-vnext/schema";
+import {
+  buildCoverSlide,
+  buildDeckV7,
+  buildImageAsset,
+  buildMinimalThemePackage,
+} from "@/test/builders/deck-v7";
+
+// ---------------------------------------------------------------------------
+// Mock slide target
+// ---------------------------------------------------------------------------
+
+type SlideCall =
+  | { kind: "addText"; args: unknown[] }
+  | { kind: "addShape"; args: unknown[] }
+  | { kind: "addImage"; args: unknown[] }
+  | { kind: "addTable"; args: unknown[] }
+  | { kind: "addNotes"; args: unknown[] };
+
+function makeMockSlide() {
+  const calls: SlideCall[] = [];
+  const slide = {
+    addText: (...args: unknown[]) => {
+      calls.push({ kind: "addText", args });
+    },
+    addShape: (...args: unknown[]) => {
+      calls.push({ kind: "addShape", args });
+    },
+    addImage: (...args: unknown[]) => {
+      calls.push({ kind: "addImage", args });
+    },
+    addTable: (...args: unknown[]) => {
+      calls.push({ kind: "addTable", args });
+    },
+    addNotes: (...args: unknown[]) => {
+      calls.push({ kind: "addNotes", args });
+    },
+    background: null as unknown,
+  };
+  return { slide, calls };
+}
+
+// ---------------------------------------------------------------------------
+// resolveExportSpecAssetSources
+// ---------------------------------------------------------------------------
+
+describe("resolveExportSpecAssetSources", () => {
+  test("replaces image operation asset ids with DeckV7 image src values", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {
+          "img-1": buildImageAsset("img-1", {
+            src: "https://example.com/image.png",
+          }),
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "image",
+              id: "image-1",
+              assetId: "img-1",
+              frame: { x: 0, y: 0, w: 100, h: 100 },
+              style: {},
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const op = resolved.slides[0].operations[0];
+    assert.equal(op.type, "image");
+    if (op.type === "image") {
+      assert.equal(op.assetId, "https://example.com/image.png");
+    }
+  });
+
+  test("turns visual registry asset ids into deterministic visual placeholders when no image source exists", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {},
+        visuals: {
+          "visual-asset-1": {
+            id: "visual-asset-1",
+            visualId: "doc-visual-1",
+            alt: "Registry visual",
+          },
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "visual-asset-1",
+              frame: { x: 0, y: 0, w: 100, h: 100 },
+              style: {},
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const op = resolved.slides[0].operations[0];
+    assert.equal(op.type, "visual");
+    if (op.type === "visual") {
+      assert.equal(op.assetId, undefined);
+      assert.equal(op.visualId, "doc-visual-1");
+      assert.equal(op.alt, "Registry visual");
+    }
+  });
+
+  test("replaces visual operation asset ids with DeckV7 file src values", () => {
+    const deck = buildDeckV7([], {
+      assets: {
+        images: {},
+        visuals: {
+          "visual-asset": { id: "visual-asset", visualId: "chart-1" },
+        },
+        files: {
+          "visual-asset": {
+            id: "visual-asset",
+            src: "data:image/png;base64,abc123",
+            mimeType: "image/png",
+          },
+        },
+      },
+    });
+    const resolved = resolveExportSpecAssetSources(deck, {
+      canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "slide-1",
+          background: { type: "background" },
+          operations: [
+            {
+              type: "visual",
+              id: "visual-1",
+              assetId: "visual-asset",
+              frame: { x: 0, y: 0, w: 100, h: 100 },
+              style: {},
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const op = resolved.slides[0].operations[0];
+    assert.equal(op.type, "visual");
+    if (op.type === "visual") {
+      assert.equal(op.assetId, "data:image/png;base64,abc123");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// textContentToPptxRuns
+// ---------------------------------------------------------------------------
+
+describe("textContentToPptxRuns", () => {
+  test("single paragraph without runs produces one run with the paragraph text", () => {
+    const content: TextContent = {
+      paragraphs: [{ id: "p1", text: "Hello world" }],
+    };
+    const runs = textContentToPptxRuns(content);
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0].text, "Hello world");
+    assert.equal(runs[0].options?.breakLine, undefined);
+  });
+
+  test("two paragraphs produce a breakLine after the first", () => {
+    const content: TextContent = {
+      paragraphs: [
+        { id: "p1", text: "Line one" },
+        { id: "p2", text: "Line two" },
+      ],
+    };
+    const runs = textContentToPptxRuns(content);
+    assert.equal(runs.length, 2);
+    assert.equal(runs[0].text, "Line one");
+    assert.equal(runs[0].options?.breakLine, true);
+    assert.equal(runs[1].text, "Line two");
+    assert.equal(runs[1].options?.breakLine, undefined);
+  });
+
+  test("paragraph with runs expands each run separately", () => {
+    const content: TextContent = {
+      paragraphs: [
+        {
+          id: "p1",
+          text: "plain bold",
+          runs: [{ text: "plain " }, { text: "bold", bold: true }],
+        },
+      ],
+    };
+    const runs = textContentToPptxRuns(content);
+    assert.equal(runs.length, 2);
+    assert.equal(runs[0].text, "plain ");
+    assert.equal(runs[0].options?.bold, undefined);
+    assert.equal(runs[1].text, "bold");
+    assert.equal(runs[1].options?.bold, true);
+  });
+
+  test("bold, italic, underline, strikethrough flags are forwarded to run options", () => {
+    const content: TextContent = {
+      paragraphs: [
+        {
+          id: "p1",
+          text: "styled",
+          runs: [
+            {
+              text: "styled",
+              bold: true,
+              italic: true,
+              underline: true,
+              strikethrough: true,
+            },
+          ],
+        },
+      ],
+    };
+    const [run] = textContentToPptxRuns(content);
+    assert.equal(run.options?.bold, true);
+    assert.equal(run.options?.italic, true);
+    assert.deepEqual(run.options?.underline, { style: "sng" });
+    assert.equal(run.options?.strike, true);
+  });
+
+  test("localStyle color is stripped of # and uppercased", () => {
+    const content: TextContent = {
+      paragraphs: [
+        {
+          id: "p1",
+          text: "colored",
+          runs: [{ text: "colored", localStyle: { color: "#cc0011" } }],
+        },
+      ],
+    };
+    const [run] = textContentToPptxRuns(content);
+    assert.equal(run.options?.color, "CC0011");
+  });
+
+  test("localStyle fontSizePt is forwarded as fontSize", () => {
+    const content: TextContent = {
+      paragraphs: [
+        {
+          id: "p1",
+          text: "big",
+          runs: [{ text: "big", localStyle: { fontSizePt: 32 } }],
+        },
+      ],
+    };
+    const [run] = textContentToPptxRuns(content);
+    assert.equal(run.options?.fontSize, 32);
+  });
+
+  test("hyperlink run sets hyperlink option", () => {
+    const content: TextContent = {
+      paragraphs: [
+        {
+          id: "p1",
+          text: "link",
+          runs: [{ text: "link", link: "https://example.com" }],
+        },
+      ],
+    };
+    const [run] = textContentToPptxRuns(content);
+    assert.deepEqual(run.options?.hyperlink, { url: "https://example.com" });
+  });
+
+  test("newline run text is replaced with empty string", () => {
+    const content: TextContent = {
+      paragraphs: [
+        {
+          id: "p1",
+          text: "\n",
+          runs: [{ text: "\n" }],
+        },
+        { id: "p2", text: "after" },
+      ],
+    };
+    const runs = textContentToPptxRuns(content);
+    assert.equal(runs[0].text, "");
+  });
+
+  test("empty paragraphs array returns empty runs", () => {
+    const content: TextContent = { paragraphs: [] };
+    const runs = textContentToPptxRuns(content);
+    assert.deepEqual(runs, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// vnextShapeToName
+// ---------------------------------------------------------------------------
+
+describe("vnextShapeToName", () => {
+  test("known shapes map to pptxgenjs names", () => {
+    assert.equal(vnextShapeToName("rect"), "rect");
+    assert.equal(vnextShapeToName("ellipse"), "ellipse");
+    assert.equal(vnextShapeToName("circle"), "ellipse");
+    assert.equal(vnextShapeToName("line"), "line");
+    assert.equal(vnextShapeToName("triangle"), "triangle");
+    assert.equal(vnextShapeToName("diamond"), "diamond");
+    assert.equal(vnextShapeToName("roundRect"), "roundRect");
+  });
+
+  test("unknown shape falls back to rect", () => {
+    assert.equal(vnextShapeToName("hexagon"), "rect");
+    assert.equal(vnextShapeToName(""), "rect");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextTextOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextTextOp", () => {
+  function makeTextOp(
+    overrides: Partial<VnextPptxTextOp> = {},
+  ): VnextPptxTextOp {
+    return {
+      type: "text",
+      id: "t1",
+      x: 1,
+      y: 0.5,
+      w: 8,
+      h: 1,
+      content: { paragraphs: [{ id: "p1", text: "Hello" }] },
+      textStyle: { color: "111111", fontSize: 18 },
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("calls addText on the mock slide", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(slide as never, makeTextOp());
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addText");
+  });
+
+  test("passes x, y, w, h dimensions", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(slide as never, makeTextOp({ x: 2, y: 1, w: 5, h: 2 }));
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.x, 2);
+    assert.equal(opts.y, 1);
+    assert.equal(opts.w, 5);
+    assert.equal(opts.h, 2);
+  });
+
+  test("color from textStyle is forwarded", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(
+      slide as never,
+      makeTextOp({ textStyle: { color: "FF0000" } }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.color, "FF0000");
+  });
+
+  test("rotation is mapped to rotate", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(slide as never, makeTextOp({ rotation: 45 }));
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.rotate, 45);
+  });
+
+  test("multi-paragraph content uses run array form", () => {
+    const { slide, calls } = makeMockSlide();
+    const op = makeTextOp({
+      content: {
+        paragraphs: [
+          { id: "p1", text: "First" },
+          { id: "p2", text: "Second" },
+        ],
+      },
+    });
+    applyVnextTextOp(slide as never, op);
+    const firstArg = calls[0].args[0];
+    assert.ok(
+      Array.isArray(firstArg),
+      "Expected run array for multi-paragraph content",
+    );
+    assert.equal((firstArg as PptxTextRun[]).length, 2);
+  });
+
+  test("complete text style forwards supported font and alignment options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(
+      slide as never,
+      makeTextOp({
+        textStyle: {
+          color: "0F172A",
+          fontSize: 20,
+          fontFace: "Arial",
+          bold: true,
+          italic: true,
+          underline: true,
+          align: "right",
+          valign: "bottom",
+        },
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.fontFace, "Arial");
+    assert.equal(opts.bold, true);
+    assert.equal(opts.italic, true);
+    assert.deepEqual(opts.underline, { style: "sng" });
+    assert.equal(opts.align, "right");
+    assert.equal(opts.valign, "bottom");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextShapeOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextShapeOp", () => {
+  function makeShapeOp(
+    overrides: Partial<VnextPptxShapeOp> = {},
+  ): VnextPptxShapeOp {
+    return {
+      type: "shape",
+      id: "s1",
+      shape: "rect",
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 2,
+      fill: "003399",
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("calls addShape on the mock slide", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(slide as never, makeShapeOp());
+    assert.ok(calls.some((c) => c.kind === "addShape"));
+  });
+
+  test("circle shape maps to ellipse", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(slide as never, makeShapeOp({ shape: "circle" }));
+    const shapeCall = calls.find((c) => c.kind === "addShape");
+    assert.equal(shapeCall?.args[0], "ellipse");
+  });
+
+  test("fill color is forwarded as fill.color", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(slide as never, makeShapeOp({ fill: "AABBCC" }));
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.fill, { color: "AABBCC" });
+  });
+
+  test("stroke is forwarded as line", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(
+      slide as never,
+      makeShapeOp({ stroke: { color: "000000", widthPt: 1 } }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.line, { color: "000000", width: 1 });
+  });
+
+  test("shape with text label adds a second addText call", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(
+      slide as never,
+      makeShapeOp({
+        text: { paragraphs: [{ id: "p1", text: "Label" }] },
+        textStyle: { fontSize: 14 },
+      }),
+    );
+    const textCalls = calls.filter((c) => c.kind === "addText");
+    assert.equal(textCalls.length, 1);
+    assert.equal(textCalls[0].args[0], "Label");
+  });
+
+  test("shape without text only calls addShape", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(slide as never, makeShapeOp({ text: undefined }));
+    assert.ok(calls.every((c) => c.kind === "addShape"));
+  });
+
+  test("shape rotation and label style options are forwarded", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(
+      slide as never,
+      makeShapeOp({
+        rotation: 22,
+        text: { paragraphs: [{ id: "p1", text: "Styled label" }] },
+        textStyle: { color: "334155", fontSize: 16, align: "center" },
+      }),
+    );
+    const shapeOpts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(shapeOpts.rotate, 22);
+    const textOpts = calls[1].args[1] as Record<string, unknown>;
+    assert.equal(textOpts.color, "334155");
+    assert.equal(textOpts.fontSize, 16);
+    assert.equal(textOpts.align, "center");
+    assert.equal(textOpts.valign, "middle");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextTableOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextTableOp", () => {
+  function makeTable(): TableContent {
+    return {
+      columns: [
+        { id: "c1", label: "Name" },
+        { id: "c2", label: "Value" },
+      ],
+      rows: [
+        { id: "r1", cells: [{ text: "Alpha" }, { text: "1" }] },
+        { id: "r2", cells: [{ text: "Beta" }, { text: "2" }] },
+      ],
+      header: true,
+    };
+  }
+
+  function makeTableOp(
+    overrides: Partial<VnextPptxTableOp> = {},
+  ): VnextPptxTableOp {
+    return {
+      type: "tableShape",
+      id: "tbl1",
+      x: 1,
+      y: 1,
+      w: 10,
+      h: 4,
+      table: makeTable(),
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("calls addTable on the mock slide", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(slide as never, makeTableOp());
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addTable");
+  });
+
+  test("header row uses column labels with bold", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(slide as never, makeTableOp());
+    const rows = calls[0].args[0] as Array<
+      Array<{ text: string; options?: Record<string, unknown> }>
+    >;
+    assert.equal(rows[0][0].text, "Name");
+    assert.equal(rows[0][1].text, "Value");
+    assert.equal(rows[0][0].options?.bold, true);
+  });
+
+  test("data rows are appended after header", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(slide as never, makeTableOp());
+    const rows = calls[0].args[0] as Array<Array<{ text: string }>>;
+    assert.equal(rows.length, 3); // 1 header + 2 data
+    assert.equal(rows[1][0].text, "Alpha");
+    assert.equal(rows[2][0].text, "Beta");
+  });
+
+  test("headerFill is applied to header cells", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(slide as never, makeTableOp({ headerFill: "003399" }));
+    const rows = calls[0].args[0] as Array<
+      Array<{ options?: Record<string, unknown> }>
+    >;
+    assert.deepEqual(rows[0][0].options?.fill, { color: "003399" });
+  });
+
+  test("rowFill is applied to data cells", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(slide as never, makeTableOp({ rowFill: "EEEEEE" }));
+    const rows = calls[0].args[0] as Array<
+      Array<{ options?: Record<string, unknown> }>
+    >;
+    assert.deepEqual(rows[1][0].options?.fill, { color: "EEEEEE" });
+  });
+
+  test("passes x, y, w, h to addTable options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(slide as never, makeTableOp({ x: 2, y: 3, w: 9, h: 5 }));
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.x, 2);
+    assert.equal(opts.y, 3);
+    assert.equal(opts.w, 9);
+    assert.equal(opts.h, 5);
+  });
+
+  test("table text style applies font options to header and data cells", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(
+      slide as never,
+      makeTableOp({ textStyle: { fontSize: 10, fontFace: "Arial" } }),
+    );
+    const rows = calls[0].args[0] as Array<
+      Array<{ options?: Record<string, unknown> }>
+    >;
+    assert.equal(rows[0][0].options?.fontSize, 10);
+    assert.equal(rows[0][0].options?.fontFace, "Arial");
+    assert.equal(rows[1][0].options?.fontSize, 10);
+    assert.equal(rows[1][0].options?.fontFace, "Arial");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextConnectorOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextConnectorOp", () => {
+  function makeConnectorOp(
+    overrides: Partial<VnextPptxConnectorOp> = {},
+  ): VnextPptxConnectorOp {
+    return {
+      type: "connector",
+      id: "con1",
+      from: { kind: "point", point: { x: 0, y: 50 } },
+      to: { kind: "point", point: { x: 100, y: 50 } },
+      x: 0,
+      y: 0,
+      w: 5,
+      h: 0,
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("calls addShape with line", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(slide as never, makeConnectorOp());
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addShape");
+    assert.equal(calls[0].args[0], "line");
+  });
+
+  test("stroke is forwarded as line options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({ stroke: { color: "FF0000", widthPt: 2 } }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.line, {
+      color: "FF0000",
+      width: 2,
+      dashType: "solid",
+    });
+  });
+
+  test("connector without stroke emits no line property", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({ stroke: undefined }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.line, undefined);
+  });
+
+  test("connector endpoints map local points to slide line dimensions", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({
+        x: 1,
+        y: 2,
+        w: 4,
+        h: 3,
+        from: { kind: "point", point: { x: 25, y: 10 } },
+        to: { kind: "point", point: { x: 75, y: 90 } },
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.x, 2);
+    assert.equal(opts.y, 2.3);
+    assert.equal(opts.w, 2);
+    assert.equal(opts.h, 2.4000000000000004);
+  });
+
+  test("connector forwards dash and arrowheads to line options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({
+        stroke: { color: "FF0000", widthPt: 2, dash: "dashed" },
+        startArrow: "filled",
+        endArrow: "arrow",
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.line, {
+      color: "FF0000",
+      width: 2,
+      dashType: "dash",
+      beginArrowType: "triangle",
+      endArrowType: "arrow",
+    });
+  });
+
+  test("elbow connector emits three line segments", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({ routing: "elbow" }),
+    );
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every((call) => call.kind === "addShape"));
+  });
+
+  test("node anchor endpoints map every anchor to connector frame points", () => {
+    const expected: Record<string, { x: number; y: number }> = {
+      top: { x: 3, y: 2 },
+      right: { x: 5, y: 5 },
+      bottom: { x: 3, y: 8 },
+      left: { x: 1, y: 5 },
+      center: { x: 3, y: 5 },
+    };
+
+    for (const [anchor, point] of Object.entries(expected)) {
+      const { slide, calls } = makeMockSlide();
+      applyVnextConnectorOp(
+        slide as never,
+        makeConnectorOp({
+          x: 1,
+          y: 2,
+          w: 4,
+          h: 6,
+          from: {
+            kind: "node",
+            nodeId: `node-${anchor}`,
+            anchor: anchor as Extract<
+              ConnectorEndpoint,
+              { kind: "node" }
+            >["anchor"],
+          },
+          to: { kind: "point", point: { x: 0, y: 0 } },
+        }),
+      );
+      const opts = calls[0].args[1] as Record<string, unknown>;
+      assert.equal(opts.x, point.x);
+      assert.equal(opts.y, point.y);
+    }
+  });
+
+  test("dotted connector and arrow variants map to pptx line options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({
+        stroke: { color: "334155", widthPt: 1.5, dash: "dotted" },
+        startArrow: "arrow",
+        endArrow: "filled",
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.line, {
+      color: "334155",
+      width: 1.5,
+      dashType: "sysDot",
+      beginArrowType: "arrow",
+      endArrowType: "triangle",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextImageOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextImageOp", () => {
+  function makeImageOp(
+    overrides: Partial<VnextPptxImageOp> = {},
+  ): VnextPptxImageOp {
+    return {
+      type: "image",
+      id: "img1",
+      assetId: "https://example.com/photo.png",
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("calls addImage with path source for non-data URI", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(slide as never, makeImageOp());
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addImage");
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.ok("path" in opts, "Expected path key for non-data URI");
+  });
+
+  test("calls addImage with data source for data URI", async () => {
+    const { slide, calls } = makeMockSlide();
+    const dataUri = "data:image/png;base64,abc123";
+    await applyVnextImageOp(slide as never, makeImageOp({ assetId: dataUri }));
+    assert.equal(calls.length, 1);
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.ok("data" in opts, "Expected data key for data URI");
+  });
+
+  test("skips addImage when assetId is empty", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(slide as never, makeImageOp({ assetId: "" }));
+    assert.equal(calls.length, 0, "No addImage call when assetId empty");
+  });
+
+  test("forwards alt text and rotation", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(
+      slide as never,
+      makeImageOp({ alt: "A picture", rotation: 30 }),
+    );
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.equal(opts.altText, "A picture");
+    assert.equal(opts.rotate, 30);
+  });
+
+  test("forwards crop as PPTX image sizing", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextImageOp(
+      slide as never,
+      makeImageOp({
+        crop: { top: 10, right: 20, bottom: 30, left: 5 },
+      }),
+    );
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.deepEqual(opts.sizing, {
+      type: "crop",
+      x: "5%",
+      y: "10%",
+      w: "75%",
+      h: "60%",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextVisualOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextVisualOp", () => {
+  function makeVisualOp(
+    overrides: Partial<VnextPptxVisualOp> = {},
+  ): VnextPptxVisualOp {
+    return {
+      type: "visual",
+      id: "visual1",
+      visualId: "doc-visual-1",
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      channelColors: {
+        primary: "#111111",
+        secondary: "#222222",
+        accent: "#ffcc00",
+        muted: "#aaaaaa",
+      },
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("renders a deterministic placeholder with channel colors", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(slide as never, makeVisualOp());
+    const shapeCalls = calls.filter((call) => call.kind === "addShape");
+    assert.ok(shapeCalls.length >= 4);
+    const firstBar = shapeCalls[1].args[1] as Record<string, unknown>;
+    assert.deepEqual(firstBar.fill, { color: "111111" });
+    assert.ok(calls.some((call) => call.kind === "addText"));
+  });
+
+  test("uses image export when a visual asset source is available", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({ assetId: "https://example.com/visual.png" }),
+    );
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addImage");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVnextVisualOp
+// ---------------------------------------------------------------------------
+
+describe("applyVnextVisualOp", () => {
+  function makeVisualOp(
+    overrides: Partial<VnextPptxVisualOp> = {},
+  ): VnextPptxVisualOp {
+    return {
+      type: "visual",
+      id: "vis1",
+      assetId: "data:image/png;base64,abc123",
+      visualId: "chart-1",
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      zIndex: 1,
+      ...overrides,
+    };
+  }
+
+  test("visual with a rendered asset is applied as an image", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(slide as never, makeVisualOp());
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].kind, "addImage");
+    const opts = calls[0].args[0] as Record<string, unknown>;
+    assert.ok("data" in opts);
+    assert.equal(opts.altText, "chart-1");
+  });
+
+  test("visual without a rendered asset applies a labeled placeholder", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({
+        assetId: undefined,
+        fallbackLabel: "Revenue chart unavailable",
+      }),
+    );
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].kind, "addShape");
+    assert.equal(calls[1].kind, "addText");
+    assert.equal(calls[1].args[0], "Revenue chart unavailable");
+  });
+
+  test("visual placeholder forwards style defaults and rotation to fallback nodes", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({
+        assetId: undefined,
+        visualId: undefined,
+        alt: "Chart fallback",
+        rotation: 18,
+        fill: "EEF2FF",
+        stroke: { color: "4338CA", widthPt: 2 },
+      }),
+    );
+    const shapeOpts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(shapeOpts.fill, { color: "EEF2FF" });
+    assert.deepEqual(shapeOpts.line, {
+      color: "4338CA",
+      width: 2,
+      dashType: "dash",
+    });
+    assert.equal(shapeOpts.rotate, 18);
+    assert.equal(calls[1].args[0], "Chart fallback");
+    const textOpts = calls[1].args[1] as Record<string, unknown>;
+    assert.equal(textOpts.rotate, 18);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser-style PPTX assembly
+// ---------------------------------------------------------------------------
+
+describe("exportDeckV7AsPPTX", () => {
+  test("assembles a pptx Blob for a resolved v7 deck with speaker notes", async () => {
+    const deck = buildDeckV7([
+      { ...buildCoverSlide(), notes: "Generated speaker notes" },
+    ]);
+    const blob = await exportDeckV7AsPPTX(deck, buildMinimalThemePackage());
+    assert.ok(blob);
+    assert.equal(
+      blob.type,
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    );
+    assert.ok(blob.size > 0);
+  });
+});
+
+describe("applyVnextPptxSpec", () => {
+  test("returns null when a malformed spec causes PPTX assembly to fail", async () => {
+    const blob = await applyVnextPptxSpec({
+      layout: "LAYOUT_CUSTOM",
+      slideW: 0,
+      slideH: 0,
+      diagnostics: [],
+      slides: [
+        {
+          id: "malformed-slide",
+          background: { type: "background", fill: "FFFFFF" },
+          ops: [
+            {
+              type: "image",
+              id: "missing-image-path",
+              assetId: "missing-local-image.png",
+              x: 0,
+              y: 0,
+              w: 1,
+              h: 1,
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+    assert.equal(blob, null);
+  });
+});

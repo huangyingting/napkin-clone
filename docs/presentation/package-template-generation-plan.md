@@ -40,9 +40,9 @@ templates within the current package.
 
 ## Existing Anchors
 
-- `src/lib/ai/generate-deck.ts` owns the current free-form AI deck pipeline.
-- `src/lib/ai/deck-prompt.ts` asks the model to return schema-v6 deck JSON.
-- `src/lib/ai/run-deck-generation.ts` is the pure route orchestration seam.
+- `src/lib/ai/run-package-template-deck-generation.ts` owns the current package-template AI deck pipeline.
+- `src/lib/ai/package-template-deck-prompt.ts` asks the model to return a slot-based package-template plan.
+- `src/lib/ai/package-template-deck-plan.ts` repairs package-template plans before materialization.
 - `src/app/api/generate-deck/parser.ts` parses `contentJson`, extracts blocks,
   visuals, outline, and current preferred built-in theme.
 - `src/components/editor/use-slide-editor-open.ts` owns the AI open, preview,
@@ -653,15 +653,9 @@ Tests:
 - Generated slides preserve package visual language across `clarity`, `noir`,
   and `terra`.
 
-### Phase 5: Route, Client Flow, Flags, and Fallback
+### Phase 5: Route and Client Flow
 
 Files and work items:
-
-- Add server config flag:
-
-```text
-AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED
-```
 
 - Extend the generate-deck request body:
 
@@ -670,19 +664,16 @@ AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED
   contentJson: unknown;
   options?: DeckGenerationOptions;
   themePackageId?: ThemePackageId;
-  generationMode?: "legacy" | "package-template";
 }
 ```
 
 - Update `src/app/api/generate-deck/parser.ts`.
   - Validate `themePackageId` against `isThemePackageId`.
-  - Default to `clarity` only for package-template mode when absent.
-  - Keep legacy behavior unchanged.
+  - Default to `clarity` when absent.
 - Update `src/app/api/generate-deck/route.ts`.
-  - If package-template mode and flag are enabled, run the new pipeline.
-  - On package-template failure, run legacy pipeline when fallback is enabled.
-  - Log content-safe telemetry: package id, selected kind counts, fallback
-    reason, table slide count, schema valid, and latency.
+  - Run the package-template pipeline.
+  - Log content-safe telemetry: package id, selected kind counts, table slide
+    count, schema valid, and latency.
 - Update `src/lib/ai/deck-generation-request.ts`.
   - Add optional package-template request fields and response metadata.
 - Update `src/components/editor/use-slide-editor-open.ts` and the open dialog
@@ -690,7 +681,6 @@ AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED
   - Resolve baseline deck before calling package-template generation so the
     client can send the active package id.
   - Keep current preview/diff apply path.
-  - If generation returns fallback legacy deck, preview still works.
 
 Important client sequencing change:
 
@@ -706,8 +696,7 @@ Package-template flow:
 Tests:
 
 - Request parser accepts valid package ids and rejects invalid ones.
-- Route uses new pipeline only when the new flag is enabled.
-- Route falls back to legacy generation on repair/materialization failure.
+- Route uses the package-template pipeline.
 - Client sends the active package id derived from the baseline deck.
 
 ### Phase 6: Editor Template Picker Integration
@@ -774,12 +763,8 @@ Assertions:
 2. Land taxonomy and metadata without changing AI generation behavior.
 3. Regenerate packages with semantic template ids and grouped metadata.
 4. Add materializer and deterministic unit tests.
-5. Add package-template AI pipeline behind
-   `AI_DECK_GEN_PACKAGE_TEMPLATES_ENABLED`.
-6. Enable internally with automatic legacy fallback.
-7. Compare telemetry and fixture outcomes against legacy generation.
-8. Make package-template generation the default once preview quality and
-   fallback rate meet acceptance thresholds.
+5. Add package-template AI pipeline as the deck generation path.
+6. Compare telemetry and fixture outcomes against deterministic derivation.
 
 ## Risks and Mitigations
 

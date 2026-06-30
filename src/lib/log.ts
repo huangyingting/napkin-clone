@@ -26,7 +26,7 @@ export const normalizeLogKey = redaction.normalizeLogKey;
 
 /** True when a context key should be redacted before logging. */
 export const isSensitiveKey = redaction.isSensitiveKey;
-export const sanitizeLogString = redaction.sanitizeLogString;
+const sanitizeLogString = redaction.sanitizeLogString;
 
 /* node:coverage ignore next -- covered through buildErrorLog/buildInfoLog; tsx maps the CJS alias as uncovered. */
 const redactContext = redaction.redactContext;

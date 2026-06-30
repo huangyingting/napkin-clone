@@ -1,0 +1,154 @@
+"use client";
+
+/**
+ * FilmstripSlide — a single slide cell in the bottom filmstrip.
+ *
+ * Shows a scaled slide thumbnail, a slide number label, and an
+ * action overlay (move ↑/↓, duplicate, delete) on the active slide.
+ */
+
+import { type JSX } from "react";
+import { Copy, Trash2 } from "lucide-react";
+
+import type { ResolvedSlideRenderTree } from "@/lib/presentation-vnext/render-tree";
+import type { CanvasSpec } from "@/lib/presentation-vnext/types";
+import { SlideCanvasVNext } from "../slide-canvas";
+import { cx, FOCUS_RING } from "@/components/ui/tokens";
+
+export interface FilmstripSlideProps {
+  slideTree: ResolvedSlideRenderTree;
+  canvas: CanvasSpec;
+  index: number;
+  isActive: boolean;
+  slideId: string;
+  totalSlides: number;
+  isDragging?: boolean;
+  isInteractive?: boolean;
+  assetResolver?: (id: string) => string | undefined;
+  onSelect: (index: number) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onPointerDown: (
+    event: React.PointerEvent<HTMLLIElement>,
+    slideId: string,
+    index: number,
+  ) => void;
+}
+
+export function FilmstripSlide({
+  slideTree,
+  canvas,
+  index,
+  isActive,
+  slideId,
+  totalSlides,
+  isDragging = false,
+  isInteractive = true,
+  assetResolver,
+  onSelect,
+  onDuplicate,
+  onDelete,
+  onPointerDown,
+}: FilmstripSlideProps): JSX.Element {
+  const canvasWidth = canvas.width > 0 ? canvas.width : 16;
+  const canvasHeight = canvas.height > 0 ? canvas.height : 9;
+  const thumbnailAspectRatio = `${canvasWidth} / ${canvasHeight}`;
+  const thumbnailWidthPx = Math.max(
+    48,
+    Math.min(128, (72 * canvasWidth) / canvasHeight),
+  );
+
+  return (
+    <li
+      role="option"
+      aria-selected={isActive}
+      aria-label={`Slide ${index + 1}`}
+      data-slide-index={index}
+      onPointerDown={(e) => onPointerDown(e, slideId, index)}
+      className={cx(
+        "group relative grid h-[72px] shrink-0 cursor-pointer select-none place-items-center transition-[opacity,transform] duration-150 ease-out",
+        isDragging && "scale-[0.98] opacity-40",
+      )}
+      style={{ width: thumbnailWidthPx }}
+    >
+      <div
+        data-thumbnail-frame="true"
+        className="relative h-full w-full"
+        style={{
+          aspectRatio: thumbnailAspectRatio,
+        }}
+      >
+        {/* Thumbnail */}
+        <button
+          type="button"
+          aria-label={`Go to slide ${index + 1}`}
+          aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Delete Backspace"
+          disabled={!isInteractive}
+          tabIndex={isInteractive ? 0 : -1}
+          onClick={() => onSelect(index)}
+          className={cx(
+            "block h-full w-full rounded-ds-sm text-left transition-transform duration-150 ease-out",
+            isDragging ? "cursor-grabbing" : "cursor-grab",
+            FOCUS_RING,
+          )}
+        >
+          <span
+            className={cx(
+              "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm transition-shadow duration-150 ease-out",
+              isActive
+                ? "ring-2 ring-ds-accent"
+                : "ring-0 ring-ds-border-subtle group-hover:ring-1",
+            )}
+          >
+            <SlideCanvasVNext
+              slide={slideTree}
+              canvas={canvas}
+              assetResolver={assetResolver}
+              preview
+            />
+            <span className="absolute bottom-1 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-1.5 text-[11px] font-bold tabular-nums text-ds-text-on-accent shadow-sm">
+              {index + 1}
+            </span>
+          </span>
+        </button>
+
+        {/* Action overlay — shown on hover or keyboard focus */}
+        <div
+          className="tiq-coarse-actions absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            aria-label={`Duplicate slide ${index + 1}`}
+            disabled={!isInteractive}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className={cx(
+              "tiq-touch-target flex h-6 w-6 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted shadow-sm backdrop-blur-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40",
+              FOCUS_RING,
+            )}
+          >
+            <Copy size={13} aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label={`Delete slide ${index + 1}`}
+            disabled={!isInteractive || totalSlides <= 1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className={cx(
+              "tiq-touch-target flex h-6 w-6 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted shadow-sm backdrop-blur-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40",
+              FOCUS_RING,
+            )}
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}

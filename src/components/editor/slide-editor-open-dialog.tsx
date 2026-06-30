@@ -33,7 +33,8 @@ import {
   useDeckGeneration,
   type DeckGenerationOptions,
 } from "@/lib/ai/use-deck-generation";
-import type { Deck } from "@/lib/presentation/deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 
 type DeckLength = NonNullable<DeckGenerationOptions["length"]>;
 
@@ -48,6 +49,8 @@ const FIELD_CLASS = `h-8 w-full rounded-ds-md border border-ds-border-subtle bg-
 export interface SlideEditorOpenDialogProps {
   /** Serialised Lexical document state captured when the chooser opened. */
   contentJson: string;
+  /** Active theme package resolved from the deterministic baseline. */
+  themePackageId: ThemePackageId;
   /**
    * True when the document is genuinely empty (issue #280): the AI generate
    * option is replaced with a friendly "add content first" message, while the
@@ -55,13 +58,11 @@ export interface SlideEditorOpenDialogProps {
    */
   isEmptyDocument?: boolean;
   /**
-   * Hand a successfully generated deck to the parent (it owns how it opens —
+   * Hand a successfully generated DeckV7 to the parent (it owns how it opens —
    * issue #269 routes this through a preview/diff before opening the editor).
-   * Includes the `truncated` flag and the `options` used so the preview can
-   * surface a truncation notice and re-invoke generation on Regenerate.
    */
   onApply: (result: {
-    deck: Deck;
+    deckV7: DeckV7;
     truncated: boolean;
     options: DeckGenerationOptions;
   }) => void;
@@ -73,6 +74,7 @@ export interface SlideEditorOpenDialogProps {
 
 export function SlideEditorOpenDialog({
   contentJson,
+  themePackageId,
   isEmptyDocument = false,
   onApply,
   onDerive,
@@ -98,12 +100,14 @@ export function SlideEditorOpenDialog({
 
   const handleGenerate = async () => {
     const opts: DeckGenerationOptions = { length, tone, audience };
-    const result = await generate(contentJson, opts);
+    const result = await generate(contentJson, opts, {
+      themePackageId,
+    });
     // On success hand the proposal (plus truncation + options) to the parent,
     // which presents the preview/diff (issue #269).
     if (result.ok) {
       onApply({
-        deck: result.deck,
+        deckV7: result.deckV7,
         truncated: result.truncated,
         options: opts,
       });

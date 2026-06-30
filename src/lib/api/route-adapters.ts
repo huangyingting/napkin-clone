@@ -18,9 +18,7 @@ export function isPlainObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function requestContentLength(request: {
-  headers?: Headers;
-}): number | null {
+function requestContentLength(request: { headers?: Headers }): number | null {
   const raw = request.headers?.get("content-length")?.trim();
   if (!raw) return null;
   const parsed = Number.parseInt(raw, 10);

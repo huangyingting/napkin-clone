@@ -1,5 +1,3 @@
-export { documentAccessOr } from "@/lib/access-query";
-
 /**
  * Default cap on the number of documents returned by unbounded list queries
  * (the dashboard's personal/workspace lists and a workspace's document list).

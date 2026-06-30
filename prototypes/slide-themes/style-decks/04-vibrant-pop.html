@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>04 · Vibrant Pop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&family=DM+Sans:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f5e500;
+        --ink: #0b0b0b;
+        --red: #ff2d2d;
+        --blue: #1f3aff;
+        --cream: #fdfaf0;
+        --surf: #fff;
+        --mut: #6b6b5a;
+        --bg: "Bricolage Grotesque", sans-serif;
+        --ds: "DM Sans", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #1a1a14;
+        font-family: var(--ds);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+      }
+      .slide {
+        width: 1280px;
+        height: 720px;
+        background: #f5e500;
+        color: #0b0b0b;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+      .pad {
+        position: absolute;
+        inset: 0;
+        padding: 56px 70px;
+        display: flex;
+        flex-direction: column;
+      }
+      .z {
+        position: relative;
+        z-index: 3;
+      }
+      .kind {
+        position: absolute;
+        top: 24px;
+        left: 46px;
+        font: 700 10px var(--ds);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: #0b0b0b;
+        z-index: 4;
+      }
+      .num {
+        position: absolute;
+        bottom: 24px;
+        right: 46px;
+        font: 800 16px var(--bg);
+        color: #0b0b0b;
+        z-index: 4;
+      }
+      h1 {
+        font: 800 124px/0.86 var(--bg);
+        letter-spacing: -0.03em;
+      }
+      h2 {
+        font: 800 56px/0.96 var(--bg);
+      }
+      h3 {
+        font: 700 24px var(--bg);
+      }
+      .tag {
+        font: 700 12px var(--ds);
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+      }
+      p {
+        font: 400 17px/1.55 var(--ds);
+        color: #3a3a30;
+        max-width: 56ch;
+      }
+      .sm {
+        font-size: 13px;
+      }
+      .row {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .bt {
+        justify-content: space-between;
+      }
+      .cn {
+        justify-content: center;
+      }
+      .ac {
+        align-items: center;
+      }
+      .g {
+        gap: 22px;
+      }
+      .fill {
+        flex: 1;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .g4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+      .box {
+        background: var(--surf);
+        border: 3px solid #0b0b0b;
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 6px 6px 0 #0b0b0b;
+      }
+      .red {
+        background: var(--red);
+        color: #fff;
+      }
+      .blue {
+        background: var(--blue);
+        color: #fff;
+      }
+      .bk {
+        background: #0b0b0b;
+        color: var(--bg);
+      }
+      .stat {
+        font: 800 76px/1 var(--bg);
+      }
+      .pill {
+        display: inline-flex;
+        padding: 7px 18px;
+        background: #0b0b0b;
+        color: var(--bg);
+        border-radius: 30px;
+        font: 700 11px var(--ds);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .bl {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        position: absolute;
+      }
+      .zig {
+        position: absolute;
+        width: 160px;
+        height: 30px;
+        background: repeating-linear-gradient(
+          90deg,
+          var(--red) 0 16px,
+          transparent 16px 32px
+        );
+      }
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+        font: 600 15px var(--ds);
+      }
+      th {
+        text-align: left;
+        padding: 10px;
+        font: 700 11px var(--ds);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      td {
+        padding: 14px;
+        background: #fff;
+        border-top: 3px solid #0b0b0b;
+        border-bottom: 3px solid #0b0b0b;
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 8px 0 8px 28px;
+        position: relative;
+        font: 600 17px var(--ds);
+      }
+      li:before {
+        content: "★";
+        position: absolute;
+        left: 0;
+        color: var(--red);
+      }
+      .ph {
+        background: linear-gradient(135deg, #1f3aff, #ff2d2d);
+        border: 3px solid #0b0b0b;
+        border-radius: 18px;
+      }
+      .arr {
+        font: 800 28px var(--bg);
+        color: var(--red);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <span
+        class="bl"
+        style="background: var(--red); right: 80px; top: 80px"
+      ></span
+      ><span
+        class="bl"
+        style="
+          background: var(--blue);
+          right: 200px;
+          top: 160px;
+          width: 70px;
+          height: 70px;
+        "
+      ></span>
+      <div class="kind">Cover</div>
+      <div class="pad z">
+        <div class="row bt ac">
+          <span class="pill">Borcelle Studio</span
+          ><span class="pill">2026</span>
+        </div>
+        <div class="fill col" style="justify-content: center">
+          <h2 style="color: var(--red)">CREATIVE</h2>
+          <h1>BRIEF</h1>
+        </div>
+        <div class="row bt ac">
+          <p style="max-width: 32ch">
+            A loud, playful proposal for a brand that loves color.
+          </p>
+          <span class="pill">Avery Davis</span>
+        </div>
+      </div>
+      <div class="num">01</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Agenda</div>
+      <div class="pad z g">
+        <h2>AGENDA</h2>
+        <div class="g2 fill">
+          <div class="box row g ac">
+            <span class="stat red" style="color: var(--red)">01</span>
+            <h3>The vibe</h3>
+          </div>
+          <div class="box blue row g ac">
+            <span class="stat" style="color: #fff">02</span>
+            <h3 style="color: #fff">The work</h3>
+          </div>
+          <div class="box row g ac">
+            <span class="stat" style="color: var(--blue)">03</span>
+            <h3>The data</h3>
+          </div>
+          <div class="box red row g ac">
+            <span class="stat" style="color: #fff">04</span>
+            <h3 style="color: #fff">The ask</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">02</div>
+    </section>
+
+    <section class="slide red">
+      <span
+        class="bl"
+        style="
+          background: var(--bg);
+          left: -40px;
+          bottom: -40px;
+          width: 200px;
+          height: 200px;
+        "
+      ></span>
+      <div class="kind" style="color: #fff">Section</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="pill" style="background: #fff; color: var(--red)"
+          >Part 01</span
+        >
+        <h1 style="color: #fff">The Vibe</h1>
+      </div>
+      <div class="num" style="color: #fff">03</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Executive Summary</div>
+      <div class="pad z g">
+        <h2>SUMMARY</h2>
+        <div class="g3">
+          <div class="box">
+            <span class="pill">Goal</span>
+            <h3 style="margin-top: 10px">Be unmissable</h3>
+          </div>
+          <div class="box red">
+            <span class="pill" style="background: #fff; color: var(--red)"
+              >Reach</span
+            >
+            <h3 style="margin-top: 10px; color: #fff">5M views</h3>
+          </div>
+          <div class="box blue">
+            <span class="pill" style="background: #fff; color: var(--blue)"
+              >Lift</span
+            >
+            <h3 style="margin-top: 10px; color: #fff">+60%</h3>
+          </div>
+        </div>
+        <p>Color is the strategy. Big shapes, bigger type, zero apology.</p>
+      </div>
+      <div class="num">04</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Content</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="pill">Overview</span>
+          <h2 style="margin: 14px 0">What we<br />bring</h2>
+          <ul>
+            <li>Identity</li>
+            <li>Motion</li>
+            <li>Web & social</li>
+            <li>Campaigns</li>
+          </ul>
+        </div>
+        <div class="ph fill" style="height: 460px"></div>
+      </div>
+      <div class="num">05</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Detail</div>
+      <div class="pad z g2 ac">
+        <p style="font-size: 19px">
+          Type does the heavy lifting. Bricolage at 200px wrapped in hard-shadow
+          blocks reads instantly, even from the back row.
+        </p>
+        <h1 style="font-size: 200px; color: var(--blue)">Aa</h1>
+      </div>
+      <div class="num">06</div>
+    </section>
+
+    <section class="slide blue">
+      <span
+        class="zig"
+        style="
+          top: 120px;
+          right: 80px;
+          background: repeating-linear-gradient(
+            90deg,
+            #f5e500 0 16px,
+            transparent 16px 32px
+          );
+        "
+      ></span>
+      <div class="kind" style="color: #fff">Quote</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h2 style="color: #fff; text-align: center; max-width: 16ch">
+          "Color is loud. Be loud."
+        </h2>
+        <span
+          class="pill"
+          style="background: #fff; color: var(--blue); margin-top: 22px"
+          >Avery</span
+        >
+      </div>
+      <div class="num" style="color: #fff">07</div>
+    </section>
+
+    <section class="slide red">
+      <div class="kind" style="color: #fff">Big Stat</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <div style="font: 800 240px var(--bg); color: #fff; line-height: 0.9">
+          5M
+        </div>
+        <h3 style="color: #fff">eyeballs reached</h3>
+      </div>
+      <div class="num" style="color: #fff">08</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Metric Row</div>
+      <div class="pad z g">
+        <h2>NUMBERS</h2>
+        <div class="g4">
+          <div class="box">
+            <div class="stat red" style="color: var(--red)">5M</div>
+            <p class="sm">views</p>
+          </div>
+          <div class="box">
+            <div class="stat" style="color: var(--blue)">60%</div>
+            <p class="sm">lift</p>
+          </div>
+          <div class="box">
+            <div class="stat">24</div>
+            <p class="sm">brands</p>
+          </div>
+          <div class="box">
+            <div class="stat red" style="color: var(--red)">9★</div>
+            <p class="sm">rating</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">09</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Insight</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="pill">Insight</span>
+        <h2 style="max-width: 18ch; margin-top: 12px">
+          Joy converts. Brands people
+          <span style="color: var(--red)">smile</span> at, sell.
+        </h2>
+      </div>
+      <div class="num">10</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Evidence</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="pill">Proof</span>
+          <h2 style="margin: 12px 0">Color test</h2>
+          <p>Bright covers drove 3.2× more clicks vs muted ones.</p>
+        </div>
+        <div class="box blue cn ac">
+          <div class="stat" style="color: #fff; font-size: 130px">3.2×</div>
+        </div>
+      </div>
+      <div class="num">11</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Table</div>
+      <div class="pad z g">
+        <h2>DELIVERABLES</h2>
+        <table>
+          <tr>
+            <th>Item</th>
+            <th>Type</th>
+            <th>Cost</th>
+          </tr>
+          <tr>
+            <td>Brand kit</td>
+            <td>Vector</td>
+            <td>$50k</td>
+          </tr>
+          <tr>
+            <td>Motion</td>
+            <td>Video</td>
+            <td>$80k</td>
+          </tr>
+          <tr>
+            <td>Web</td>
+            <td>Site</td>
+            <td>$120k</td>
+          </tr>
+        </table>
+      </div>
+      <div class="num">12</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Comparison</div>
+      <div class="pad z g">
+        <h2>THEM / US</h2>
+        <div class="g2 fill">
+          <div class="box">
+            <span class="pill">Them</span>
+            <h3 style="margin-top: 12px">Beige & safe</h3>
+          </div>
+          <div class="box red">
+            <span class="pill" style="background: #fff; color: var(--red)"
+              >Us</span
+            >
+            <h3 style="margin-top: 12px; color: #fff">Bold & seen</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">13</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Matrix</div>
+      <div class="pad z g">
+        <h2>MATRIX</h2>
+        <div class="g2 fill" style="grid-template-rows: 1fr 1fr">
+          <div class="box red cn ac"><h3 style="color: #fff">Hero</h3></div>
+          <div class="box blue cn ac"><h3 style="color: #fff">Test</h3></div>
+          <div class="box cn ac"><h3>Tweak</h3></div>
+          <div class="box cn ac"><h3>Drop</h3></div>
+        </div>
+      </div>
+      <div class="num">14</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Framework</div>
+      <div class="pad z g">
+        <h2>3 RULES</h2>
+        <div class="g3">
+          <div class="box">
+            <div class="stat red" style="color: var(--red)">01</div>
+            <h3>Big</h3>
+          </div>
+          <div class="box blue">
+            <div class="stat" style="color: #fff">02</div>
+            <h3 style="color: #fff">Bright</h3>
+          </div>
+          <div class="box">
+            <div class="stat" style="color: var(--blue)">03</div>
+            <h3>Bold</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">15</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Process</div>
+      <div class="pad z g">
+        <h2>PROCESS</h2>
+        <div class="row ac fill cn g">
+          <span class="stat" style="font-size: 40px">Brief</span
+          ><span class="arr">→</span
+          ><span class="stat" style="font-size: 40px">Make</span
+          ><span class="arr">→</span
+          ><span class="stat" style="font-size: 40px">Wow</span>
+        </div>
+      </div>
+      <div class="num">16</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Timeline</div>
+      <div class="pad z g">
+        <h2>TIMELINE</h2>
+        <div class="g4">
+          <div class="box">
+            <h3 class="red" style="color: var(--red)">Q1</h3>
+            <p class="sm">Brief</p>
+          </div>
+          <div class="box">
+            <h3 style="color: var(--blue)">Q2</h3>
+            <p class="sm">Make</p>
+          </div>
+          <div class="box">
+            <h3 class="red" style="color: var(--red)">Q3</h3>
+            <p class="sm">Launch</p>
+          </div>
+          <div class="box">
+            <h3 style="color: var(--blue)">Q4</h3>
+            <p class="sm">Scale</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">17</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Roadmap</div>
+      <div class="pad z g">
+        <h2>ROADMAP</h2>
+        <div class="g3">
+          <div class="box">
+            <span class="pill">Now</span>
+            <ul>
+              <li>Brand</li>
+            </ul>
+          </div>
+          <div class="box red">
+            <span class="pill" style="background: #fff; color: var(--red)"
+              >Next</span
+            >
+            <ul>
+              <li>Site</li>
+            </ul>
+          </div>
+          <div class="box blue">
+            <span class="pill" style="background: #fff; color: var(--blue)"
+              >Later</span
+            >
+            <ul>
+              <li>World</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">18</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Architecture</div>
+      <div class="pad z g">
+        <h2>STACK</h2>
+        <div class="g3 ac">
+          <div class="box cn ac"><h3>Core</h3></div>
+          <div class="box red cn ac"><h3 style="color: #fff">Engine</h3></div>
+          <div class="box cn ac"><h3>Apps</h3></div>
+        </div>
+      </div>
+      <div class="num">19</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Case Study</div>
+      <div class="pad z g2 ac">
+        <div class="ph fill" style="height: 460px"></div>
+        <div>
+          <span class="pill">Case</span>
+          <h2 style="margin: 12px 0">Giggling</h2>
+          <p>Sold out a launch in 48 hours.</p>
+          <div class="stat red" style="color: var(--red); margin-top: 14px">
+            48h
+          </div>
+        </div>
+      </div>
+      <div class="num">20</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Risks</div>
+      <div class="pad z g">
+        <h2>RISKS</h2>
+        <div class="g2 fill">
+          <div class="box">
+            <h3>Too loud</h3>
+            <p class="sm">Calm secondaries.</p>
+          </div>
+          <div class="box">
+            <h3>Print cost</h3>
+            <p class="sm">Spot colors.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">21</div>
+    </section>
+
+    <section class="slide blue">
+      <div class="kind" style="color: #fff">Recommendation</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="pill" style="background: #fff; color: var(--blue)"
+          >Do it</span
+        >
+        <h2 style="color: #fff; max-width: 16ch">Go big. Go bright. Q3.</h2>
+      </div>
+      <div class="num" style="color: #fff">22</div>
+    </section>
+
+    <section class="slide">
+      <div class="kind">Pricing</div>
+      <div class="pad z g">
+        <h2>PRICING</h2>
+        <div class="g3">
+          <div class="box">
+            <h3>Lite</h3>
+            <div class="stat">$50k</div>
+          </div>
+          <div class="box red">
+            <h3 style="color: #fff">Pro</h3>
+            <div class="stat" style="color: #fff">$120k</div>
+          </div>
+          <div class="box">
+            <h3>Max</h3>
+            <div class="stat">$250k</div>
+          </div>
+        </div>
+      </div>
+      <div class="num">23</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Team</div>
+      <div class="pad z g">
+        <h2>TEAM</h2>
+        <div class="g4">
+          <div class="box col ac g">
+            <div
+              class="bl"
+              style="
+                position: static;
+                background: var(--red);
+                width: 80px;
+                height: 80px;
+              "
+            ></div>
+            <h3>Avery</h3>
+          </div>
+          <div class="box col ac g">
+            <div
+              class="bl"
+              style="
+                position: static;
+                background: var(--blue);
+                width: 80px;
+                height: 80px;
+              "
+            ></div>
+            <h3>Dana</h3>
+          </div>
+          <div class="box col ac g">
+            <div
+              class="bl"
+              style="
+                position: static;
+                background: #0b0b0b;
+                width: 80px;
+                height: 80px;
+              "
+            ></div>
+            <h3>Lee</h3>
+          </div>
+          <div class="box col ac g">
+            <div
+              class="bl"
+              style="
+                position: static;
+                background: var(--red);
+                width: 80px;
+                height: 80px;
+              "
+            ></div>
+            <h3>Sky</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">24</div>
+    </section>
+
+    <section class="slide ph">
+      <div class="kind" style="color: #fff">Visual Focus</div>
+      <div class="pad z col" style="justify-content: flex-end">
+        <h1 style="color: #fff">Stay loud.</h1>
+      </div>
+      <div class="num" style="color: #fff">25</div>
+    </section>
+
+    <section class="slide red">
+      <span
+        class="bl"
+        style="
+          background: var(--bg);
+          right: -30px;
+          top: -30px;
+          width: 200px;
+          height: 200px;
+        "
+      ></span>
+      <div class="kind" style="color: #fff">Closing</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h1 style="color: #fff">THANKS!</h1>
+        <span
+          class="pill"
+          style="background: #fff; color: var(--red); margin-top: 14px"
+          >hello@borcelle.studio</span
+        >
+      </div>
+      <div class="num" style="color: #fff">26</div>
+    </section>
+
+    <section class="slide" style="background: var(--cream)">
+      <div class="kind">Appendix</div>
+      <div class="pad z g">
+        <h2>APPENDIX</h2>
+        <ul>
+          <li>Color tests 2025</li>
+          <li>Click data</li>
+          <li>Pricing</li>
+        </ul>
+      </div>
+      <div class="num">27</div>
+    </section>
+  </body>
+</html>

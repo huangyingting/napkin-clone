@@ -7,55 +7,31 @@ import {
   parseDeckResponse,
   requestDeckGeneration,
 } from "./deck-generation-request";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
-// A schema-valid deck reused across the parse/request tests. Mirrors the
-// current deck schema.
-const VALID_DECK = {
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  canvas: { format: "16:9" },
-  design: { themeId: "default" },
-  masters: [{ id: "master-default", name: "Default", elements: [] }],
-  defaultMasterId: "master-default",
+const VALID_DECK_V7 = {
+  schemaVersion: 7,
+  canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+  theme: { packageId: "neutral" },
+  assets: { images: {} },
   slides: [
     {
-      id: "slide-1",
-      index: 0,
-      title: "Current",
-      templateId: "content",
-      notes: "",
-      elements: [
-        {
-          id: "text-1",
-          kind: "text",
-          role: "title",
-          zIndex: 0,
-          box: { x: 6, y: 6, w: 88, h: 16 },
-          content: {
-            kind: "text",
-            text: "Current",
-            paragraphs: [{ text: "Current" }],
-          },
-          designOverrides: {
-            textStyle: {
-              fontSize: 6,
-              bold: true,
-              italic: false,
-              align: "left",
-            },
-          },
-        },
-      ],
+      id: "slide-0001",
+      type: "slide",
+      template: { kind: "cover" },
+      style: { ref: "slide.cover" },
+      children: [],
     },
   ],
 };
 
-// A minimal serialised document content payload (opaque to the helper).
-const CONTENT_JSON = { root: { children: [] } };
+const LEGACY_DECK = {
+  schemaVersion: 6,
+  canvas: { format: "16:9" },
+  design: { themeId: "default" },
+  slides: [],
+};
 
-// ---------------------------------------------------------------------------
-// buildDeckGenerationBody — request shaping from contentJson + options.
-// ---------------------------------------------------------------------------
+const CONTENT_JSON = { root: { children: [] } };
 
 test("buildDeckGenerationBody includes contentJson and omits options when unset", () => {
   const body = buildDeckGenerationBody(CONTENT_JSON);
@@ -87,33 +63,67 @@ test("buildDeckGenerationBody drops blank tone/audience strings", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// parseDeckResponse — validate { deck, truncated } payloads.
-// ---------------------------------------------------------------------------
+test("buildDeckGenerationBody includes theme package request fields", () => {
+  const body = buildDeckGenerationBody(
+    CONTENT_JSON,
+    { length: "medium" },
+    { themePackageId: "noir" },
+  );
+  assert.deepEqual(body, {
+    contentJson: CONTENT_JSON,
+    options: { length: "medium" },
+    themePackageId: "noir",
+  });
+});
 
-test("parseDeckResponse returns the deck and truncated flag", () => {
-  const parsed = parseDeckResponse({ deck: VALID_DECK, truncated: true });
+test("parseDeckResponse returns DeckV7 and truncated flag", () => {
+  const parsed = parseDeckResponse({ deck: VALID_DECK_V7, truncated: true });
   assert.ok(parsed);
   assert.equal(parsed.truncated, true);
-  assert.equal(parsed.deck.slides[0].title, "Current");
+  assert.equal(parsed.deckV7.schemaVersion, 7);
+  assert.equal(parsed.deckV7.slides[0].id, "slide-0001");
+});
+
+test("parseDeckResponse returns vnext response metadata", () => {
+  const parsed = parseDeckResponse({
+    deck: VALID_DECK_V7,
+    truncated: false,
+    metadata: {
+      requestedGenerationMode: "package-template",
+      generationMode: "vnext",
+      fallback: false,
+      tableSlideCount: 2,
+      schemaValid: true,
+      themePackageId: "noir",
+      selectedKindCounts: { table: 1, cover: 1, ignored: "bad" },
+    },
+  });
+
+  assert.ok(parsed);
+  assert.deepEqual(parsed.metadata, {
+    requestedGenerationMode: "package-template",
+    generationMode: "vnext",
+    fallback: false,
+    tableSlideCount: 2,
+    schemaValid: true,
+    themePackageId: "noir",
+    selectedKindCounts: { table: 1, cover: 1 },
+  });
 });
 
 test("parseDeckResponse defaults truncated to false", () => {
-  const parsed = parseDeckResponse({ deck: VALID_DECK });
+  const parsed = parseDeckResponse({ deck: VALID_DECK_V7 });
   assert.ok(parsed);
   assert.equal(parsed.truncated, false);
 });
 
-test("parseDeckResponse returns null for an invalid or missing deck", () => {
+test("parseDeckResponse rejects invalid, missing, and legacy decks", () => {
   assert.equal(parseDeckResponse({ deck: { not: "a deck" } }), null);
+  assert.equal(parseDeckResponse({ deck: LEGACY_DECK }), null);
   assert.equal(parseDeckResponse({ truncated: true }), null);
   assert.equal(parseDeckResponse(null), null);
   assert.equal(parseDeckResponse("nope"), null);
 });
-
-// ---------------------------------------------------------------------------
-// requestDeckGeneration — the shared fetch path (injectable fetch).
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
@@ -123,17 +133,17 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
   } as unknown as Response;
 }
 
-test("requestDeckGeneration returns the parsed deck on success", async () => {
+test("requestDeckGeneration returns the parsed DeckV7 on success", async () => {
   const fetchImpl = (async () =>
     jsonResponse({
-      deck: VALID_DECK,
+      deck: VALID_DECK_V7,
       truncated: true,
     })) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.truncated, true);
-    assert.equal(result.deck.slides[0].title, "Current");
+    assert.equal(result.deckV7.schemaVersion, 7);
   }
 });
 
@@ -143,7 +153,7 @@ test("requestDeckGeneration POSTs to /api/generate-deck with the built body", as
   const fetchImpl = (async (url: string, init?: RequestInit) => {
     seenUrl = url;
     seenBody = JSON.parse(String(init?.body));
-    return jsonResponse({ deck: VALID_DECK, truncated: false });
+    return jsonResponse({ deck: VALID_DECK_V7, truncated: false });
   }) as unknown as typeof fetch;
   await requestDeckGeneration(
     CONTENT_JSON,
@@ -157,7 +167,7 @@ test("requestDeckGeneration POSTs to /api/generate-deck with the built body", as
   });
 });
 
-test("requestDeckGeneration classifies a 404 as unavailable (flag off)", async () => {
+test("requestDeckGeneration classifies a 404 as unavailable", async () => {
   const fetchImpl = (async () =>
     jsonResponse(
       { error: "Not found." },
@@ -166,9 +176,7 @@ test("requestDeckGeneration classifies a 404 as unavailable (flag off)", async (
     )) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.errorKind, "unavailable");
-  }
+  if (!result.ok) assert.equal(result.errorKind, "unavailable");
 });
 
 test("requestDeckGeneration classifies a 402 as credit", async () => {
@@ -195,9 +203,7 @@ test("requestDeckGeneration classifies a 504 as timeout", async () => {
     )) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.errorKind, "timeout");
-  }
+  if (!result.ok) assert.equal(result.errorKind, "timeout");
 });
 
 test("requestDeckGeneration classifies an empty-outline 400 as empty", async () => {
@@ -224,9 +230,7 @@ test("requestDeckGeneration classifies a non-empty 400 as other", async () => {
     )) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.errorKind, "other");
-  }
+  if (!result.ok) assert.equal(result.errorKind, "other");
 });
 
 test("requestDeckGeneration classifies other non-OK statuses as other", async () => {
@@ -246,9 +250,7 @@ test("requestDeckGeneration returns a network error when fetch throws", async ()
   }) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.errorKind, "network");
-  }
+  if (!result.ok) assert.equal(result.errorKind, "network");
 });
 
 test("requestDeckGeneration classifies an aborted fetch as timeout", async () => {
@@ -259,9 +261,7 @@ test("requestDeckGeneration classifies an aborted fetch as timeout", async () =>
   }) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.errorKind, "timeout");
-  }
+  if (!result.ok) assert.equal(result.errorKind, "timeout");
 });
 
 test("requestDeckGeneration classifies an unparseable success payload as other", async () => {
@@ -272,7 +272,16 @@ test("requestDeckGeneration classifies an unparseable success payload as other",
     })) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.errorKind, "other");
-  }
+  if (!result.ok) assert.equal(result.errorKind, "other");
+});
+
+test("requestDeckGeneration rejects legacy deck responses", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse({
+      deck: LEGACY_DECK,
+      truncated: false,
+    })) as unknown as typeof fetch;
+  const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.errorKind, "other");
 });

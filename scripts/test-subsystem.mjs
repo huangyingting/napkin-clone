@@ -50,7 +50,7 @@ export const SUBSYSTEM_TEST_TARGETS = {
       /^src\/lib\/auth\//,
       /^src\/lib\/account\//,
       /^src\/lib\/settings\//,
-      /^e2e\/(?:auth-redirect|oauth-disabled)\.spec\.ts$/,
+      /^e2e\/(?:auth-redirect|oauth-disabled|auth-forms|settings-account)\.spec\.ts$/,
     ],
   },
   billing: {
@@ -188,8 +188,10 @@ export const SUBSYSTEM_TEST_TARGETS = {
       "Slide editor, deck runtime, exports, assets, and present mode",
     patterns: [
       /^src\/components\/presentation\//,
+      /^src\/components\/presentation-vnext\//,
       /^src\/lib\/assets\//,
       /^src\/lib\/presentation\//,
+      /^src\/lib\/presentation-vnext\//,
       /^src\/lib\/slides\//,
       /^src\/app\/api\/slide-assets\//,
       /^scripts\/(?:perf-budgets|slide-editor-size-budget)\.test\.mjs$/,

@@ -11,10 +11,30 @@ type MarkdownBlockBase = { id: string };
 export type MarkdownBlock =
   | (MarkdownBlockBase & { kind: "heading"; level: 1 | 2 | 3; text: string })
   | (MarkdownBlockBase & { kind: "bullets"; items: string[] })
+  | (MarkdownBlockBase & { kind: "table"; columns: string[]; rows: string[][] })
   | (MarkdownBlockBase & { kind: "paragraph"; text: string });
 
 const HEADING_RE = /^(#{1,3})\s+(.*)$/;
 const BULLET_RE = /^[-*+]\s+(.*)$/;
+
+function splitTableRow(line: string): string[] {
+  let trimmed = line.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed.split("|").map((cell) => cell.replace(/\\\|/g, "|").trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const cells = splitTableRow(line);
+  return (
+    cells.length >= 2 &&
+    cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")))
+  );
+}
+
+function isPotentialTableRow(line: string): boolean {
+  return splitTableRow(line).length >= 2 && line.includes("|");
+}
 
 function hashString(value: string): string {
   let hash = 2166136261;
@@ -73,7 +93,9 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
     }
   };
 
-  for (const rawLine of source.split("\n")) {
+  const lines = source.split("\n");
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const rawLine = lines[lineIndex];
     const line = rawLine.trim();
 
     if (line === "") {
@@ -107,6 +129,43 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
       continue;
     }
 
+    if (
+      isPotentialTableRow(line) &&
+      lineIndex + 1 < lines.length &&
+      isTableSeparator(lines[lineIndex + 1].trim())
+    ) {
+      flushParagraph();
+      flushBullets();
+      const columns = splitTableRow(line);
+      const rows: string[][] = [];
+      lineIndex += 2;
+      while (lineIndex < lines.length) {
+        const rowLine = lines[lineIndex].trim();
+        if (!isPotentialTableRow(rowLine) || isTableSeparator(rowLine)) {
+          lineIndex -= 1;
+          break;
+        }
+        const row = splitTableRow(rowLine);
+        rows.push(
+          Array.from(
+            { length: columns.length },
+            (_value, index) => row[index] ?? "",
+          ),
+        );
+        lineIndex += 1;
+      }
+      const signature = `table:${columns.join("|")}:${rows
+        .map((row) => row.join("|"))
+        .join("\n")}`;
+      blocks.push({
+        id: makeBlockId(signatures, signature),
+        kind: "table",
+        columns,
+        rows,
+      });
+      continue;
+    }
+
     flushBullets();
     paragraph.push(line);
   }
@@ -124,6 +183,13 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
 export function blockText(block: MarkdownBlock): string {
   if (block.kind === "bullets") {
     return block.items.map((item) => `- ${item}`).join("\n");
+  }
+  if (block.kind === "table") {
+    return [
+      `| ${block.columns.join(" | ")} |`,
+      `| ${block.columns.map(() => "---").join(" | ")} |`,
+      ...block.rows.map((row) => `| ${row.join(" | ")} |`),
+    ].join("\n");
   }
   return block.text;
 }

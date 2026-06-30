@@ -1,36 +1,35 @@
-# Professional Slide Themes (v6)
+# Professional Slide Themes (v7)
 
-Six production-ready presentation themes authored against the current **v6 deck
-data model** (`src/lib/presentation/deck-core.ts`). Each theme is a complete,
-schema-valid `Deck` you can drop into the editor: a custom `PresentationTheme`
-(colors + typography + spacing + shape tokens), a chrome **master**
-(footer + page number), and a six-slide demo deck whose layouts and **decorative
-shapes** give the theme its personality.
+Eight production-ready presentation themes authored against the current **v7
+semantic deck model** (`src/lib/presentation-vnext/schema.ts`). Each theme is a
+native `ThemePackageV1` source plus a schema-valid `DeckV7` preview generated
+from the v7 semantic template registry.
 
-Everything here is generated and validated by code, not hand-edited JSON, so the
-output always matches the live schema.
+`prototypes/slide-themes/theme-packages-v7.ts` is the source of truth for the
+prototype package pipeline. Generated package JSON, preview decks, manifest, and
+HTML previews are derived from that v7 source. Legacy v6 package JSON is not read
+or upgraded by the generator.
 
 ## How it's built (uses existing system capabilities)
 
-- `theme-kit.ts` — typed builders for text/shape/image elements, the master, the
-  custom `tokenSet`, and the deck wrapper. Geometry is in slide percentages;
-  text `fontSize` is a percent of slide height (same convention as
-  `slide-templates.ts`). Self-hosted `fontId`s come from `slide-fonts.ts`.
-- `themes.ts` — the six `ThemeSpec`s (palette, fonts, signature shapes, copy).
-- `build-themes.ts` — builds each deck, validates it with the real
-  **`safeParseDeck`** validator, and writes `decks/<id>.deck.json` + `manifest.json`.
-- `render-html.mjs` — renders the validated decks into static **HTML previews**
-  under `preview/` (one page per theme + an `index.html` gallery). The HTML
-  mirrors the live slide canvas exactly: percent-positioned boxes, `cqh` font
-  units, the same shape fill/stroke/clip-path rules, and the
-  slide → master → theme background cascade. Fonts load from Google Fonts.
+- `theme-packages-v7.ts` — native `ThemePackageV1` source for the eight theme
+  packages. Edit this file to change tokens, styles, or decorations.
+- `build-themes.ts` — validates each `ThemePackageV1`, compiles every semantic
+  template kind into a native `DeckV7` preview deck with `safeParseDeckV7`,
+  writes `packages/<id>.package.json`, writes `decks/<id>.deck.json`, and
+  updates `manifest.json`.
+- `render-html.ts` — reads generated v7 packages/decks, resolves the shared v7
+  render tree, and writes static **HTML previews** under `preview/`.
 
 Regenerate (decks first, then previews):
 
 ```bash
-node --import tsx prototypes/slide-themes/build-themes.ts
-node prototypes/slide-themes/render-html.mjs
+npm run slide-themes:generate
 ```
+
+To run the steps separately, use `npm run slide-themes:build` for v7 package and
+deck validation, and `npm run slide-themes:html` for static HTML preview
+rendering.
 
 Preview them (the integrated browser blocks `file://`, so serve over HTTP):
 
@@ -39,30 +38,36 @@ cd prototypes/slide-themes/preview && python3 -m http.server 8777
 # open http://localhost:8777/index.html
 ```
 
-The custom theme rides on `Deck.design.themeOverrides.tokenSet`, which
-`resolvePresentationThemeTokens` reads — so the render model, present mode,
-public viewer, and PPTX export all pick up the palette and fonts automatically.
+The custom theme rides on `DeckV7.theme.packageId` plus a loaded
+`ThemePackageV1`. `resolveDeckRenderTree` resolves package tokens, styles, and
+decorations before the preview, editor, present mode, public viewer, and export
+adapters consume the render tree.
 
 ## Design system notes
 
-- **Masters are chrome-only** in v6 (logo / footer / pageNumber / watermark with
-  fixed kind/role/layer), so decorative geometry lives on slides as `locked`
-  shape elements. This is intentional and matches the schema.
-- **Color tokens** allowed in `ColorRef` are `slideBg, surface, accent, onBg,
-onSurface, muted`; everything else uses concrete `{ value: "#hex" }`.
-- Each deck demonstrates the same six layouts: **cover, section divider,
-  content, two-column, headline stat / pull-quote, closing**.
+- **No v6 masters or `Slide.elements[]`** are generated. Templates compile into
+  `SlideNode` trees and visual language comes from package style refs.
+- **Theme packages own tokens, styles, and decorations only.** Semantic template
+  layout stays in `src/lib/presentation-vnext/theme-packages.ts`.
+- Rich backgrounds from the original style decks are expressed as v7 fills and
+  decorations: conic gradients, repeating gradients, grid/dot/scanline patterns,
+  glass cards, blurred glow fields, hard shadows, rings, and silk overlays.
+- Each preview deck includes a slide for every semantic template kind in
+  `SEMANTIC_TEMPLATE_KINDS` and is validated with `safeParseDeckV7`.
 
-## The six themes
+## The eight themes
 
-| #   | Theme         | Use case                  | Heading / Body                 | Accent    | Signature shapes                                              |
-| --- | ------------- | ------------------------- | ------------------------------ | --------- | ------------------------------------------------------------- |
-| 1   | **Aurora**    | Tech / SaaS keynote       | Space Grotesk / Inter          | `#6366f1` | Soft gradient glow ellipses, accent spine bars, rounded cards |
-| 2   | **Monolith**  | Corporate / consulting    | IBM Plex Sans                  | `#b3892f` | Navy sidebar, gold rules & ticks, zero-radius panels          |
-| 3   | **Editorial** | Magazine / brand story    | Source Serif 4 / Source Sans 3 | `#e0533b` | Hairline frame, oversized quote marks, coral underlines       |
-| 4   | **Noir**      | Premium pitch deck        | Manrope / Inter                | `#f5b301` | Amber glow ellipses, dot rows, dark cards                     |
-| 5   | **Terra**     | Sustainability / research | Manrope / Source Sans 3        | `#c2683f` | Organic leaf ellipses, deep-radius cards, forest fields       |
-| 6   | **Pulse**     | Bold startup / marketing  | Space Grotesk / Manrope        | `#ec2d6f` | Diagonal triangle wedges, orbs, hot gradients                 |
+| #   | Package id    | Style                 | Heading / Body          | Accent    | Signature shapes                                   |
+| --- | ------------- | --------------------- | ----------------------- | --------- | -------------------------------------------------- |
+| 1   | **clarity**   | Swiss Minimal Grid    | Space Grotesk / Mono    | `#0042ff` | Grid lines, square cells, precise rules            |
+| 2   | **ocean**     | Iridescent Gradient   | Space Grotesk / Inter   | `#7b5cff` | Holographic fields, glass cards, gradient text     |
+| 3   | **aurora**    | Dark Aurora Corporate | Manrope / Mono          | `#5b6cff` | Luminous rings, radial glow, dark glass            |
+| 4   | **monolith**  | Brutalist Bold        | Space Grotesk / Mono    | `#ff3b1f` | Hard blocks, black fields, lime accents            |
+| 5   | **editorial** | Editorial Serif Luxe  | Source Serif 4 / Inter  | `#2f3d8f` | Serif hierarchy, cobalt rings, gold accents        |
+| 6   | **noir**      | Luxe Maroon Magazine  | Source Serif 4 / Inter  | `#c9a24a` | Magazine frames, maroon silk glow, gold rules      |
+| 7   | **terra**     | Vibrant Pop           | Space Grotesk / Manrope | `#ff2d2d` | Pop dots, hard-edged cards, yellow/red/blue fields |
+| 8   | **pulse**     | Tech Terminal Mono    | JetBrains Mono          | `#39ff88` | Scan lines, terminal cards, neon mono emphasis     |
 
-See `manifest.json` for the machine-readable index and `decks/*.deck.json` for
-the full decks.
+See `manifest.json` for the machine-readable index, `packages/*.package.json`
+for generated v7 theme packages, and `decks/*.deck.json` for generated `DeckV7`
+preview decks.

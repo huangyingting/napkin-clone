@@ -28,10 +28,3 @@ export function createDefaultExportDialogOptions(
 ): TransientExportDialogOptions {
   return applyExportPolicyWatermark({ ...DEFAULT_EXPORT_OPTIONS }, policy);
 }
-
-export function syncExportDialogOptionsWithPolicy(
-  options: TransientExportDialogOptions,
-  policy: ExportPolicy,
-): TransientExportDialogOptions {
-  return applyExportPolicyWatermark(options, policy);
-}

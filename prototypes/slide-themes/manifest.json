@@ -1,76 +1,1644 @@
 {
   "themes": [
     {
-      "id": "aurora",
-      "name": "Aurora",
-      "tagline": "Modern tech & SaaS keynote — luminous gradients, geometric sans.",
-      "file": "decks/aurora.deck.json",
-      "slides": 6,
+      "id": "clarity",
+      "name": "Swiss Minimal Grid",
+      "tagline": "Light, gridded brand systems with precise blue emphasis.",
+      "file": "decks/clarity.deck.json",
+      "packageFile": "packages/clarity.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
       "fonts": {
-        "heading": "space-grotesk",
-        "body": "inter"
+        "heading": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+        "body": "'JetBrains Mono', 'Noto Sans SC', monospace"
       },
-      "accent": "#6366f1"
+      "accent": "#0042ff",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
+    },
+    {
+      "id": "ocean",
+      "name": "Iridescent Gradient",
+      "tagline": "Holographic pitch decks with glass panels and gradients.",
+      "file": "decks/ocean.deck.json",
+      "packageFile": "packages/ocean.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
+      "fonts": {
+        "heading": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+        "body": "Inter, 'Noto Sans SC', system-ui, sans-serif"
+      },
+      "accent": "#7b5cff",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
+    },
+    {
+      "id": "aurora",
+      "name": "Dark Aurora Corporate",
+      "tagline": "Dark finance and strategy reports with luminous glass.",
+      "file": "decks/aurora.deck.json",
+      "packageFile": "packages/aurora.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
+      "fonts": {
+        "heading": "Manrope, 'Noto Sans SC', system-ui, sans-serif",
+        "body": "'JetBrains Mono', 'Noto Sans SC', monospace"
+      },
+      "accent": "#5b6cff",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
     },
     {
       "id": "monolith",
-      "name": "Monolith",
-      "tagline": "Corporate & consulting — navy, gold, crisp rules, zero radius.",
+      "name": "Brutalist Bold",
+      "tagline": "High-impact black, red, and lime creative decks.",
       "file": "decks/monolith.deck.json",
-      "slides": 6,
+      "packageFile": "packages/monolith.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
       "fonts": {
-        "heading": "ibm-plex-sans",
-        "body": "ibm-plex-sans"
+        "heading": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+        "body": "'JetBrains Mono', 'Noto Sans SC', monospace"
       },
-      "accent": "#b3892f"
+      "accent": "#ff3b1f",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
     },
     {
       "id": "editorial",
-      "name": "Editorial",
-      "tagline": "Magazine & brand storytelling — warm cream, serif display, coral.",
+      "name": "Editorial Serif Luxe",
+      "tagline": "Cream, cobalt, and gold editorial storytelling decks.",
       "file": "decks/editorial.deck.json",
-      "slides": 6,
+      "packageFile": "packages/editorial.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
       "fonts": {
-        "heading": "source-serif-4",
-        "body": "source-sans-3"
+        "heading": "'Source Serif 4', 'Noto Sans SC', serif",
+        "body": "Inter, 'Noto Sans SC', system-ui, sans-serif"
       },
-      "accent": "#e0533b"
+      "accent": "#2f3d8f",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
     },
     {
       "id": "noir",
-      "name": "Noir",
-      "tagline": "Dark premium pitch deck — near-black canvas, amber accent, glow.",
+      "name": "Luxe Maroon Magazine",
+      "tagline": "Premium maroon and gold portfolio or brand decks.",
       "file": "decks/noir.deck.json",
-      "slides": 6,
+      "packageFile": "packages/noir.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
       "fonts": {
-        "heading": "manrope",
-        "body": "inter"
+        "heading": "'Source Serif 4', 'Noto Sans SC', serif",
+        "body": "Inter, 'Noto Sans SC', system-ui, sans-serif"
       },
-      "accent": "#f5b301"
+      "accent": "#c9a24a",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
     },
     {
       "id": "terra",
-      "name": "Terra",
-      "tagline": "Sustainability & research — sage canvas, forest ink, terracotta.",
+      "name": "Vibrant Pop",
+      "tagline": "Playful yellow, red, and blue creative brief decks.",
       "file": "decks/terra.deck.json",
-      "slides": 6,
+      "packageFile": "packages/terra.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
       "fonts": {
-        "heading": "manrope",
-        "body": "source-sans-3"
+        "heading": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+        "body": "Manrope, 'Noto Sans SC', system-ui, sans-serif"
       },
-      "accent": "#c2683f"
+      "accent": "#ff2d2d",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
     },
     {
       "id": "pulse",
-      "name": "Pulse",
-      "tagline": "Bold startup & marketing — high-contrast geometry, hot gradient.",
+      "name": "Tech Terminal Mono",
+      "tagline": "Neon terminal-style decks with mono typography and grids.",
       "file": "decks/pulse.deck.json",
-      "slides": 6,
+      "packageFile": "packages/pulse.package.json",
+      "schemaVersion": 7,
+      "slides": 27,
       "fonts": {
-        "heading": "space-grotesk",
-        "body": "manrope"
+        "heading": "'JetBrains Mono', 'Noto Sans SC', monospace",
+        "body": "'JetBrains Mono', 'Noto Sans SC', monospace"
       },
-      "accent": "#ec2d6f"
+      "accent": "#39ff88",
+      "templates": [
+        {
+          "kind": "cover",
+          "label": "Cover",
+          "group": "orient",
+          "priority": 100,
+          "layouts": ["cover-default"]
+        },
+        {
+          "kind": "agenda",
+          "label": "Agenda",
+          "group": "orient",
+          "priority": 85,
+          "layouts": ["agenda-default", "agenda-dense"]
+        },
+        {
+          "kind": "section",
+          "label": "Section Divider",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["section-default"]
+        },
+        {
+          "kind": "executive-summary",
+          "label": "Executive Summary",
+          "group": "orient",
+          "priority": 80,
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
+        },
+        {
+          "kind": "content",
+          "label": "Content",
+          "group": "explain",
+          "priority": 70,
+          "layouts": ["content-airy", "content-dense"]
+        },
+        {
+          "kind": "detail",
+          "label": "Detail",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["detail-default"]
+        },
+        {
+          "kind": "quote",
+          "label": "Quote",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["quote-default"]
+        },
+        {
+          "kind": "big-stat",
+          "label": "Big Stat",
+          "group": "prove",
+          "priority": 60,
+          "layouts": ["big-stat-default"]
+        },
+        {
+          "kind": "metric-row",
+          "label": "Metric Row",
+          "group": "prove",
+          "priority": 65,
+          "layouts": ["metric-row-default"]
+        },
+        {
+          "kind": "insight",
+          "label": "Insight",
+          "group": "prove",
+          "priority": 58,
+          "layouts": ["insight-default"]
+        },
+        {
+          "kind": "evidence",
+          "label": "Evidence",
+          "group": "prove",
+          "priority": 55,
+          "layouts": ["evidence-text", "evidence-split"]
+        },
+        {
+          "kind": "table",
+          "label": "Table",
+          "group": "explain",
+          "priority": 60,
+          "layouts": ["table-default"]
+        },
+        {
+          "kind": "comparison",
+          "label": "Comparison",
+          "group": "compare",
+          "priority": 65,
+          "layouts": ["comparison-two-col"]
+        },
+        {
+          "kind": "matrix",
+          "label": "Matrix",
+          "group": "compare",
+          "priority": 55,
+          "layouts": ["matrix-2x2"]
+        },
+        {
+          "kind": "framework",
+          "label": "Framework",
+          "group": "explain",
+          "priority": 52,
+          "layouts": ["framework-default", "framework-dense"]
+        },
+        {
+          "kind": "process",
+          "label": "Process",
+          "group": "sequence",
+          "priority": 55,
+          "layouts": ["process-default", "process-dense"]
+        },
+        {
+          "kind": "timeline",
+          "label": "Timeline",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["timeline-default", "timeline-dense"]
+        },
+        {
+          "kind": "roadmap",
+          "label": "Roadmap",
+          "group": "sequence",
+          "priority": 58,
+          "layouts": ["roadmap-default", "roadmap-dense"]
+        },
+        {
+          "kind": "architecture",
+          "label": "Architecture",
+          "group": "explain",
+          "priority": 50,
+          "layouts": ["architecture-default"]
+        },
+        {
+          "kind": "case-study",
+          "label": "Case Study",
+          "group": "prove",
+          "priority": 52,
+          "layouts": ["case-study-split", "case-study-dense"]
+        },
+        {
+          "kind": "risks",
+          "label": "Risks",
+          "group": "decision",
+          "priority": 50,
+          "layouts": ["risks-table"]
+        },
+        {
+          "kind": "recommendation",
+          "label": "Recommendation",
+          "group": "decision",
+          "priority": 55,
+          "layouts": ["recommendation-default"]
+        },
+        {
+          "kind": "pricing",
+          "label": "Pricing",
+          "group": "commercial",
+          "priority": 55,
+          "layouts": ["pricing-cards"]
+        },
+        {
+          "kind": "team",
+          "label": "Team",
+          "group": "orient",
+          "priority": 55,
+          "layouts": ["team-cards"]
+        },
+        {
+          "kind": "visual-focus",
+          "label": "Visual Focus",
+          "group": "explain",
+          "priority": 55,
+          "layouts": ["visual-focus-hero"]
+        },
+        {
+          "kind": "closing",
+          "label": "Closing",
+          "group": "closing",
+          "priority": 90,
+          "layouts": ["closing-default"]
+        },
+        {
+          "kind": "appendix",
+          "label": "Appendix",
+          "group": "closing",
+          "priority": 40,
+          "layouts": ["appendix-text", "appendix-table"]
+        }
+      ]
     }
   ]
 }

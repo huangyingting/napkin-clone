@@ -21,7 +21,6 @@ export {
 export {
   /* node:coverage ignore next 12 -- Slide asset limit facade re-export rows are import wiring. */
   IMPORT_MAX_UPLOAD_BYTES,
-  IMPORT_TEXT_MAX_UPLOAD_BYTES,
   IMPORT_ACCEPTED_MIME_TYPES,
   IMPORT_MAX_BYTES_BY_MIME,
   BRAND_FONT_ACCEPTED_TYPES,

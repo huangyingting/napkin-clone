@@ -115,14 +115,16 @@ export function canGenerateFromText(text: string | undefined | null): boolean {
 export function generateTargetForContext(
   ctx: GenerateSelection,
 ): GenerateTarget | null {
-  if (ctx.kind !== "range" && ctx.kind !== "collapsed") { /* node:coverage disable */
+  if (ctx.kind !== "range" && ctx.kind !== "collapsed") {
+    /* node:coverage disable */
     return null;
   }
   let text: string;
   let blockKey: string | undefined;
   if (ctx.kind === "range") {
     text = ctx.selectionText?.trim() ?? "";
-    blockKey = ctx.selectionEndBlockKey ?? ctx.blockKey; /* node:coverage enable */
+    blockKey =
+      ctx.selectionEndBlockKey ?? ctx.blockKey; /* node:coverage enable */
   } else {
     text = ctx.blockText?.trim() ?? "";
     blockKey = ctx.blockKey;

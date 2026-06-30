@@ -1,0 +1,234 @@
+import { countWords } from "@/lib/ai/deck-metrics";
+import type { CompleteFn } from "@/lib/ai/generate";
+import {
+  runVnextDeckGeneration,
+  type RunVnextDeckGenerationInput,
+  type RunVnextDeckGenerationResult,
+} from "@/lib/ai/run-vnext-deck-generation";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
+import type { ThemePackageId } from "@/lib/presentation/theme-packages";
+import { logInfo } from "@/lib/log";
+
+import type { GenerateDeckPayload } from "./parser";
+
+export const GENERATE_DECK_LOG_SCOPE = "api.generate-deck";
+
+export type GenerateDeckMode = "package-template" | "vnext";
+
+export interface GenerateDeckRouteResult {
+  deck: DeckV7;
+  truncated: boolean;
+  requestedGenerationMode: GenerateDeckMode;
+  generationMode: GenerateDeckMode;
+  themePackageId?: ThemePackageId;
+  selectedKindCounts?: Record<string, number>;
+}
+
+export interface GenerateDeckResponseMetadata {
+  requestedGenerationMode: GenerateDeckMode;
+  generationMode: GenerateDeckMode;
+  fallback: boolean;
+  tableSlideCount: number;
+  schemaValid: boolean;
+  themePackageId?: ThemePackageId;
+  selectedKindCounts?: Record<string, number>;
+}
+
+export interface GenerateDeckRouteDeps {
+  runVnext(
+    input: RunVnextDeckGenerationInput,
+  ): Promise<RunVnextDeckGenerationResult>;
+  logInfo(
+    scope: string,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void;
+}
+
+const defaultDeps: GenerateDeckRouteDeps = {
+  runVnext: runVnextDeckGeneration,
+  logInfo,
+};
+
+export async function generateDeckForRoute(
+  input: {
+    payload: GenerateDeckPayload;
+    complete: CompleteFn;
+    requestId?: string;
+  },
+  overrides: Partial<GenerateDeckRouteDeps> = {},
+): Promise<GenerateDeckRouteResult> {
+  const deps = { ...defaultDeps, ...overrides };
+  const { payload, complete } = input;
+  const result = await deps.runVnext({
+    contentJson: payload.contentJson,
+    visuals: payload.visuals,
+    themePackageId: payload.themePackageId,
+    complete,
+    options: payload.options,
+  });
+  return {
+    deck: result.deck,
+    truncated: result.truncated,
+    requestedGenerationMode: payload.generationMode,
+    generationMode: "vnext",
+    themePackageId: payload.themePackageId,
+    selectedKindCounts: result.selectedKindCounts,
+  };
+}
+
+function countTableSlides(deck: DeckV7): number {
+  let count = 0;
+  for (const slide of deck.slides) {
+    const children = Array.isArray(slide.children) ? slide.children : [];
+    if (children.some((child) => child.type === "table")) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+// ---------------------------------------------------------------------------
+// Minimal v7 route metrics (content-free, safe to log)
+// ---------------------------------------------------------------------------
+
+interface V7RouteMetrics {
+  slideCount: number;
+  wordsPerSlide: number;
+  percentSlidesWithVisual: number;
+  schemaValid: boolean;
+  sourceWordCount?: number;
+}
+
+function computeV7RouteMetrics(
+  deck: DeckV7,
+  options: { sourceWordCount?: number } = {},
+): V7RouteMetrics {
+  const slideCount = deck.slides.length;
+  let totalWords = 0;
+  let slidesWithVisual = 0;
+
+  for (const slide of deck.slides) {
+    const children = Array.isArray(slide.children) ? slide.children : [];
+    let slideHasVisual = false;
+    for (const child of children) {
+      if (child.type === "text") {
+        for (const para of child.content?.paragraphs ?? []) {
+          totalWords += countWords(para.text);
+        }
+      }
+      if (child.type === "image" || child.type === "visual") {
+        slideHasVisual = true;
+      }
+    }
+    if (slideHasVisual) {
+      slidesWithVisual += 1;
+    }
+  }
+
+  const wordsPerSlide = slideCount > 0 ? totalWords / slideCount : 0;
+  const percentSlidesWithVisual =
+    slideCount > 0 ? slidesWithVisual / slideCount : 0;
+  const schemaValid = safeParseDeckV7(deck).success;
+
+  const metrics: V7RouteMetrics = {
+    slideCount,
+    wordsPerSlide,
+    percentSlidesWithVisual,
+    schemaValid,
+  };
+
+  if (
+    typeof options.sourceWordCount === "number" &&
+    options.sourceWordCount > 0
+  ) {
+    metrics.sourceWordCount = options.sourceWordCount;
+  }
+
+  return metrics;
+}
+
+function buildGenerateDeckResponseMetadata(
+  result: GenerateDeckRouteResult,
+  schemaValid: boolean,
+): GenerateDeckResponseMetadata {
+  return {
+    requestedGenerationMode: result.requestedGenerationMode,
+    generationMode: result.generationMode,
+    fallback: false,
+    tableSlideCount: countTableSlides(result.deck),
+    schemaValid,
+    ...(result.themePackageId ? { themePackageId: result.themePackageId } : {}),
+    ...(result.selectedKindCounts
+      ? { selectedKindCounts: result.selectedKindCounts }
+      : {}),
+  };
+}
+
+export function buildGenerateDeckSuccessResponse(
+  result: GenerateDeckRouteResult,
+): {
+  deck: DeckV7;
+  truncated: boolean;
+  metadata: GenerateDeckResponseMetadata;
+} {
+  const metrics = computeV7RouteMetrics(result.deck);
+  return {
+    deck: result.deck,
+    truncated: result.truncated,
+    metadata: buildGenerateDeckResponseMetadata(result, metrics.schemaValid),
+  };
+}
+
+export function buildGenerateDeckSuccessLogFields(
+  result: GenerateDeckRouteResult,
+  context: {
+    payload: GenerateDeckPayload;
+    requestId: string;
+    latencyMs: number;
+  },
+): Record<string, unknown> {
+  const metrics = computeV7RouteMetrics(result.deck, {
+    sourceWordCount: countWords(context.payload.outline),
+  });
+  return {
+    requestId: context.requestId,
+    latencyMs: context.latencyMs,
+    outlineChars: context.payload.outline.length,
+    outlineWords: metrics.sourceWordCount ?? 0,
+    slideCount: metrics.slideCount,
+    wordsPerSlide: metrics.wordsPerSlide,
+    percentSlidesWithVisual: metrics.percentSlidesWithVisual,
+    schemaValid: metrics.schemaValid,
+    truncated: result.truncated,
+    requestedGenerationMode: result.requestedGenerationMode,
+    generationMode: result.generationMode,
+    tableSlideCount: countTableSlides(result.deck),
+    fallback: false,
+    ...(result.themePackageId ? { packageId: result.themePackageId } : {}),
+    ...(result.selectedKindCounts
+      ? { selectedKindCounts: result.selectedKindCounts }
+      : {}),
+  };
+}
+
+export function logGenerateDeckSuccess(
+  result: GenerateDeckRouteResult,
+  context: {
+    payload: GenerateDeckPayload;
+    requestId: string;
+    latencyMs: number;
+  },
+  logger: GenerateDeckRouteDeps["logInfo"] = logInfo,
+): void {
+  try {
+    logger(
+      GENERATE_DECK_LOG_SCOPE,
+      "deck-generated",
+      buildGenerateDeckSuccessLogFields(result, context),
+    );
+  } catch {
+    // Metrics logging is best-effort and must never affect the response.
+  }
+}

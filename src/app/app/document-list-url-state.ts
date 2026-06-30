@@ -1,6 +1,6 @@
 import type { DashboardDocument } from "@/lib/document/list";
 
-export const SORT_KEYS = ["edited", "title", "created"] as const;
+const SORT_KEYS = ["edited", "title", "created"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [

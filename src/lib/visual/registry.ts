@@ -27,7 +27,6 @@ import type {
   VisualRegistry,
 } from "./registry-types";
 
-export { READ_ONLY_EDITING } from "./registry-editing";
 export type {
   KindEditingCapabilities,
   KindExportSupport,
@@ -131,8 +130,8 @@ export function getAllKindPromptGuidance(): Array<{
   kind: VisualKind;
   guidance: string;
 }> {
-  return VISUAL_KINDS.map((kind) => ({ /* node:coverage disable */
-    kind,
+  return VISUAL_KINDS.map((kind) => ({
+    /* node:coverage disable */ kind,
     guidance: VISUAL_KIND_REGISTRY[kind].prompt.guidance,
   }));
 }

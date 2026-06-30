@@ -1,5 +1,4 @@
 import {
-  adaptSlideCommandResult,
   makeAffectedIds,
   type CrossSurfaceCommandResult,
 } from "@/lib/commands/command-result-helpers";
@@ -251,4 +250,3 @@ export function coalesceVisualCommands(
 }
 
 export type CrossSurfacePatch = DeckPatch | VisualPatch;
-export const adaptDeckCommandResult = adaptSlideCommandResult;

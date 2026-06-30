@@ -1,6 +1,6 @@
 import { REDACTED, logInfo, normalizeLogKey } from "@/lib/log";
 
-export const SECURITY_AUDIT_SCOPE = "security.audit";
+const SECURITY_AUDIT_SCOPE = "security.audit";
 
 export type SecurityAuditEventName =
   | "auth.password_reset.requested"
@@ -46,7 +46,7 @@ type AuditScalar = string | number | boolean | null;
 
 export interface SecurityAuditLogRecord {
   level: "info";
-  scope: typeof SECURITY_AUDIT_SCOPE;
+  scope: "security.audit";
   timestamp: string;
   message: SecurityAuditEventName;
   event: SecurityAuditEventName;

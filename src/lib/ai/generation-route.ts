@@ -228,7 +228,7 @@ const defaultDeps: GenerationRouteDeps = {
 
 export { isPlainObject, readJsonObject };
 
-export function createAzureComplete(
+function createAzureComplete(
   deps: Pick<
     GenerationRouteDeps,
     "azureChatComplete" | "getAzureConfig" | "timeoutMs" | "withAbortDeadline"

@@ -107,7 +107,7 @@ export type StableSelectionSnapshot = Omit<
   activeFormats: EditorTextFormat[];
 };
 
-export const EMPTY_DESCRIPTOR: SelectionDescriptor = {
+const EMPTY_DESCRIPTOR: SelectionDescriptor = {
   kind: "none",
   isCollapsed: true,
   activeFormats: new Set(),

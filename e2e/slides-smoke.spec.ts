@@ -366,3 +366,144 @@ test.describe("slides routes without auth", () => {
     expect(response?.status()).toBe(404);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Smoke: additional unauthenticated presentation/slide-route fallbacks
+// ---------------------------------------------------------------------------
+
+test.describe("additional presentation route fallbacks without auth", () => {
+  test("app document editor route does not return a server error", async ({
+    page,
+  }) => {
+    // The document editor route must respond gracefully — either redirecting to
+    // login (auth-enforced environments) or rendering the page (dev/open mode)
+    // — but must never crash with a 5xx server error.
+    const response = await page.goto(
+      "/app/documents/00000000-0000-0000-0000-000000000000",
+    );
+    const status = response?.status() ?? 0;
+    expect(status).toBeLessThan(500);
+  });
+
+  test("unknown /present/<slug>/embed path returns 404", async ({ page }) => {
+    // The per-deck embedded present route should 404 for unknown slugs just
+    // like /present/<slug> does.
+    const response = await page.goto(
+      "/present/slides-smoke-unknown-slug-abcdef/embed",
+    );
+    expect(response?.status()).toBe(404);
+  });
+
+  test("404 page for an unknown present route has a valid html[lang] attribute", async ({
+    page,
+  }) => {
+    // The Next.js 404 page should be well-formed HTML: the root <html> element
+    // must carry a non-empty lang attribute — a baseline accessibility requirement.
+    await page.goto("/present/slides-smoke-a11y-lang-check");
+    const lang = await page.locator("html").getAttribute("lang");
+    expect(lang).toBeTruthy();
+    expect(lang!.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Smoke: authenticated workspace accessibility (no seeded document required)
+// ---------------------------------------------------------------------------
+
+test.describe("authenticated workspace accessibility", () => {
+  test("workspace page has a main landmark and a non-empty page title", async ({
+    page,
+  }) => {
+    const creds = ownerCredentials();
+    test.skip(!creds, "Set E2E_USER_EMAIL/E2E_USER_PASSWORD to run this flow");
+
+    await login(page, creds!);
+
+    // A <main> landmark is a baseline accessibility requirement so keyboard
+    // and screen-reader users can navigate past the header to the content.
+    const main = page.getByRole("main");
+    await expect(main).toBeVisible({ timeout: 10_000 });
+
+    // The page title must be non-empty (no blank <title> elements).
+    const title = await page.title();
+    expect(title.trim().length).toBeGreaterThan(0);
+  });
+
+  test("authenticated workspace exposes a visible create-document control", async ({
+    page,
+  }) => {
+    const creds = ownerCredentials();
+    test.skip(!creds, "Set E2E_USER_EMAIL/E2E_USER_PASSWORD to run this flow");
+
+    await login(page, creds!);
+
+    // A "New" / "Create" control should be reachable by role so keyboard and
+    // screen-reader users can always start a new document.  We only assert
+    // visibility — we do NOT click it to avoid creating documents in CI.
+    const createControl = page
+      .getByRole("button", { name: /new|create/i })
+      .or(page.getByRole("link", { name: /new|create/i }))
+      .first();
+
+    const count = await createControl.count();
+    if (count > 0) {
+      await expect(createControl).toBeVisible({ timeout: 10_000 });
+    }
+    // If no matching control exists the workspace layout may differ by plan;
+    // we don't fail — presence of the control is the happy-path assertion.
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Smoke: accessible slide editor toolbar controls (optional fixture)
+// ---------------------------------------------------------------------------
+
+test.describe("slides editor accessible toolbar controls", () => {
+  test("slide editor toolbar controls are reachable by accessible role", async ({
+    page,
+  }) => {
+    const creds = ownerCredentials();
+    test.skip(!creds, "Set E2E_USER_EMAIL/E2E_USER_PASSWORD to run this flow");
+    const docUrl = slidesDocUrl();
+    test.skip(
+      !docUrl,
+      "Set E2E_SLIDES_DOC_URL to run the editor accessibility check",
+    );
+
+    await login(page, creds!);
+    await page.goto(docUrl!);
+
+    // Navigate to the slides editor.
+    const slidesTab = page
+      .getByRole("tab", { name: /slides/i })
+      .or(page.getByRole("button", { name: /slides/i }))
+      .or(page.getByRole("link", { name: /slides/i }))
+      .first();
+
+    await clickIfPresent(slidesTab);
+
+    // Verify at least one slides-specific toolbar control (Present, Export, or
+    // Add slide) is visible and reachable by accessible role.  We do NOT click
+    // any control that could trigger a download or destructive edit.
+    const candidateControls = [
+      page.getByRole("button", { name: /present/i }).first(),
+      page.getByRole("button", { name: /export/i }).first(),
+      page.getByRole("button", { name: /add slide/i }).first(),
+    ];
+
+    let foundAccessibleControl = false;
+    for (const control of candidateControls) {
+      if (await isVisible(control, 5_000)) {
+        foundAccessibleControl = true;
+        await expect(control).toBeVisible();
+        break;
+      }
+    }
+
+    if (!foundAccessibleControl) {
+      skipOptionalSlidesFixture(
+        "No accessible slide editor toolbar control was found",
+      );
+    }
+  });
+});

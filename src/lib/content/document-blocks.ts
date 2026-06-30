@@ -116,11 +116,6 @@ export type DocumentTableBlock = {
   rows: DocumentTableRow[];
 };
 
-export interface DocumentTableData {
-  columns: string[];
-  rows: string[][];
-}
-
 /* node:coverage ignore next 5 -- Type-only visual block contract is erased; tests cover runtime visual collection. */
 export type DocumentVisualBlock = {
   kind: "visual";

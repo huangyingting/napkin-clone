@@ -1,7 +1,7 @@
 import { formatBytesAsMb, type LimitDefinition } from "@/lib/limits/budgets";
 
 export const IMPORT_MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
-export const IMPORT_TEXT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const IMPORT_TEXT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export const IMPORT_ACCEPTED_MIME_TYPES = [
   "text/markdown",

@@ -25,17 +25,6 @@ const NODE_ONLY_EDITING: KindEditingCapabilities = {
   autoLayoutSupported: false,
 };
 
-/** Read-only: structural editing — all operations disabled. Kept for future use by read-only kinds. */
-export const READ_ONLY_EDITING: KindEditingCapabilities = {
-  nodeAddable: false,
-  nodeDeletable: false,
-  edgeAddable: false,
-  edgeDeletable: false,
-  edgeReconnectable: false,
-  nodeDuplicatable: false,
-  autoLayoutSupported: false,
-};
-
 export const KIND_EDITING_CAPABILITIES = {
   flowchart: FULL_GRAPH_EDITING,
   mindmap: FULL_GRAPH_EDITING,

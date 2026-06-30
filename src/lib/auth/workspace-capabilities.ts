@@ -179,7 +179,7 @@ export function workspaceCapabilityAccessDecision(
  * resolves its capabilities. Returns a `none` capability set with
  * `workspace: null` when the workspace does not exist.
  */
-export async function getWorkspaceCapabilities(
+async function getWorkspaceCapabilities(
   userId: string,
   workspaceId: string,
 ): Promise<WorkspaceCapabilities & { workspace: WorkspaceIdentity | null }> {

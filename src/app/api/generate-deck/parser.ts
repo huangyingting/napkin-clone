@@ -5,7 +5,7 @@ import {
   InputTooLongError,
   MAX_INPUT_CHARS,
 } from "@/lib/ai/generate";
-import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
+import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 import {
   isPlainObject,
@@ -18,7 +18,11 @@ import {
   formatDeckInputTooLongError,
 } from "@/lib/limits";
 import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
-import { inferPresentationTheme } from "@/lib/presentation/infer-theme";
+import {
+  DEFAULT_THEME_PACKAGE_ID,
+  isThemePackageId,
+  type ThemePackageId,
+} from "@/lib/presentation/theme-packages";
 import type { Visual } from "@/lib/visual/schema";
 
 const DECK_LENGTHS: readonly NonNullable<DeckGenerationOptions["length"]>[] = [
@@ -34,7 +38,8 @@ export interface GenerateDeckPayload {
   visuals: Map<string, Visual>;
   outline: string;
   truncated: boolean;
-  preferredTheme: ReturnType<typeof inferPresentationTheme>;
+  themePackageId: ThemePackageId;
+  generationMode: "package-template";
 }
 
 export function visualsFromContent(
@@ -117,7 +122,12 @@ export function parseGenerateDeckPayload(
   const blocks = collectDocumentBlocks(body.contentJson);
   const visuals = visualsFromContent(blocks);
   const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
-  if (outline.trim().length === 0) return { ok: false, status: 400, message: "`contentJson` does not contain any usable outline content." };
+  if (outline.trim().length === 0)
+    return {
+      ok: false,
+      status: 400,
+      message: "`contentJson` does not contain any usable outline content.",
+    };
   if (outline.length > MAX_INPUT_CHARS) {
     return {
       ok: false,
@@ -125,7 +135,31 @@ export function parseGenerateDeckPayload(
       message: formatDeckInputTooLongError(outline.length),
     };
   }
-  const preferredTheme = inferPresentationTheme(blocks);
+  const generationModeRaw = body.generationMode;
+  if (
+    generationModeRaw !== undefined &&
+    generationModeRaw !== null &&
+    generationModeRaw !== "package-template"
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      message: '`generationMode` must be "package-template".',
+    };
+  }
+  let themePackageId: ThemePackageId | undefined;
+  if (body.themePackageId !== undefined && body.themePackageId !== null) {
+    if (!isThemePackageId(body.themePackageId)) {
+      return {
+        ok: false,
+        status: 400,
+        message: "`themePackageId` is invalid.",
+      };
+    }
+    themePackageId = body.themePackageId;
+  } else {
+    themePackageId = DEFAULT_THEME_PACKAGE_ID;
+  }
 
   return {
     ok: true,
@@ -136,7 +170,8 @@ export function parseGenerateDeckPayload(
       visuals,
       outline,
       truncated,
-      preferredTheme,
+      themePackageId,
+      generationMode: "package-template",
     },
   };
 }
@@ -150,7 +185,13 @@ export function mapGenerateDeckError(
   if (error instanceof InputTooLongError) {
     return { status: 413, message: error.message };
   }
-  if (error instanceof GenerationError) return { status: 502, message: "We couldn't generate a deck from that document. Please try again.", log: { reason: "generation-failed", status: 502 } };
+  if (error instanceof GenerationError)
+    return {
+      status: 502,
+      message:
+        "We couldn't generate a deck from that document. Please try again.",
+      log: { reason: "generation-failed", status: 502 },
+    };
   if (error instanceof ModelOutputBudgetError) {
     return {
       status: 502,

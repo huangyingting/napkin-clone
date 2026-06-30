@@ -1,0 +1,481 @@
+{
+  "schemaVersion": 1,
+  "id": "monolith",
+  "version": "1.0.0",
+  "name": "Brutalist Bold",
+  "tagline": "High-impact black, red, and lime creative decks.",
+  "tokens": {
+    "colors": {
+      "canvas": {
+        "fill": "#0c0c0c",
+        "text": "#f4f4f0",
+        "mutedText": "#7a7a7a"
+      },
+      "surface": {
+        "fill": "#f4f4f0",
+        "text": "#f4f4f0",
+        "mutedText": "#7a7a7a",
+        "border": "#d8ff00"
+      },
+      "accent": {
+        "fill": "#ff3b1f",
+        "text": "#000000"
+      }
+    },
+    "fonts": {
+      "heading": "'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif",
+      "body": "'JetBrains Mono', 'Noto Sans SC', monospace",
+      "mono": "'JetBrains Mono', 'Noto Sans SC', monospace"
+    },
+    "radii": {
+      "card": 0,
+      "pill": 999
+    }
+  },
+  "styles": {
+    "slide.cover": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "solid",
+            "color": "#0c0c0c"
+          },
+          "chrome": "minimal",
+          "decoration": "expressive"
+        }
+      }
+    },
+    "slide.content": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "solid",
+            "color": {
+              "token": "colors.canvas.fill"
+            }
+          },
+          "chrome": "default",
+          "decoration": "default"
+        }
+      }
+    },
+    "slide.section": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "linearGradient",
+            "from": "#0c0c0c",
+            "to": "#f4f4f0",
+            "angle": 135
+          },
+          "chrome": "minimal",
+          "decoration": "expressive"
+        }
+      }
+    },
+    "text.title": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 38,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 800,
+          "lineHeight": 1.04
+        }
+      },
+      "large": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 52,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 800,
+          "lineHeight": 0.98
+        }
+      }
+    },
+    "text.subtitle": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 18,
+          "color": {
+            "token": "colors.canvas.mutedText"
+          },
+          "weight": 400,
+          "lineHeight": 1.36
+        }
+      }
+    },
+    "text.body": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 15,
+          "color": {
+            "token": "colors.surface.text"
+          },
+          "weight": 400,
+          "lineHeight": 1.45
+        }
+      },
+      "small": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 12,
+          "color": {
+            "token": "colors.surface.mutedText"
+          },
+          "weight": 400,
+          "lineHeight": 1.35
+        }
+      }
+    },
+    "text.kicker": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 11,
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "weight": 700,
+          "lineHeight": 1.12,
+          "letterSpacingEm": 0.2,
+          "textTransform": "uppercase"
+        }
+      }
+    },
+    "text.caption": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 10,
+          "color": {
+            "token": "colors.canvas.mutedText"
+          },
+          "weight": 500,
+          "lineHeight": 1.25
+        }
+      }
+    },
+    "text.quote": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 27,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 600,
+          "lineHeight": 1.28,
+          "italic": true
+        }
+      }
+    },
+    "text.metric": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 48,
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "weight": 800,
+          "lineHeight": 0.95
+        }
+      }
+    },
+    "surface.card": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "widthPt": 2.2
+        },
+        "radius": {
+          "allPt": 0
+        },
+        "shadow": {
+          "xPt": 5,
+          "yPt": 5,
+          "blurPt": 0,
+          "color": "#d8ff00",
+          "opacity": 1
+        }
+      }
+    },
+    "surface.callout": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "widthPt": 1.4
+        },
+        "radius": {
+          "allPt": 4
+        }
+      }
+    },
+    "surface.table": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.surface.border"
+          },
+          "widthPt": 1
+        },
+        "table": {
+          "headerFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.accent.fill"
+            }
+          },
+          "rowFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.surface.fill"
+            }
+          },
+          "alternateRowFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.canvas.fill"
+            }
+          },
+          "border": {
+            "color": {
+              "token": "colors.surface.border"
+            },
+            "widthPt": 1
+          },
+          "text": {
+            "fontFamily": {
+              "token": "fonts.body"
+            },
+            "fontSizePt": 10.5,
+            "color": {
+              "token": "colors.surface.text"
+            }
+          },
+          "headerText": {
+            "fontFamily": {
+              "token": "fonts.body"
+            },
+            "fontSizePt": 10.5,
+            "color": {
+              "token": "colors.accent.text"
+            },
+            "weight": 700
+          }
+        }
+      }
+    },
+    "media.hero": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "image": {
+          "fit": "cover",
+          "radiusPct": 0
+        },
+        "radius": {
+          "allPt": 0
+        }
+      }
+    },
+    "media.inline": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "image": {
+          "fit": "contain",
+          "radiusPct": 0
+        },
+        "radius": {
+          "allPt": 2
+        }
+      }
+    },
+    "chart.primary": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.accent.fill"
+          }
+        },
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 11,
+          "color": {
+            "token": "colors.surface.text"
+          }
+        }
+      }
+    },
+    "connector.primary": {
+      "default": {
+        "connector": {
+          "stroke": {
+            "color": {
+              "token": "colors.accent.fill"
+            },
+            "widthPt": 1.6
+          },
+          "routing": "straight"
+        }
+      }
+    },
+    "decoration.background": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": "#ff3b1f"
+        },
+        "opacity": 0.16
+      }
+    }
+  },
+  "decorations": {
+    "colorBlock": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "colorBlock",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 68,
+          "y": 0,
+          "w": 32,
+          "h": 38
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "solid",
+          "color": "#ff3b1f"
+        },
+        "opacity": 0.9
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    },
+    "popDots": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "popDots",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "h": 100
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "pattern",
+          "kind": "dots",
+          "color": "#d8ff00",
+          "spacingPct": 9,
+          "strokeWidthPct": 0.45
+        },
+        "opacity": 0
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "appliesTo": {
+        "templateKinds": ["cover", "section", "quote", "closing"]
+      }
+    },
+    "secondaryBlock": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "secondaryBlock",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 78,
+          "y": 16,
+          "w": 12,
+          "h": 18
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "solid",
+          "color": "#d8ff00"
+        },
+        "opacity": 0.92
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    }
+  }
+}

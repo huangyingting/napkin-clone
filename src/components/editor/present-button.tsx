@@ -3,25 +3,25 @@
 /**
  * Present button rendered in the document editor toolbar.
  *
- * Reads the current Lexical editor state, builds a fallback {@link Deck} via
- * {@link buildDeckFromBlocks}, then prefers the freshest saved `deckJson` so
- * the toolbar presentation matches the Slides editor and public present route.
+ * Fetches the freshest saved DeckV7 and renders it through PresentModeVNext.
+ * Missing deck JSON starts a native blank DeckV7; invalid non-empty deck JSON
+ * renders recovery diagnostics instead of silently presenting a blank deck.
  *
- * The present mode is READ-ONLY — it never mutates Lexical/Yjs state.
+ * The present mode is read-only; it never mutates Lexical/Yjs state.
  */
 
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { MonitorPlay } from "lucide-react";
 import { useCallback, useState } from "react";
 
-import { PresentMode } from "@/components/presentation/present-mode";
+import { PresentModeVNext } from "@/components/presentation-vnext/present-mode-vnext";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import type { DeckFetchPort } from "@/lib/action-ports";
-import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
-import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
-import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
-import type { Visual } from "@/lib/visual/schema";
-import { collectDocumentBlocks } from "@/lib/content";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
+import { decideDeckOpen } from "@/lib/presentation-vnext/open-deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
+import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 
 interface PresentButtonProps {
   documentId: string;
@@ -31,17 +31,71 @@ interface PresentButtonProps {
   iconOnly?: boolean;
 }
 
-type PresentData = {
-  deck: Deck;
-  visuals: Map<string, Visual>;
+type PresentData =
+  | {
+      mode: "deck";
+      deck: DeckV7;
+      themePackage: ThemePackageV1;
+    }
+  | PresentRecoveryData;
+
+type PresentRecoveryData = {
+  mode: "recovery";
+  error: string;
+  diagnostics: PresentationDiagnostic[];
+  validationErrors?: string[];
 };
+
+function PresentOpenRecovery({
+  recovery,
+  onClose,
+}: {
+  recovery: PresentRecoveryData;
+  onClose: () => void;
+}) {
+  const details = [
+    ...recovery.diagnostics.map((diagnostic) => diagnostic.message),
+    ...(recovery.validationErrors ?? []),
+  ];
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="present-recovery-title"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-ds-backdrop p-6"
+    >
+      <section className="max-w-xl rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay p-5 shadow-ds-overlay">
+        <h2
+          id="present-recovery-title"
+          className="text-lg font-semibold text-ds-text-primary"
+        >
+          Presentation deck could not be opened
+        </h2>
+        <p className="mt-2 text-sm text-ds-text-secondary">{recovery.error}</p>
+        {details.length > 0 ? (
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-ds-text-secondary">
+            {details.slice(0, 6).map((detail, index) => (
+              <li key={`${detail}-${index}`}>{detail}</li>
+            ))}
+          </ul>
+        ) : null}
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 rounded-ds-sm bg-ds-accent px-3 py-2 text-sm font-medium text-ds-text-on-accent"
+        >
+          Close
+        </button>
+      </section>
+    </div>
+  );
+}
 
 /**
  * A toolbar button that opens the in-app Present mode for the current document.
  *
- * Placed in the editor header alongside Export and Share. On click it reads the
- * current Lexical editor state for live visuals and a generated fallback deck,
- * then prefers the saved deck JSON before rendering {@link PresentMode}.
+ * Placed in the editor header alongside Export and Share. On click it prefers
+ * the saved DeckV7 before rendering {@link PresentModeVNext}.
  */
 export function PresentButton({
   documentId,
@@ -50,40 +104,42 @@ export function PresentButton({
   documentTitle,
   iconOnly = false,
 }: PresentButtonProps) {
-  const [editor] = useLexicalComposerContext();
   const [presentData, setPresentData] = useState<PresentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePresent = useCallback(async () => {
-    const json = JSON.stringify(editor.getEditorState().toJSON());
-    const blocks = collectDocumentBlocks(json);
-
-    // Build visual lookup map from the block list so PresentMode never touches Lexical.
-    const visualMap = new Map<string, Visual>();
-    for (const block of blocks) {
-      if (block.kind === "visual") {
-        visualMap.set(block.visualId, block.visual);
-      }
-    }
-
-    const baseDeck = buildDeckFromBlocks(blocks, { documentId });
     let fetchedRaw: unknown = null;
     setIsLoading(true);
     try {
       fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
     } catch {
-      // Network/auth error — fall back to page-load deckJson, then live blocks.
+      // Network/auth error: fall back to page-load deckJson, then blank v7.
     } finally {
       setIsLoading(false);
     }
 
-    const knownVisualIds = new Set(visualMap.keys());
-    const deck = stripOrphanedVisuals(
-      pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck),
-      knownVisualIds,
-    );
-    setPresentData({ deck, visuals: visualMap });
-  }, [deckPort, documentId, editor, initialDeckJson]);
+    const candidate = fetchedRaw ?? initialDeckJson ?? null;
+    const decision = decideDeckOpen(candidate);
+    if (decision.mode === "recovery") {
+      setPresentData({
+        mode: "recovery",
+        error: decision.error,
+        diagnostics: decision.diagnostics,
+        validationErrors: decision.errors,
+      });
+      return;
+    }
+    const deck =
+      decision.mode === "open"
+        ? decision.deck
+        : createBlankDeckV7({ documentId, title: documentTitle });
+    const themeResolution = resolveThemePackageForDeck(deck);
+    setPresentData({
+      mode: "deck",
+      deck,
+      themePackage: themeResolution.package,
+    });
+  }, [deckPort, documentId, documentTitle, initialDeckJson]);
 
   const handleClose = useCallback(() => {
     setPresentData(null);
@@ -101,12 +157,16 @@ export function PresentButton({
         aria-label={`Present ${documentTitle ?? "document"}`}
       />
 
-      {presentData ? (
-        <PresentMode
+      {presentData?.mode === "deck" ? (
+        <PresentModeVNext
           deck={presentData.deck}
-          visuals={presentData.visuals}
+          themePackage={presentData.themePackage}
           onClose={handleClose}
         />
+      ) : null}
+
+      {presentData?.mode === "recovery" ? (
+        <PresentOpenRecovery recovery={presentData} onClose={handleClose} />
       ) : null}
     </>
   );

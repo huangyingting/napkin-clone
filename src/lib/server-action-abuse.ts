@@ -4,12 +4,12 @@ import {
   type AbuseBudgetNamespaceId,
 } from "@/lib/abuse-budget";
 
-export interface ServerActionAbuseDecision {
+interface ServerActionAbuseDecision {
   readonly allowed: boolean;
   readonly retryAfterSeconds?: number;
 }
 
-export async function checkServerActionAbuseBudget(
+async function checkServerActionAbuseBudget(
   namespace: AbuseBudgetNamespaceId,
   subject: string,
 ): Promise<ServerActionAbuseDecision> {

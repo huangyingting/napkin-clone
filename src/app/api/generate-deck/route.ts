@@ -32,33 +32,32 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
 import { DECK_OUTPUT_TOKEN_BUDGET } from "@/lib/limits";
 import { createGenerationRouteHandler } from "@/lib/ai/generation-route";
 import { notFound } from "@/lib/api/errors";
-import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
 import { isAiDeckGenEnabled } from "@/lib/ai/config";
-import { logInfo } from "@/lib/log";
 
 import {
   mapGenerateDeckError,
   parseGenerateDeckPayload,
   type GenerateDeckPayload,
 } from "./parser";
+import {
+  buildGenerateDeckSuccessResponse,
+  generateDeckForRoute,
+  GENERATE_DECK_LOG_SCOPE,
+  logGenerateDeckSuccess,
+  type GenerateDeckRouteResult,
+} from "./route-logic";
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
 
-/** Scope tag for structured error logs from this route. */
-const LOG_SCOPE = "api.generate-deck";
-
-type DeckGenerationResult = Awaited<ReturnType<typeof runDeckGeneration>>;
-
 const handleGenerateDeck = createGenerationRouteHandler<
   GenerateDeckPayload,
-  DeckGenerationResult
+  GenerateDeckRouteResult
 >({
-  logScope: LOG_SCOPE,
+  logScope: GENERATE_DECK_LOG_SCOPE,
   operation: "generate-deck",
   rateLimitSubjects: {
     user: "ai.deck.user",
@@ -70,37 +69,11 @@ const handleGenerateDeck = createGenerationRouteHandler<
   azureMaxOutputTokens: DECK_OUTPUT_TOKEN_BUDGET,
   parsePayload: parseGenerateDeckPayload,
   creditText: (payload) => payload.outline,
-  generate: ({ payload, complete }) =>
-    runDeckGeneration({
-      contentJson: payload.contentJson,
-      visuals: payload.visuals,
-      complete,
-      options: payload.options,
-      preferredTheme: payload.preferredTheme,
-    }),
-  successResponse: ({ deck }, { payload }) =>
-    NextResponse.json({ deck, truncated: payload.truncated }),
+  generate: generateDeckForRoute,
+  successResponse: (result) =>
+    NextResponse.json(buildGenerateDeckSuccessResponse(result)),
   mapGenerationError: mapGenerateDeckError,
-  onSuccess: ({ deck }, { payload, requestId, latencyMs }) => {
-    try {
-      const metrics = computeDeckMetrics(deck, {
-        sourceWordCount: countWords(payload.outline),
-      });
-      logInfo(LOG_SCOPE, "deck-generated", {
-        requestId,
-        latencyMs,
-        outlineChars: payload.outline.length,
-        outlineWords: metrics.sourceWordCount ?? 0,
-        slideCount: metrics.slideCount,
-        wordsPerSlide: metrics.wordsPerSlide,
-        percentSlidesWithVisual: metrics.percentSlidesWithVisual,
-        schemaValid: metrics.schemaValid,
-        truncated: payload.truncated,
-      });
-    } catch {
-      // Metrics logging is best-effort and must never affect the response.
-    }
-  },
+  onSuccess: logGenerateDeckSuccess,
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

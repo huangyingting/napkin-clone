@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 1,
+  "id": "aurora",
+  "version": "1.0.0",
+  "name": "Dark Aurora Corporate",
+  "tagline": "Dark finance and strategy reports with luminous glass.",
+  "tokens": {
+    "colors": {
+      "canvas": {
+        "fill": "#05060d",
+        "text": "#eef1ff",
+        "mutedText": "#7b80a0"
+      },
+      "surface": {
+        "fill": "#101427",
+        "text": "#eef1ff",
+        "mutedText": "#7b80a0",
+        "border": "#28305a"
+      },
+      "accent": {
+        "fill": "#5b6cff",
+        "text": "#04060f"
+      }
+    },
+    "fonts": {
+      "heading": "Manrope, 'Noto Sans SC', system-ui, sans-serif",
+      "body": "'JetBrains Mono', 'Noto Sans SC', monospace",
+      "mono": "'JetBrains Mono', 'Noto Sans SC', monospace"
+    },
+    "radii": {
+      "card": 18,
+      "pill": 999
+    }
+  },
+  "styles": {
+    "slide.cover": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "radialGradient",
+            "inner": "#1a2050",
+            "outer": "#05060d",
+            "cx": 80,
+            "cy": 0,
+            "rx": 95,
+            "ry": 95
+          },
+          "chrome": "minimal",
+          "decoration": "expressive"
+        }
+      }
+    },
+    "slide.content": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "solid",
+            "color": {
+              "token": "colors.canvas.fill"
+            }
+          },
+          "chrome": "default",
+          "decoration": "default"
+        }
+      }
+    },
+    "slide.section": {
+      "default": {
+        "slide": {
+          "background": {
+            "type": "linearGradient",
+            "from": "#05060d",
+            "to": "#101427",
+            "angle": 135
+          },
+          "chrome": "minimal",
+          "decoration": "expressive"
+        }
+      }
+    },
+    "text.title": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 38,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 800,
+          "lineHeight": 1.04
+        }
+      },
+      "large": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 52,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 800,
+          "lineHeight": 0.98
+        }
+      }
+    },
+    "text.subtitle": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 18,
+          "color": {
+            "token": "colors.canvas.mutedText"
+          },
+          "weight": 400,
+          "lineHeight": 1.36
+        }
+      }
+    },
+    "text.body": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 15,
+          "color": {
+            "token": "colors.surface.text"
+          },
+          "weight": 400,
+          "lineHeight": 1.45
+        }
+      },
+      "small": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 12,
+          "color": {
+            "token": "colors.surface.mutedText"
+          },
+          "weight": 400,
+          "lineHeight": 1.35
+        }
+      }
+    },
+    "text.kicker": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 11,
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "weight": 700,
+          "lineHeight": 1.12,
+          "letterSpacingEm": 0.2,
+          "textTransform": "uppercase"
+        }
+      }
+    },
+    "text.caption": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 10,
+          "color": {
+            "token": "colors.canvas.mutedText"
+          },
+          "weight": 500,
+          "lineHeight": 1.25
+        }
+      }
+    },
+    "text.quote": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 27,
+          "color": {
+            "token": "colors.canvas.text"
+          },
+          "weight": 600,
+          "lineHeight": 1.28,
+          "italic": true
+        }
+      }
+    },
+    "text.metric": {
+      "default": {
+        "text": {
+          "fontFamily": {
+            "token": "fonts.heading"
+          },
+          "fontSizePt": 48,
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "weight": 800,
+          "lineHeight": 0.95
+        }
+      }
+    },
+    "surface.card": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": "rgba(255,255,255,.08)"
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.surface.border"
+          },
+          "widthPt": 1
+        },
+        "radius": {
+          "allPt": 18
+        },
+        "shadow": {
+          "xPt": 0,
+          "yPt": 10,
+          "blurPt": 24,
+          "color": "#5b6cff",
+          "opacity": 0.18
+        },
+        "effect": {
+          "kind": "glass",
+          "intensity": "medium"
+        }
+      }
+    },
+    "surface.callout": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.accent.fill"
+          },
+          "widthPt": 1.4
+        },
+        "radius": {
+          "allPt": 18
+        }
+      }
+    },
+    "surface.table": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "stroke": {
+          "color": {
+            "token": "colors.surface.border"
+          },
+          "widthPt": 1
+        },
+        "table": {
+          "headerFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.accent.fill"
+            }
+          },
+          "rowFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.surface.fill"
+            }
+          },
+          "alternateRowFill": {
+            "type": "solid",
+            "color": {
+              "token": "colors.canvas.fill"
+            }
+          },
+          "border": {
+            "color": {
+              "token": "colors.surface.border"
+            },
+            "widthPt": 1
+          },
+          "text": {
+            "fontFamily": {
+              "token": "fonts.body"
+            },
+            "fontSizePt": 10.5,
+            "color": {
+              "token": "colors.surface.text"
+            }
+          },
+          "headerText": {
+            "fontFamily": {
+              "token": "fonts.body"
+            },
+            "fontSizePt": 10.5,
+            "color": {
+              "token": "colors.accent.text"
+            },
+            "weight": 700
+          }
+        }
+      }
+    },
+    "media.hero": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "image": {
+          "fit": "cover",
+          "radiusPct": 3
+        },
+        "radius": {
+          "allPt": 18
+        }
+      }
+    },
+    "media.inline": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.surface.fill"
+          }
+        },
+        "image": {
+          "fit": "contain",
+          "radiusPct": 2
+        },
+        "radius": {
+          "allPt": 9
+        }
+      }
+    },
+    "chart.primary": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": {
+            "token": "colors.accent.fill"
+          }
+        },
+        "text": {
+          "fontFamily": {
+            "token": "fonts.body"
+          },
+          "fontSizePt": 11,
+          "color": {
+            "token": "colors.surface.text"
+          }
+        }
+      }
+    },
+    "connector.primary": {
+      "default": {
+        "connector": {
+          "stroke": {
+            "color": {
+              "token": "colors.accent.fill"
+            },
+            "widthPt": 1.6
+          },
+          "routing": "straight"
+        }
+      }
+    },
+    "decoration.background": {
+      "default": {
+        "fill": {
+          "type": "solid",
+          "color": "#5b6cff"
+        },
+        "opacity": 0.16
+      }
+    }
+  },
+  "decorations": {
+    "silk": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "silk",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 100,
+          "h": 100
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "radialGradient",
+          "inner": "rgba(47,61,143,.14)",
+          "outer": "transparent",
+          "cx": 78,
+          "cy": 100,
+          "rx": 70,
+          "ry": 60
+        },
+        "opacity": 0.8
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    },
+    "ring": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "ring",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 68,
+          "y": -12,
+          "w": 38,
+          "h": 54
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "solid",
+          "color": "transparent"
+        },
+        "stroke": {
+          "color": "#5b6cff",
+          "widthPt": 1.2
+        },
+        "radius": {
+          "allPt": 999
+        },
+        "opacity": 0.42
+      },
+      "content": {
+        "type": "shape",
+        "shape": "ellipse"
+      }
+    },
+    "accentFrame": {
+      "role": "themeDecoration",
+      "visibility": "default",
+      "chrome": "default",
+      "id": "accentFrame",
+      "component": "shape",
+      "layout": {
+        "frame": {
+          "x": 72,
+          "y": 62,
+          "w": 18,
+          "h": 22
+        },
+        "zIndex": 0
+      },
+      "style": {
+        "fill": {
+          "type": "solid",
+          "color": "transparent"
+        },
+        "stroke": {
+          "color": "#28305a",
+          "widthPt": 1
+        },
+        "radius": {
+          "allPt": 18
+        },
+        "opacity": 0.7
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect"
+      }
+    }
+  }
+}
