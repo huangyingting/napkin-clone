@@ -1,118 +1,1036 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><title>01 · Editorial Serif Luxe</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#f3ede1;--ink:#191510;--accent:#2f3d8f;--gold:#b88a2e;--muted:#8c826d;--surf:#fbf7ee;--line:#ddd3bd;--serif:"Fraunces",serif;--sans:"Inter",sans-serif}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#262320;font-family:var(--sans);padding:30px;display:flex;flex-direction:column;align-items:center;gap:26px}
-.slide{width:1280px;height:720px;background:var(--bg);color:var(--ink);position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45);border-radius:6px}
-.grain{position:absolute;inset:0;opacity:.05;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.pad{position:absolute;inset:0;padding:60px 76px;display:flex;flex-direction:column}.z{position:relative;z-index:2}
-.kind{position:absolute;top:26px;left:48px;font:600 10px var(--sans);letter-spacing:.34em;text-transform:uppercase;color:var(--muted)}
-.num{position:absolute;bottom:26px;right:48px;font:600 13px var(--sans);color:var(--muted)}
-.foot{position:absolute;bottom:26px;left:48px;font:600 11px var(--sans);letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
-h1{font:900 96px/.95 var(--serif);letter-spacing:-.02em}h2{font:600 52px/1.02 var(--serif)}h3{font:600 26px var(--serif)}
-.tag{font:700 12px var(--sans);letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
-p{font:400 17px/1.6 var(--sans);color:#46402f;max-width:60ch}.sm{font-size:14px}
-.row{display:flex}.col{flex-direction:column}.bt{justify-content:space-between}.cn{justify-content:center}.ac{align-items:center}.g{gap:26px}.fill{flex:1}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:34px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-.card{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:26px}
-.stat{font:900 72px/1 var(--serif);color:var(--accent)}.gold{color:var(--gold)}
-.pill{display:inline-flex;padding:6px 16px;border:1px solid var(--accent);color:var(--accent);border-radius:30px;font:700 11px var(--sans);letter-spacing:.18em;text-transform:uppercase}
-.rule{height:1px;background:var(--line)}.vr{width:1px;background:var(--line)}
-ul{list-style:none}li{font:400 17px/1.9 var(--sans);padding-left:26px;position:relative;color:#46402f}li:before{content:"";position:absolute;left:0;top:13px;width:10px;height:1px;background:var(--gold)}
-table{width:100%;border-collapse:collapse;font:500 15px var(--sans)}th{font:700 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left;padding:13px;border-bottom:2px solid var(--ink)}td{padding:13px;border-bottom:1px solid var(--line)}
-.ph{background:linear-gradient(135deg,#cfc6ad,#7f7660);border-radius:10px;position:relative;overflow:hidden}.ph:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.35),transparent 60%)}
-.bignum{font:900 220px/1 var(--serif);letter-spacing:-.04em}
-.dot{width:9px;height:9px;border-radius:50%;background:var(--gold)}
-.step{flex:1;text-align:center;font:600 18px var(--serif)}.arr{color:var(--gold);font-size:22px}
-</style></head><body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>01 · Editorial Serif Luxe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f3ede1;
+        --ink: #191510;
+        --accent: #2f3d8f;
+        --gold: #b88a2e;
+        --muted: #8c826d;
+        --surf: #fbf7ee;
+        --line: #ddd3bd;
+        --serif: "Fraunces", serif;
+        --sans: "Inter", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #262320;
+        font-family: var(--sans);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+      }
+      .slide {
+        width: 1280px;
+        height: 720px;
+        background: var(--bg);
+        color: var(--ink);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        border-radius: 6px;
+      }
+      .grain {
+        position: absolute;
+        inset: 0;
+        opacity: 0.05;
+        pointer-events: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .pad {
+        position: absolute;
+        inset: 0;
+        padding: 60px 76px;
+        display: flex;
+        flex-direction: column;
+      }
+      .z {
+        position: relative;
+        z-index: 2;
+      }
+      .kind {
+        position: absolute;
+        top: 26px;
+        left: 48px;
+        font: 600 10px var(--sans);
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .num {
+        position: absolute;
+        bottom: 26px;
+        right: 48px;
+        font: 600 13px var(--sans);
+        color: var(--muted);
+      }
+      .foot {
+        position: absolute;
+        bottom: 26px;
+        left: 48px;
+        font: 600 11px var(--sans);
+        letter-spacing: 0.18em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      h1 {
+        font: 900 96px/0.95 var(--serif);
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font: 600 52px/1.02 var(--serif);
+      }
+      h3 {
+        font: 600 26px var(--serif);
+      }
+      .tag {
+        font: 700 12px var(--sans);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      p {
+        font: 400 17px/1.6 var(--sans);
+        color: #46402f;
+        max-width: 60ch;
+      }
+      .sm {
+        font-size: 14px;
+      }
+      .row {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .bt {
+        justify-content: space-between;
+      }
+      .cn {
+        justify-content: center;
+      }
+      .ac {
+        align-items: center;
+      }
+      .g {
+        gap: 26px;
+      }
+      .fill {
+        flex: 1;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 34px;
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+      .g4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+      }
+      .card {
+        background: var(--surf);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 26px;
+      }
+      .stat {
+        font: 900 72px/1 var(--serif);
+        color: var(--accent);
+      }
+      .gold {
+        color: var(--gold);
+      }
+      .pill {
+        display: inline-flex;
+        padding: 6px 16px;
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        border-radius: 30px;
+        font: 700 11px var(--sans);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      .rule {
+        height: 1px;
+        background: var(--line);
+      }
+      .vr {
+        width: 1px;
+        background: var(--line);
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        font: 400 17px/1.9 var(--sans);
+        padding-left: 26px;
+        position: relative;
+        color: #46402f;
+      }
+      li:before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 13px;
+        width: 10px;
+        height: 1px;
+        background: var(--gold);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 500 15px var(--sans);
+      }
+      th {
+        font: 700 11px var(--sans);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        text-align: left;
+        padding: 13px;
+        border-bottom: 2px solid var(--ink);
+      }
+      td {
+        padding: 13px;
+        border-bottom: 1px solid var(--line);
+      }
+      .ph {
+        background: linear-gradient(135deg, #cfc6ad, #7f7660);
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+      .ph:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 30% 20%,
+          rgba(255, 255, 255, 0.35),
+          transparent 60%
+        );
+      }
+      .bignum {
+        font: 900 220px/1 var(--serif);
+        letter-spacing: -0.04em;
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--gold);
+      }
+      .step {
+        flex: 1;
+        text-align: center;
+        font: 600 18px var(--serif);
+      }
+      .arr {
+        color: var(--gold);
+        font-size: 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- cover -->
+    <section class="slide">
+      <div class="grain"></div>
+      <svg
+        style="position: absolute; right: -120px; top: -120px"
+        width="640"
+        height="640"
+      >
+        <circle
+          cx="320"
+          cy="320"
+          r="300"
+          fill="none"
+          stroke="#2f3d8f"
+          stroke-width="1"
+          opacity=".25"
+        />
+        <circle
+          cx="320"
+          cy="320"
+          r="220"
+          fill="none"
+          stroke="#b88a2e"
+          stroke-width="1"
+          opacity=".4"
+        />
+      </svg>
+      <div class="kind">Cover</div>
+      <div class="pad z">
+        <div class="row bt ac">
+          <span class="tag">Borcelle Studio</span
+          ><span class="pill">2026 · Confidential</span>
+        </div>
+        <div class="fill cn col" style="justify-content: center">
+          <h1>
+            Brand<br /><span
+              class="gold"
+              style="font-style: italic; font-weight: 400"
+              >Collaboration</span
+            >
+          </h1>
+          <p style="margin-top: 22px">
+            A partnership proposal in shared identity, editorial reach, and
+            design language that endures.
+          </p>
+        </div>
+        <div class="row bt ac">
+          <span style="font: 500 17px var(--serif)">By Clarice Wilson</span
+          ><span class="tag">January 2026</span>
+        </div>
+      </div>
+      <div class="num">01</div>
+    </section>
 
-<!-- cover -->
-<section class="slide"><div class="grain"></div>
-<svg style="position:absolute;right:-120px;top:-120px" width="640" height="640"><circle cx="320" cy="320" r="300" fill="none" stroke="#2f3d8f" stroke-width="1" opacity=".25"/><circle cx="320" cy="320" r="220" fill="none" stroke="#b88a2e" stroke-width="1" opacity=".4"/></svg>
-<div class="kind">Cover</div><div class="pad z"><div class="row bt ac"><span class="tag">Borcelle Studio</span><span class="pill">2026 · Confidential</span></div>
-<div class="fill cn col" style="justify-content:center"><h1>Brand<br><span class="gold" style="font-style:italic;font-weight:400">Collaboration</span></h1><p style="margin-top:22px">A partnership proposal in shared identity, editorial reach, and design language that endures.</p></div>
-<div class="row bt ac"><span style="font:500 17px var(--serif)">By Clarice Wilson</span><span class="tag">January 2026</span></div></div><div class="num">01</div></section>
+    <!-- agenda -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Agenda</div>
+      <div class="pad z g">
+        <span class="tag">Contents</span>
+        <h2>What we'll cover</h2>
+        <div class="rule"></div>
+        <div class="g2 fill">
+          <div class="row g ac">
+            <span class="stat gold">01</span>
+            <div>
+              <h3>Positioning</h3>
+              <p class="sm">Where the brand stands</p>
+            </div>
+          </div>
+          <div class="row g ac">
+            <span class="stat gold">02</span>
+            <div>
+              <h3>Opportunity</h3>
+              <p class="sm">Market & audience</p>
+            </div>
+          </div>
+          <div class="row g ac">
+            <span class="stat gold">03</span>
+            <div>
+              <h3>Identity</h3>
+              <p class="sm">Visual system</p>
+            </div>
+          </div>
+          <div class="row g ac">
+            <span class="stat gold">04</span>
+            <div>
+              <h3>Rollout</h3>
+              <p class="sm">Phased plan</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="num">02</div>
+    </section>
 
-<!-- agenda -->
-<section class="slide"><div class="grain"></div><div class="kind">Agenda</div><div class="pad z g"><span class="tag">Contents</span><h2>What we'll cover</h2><div class="rule"></div>
-<div class="g2 fill"><div class="row g ac"><span class="stat gold">01</span><div><h3>Positioning</h3><p class="sm">Where the brand stands</p></div></div><div class="row g ac"><span class="stat gold">02</span><div><h3>Opportunity</h3><p class="sm">Market & audience</p></div></div><div class="row g ac"><span class="stat gold">03</span><div><h3>Identity</h3><p class="sm">Visual system</p></div></div><div class="row g ac"><span class="stat gold">04</span><div><h3>Rollout</h3><p class="sm">Phased plan</p></div></div></div></div><div class="num">02</div></section>
+    <!-- section -->
+    <section class="slide" style="background: var(--accent); color: #fff">
+      <div class="grain"></div>
+      <svg
+        style="position: absolute; left: -80px; bottom: -160px"
+        width="500"
+        height="500"
+      >
+        <circle
+          cx="250"
+          cy="250"
+          r="240"
+          fill="none"
+          stroke="#b88a2e"
+          stroke-width="2"
+          opacity=".5"
+        />
+      </svg>
+      <div class="kind" style="color: #b9c1ec">Section · 01</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="pill" style="border-color: #b88a2e; color: #b88a2e"
+          >Part One</span
+        >
+        <h1 style="color: #fff; margin-top: 18px">Positioning<br />& Vision</h1>
+        <p style="color: #cfd5f0">
+          Where the brand lives today — and where it should go.
+        </p>
+      </div>
+      <div class="num" style="color: #b9c1ec">03</div>
+    </section>
 
-<!-- section -->
-<section class="slide" style="background:var(--accent);color:#fff"><div class="grain"></div><svg style="position:absolute;left:-80px;bottom:-160px" width="500" height="500"><circle cx="250" cy="250" r="240" fill="none" stroke="#b88a2e" stroke-width="2" opacity=".5"/></svg><div class="kind" style="color:#b9c1ec">Section · 01</div><div class="pad z cn col" style="justify-content:center"><span class="pill" style="border-color:#b88a2e;color:#b88a2e">Part One</span><h1 style="color:#fff;margin-top:18px">Positioning<br>& Vision</h1><p style="color:#cfd5f0">Where the brand lives today — and where it should go.</p></div><div class="num" style="color:#b9c1ec">03</div></section>
+    <!-- executive-summary -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Executive Summary</div>
+      <div class="pad z g">
+        <h2>Executive summary</h2>
+        <div class="rule"></div>
+        <div class="g3 fill">
+          <div class="card col">
+            <span class="dot"></span>
+            <h3 style="margin: 10px 0">Goal</h3>
+            <p class="sm">Unify two studios under one editorial brand.</p>
+          </div>
+          <div class="card col">
+            <span class="dot"></span>
+            <h3 style="margin: 10px 0">Reach</h3>
+            <p class="sm">2.4M combined monthly audience.</p>
+          </div>
+          <div class="card col">
+            <span class="dot"></span>
+            <h3 style="margin: 10px 0">Plan</h3>
+            <p class="sm">9-month rollout, soft launch Q3.</p>
+          </div>
+        </div>
+        <p>
+          A merged identity yields a 40% engagement lift while halving
+          production overhead.
+        </p>
+      </div>
+      <div class="num">04</div>
+    </section>
 
-<!-- executive-summary -->
-<section class="slide"><div class="grain"></div><div class="kind">Executive Summary</div><div class="pad z g"><h2>Executive summary</h2><div class="rule"></div><div class="g3 fill"><div class="card col"><span class="dot"></span><h3 style="margin:10px 0">Goal</h3><p class="sm">Unify two studios under one editorial brand.</p></div><div class="card col"><span class="dot"></span><h3 style="margin:10px 0">Reach</h3><p class="sm">2.4M combined monthly audience.</p></div><div class="card col"><span class="dot"></span><h3 style="margin:10px 0">Plan</h3><p class="sm">9-month rollout, soft launch Q3.</p></div></div><p>A merged identity yields a 40% engagement lift while halving production overhead.</p></div><div class="num">04</div></section>
+    <!-- content -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Content</div>
+      <div class="pad z">
+        <div class="g2 fill ac">
+          <div>
+            <span class="tag">Overview</span>
+            <h2 style="margin: 14px 0">The premise</h2>
+            <ul>
+              <li>Two heritage studios, one future</li>
+              <li>Editorial-first design language</li>
+              <li>Print & digital parity</li>
+              <li>Audience-led storytelling</li>
+            </ul>
+          </div>
+          <div class="ph" style="height: 480px"></div>
+        </div>
+      </div>
+      <div class="num">05</div>
+    </section>
 
-<!-- content -->
-<section class="slide"><div class="grain"></div><div class="kind">Content</div><div class="pad z"><div class="g2 fill ac"><div><span class="tag">Overview</span><h2 style="margin:14px 0">The premise</h2><ul><li>Two heritage studios, one future</li><li>Editorial-first design language</li><li>Print & digital parity</li><li>Audience-led storytelling</li></ul></div><div class="ph" style="height:480px"></div></div></div><div class="num">05</div></section>
+    <!-- detail -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Detail</div>
+      <div class="pad z g">
+        <span class="tag">Deep dive</span>
+        <h2>Typography system</h2>
+        <div class="rule"></div>
+        <div class="g2 fill ac">
+          <p>
+            A serif display paired with a neutral grotesque creates warmth and
+            contrast across formal and casual contexts. Optical sizing keeps
+            headlines elegant at scale.
+          </p>
+          <div class="card cn ac col">
+            <h1 style="font-size: 120px">Aa</h1>
+            <h3 class="gold">Fraunces · Inter</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">06</div>
+    </section>
 
-<!-- detail -->
-<section class="slide"><div class="grain"></div><div class="kind">Detail</div><div class="pad z g"><span class="tag">Deep dive</span><h2>Typography system</h2><div class="rule"></div><div class="g2 fill ac"><p>A serif display paired with a neutral grotesque creates warmth and contrast across formal and casual contexts. Optical sizing keeps headlines elegant at scale.</p><div class="card cn ac col"><h1 style="font-size:120px">Aa</h1><h3 class="gold">Fraunces · Inter</h3></div></div></div><div class="num">06</div></section>
+    <!-- quote -->
+    <section class="slide" style="background: var(--surf)">
+      <div class="grain"></div>
+      <div class="kind">Quote</div>
+      <svg
+        style="position: absolute; left: 60px; top: 90px; opacity: 0.12"
+        width="200"
+        height="160"
+      >
+        <text
+          x="0"
+          y="150"
+          font-size="220"
+          font-family="Fraunces"
+          fill="#2f3d8f"
+        >
+          "
+        </text>
+      </svg>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h2 style="font-style: italic; text-align: center; max-width: 22ch">
+          Good design is invisible until it makes you feel something.
+        </h2>
+        <span class="tag" style="margin-top: 28px"
+          >Clarice Wilson · Creative Director</span
+        >
+      </div>
+      <div class="num">07</div>
+    </section>
 
-<!-- quote -->
-<section class="slide" style="background:var(--surf)"><div class="grain"></div><div class="kind">Quote</div><svg style="position:absolute;left:60px;top:90px;opacity:.12" width="200" height="160"><text x="0" y="150" font-size="220" font-family="Fraunces" fill="#2f3d8f">"</text></svg><div class="pad z cn col ac" style="justify-content:center"><h2 style="font-style:italic;text-align:center;max-width:22ch">Good design is invisible until it makes you feel something.</h2><span class="tag" style="margin-top:28px">Clarice Wilson · Creative Director</span></div><div class="num">07</div></section>
+    <!-- big-stat -->
+    <section class="slide" style="background: var(--ink); color: #fff">
+      <div class="grain"></div>
+      <div class="kind" style="color: #888">Big Stat</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <span class="tag" style="color: var(--gold)">Combined reach</span>
+        <div class="bignum gold">2.4M</div>
+        <p style="color: #cfc6ad">
+          monthly readers across print, web, and social
+        </p>
+      </div>
+      <div class="num" style="color: #666">08</div>
+    </section>
 
-<!-- big-stat -->
-<section class="slide" style="background:var(--ink);color:#fff"><div class="grain"></div><div class="kind" style="color:#888">Big Stat</div><div class="pad z cn col ac" style="justify-content:center"><span class="tag" style="color:var(--gold)">Combined reach</span><div class="bignum gold">2.4M</div><p style="color:#cfc6ad">monthly readers across print, web, and social</p></div><div class="num" style="color:#666">08</div></section>
+    <!-- metric-row -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Metric Row</div>
+      <div class="pad z g">
+        <h2>By the numbers</h2>
+        <div class="rule"></div>
+        <div class="g4 fill ac">
+          <div>
+            <div class="stat">40%</div>
+            <p class="sm">engagement lift</p>
+          </div>
+          <div class="vr"></div>
+          <div>
+            <div class="stat">9mo</div>
+            <p class="sm">rollout</p>
+          </div>
+          <div>
+            <div class="stat">12</div>
+            <p class="sm">markets</p>
+          </div>
+          <div>
+            <div class="stat">$1.2M</div>
+            <p class="sm">budget</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">09</div>
+    </section>
 
-<!-- metric-row -->
-<section class="slide"><div class="grain"></div><div class="kind">Metric Row</div><div class="pad z g"><h2>By the numbers</h2><div class="rule"></div><div class="g4 fill ac"><div><div class="stat">40%</div><p class="sm">engagement lift</p></div><div class="vr"></div><div><div class="stat">9mo</div><p class="sm">rollout</p></div><div><div class="stat">12</div><p class="sm">markets</p></div><div><div class="stat">$1.2M</div><p class="sm">budget</p></div></div></div><div class="num">09</div></section>
+    <!-- insight -->
+    <section class="slide" style="background: var(--accent); color: #fff">
+      <div class="grain"></div>
+      <div class="kind" style="color: #b9c1ec">Insight</div>
+      <svg
+        style="position: absolute; right: -100px; bottom: -100px"
+        width="400"
+        height="400"
+      >
+        <rect
+          x="60"
+          y="60"
+          width="280"
+          height="280"
+          fill="none"
+          stroke="#b88a2e"
+          stroke-width="2"
+          transform="rotate(20 200 200)"
+          opacity=".6"
+        />
+      </svg>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="tag" style="color: #b88a2e">Key insight</span>
+        <h2 style="color: #fff; max-width: 18ch; margin-top: 14px">
+          Audiences reward consistency more than novelty.
+        </h2>
+      </div>
+      <div class="num" style="color: #b9c1ec">10</div>
+    </section>
 
-<!-- insight -->
-<section class="slide" style="background:var(--accent);color:#fff"><div class="grain"></div><div class="kind" style="color:#b9c1ec">Insight</div><svg style="position:absolute;right:-100px;bottom:-100px" width="400" height="400"><rect x="60" y="60" width="280" height="280" fill="none" stroke="#b88a2e" stroke-width="2" transform="rotate(20 200 200)" opacity=".6"/></svg><div class="pad z cn col" style="justify-content:center"><span class="tag" style="color:#b88a2e">Key insight</span><h2 style="color:#fff;max-width:18ch;margin-top:14px">Audiences reward consistency more than novelty.</h2></div><div class="num" style="color:#b9c1ec">10</div></section>
+    <!-- evidence -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Evidence</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="tag">Evidence</span>
+          <h2 style="margin: 12px 0">Field study</h2>
+          <p>
+            Across 18 brands surveyed, consistent identities retained 31% more
+            repeat visitors over six months.
+          </p>
+          <div class="rule" style="margin-top: 18px"></div>
+        </div>
+        <div class="card cn ac">
+          <div>
+            <div class="stat" style="font-size: 120px">31%</div>
+            <p class="sm">retention · n=18 · 2025</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">11</div>
+    </section>
 
-<!-- evidence -->
-<section class="slide"><div class="grain"></div><div class="kind">Evidence</div><div class="pad z g2 ac"><div><span class="tag">Evidence</span><h2 style="margin:12px 0">Field study</h2><p>Across 18 brands surveyed, consistent identities retained 31% more repeat visitors over six months.</p><div class="rule" style="margin-top:18px"></div></div><div class="card cn ac"><div><div class="stat" style="font-size:120px">31%</div><p class="sm">retention · n=18 · 2025</p></div></div></div><div class="num">11</div></section>
+    <!-- table -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Table</div>
+      <div class="pad z g">
+        <h2>Cost breakdown</h2>
+        <table>
+          <tr>
+            <th>Phase</th>
+            <th>Scope</th>
+            <th>Weeks</th>
+            <th>Cost</th>
+          </tr>
+          <tr>
+            <td>Discovery</td>
+            <td>Audit & research</td>
+            <td>4</td>
+            <td>$180k</td>
+          </tr>
+          <tr>
+            <td>Identity</td>
+            <td>Logo, type, color</td>
+            <td>8</td>
+            <td>$420k</td>
+          </tr>
+          <tr>
+            <td>Rollout</td>
+            <td>Templates, web</td>
+            <td>12</td>
+            <td>$600k</td>
+          </tr>
+          <tr>
+            <td>Total</td>
+            <td>—</td>
+            <td>24</td>
+            <td>$1.2M</td>
+          </tr>
+        </table>
+      </div>
+      <div class="num">12</div>
+    </section>
 
-<!-- table -->
-<section class="slide"><div class="grain"></div><div class="kind">Table</div><div class="pad z g"><h2>Cost breakdown</h2><table><tr><th>Phase</th><th>Scope</th><th>Weeks</th><th>Cost</th></tr><tr><td>Discovery</td><td>Audit & research</td><td>4</td><td>$180k</td></tr><tr><td>Identity</td><td>Logo, type, color</td><td>8</td><td>$420k</td></tr><tr><td>Rollout</td><td>Templates, web</td><td>12</td><td>$600k</td></tr><tr><td>Total</td><td>—</td><td>24</td><td>$1.2M</td></tr></table></div><div class="num">12</div></section>
+    <!-- comparison -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Comparison</div>
+      <div class="pad z g">
+        <h2>Studio A vs Studio B</h2>
+        <div class="g2 fill">
+          <div class="card col">
+            <span class="pill">Studio A</span>
+            <h3 style="margin: 14px 0">Editorial heritage</h3>
+            <ul>
+              <li>Print mastery</li>
+              <li>Loyal readership</li>
+              <li>Slow cadence</li>
+            </ul>
+          </div>
+          <div class="card col" style="background: var(--accent); border: none">
+            <span class="pill" style="border-color: #fff; color: #fff"
+              >Studio B</span
+            >
+            <h3 style="margin: 14px 0; color: #fff">Digital reach</h3>
+            <ul style="color: #fff">
+              <li style="color: #fff">Social-native</li>
+              <li style="color: #fff">Fast cadence</li>
+              <li style="color: #fff">Younger base</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">13</div>
+    </section>
 
-<!-- comparison -->
-<section class="slide"><div class="grain"></div><div class="kind">Comparison</div><div class="pad z g"><h2>Studio A vs Studio B</h2><div class="g2 fill"><div class="card col"><span class="pill">Studio A</span><h3 style="margin:14px 0">Editorial heritage</h3><ul><li>Print mastery</li><li>Loyal readership</li><li>Slow cadence</li></ul></div><div class="card col" style="background:var(--accent);border:none"><span class="pill" style="border-color:#fff;color:#fff">Studio B</span><h3 style="margin:14px 0;color:#fff">Digital reach</h3><ul style="color:#fff"><li style="color:#fff">Social-native</li><li style="color:#fff">Fast cadence</li><li style="color:#fff">Younger base</li></ul></div></div></div><div class="num">13</div></section>
+    <!-- matrix -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Matrix</div>
+      <div class="pad z g">
+        <h2>Effort vs impact</h2>
+        <div class="g2 fill" style="grid-template-rows: 1fr 1fr">
+          <div
+            class="card cn ac"
+            style="background: var(--accent); color: #fff"
+          >
+            <h3 style="color: #fff">Rebrand · high/high</h3>
+          </div>
+          <div class="card cn ac"><h3>Audit · low/high</h3></div>
+          <div class="card cn ac"><h3>Refresh · high/low</h3></div>
+          <div class="card cn ac">
+            <h3 style="color: var(--muted)">Hold · low/low</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">14</div>
+    </section>
 
-<!-- matrix -->
-<section class="slide"><div class="grain"></div><div class="kind">Matrix</div><div class="pad z g"><h2>Effort vs impact</h2><div class="g2 fill" style="grid-template-rows:1fr 1fr"><div class="card cn ac" style="background:var(--accent);color:#fff"><h3 style="color:#fff">Rebrand · high/high</h3></div><div class="card cn ac"><h3>Audit · low/high</h3></div><div class="card cn ac"><h3>Refresh · high/low</h3></div><div class="card cn ac"><h3 style="color:var(--muted)">Hold · low/low</h3></div></div></div><div class="num">14</div></section>
+    <!-- framework -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Framework</div>
+      <div class="pad z g">
+        <h2>Three pillars</h2>
+        <div class="g3 fill">
+          <div class="card cn ac col">
+            <svg width="64" height="64">
+              <circle
+                cx="32"
+                cy="32"
+                r="26"
+                fill="none"
+                stroke="#b88a2e"
+                stroke-width="2"
+              />
+            </svg>
+            <h3 style="margin-top: 10px">Clarity</h3>
+            <p class="sm" style="text-align: center">Simple, legible.</p>
+          </div>
+          <div class="card cn ac col">
+            <svg width="64" height="64">
+              <rect
+                x="10"
+                y="10"
+                width="44"
+                height="44"
+                fill="none"
+                stroke="#b88a2e"
+                stroke-width="2"
+              />
+            </svg>
+            <h3 style="margin-top: 10px">Craft</h3>
+            <p class="sm" style="text-align: center">Detail-led.</p>
+          </div>
+          <div class="card cn ac col">
+            <svg width="64" height="64">
+              <polygon
+                points="32,6 58,54 6,54"
+                fill="none"
+                stroke="#b88a2e"
+                stroke-width="2"
+              />
+            </svg>
+            <h3 style="margin-top: 10px">Continuity</h3>
+            <p class="sm" style="text-align: center">Consistent.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">15</div>
+    </section>
 
-<!-- framework -->
-<section class="slide"><div class="grain"></div><div class="kind">Framework</div><div class="pad z g"><h2>Three pillars</h2><div class="g3 fill"><div class="card cn ac col"><svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="#b88a2e" stroke-width="2"/></svg><h3 style="margin-top:10px">Clarity</h3><p class="sm" style="text-align:center">Simple, legible.</p></div><div class="card cn ac col"><svg width="64" height="64"><rect x="10" y="10" width="44" height="44" fill="none" stroke="#b88a2e" stroke-width="2"/></svg><h3 style="margin-top:10px">Craft</h3><p class="sm" style="text-align:center">Detail-led.</p></div><div class="card cn ac col"><svg width="64" height="64"><polygon points="32,6 58,54 6,54" fill="none" stroke="#b88a2e" stroke-width="2"/></svg><h3 style="margin-top:10px">Continuity</h3><p class="sm" style="text-align:center">Consistent.</p></div></div></div><div class="num">15</div></section>
+    <!-- process -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Process</div>
+      <div class="pad z g">
+        <h2>How we work</h2>
+        <div class="rule"></div>
+        <div class="row ac fill">
+          <div class="step">Discover</div>
+          <span class="arr">→</span>
+          <div class="step">Define</div>
+          <span class="arr">→</span>
+          <div class="step">Design</div>
+          <span class="arr">→</span>
+          <div class="step">Deliver</div>
+        </div>
+      </div>
+      <div class="num">16</div>
+    </section>
 
-<!-- process -->
-<section class="slide"><div class="grain"></div><div class="kind">Process</div><div class="pad z g"><h2>How we work</h2><div class="rule"></div><div class="row ac fill"><div class="step">Discover</div><span class="arr">→</span><div class="step">Define</div><span class="arr">→</span><div class="step">Design</div><span class="arr">→</span><div class="step">Deliver</div></div></div><div class="num">16</div></section>
+    <!-- timeline -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Timeline</div>
+      <div class="pad z g">
+        <h2>2026 timeline</h2>
+        <div class="rule"></div>
+        <div class="g4 fill">
+          <div>
+            <div class="dot"></div>
+            <h3 class="gold" style="margin-top: 8px">Q1</h3>
+            <p class="sm">Discovery</p>
+          </div>
+          <div>
+            <div class="dot"></div>
+            <h3 class="gold" style="margin-top: 8px">Q2</h3>
+            <p class="sm">Identity</p>
+          </div>
+          <div>
+            <div class="dot"></div>
+            <h3 class="gold" style="margin-top: 8px">Q3</h3>
+            <p class="sm">Soft launch</p>
+          </div>
+          <div>
+            <div class="dot"></div>
+            <h3 class="gold" style="margin-top: 8px">Q4</h3>
+            <p class="sm">Scale</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">17</div>
+    </section>
 
-<!-- timeline -->
-<section class="slide"><div class="grain"></div><div class="kind">Timeline</div><div class="pad z g"><h2>2026 timeline</h2><div class="rule"></div><div class="g4 fill"><div><div class="dot"></div><h3 class="gold" style="margin-top:8px">Q1</h3><p class="sm">Discovery</p></div><div><div class="dot"></div><h3 class="gold" style="margin-top:8px">Q2</h3><p class="sm">Identity</p></div><div><div class="dot"></div><h3 class="gold" style="margin-top:8px">Q3</h3><p class="sm">Soft launch</p></div><div><div class="dot"></div><h3 class="gold" style="margin-top:8px">Q4</h3><p class="sm">Scale</p></div></div></div><div class="num">17</div></section>
+    <!-- roadmap -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Roadmap</div>
+      <div class="pad z g">
+        <h2>Roadmap</h2>
+        <div class="g3 fill">
+          <div class="card">
+            <span class="pill">Now</span>
+            <ul style="margin-top: 12px">
+              <li>Brand audit</li>
+              <li>Type system</li>
+            </ul>
+          </div>
+          <div class="card" style="background: var(--accent)">
+            <span class="pill" style="border-color: #fff; color: #fff"
+              >Next</span
+            >
+            <ul style="margin-top: 12px; color: #fff">
+              <li style="color: #fff">Web rebrand</li>
+              <li style="color: #fff">Templates</li>
+            </ul>
+          </div>
+          <div class="card">
+            <span class="pill">Later</span>
+            <ul style="margin-top: 12px">
+              <li>Campaigns</li>
+              <li>Global</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">18</div>
+    </section>
 
-<!-- roadmap -->
-<section class="slide"><div class="grain"></div><div class="kind">Roadmap</div><div class="pad z g"><h2>Roadmap</h2><div class="g3 fill"><div class="card"><span class="pill">Now</span><ul style="margin-top:12px"><li>Brand audit</li><li>Type system</li></ul></div><div class="card" style="background:var(--accent)"><span class="pill" style="border-color:#fff;color:#fff">Next</span><ul style="margin-top:12px;color:#fff"><li style="color:#fff">Web rebrand</li><li style="color:#fff">Templates</li></ul></div><div class="card"><span class="pill">Later</span><ul style="margin-top:12px"><li>Campaigns</li><li>Global</li></ul></div></div></div><div class="num">18</div></section>
+    <!-- architecture -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Architecture</div>
+      <div class="pad z g">
+        <h2>System architecture</h2>
+        <div class="g3 fill ac">
+          <div class="card cn ac"><h3>Identity</h3></div>
+          <span class="arr">→</span>
+          <div class="card cn ac" style="background: var(--accent)">
+            <h3 style="color: #fff">Design System</h3>
+          </div>
+        </div>
+        <p>
+          Central tokens feed brand, web, and print pipelines from one source of
+          truth.
+        </p>
+      </div>
+      <div class="num">19</div>
+    </section>
 
-<!-- architecture -->
-<section class="slide"><div class="grain"></div><div class="kind">Architecture</div><div class="pad z g"><h2>System architecture</h2><div class="g3 fill ac"><div class="card cn ac"><h3>Identity</h3></div><span class="arr">→</span><div class="card cn ac" style="background:var(--accent)"><h3 style="color:#fff">Design System</h3></div></div><p>Central tokens feed brand, web, and print pipelines from one source of truth.</p></div><div class="num">19</div></section>
+    <!-- case-study -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Case Study</div>
+      <div class="pad z g2 ac">
+        <div class="ph" style="height: 480px"></div>
+        <div>
+          <span class="tag">Case study</span>
+          <h2 style="margin: 12px 0">Lara Inc.</h2>
+          <p>
+            A 2024 merger that doubled subscribers within a year on a unified
+            editorial identity.
+          </p>
+          <div class="stat" style="font-size: 96px; margin-top: 18px">2×</div>
+        </div>
+      </div>
+      <div class="num">20</div>
+    </section>
 
-<!-- case-study -->
-<section class="slide"><div class="grain"></div><div class="kind">Case Study</div><div class="pad z g2 ac"><div class="ph" style="height:480px"></div><div><span class="tag">Case study</span><h2 style="margin:12px 0">Lara Inc.</h2><p>A 2024 merger that doubled subscribers within a year on a unified editorial identity.</p><div class="stat" style="font-size:96px;margin-top:18px">2×</div></div></div><div class="num">20</div></section>
+    <!-- risks -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Risks</div>
+      <div class="pad z g">
+        <h2>Risks & mitigations</h2>
+        <div class="g2 fill">
+          <div class="card">
+            <h3>Audience confusion</h3>
+            <p class="sm">Mitigate with phased transition and clear comms.</p>
+          </div>
+          <div class="card">
+            <h3>Budget creep</h3>
+            <p class="sm">Fixed-scope contracts per phase.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">21</div>
+    </section>
 
-<!-- risks -->
-<section class="slide"><div class="grain"></div><div class="kind">Risks</div><div class="pad z g"><h2>Risks & mitigations</h2><div class="g2 fill"><div class="card"><h3>Audience confusion</h3><p class="sm">Mitigate with phased transition and clear comms.</p></div><div class="card"><h3>Budget creep</h3><p class="sm">Fixed-scope contracts per phase.</p></div></div></div><div class="num">21</div></section>
+    <!-- recommendation -->
+    <section class="slide" style="background: var(--ink); color: #fff">
+      <div class="grain"></div>
+      <div class="kind" style="color: #888">Recommendation</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="tag" style="color: var(--gold)">Recommendation</span>
+        <h2 style="color: #fff; max-width: 22ch; margin-top: 12px">
+          Proceed with the full rebrand, soft-launching in Q3.
+        </h2>
+      </div>
+      <div class="num" style="color: #666">22</div>
+    </section>
 
-<!-- recommendation -->
-<section class="slide" style="background:var(--ink);color:#fff"><div class="grain"></div><div class="kind" style="color:#888">Recommendation</div><div class="pad z cn col" style="justify-content:center"><span class="tag" style="color:var(--gold)">Recommendation</span><h2 style="color:#fff;max-width:22ch;margin-top:12px">Proceed with the full rebrand, soft-launching in Q3.</h2></div><div class="num" style="color:#666">22</div></section>
+    <!-- pricing -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Pricing</div>
+      <div class="pad z g">
+        <h2>Engagement tiers</h2>
+        <div class="g3 fill">
+          <div class="card col">
+            <h3>Audit</h3>
+            <div class="stat" style="margin: 10px 0">$180k</div>
+            <ul>
+              <li>Research</li>
+            </ul>
+          </div>
+          <div class="card col" style="background: var(--accent)">
+            <span class="pill" style="border-color: #fff; color: #fff"
+              >Popular</span
+            >
+            <h3 style="color: #fff">Identity</h3>
+            <div class="stat" style="color: #fff">$600k</div>
+            <ul style="color: #fff">
+              <li style="color: #fff">Full kit</li>
+            </ul>
+          </div>
+          <div class="card col">
+            <h3>Full</h3>
+            <div class="stat">$1.2M</div>
+            <ul>
+              <li>End-to-end</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">23</div>
+    </section>
 
-<!-- pricing -->
-<section class="slide"><div class="grain"></div><div class="kind">Pricing</div><div class="pad z g"><h2>Engagement tiers</h2><div class="g3 fill"><div class="card col"><h3>Audit</h3><div class="stat" style="margin:10px 0">$180k</div><ul><li>Research</li></ul></div><div class="card col" style="background:var(--accent)"><span class="pill" style="border-color:#fff;color:#fff">Popular</span><h3 style="color:#fff">Identity</h3><div class="stat" style="color:#fff">$600k</div><ul style="color:#fff"><li style="color:#fff">Full kit</li></ul></div><div class="card col"><h3>Full</h3><div class="stat">$1.2M</div><ul><li>End-to-end</li></ul></div></div></div><div class="num">23</div></section>
+    <!-- team -->
+    <section class="slide">
+      <div class="grain"></div>
+      <div class="kind">Team</div>
+      <div class="pad z g">
+        <h2>The team</h2>
+        <div class="g4 fill ac">
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 96px; height: 96px; border-radius: 50%"
+            ></div>
+            <h3>Clarice</h3>
+            <p class="sm">Director</p>
+          </div>
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 96px; height: 96px; border-radius: 50%"
+            ></div>
+            <h3>Daniel</h3>
+            <p class="sm">Design</p>
+          </div>
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 96px; height: 96px; border-radius: 50%"
+            ></div>
+            <h3>Hannah</h3>
+            <p class="sm">Strategy</p>
+          </div>
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 96px; height: 96px; border-radius: 50%"
+            ></div>
+            <h3>Margot</h3>
+            <p class="sm">Ops</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">24</div>
+    </section>
 
-<!-- team -->
-<section class="slide"><div class="grain"></div><div class="kind">Team</div><div class="pad z g"><h2>The team</h2><div class="g4 fill ac"><div class="cn col ac g"><div class="ph" style="width:96px;height:96px;border-radius:50%"></div><h3>Clarice</h3><p class="sm">Director</p></div><div class="cn col ac g"><div class="ph" style="width:96px;height:96px;border-radius:50%"></div><h3>Daniel</h3><p class="sm">Design</p></div><div class="cn col ac g"><div class="ph" style="width:96px;height:96px;border-radius:50%"></div><h3>Hannah</h3><p class="sm">Strategy</p></div><div class="cn col ac g"><div class="ph" style="width:96px;height:96px;border-radius:50%"></div><h3>Margot</h3><p class="sm">Ops</p></div></div></div><div class="num">24</div></section>
+    <!-- visual-focus -->
+    <section class="slide ph">
+      <div class="kind" style="color: #fff">Visual Focus</div>
+      <div class="pad z col" style="justify-content: flex-end">
+        <h1 style="color: #fff">Made to be felt.</h1>
+      </div>
+      <div class="num" style="color: #fff">25</div>
+    </section>
 
-<!-- visual-focus -->
-<section class="slide ph"><div class="kind" style="color:#fff">Visual Focus</div><div class="pad z col" style="justify-content:flex-end"><h1 style="color:#fff">Made to be felt.</h1></div><div class="num" style="color:#fff">25</div></section>
+    <!-- closing -->
+    <section class="slide" style="background: var(--accent); color: #fff">
+      <div class="grain"></div>
+      <svg
+        style="position: absolute; right: -100px; top: -100px"
+        width="400"
+        height="400"
+      >
+        <circle
+          cx="200"
+          cy="200"
+          r="180"
+          fill="none"
+          stroke="#b88a2e"
+          stroke-width="2"
+          opacity=".5"
+        />
+      </svg>
+      <div class="kind" style="color: #b9c1ec">Closing</div>
+      <div
+        class="pad z cn col ac"
+        style="justify-content: center; text-align: center"
+      >
+        <h1 style="color: #fff">Thank you</h1>
+        <p style="color: #cfd5f0; margin-top: 14px">
+          hello@borcelle.studio · borcelle.studio
+        </p>
+      </div>
+      <div class="num" style="color: #b9c1ec">26</div>
+    </section>
 
-<!-- closing -->
-<section class="slide" style="background:var(--accent);color:#fff"><div class="grain"></div><svg style="position:absolute;right:-100px;top:-100px" width="400" height="400"><circle cx="200" cy="200" r="180" fill="none" stroke="#b88a2e" stroke-width="2" opacity=".5"/></svg><div class="kind" style="color:#b9c1ec">Closing</div><div class="pad z cn col ac" style="justify-content:center;text-align:center"><h1 style="color:#fff">Thank you</h1><p style="color:#cfd5f0;margin-top:14px">hello@borcelle.studio · borcelle.studio</p></div><div class="num" style="color:#b9c1ec">26</div></section>
-
-<!-- appendix -->
-<section class="slide" style="background:var(--surf)"><div class="grain"></div><div class="kind">Appendix</div><div class="pad z g"><h2>Appendix & sources</h2><div class="rule"></div><ul><li>Brand audit dataset · 2025</li><li>Audience survey · n=18</li><li>Financial model Q1–Q4</li><li>Trademark registry</li></ul></div><div class="num">27</div></section>
-
-</body></html>
+    <!-- appendix -->
+    <section class="slide" style="background: var(--surf)">
+      <div class="grain"></div>
+      <div class="kind">Appendix</div>
+      <div class="pad z g">
+        <h2>Appendix & sources</h2>
+        <div class="rule"></div>
+        <ul>
+          <li>Brand audit dataset · 2025</li>
+          <li>Audience survey · n=18</li>
+          <li>Financial model Q1–Q4</li>
+          <li>Trademark registry</li>
+        </ul>
+      </div>
+      <div class="num">27</div>
+    </section>
+  </body>
+</html>

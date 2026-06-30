@@ -42,18 +42,16 @@ import type {
   SelectionMatchSizeMode,
 } from "../toolbar/context-toolbar";
 
-import {
-  SlideControlsPanel,
-  SlideSettingsPanel,
-  NodeGeometryPanel,
-  NodeContentPanel,
-  LocalStylePanel,
-  NodeSourcePanel,
-  StyleBindingPanel,
-  LocalOverrideBadge,
-  DiagnosticsPanel,
-  LayersPanel,
-} from "./index";
+import { DiagnosticsPanel } from "./diagnostics-panel";
+import { LayersPanel } from "./layers-panel";
+import { LocalOverrideBadge } from "./local-override-badge";
+import { LocalStylePanel } from "./local-style-panel";
+import { NodeContentPanel } from "./node-content-panel";
+import { NodeGeometryPanel } from "./node-geometry-panel";
+import { NodeSourcePanel } from "./node-source-panel";
+import { SlideControlsPanel } from "./slide-controls-panel";
+import { SlideSettingsPanel } from "./slide-settings-panel";
+import { StyleBindingPanel } from "./style-binding-panel";
 
 // ---------------------------------------------------------------------------
 // Sub-panel wrappers

@@ -40,9 +40,26 @@ export const E2E_PROFILE_FIXTURE = {
   shareId: "e2efixtureshare01",
   slug: "e2e-fixture-deck",
   slideTitleText: "Release Gate Fixture Slide",
+  slideTwoTitleText: "Release Gate Fixture Slide Two",
   slideBodyText: "Deterministic deck for the E2E release gate.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
+  dashboardTag: {
+    name: "Release Gate",
+    slug: "release-gate",
+  },
+  dashboardDocuments: {
+    alphaFavorite: {
+      id: "e2efixturealpha000000001",
+      title: "Alpha favorite deterministic dashboard",
+      content: "Favorite dashboard document for deterministic E2E filtering.",
+    },
+    betaTagged: {
+      id: "e2efixturebeta0000000001",
+      title: "Beta tagged deterministic dashboard",
+      content: "Tagged dashboard document for deterministic E2E filtering.",
+    },
+  },
 } as const;
 
 const F = E2E_PROFILE_FIXTURE;
@@ -141,6 +158,32 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
           }),
         ],
       }),
+      buildSlide({
+        id: "e2e-fixture-slide-2",
+        title: F.slideTwoTitleText,
+        notes: "",
+        designOverrides: {
+          background: { type: "solid", color: { value: "#ffffff" } },
+        },
+        elements: [
+          buildTextElement({
+            id: "fixture-title-two",
+            role: "title",
+            text: F.slideTwoTitleText,
+            box: { x: 6, y: 6, w: 88, h: 14 },
+            zIndex: 0,
+            style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          }),
+          buildBulletsElement({
+            id: "fixture-bullets-two",
+            bullets: ["Second deterministic slide"],
+            items: [{ text: "Second deterministic slide" }],
+            box: { x: 8, y: 26, w: 56, h: 50 },
+            zIndex: 1,
+            style: { fontSize: 4, bold: false, italic: false, align: "left" },
+          }),
+        ],
+      }),
     ],
   });
 }
@@ -165,6 +208,7 @@ export function buildE2EProfileFixtureDescriptor(opts: {
     privateDocumentId: F.privateDocumentId,
     privateAssetPath: opts.privateAssetPath,
     slideTitleText: F.slideTitleText,
+    slideTwoTitleText: F.slideTwoTitleText,
     seededAt: opts.seededAt,
   };
 }

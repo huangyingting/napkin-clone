@@ -22,7 +22,12 @@
 
 import type PptxGenJS from "pptxgenjs";
 
-import type { DeckV7, Paragraph, TextContent } from "./schema";
+import type {
+  ConnectorEndpoint,
+  DeckV7,
+  Paragraph,
+  TextContent,
+} from "./schema";
 import type { ThemePackageV1 } from "./theme-package-schema";
 import { resolveThemePackageForDeck } from "./theme-package-registry";
 import { resolveDeckRenderTree } from "./render-resolver";
@@ -36,6 +41,7 @@ import {
   type VnextPptxShapeOp,
   type VnextPptxImageOp,
   type VnextPptxConnectorOp,
+  type VnextPptxVisualOp,
   type VnextPptxTableOp,
   type BuildVnextPptxSpecOptions,
 } from "./pptx-export-adapter";
@@ -258,20 +264,157 @@ export async function applyVnextImageOp(
   });
 }
 
+export async function applyVnextVisualOp(
+  slide: PptxSlide,
+  op: VnextPptxVisualOp,
+): Promise<void> {
+  const { x, y, w, h, assetId, alt, visualId, rotation } = op;
+  if (assetId) {
+    await applyVnextImageOp(slide, {
+      type: "image",
+      id: op.id,
+      assetId,
+      x,
+      y,
+      w,
+      h,
+      ...((alt ?? visualId) ? { alt: alt ?? visualId } : {}),
+      ...(rotation !== undefined ? { rotation } : {}),
+      zIndex: op.zIndex,
+    });
+    return;
+  }
+
+  slide.addShape("rect" as Parameters<PptxSlide["addShape"]>[0], {
+    x,
+    y,
+    w,
+    h,
+    fill: { color: op.fill ?? "F8FAFC" },
+    line: {
+      color: op.stroke?.color ?? "CBD5E1",
+      width: op.stroke?.widthPt ?? 1,
+      dashType: "dash",
+    },
+    ...(rotation !== undefined ? { rotate: rotation } : {}),
+  });
+
+  const label = op.fallbackLabel ?? alt ?? visualId ?? "Visual unavailable";
+  slide.addText(label, {
+    x: x + w * 0.05,
+    y: y + h * 0.35,
+    w: w * 0.9,
+    h: h * 0.3,
+    fontSize: 12,
+    color: "475569",
+    align: "center",
+    valign: "middle",
+    wrap: true,
+    ...(rotation !== undefined ? { rotate: rotation } : {}),
+  });
+}
+
+function endpointPoint(endpoint: ConnectorEndpoint): { x: number; y: number } {
+  if (endpoint.kind === "point") return endpoint.point;
+  switch (endpoint.anchor) {
+    case "top":
+      return { x: 50, y: 0 };
+    case "right":
+      return { x: 100, y: 50 };
+    case "bottom":
+      return { x: 50, y: 100 };
+    case "left":
+      return { x: 0, y: 50 };
+    case "center":
+    default:
+      return { x: 50, y: 50 };
+  }
+}
+
+function endpointToInches(
+  endpoint: ConnectorEndpoint,
+  op: VnextPptxConnectorOp,
+): { x: number; y: number } {
+  const point = endpointPoint(endpoint);
+  return {
+    x: op.x + (op.w * point.x) / 100,
+    y: op.y + (op.h * point.y) / 100,
+  };
+}
+
+type ConnectorDash = NonNullable<VnextPptxConnectorOp["stroke"]>["dash"];
+
+function dashToPptxDash(dash: ConnectorDash): "solid" | "dash" | "sysDot" {
+  if (dash === "dashed") return "dash";
+  if (dash === "dotted") return "sysDot";
+  return "solid";
+}
+
+function arrowToPptxArrow(
+  arrow: VnextPptxConnectorOp["startArrow"],
+): "none" | "arrow" | "triangle" {
+  if (arrow === "filled") return "triangle";
+  if (arrow === "arrow") return "arrow";
+  return "none";
+}
+
+function connectorLineOptions(
+  op: VnextPptxConnectorOp,
+  includeStartArrow: boolean,
+  includeEndArrow: boolean,
+): Record<string, unknown> | undefined {
+  const line: Record<string, unknown> = {};
+  if (op.stroke) {
+    line.color = op.stroke.color;
+    line.width = op.stroke.widthPt;
+    line.dashType = dashToPptxDash(op.stroke.dash);
+  }
+  if (includeStartArrow && op.startArrow && op.startArrow !== "none") {
+    line.beginArrowType = arrowToPptxArrow(op.startArrow);
+  }
+  if (includeEndArrow && op.endArrow && op.endArrow !== "none") {
+    line.endArrowType = arrowToPptxArrow(op.endArrow);
+  }
+  return Object.keys(line).length > 0 ? line : undefined;
+}
+
+function addConnectorSegment(
+  slide: PptxSlide,
+  op: VnextPptxConnectorOp,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  includeStartArrow: boolean,
+  includeEndArrow: boolean,
+): void {
+  const line = connectorLineOptions(op, includeStartArrow, includeEndArrow);
+  slide.addShape("line" as Parameters<PptxSlide["addShape"]>[0], {
+    x: start.x,
+    y: start.y,
+    w: end.x - start.x,
+    h: end.y - start.y,
+    ...(line !== undefined ? { line } : {}),
+  });
+}
+
 export function applyVnextConnectorOp(
   slide: PptxSlide,
   op: VnextPptxConnectorOp,
 ): void {
-  const { x, y, w, stroke } = op;
-  slide.addShape("line" as Parameters<PptxSlide["addShape"]>[0], {
-    x,
-    y,
-    w,
-    h: 0,
-    ...(stroke !== undefined
-      ? { line: { color: stroke.color, width: stroke.widthPt } }
-      : {}),
-  });
+  const start = endpointToInches(op.from, op);
+  const end = endpointToInches(op.to, op);
+  const routing = op.routing ?? "straight";
+
+  if (routing === "elbow") {
+    const midX = start.x + (end.x - start.x) / 2;
+    const first = { x: midX, y: start.y };
+    const second = { x: midX, y: end.y };
+    addConnectorSegment(slide, op, start, first, true, false);
+    addConnectorSegment(slide, op, first, second, false, false);
+    addConnectorSegment(slide, op, second, end, false, true);
+    return;
+  }
+
+  addConnectorSegment(slide, op, start, end, true, true);
 }
 
 export function applyVnextTableOp(
@@ -341,7 +484,7 @@ async function applyOp(slide: PptxSlide, op: VnextPptxOp): Promise<void> {
       applyVnextConnectorOp(slide, op);
       break;
     case "visual":
-      // Visual ops require asset resolution at the call site; skipped here.
+      await applyVnextVisualOp(slide, op);
       break;
     case "tableShape":
       applyVnextTableOp(slide, op);

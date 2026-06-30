@@ -113,6 +113,21 @@ async function main() {
     create: { workspaceId: F.workspaceId, userId: viewer.id, role: "VIEWER" },
   });
 
+  const dashboardTag = await prisma.tag.upsert({
+    where: {
+      ownerId_slug: {
+        ownerId: owner.id,
+        slug: F.dashboardTag.slug,
+      },
+    },
+    update: { name: F.dashboardTag.name },
+    create: {
+      ownerId: owner.id,
+      name: F.dashboardTag.name,
+      slug: F.dashboardTag.slug,
+    },
+  });
+
   // -------------------------------------------------------------------------
   // 3. Visual — embedded into the document's contentJson as a VisualNode.
   // -------------------------------------------------------------------------
@@ -156,6 +171,8 @@ async function main() {
       sharePresentEnabled: true,
       shareExpiresAt: null,
       deletedAt: null,
+      favorite: false,
+      tags: { set: [{ id: dashboardTag.id }] },
     },
     create: {
       id: F.documentId,
@@ -169,6 +186,50 @@ async function main() {
       isShared: true,
       shareEmbedEnabled: true,
       sharePresentEnabled: true,
+      tags: { connect: [{ id: dashboardTag.id }] },
+    },
+  });
+
+  await prisma.document.upsert({
+    where: { id: F.dashboardDocuments.alphaFavorite.id },
+    update: {
+      title: F.dashboardDocuments.alphaFavorite.title,
+      content: F.dashboardDocuments.alphaFavorite.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: true,
+      deletedAt: null,
+      tags: { set: [] },
+    },
+    create: {
+      id: F.dashboardDocuments.alphaFavorite.id,
+      title: F.dashboardDocuments.alphaFavorite.title,
+      content: F.dashboardDocuments.alphaFavorite.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: true,
+    },
+  });
+
+  await prisma.document.upsert({
+    where: { id: F.dashboardDocuments.betaTagged.id },
+    update: {
+      title: F.dashboardDocuments.betaTagged.title,
+      content: F.dashboardDocuments.betaTagged.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: false,
+      deletedAt: null,
+      tags: { set: [{ id: dashboardTag.id }] },
+    },
+    create: {
+      id: F.dashboardDocuments.betaTagged.id,
+      title: F.dashboardDocuments.betaTagged.title,
+      content: F.dashboardDocuments.betaTagged.content,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      favorite: false,
+      tags: { connect: [{ id: dashboardTag.id }] },
     },
   });
 

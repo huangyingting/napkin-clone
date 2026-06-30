@@ -17,12 +17,13 @@ import {
   buildCoverSlide,
   buildContentSlide,
   buildTableSlide,
-  buildVisualSlide,
+  buildSlideV7,
   buildMinimalThemePackage,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 import type { ExportDeckSpec } from "@/lib/presentation-vnext/export-spec";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
+import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -37,6 +38,50 @@ function makeExportSpec(
   const pkg = buildMinimalThemePackage("test-package", pkgOverrides);
   const renderTree = resolveDeckRenderTree(deck, pkg);
   return buildExportSpec(renderTree);
+}
+
+function buildVisualNode(
+  overrides: Partial<Extract<SlideChildNode, { type: "visual" }>> = {},
+): Extract<SlideChildNode, { type: "visual" }> {
+  return {
+    id: "visual-node",
+    type: "visual",
+    role: "visual",
+    layout: { frame: { x: 12, y: 20, w: 72, h: 56 }, zIndex: 3 },
+    style: { ref: "chart.primary" },
+    content: {
+      assetId: "visual-snapshot",
+      visualId: "chart-1",
+      alt: "Revenue chart",
+    },
+    ...overrides,
+  };
+}
+
+function buildConnectorNode(
+  overrides: Partial<Extract<SlideChildNode, { type: "connector" }>> = {},
+): Extract<SlideChildNode, { type: "connector" }> {
+  return {
+    id: "connector-node",
+    type: "connector",
+    role: "connector",
+    layout: { frame: { x: 10, y: 30, w: 80, h: 25 }, zIndex: 4 },
+    style: { ref: "connector.primary" },
+    localStyle: {
+      connector: {
+        stroke: { color: "#ff0000", widthPt: 2, dash: "dashed" },
+        startArrow: "filled",
+        endArrow: "arrow",
+        routing: "elbow",
+      },
+    },
+    content: {
+      from: { kind: "point", point: { x: 0, y: 50 } },
+      to: { kind: "point", point: { x: 100, y: 50 } },
+      routing: "elbow",
+    },
+    ...overrides,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -422,11 +467,330 @@ describe("buildVnextPptxSpec — custom canvas format", () => {
 describe("buildVnextPptxSpec — visual operation coverage", () => {
   test("visual slide op is produced and carries visual content", () => {
     resetBuilderCounter();
-    const deck = buildDeckV7([buildVisualSlide()]);
+    const deck = buildDeckV7([
+      buildSlideV7("visual-focus", [buildVisualNode()]),
+    ]);
     const pkg = buildMinimalThemePackage();
     const renderTree = resolveDeckRenderTree(deck, pkg);
     const exportSpec = buildExportSpec(renderTree);
     const pptx = buildVnextPptxSpec(exportSpec);
-    assert.ok(pptx.slides[0].ops.length >= 1);
+    const visualOp = pptx.slides[0].ops.find((op) => op.type === "visual");
+    assert.ok(visualOp);
+    assert.equal(visualOp.assetId, "visual-snapshot");
+    assert.equal(visualOp.visualId, "chart-1");
+    assert.equal(visualOp.fallbackLabel, "Revenue chart");
+  });
+});
+
+describe("buildVnextPptxSpec — connector operation fidelity", () => {
+  test("connector op preserves endpoint, routing, dash, and arrow style", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildSlideV7("process", [buildConnectorNode()])]);
+    const pkg = buildMinimalThemePackage();
+    const renderTree = resolveDeckRenderTree(deck, pkg);
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    const connectorOp = pptx.slides[0].ops.find(
+      (op) => op.type === "connector",
+    );
+    assert.ok(connectorOp);
+    assert.deepEqual(connectorOp.from, {
+      kind: "point",
+      point: { x: 0, y: 50 },
+    });
+    assert.deepEqual(connectorOp.to, {
+      kind: "point",
+      point: { x: 100, y: 50 },
+    });
+    assert.equal(connectorOp.routing, "elbow");
+    assert.deepEqual(connectorOp.stroke, {
+      color: "FF0000",
+      widthPt: 2,
+      dash: "dashed",
+    });
+    assert.equal(connectorOp.startArrow, "filled");
+    assert.equal(connectorOp.endArrow, "arrow");
+  });
+
+  test("curved connector routing emits unsupported-export-feature diagnostic", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([
+      buildSlideV7("process", [
+        buildConnectorNode({
+          content: {
+            from: { kind: "point", point: { x: 0, y: 50 } },
+            to: { kind: "point", point: { x: 100, y: 50 } },
+            routing: "curved",
+          },
+          localStyle: {
+            connector: {
+              stroke: { color: "#ff0000", widthPt: 2 },
+              routing: "curved",
+            },
+          },
+        }),
+      ]),
+    ]);
+    const pkg = buildMinimalThemePackage();
+    const renderTree = resolveDeckRenderTree(deck, pkg);
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.path === "op(connector:connector-node).routing",
+      ),
+    );
+  });
+});
+
+describe("buildVnextPptxSpec — visual fallback diagnostics", () => {
+  test("visual channel colors emit unsupported-export-feature diagnostic", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([
+      buildSlideV7("visual-focus", [
+        buildVisualNode({
+          localStyle: {
+            visual: {
+              channelColors: { revenue: "#2563eb" },
+              transparentBackground: true,
+            },
+          },
+        }),
+      ]),
+    ]);
+    const pkg = buildMinimalThemePackage();
+    const renderTree = resolveDeckRenderTree(deck, pkg);
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.path === "op(visual:visual-node).visual.channelColors",
+      ),
+    );
+  });
+
+  test("visual without rendered asset emits placeholder fallback diagnostic", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([
+      buildSlideV7("visual-focus", [
+        buildVisualNode({
+          content: { visualId: "chart-without-snapshot" },
+        }),
+      ]),
+    ]);
+    const pkg = buildMinimalThemePackage();
+    const renderTree = resolveDeckRenderTree(deck, pkg);
+    const exportSpec = buildExportSpec(renderTree);
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.path === "op(visual:visual-node)",
+      ),
+    );
+  });
+});
+
+describe("buildVnextPptxSpec — direct operation conversion", () => {
+  test("converts styled operation variants and emits deterministic fallback diagnostics", () => {
+    const exportSpec: ExportDeckSpec = {
+      canvas: { format: "custom", width: 120, height: 60, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "direct-slide",
+          background: {
+            type: "background",
+            fill: {
+              type: "solid",
+              color: { token: "colors.canvas.fill" },
+            },
+          },
+          operations: [
+            {
+              type: "text",
+              id: "direct-text",
+              frame: { x: 12, y: 10, w: 48, h: 12 },
+              content: {
+                paragraphs: [{ id: "direct-text-para", text: "Token text" }],
+              },
+              style: {
+                text: {
+                  color: { token: "colors.accent.text" },
+                  fontFamily: "Inter",
+                  fontSizePt: 22,
+                  weight: 700,
+                  italic: true,
+                  underline: true,
+                  align: "center",
+                  verticalAlign: "bottom",
+                },
+                effect: { kind: "blur", radiusPt: 3 },
+              },
+              rotation: 9,
+              zIndex: 1,
+            },
+            {
+              type: "shape",
+              id: "direct-shape",
+              shape: "diamond",
+              frame: { x: 20, y: 28, w: 20, h: 14 },
+              style: {
+                fill: {
+                  type: "repeatingLinearGradient",
+                  stops: [
+                    {
+                      color: { token: "colors.accent.fill" },
+                      offsetPct: 0,
+                    },
+                  ],
+                },
+                stroke: {
+                  color: { token: "colors.surface.text" },
+                  widthPt: 2,
+                },
+                text: {
+                  color: "#334155",
+                  fontSizePt: 11,
+                  align: "right",
+                },
+                effect: { kind: "glow", color: "#ffffff", blurPt: 6 },
+              },
+              text: {
+                paragraphs: [{ id: "direct-shape-label", text: "Fallback" }],
+              },
+              rotation: -12,
+              zIndex: 2,
+            },
+            {
+              type: "connector",
+              id: "direct-connector",
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+              routing: "straight",
+              frame: { x: 4, y: 50, w: 92, h: 8 },
+              style: {
+                connector: {
+                  stroke: { color: "#123456", widthPt: 1, dash: "dotted" },
+                  startArrow: "arrow",
+                  endArrow: "none",
+                },
+              },
+              zIndex: 3,
+            },
+            {
+              type: "visual",
+              id: "direct-visual",
+              frame: { x: 64, y: 18, w: 24, h: 18 },
+              style: {
+                fill: { type: "solid", color: "#f8fafc" },
+                stroke: { color: "#94a3b8", widthPt: 1 },
+                visual: {
+                  channelColors: { revenue: "#2563eb" },
+                  transparentBackground: true,
+                },
+              },
+              zIndex: 4,
+            },
+            {
+              type: "tableShape",
+              id: "direct-table",
+              frame: { x: 8, y: 68, w: 84, h: 20 },
+              style: {
+                table: {
+                  headerFill: { type: "solid", color: "#0f172a" },
+                  rowFill: {
+                    type: "pattern",
+                    kind: "dots",
+                    color: "#cbd5e1",
+                    background: "#ffffff",
+                  },
+                  text: { fontFamily: "Arial", fontSizePt: 9 },
+                },
+              },
+              table: {
+                columns: [{ id: "metric", label: "Metric" }],
+                rows: [{ id: "value-row", cells: [{ text: "42" }] }],
+                header: true,
+              },
+              zIndex: 5,
+            },
+          ],
+          notes: "Direct operation notes",
+        },
+      ],
+    };
+
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.equal(pptx.layout, "LAYOUT_CUSTOM");
+    assert.ok(Math.abs(pptx.slideH - 6.6665) < 0.001);
+    assert.equal(pptx.slides[0].background.fill, "CCCCCC");
+    assert.equal(pptx.slides[0].notes, "Direct operation notes");
+
+    const textOp = pptx.slides[0].ops.find((op) => op.type === "text");
+    assert.ok(textOp);
+    assert.equal(textOp.rotation, 9);
+    assert.equal(textOp.textStyle.fontFace, "Inter");
+    assert.equal(textOp.textStyle.bold, true);
+    assert.equal(textOp.textStyle.italic, true);
+    assert.equal(textOp.textStyle.underline, true);
+    assert.equal(textOp.textStyle.align, "center");
+    assert.equal(textOp.textStyle.valign, "bottom");
+    assert.ok(Object.hasOwn(textOp.textStyle, "color"));
+
+    const shapeOp = pptx.slides[0].ops.find((op) => op.type === "shape");
+    assert.ok(shapeOp);
+    assert.equal(shapeOp.fill, "CCCCCC");
+    assert.deepEqual(shapeOp.stroke, { color: "000000", widthPt: 2 });
+    assert.equal(shapeOp.textStyle?.align, "right");
+    assert.equal(shapeOp.rotation, -12);
+
+    const connectorOp = pptx.slides[0].ops.find(
+      (op) => op.type === "connector",
+    );
+    assert.ok(connectorOp);
+    assert.deepEqual(connectorOp.stroke, {
+      color: "123456",
+      widthPt: 1,
+      dash: "dotted",
+    });
+    assert.equal(connectorOp.startArrow, "arrow");
+    assert.equal(connectorOp.endArrow, "none");
+
+    const visualOp = pptx.slides[0].ops.find((op) => op.type === "visual");
+    assert.ok(visualOp);
+    assert.equal(visualOp.fallbackLabel, "Visual unavailable");
+
+    const tableOp = pptx.slides[0].ops.find((op) => op.type === "tableShape");
+    assert.ok(tableOp);
+    assert.equal(tableOp.headerFill, "0F172A");
+    assert.equal(tableOp.rowFill, "FFFFFF");
+    assert.equal(tableOp.textStyle?.fontFace, "Arial");
+
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) => diagnostic.code === "missing-token",
+      ),
+    );
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.path ===
+            "op(visual:direct-visual).visual.transparentBackground",
+      ),
+    );
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-asset" &&
+          diagnostic.path === "op(visual:direct-visual)",
+      ),
+    );
   });
 });
