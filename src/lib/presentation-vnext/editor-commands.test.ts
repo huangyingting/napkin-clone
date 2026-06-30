@@ -8,6 +8,7 @@ import {
   insertSlide,
   insertBlankSlide,
   duplicateSlide,
+  splitNodeToSlide,
   deleteSlide,
   moveSlide,
   updateSlideControls,
@@ -121,6 +122,22 @@ describe("slide management", () => {
       result.deck.slides[1].children[0].id,
       deck.slides[0].children[0].id,
     );
+  });
+
+  test("splitNodeToSlide moves a node to a new adjacent slide", () => {
+    const deck = makeTestDeck();
+    const sourceSlide = deck.slides[0];
+    const nodeId = sourceSlide.children[0].id;
+    const result = splitNodeToSlide(deck, sourceSlide.id, nodeId);
+
+    assert.equal(result.deck.slides.length, deck.slides.length + 1);
+    assert.equal(result.index, 1);
+    assert.equal(result.nodeId, nodeId);
+    assert.ok(
+      !result.deck.slides[0].children.some((node) => node.id === nodeId),
+    );
+    assert.equal(result.deck.slides[1].children[0].id, nodeId);
+    assert.equal(deck.slides[0].children[0].id, nodeId);
   });
 
   test("deleteSlide keeps at least one slide", () => {

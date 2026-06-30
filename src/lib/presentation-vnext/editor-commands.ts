@@ -237,6 +237,43 @@ export function duplicateSlide(
   };
 }
 
+export function splitNodeToSlide(
+  deck: DeckV7,
+  slideId: string,
+  nodeId: string,
+  atIndex?: number,
+): { deck: DeckV7; slideId: string; nodeId: string; index: number } {
+  const sourceIndex = deck.slides.findIndex((slide) => slide.id === slideId);
+  if (sourceIndex === -1) return { deck, slideId: "", nodeId, index: -1 };
+  const sourceSlide = deck.slides[sourceIndex];
+  const sourceNode = collectNodesById(
+    sourceSlide.children,
+    new Set([nodeId]),
+  )[0];
+  if (!sourceNode) return { deck, slideId: "", nodeId, index: -1 };
+
+  const inserted = insertBlankSlide(deck, atIndex ?? sourceIndex + 1);
+  const nextDeckWithSourceRemoved = deleteNodes(inserted.deck, slideId, [
+    nodeId,
+  ]);
+  const sourceName = sourceSlide.name ?? `Slide ${sourceIndex + 1}`;
+  const nextDeck = mapSlides(nextDeckWithSourceRemoved, (slide) =>
+    slide.id === inserted.slideId
+      ? {
+          ...slide,
+          name: `${sourceName} Split`,
+          children: [sourceNode],
+        }
+      : slide,
+  );
+  return {
+    deck: nextDeck,
+    slideId: inserted.slideId,
+    nodeId,
+    index: nextDeck.slides.findIndex((slide) => slide.id === inserted.slideId),
+  };
+}
+
 export function deleteSlide(
   deck: DeckV7,
   slideId: string,

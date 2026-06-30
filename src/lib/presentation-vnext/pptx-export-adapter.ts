@@ -282,7 +282,7 @@ function fillToHex(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: linear gradient fill uses from-color fallback in PPTX export`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
     return resolveColor(fill.from, "#cccccc", dc, ctx);
   }
@@ -290,7 +290,7 @@ function fillToHex(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: radial gradient fill uses inner-color fallback in PPTX export`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
     return resolveColor(fill.inner, "#cccccc", dc, ctx);
   }
@@ -298,7 +298,7 @@ function fillToHex(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: conic gradient fill uses first-stop fallback in PPTX export`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
     return resolveColor(fill.stops[0]?.color, "#cccccc", dc, ctx);
   }
@@ -306,7 +306,7 @@ function fillToHex(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: repeating gradient fill uses first-stop fallback in PPTX export`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
     return resolveColor(fill.stops[0]?.color, "#cccccc", dc, ctx);
   }
@@ -314,7 +314,7 @@ function fillToHex(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: pattern fill uses background/color fallback in PPTX export`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
     return resolveColor(fill.background ?? fill.color, "#cccccc", dc, ctx);
   }
@@ -322,7 +322,7 @@ function fillToHex(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: image fill is not supported in PPTX export; using no fill`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
     return undefined;
   }
@@ -363,7 +363,7 @@ function checkEffect(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: "${kind}" effect uses a deterministic export fallback`,
-      { path: ctx, action: "replace-style-ref" },
+      { path: ctx, action: { type: "replace-style-ref" } },
     );
   }
 }
@@ -379,7 +379,10 @@ function checkVisualStyle(
     dc.warning(
       "unsupported-export-feature",
       `${ctx}: visual channel colors require a rendered-asset fallback in PPTX export`,
-      { path: `${ctx}.visual.channelColors`, action: "replace-style-ref" },
+      {
+        path: `${ctx}.visual.channelColors`,
+        action: { type: "replace-style-ref" },
+      },
     );
   }
   if (visual.transparentBackground === true) {
@@ -388,7 +391,7 @@ function checkVisualStyle(
       `${ctx}: transparent visual background requires a rendered-asset fallback in PPTX export`,
       {
         path: `${ctx}.visual.transparentBackground`,
-        action: "replace-style-ref",
+        action: { type: "replace-style-ref" },
       },
     );
   }
@@ -500,7 +503,10 @@ function convertConnector(
     dc.warning(
       "unsupported-export-feature",
       `Connector op "${op.id}" uses curved routing; PPTX export uses a straight-line fallback`,
-      { path: `op(connector:${op.id}).routing`, action: "replace-style-ref" },
+      {
+        path: `op(connector:${op.id}).routing`,
+        action: { type: "replace-style-ref" },
+      },
     );
   }
   return {
@@ -542,13 +548,13 @@ function convertVisual(
     dc.warning(
       "missing-asset",
       `Visual op "${op.id}" has neither assetId nor visualId; PPTX export uses a labeled placeholder fallback`,
-      { path: `op(visual:${op.id})`, action: "open-asset-panel" },
+      { path: `op(visual:${op.id})`, action: { type: "open-asset-panel" } },
     );
   } else if (!op.assetId && op.visualId) {
     dc.warning(
       "unsupported-export-feature",
       `Visual op "${op.id}" has no rendered asset; PPTX export uses a labeled placeholder fallback`,
-      { path: `op(visual:${op.id})`, action: "open-asset-panel" },
+      { path: `op(visual:${op.id})`, action: { type: "open-asset-panel" } },
     );
   }
   return {

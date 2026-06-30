@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import { buildVnextPptxSpec } from "@/lib/presentation-vnext/pptx-export-adapter";
 import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
 import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver";
+import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import {
   buildDeckV7,
   buildCoverSlide,
@@ -868,11 +869,7 @@ describe("buildVnextPptxSpec — direct operation conversion edge cases", () => 
     const exportSpec: ExportDeckSpec = {
       canvas: { format: "custom", width: 160, height: 90, unit: "percent" },
       diagnostics: [
-        {
-          code: "slot-over-capacity",
-          severity: "warning",
-          message: "carried forward",
-        },
+        makeDiagnostic("slot-over-capacity", "warning", "carried forward"),
       ],
       slides: [
         {
@@ -1068,7 +1065,7 @@ describe("buildVnextPptxSpec — direct operation conversion edge cases", () => 
       pptx.diagnostics.some(
         (diagnostic) =>
           diagnostic.code === "missing-asset" &&
-          diagnostic.action === "open-asset-panel",
+          diagnostic.action?.type === "open-asset-panel",
       ),
     );
     assert.ok(

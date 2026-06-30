@@ -7,6 +7,7 @@ import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver"
 import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
 import { buildVnextPptxSpec } from "@/lib/presentation-vnext/pptx-export-adapter";
 import { resolveExportSpecAssetSources } from "@/lib/presentation-vnext/pptx-vnext-apply";
+import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { DeckV7, SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type {
   ResolvedDeckRenderTree,
@@ -295,11 +296,7 @@ test("export spec flattens grouped nodes after decorations and reports unknown c
       packageVersion: NEUTRAL_THEME_PACKAGE.version,
     },
     diagnostics: [
-      {
-        code: "local-style-overrides",
-        severity: "info",
-        message: "carried from resolver",
-      },
+      makeDiagnostic("local-style-overrides", "info", "carried from resolver"),
     ],
     slides: [
       {
