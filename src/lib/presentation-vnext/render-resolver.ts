@@ -368,13 +368,53 @@ function resolveDecorations(
   slide: SlideNode,
   pkg: ThemePackageV1,
   deck: DeckV7,
-  _dc: DiagnosticCollector,
+  dc: DiagnosticCollector,
   canvasWidthPx = 960,
   canvasHeightPx = 540,
 ): ResolvedRenderNode[] {
-  if (!pkg.decorations) return [];
-
   const disabledIds = new Set(deck.theme.overrides?.disabledDecorations ?? []);
+  if (!pkg.decorations) {
+    for (const decorationId of disabledIds) {
+      dc.warning(
+        "missing-decoration",
+        `Theme override disables missing decoration "${decorationId}"`,
+        {
+          slideId: slide.id,
+          path: `theme.overrides.disabledDecorations.${decorationId}`,
+          action: {
+            type: "restore-decoration",
+            payload: { decorationId },
+          },
+          details: {
+            decorationId,
+            themePackageId: pkg.id,
+          },
+        },
+      );
+    }
+    return [];
+  }
+
+  for (const decorationId of disabledIds) {
+    if (!pkg.decorations[decorationId]) {
+      dc.warning(
+        "missing-decoration",
+        `Theme override disables missing decoration "${decorationId}"`,
+        {
+          slideId: slide.id,
+          path: `theme.overrides.disabledDecorations.${decorationId}`,
+          action: {
+            type: "restore-decoration",
+            payload: { decorationId },
+          },
+          details: {
+            decorationId,
+            themePackageId: pkg.id,
+          },
+        },
+      );
+    }
+  }
 
   const decorationLevel = slide.props?.decoration ?? "default";
   const chromeLevel = slide.props?.chrome ?? "default";
@@ -412,6 +452,27 @@ function resolveDecorations(
       chromeLevel === "none"
     ) {
       continue;
+    }
+
+    if (
+      recipe.component === "image" &&
+      recipe.content?.type === "image" &&
+      !deck.assets.images[recipe.content.assetId] &&
+      !pkg.assets?.images?.[recipe.content.assetId]
+    ) {
+      dc.error(
+        "missing-decoration",
+        `Theme decoration "${recipe.id}" references missing image asset "${recipe.content.assetId}"`,
+        {
+          slideId: slide.id,
+          path: `decorations.${recipe.id}.content.assetId`,
+          details: {
+            decorationId: recipe.id,
+            assetId: recipe.content.assetId,
+            themePackageId: pkg.id,
+          },
+        },
+      );
     }
 
     result.push({

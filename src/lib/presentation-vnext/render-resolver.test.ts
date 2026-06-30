@@ -262,6 +262,56 @@ describe("resolveDeckRenderTree", () => {
     );
   });
 
+  test("diagnoses stale disabled decoration overrides with repair action", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()], {
+      theme: {
+        packageId: "test-package",
+        overrides: { disabledDecorations: ["missing-decoration"] },
+      },
+    });
+    const result = resolveDeckRenderTree(
+      deck,
+      buildMinimalThemePackage("test-package", { decorations: {} }),
+    );
+
+    const diagnostic = result.diagnostics.find(
+      (candidate) => candidate.code === "missing-decoration",
+    );
+    assert.ok(diagnostic);
+    assert.equal(diagnostic.action?.type, "restore-decoration");
+    assert.deepEqual(diagnostic.action?.payload, {
+      decorationId: "missing-decoration",
+    });
+  });
+
+  test("diagnoses theme decoration image recipes with missing assets", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()]);
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "missing-image-decoration": {
+          id: "missing-image-decoration",
+          component: "image",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 0 },
+          style: {},
+          content: { type: "image", assetId: "theme-missing-image" },
+        },
+      },
+    });
+
+    const result = resolveDeckRenderTree(deck, pkg);
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-decoration" &&
+          diagnostic.details?.assetId === "theme-missing-image",
+      ),
+    );
+  });
+
   test("filters decorations by template kind", () => {
     resetBuilderCounter();
     const deck = buildDeckV7([buildCoverSlide(), buildContentSlide()]);

@@ -6,6 +6,7 @@ import type { DiagnosticAction, PresentationDiagnostic } from "./diagnostics";
 import { getDiagnosticNodeId, getDiagnosticSlideId } from "./diagnostics";
 import {
   resetLocalStyleOverride,
+  restoreThemeDecoration,
   splitNodeToSlide,
   updateNodeStyleBinding,
   updateSlideControls,
@@ -132,6 +133,33 @@ export function applyDiagnosticRepairAction(
         deck: updateSlideControls(deck, slide.id, { density: "dense" }),
         focus: { slideId: slide.id, ...(node ? { nodeId: node.id } : {}) },
         announcement: "Applied a denser slide layout.",
+      };
+    }
+    case "restore-decoration": {
+      const decorationId = action.payload?.decorationId;
+      if (!decorationId) {
+        return {
+          status: "noop",
+          reason: "No decoration target was found.",
+        };
+      }
+      const nextDeck = restoreThemeDecoration(deck, decorationId);
+      if (nextDeck === deck) {
+        return {
+          status: "noop",
+          reason: "The decoration was already restored.",
+        };
+      }
+      const focusSlideId =
+        slide?.id ?? context.activeSlideId ?? deck.slides[0]?.id;
+      if (!focusSlideId) {
+        return { status: "noop", reason: "No slide target was found." };
+      }
+      return {
+        status: "applied",
+        deck: nextDeck,
+        focus: { slideId: focusSlideId },
+        announcement: "Restored the theme decoration.",
       };
     }
     case "open-asset-panel": {

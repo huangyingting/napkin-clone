@@ -10,13 +10,16 @@
 import type {
   ConnectorEndpoint,
   DeckV7,
+  ImageContent,
   SlideNode,
   SlideChildNode,
   SemanticRole,
   NodeSourceMetadata,
   LayoutBox,
+  ShapeContent,
   StyleBinding,
   SlideControls,
+  TextContent,
 } from "./schema";
 import type { StylePatch } from "./style-schema";
 import type { AiSlideSpec } from "./ai-plan-schema";
@@ -178,6 +181,158 @@ function existingDeckIds(deck: DeckV7): Set<string> {
     collectNodeIds(slide.children, ids);
   }
   return ids;
+}
+
+function uniqueId(existingIds: Set<string>, sourceId: string): string {
+  if (!existingIds.has(sourceId)) {
+    existingIds.add(sourceId);
+    return sourceId;
+  }
+  return uniqueDuplicateId(existingIds, sourceId);
+}
+
+function reidentifyNodeIfNeeded(
+  node: SlideChildNode,
+  existingIds: Set<string>,
+): SlideChildNode {
+  const id = uniqueId(existingIds, node.id);
+  if (node.type === "group") {
+    return {
+      ...node,
+      id,
+      children: node.children.map((child) =>
+        reidentifyNodeIfNeeded(child, existingIds),
+      ),
+    };
+  }
+  return { ...node, id } as SlideChildNode;
+}
+
+function reidentifySlideIfNeeded(
+  slide: SlideNode,
+  existingIds: Set<string>,
+): SlideNode {
+  return {
+    ...slide,
+    id: uniqueId(existingIds, slide.id),
+    children: slide.children.map((child) =>
+      reidentifyNodeIfNeeded(child, existingIds),
+    ),
+  };
+}
+
+function collectSlotMatches(
+  nodes: readonly SlideChildNode[],
+  matches: Map<string, SlideChildNode[]> = new Map(),
+): Map<string, SlideChildNode[]> {
+  for (const node of nodes) {
+    if (node.slot) {
+      const current = matches.get(node.slot) ?? [];
+      current.push(node);
+      matches.set(node.slot, current);
+    }
+    if (node.type === "group") collectSlotMatches(node.children, matches);
+  }
+  return matches;
+}
+
+function compatibleSlotNode(
+  fresh: SlideChildNode,
+  existing: SlideChildNode,
+): boolean {
+  return fresh.type === existing.type;
+}
+
+function preserveCommonNodeAuthoringState<T extends SlideChildNode>(
+  fresh: T,
+  existing: SlideChildNode,
+): T {
+  const merged = { ...fresh, id: existing.id } as T;
+  if (existing.name !== undefined) merged.name = existing.name;
+  if (existing.source !== undefined) merged.source = existing.source;
+  if (existing.localStyle !== undefined)
+    merged.localStyle = existing.localStyle;
+  if (existing.locked !== undefined) merged.locked = existing.locked;
+  if (existing.hidden !== undefined) merged.hidden = existing.hidden;
+  if (existing.accessibility !== undefined) {
+    merged.accessibility = existing.accessibility;
+  }
+  return merged;
+}
+
+function preserveSlotNodeContent(
+  fresh: SlideChildNode,
+  existing: SlideChildNode,
+): SlideChildNode {
+  if (!compatibleSlotNode(fresh, existing)) return fresh;
+  if (fresh.type === "text" && existing.type === "text") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "image" && existing.type === "image") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "shape" && existing.type === "shape") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "connector" && existing.type === "connector") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "table" && existing.type === "table") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "visual" && existing.type === "visual") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "group" && existing.type === "group") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      children: existing.children,
+    };
+  }
+  return fresh;
+}
+
+function preserveCompatibleSlotNode(
+  fresh: SlideChildNode,
+  matches: ReadonlyMap<string, readonly SlideChildNode[]>,
+  usedMatchIds: Set<string>,
+): SlideChildNode {
+  const slotMatches = fresh.slot ? matches.get(fresh.slot) : undefined;
+  const existing = slotMatches?.find(
+    (candidate) =>
+      !usedMatchIds.has(candidate.id) && compatibleSlotNode(fresh, candidate),
+  );
+  if (existing) {
+    usedMatchIds.add(existing.id);
+    return preserveSlotNodeContent(fresh, existing);
+  }
+  if (fresh.type === "group") {
+    return {
+      ...fresh,
+      children: fresh.children.map((child) =>
+        preserveCompatibleSlotNode(child, matches, usedMatchIds),
+      ),
+    };
+  }
+  return fresh;
 }
 
 function duplicateSelectedInChildren(
@@ -350,11 +505,25 @@ export function insertSlide(
   template: SemanticTemplateV1,
   atIndex?: number,
 ): DeckV7 {
+  return insertTemplateSlide(deck, spec, template, atIndex).deck;
+}
+
+export function insertTemplateSlide(
+  deck: DeckV7,
+  spec: AiSlideSpec,
+  template: SemanticTemplateV1,
+  atIndex?: number,
+): { deck: DeckV7; slideId: string; index: number } {
   const { slide } = compileSlide(spec, template, deck.slides.length);
+  const existingIds = existingDeckIds(deck);
+  const insertedSlide = reidentifySlideIfNeeded(slide, existingIds);
   const slides = [...deck.slides];
-  const idx = atIndex !== undefined ? atIndex : slides.length;
-  slides.splice(idx, 0, slide);
-  return { ...deck, slides };
+  const index =
+    atIndex !== undefined
+      ? Math.max(0, Math.min(slides.length, atIndex))
+      : slides.length;
+  slides.splice(index, 0, insertedSlide);
+  return { deck: { ...deck, slides }, slideId: insertedSlide.id, index };
 }
 
 export function insertBlankSlide(
@@ -474,8 +643,9 @@ export function moveSlide(
 // ---------------------------------------------------------------------------
 
 /**
- * Reapplies a semantic template to an existing slide, preserving `localStyle`
- * and generating fresh layout/children from the template spec.
+ * Reapplies a semantic template to an existing slide, preserving compatible
+ * slot content/source metadata and slide-level local authoring state while
+ * generating fresh layout/style structure from the template spec.
  */
 export function applyTemplate(
   deck: DeckV7,
@@ -487,13 +657,27 @@ export function applyTemplate(
   if (slideIndex === -1) return deck;
 
   const { slide: newSlide } = compileSlide(spec, template, slideIndex);
-  // Preserve the original slide id and local styles at the root
   const existing = deck.slides[slideIndex];
+  const slotMatches = collectSlotMatches(existing.children);
+  const usedMatchIds = new Set<string>();
   const merged: SlideNode = {
     ...newSlide,
     id: existing.id,
-    localStyle: existing.localStyle,
+    children: newSlide.children.map((child) =>
+      preserveCompatibleSlotNode(child, slotMatches, usedMatchIds),
+    ),
   };
+  if (existing.name !== undefined) merged.name = existing.name;
+  if (existing.source !== undefined) merged.source = existing.source;
+  if (existing.localStyle !== undefined)
+    merged.localStyle = existing.localStyle;
+  if (existing.props !== undefined) merged.props = existing.props;
+  if (newSlide.controls === undefined && existing.controls !== undefined) {
+    merged.controls = existing.controls;
+  }
+  if (newSlide.notes === undefined && existing.notes !== undefined) {
+    merged.notes = existing.notes;
+  }
 
   const slides = [...deck.slides];
   slides[slideIndex] = merged;
@@ -550,6 +734,26 @@ export function resetSlideLocalStyle(deck: DeckV7, slideId: string): DeckV7 {
     const { localStyle: _localStyle, ...rest } = slide;
     return rest;
   });
+}
+
+export function restoreThemeDecoration(
+  deck: DeckV7,
+  decorationId: string,
+): DeckV7 {
+  const disabledDecorations = deck.theme.overrides?.disabledDecorations;
+  if (!disabledDecorations?.includes(decorationId)) return deck;
+  const nextDisabled = disabledDecorations.filter((id) => id !== decorationId);
+  const overrides = { ...(deck.theme.overrides ?? {}) };
+  if (nextDisabled.length > 0) {
+    overrides.disabledDecorations = nextDisabled;
+  } else {
+    delete overrides.disabledDecorations;
+  }
+  const theme =
+    Object.keys(overrides).length > 0
+      ? { ...deck.theme, overrides }
+      : (({ overrides: _overrides, ...rest }) => rest)(deck.theme);
+  return { ...deck, theme };
 }
 
 export function updateSlideSourceMetadata(
@@ -959,8 +1163,46 @@ export function resetLocalStyleOverride(
 // Detach theme decoration
 // ---------------------------------------------------------------------------
 
+type DetachedDecorationContent =
+  | { type: "text"; content: TextContent }
+  | { type: "image"; content: ImageContent }
+  | { type: "shape"; content: ShapeContent };
+
+function decorationRecipeId(decorationId: string): string {
+  return decorationId.startsWith("decoration-")
+    ? decorationId.slice("decoration-".length)
+    : decorationId;
+}
+
+function detachedDecorationNode(
+  decorationId: string,
+  layout: LayoutBox,
+  style: StylePatch,
+  content?: DetachedDecorationContent,
+): SlideChildNode {
+  const base = {
+    id: `detached-${decorationId}-${Date.now().toString(36)}`,
+    role: "themeDecoration" as const,
+    layout,
+    localStyle: style,
+    locked: false,
+  };
+  if (content?.type === "text") {
+    return { ...base, type: "text", content: content.content };
+  }
+  if (content?.type === "image") {
+    return { ...base, type: "image", content: content.content };
+  }
+  return {
+    ...base,
+    type: "shape",
+    content:
+      content?.type === "shape" ? content.content : { shape: "rect" as const },
+  };
+}
+
 /**
- * Converts a theme decoration render node into a locked `SlideChildNode`
+ * Converts a theme decoration render node into an editable `SlideChildNode`
  * appended to the slide children. Detached decorations stop following the theme.
  *
  * Caller must supply the decoration recipe layout and style.
@@ -971,25 +1213,32 @@ export function detachDecoration(
   decorationId: string,
   layout: LayoutBox,
   style: StylePatch,
+  content?: DetachedDecorationContent,
 ): DeckV7 {
-  return mapSlides(deck, (slide) => {
+  const recipeId = decorationRecipeId(decorationId);
+  if (!deck.slides.some((slide) => slide.id === slideId)) return deck;
+  const nextDeck = mapSlides(deck, (slide) => {
     if (slide.id !== slideId) return slide;
-    const detachedNode: SlideChildNode = {
-      id: `detached-${decorationId}-${Date.now().toString(36)}`,
-      type: "shape",
-      role: "themeDecoration",
-      layout,
-      localStyle: style,
-      locked: false,
-      content: { shape: "rect" },
-    };
     return {
       ...slide,
-      children: [...slide.children, detachedNode],
-      // Disable the decoration in theme overrides so it no longer renders
-      // from the package recipe
+      children: [
+        ...slide.children,
+        detachedDecorationNode(decorationId, layout, style, content),
+      ],
     };
   });
+  const disabledDecorations = deck.theme.overrides?.disabledDecorations ?? [];
+  if (disabledDecorations.includes(recipeId)) return nextDeck;
+  return {
+    ...nextDeck,
+    theme: {
+      ...nextDeck.theme,
+      overrides: {
+        ...(nextDeck.theme.overrides ?? {}),
+        disabledDecorations: [...disabledDecorations, recipeId],
+      },
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

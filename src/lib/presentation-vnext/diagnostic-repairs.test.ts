@@ -177,4 +177,86 @@ describe("applyDiagnosticRepairAction", () => {
       assert.equal(result.deck.slides[0].controls?.density, "dense");
     }
   });
+
+  test("restores stale disabled theme decorations", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([{ ...buildCoverSlide(), id: "slide-1" }], {
+      theme: {
+        packageId: "test-package",
+        overrides: { disabledDecorations: ["missing-decoration"] },
+      },
+    });
+    const diagnostic = makeDiagnostic(
+      "missing-decoration",
+      "warning",
+      "Missing decoration",
+      {
+        slideId: "slide-1",
+        action: {
+          type: "restore-decoration",
+          payload: { decorationId: "missing-decoration" },
+        },
+      },
+    );
+
+    const result = applyDiagnosticRepairAction(
+      deck,
+      diagnostic.action!,
+      diagnostic,
+      { activeSlideId: "slide-1", defaultStyleBindingForNode },
+    );
+
+    assert.equal(result.status, "applied");
+    if (result.status !== "applied") return;
+    assert.equal(
+      result.deck.theme.overrides?.disabledDecorations?.includes(
+        "missing-decoration",
+      ) ?? false,
+      false,
+    );
+  });
+
+  test("no-ops restore decoration repairs without a repairable decoration", () => {
+    const deck = buildDeckV7([{ ...buildCoverSlide(), id: "slide-1" }]);
+    const missingPayload = makeDiagnostic(
+      "missing-decoration",
+      "warning",
+      "Missing decoration",
+      {
+        slideId: "slide-1",
+        action: { type: "restore-decoration" },
+      },
+    );
+    const alreadyRestored = makeDiagnostic(
+      "missing-decoration",
+      "warning",
+      "Missing decoration",
+      {
+        slideId: "slide-1",
+        action: {
+          type: "restore-decoration",
+          payload: { decorationId: "bg-corner" },
+        },
+      },
+    );
+
+    assert.deepEqual(
+      applyDiagnosticRepairAction(
+        deck,
+        missingPayload.action!,
+        missingPayload,
+        { activeSlideId: "slide-1", defaultStyleBindingForNode },
+      ),
+      { status: "noop", reason: "No decoration target was found." },
+    );
+    assert.deepEqual(
+      applyDiagnosticRepairAction(
+        deck,
+        alreadyRestored.action!,
+        alreadyRestored,
+        { activeSlideId: "slide-1", defaultStyleBindingForNode },
+      ),
+      { status: "noop", reason: "The decoration was already restored." },
+    );
+  });
 });

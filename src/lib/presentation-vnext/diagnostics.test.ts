@@ -50,6 +50,42 @@ describe("presentation diagnostics model", () => {
     );
   });
 
+  test("classifies theme decoration diagnostics and infers source targets", () => {
+    const missingDecoration = makeDiagnostic(
+      "missing-decoration",
+      "warning",
+      "Decoration disabled outside the theme package",
+      {
+        slideId: "slide-1",
+        action: {
+          type: "restore-decoration",
+          payload: { decorationId: "bg-corner" },
+        },
+      },
+    );
+    const staleSource = makeDiagnostic(
+      "stale-source",
+      "warning",
+      "Source content is stale",
+      {
+        slideId: "slide-1",
+        nodeId: "text-1",
+        path: "slides.0.children.0.source",
+        details: { documentId: "doc-1", blockId: "block-1" },
+        action: { type: "open-source-review" },
+      },
+    );
+
+    assert.equal(missingDecoration.category, "theme");
+    assert.equal(missingDecoration.target.scope, "theme");
+    assert.equal(missingDecoration.action?.target?.scope, "theme");
+    assert.equal(staleSource.category, "source");
+    assert.equal(staleSource.target.scope, "source");
+    assert.equal(staleSource.action?.target?.scope, "source");
+    assert.equal(getDiagnosticSlideId(staleSource), "slide-1");
+    assert.equal(getDiagnosticNodeId(staleSource), "text-1");
+  });
+
   test("groups diagnostics by target scope then sorts by severity", () => {
     const diagnostics = [
       makeDiagnostic("missing-token", "warning", "Token missing", {

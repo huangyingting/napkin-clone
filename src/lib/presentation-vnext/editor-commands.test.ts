@@ -6,6 +6,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   insertSlide,
+  insertTemplateSlide,
   insertBlankSlide,
   duplicateSlide,
   splitNodeToSlide,
@@ -16,6 +17,7 @@ import {
   updateSlideLocalStyle,
   resetSlideLocalStyle,
   updateSlideSourceMetadata,
+  restoreThemeDecoration,
   setThemePackage,
   insertNode,
   pasteNodes,
@@ -43,6 +45,7 @@ import {
   buildCoverSlide,
   buildContentSlide,
   buildImageAsset,
+  buildTextNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 import type { AiSlideSpec } from "@/lib/presentation-vnext/ai-plan-schema";
@@ -135,6 +138,26 @@ describe("insertSlide", () => {
     assert.equal(updated.slides[0].template.kind, "section");
   });
 
+  test("insertTemplateSlide returns the inserted semantic slide id and index", () => {
+    resetIdCounter();
+    const deck = makeTestDeck();
+    const registry = createDefaultTemplateRegistry();
+    const template = registry.get("content")!;
+    const spec: AiSlideSpec = {
+      kind: "content",
+      density: "dense",
+      emphasis: "data",
+      slots: { title: { type: "shortText", text: "Inserted content" } },
+    };
+
+    const result = insertTemplateSlide(deck, spec, template, 1);
+
+    assert.equal(result.index, 1);
+    assert.equal(result.deck.slides[1].id, result.slideId);
+    assert.equal(result.deck.slides[1].template.kind, "content");
+    assert.equal(result.deck.slides[1].template.layoutId, "content-dense");
+  });
+
   test("does not mutate original deck", () => {
     resetIdCounter();
     const deck = makeTestDeck();
@@ -196,6 +219,29 @@ describe("slide management", () => {
     assert.equal(deck.slides[0].children[0].id, nodeId);
   });
 
+  test("splitNodeToSlide returns no-op result for missing slide or node targets", () => {
+    const deck = makeTestDeck();
+    const missingSlide = splitNodeToSlide(deck, "missing-slide", "node-1");
+    const missingNode = splitNodeToSlide(
+      deck,
+      deck.slides[0].id,
+      "missing-node",
+    );
+
+    assert.deepEqual(missingSlide, {
+      deck,
+      slideId: "",
+      nodeId: "node-1",
+      index: -1,
+    });
+    assert.deepEqual(missingNode, {
+      deck,
+      slideId: "",
+      nodeId: "missing-node",
+      index: -1,
+    });
+  });
+
   test("deleteSlide keeps at least one slide", () => {
     const deck = makeTestDeck();
     const oneSlide = deleteSlide(deck, deck.slides[0].id).deck;
@@ -210,6 +256,14 @@ describe("slide management", () => {
     const result = moveSlide(deck, secondId, 0);
 
     assert.equal(result.deck.slides[0].id, secondId);
+    assert.equal(result.index, 0);
+  });
+
+  test("deleteSlide returns the first index when the slide is missing", () => {
+    const deck = makeTestDeck();
+    const result = deleteSlide(deck, "missing-slide");
+
+    assert.strictEqual(result.deck, deck);
     assert.equal(result.index, 0);
   });
 });
@@ -231,6 +285,16 @@ describe("updateSlideControls", () => {
     const slideId = deck.slides[0].id;
     const updated = updateSlideControls(deck, slideId, { tone: "confident" });
     assert.equal(updated.slides[1].controls, deck.slides[1].controls);
+  });
+
+  test("ignores controls for unknown slides", () => {
+    const deck = makeTestDeck();
+    const updated = updateSlideControls(deck, "missing-slide", {
+      density: "dense",
+    });
+
+    assert.strictEqual(updated.slides[0], deck.slides[0]);
+    assert.strictEqual(updated.slides[1], deck.slides[1]);
   });
 });
 
@@ -274,6 +338,25 @@ describe("slide metadata and local style", () => {
 
     const cleared = updateSlideSourceMetadata(withSource, slideId, undefined);
     assert.equal(cleared.slides[0].source, undefined);
+  });
+
+  test("ignores slide metadata updates for unknown slides", () => {
+    const deck = makeTestDeck();
+    const attributes = updateSlideAttributes(deck, "missing-slide", {
+      name: "Ignored",
+    });
+    const localStyle = updateSlideLocalStyle(deck, "missing-slide", {
+      fill: { type: "solid", color: "#fff" },
+    });
+    const source = updateSlideSourceMetadata(deck, "missing-slide", {
+      documentId: "doc-1",
+      blockId: "block-1",
+      blockKind: "text",
+    });
+
+    assert.strictEqual(attributes.slides[0], deck.slides[0]);
+    assert.strictEqual(localStyle.slides[0], deck.slides[0]);
+    assert.strictEqual(source.slides[0], deck.slides[0]);
   });
 });
 
@@ -337,6 +420,29 @@ describe("insertNode and pasteNodes", () => {
     assert.equal(result.deck.slides[0].children.at(-1)?.id, "inserted-text");
   });
 
+  test("insertNode re-identifies colliding nodes and ignores missing slides", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const source = slide.children[0];
+    const inserted = insertNode(deck, slide.id, source);
+    const missingSlide = insertNode(deck, "missing-slide", {
+      id: "orphan-node",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "p1", text: "Orphan" }] },
+    });
+
+    assert.equal(inserted.nodeId, `${source.id}-copy`);
+    assert.equal(
+      inserted.deck.slides[0].children.at(-1)?.id,
+      `${source.id}-copy`,
+    );
+    assert.equal(missingSlide.nodeId, "orphan-node");
+    assert.strictEqual(missingSlide.deck.slides[0], deck.slides[0]);
+  });
+
   test("pasteNodes re-identifies pasted nodes and offsets their frames", () => {
     const deck = makeTestDeck();
     const slide = deck.slides[0];
@@ -349,6 +455,20 @@ describe("insertNode and pasteNodes", () => {
     assert.ok(pasted);
     assert.notEqual(pasted.id, source.id);
     assert.equal(pasted.layout?.frame.x, source.layout!.frame.x + 2);
+  });
+
+  test("pasteNodes returns empty no-op result for empty input or missing slides", () => {
+    const deck = makeTestDeck();
+    const empty = pasteNodes(deck, deck.slides[0].id, []);
+    const missingSlide = pasteNodes(deck, "missing-slide", [
+      deck.slides[0].children[0],
+    ]);
+
+    assert.deepEqual(empty, { deck, nodeIds: [] });
+    assert.deepEqual(missingSlide.nodeIds, [
+      `${deck.slides[0].children[0].id}-copy`,
+    ]);
+    assert.strictEqual(missingSlide.deck.slides[0], deck.slides[0]);
   });
 });
 
@@ -405,6 +525,23 @@ describe("deleteNodes", () => {
       updated.slides[0].children.some((node) => node.id === nodeId),
       false,
     );
+  });
+
+  test("deleteNodes no-ops for empty selection and expands group deletion", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const group = groupNodes(
+      deck,
+      slide.id,
+      slide.children.map((node) => node.id),
+      "delete-group",
+      { ref: "surface.card" },
+    );
+    const empty = deleteNodes(deck, slide.id, []);
+    const deletedGroup = deleteNodes(group, slide.id, ["delete-group"]);
+
+    assert.strictEqual(empty, deck);
+    assert.equal(deletedGroup.slides[0].children.length, 0);
   });
 
   test("repairs connector node bindings before deleting target nodes", () => {
@@ -551,6 +688,26 @@ describe("duplicateNodes", () => {
         [child.id, result.duplicatedIds[0]],
       );
     }
+  });
+
+  test("duplicateNodes no-ops for empty, missing slide, and missing node selections", () => {
+    const deck = makeTestDeck();
+
+    assert.deepEqual(duplicateNodes(deck, deck.slides[0].id, []), {
+      deck,
+      duplicatedIds: [],
+    });
+    assert.deepEqual(duplicateNodes(deck, "missing-slide", ["text-1"]), {
+      deck,
+      duplicatedIds: [],
+    });
+    assert.deepEqual(
+      duplicateNodes(deck, deck.slides[0].id, ["missing-node"]),
+      {
+        deck,
+        duplicatedIds: [],
+      },
+    );
   });
 });
 
@@ -811,6 +968,93 @@ describe("applyTemplate", () => {
     assert.equal(updated.slides[0].template.kind, "content");
   });
 
+  test("preserves compatible slot content, source, and local overrides", () => {
+    resetIdCounter();
+    const registry = createDefaultTemplateRegistry();
+    const template = registry.get("content")!;
+    const titleNode = buildTextNode({
+      id: "title-source",
+      role: "title",
+      slot: "title",
+      content: {
+        paragraphs: [{ id: "title-source-p1", text: "Preserve me" }],
+      },
+      source: {
+        documentId: "doc-1",
+        blockId: "heading-1",
+        blockKind: "text",
+      },
+      localStyle: { text: { color: "#ff0000" } },
+    });
+    const bodyNode = buildTextNode({
+      id: "body-source",
+      role: "body",
+      slot: "bullets",
+      content: {
+        paragraphs: [
+          { id: "body-source-p1", text: "First", list: { kind: "bullet" } },
+          { id: "body-source-p2", text: "Second", list: { kind: "bullet" } },
+        ],
+      },
+      source: {
+        documentId: "doc-1",
+        blockId: "body-1",
+        blockKind: "text",
+      },
+    });
+    const slide = {
+      ...buildContentSlide("Old"),
+      id: "slide-source",
+      source: {
+        documentId: "doc-1",
+        blockId: "slide-1",
+        blockKind: "text" as const,
+      },
+      localStyle: {
+        slide: { background: { type: "solid" as const, color: "#fff7ed" } },
+      },
+      props: { decoration: "expressive" as const, chrome: "minimal" as const },
+      notes: "Keep these notes",
+      children: [titleNode, bodyNode],
+    };
+    const deck = buildDeckV7([slide]);
+    const spec: AiSlideSpec = {
+      kind: "content",
+      density: "dense",
+      emphasis: "data",
+      slots: {
+        title: { type: "shortText", text: "Generated title" },
+        bullets: { type: "bullets", items: [{ text: "Generated" }] },
+      },
+    };
+
+    const updated = applyTemplate(deck, slide.id, spec, template);
+    const nextSlide = updated.slides[0];
+    const nextTitle = nextSlide.children.find((node) => node.slot === "title");
+    const nextBullets = nextSlide.children.find(
+      (node) => node.slot === "bullets",
+    );
+
+    assert.equal(nextSlide.id, "slide-source");
+    assert.equal(nextSlide.source?.blockId, "slide-1");
+    assert.equal(nextSlide.localStyle?.slide?.background?.type, "solid");
+    assert.deepEqual(nextSlide.props, slide.props);
+    assert.equal(nextSlide.notes, "Keep these notes");
+    assert.equal(nextTitle?.id, "title-source");
+    assert.equal(nextTitle?.source?.blockId, "heading-1");
+    assert.equal(nextTitle?.localStyle?.text?.color, "#ff0000");
+    assert.equal(nextTitle?.type, "text");
+    if (nextTitle?.type === "text") {
+      assert.equal(nextTitle.content.paragraphs[0].text, "Preserve me");
+    }
+    assert.equal(nextBullets?.id, "body-source");
+    assert.equal(nextBullets?.source?.blockId, "body-1");
+    assert.equal(nextBullets?.type, "text");
+    if (nextBullets?.type === "text") {
+      assert.equal(nextBullets.content.paragraphs.length, 2);
+    }
+  });
+
   test("returns unchanged deck for unknown slideId", () => {
     const deck = makeTestDeck();
     const registry = createDefaultTemplateRegistry();
@@ -873,6 +1117,35 @@ describe("detachDecoration", () => {
     );
     assert.equal(extras.length, 1);
     assert.equal((extras[0] as any).type, "shape");
+  });
+
+  test("disables the source decoration recipe when detaching a resolved decoration", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const updated = detachDecoration(
+      deck,
+      slide.id,
+      "decoration-bg-corner",
+      { frame: { x: 10, y: 10, w: 20, h: 10 }, zIndex: 99 },
+      { fill: { type: "solid", color: "#aabbcc" } },
+    );
+
+    assert.deepEqual(updated.theme.overrides?.disabledDecorations, [
+      "bg-corner",
+    ]);
+  });
+
+  test("restoreThemeDecoration removes stale disabled decoration overrides", () => {
+    const deck = buildDeckV7([buildCoverSlide()], {
+      theme: {
+        packageId: "test-package",
+        overrides: { disabledDecorations: ["bg-corner"] },
+      },
+    });
+
+    const updated = restoreThemeDecoration(deck, "bg-corner");
+
+    assert.equal(updated.theme.overrides?.disabledDecorations, undefined);
   });
 });
 
@@ -1141,6 +1414,25 @@ describe("updateLocalStyle — toolbar-driven style patches", () => {
     });
     const node = updated.slides[0].children.find((n) => n.id === nodeId);
     assert.equal((node?.localStyle?.fill as any)?.color, "#abcdef");
+  });
+
+  test("replaces local style keys when patch value is primitive or undefined", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const withLocal = updateLocalStyle(deck, slide.id, nodeId, {
+      opacity: 0.5,
+      shadow: { xPt: 0, yPt: 1, blurPt: 8, color: "#000000" },
+    });
+    const updated = updateLocalStyle(withLocal, slide.id, nodeId, {
+      opacity: undefined,
+      shadow: undefined,
+    });
+    const node = updated.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.equal(node?.localStyle?.opacity, undefined);
+    assert.equal(node?.localStyle?.shadow, undefined);
+    assert.ok("opacity" in (node?.localStyle ?? {}));
   });
 
   test("sequential toolbar commands accumulate style overrides", () => {

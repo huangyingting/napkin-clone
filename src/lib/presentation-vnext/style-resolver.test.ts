@@ -218,6 +218,40 @@ describe("resolveNodeStyle", () => {
       diagnostics.some((d) => d.code === "unknown-style-ref"),
       "Expected unknown-style-ref error",
     );
+    assert.ok(
+      diagnostics.some(
+        (d) =>
+          d.code === "unknown-style-ref" &&
+          d.action?.type === "replace-style-ref",
+      ),
+      "Expected unknown-style-ref repair action",
+    );
+  });
+
+  test("errors when a style ref exists without a default variant", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    const themeBinding = buildThemeBinding();
+    const { style, diagnostics } = resolveNodeStyle(
+      { ref: "text.body" },
+      themeBinding,
+      {
+        ...pkg,
+        styles: {
+          ...pkg.styles,
+          "text.body": { compact: { text: { fontSizePt: 13 } } },
+        },
+      },
+    );
+
+    assert.deepEqual(style, {});
+    assert.ok(
+      diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-style-default" &&
+          diagnostic.action?.type === "replace-style-ref",
+      ),
+    );
   });
 
   test("applies deck-level token overrides to resolved theme", async () => {
