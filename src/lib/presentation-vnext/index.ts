@@ -196,6 +196,7 @@ export {
   unlinkNodeSource,
   relinkNodeSource,
   updateNodeSourceState,
+  dismissNodeSourceIssue,
   refreshAllSafeSourceLinks,
 } from "./source-links";
 

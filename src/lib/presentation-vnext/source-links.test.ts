@@ -11,6 +11,7 @@ import type { SourceBlockIndex } from "./block-index";
 import type { DeckV7, SlideChildNode } from "./schema";
 import {
   classifyDeckSourceLinks,
+  dismissNodeSourceIssue,
   refreshAllSafeSourceLinks,
   refreshNodeSource,
   relinkNodeSource,
@@ -149,7 +150,6 @@ describe("v7 source link classification", () => {
         ["stale-source", "stale-node"],
         ["orphaned-source", "orphan-node"],
         ["source-refresh-failed", "remote-node"],
-        ["unlinked-source", "unlinked-node"],
       ],
     );
     assert.equal(
@@ -164,14 +164,13 @@ describe("v7 source link classification", () => {
       classifyDeckSourceLinks(deckWithSources(), index()),
     );
 
-    assert.equal(items.length, 4);
+    assert.equal(items.length, 3);
     assert.deepEqual(
       items.map((item) => [item.slideLabel, item.nodeId, item.state]),
       [
         ["Overview", "stale-node", "stale"],
         ["Overview", "orphan-node", "orphan"],
         ["Overview", "remote-node", "unknown"],
-        ["Overview", "unlinked-node", "unlinked"],
       ],
     );
   });
@@ -248,7 +247,7 @@ describe("v7 source link commands", () => {
     );
     assert.deepEqual(
       result.skipped.map(({ item }) => item.nodeId),
-      ["orphan-node", "remote-node", "unlinked-node"],
+      ["orphan-node", "remote-node"],
     );
     const refreshed = result.deck.slides[0].children.find(
       (candidate) => candidate.id === "stale-node",
@@ -280,5 +279,112 @@ describe("v7 source link commands", () => {
     const node = result.deck.slides[0].children[0];
     assert.equal(node.source?.contentHash, "old-table-hash");
     assert.equal(node.source?.refresh?.state, "unknown");
+  });
+
+  test("safe refresh all skips ambiguous matching blocks with a visible reason", () => {
+    const ambiguousIndex: SourceBlockIndex = {
+      documentId: "doc-1",
+      blocks: [
+        ...index().blocks,
+        {
+          documentId: "doc-1",
+          id: "block-stale",
+          kind: "text",
+          hash: "hash-other",
+          displayLabel: "Duplicate block",
+          refresh: { kind: "text", text: "Duplicate block" },
+        },
+      ],
+    };
+
+    const result = refreshAllSafeSourceLinks(
+      deckWithSources(),
+      ambiguousIndex,
+      NOW,
+    );
+
+    assert.deepEqual(
+      result.refreshed.map((item) => item.nodeId),
+      [],
+    );
+    assert.ok(
+      result.skipped.some(
+        ({ item, reason }) =>
+          item.nodeId === "stale-node" && /Multiple source blocks/.test(reason),
+      ),
+    );
+    const stale = result.deck.slides[0].children.find(
+      (candidate) => candidate.id === "stale-node",
+    );
+    assert.equal(stale?.source?.contentHash, "hash-old");
+  });
+
+  test("dismisses one source review item without changing content", () => {
+    const dismissed = dismissNodeSourceIssue(
+      deckWithSources(),
+      "slide-1",
+      "stale-node",
+      index(),
+      NOW,
+    );
+    const classifications = classifyDeckSourceLinks(dismissed, index());
+    const stale = classifications.find((item) => item.nodeId === "stale-node");
+
+    assert.equal(stale?.dismissed, true);
+    assert.deepEqual(
+      sourceReviewItems(dismissed, classifications).map((item) => item.nodeId),
+      ["orphan-node", "remote-node"],
+    );
+    assert.equal(
+      sourceLinkDiagnostics(classifications).some(
+        (diagnostic) => diagnostic.nodeId === "stale-node",
+      ),
+      false,
+    );
+    const node = dismissed.slides[0].children.find(
+      (candidate) => candidate.id === "stale-node",
+    );
+    assert.equal(
+      node?.type === "text" ? node.content.paragraphs[0].text : "",
+      "stale-node",
+    );
+    const bulk = refreshAllSafeSourceLinks(dismissed, index(), NOW);
+    assert.deepEqual(
+      bulk.refreshed.map((item) => item.nodeId),
+      [],
+    );
+  });
+
+  test("requires an explicit reviewed document change for cross-document relink", () => {
+    const target = index().blocks[0];
+    const rejected = relinkNodeSource(
+      deckWithSources(),
+      "slide-1",
+      "remote-node",
+      target,
+      NOW,
+    );
+    assert.equal(rejected.status, "skipped");
+    assert.match(
+      rejected.status === "skipped" ? rejected.reason : "",
+      /Cross-document relink/,
+    );
+
+    const accepted = relinkNodeSource(
+      deckWithSources(),
+      "slide-1",
+      "remote-node",
+      target,
+      NOW,
+      { allowDocumentChange: true },
+    );
+
+    assert.equal(accepted.status, "refreshed");
+    if (accepted.status !== "refreshed") return;
+    const node = accepted.deck.slides[0].children.find(
+      (candidate) => candidate.id === "remote-node",
+    );
+    assert.equal(node?.source?.documentId, "doc-1");
+    assert.equal(node?.source?.blockId, "block-fresh");
   });
 });
