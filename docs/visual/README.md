@@ -8,7 +8,7 @@ The visual subsystem owns visual schemas, kind capabilities, renderer/export
 support, transformations, and AI prompt constraints. Persistence of visual nodes
 and `Visual` rows is documented in
 [../data-model/visual-mirror.md](../data-model/visual-mirror.md); editor
-lifecycle is documented in [../editor/lexical-editor.md](../editor/lexical-editor.md).
+lifecycle is documented in [../editor/document-editor.md](../editor/document-editor.md).
 
 ## Source Anchors
 

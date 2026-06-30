@@ -10,7 +10,7 @@ the presentation subsystem.
 
 | Document                                           | Type         | Scope                                                                          |
 | -------------------------------------------------- | ------------ | ------------------------------------------------------------------------------ |
-| [lexical-editor.md](lexical-editor.md)             | Architecture | Lexical editor selection model, tool registry, visual lifecycle, and autosave. |
+| [document-editor.md](document-editor.md)           | Architecture | Lexical editor selection model, tool registry, visual lifecycle, and autosave. |
 | [comments-and-anchors.md](comments-and-anchors.md) | Design       | Comment threads, text/visual anchors, slide anchors, and lifecycle behavior.   |
 
 ## Related Contracts

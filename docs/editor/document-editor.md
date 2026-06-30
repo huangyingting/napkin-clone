@@ -1,4 +1,4 @@
-# Editor architecture & usage
+# Document Editor Architecture
 
 **Type:** Architecture  
 **Status:** Current  

@@ -403,7 +403,7 @@ durable command log yet.
 | [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                       | Current  | Visual projection contract                               |
 | [../documents/README.md](../documents/README.md)                                       | Current  | Document creation, listing, search, tags, and trash      |
 | [../editor/comments-and-anchors.md](../editor/comments-and-anchors.md)                 | Current  | Comment threads and document/slide anchors               |
-| [../editor/lexical-editor.md](../editor/lexical-editor.md)                             | Current  | Editor surfaces, visual lifecycle, and deck autosave UX  |
+| [../editor/document-editor.md](../editor/document-editor.md)                           | Current  | Editor surfaces, visual lifecycle, and deck autosave UX  |
 | [../presentation/theme-packages.md](../presentation/theme-packages.md)                 | Current  | Theme packages, semantic templates, styles, and chrome   |
 | [../import/README.md](../import/README.md)                                             | Current  | Document import validation, parsing, and abuse controls  |
 | [../localization/README.md](../localization/README.md)                                 | Current  | Localization catalogs, locale resolution, and activation |
