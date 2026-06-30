@@ -39,8 +39,27 @@ export const E2E_PROFILE_FIXTURE = {
   visualId: "e2efixturevisual000000001",
   shareId: "e2efixtureshare01",
   slug: "e2e-fixture-deck",
+  dashboardTag: {
+    id: "e2efixturedashboardtag01",
+    name: "Release Gate",
+    slug: "release-gate",
+  },
+  dashboardDocuments: {
+    alphaFavorite: {
+      id: "e2efixturedashboardalpha01",
+      title: "Alpha favorite deterministic dashboard",
+      content: "Favorite dashboard fixture used by the E2E release gate.",
+    },
+    betaTagged: {
+      id: "e2efixturedashboardbeta01",
+      title: "Beta tagged deterministic dashboard",
+      content: "Tagged dashboard fixture used by the E2E release gate.",
+    },
+  },
   slideTitleText: "Release Gate Fixture Slide",
+  slideTwoTitleText: "Release Gate Fixture Follow-up",
   slideBodyText: "Deterministic deck for the E2E release gate.",
+  slideTwoBodyText: "Second seeded slide for deterministic navigation.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
 } as const;
@@ -105,6 +124,7 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
     slides: [
       buildSlide({
         id: "e2e-fixture-slide-1",
+        index: 0,
         title: F.slideTitleText,
         notes: "",
         designOverrides: {
@@ -141,6 +161,39 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
           }),
         ],
       }),
+      buildSlide({
+        id: "e2e-fixture-slide-2",
+        index: 1,
+        title: F.slideTwoTitleText,
+        notes: "Use this seeded slide to verify presentation navigation.",
+        designOverrides: {
+          background: { type: "solid", color: { value: "#ffffff" } },
+        },
+        elements: [
+          buildTextElement({
+            id: "fixture-title-2",
+            role: "title",
+            text: F.slideTwoTitleText,
+            box: { x: 6, y: 6, w: 88, h: 14 },
+            zIndex: 0,
+            style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          }),
+          buildBulletsElement({
+            id: "fixture-bullets-2",
+            bullets: [
+              F.slideTwoBodyText,
+              "Share, embed, and export stay in sync",
+            ],
+            items: [
+              { text: F.slideTwoBodyText },
+              { text: "Share, embed, and export stay in sync" },
+            ],
+            box: { x: 8, y: 26, w: 76, h: 50 },
+            zIndex: 1,
+            style: { fontSize: 4, bold: false, italic: false, align: "left" },
+          }),
+        ],
+      }),
     ],
   });
 }
@@ -165,6 +218,9 @@ export function buildE2EProfileFixtureDescriptor(opts: {
     privateDocumentId: F.privateDocumentId,
     privateAssetPath: opts.privateAssetPath,
     slideTitleText: F.slideTitleText,
+    slideTwoTitleText: F.slideTwoTitleText,
+    dashboardTag: F.dashboardTag,
+    dashboardDocuments: F.dashboardDocuments,
     seededAt: opts.seededAt,
   };
 }
