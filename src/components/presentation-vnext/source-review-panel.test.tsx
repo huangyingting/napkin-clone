@@ -64,6 +64,21 @@ function collectClickHandlers(node: ReactNode): (() => void)[] {
   ];
 }
 
+function collectSelectHandlers(node: ReactNode): ((value: string) => void)[] {
+  if (Array.isArray(node)) return node.flatMap(collectSelectHandlers);
+  if (!isValidElement(node)) return [];
+  const props = node.props as {
+    onChange?: (event: { currentTarget: { value: string } }) => void;
+    children?: ReactNode;
+  };
+  return [
+    ...(node.type === "select" && typeof props.onChange === "function"
+      ? [(value: string) => props.onChange?.({ currentTarget: { value } })]
+      : []),
+    ...collectSelectHandlers(props.children),
+  ];
+}
+
 describe("SourceReviewPanel", () => {
   test("renders deck-level source issues with safe actions", () => {
     const html = renderToStaticMarkup(
@@ -114,5 +129,26 @@ describe("SourceReviewPanel", () => {
       "unlink",
       "dismiss",
     ]);
+  });
+
+  test("routes relink dropdown selections to explicit source blocks", () => {
+    const calls: string[] = [];
+    const element = SourceReviewPanel({
+      items: [items[1]],
+      sourceBlocks: [block],
+      onSelect: () => undefined,
+      onRefresh: () => undefined,
+      onUnlink: () => undefined,
+      onRelink: (slideId, nodeId, selectedBlock) =>
+        calls.push(`${slideId}:${nodeId}:${selectedBlock.id}`),
+      onDismiss: () => undefined,
+      onRefreshAll: () => undefined,
+    });
+
+    const [select] = collectSelectHandlers(element);
+    assert.ok(select);
+    select("text:block-1");
+
+    assert.deepEqual(calls, ["slide-2:node-orphan:block-1"]);
   });
 });

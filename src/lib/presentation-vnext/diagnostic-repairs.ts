@@ -103,7 +103,12 @@ export function applyDiagnosticRepairAction(
       }
       return {
         status: "applied",
-        deck: resetLocalStyleOverride(deck, slide.id, node.id),
+        deck: resetLocalStyleOverride(
+          deck,
+          slide.id,
+          node.id,
+          action.payload?.styleKeys,
+        ),
         focus: { slideId: slide.id, nodeId: node.id },
         announcement: "Removed local style overrides.",
       };
