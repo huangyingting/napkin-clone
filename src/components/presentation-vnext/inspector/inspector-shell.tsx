@@ -29,6 +29,8 @@ import type {
   PresentationDiagnostic,
   DiagnosticAction,
 } from "@/lib/presentation-vnext/diagnostics";
+import type { SourceBlockIndexEntry } from "@/lib/presentation-vnext/block-index";
+import type { SourceLinkClassification } from "@/lib/presentation-vnext/source-links";
 
 import {
   availablePanels,
@@ -808,6 +810,10 @@ export interface InspectorShellProps {
   onResetToTheme: () => void;
   onUpdateSelectedSource: (source: NodeSourceMetadata | undefined) => void;
   onRefreshSelectedSource?: () => void;
+  onUnlinkSelectedSource?: () => void;
+  onRelinkSelectedSource?: (block: SourceBlockIndexEntry) => void;
+  selectedSourceClassification?: SourceLinkClassification;
+  sourceBlocks?: readonly SourceBlockIndexEntry[];
   onChangeStyleBinding: (binding: StyleBinding) => void;
   onAlignSelection: (mode: SelectionAlignMode) => void;
   onDistributeSelection: (mode: SelectionDistributeMode) => void;
@@ -871,6 +877,10 @@ export function InspectorShell({
   onResetToTheme,
   onUpdateSelectedSource,
   onRefreshSelectedSource,
+  onUnlinkSelectedSource,
+  onRelinkSelectedSource,
+  selectedSourceClassification,
+  sourceBlocks,
   onChangeStyleBinding,
   onAlignSelection,
   onDistributeSelection,
@@ -1185,6 +1195,10 @@ export function InspectorShell({
                 node={selectedNode}
                 onUpdateSource={onUpdateSelectedSource}
                 onRefreshSource={onRefreshSelectedSource}
+                onUnlinkSource={onUnlinkSelectedSource}
+                onRelinkSource={onRelinkSelectedSource}
+                classification={selectedSourceClassification}
+                availableBlocks={sourceBlocks}
               />
             </PanelSection>
           )}

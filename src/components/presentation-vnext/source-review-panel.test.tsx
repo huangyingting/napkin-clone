@@ -1,0 +1,118 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import * as React from "react";
+import { isValidElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import type { SourceBlockIndexEntry } from "@/lib/presentation-vnext/block-index";
+import type { SourceReviewItem } from "@/lib/presentation-vnext/source-links";
+import { SourceReviewPanel } from "./source-review-panel";
+
+const block: SourceBlockIndexEntry = {
+  documentId: "doc-1",
+  id: "block-1",
+  kind: "text",
+  hash: "hash-1",
+  displayLabel: "Executive summary",
+  refresh: { kind: "text", text: "Executive summary" },
+};
+
+const items: SourceReviewItem[] = [
+  {
+    slideId: "slide-1",
+    slideIndex: 0,
+    slideLabel: "Slide 1",
+    nodeId: "node-stale",
+    nodeType: "text",
+    nodeName: "Narrative",
+    source: {
+      documentId: "doc-1",
+      blockId: "block-1",
+      blockKind: "text",
+      contentHash: "old-hash",
+    },
+    state: "stale",
+    reason: "Source block content changed.",
+    sourceLabel: "Executive summary",
+    block,
+  },
+  {
+    slideId: "slide-2",
+    slideIndex: 1,
+    slideLabel: "Slide 2",
+    nodeId: "node-orphan",
+    nodeType: "text",
+    source: {
+      documentId: "doc-1",
+      blockId: "missing-block",
+      blockKind: "text",
+      contentHash: "missing-hash",
+    },
+    state: "orphan",
+    reason: "Source block is missing from the current document.",
+    sourceLabel: "missing-block",
+  },
+];
+
+function collectClickHandlers(node: ReactNode): (() => void)[] {
+  if (Array.isArray(node)) return node.flatMap(collectClickHandlers);
+  if (!isValidElement(node)) return [];
+  const props = node.props as { onClick?: () => void; children?: ReactNode };
+  return [
+    ...(typeof props.onClick === "function" ? [props.onClick] : []),
+    ...collectClickHandlers(props.children),
+  ];
+}
+
+describe("SourceReviewPanel", () => {
+  test("renders deck-level source issues with safe actions", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(SourceReviewPanel, {
+        items,
+        sourceBlocks: [block],
+        onSelect: () => undefined,
+        onRefresh: () => undefined,
+        onUnlink: () => undefined,
+        onRelink: () => undefined,
+        onDismiss: () => undefined,
+        onRefreshAll: () => undefined,
+        statusMessage: "Refreshed 1 source links; skipped 1.",
+      }),
+    );
+
+    assert.match(html, /Source Review/);
+    assert.match(html, /Slide 1/);
+    assert.match(html, /Narrative/);
+    assert.match(html, /Stale/);
+    assert.match(html, /Orphaned/);
+    assert.match(html, /Refresh all safe stale \(1\)/);
+    assert.match(html, /Source block is missing from the current document\./);
+    assert.match(html, /Refreshed 1 source links; skipped 1\./);
+    assert.match(html, /Mark unlinked/);
+    assert.match(html, /Dismiss/);
+  });
+
+  test("routes one-by-one source review actions", () => {
+    const calls: string[] = [];
+    const element = SourceReviewPanel({
+      items: [items[0]],
+      sourceBlocks: [block],
+      onSelect: () => calls.push("select"),
+      onRefresh: () => calls.push("refresh"),
+      onUnlink: () => calls.push("unlink"),
+      onRelink: () => calls.push("relink"),
+      onDismiss: () => calls.push("dismiss"),
+      onRefreshAll: () => calls.push("refresh-all"),
+    });
+
+    for (const handler of collectClickHandlers(element)) handler();
+
+    assert.deepEqual(calls, [
+      "refresh-all",
+      "select",
+      "refresh",
+      "unlink",
+      "dismiss",
+    ]);
+  });
+});

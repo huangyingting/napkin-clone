@@ -142,7 +142,7 @@ describe("presentation React hooks under a minimal dispatcher", () => {
       userName: "Remote",
       userId: "remote-1",
       selectedSlideId: "slide-2",
-      selectedElementIds: ["el-1"],
+      selectedNodeIds: ["el-1"],
       editingMode: "selecting",
     };
     states.set(7, { [SLIDE_PRESENCE_AWARENESS_KEY]: remotePayload });
@@ -172,7 +172,7 @@ describe("presentation React hooks under a minimal dispatcher", () => {
           userName: "Local",
           userId: "local-1",
           selectedSlideId: "slide-1",
-          selectedElementIds: [],
+          selectedNodeIds: [],
           editingMode: "browsing",
           awareness,
         }),

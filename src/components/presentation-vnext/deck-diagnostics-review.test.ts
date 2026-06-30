@@ -45,6 +45,61 @@ describe("DeckDiagnosticsReview", () => {
     assert.match(html, /Open asset panel/);
   });
 
+  test("renders migration, source, asset, theme, render, and export diagnostics in one surface", () => {
+    const diagnostics: PresentationDiagnostic[] = [
+      makeDiagnostic("migration-repair-applied", "info", "Migrated deck"),
+      makeDiagnostic("stale-source", "warning", "Source is stale", {
+        slideId: "slide-1",
+        nodeId: "text-1",
+        details: { documentId: "doc-1", blockId: "block-1" },
+        action: { type: "refresh-source" },
+      }),
+      makeDiagnostic("missing-asset", "error", "Image asset missing", {
+        slideId: "slide-1",
+        nodeId: "image-1",
+        details: { assetId: "hero" },
+      }),
+      makeDiagnostic("missing-token", "warning", "Theme token missing", {
+        path: "tokens.color.accent",
+      }),
+      makeDiagnostic("missing-node-layout", "error", "Node has no layout", {
+        slideId: "slide-2",
+        nodeId: "shape-1",
+      }),
+      makeDiagnostic(
+        "unsupported-export-feature",
+        "warning",
+        "Export fallback",
+        {
+          nodeId: "shape-2",
+          action: { type: "replace-style-ref" },
+        },
+      ),
+    ];
+
+    const html = renderToStaticMarkup(
+      createElement(DeckDiagnosticsReview, {
+        diagnostics,
+        onClose: () => undefined,
+        onNavigate: () => undefined,
+        onAction: () => undefined,
+      }),
+    );
+
+    for (const category of [
+      "migration",
+      "source",
+      "asset",
+      "theme",
+      "render",
+      "export",
+    ]) {
+      assert.match(html, new RegExp(`· ${category} ·`));
+    }
+    assert.match(html, /Source block block-1/);
+    assert.match(html, /Refresh source/);
+  });
+
   test("routes close, navigation, and action handlers", () => {
     const diagnostics: PresentationDiagnostic[] = [
       makeDiagnostic("missing-asset", "error", "Image asset missing", {

@@ -28,6 +28,11 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import type {
+  DeckV7,
+  SlideChildNode,
+  SlideNode,
+} from "@/lib/presentation-vnext/schema";
 
 // ---------------------------------------------------------------------------
 // Payload types
@@ -35,9 +40,9 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * The editing mode of a slide editor session.
- * - `"browsing"`: no element selected; the user is navigating slides.
- * - `"selecting"`: one or more elements are selected.
- * - `"editing"`: an element is being actively edited (text entry, resize, …).
+ * - `"browsing"`: no node selected; the user is navigating slides.
+ * - `"selecting"`: one or more nodes are selected.
+ * - `"editing"`: a node is being actively edited (text entry, resize, …).
  */
 export type SlideEditingMode = "browsing" | "selecting" | "editing";
 
@@ -55,8 +60,8 @@ export interface SlidePresencePayload {
   userId: string;
   /** The id of the slide currently visible in the editor. */
   selectedSlideId: string | null;
-  /** Ids of elements currently selected on the active slide. */
-  selectedElementIds: string[];
+  /** V7 node ids currently selected on the active slide. */
+  selectedNodeIds: string[];
   /** Current editing mode. */
   editingMode: SlideEditingMode;
 }
@@ -75,7 +80,7 @@ export interface SlidePresencePeer extends SlidePresencePayload {
 
 /** Minimal awareness interface (subset of `WebsocketProvider["awareness"]`). */
 /* node:coverage ignore next 7 -- type-only awareness adapter shape is erased by tsx. */
-interface AwarenessLike {
+export interface SlidePresenceAwareness {
   clientID: number;
   getStates(): Map<number, Record<string, unknown>>;
   setLocalStateField(key: string, value: unknown): void;
@@ -99,17 +104,19 @@ export function deriveSlidePresencePayload(opts: {
   userName: string;
   userId: string;
   selectedSlideId: string | null;
-  selectedElementIds: readonly string[];
+  selectedNodeIds: readonly string[];
   editingMode: SlideEditingMode;
+  deck?: DeckV7 | null;
 }): SlidePresencePayload {
-  return {
+  const payload = {
     documentId: opts.documentId,
     userName: opts.userName,
     userId: opts.userId,
     selectedSlideId: opts.selectedSlideId,
-    selectedElementIds: Array.from(opts.selectedElementIds),
+    selectedNodeIds: Array.from(opts.selectedNodeIds),
     editingMode: opts.editingMode,
   };
+  return opts.deck ? sanitizeSlidePresencePayload(payload, opts.deck) : payload;
 }
 
 /**
@@ -121,6 +128,7 @@ export function extractSlidePresencePeers(
   states: Map<number, Record<string, unknown>>,
   localClientId: number,
   documentId: string,
+  deck?: DeckV7 | null,
 ): SlidePresencePeer[] {
   const peers: SlidePresencePeer[] = [];
   states.forEach((state, clientId) => {
@@ -128,7 +136,8 @@ export function extractSlidePresencePeers(
     if (!isSlidePresencePayload(raw) || raw.documentId !== documentId) {
       return;
     }
-    peers.push({ ...raw, clientId, self: clientId === localClientId });
+    const payload = deck ? sanitizeSlidePresencePayload(raw, deck) : raw;
+    peers.push({ ...payload, clientId, self: clientId === localClientId });
   });
   // Stable order: local session first, then by clientId ascending.
   peers.sort((a, b) => {
@@ -146,9 +155,52 @@ function isSlidePresencePayload(value: unknown): value is SlidePresencePayload {
     typeof v.userName === "string" &&
     typeof v.userId === "string" &&
     (v.selectedSlideId === null || typeof v.selectedSlideId === "string") &&
-    Array.isArray(v.selectedElementIds) &&
+    Array.isArray(v.selectedNodeIds) &&
+    v.selectedNodeIds.every((id) => typeof id === "string") &&
     typeof v.editingMode === "string"
   );
+}
+
+function findPresenceSlide(
+  deck: DeckV7,
+  slideId: string | null,
+): SlideNode | null {
+  if (!slideId) return null;
+  return deck.slides.find((slide) => slide.id === slideId) ?? null;
+}
+
+function hasVisibleNodeId(
+  nodes: readonly SlideChildNode[],
+  nodeId: string,
+  ancestorHidden = false,
+): boolean {
+  for (const node of nodes) {
+    const hidden = ancestorHidden || node.hidden === true;
+    if (node.id === nodeId) return !hidden;
+    if (
+      node.type === "group" &&
+      hasVisibleNodeId(node.children, nodeId, hidden)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function sanitizeSlidePresencePayload(
+  payload: SlidePresencePayload,
+  deck: DeckV7,
+): SlidePresencePayload {
+  const slide = findPresenceSlide(deck, payload.selectedSlideId);
+  if (!slide) {
+    return { ...payload, selectedSlideId: null, selectedNodeIds: [] };
+  }
+  return {
+    ...payload,
+    selectedNodeIds: payload.selectedNodeIds.filter((nodeId) =>
+      hasVisibleNodeId(slide.children, nodeId),
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -164,15 +216,16 @@ export interface UseSlidePresenceOptions {
   userId: string;
   /** The slide currently visible in the editor (null if none selected). */
   selectedSlideId: string | null;
-  /** Ids of elements selected on the active slide. */
-  selectedElementIds: readonly string[];
+  /** V7 node ids selected on the active slide. */
+  selectedNodeIds: readonly string[];
   /** Current editing mode for the local session. */
   editingMode: SlideEditingMode;
   /**
    * Optional Yjs awareness instance. When absent the hook operates in
    * local-only mode: `peers` is always empty and no network traffic occurs.
    */
-  awareness?: AwarenessLike | null;
+  awareness?: SlidePresenceAwareness | null;
+  deck?: DeckV7 | null;
 }
 
 export interface UseSlidePresenceResult {
@@ -206,9 +259,10 @@ export function useSlidePresence(
     userName,
     userId,
     selectedSlideId,
-    selectedElementIds,
+    selectedNodeIds,
     editingMode,
     awareness,
+    deck,
   } = opts;
 
   const local = deriveSlidePresencePayload({
@@ -216,8 +270,9 @@ export function useSlidePresence(
     userName,
     userId,
     selectedSlideId,
-    selectedElementIds,
+    selectedNodeIds,
     editingMode,
+    deck,
   });
 
   const [peers, setPeers] = useState<SlidePresencePeer[]>([]);
@@ -250,6 +305,7 @@ export function useSlidePresence(
           awareness.getStates(),
           awareness.clientID,
           documentId,
+          deck,
         ),
       );
     };
@@ -260,7 +316,7 @@ export function useSlidePresence(
     return () => {
       awareness.off("change", refresh);
     };
-  }, [awareness, documentId]);
+  }, [awareness, deck, documentId]);
 
   // Clean up local awareness state on unmount.
   const cleanupRef = useRef(awareness);

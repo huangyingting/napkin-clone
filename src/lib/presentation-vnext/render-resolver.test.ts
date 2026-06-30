@@ -122,6 +122,74 @@ describe("resolveDeckRenderTree", () => {
     }
   });
 
+  test("diagnoses missing connector endpoint bindings", () => {
+    resetBuilderCounter();
+    const connector: SlideChildNode = {
+      id: "dangling-connector",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 2 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: "missing-node", anchor: "left" },
+        to: { kind: "point", point: { x: 100, y: 50 } },
+      },
+    };
+    const deck = buildDeckV7([
+      {
+        ...buildCoverSlide(),
+        children: [connector],
+      },
+    ]);
+
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.nodeId === "dangling-connector" &&
+          diagnostic.message.includes("missing-node"),
+      ),
+    );
+  });
+
+  test("diagnoses crop values outside safe bounds", () => {
+    resetBuilderCounter();
+    const image = buildImageNode("img-001", {
+      id: "unsafe-crop-image",
+      content: {
+        assetId: "img-001",
+        crop: { top: 70, right: 60, bottom: 40, left: 50 },
+      },
+    });
+    const deck = buildDeckV7(
+      [
+        {
+          ...buildCoverSlide(),
+          children: [image],
+        },
+      ],
+      {
+        assets: {
+          images: {
+            "img-001": buildImageAsset("img-001"),
+          },
+        },
+      },
+    );
+
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.nodeId === "unsafe-crop-image" &&
+          diagnostic.message.includes("crop values"),
+      ),
+    );
+  });
+
   test("orders user nodes by ascending zIndex", () => {
     resetBuilderCounter();
     const slide = makeSlideWithZIndices([3, 1, 2]);
@@ -264,6 +332,56 @@ describe("resolveDeckRenderTree", () => {
         (diagnostic) =>
           diagnostic.code === "missing-asset" &&
           diagnostic.nodeId === "deck-chrome-logo",
+      ),
+    );
+  });
+
+  test("diagnoses stale disabled decoration overrides with repair action", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()], {
+      theme: {
+        packageId: "test-package",
+        overrides: { disabledDecorations: ["missing-decoration"] },
+      },
+    });
+    const result = resolveDeckRenderTree(
+      deck,
+      buildMinimalThemePackage("test-package", { decorations: {} }),
+    );
+
+    const diagnostic = result.diagnostics.find(
+      (candidate) => candidate.code === "missing-decoration",
+    );
+    assert.ok(diagnostic);
+    assert.equal(diagnostic.action?.type, "restore-decoration");
+    assert.deepEqual(diagnostic.action?.payload, {
+      decorationId: "missing-decoration",
+    });
+  });
+
+  test("diagnoses theme decoration image recipes with missing assets", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()]);
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "missing-image-decoration": {
+          id: "missing-image-decoration",
+          component: "image",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 0 },
+          style: {},
+          content: { type: "image", assetId: "theme-missing-image" },
+        },
+      },
+    });
+
+    const result = resolveDeckRenderTree(deck, pkg);
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-decoration" &&
+          diagnostic.details?.assetId === "theme-missing-image",
       ),
     );
   });

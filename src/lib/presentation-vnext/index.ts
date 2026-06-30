@@ -127,6 +127,9 @@ export type {
   LayoutConstraints,
   LayoutBox,
   AccessibilityMetadata,
+  SourceRefreshState,
+  SourceRefreshMetadata,
+  SourceDisplayMetadata,
   NodeSourceMetadata,
   SemanticRole,
   SlotKey,
@@ -189,6 +192,33 @@ export type {
   DeckV7,
 } from "./schema";
 export { DECK_SCHEMA_VERSION_V7 } from "./schema";
+
+// Source-link block index and review helpers
+export type {
+  SourceBlockKind,
+  SourceBlockRefreshPayload,
+  SourceBlockIndexEntry,
+  SourceBlockIndex,
+} from "./block-index";
+export { buildSourceBlockIndex, findSourceBlock } from "./block-index";
+export type {
+  SourceLinkClassification,
+  SourceRefreshResult,
+  SourceRefreshAllResult,
+  SourceReviewItem,
+} from "./source-links";
+export {
+  classifyNodeSource,
+  classifyDeckSourceLinks,
+  sourceReviewItems,
+  sourceLinkDiagnostics,
+  refreshNodeSource,
+  unlinkNodeSource,
+  relinkNodeSource,
+  updateNodeSourceState,
+  dismissNodeSourceIssue,
+  refreshAllSafeSourceLinks,
+} from "./source-links";
 
 // Validation
 export type { DeckV7ParseResult } from "./validation";
@@ -280,6 +310,7 @@ export { buildExportSpec } from "./export-spec";
 // Editor commands
 export {
   insertSlide,
+  insertTemplateSlide,
   insertBlankSlide,
   duplicateSlide,
   deleteSlide,
@@ -305,6 +336,7 @@ export {
   updateNodeStyleBinding,
   updateLocalStyle,
   resetLocalStyleOverride,
+  restoreThemeDecoration,
   detachDecoration,
   detachDeckChrome,
   groupNodes,

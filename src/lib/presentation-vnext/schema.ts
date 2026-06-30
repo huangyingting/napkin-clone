@@ -151,12 +151,36 @@ export type AccessibilityMetadata = {
   readingOrder?: number;
 };
 
+export type SourceRefreshState =
+  | "fresh"
+  | "stale"
+  | "orphan"
+  | "unlinked"
+  | "unknown";
+
+export type SourceRefreshMetadata = {
+  state: SourceRefreshState;
+  checkedAt?: IsoDateTime;
+  refreshedAt?: IsoDateTime;
+  sourceHash?: string;
+  reason?: string;
+};
+
+export type SourceDisplayMetadata = {
+  documentTitle?: string;
+  blockLabel?: string;
+  blockKindLabel?: string;
+};
+
 export type NodeSourceMetadata = {
   documentId?: string;
   blockId?: string;
   blockKind?: "text" | "visual" | "table" | "image";
   contentHash?: string;
+  blockRevision?: string;
   linkedAt?: IsoDateTime;
+  display?: SourceDisplayMetadata;
+  refresh?: SourceRefreshMetadata;
   unlinked?: boolean;
   extra?: Record<string, JsonValue>;
 };

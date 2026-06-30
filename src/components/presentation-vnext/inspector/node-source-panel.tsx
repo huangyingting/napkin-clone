@@ -6,12 +6,18 @@ import type {
   NodeSourceMetadata,
   SlideChildNode,
 } from "@/lib/presentation-vnext/schema";
+import type { SourceBlockIndexEntry } from "@/lib/presentation-vnext/block-index";
+import type { SourceLinkClassification } from "@/lib/presentation-vnext/source-links";
 import { FOCUS_RING } from "@/components/ui/tokens";
 
 export interface NodeSourcePanelProps {
   node: SlideChildNode;
   onUpdateSource: (source: NodeSourceMetadata | undefined) => void;
   onRefreshSource?: () => void;
+  onUnlinkSource?: () => void;
+  onRelinkSource?: (block: SourceBlockIndexEntry) => void;
+  classification?: SourceLinkClassification;
+  availableBlocks?: readonly SourceBlockIndexEntry[];
 }
 
 const BLOCK_KIND_OPTIONS: NonNullable<NodeSourceMetadata["blockKind"]>[] = [
@@ -23,7 +29,32 @@ const BLOCK_KIND_OPTIONS: NonNullable<NodeSourceMetadata["blockKind"]>[] = [
 
 export function sourceStatus(
   source: NodeSourceMetadata | undefined,
-): "Standalone" | "Unlinked" | "Linked" | "Draft link" {
+  classification?: SourceLinkClassification,
+):
+  | "Standalone"
+  | "Fresh"
+  | "Stale"
+  | "Orphaned"
+  | "Unknown"
+  | "Unlinked"
+  | "Dismissed"
+  | "Linked"
+  | "Draft link" {
+  if (classification) {
+    if (classification.dismissed === true) return "Dismissed";
+    switch (classification.state) {
+      case "fresh":
+        return "Fresh";
+      case "stale":
+        return "Stale";
+      case "orphan":
+        return "Orphaned";
+      case "unknown":
+        return "Unknown";
+      case "unlinked":
+        return "Unlinked";
+    }
+  }
   const hasLink = Boolean(source?.documentId || source?.blockId);
   return !source
     ? "Standalone"
@@ -43,8 +74,12 @@ export function sourceWithPatch(
     blockId: source?.blockId ?? "",
     ...(source?.blockKind ? { blockKind: source.blockKind } : {}),
     ...(source?.contentHash ? { contentHash: source.contentHash } : {}),
+    ...(source?.blockRevision ? { blockRevision: source.blockRevision } : {}),
     ...(source?.linkedAt ? { linkedAt: source.linkedAt } : {}),
+    ...(source?.display ? { display: source.display } : {}),
+    ...(source?.refresh ? { refresh: source.refresh } : {}),
     ...(source?.unlinked ? { unlinked: source.unlinked } : {}),
+    ...(source?.extra ? { extra: source.extra } : {}),
     ...patch,
   };
 }
@@ -53,9 +88,14 @@ export function NodeSourcePanel({
   node,
   onUpdateSource,
   onRefreshSource,
+  onUnlinkSource,
+  onRelinkSource,
+  classification,
+  availableBlocks = [],
 }: NodeSourcePanelProps): JSX.Element {
   const source = node.source;
-  const status = sourceStatus(source);
+  const status = sourceStatus(source, classification);
+  const relinkBlocks = availableBlocks.slice(0, 8);
 
   function updateSource(patch: Partial<NodeSourceMetadata>) {
     onUpdateSource(sourceWithPatch(source, patch));
@@ -76,6 +116,21 @@ export function NodeSourcePanel({
         {source?.contentHash ? (
           <div className="mt-0.5 truncate font-mono text-[11px] text-ds-text-muted">
             Hash {source.contentHash}
+          </div>
+        ) : null}
+        {classification ? (
+          <div className="mt-1 text-[11px] text-ds-text-muted">
+            {classification.reason}
+          </div>
+        ) : null}
+        {classification?.block ? (
+          <div className="mt-1 text-[11px] text-ds-text-muted">
+            Current block: {classification.block.displayLabel} ·{" "}
+            <span className="font-mono">{classification.block.hash}</span>
+          </div>
+        ) : source?.display?.blockLabel ? (
+          <div className="mt-1 text-[11px] text-ds-text-muted">
+            Source block: {source.display.blockLabel}
           </div>
         ) : null}
       </div>
@@ -155,25 +210,54 @@ export function NodeSourcePanel({
         <button
           type="button"
           disabled={!source || source.unlinked === true}
-          onClick={() => updateSource({ unlinked: true })}
+          onClick={() => {
+            if (onUnlinkSource) {
+              onUnlinkSource();
+              return;
+            }
+            updateSource({ unlinked: true });
+          }}
           className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
         >
           Unlink
         </button>
         <button
           type="button"
-          disabled={!source || source.unlinked !== true}
-          onClick={() =>
-            updateSource({
-              linkedAt: new Date().toISOString(),
-              unlinked: false,
-            })
+          disabled={
+            !source || onRelinkSource === undefined || relinkBlocks.length === 0
           }
+          onClick={() => {
+            if (onRelinkSource && relinkBlocks[0]) {
+              onRelinkSource(relinkBlocks[0]);
+            }
+          }}
           className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
         >
-          Relink
+          Relink to first local block
         </button>
       </div>
+      {onRelinkSource && relinkBlocks.length > 0 ? (
+        <div className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+          <div className="text-[11px] font-medium text-ds-text-secondary">
+            Explicit relink choices
+          </div>
+          <div className="mt-1 flex max-h-36 flex-col gap-1 overflow-auto">
+            {relinkBlocks.map((block) => (
+              <button
+                key={`${block.kind}-${block.id}`}
+                type="button"
+                onClick={() => onRelinkSource(block)}
+                className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-left text-[11px] text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              >
+                <span className="font-medium">{block.displayLabel}</span>
+                <span className="ml-1 font-mono text-ds-text-muted">
+                  {block.kind}:{block.id}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {source ? (
         <button
           type="button"

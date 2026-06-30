@@ -14,7 +14,9 @@ import {
   buildMinimalDeckV7,
   buildCoverSlide,
   buildContentSlide,
+  buildSlideV7,
   buildTableSlide,
+  buildTextNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 
@@ -631,6 +633,62 @@ describe("safeParseDeckV7", () => {
     assert.ok(!result.success);
     if (!result.success) {
       assert.ok(result.errors.some((e) => /rows/.test(e)));
+    }
+  });
+
+  test("accepts current source metadata contract", () => {
+    const node = buildTextNode({
+      source: {
+        documentId: "doc-1",
+        blockId: "block-1",
+        blockKind: "text",
+        contentHash: "hash-1",
+        blockRevision: "rev-1",
+        linkedAt: "2026-06-30T10:00:00.000Z",
+        display: {
+          documentTitle: "Source document",
+          blockLabel: "Executive summary",
+          blockKindLabel: "Text",
+        },
+        refresh: {
+          state: "fresh",
+          checkedAt: "2026-06-30T10:00:00.000Z",
+          refreshedAt: "2026-06-30T10:00:00.000Z",
+          sourceHash: "hash-1",
+          reason: "current",
+        },
+      },
+    });
+    const deck = buildDeckV7([buildSlideV7("content", [node])]);
+    const result = safeParseDeckV7(deck);
+
+    assert.ok(result.success, !result.success ? result.errors.join("; ") : "");
+    if (result.success) {
+      assert.equal(
+        result.data.slides[0].children[0].source?.refresh?.state,
+        "fresh",
+      );
+    }
+  });
+
+  test("rejects invalid source metadata fields", () => {
+    const badNode = {
+      ...buildTextNode(),
+      source: {
+        documentId: "doc-1",
+        blockId: "block-1",
+        contentHash: "hash-1",
+        refresh: { state: "invalid" },
+        mystery: true,
+      },
+    } as unknown as SlideChildNode;
+    const deck = buildDeckV7([buildSlideV7("content", [badNode])]);
+    const result = safeParseDeckV7(deck);
+
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((error) => error.includes("refresh.state")));
+      assert.ok(result.errors.some((error) => /mystery/.test(error)));
     }
   });
 });

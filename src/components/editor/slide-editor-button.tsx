@@ -22,10 +22,12 @@ import type { DeckActionPort, SlideAssetActionPort } from "@/lib/action-ports";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { buildSourceBlockIndex } from "@/lib/presentation-vnext/block-index";
 import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
 import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { downloadBlob } from "@/lib/visual/export";
 
 function SlideEditorOpenRecovery({
@@ -187,6 +189,9 @@ interface SlideEditorButtonProps {
    * finished seeding yet.
    */
   initialContentJson?: string | null;
+  presenceAwareness?: SlidePresenceAwareness | null;
+  presenceUserId?: string;
+  presenceUserName?: string;
   onOpenRightSurface?: () => void;
   onCloseRightSurface?: () => void;
   iconOnly?: boolean;
@@ -198,6 +203,9 @@ export function SlideEditorButton({
   deckPort,
   slideAssetPort,
   initialContentJson = null,
+  presenceAwareness = null,
+  presenceUserId = "",
+  presenceUserName = "Anonymous",
   onOpenRightSurface,
   onCloseRightSurface,
   iconOnly = false,
@@ -249,13 +257,21 @@ export function SlideEditorButton({
     ...deckOpenDiagnosticsV7,
     ...(themeResolution?.diagnostics ?? []),
   ];
+  const documentBlocks = useMemo(
+    () => collectDocumentBlocks(initialContentJson),
+    [initialContentJson],
+  );
+  const sourceBlockIndex = useMemo(
+    () => buildSourceBlockIndex(documentId, documentBlocks),
+    [documentId, documentBlocks],
+  );
   const visualBlocks = useMemo(
     () =>
-      collectDocumentBlocks(initialContentJson).filter(
+      documentBlocks.filter(
         (block): block is Extract<DocumentBlock, { kind: "visual" }> =>
           block.kind === "visual",
       ),
-    [initialContentJson],
+    [documentBlocks],
   );
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
   const visualPickerResolverRef = useRef<
@@ -320,9 +336,11 @@ export function SlideEditorButton({
     >[0]) => {
       if (!initialContentJson || source.documentId !== documentId)
         return undefined;
-      const block = collectDocumentBlocks(initialContentJson).find(
+      const block = documentBlocks.find(
         (candidate) =>
-          "blockId" in candidate && candidate.blockId === source.blockId,
+          ("blockId" in candidate && candidate.blockId === source.blockId) ||
+          (candidate.kind === "visual" &&
+            candidate.visualId === source.blockId),
       );
       if (!block) return undefined;
       const refreshedSource = {
@@ -369,7 +387,7 @@ export function SlideEditorButton({
       }
       return { source: refreshedSource };
     },
-    [documentId, initialContentJson],
+    [documentBlocks, documentId, initialContentJson],
   );
 
   const handlePickV7Visual = useCallback(async () => {
@@ -428,6 +446,7 @@ export function SlideEditorButton({
       {open && deckV7 ? (
         <SlideEditorOverlay>
           <SlideEditorVNext
+            documentId={documentId}
             deck={deckV7}
             themePackage={themeResolution?.package}
             diagnostics={editorDiagnostics}
@@ -443,10 +462,14 @@ export function SlideEditorButton({
             onDeckChange={handleDeckV7Change}
             onUploadImage={slideAssetPort ? handleUploadV7Image : undefined}
             onPickVisual={handlePickV7Visual}
+            sourceBlockIndex={sourceBlockIndex}
             onRefreshSource={handleRefreshV7Source}
             onSave={handleSaveV7}
             onClose={handleClose}
             onExportPptx={handleExportV7Pptx}
+            presenceAwareness={presenceAwareness}
+            presenceUserId={presenceUserId}
+            presenceUserName={presenceUserName}
           />
         </SlideEditorOverlay>
       ) : null}

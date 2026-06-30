@@ -166,10 +166,23 @@ function nodeToOperations(
   // Check for unsupported effects
   if (style.effect && style.effect.kind !== "none") {
     if (style.effect.kind === "glass" || style.effect.kind === "blur") {
+      const isThemeDecoration = node.source === "themeDecoration";
       dc.warning(
-        "unsupported-export-feature",
+        isThemeDecoration
+          ? "theme-decoration-export-fallback"
+          : "unsupported-export-feature",
         `Node "${node.id}": effect "${style.effect.kind}" uses a deterministic export fallback`,
-        { nodeId: node.id, action: { type: "replace-style-ref" } },
+        {
+          nodeId: node.id,
+          ...(isThemeDecoration
+            ? {
+                details: {
+                  decorationId: node.id.replace(/^decoration-/, ""),
+                  exportFeature: "theme-decoration-effect",
+                },
+              }
+            : { action: { type: "replace-style-ref" as const } }),
+        },
       );
     }
   }

@@ -468,7 +468,27 @@ test("comment service finds and floats orphaned slide comments after restore", a
   ]);
   const { service } = makeService(db);
   const deck = {
-    slides: [{ id: "slide-1", elements: [{ id: "element-1" }] }],
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: { images: {} },
+    slides: [
+      {
+        id: "slide-1",
+        type: "slide",
+        template: { kind: "content" },
+        style: { ref: "slide.content" },
+        children: [
+          {
+            id: "element-1",
+            type: "text",
+            role: "body",
+            style: { ref: "text.body" },
+            content: { paragraphs: [{ id: "element-1-p1", text: "" }] },
+          },
+        ],
+      },
+    ],
   } as never;
 
   assert.deepEqual(await service.getOrphanedCommentIds("doc-1", deck), [

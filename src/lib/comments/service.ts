@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { Deck } from "@/lib/presentation/deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 import {
   COMMENT_ANCHOR_NODE_ID_MAX_LENGTH,
@@ -325,7 +325,7 @@ export function createCommentService({
 
   async function getOrphanedCommentIds(
     documentId: string,
-    deck: Deck,
+    deck: DeckV7,
   ): Promise<string[]> {
     await requireDocumentContext(documentId, "view");
 
@@ -351,7 +351,7 @@ export function createCommentService({
 
   async function floatOrphanedCommentsAfterRestore(
     documentId: string,
-    deck: Deck,
+    deck: DeckV7,
   ): Promise<{ floatedCount: number }> {
     const orphanedIds = await getOrphanedCommentIds(documentId, deck);
 

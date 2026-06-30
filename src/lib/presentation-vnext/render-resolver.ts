@@ -105,6 +105,35 @@ function resolveChildNode(
         },
       );
     }
+    const crop = node.content.crop;
+    if (crop) {
+      const invalidSides = (["top", "right", "bottom", "left"] as const).filter(
+        (side) => {
+          const value = crop[side];
+          return !Number.isFinite(value) || value < 0 || value > 95;
+        },
+      );
+      if (
+        invalidSides.length > 0 ||
+        crop.left + crop.right >= 99 ||
+        crop.top + crop.bottom >= 99
+      ) {
+        dc.warning(
+          "unsupported-export-feature",
+          `Image node "${node.id}" has crop values outside safe bounds; render clamps the crop UI and export may differ`,
+          {
+            nodeId: node.id,
+            slideId: slide.id,
+            path: `slides.${slide.id}.nodes.${node.id}.content.crop`,
+            details: {
+              invalidSides,
+              horizontalCrop: crop.left + crop.right,
+              verticalCrop: crop.top + crop.bottom,
+            },
+          },
+        );
+      }
+    }
   }
   if (node.type === "visual") {
     const { assetId } = node.content;
@@ -211,8 +240,14 @@ function resolveChildNode(
         type: "connector",
         content: {
           ...node.content,
-          from: resolveConnectorEndpoint(node.content.from, node, slide),
-          to: resolveConnectorEndpoint(node.content.to, node, slide),
+          from: resolveConnectorEndpoint(
+            node.content.from,
+            node,
+            slide,
+            dc,
+            "from",
+          ),
+          to: resolveConnectorEndpoint(node.content.to, node, slide, dc, "to"),
         },
       };
       break;
@@ -263,11 +298,25 @@ function resolveConnectorEndpoint(
   endpoint: ConnectorEndpoint,
   connector: SlideChildNode,
   slide: SlideNode,
+  dc: DiagnosticCollector,
+  endpointKey: "from" | "to",
 ): ConnectorEndpoint {
   if (endpoint.kind === "point") return endpoint;
   if (!connector.layout) return endpoint;
   const target = findSlideChildNode(slide.children, endpoint.nodeId);
-  if (!target?.layout) return endpoint;
+  if (!target?.layout) {
+    dc.warning(
+      "unsupported-export-feature",
+      `Connector "${connector.id}" ${endpointKey} endpoint references missing node "${endpoint.nodeId}"`,
+      {
+        nodeId: connector.id,
+        slideId: slide.id,
+        path: `slides.${slide.id}.nodes.${connector.id}.content.${endpointKey}`,
+        details: { targetNodeId: endpoint.nodeId, anchor: endpoint.anchor },
+      },
+    );
+    return endpoint;
+  }
   const anchor = targetAnchorPoint(target.layout.frame, endpoint.anchor);
   const frame = connector.layout.frame;
   if (frame.w <= 0 || frame.h <= 0) return endpoint;
@@ -334,13 +383,53 @@ function resolveDecorations(
   slide: SlideNode,
   pkg: ThemePackageV1,
   deck: DeckV7,
-  _dc: DiagnosticCollector,
+  dc: DiagnosticCollector,
   canvasWidthPx = 960,
   canvasHeightPx = 540,
 ): ResolvedRenderNode[] {
-  if (!pkg.decorations) return [];
-
   const disabledIds = new Set(deck.theme.overrides?.disabledDecorations ?? []);
+  if (!pkg.decorations) {
+    for (const decorationId of disabledIds) {
+      dc.warning(
+        "missing-decoration",
+        `Theme override disables missing decoration "${decorationId}"`,
+        {
+          slideId: slide.id,
+          path: `theme.overrides.disabledDecorations.${decorationId}`,
+          action: {
+            type: "restore-decoration",
+            payload: { decorationId },
+          },
+          details: {
+            decorationId,
+            themePackageId: pkg.id,
+          },
+        },
+      );
+    }
+    return [];
+  }
+
+  for (const decorationId of disabledIds) {
+    if (!pkg.decorations[decorationId]) {
+      dc.warning(
+        "missing-decoration",
+        `Theme override disables missing decoration "${decorationId}"`,
+        {
+          slideId: slide.id,
+          path: `theme.overrides.disabledDecorations.${decorationId}`,
+          action: {
+            type: "restore-decoration",
+            payload: { decorationId },
+          },
+          details: {
+            decorationId,
+            themePackageId: pkg.id,
+          },
+        },
+      );
+    }
+  }
 
   const decorationLevel = slide.props?.decoration ?? "default";
   const chromeLevel = slide.props?.chrome ?? "default";
@@ -378,6 +467,27 @@ function resolveDecorations(
       chromeLevel === "none"
     ) {
       continue;
+    }
+
+    if (
+      recipe.component === "image" &&
+      recipe.content?.type === "image" &&
+      !deck.assets.images[recipe.content.assetId] &&
+      !pkg.assets?.images?.[recipe.content.assetId]
+    ) {
+      dc.error(
+        "missing-decoration",
+        `Theme decoration "${recipe.id}" references missing image asset "${recipe.content.assetId}"`,
+        {
+          slideId: slide.id,
+          path: `decorations.${recipe.id}.content.assetId`,
+          details: {
+            decorationId: recipe.id,
+            assetId: recipe.content.assetId,
+            themePackageId: pkg.id,
+          },
+        },
+      );
     }
 
     result.push({

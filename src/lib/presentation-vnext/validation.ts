@@ -667,6 +667,159 @@ const SEMANTIC_ROLES = [
   "themeDecoration",
 ] as const;
 
+const SOURCE_BLOCK_KINDS = ["text", "visual", "table", "image"] as const;
+const SOURCE_REFRESH_STATES = [
+  "fresh",
+  "stale",
+  "orphan",
+  "unlinked",
+  "unknown",
+] as const;
+
+function validateStringField(
+  value: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (value !== undefined && typeof value !== "string") {
+    fail(errors, `${ctx} must be a string`);
+  }
+}
+
+function validateSourceMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+
+  const allowed = new Set([
+    "documentId",
+    "blockId",
+    "blockKind",
+    "contentHash",
+    "blockRevision",
+    "linkedAt",
+    "display",
+    "refresh",
+    "unlinked",
+    "extra",
+  ]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known source field`);
+    }
+  }
+
+  validateStringField(input.documentId, `${ctx}.documentId`, errors);
+  validateStringField(input.blockId, `${ctx}.blockId`, errors);
+  validateStringField(input.contentHash, `${ctx}.contentHash`, errors);
+  validateStringField(input.blockRevision, `${ctx}.blockRevision`, errors);
+  validateStringField(input.linkedAt, `${ctx}.linkedAt`, errors);
+  if (
+    input.blockKind !== undefined &&
+    !SOURCE_BLOCK_KINDS.includes(
+      input.blockKind as (typeof SOURCE_BLOCK_KINDS)[number],
+    )
+  ) {
+    fail(
+      errors,
+      `${ctx}.blockKind must be one of: ${SOURCE_BLOCK_KINDS.join(", ")}`,
+    );
+  }
+  if (input.unlinked !== undefined && typeof input.unlinked !== "boolean") {
+    fail(errors, `${ctx}.unlinked must be a boolean`);
+  }
+
+  if (input.display !== undefined) {
+    if (!isPlainObject(input.display)) {
+      fail(errors, `${ctx}.display must be an object`);
+    } else {
+      const displayAllowed = new Set([
+        "documentTitle",
+        "blockLabel",
+        "blockKindLabel",
+      ]);
+      for (const key of Object.keys(input.display)) {
+        if (!displayAllowed.has(key)) {
+          fail(errors, `${ctx}.display.${key} is not a known display field`);
+        }
+      }
+      validateStringField(
+        input.display.documentTitle,
+        `${ctx}.display.documentTitle`,
+        errors,
+      );
+      validateStringField(
+        input.display.blockLabel,
+        `${ctx}.display.blockLabel`,
+        errors,
+      );
+      validateStringField(
+        input.display.blockKindLabel,
+        `${ctx}.display.blockKindLabel`,
+        errors,
+      );
+    }
+  }
+
+  if (input.refresh !== undefined) {
+    if (!isPlainObject(input.refresh)) {
+      fail(errors, `${ctx}.refresh must be an object`);
+    } else {
+      const refreshAllowed = new Set([
+        "state",
+        "checkedAt",
+        "refreshedAt",
+        "sourceHash",
+        "reason",
+      ]);
+      for (const key of Object.keys(input.refresh)) {
+        if (!refreshAllowed.has(key)) {
+          fail(errors, `${ctx}.refresh.${key} is not a known refresh field`);
+        }
+      }
+      if (
+        !SOURCE_REFRESH_STATES.includes(
+          input.refresh.state as (typeof SOURCE_REFRESH_STATES)[number],
+        )
+      ) {
+        fail(
+          errors,
+          `${ctx}.refresh.state must be one of: ${SOURCE_REFRESH_STATES.join(", ")}`,
+        );
+      }
+      validateStringField(
+        input.refresh.checkedAt,
+        `${ctx}.refresh.checkedAt`,
+        errors,
+      );
+      validateStringField(
+        input.refresh.refreshedAt,
+        `${ctx}.refresh.refreshedAt`,
+        errors,
+      );
+      validateStringField(
+        input.refresh.sourceHash,
+        `${ctx}.refresh.sourceHash`,
+        errors,
+      );
+      validateStringField(
+        input.refresh.reason,
+        `${ctx}.refresh.reason`,
+        errors,
+      );
+    }
+  }
+
+  if (input.extra !== undefined && !isPlainObject(input.extra)) {
+    fail(errors, `${ctx}.extra must be an object`);
+  }
+}
+
 function validateChildNode(
   input: unknown,
   ctx: string,
@@ -697,6 +850,10 @@ function validateChildNode(
 
   if (input.layout !== undefined) {
     validateLayoutBox(input.layout, `${ctx}.layout`, errors);
+  }
+
+  if (input.source !== undefined) {
+    validateSourceMetadata(input.source, `${ctx}.source`, errors);
   }
 
   if (input.style !== undefined) {
@@ -906,6 +1063,26 @@ function validateSlideProps(
   }
 }
 
+const SLIDE_V7_KEYS = new Set([
+  "id",
+  "name",
+  "role",
+  "slot",
+  "layout",
+  "style",
+  "localStyle",
+  "locked",
+  "hidden",
+  "accessibility",
+  "source",
+  "type",
+  "template",
+  "controls",
+  "props",
+  "children",
+  "notes",
+]);
+
 function validateSlideNode(
   input: unknown,
   ctx: string,
@@ -915,6 +1092,14 @@ function validateSlideNode(
   if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
     return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!SLIDE_V7_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not part of the v7 slide schema`);
+    }
+  }
+  if ("elements" in input) {
+    fail(errors, `${ctx}.elements is a v6 field and not valid in a v7 slide`);
   }
   if (input.type !== "slide") {
     fail(errors, `${ctx}.type must be "slide"`);
@@ -971,6 +1156,10 @@ function validateSlideNode(
 
   if (input.style !== undefined) {
     validateStyleBinding(input.style, `${ctx}.style`, errors);
+  }
+
+  if (input.source !== undefined) {
+    validateSourceMetadata(input.source, `${ctx}.source`, errors);
   }
 
   if (!Array.isArray(input.children)) {

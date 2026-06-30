@@ -46,6 +46,7 @@ export default async function DocumentEditorPage({
       canEdit={viewModel.canEdit}
       canManage={viewModel.canManage}
       workspaceName={viewModel.workspaceName}
+      userId={viewModel.userId}
       userName={viewModel.userName}
       initialComments={viewModel.initialComments}
       initialTags={viewModel.initialTags}

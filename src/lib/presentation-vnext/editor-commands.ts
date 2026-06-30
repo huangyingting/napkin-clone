@@ -8,16 +8,20 @@
  */
 
 import type {
+  ConnectorEndpoint,
   DeckV7,
+  ImageContent,
   SlideNode,
   SlideChildNode,
   SemanticRole,
   NodeSourceMetadata,
   LayoutBox,
+  ShapeContent,
   StyleBinding,
   SlideControls,
   DeckChromeConfig,
   DeckChromeKind,
+  TextContent,
 } from "./schema";
 import type { StylePatch } from "./style-schema";
 import type { ResolvedRenderNode } from "./render-tree";
@@ -63,13 +67,19 @@ function removeNodesById(
   nodes: SlideChildNode[],
   ids: Set<string>,
 ): SlideChildNode[] {
-  return nodes
-    .filter((node) => !ids.has(node.id))
-    .map((node) =>
-      node.type === "group"
-        ? { ...node, children: removeNodesById(node.children, ids) }
-        : node,
-    );
+  const result: SlideChildNode[] = [];
+  for (const node of nodes) {
+    if (ids.has(node.id)) continue;
+    if (node.type === "group") {
+      const children = removeNodesById(node.children, ids);
+      if (children.length > 0) {
+        result.push({ ...node, children });
+      }
+      continue;
+    }
+    result.push(node);
+  }
+  return result;
 }
 
 function collectNodesById(
@@ -86,11 +96,44 @@ function collectNodesById(
   return result;
 }
 
+function findNodeById(
+  nodes: readonly SlideChildNode[],
+  id: string,
+): SlideChildNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.type === "group") {
+      const found = findNodeById(node.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 function collectNodeIds(nodes: SlideChildNode[], ids: Set<string>): void {
   for (const node of nodes) {
     ids.add(node.id);
     if (node.type === "group") collectNodeIds(node.children, ids);
   }
+}
+
+function collectDescendantIds(node: SlideChildNode, ids: Set<string>): void {
+  ids.add(node.id);
+  if (node.type === "group") {
+    for (const child of node.children) collectDescendantIds(child, ids);
+  }
+}
+
+function expandNodeIds(
+  nodes: readonly SlideChildNode[],
+  selectedIds: ReadonlySet<string>,
+): Set<string> {
+  const expanded = new Set(selectedIds);
+  for (const id of selectedIds) {
+    const node = findNodeById(nodes, id);
+    if (node) collectDescendantIds(node, expanded);
+  }
+  return expanded;
 }
 
 function duplicateNodeWithIds(
@@ -143,6 +186,285 @@ function existingDeckIds(deck: DeckV7): Set<string> {
   return ids;
 }
 
+function uniqueId(existingIds: Set<string>, sourceId: string): string {
+  if (!existingIds.has(sourceId)) {
+    existingIds.add(sourceId);
+    return sourceId;
+  }
+  return uniqueDuplicateId(existingIds, sourceId);
+}
+
+function reidentifyNodeIfNeeded(
+  node: SlideChildNode,
+  existingIds: Set<string>,
+): SlideChildNode {
+  const id = uniqueId(existingIds, node.id);
+  if (node.type === "group") {
+    return {
+      ...node,
+      id,
+      children: node.children.map((child) =>
+        reidentifyNodeIfNeeded(child, existingIds),
+      ),
+    };
+  }
+  return { ...node, id } as SlideChildNode;
+}
+
+function reidentifySlideIfNeeded(
+  slide: SlideNode,
+  existingIds: Set<string>,
+): SlideNode {
+  return {
+    ...slide,
+    id: uniqueId(existingIds, slide.id),
+    children: slide.children.map((child) =>
+      reidentifyNodeIfNeeded(child, existingIds),
+    ),
+  };
+}
+
+function collectSlotMatches(
+  nodes: readonly SlideChildNode[],
+  matches: Map<string, SlideChildNode[]> = new Map(),
+): Map<string, SlideChildNode[]> {
+  for (const node of nodes) {
+    if (node.slot) {
+      const current = matches.get(node.slot) ?? [];
+      current.push(node);
+      matches.set(node.slot, current);
+    }
+    if (node.type === "group") collectSlotMatches(node.children, matches);
+  }
+  return matches;
+}
+
+function compatibleSlotNode(
+  fresh: SlideChildNode,
+  existing: SlideChildNode,
+): boolean {
+  return fresh.type === existing.type;
+}
+
+function preserveCommonNodeAuthoringState<T extends SlideChildNode>(
+  fresh: T,
+  existing: SlideChildNode,
+): T {
+  const merged = { ...fresh, id: existing.id } as T;
+  if (existing.name !== undefined) merged.name = existing.name;
+  if (existing.source !== undefined) merged.source = existing.source;
+  if (existing.localStyle !== undefined)
+    merged.localStyle = existing.localStyle;
+  if (existing.locked !== undefined) merged.locked = existing.locked;
+  if (existing.hidden !== undefined) merged.hidden = existing.hidden;
+  if (existing.accessibility !== undefined) {
+    merged.accessibility = existing.accessibility;
+  }
+  return merged;
+}
+
+function preserveSlotNodeContent(
+  fresh: SlideChildNode,
+  existing: SlideChildNode,
+): SlideChildNode {
+  if (!compatibleSlotNode(fresh, existing)) return fresh;
+  if (fresh.type === "text" && existing.type === "text") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "image" && existing.type === "image") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "shape" && existing.type === "shape") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "connector" && existing.type === "connector") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "table" && existing.type === "table") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "visual" && existing.type === "visual") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      content: existing.content,
+    };
+  }
+  if (fresh.type === "group" && existing.type === "group") {
+    return {
+      ...preserveCommonNodeAuthoringState(fresh, existing),
+      children: existing.children,
+    };
+  }
+  return fresh;
+}
+
+function preserveCompatibleSlotNode(
+  fresh: SlideChildNode,
+  matches: ReadonlyMap<string, readonly SlideChildNode[]>,
+  usedMatchIds: Set<string>,
+): SlideChildNode {
+  const slotMatches = fresh.slot ? matches.get(fresh.slot) : undefined;
+  const existing = slotMatches?.find(
+    (candidate) =>
+      !usedMatchIds.has(candidate.id) && compatibleSlotNode(fresh, candidate),
+  );
+  if (existing) {
+    usedMatchIds.add(existing.id);
+    return preserveSlotNodeContent(fresh, existing);
+  }
+  if (fresh.type === "group") {
+    return {
+      ...fresh,
+      children: fresh.children.map((child) =>
+        preserveCompatibleSlotNode(child, matches, usedMatchIds),
+      ),
+    };
+  }
+  return fresh;
+}
+
+function duplicateSelectedInChildren(
+  nodes: readonly SlideChildNode[],
+  ids: ReadonlySet<string>,
+  nextId: (sourceId: string) => string,
+  duplicatedIds: string[],
+): SlideChildNode[] {
+  const result: SlideChildNode[] = [];
+  for (const node of nodes) {
+    if (ids.has(node.id)) {
+      result.push(node);
+      const duplicate = duplicateNodeWithIds(node, (sourceId) => {
+        const id = nextId(sourceId);
+        duplicatedIds.push(id);
+        return id;
+      });
+      result.push(duplicate);
+      continue;
+    }
+    if (node.type === "group") {
+      result.push({
+        ...node,
+        children: duplicateSelectedInChildren(
+          node.children,
+          ids,
+          nextId,
+          duplicatedIds,
+        ),
+      });
+      continue;
+    }
+    result.push(node);
+  }
+  return result;
+}
+
+function anchorPoint(
+  frame: LayoutBox["frame"],
+  anchor: Extract<ConnectorEndpoint, { kind: "node" }>["anchor"],
+): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: frame.x + frame.w / 2, y: frame.y };
+    case "right":
+      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
+    case "bottom":
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
+    case "left":
+      return { x: frame.x, y: frame.y + frame.h / 2 };
+    case "center":
+    default:
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
+  }
+}
+
+function connectorEndpointToPoint(
+  endpoint: ConnectorEndpoint,
+  connector: SlideChildNode,
+  slide: SlideNode,
+): ConnectorEndpoint {
+  if (endpoint.kind === "point") return endpoint;
+  if (!connector.layout) return endpoint;
+  const target = findNodeById(slide.children, endpoint.nodeId);
+  if (!target?.layout) return endpoint;
+  const targetPoint = anchorPoint(target.layout.frame, endpoint.anchor);
+  const frame = connector.layout.frame;
+  if (frame.w <= 0 || frame.h <= 0) return endpoint;
+  return {
+    kind: "point",
+    point: {
+      x: Math.max(
+        0,
+        Math.min(100, ((targetPoint.x - frame.x) / frame.w) * 100),
+      ),
+      y: Math.max(
+        0,
+        Math.min(100, ((targetPoint.y - frame.y) / frame.h) * 100),
+      ),
+    },
+  };
+}
+
+function repairConnectorBindingsBeforeDelete(
+  nodes: readonly SlideChildNode[],
+  slide: SlideNode,
+  deletedIds: ReadonlySet<string>,
+): SlideChildNode[] {
+  return nodes.map((node) => {
+    if (node.type === "group") {
+      return {
+        ...node,
+        children: repairConnectorBindingsBeforeDelete(
+          node.children,
+          slide,
+          deletedIds,
+        ),
+      };
+    }
+    if (node.type !== "connector") return node;
+    const nextFrom =
+      node.content.from.kind === "node" &&
+      deletedIds.has(node.content.from.nodeId)
+        ? connectorEndpointToPoint(node.content.from, node, slide)
+        : node.content.from;
+    const nextTo =
+      node.content.to.kind === "node" && deletedIds.has(node.content.to.nodeId)
+        ? connectorEndpointToPoint(node.content.to, node, slide)
+        : node.content.to;
+    if (nextFrom === node.content.from && nextTo === node.content.to) {
+      return node;
+    }
+    return {
+      ...node,
+      content: {
+        ...node.content,
+        from: nextFrom,
+        to: nextTo,
+      },
+    };
+  });
+}
+
+function normalizeRotation(rotation: number): number {
+  if (!Number.isFinite(rotation)) return 0;
+  const normalized = ((rotation % 360) + 360) % 360;
+  return Math.round(normalized * 10) / 10;
+}
+
 function reidentifyNode(
   node: SlideChildNode,
   existingIds: Set<string>,
@@ -186,11 +508,25 @@ export function insertSlide(
   template: SemanticTemplateV1,
   atIndex?: number,
 ): DeckV7 {
+  return insertTemplateSlide(deck, spec, template, atIndex).deck;
+}
+
+export function insertTemplateSlide(
+  deck: DeckV7,
+  spec: AiSlideSpec,
+  template: SemanticTemplateV1,
+  atIndex?: number,
+): { deck: DeckV7; slideId: string; index: number } {
   const { slide } = compileSlide(spec, template, deck.slides.length);
+  const existingIds = existingDeckIds(deck);
+  const insertedSlide = reidentifySlideIfNeeded(slide, existingIds);
   const slides = [...deck.slides];
-  const idx = atIndex !== undefined ? atIndex : slides.length;
-  slides.splice(idx, 0, slide);
-  return { ...deck, slides };
+  const index =
+    atIndex !== undefined
+      ? Math.max(0, Math.min(slides.length, atIndex))
+      : slides.length;
+  slides.splice(index, 0, insertedSlide);
+  return { deck: { ...deck, slides }, slideId: insertedSlide.id, index };
 }
 
 export function insertBlankSlide(
@@ -310,8 +646,9 @@ export function moveSlide(
 // ---------------------------------------------------------------------------
 
 /**
- * Reapplies a semantic template to an existing slide, preserving `localStyle`
- * and generating fresh layout/children from the template spec.
+ * Reapplies a semantic template to an existing slide, preserving compatible
+ * slot content/source metadata and slide-level local authoring state while
+ * generating fresh layout/style structure from the template spec.
  */
 export function applyTemplate(
   deck: DeckV7,
@@ -323,13 +660,27 @@ export function applyTemplate(
   if (slideIndex === -1) return deck;
 
   const { slide: newSlide } = compileSlide(spec, template, slideIndex);
-  // Preserve the original slide id and local styles at the root
   const existing = deck.slides[slideIndex];
+  const slotMatches = collectSlotMatches(existing.children);
+  const usedMatchIds = new Set<string>();
   const merged: SlideNode = {
     ...newSlide,
     id: existing.id,
-    localStyle: existing.localStyle,
+    children: newSlide.children.map((child) =>
+      preserveCompatibleSlotNode(child, slotMatches, usedMatchIds),
+    ),
   };
+  if (existing.name !== undefined) merged.name = existing.name;
+  if (existing.source !== undefined) merged.source = existing.source;
+  if (existing.localStyle !== undefined)
+    merged.localStyle = existing.localStyle;
+  if (existing.props !== undefined) merged.props = existing.props;
+  if (newSlide.controls === undefined && existing.controls !== undefined) {
+    merged.controls = existing.controls;
+  }
+  if (newSlide.notes === undefined && existing.notes !== undefined) {
+    merged.notes = existing.notes;
+  }
 
   const slides = [...deck.slides];
   slides[slideIndex] = merged;
@@ -386,6 +737,26 @@ export function resetSlideLocalStyle(deck: DeckV7, slideId: string): DeckV7 {
     const { localStyle: _localStyle, ...rest } = slide;
     return rest;
   });
+}
+
+export function restoreThemeDecoration(
+  deck: DeckV7,
+  decorationId: string,
+): DeckV7 {
+  const disabledDecorations = deck.theme.overrides?.disabledDecorations;
+  if (!disabledDecorations?.includes(decorationId)) return deck;
+  const nextDisabled = disabledDecorations.filter((id) => id !== decorationId);
+  const overrides = { ...(deck.theme.overrides ?? {}) };
+  if (nextDisabled.length > 0) {
+    overrides.disabledDecorations = nextDisabled;
+  } else {
+    delete overrides.disabledDecorations;
+  }
+  const theme =
+    Object.keys(overrides).length > 0
+      ? { ...deck.theme, overrides }
+      : (({ overrides: _overrides, ...rest }) => rest)(deck.theme);
+  return { ...deck, theme };
 }
 
 export function updateSlideSourceMetadata(
@@ -467,6 +838,21 @@ export function updateNodeContent(
   });
 }
 
+export function resetImageCrop(
+  deck: DeckV7,
+  slideId: string,
+  nodeId: string,
+): DeckV7 {
+  return mapSlides(deck, (slide) => {
+    if (slide.id !== slideId) return slide;
+    return mapChildren(slide, nodeId, (node) => {
+      if (node.type !== "image") return node;
+      const { crop: _crop, ...content } = node.content;
+      return { ...node, content };
+    });
+  });
+}
+
 export function insertNode(
   deck: DeckV7,
   slideId: string,
@@ -529,6 +915,17 @@ export function updateNodeLayout(
             : (layoutPatch as LayoutBox),
         }) as SlideChildNode,
     );
+  });
+}
+
+export function updateNodeRotation(
+  deck: DeckV7,
+  slideId: string,
+  nodeId: string,
+  rotation: number,
+): DeckV7 {
+  return updateNodeLayout(deck, slideId, nodeId, {
+    rotation: normalizeRotation(rotation),
   });
 }
 
@@ -621,13 +1018,19 @@ export function deleteNodes(
   slideId: string,
   nodeIds: readonly string[],
 ): DeckV7 {
-  const ids = new Set(nodeIds);
-  if (ids.size === 0) return deck;
-  return mapSlides(deck, (slide) =>
-    slide.id === slideId
-      ? { ...slide, children: removeNodesById(slide.children, ids) }
-      : slide,
-  );
+  const selectedIds = new Set(nodeIds);
+  if (selectedIds.size === 0) return deck;
+  return mapSlides(deck, (slide) => {
+    if (slide.id !== slideId) return slide;
+    const ids = expandNodeIds(slide.children, selectedIds);
+    return {
+      ...slide,
+      children: removeNodesById(
+        repairConnectorBindingsBeforeDelete(slide.children, slide, ids),
+        ids,
+      ),
+    };
+  });
 }
 
 export function duplicateNodes(
@@ -641,22 +1044,20 @@ export function duplicateNodes(
   if (!slide) return { deck, duplicatedIds: [] };
   const existingIds = new Set<string>();
   for (const id of existingDeckIds(deck)) existingIds.add(id);
-  const sourceNodes = slide.children.filter((node) => ids.has(node.id));
   const duplicatedIds: string[] = [];
-  const duplicatedNodes = sourceNodes.map((node) =>
-    duplicateNodeWithIds(node, (sourceId) => {
-      const id = uniqueDuplicateId(existingIds, sourceId);
-      duplicatedIds.push(id);
-      return id;
-    }),
+  const children = duplicateSelectedInChildren(
+    slide.children,
+    ids,
+    (sourceId) => uniqueDuplicateId(existingIds, sourceId),
+    duplicatedIds,
   );
-  if (duplicatedNodes.length === 0) return { deck, duplicatedIds };
+  if (duplicatedIds.length === 0) return { deck, duplicatedIds };
   return {
     deck: mapSlides(deck, (candidate) =>
       candidate.id === slideId
         ? {
             ...candidate,
-            children: [...candidate.children, ...duplicatedNodes],
+            children,
           }
         : candidate,
     ),
@@ -778,8 +1179,46 @@ export function resetLocalStyleOverride(
 // Detach theme decoration
 // ---------------------------------------------------------------------------
 
+type DetachedDecorationContent =
+  | { type: "text"; content: TextContent }
+  | { type: "image"; content: ImageContent }
+  | { type: "shape"; content: ShapeContent };
+
+function decorationRecipeId(decorationId: string): string {
+  return decorationId.startsWith("decoration-")
+    ? decorationId.slice("decoration-".length)
+    : decorationId;
+}
+
+function detachedDecorationNode(
+  decorationId: string,
+  layout: LayoutBox,
+  style: StylePatch,
+  content?: DetachedDecorationContent,
+): SlideChildNode {
+  const base = {
+    id: `detached-${decorationId}-${Date.now().toString(36)}`,
+    role: "themeDecoration" as const,
+    layout,
+    localStyle: style,
+    locked: false,
+  };
+  if (content?.type === "text") {
+    return { ...base, type: "text", content: content.content };
+  }
+  if (content?.type === "image") {
+    return { ...base, type: "image", content: content.content };
+  }
+  return {
+    ...base,
+    type: "shape",
+    content:
+      content?.type === "shape" ? content.content : { shape: "rect" as const },
+  };
+}
+
 /**
- * Converts a theme decoration render node into a locked `SlideChildNode`
+ * Converts a theme decoration render node into an editable `SlideChildNode`
  * appended to the slide children. Detached decorations stop following the theme.
  *
  * Caller must supply the decoration recipe layout and style.
@@ -790,40 +1229,32 @@ export function detachDecoration(
   decorationId: string,
   layout: LayoutBox,
   style: StylePatch,
+  content?: DetachedDecorationContent,
 ): DeckV7 {
-  const recipeId = decorationId.startsWith("decoration-")
-    ? decorationId.slice("decoration-".length)
-    : decorationId;
-  const disabledDecorations = Array.from(
-    new Set([...(deck.theme.overrides?.disabledDecorations ?? []), recipeId]),
-  );
-  const deckWithDisabledDecoration: DeckV7 = {
-    ...deck,
+  const recipeId = decorationRecipeId(decorationId);
+  if (!deck.slides.some((slide) => slide.id === slideId)) return deck;
+  const nextDeck = mapSlides(deck, (slide) => {
+    if (slide.id !== slideId) return slide;
+    return {
+      ...slide,
+      children: [
+        ...slide.children,
+        detachedDecorationNode(decorationId, layout, style, content),
+      ],
+    };
+  });
+  const disabledDecorations = deck.theme.overrides?.disabledDecorations ?? [];
+  if (disabledDecorations.includes(recipeId)) return nextDeck;
+  return {
+    ...nextDeck,
     theme: {
-      ...deck.theme,
+      ...nextDeck.theme,
       overrides: {
-        ...(deck.theme.overrides ?? {}),
-        disabledDecorations,
+        ...(nextDeck.theme.overrides ?? {}),
+        disabledDecorations: [...disabledDecorations, recipeId],
       },
     },
   };
-
-  return mapSlides(deckWithDisabledDecoration, (slide) => {
-    if (slide.id !== slideId) return slide;
-    const detachedNode: SlideChildNode = {
-      id: `detached-${recipeId}-${Date.now().toString(36)}`,
-      type: "shape",
-      role: "themeDecoration",
-      layout,
-      localStyle: style,
-      locked: false,
-      content: { shape: "rect" },
-    };
-    return {
-      ...slide,
-      children: [...slide.children, detachedNode],
-    };
-  });
 }
 
 function detachedNodeFromResolved(

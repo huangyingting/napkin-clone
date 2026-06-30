@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { buildPublicPresentationModel } from "@/lib/public-render/presentation";
+import {
+  resolvePublicRenderWithSource,
+  type PublicRenderDocumentRow,
+  type PublicRenderSource,
+} from "@/lib/public-render/resolver-core";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver";
 import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
@@ -26,6 +31,7 @@ import { renderPrototypeSlideHtml } from "../../../prototypes/slide-themes/rende
 
 const DATA_URI =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+const PUBLIC_NOW = new Date("2026-06-30T10:00:00Z");
 
 function buildParityDeck(): DeckV7 {
   resetBuilderCounter();
@@ -156,6 +162,43 @@ function surfaceSignature(tree: ResolvedDeckRenderTree) {
   }));
 }
 
+function publicDocumentForDeck(
+  deck: DeckV7,
+  overrides: Partial<PublicRenderDocumentRow> = {},
+): PublicRenderDocumentRow {
+  return {
+    id: "doc-parity",
+    title: deck.title ?? "Parity deck",
+    contentJson: { root: { children: [] } },
+    deckJson: deck,
+    slug: "parity-deck",
+    ownerId: "owner-parity",
+    workspaceId: null,
+    workspace: null,
+    shareId: "share123",
+    isShared: true,
+    deletedAt: null,
+    shareExpiresAt: null,
+    shareEmbedEnabled: true,
+    sharePresentEnabled: true,
+    shareMetadataMode: "generic",
+    shareDiscoverable: false,
+    owner: { name: "TextIQ", plan: "pro" },
+    ...overrides,
+  };
+}
+
+function publicSource(row: PublicRenderDocumentRow | null): PublicRenderSource {
+  return {
+    async findByShareId() {
+      return row;
+    },
+    async findByDocumentId() {
+      return row;
+    },
+  };
+}
+
 test("representative deck keeps editor, present, and public v7 render signatures aligned", () => {
   const deck = buildParityDeck();
   const editorTree = resolveDeckRenderTree(deck, NEUTRAL_THEME_PACKAGE);
@@ -180,6 +223,48 @@ test("representative deck keeps editor, present, and public v7 render signatures
     ),
     false,
   );
+});
+
+test("public present and embeddable projections resolve equivalent v7 render trees", async () => {
+  const deck = buildParityDeck();
+  const source = publicSource(publicDocumentForDeck(deck));
+  const present = await resolvePublicRenderWithSource(source, {
+    params: { shareId: "parity-deck-share123" },
+    mode: "present",
+    projection: "presentation",
+    now: PUBLIC_NOW,
+  });
+  const embed = await resolvePublicRenderWithSource(source, {
+    params: { shareId: "parity-deck-share123" },
+    mode: "embed",
+    projection: "presentation",
+    now: PUBLIC_NOW,
+  });
+
+  assert.equal(present.ok, true);
+  assert.equal(embed.ok, true);
+  if (
+    !present.ok ||
+    present.projection !== "presentation" ||
+    !embed.ok ||
+    embed.projection !== "presentation"
+  ) {
+    throw new Error("Expected presentation projections.");
+  }
+
+  const presentTree = resolveDeckRenderTree(
+    present.presentation.deckV7,
+    present.presentation.themePackage,
+  );
+  const embedTree = resolveDeckRenderTree(
+    embed.presentation.deckV7,
+    embed.presentation.themePackage,
+  );
+
+  assert.deepEqual(surfaceSignature(embedTree), surfaceSignature(presentTree));
+  assert.equal(present.presentation.recovery, undefined);
+  assert.equal(embed.presentation.recovery, undefined);
+  assert.equal(embed.presentation.themePackage.id, "neutral");
 });
 
 test("prototype HTML renderer emits nodes from the product v7 render tree", () => {

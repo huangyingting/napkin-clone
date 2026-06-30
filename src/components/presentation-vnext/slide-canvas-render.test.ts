@@ -109,6 +109,29 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /aria-label="Text: node-1"/);
   });
 
+  test("keeps a single focused node in the roving tabindex order", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "node-a",
+      "node-b",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          textNode("node-a", { x: 10, y: 10, w: 20, h: 10 }),
+          textNode("node-b", { x: 40, y: 10, w: 20, h: 10 }),
+        ]),
+        selection,
+        focusedNodeId: "node-b",
+        onNodeClick: () => undefined,
+        onNodeFocus: () => undefined,
+      }),
+    );
+
+    assert.match(html, /<div[^>]*data-node-id="node-a"[^>]*tabindex="-1"/);
+    assert.match(html, /<div[^>]*data-node-id="node-b"[^>]*tabindex="0"/);
+    assert.match(html, /data-node-focused="true"/);
+  });
+
   test("renders locked selected nodes with disabled state", () => {
     const selection = setSelection(createSelectionState("normal"), ["locked"]);
     const html = renderToStaticMarkup(
@@ -254,6 +277,141 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /data-resize-handle="nw"/);
     assert.match(html, /data-resize-handle="se"/);
     assert.doesNotMatch(html, /locked-resizable-resize-overlay/);
+  });
+
+  test("renders rotation handle, connector endpoints, and active group chrome", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "shape-1",
+      "connector-1",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("group-1", { type: "group" }, {}, { type: "group" }),
+          renderNode("shape-1", {
+            type: "shape",
+            content: { shape: "rect" },
+          }),
+          renderNode("connector-1", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+        ]),
+        selection,
+        activeGroupId: "group-1",
+        onNodeClick: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-rotation-handle="true"/);
+    assert.match(html, /data-connector-endpoint="from"/);
+    assert.match(html, /data-connector-endpoint="to"/);
+    assert.match(html, /data-node-chrome-frame="activeGroup"/);
+  });
+
+  test("places connector endpoint handles from node-anchor bindings", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "connector-anchors",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("connector-anchors", {
+            type: "connector",
+            content: {
+              from: { kind: "node", nodeId: "shape-a", anchor: "right" },
+              to: { kind: "node", nodeId: "shape-b", anchor: "top" },
+            },
+          }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(
+      html,
+      /data-connector-endpoint="from"[^>]*style="[^"]*left:100%;top:50%/,
+    );
+    assert.match(
+      html,
+      /data-connector-endpoint="to"[^>]*style="[^"]*left:50%;top:0%/,
+    );
+  });
+
+  test("preview canvases suppress interaction chrome and keyboard roles", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "preview-image",
+      "preview-connector",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          imageNode("preview-image", { x: 10, y: 10, w: 30, h: 20 }),
+          renderNode("preview-connector", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+        ]),
+        selection,
+        preview: true,
+        onNodeClick: () => undefined,
+        onCropHandlePointerDown: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.doesNotMatch(html, /role="button"/);
+    assert.doesNotMatch(html, /data-crop-handle/);
+    assert.doesNotMatch(html, /data-rotation-handle/);
+    assert.doesNotMatch(html, /data-connector-endpoint/);
+  });
+
+  test("renders editable table cells with roving cell metadata", () => {
+    const selection = setSelection(createSelectionState("normal"), ["table-1"]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("table-1", {
+            type: "table",
+            content: {
+              columns: [
+                { id: "col-1", label: "A" },
+                { id: "col-2", label: "B" },
+              ],
+              rows: [
+                {
+                  id: "row-1",
+                  cells: [{ text: "Alpha" }, { text: "Beta" }],
+                },
+              ],
+            },
+          }),
+        ]),
+        selection,
+        tableEditingNodeId: "table-1",
+        activeTableCell: { rowIndex: 0, colIndex: 1 },
+        onNodeClick: () => undefined,
+        onTableCellFocus: () => undefined,
+        onTableCellCommit: () => undefined,
+        onTableCellKeyDown: () => undefined,
+      }),
+    );
+
+    assert.match(html, /contentEditable="true"/);
+    assert.match(html, /data-table-cell="0:1"/);
+    assert.match(html, /aria-label="Table cell row 1, column 2"/);
+    assert.match(html, /Table node editing cells/);
   });
 
   test("renders paragraph list markers", () => {

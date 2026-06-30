@@ -23,6 +23,7 @@ export type PresentationDiagnosticCode =
   | "unknown-style-ref"
   | "missing-style-default"
   | "missing-style-variant"
+  | "missing-decoration"
   | "missing-token"
   | "invalid-node-layout"
   | "missing-node-layout"
@@ -39,12 +40,14 @@ export type PresentationDiagnosticCode =
   | "migration-id-rewrite"
   | "migration-dropped-node"
   | "migration-unmapped-reference"
+  | "migration-unmapped-source-ref"
   | "migration-repair-required"
   | "migration-repair-applied"
   | "migration-repair-failed"
   | "stale-source"
   | "orphaned-source"
   | "missing-source-block"
+  | "unlinked-source"
   | "source-refresh-failed";
 
 export type DiagnosticSeverity = "info" | "warning" | "error" | "fatal";
@@ -148,7 +151,12 @@ export type DiagnosticActionType =
   | "split-slide"
   | "open-asset-panel"
   | "remove-override"
-  | "replace-style-ref";
+  | "restore-decoration"
+  | "replace-style-ref"
+  | "refresh-source"
+  | "unlink-source"
+  | "relink-source"
+  | "open-source-review";
 
 export type DiagnosticAction =
   | {
@@ -173,9 +181,34 @@ export type DiagnosticAction =
       payload?: { styleKeys?: string[] };
     }
   | {
+      type: "restore-decoration";
+      target?: DiagnosticTarget;
+      payload?: { decorationId?: string };
+    }
+  | {
       type: "replace-style-ref";
       target?: DiagnosticTarget;
       payload?: { styleRef?: string };
+    }
+  | {
+      type: "refresh-source";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
+    }
+  | {
+      type: "unlink-source";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
+    }
+  | {
+      type: "relink-source";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
+    }
+  | {
+      type: "open-source-review";
+      target?: DiagnosticTarget;
+      payload?: { documentId?: string; blockId?: string };
     };
 
 export type PresentationDiagnostic = {
@@ -226,6 +259,7 @@ export function categoryForDiagnosticCode(
     code === "stale-source" ||
     code === "orphaned-source" ||
     code === "missing-source-block" ||
+    code === "unlinked-source" ||
     code === "source-refresh-failed"
   ) {
     return "source";
@@ -238,6 +272,7 @@ export function categoryForDiagnosticCode(
     code === "unknown-style-ref" ||
     code === "missing-style-default" ||
     code === "missing-style-variant" ||
+    code === "missing-decoration" ||
     code === "missing-token" ||
     code === "local-style-overrides"
   ) {
@@ -298,6 +333,17 @@ function inferDiagnosticTarget(
   }
 
   if (code === "unknown-theme-package") {
+    return {
+      scope: "theme",
+      ...(detailString(details, "themePackageId")
+        ? { themePackageId: detailString(details, "themePackageId") }
+        : {}),
+      ...(slideId !== undefined ? { slideId } : {}),
+      ...(path !== undefined ? { path } : {}),
+    };
+  }
+
+  if (code === "missing-decoration") {
     return {
       scope: "theme",
       ...(detailString(details, "themePackageId")
