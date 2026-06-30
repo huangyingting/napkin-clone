@@ -16,7 +16,9 @@ export interface SourceReviewPanelProps {
     nodeId: string,
     block: SourceBlockIndexEntry,
   ) => void;
+  onDismiss: (slideId: string, nodeId: string) => void;
   onRefreshAll: () => void;
+  statusMessage?: string;
 }
 
 const STATE_LABEL: Record<SourceReviewItem["state"], string> = {
@@ -48,7 +50,9 @@ export function SourceReviewPanel({
   onRefresh,
   onUnlink,
   onRelink,
+  onDismiss,
   onRefreshAll,
+  statusMessage,
 }: SourceReviewPanelProps): JSX.Element | null {
   if (items.length === 0) return null;
   const relinkOptions = sourceBlocks.slice(0, 8);
@@ -75,6 +79,15 @@ export function SourceReviewPanel({
           Refresh all safe stale ({staleCount})
         </button>
       </div>
+      {statusMessage ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-2 rounded-ds-sm bg-ds-surface-raised px-2 py-1 text-xs text-ds-text-secondary"
+        >
+          {statusMessage}
+        </p>
+      ) : null}
       <div className="mt-2 max-h-44 overflow-auto rounded-ds-sm border border-ds-border-subtle">
         <table className="min-w-full text-left text-xs">
           <thead className="sticky top-0 bg-ds-surface-raised text-ds-text-muted">
@@ -83,6 +96,7 @@ export function SourceReviewPanel({
               <th className="px-2 py-1 font-medium">Node</th>
               <th className="px-2 py-1 font-medium">Source block</th>
               <th className="px-2 py-1 font-medium">State</th>
+              <th className="px-2 py-1 font-medium">Reason</th>
               <th className="px-2 py-1 font-medium">Actions</th>
             </tr>
           </thead>
@@ -108,6 +122,9 @@ export function SourceReviewPanel({
                   >
                     {STATE_LABEL[item.state]}
                   </span>
+                </td>
+                <td className="max-w-[14rem] px-2 py-1 text-ds-text-muted">
+                  {item.reason}
                 </td>
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-1">
@@ -157,6 +174,13 @@ export function SourceReviewPanel({
                       className="rounded-ds-sm border border-ds-border-subtle px-1.5 py-0.5 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover"
                     >
                       Mark unlinked
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDismiss(item.slideId, item.nodeId)}
+                      className="rounded-ds-sm border border-ds-border-subtle px-1.5 py-0.5 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover"
+                    >
+                      Dismiss
                     </button>
                   </div>
                 </td>

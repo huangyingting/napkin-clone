@@ -67,6 +67,8 @@ export type LexicalCollaboration = {
    */
   degraded: boolean;
   peers: Peer[];
+  /** Shared awareness channel used by the document and slide-editor presence. */
+  awareness: Awareness;
   /** This client's presence/cursor color. */
   cursorColor: string;
   /** Shared title text, bound to the editor's title input via `useYText`. */
@@ -194,6 +196,7 @@ export function useLexicalCollaboration(opts: {
     synced,
     degraded,
     peers,
+    awareness: provider.awareness,
     cursorColor,
     ytitle,
     localOrigin: TITLE_LOCAL_ORIGIN,

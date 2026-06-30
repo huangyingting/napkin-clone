@@ -70,6 +70,22 @@ function findNode(
   return undefined;
 }
 
+function assertNoV6ElementsField(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach(assertNoV6ElementsField);
+    return;
+  }
+  if (typeof value !== "object" || value === null) return;
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(value, "elements"),
+    false,
+    "v7 command output must not write legacy Slide.elements fields",
+  );
+  for (const child of Object.values(value)) {
+    assertNoV6ElementsField(child);
+  }
+}
+
 describe("insertSlide", () => {
   test("inserts a compiled slide at the end by default", () => {
     resetIdCounter();
@@ -83,6 +99,29 @@ describe("insertSlide", () => {
     const updated = insertSlide(deck, spec, template);
     assert.equal(updated.slides.length, 3);
     assert.equal(updated.slides[2].template.kind, "section");
+  });
+
+  describe("collaboration safety", () => {
+    test("command outputs never write v6 Slide.elements fields", () => {
+      const deck = makeTestDeck();
+      const slide = deck.slides[0];
+      const nodeId = slide.children[0].id;
+      const inserted = insertBlankSlide(deck).deck;
+      const withNode = insertNode(inserted, slide.id, {
+        id: "safety-node",
+        type: "text",
+        role: "body",
+        layout: { frame: { x: 12, y: 12, w: 30, h: 12 }, zIndex: 50 },
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: "safety-node-p1", text: "Safe" }] },
+      }).deck;
+      const moved = updateNodeLayout(withNode, slide.id, nodeId, {
+        frame: { x: 20, y: 20, w: 40, h: 12 },
+      });
+      const deleted = deleteNodes(moved, slide.id, [nodeId]);
+
+      assertNoV6ElementsField(deleted);
+    });
   });
 
   test("inserts at specified index", () => {
@@ -907,6 +946,56 @@ describe("groupNodes", () => {
     );
     assert.ok(grouped, "Expected group node");
     assert.equal(grouped.type, "group");
+  });
+
+  test("creates group bounds and z-index from selected children", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const children: SlideChildNode[] = [
+      {
+        id: "group-bound-a",
+        type: "text",
+        role: "body",
+        layout: { frame: { x: 12, y: 18, w: 20, h: 10 }, zIndex: 3 },
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: "group-bound-a-p1", text: "A" }] },
+      },
+      {
+        id: "group-bound-b",
+        type: "text",
+        role: "body",
+        layout: { frame: { x: 40, y: 10, w: 25, h: 30 }, zIndex: 7 },
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: "group-bound-b-p1", text: "B" }] },
+      },
+    ];
+    const withChildren = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, ...children] }
+          : candidate,
+      ),
+    };
+
+    const updated = groupNodes(
+      withChildren,
+      slide.id,
+      children.map((node) => node.id),
+      "group-bounds",
+      { ref: "surface.card" },
+    );
+    const grouped = findNode(updated.slides[0].children, "group-bounds");
+
+    assert.equal(grouped?.type, "group");
+    if (grouped?.type === "group") {
+      assert.deepEqual(grouped.layout?.frame, { x: 12, y: 10, w: 53, h: 30 });
+      assert.equal(grouped.layout?.zIndex, 7);
+      assert.deepEqual(
+        grouped.children.map((node) => node.id),
+        ["group-bound-a", "group-bound-b"],
+      );
+    }
   });
 
   test("returns unchanged deck if no matching nodes", () => {

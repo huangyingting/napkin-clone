@@ -305,6 +305,19 @@ describe("inspector panel pure helpers", () => {
 
     assert.equal(sourceStatus(undefined), "Standalone");
     assert.equal(sourceStatus({ ...source, unlinked: true }), "Unlinked");
+    assert.equal(
+      sourceStatus(source, {
+        slideId: "slide-1",
+        slideIndex: 0,
+        nodeId: "node-1",
+        nodeType: "visual",
+        source,
+        state: "stale",
+        reason: "Dismissed for this block hash.",
+        dismissed: true,
+      }),
+      "Dismissed",
+    );
     assert.equal(sourceStatus(source), "Linked");
     assert.equal(sourceStatus({ documentId: "", blockId: "" }), "Draft link");
     assert.deepEqual(
@@ -317,6 +330,16 @@ describe("inspector panel pure helpers", () => {
         linkedAt: "2026-06-30T00:00:00.000Z",
         unlinked: true,
       },
+    );
+    assert.deepEqual(
+      sourceWithPatch(
+        {
+          ...source,
+          extra: { sourceReviewDismissal: { currentHash: "hash-2" } },
+        },
+        { blockId: "block-2" },
+      ).extra,
+      { sourceReviewDismissal: { currentHash: "hash-2" } },
     );
   });
 

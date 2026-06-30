@@ -16,7 +16,11 @@ import {
   applySlideDeleteToAnchors,
   findOrphanedAnchors,
 } from "@/lib/comments";
-import { makeMinimalDeck, makeSlideWithElementIds } from "@/test/builders/deck";
+import type {
+  DeckV7,
+  SlideChildNode,
+  SlideNode,
+} from "@/lib/presentation-vnext/schema";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -26,8 +30,36 @@ function anchor(partial: Partial<SlideCommentAnchor>): SlideCommentAnchor {
   return partial;
 }
 
-const makeSlide = makeSlideWithElementIds;
-const makeDeck = makeMinimalDeck;
+function makeNode(id: string): SlideChildNode {
+  return {
+    id,
+    type: "text",
+    role: "body",
+    layout: { frame: { x: 0, y: 0, w: 20, h: 10 }, zIndex: 1 },
+    style: { ref: "text.body" },
+    content: { paragraphs: [{ id: `${id}-p1`, text: "" }] },
+  };
+}
+
+function makeSlide(id: string, nodeIds: string[] = []): SlideNode {
+  return {
+    id,
+    type: "slide",
+    template: { kind: "content" },
+    style: { ref: "slide.content" },
+    children: nodeIds.map(makeNode),
+  };
+}
+
+function makeDeck(slides: SlideNode[]): DeckV7 {
+  return {
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: { images: {} },
+    slides,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // applySlideDeleteToAnchors

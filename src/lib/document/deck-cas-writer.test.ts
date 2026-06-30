@@ -94,6 +94,30 @@ describe("writeDeckWithCas", () => {
     });
   });
 
+  test("does not run success side effects when a v7 CAS write conflicts", async () => {
+    let snapshotCount = 0;
+    const { db } = makeDb({
+      updateCount: 0,
+      serverToken: "server-winner-token",
+    });
+    const result = await writeDeckWithCas({
+      documentId: "doc-1",
+      deckJson: VALID_DECK_V7,
+      clientToken: "stale-token",
+      telemetryArea: "test",
+      db,
+      onSuccess: async () => {
+        snapshotCount += 1;
+      },
+    });
+
+    assert.deepEqual(result, {
+      ok: "conflict",
+      serverRevisionToken: "server-winner-token",
+    });
+    assert.equal(snapshotCount, 0);
+  });
+
   test("returns document-not-found when the conflict reread misses", async () => {
     const { db } = makeDb({ updateCount: 0, exists: false });
     const result = await writeDeckWithCas({
@@ -124,15 +148,20 @@ describe("writeDeckWithCas", () => {
 
   test("accepts a valid v7 deck and writes it", async () => {
     const { db, calls } = makeDb({ updateCount: 1 });
+    let snapshotCount = 0;
     const result = await writeDeckWithCas({
       documentId: "doc-v7",
       deckJson: VALID_DECK_V7,
       clientToken: "client-token",
       telemetryArea: "test",
       db,
+      onSuccess: async () => {
+        snapshotCount += 1;
+      },
     });
 
     assert.equal(result.ok, true);
+    assert.equal(snapshotCount, 1);
     // Verify the write happened with the correct CAS predicate.
     assert.deepEqual((calls[0] as { where: unknown }).where, {
       id: "doc-v7",
@@ -152,6 +181,29 @@ describe("writeDeckWithCas", () => {
 
     assert.equal(result.ok, false);
     assert.match(result.ok === false ? result.error : "", /Invalid deck:/);
+    assert.equal(calls.length, 0);
+  });
+
+  test("rejects v7-shaped decks that still carry v6 slide elements", async () => {
+    const { db, calls } = makeDb({ updateCount: 1 });
+    const result = await writeDeckWithCas({
+      documentId: "doc-v7-elements",
+      deckJson: {
+        ...VALID_DECK_V7,
+        slides: [
+          {
+            ...VALID_DECK_V7.slides[0],
+            elements: [],
+          },
+        ],
+      },
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.equal(result.ok, false);
+    assert.match(result.ok === false ? result.error : "", /v6 field/);
     assert.equal(calls.length, 0);
   });
 

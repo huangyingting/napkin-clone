@@ -11,10 +11,11 @@ import type {
   TextContent,
 } from "./schema";
 import {
-  findSourceBlock,
   type SourceBlockIndex,
   type SourceBlockIndexEntry,
 } from "./block-index";
+
+const SOURCE_REVIEW_DISMISSAL_KEY = "sourceReviewDismissal";
 
 export type SourceLinkClassification = {
   slideId: string;
@@ -28,6 +29,7 @@ export type SourceLinkClassification = {
   block?: SourceBlockIndexEntry;
   sourceHash?: string;
   currentHash?: string;
+  dismissed?: boolean;
 };
 
 export type SourceReviewItem = SourceLinkClassification & {
@@ -49,6 +51,20 @@ export type SourceRefreshAllResult = {
   deck: DeckV7;
   refreshed: SourceLinkClassification[];
   skipped: { item: SourceLinkClassification; reason: string }[];
+};
+
+type SourceBlockResolution =
+  | { status: "found"; block: SourceBlockIndexEntry }
+  | { status: "missing" }
+  | { status: "ambiguous"; matches: SourceBlockIndexEntry[] };
+
+type SourceReviewDismissal = {
+  documentId?: string;
+  blockId?: string;
+  currentHash?: string;
+  state?: SourceRefreshState;
+  dismissedAt?: string;
+  reason?: string;
 };
 
 function mapSlides(deck: DeckV7, fn: (slide: SlideNode) => SlideNode): DeckV7 {
@@ -128,6 +144,102 @@ function sourceWithRefresh(
   };
 }
 
+function matchingSourceBlocks(
+  index: SourceBlockIndex,
+  source: Pick<NodeSourceMetadata, "blockId" | "blockKind">,
+): SourceBlockIndexEntry[] {
+  if (!source.blockId) return [];
+  return index.blocks.filter(
+    (block) =>
+      block.id === source.blockId &&
+      (source.blockKind === undefined || block.kind === source.blockKind),
+  );
+}
+
+function resolveSourceBlock(
+  index: SourceBlockIndex,
+  source: Pick<NodeSourceMetadata, "blockId" | "blockKind">,
+): SourceBlockResolution {
+  const matches = matchingSourceBlocks(index, source);
+  if (matches.length === 0) return { status: "missing" };
+  if (matches.length > 1) return { status: "ambiguous", matches };
+  return { status: "found", block: matches[0] };
+}
+
+function sourceReviewDismissal(
+  source: NodeSourceMetadata,
+): SourceReviewDismissal | undefined {
+  const dismissal = source.extra?.[SOURCE_REVIEW_DISMISSAL_KEY];
+  if (
+    typeof dismissal !== "object" ||
+    dismissal === null ||
+    Array.isArray(dismissal)
+  ) {
+    return undefined;
+  }
+  const record = dismissal as Record<string, unknown>;
+  return {
+    ...(typeof record.documentId === "string"
+      ? { documentId: record.documentId }
+      : {}),
+    ...(typeof record.blockId === "string" ? { blockId: record.blockId } : {}),
+    ...(typeof record.currentHash === "string"
+      ? { currentHash: record.currentHash }
+      : {}),
+    ...(typeof record.state === "string"
+      ? { state: record.state as SourceRefreshState }
+      : {}),
+    ...(typeof record.dismissedAt === "string"
+      ? { dismissedAt: record.dismissedAt }
+      : {}),
+    ...(typeof record.reason === "string" ? { reason: record.reason } : {}),
+  };
+}
+
+function dismissalMatchesSource(
+  source: NodeSourceMetadata,
+  block?: SourceBlockIndexEntry,
+): boolean {
+  const dismissal = sourceReviewDismissal(source);
+  if (!dismissal) return false;
+  if (
+    dismissal.documentId &&
+    source.documentId &&
+    dismissal.documentId !== source.documentId
+  ) {
+    return false;
+  }
+  if (
+    dismissal.blockId &&
+    source.blockId &&
+    dismissal.blockId !== source.blockId
+  ) {
+    return false;
+  }
+  const observedHash = block?.hash ?? source.contentHash;
+  return !(
+    dismissal.currentHash &&
+    observedHash &&
+    dismissal.currentHash !== observedHash
+  );
+}
+
+function withDismissal(
+  classification: SourceLinkClassification,
+): SourceLinkClassification {
+  if (classification.state === "fresh" || classification.state === "unlinked") {
+    return classification;
+  }
+  if (!dismissalMatchesSource(classification.source, classification.block)) {
+    return classification;
+  }
+  return {
+    ...classification,
+    dismissed: true,
+    reason: `Source review item was dismissed. ${classification.reason}`,
+  };
+}
+
 export function classifyNodeSource(
   slide: SlideNode,
   slideIndex: number,
@@ -146,55 +258,64 @@ export function classifyNodeSource(
   };
 
   if (source.unlinked === true) {
-    return {
+    return withDismissal({
       ...base,
       state: "unlinked",
       reason: "Source dependency was explicitly unlinked.",
-    };
+    });
   }
   if (!source.documentId || !source.blockId || !source.contentHash) {
-    return {
+    return withDismissal({
       ...base,
       state: "unknown",
       reason:
         "Source metadata is missing a document id, block id, or content hash.",
-    };
+    });
   }
   if (source.documentId !== index.documentId) {
-    return {
+    return withDismissal({
       ...base,
       state: "unknown",
       reason:
         "Source belongs to a different document and requires explicit remote resolution.",
-    };
+    });
   }
 
-  const block = findSourceBlock(index, source);
-  if (!block) {
-    return {
+  const resolution = resolveSourceBlock(index, source);
+  if (resolution.status === "ambiguous") {
+    return withDismissal({
+      ...base,
+      state: "unknown",
+      reason:
+        "Multiple source blocks match this metadata; choose one explicitly before relinking.",
+    });
+  }
+  if (resolution.status === "missing") {
+    return withDismissal({
       ...base,
       state: "orphan",
       reason: "Source block is missing from the current document.",
-    };
+    });
   }
+  const block = resolution.block;
   if (block.hash !== source.contentHash) {
-    return {
+    return withDismissal({
       ...base,
       state: "stale",
       reason: "Source block content changed.",
       block,
       sourceHash: source.contentHash,
       currentHash: block.hash,
-    };
+    });
   }
-  return {
+  return withDismissal({
     ...base,
     state: "fresh",
     reason: "Source block is current.",
     block,
     sourceHash: source.contentHash,
     currentHash: block.hash,
-  };
+  });
 }
 
 export function classifyDeckSourceLinks(
@@ -218,7 +339,12 @@ export function sourceReviewItems(
   classifications: readonly SourceLinkClassification[],
 ): SourceReviewItem[] {
   return classifications
-    .filter((item) => item.state !== "fresh")
+    .filter(
+      (item) =>
+        item.state !== "fresh" &&
+        item.state !== "unlinked" &&
+        item.dismissed !== true,
+    )
     .map((item) => {
       const slide = deck.slides.find(
         (candidate) => candidate.id === item.slideId,
@@ -250,6 +376,9 @@ export function sourceLinkDiagnostics(
       ...(item.source.documentId ? { documentId: item.source.documentId } : {}),
       ...(item.source.blockId ? { blockId: item.source.blockId } : {}),
     };
+    if (item.dismissed === true || item.state === "unlinked") {
+      return [];
+    }
     if (item.state === "stale") {
       return [
         makeDiagnostic(
@@ -297,24 +426,6 @@ export function sourceLinkDiagnostics(
             nodeId: item.nodeId,
             action: {
               type: "open-source-review",
-              payload: actionPayload,
-            },
-            details,
-          },
-        ),
-      ];
-    }
-    if (item.state === "unlinked") {
-      return [
-        makeDiagnostic(
-          "unlinked-source",
-          "info",
-          `Node "${item.nodeName ?? item.nodeId}" is marked unlinked from its source.`,
-          {
-            slideId: item.slideId,
-            nodeId: item.nodeId,
-            action: {
-              type: "relink-source",
               payload: actionPayload,
             },
             details,
@@ -491,8 +602,18 @@ export function refreshNodeSource(
       reason: "Cross-document source requires explicit remote resolution.",
     };
   }
-  const block = findSourceBlock(index, source);
-  if (!block) {
+  const resolution = resolveSourceBlock(index, source);
+  if (resolution.status === "ambiguous") {
+    return {
+      status: "skipped",
+      deck,
+      slideId,
+      nodeId,
+      reason:
+        "Multiple source blocks match this metadata; choose one explicitly before relinking.",
+    };
+  }
+  if (resolution.status === "missing") {
     return {
       status: "skipped",
       deck,
@@ -501,6 +622,7 @@ export function refreshNodeSource(
       reason: "Source block is missing.",
     };
   }
+  const block = resolution.block;
 
   let skippedReason: string | undefined;
   const nextDeck = mapSlides(deck, (candidate) => {
@@ -574,6 +696,7 @@ export function relinkNodeSource(
   nodeId: string,
   entry: SourceBlockIndexEntry,
   now: string,
+  options?: { allowDocumentChange?: boolean },
 ): SourceRefreshResult {
   const slide = deck.slides.find((candidate) => candidate.id === slideId);
   const node = slide ? findNodeById(slide.children, nodeId) : undefined;
@@ -584,6 +707,20 @@ export function relinkNodeSource(
       slideId,
       nodeId,
       reason: "Node was not found.",
+    };
+  }
+  if (
+    node.source?.documentId &&
+    node.source.documentId !== entry.documentId &&
+    options?.allowDocumentChange !== true
+  ) {
+    return {
+      status: "skipped",
+      deck,
+      slideId,
+      nodeId,
+      reason:
+        "Cross-document relink requires an explicit reviewed document change.",
     };
   }
   let skippedReason: string | undefined;
@@ -637,6 +774,73 @@ export function updateNodeSourceState(
   });
 }
 
+export function dismissNodeSourceIssue(
+  deck: DeckV7,
+  slideId: string,
+  nodeId: string,
+  index: SourceBlockIndex,
+  now: string,
+): DeckV7 {
+  const slide = deck.slides.find((candidate) => candidate.id === slideId);
+  const node = slide ? findNodeById(slide.children, nodeId) : undefined;
+  if (!slide || !node?.source) return deck;
+  const classification = classifyNodeSource(
+    slide,
+    deck.slides.findIndex((candidate) => candidate.id === slideId),
+    node,
+    index,
+  );
+  const source = node.source;
+  const currentHash = classification?.block?.hash ?? source.contentHash;
+  return mapSlides(deck, (candidate) => {
+    if (candidate.id !== slideId) return candidate;
+    return {
+      ...candidate,
+      children: candidate.children.map((child) =>
+        mapNodeById(child, nodeId, (target) => {
+          if (!target.source) return target;
+          return {
+            ...target,
+            source: {
+              ...target.source,
+              refresh: {
+                state:
+                  classification?.state ??
+                  target.source.refresh?.state ??
+                  "unknown",
+                checkedAt: now,
+                ...(classification?.block
+                  ? { sourceHash: classification.block.hash }
+                  : {}),
+                reason: "Source review item was dismissed by the user.",
+              },
+              extra: {
+                ...(target.source.extra ?? {}),
+                [SOURCE_REVIEW_DISMISSAL_KEY]: {
+                  ...(target.source.documentId
+                    ? { documentId: target.source.documentId }
+                    : {}),
+                  ...(target.source.blockId
+                    ? { blockId: target.source.blockId }
+                    : {}),
+                  ...(currentHash ? { currentHash } : {}),
+                  state:
+                    classification?.state ??
+                    target.source.refresh?.state ??
+                    "unknown",
+                  dismissedAt: now,
+                  reason:
+                    classification?.reason ?? "Source review item dismissed.",
+                },
+              },
+            },
+          } as SlideChildNode;
+        }),
+      ),
+    };
+  });
+}
+
 export function refreshAllSafeSourceLinks(
   deck: DeckV7,
   index: SourceBlockIndex,
@@ -647,6 +851,9 @@ export function refreshAllSafeSourceLinks(
   const refreshed: SourceLinkClassification[] = [];
   const skipped: { item: SourceLinkClassification; reason: string }[] = [];
   for (const item of classifications) {
+    if (item.dismissed === true || item.state === "unlinked") {
+      continue;
+    }
     if (item.state !== "stale") {
       if (item.state !== "fresh") {
         skipped.push({ item, reason: item.reason });
