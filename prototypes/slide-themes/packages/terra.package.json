@@ -446,12 +446,7 @@
         "shape": "rect"
       },
       "appliesTo": {
-        "templateKinds": [
-          "cover",
-          "section",
-          "quote",
-          "closing"
-        ]
+        "templateKinds": ["cover", "section", "quote", "closing"]
       }
     },
     "secondaryBlock": {

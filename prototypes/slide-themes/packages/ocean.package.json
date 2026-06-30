@@ -462,11 +462,7 @@
         "shape": "rect"
       },
       "appliesTo": {
-        "templateKinds": [
-          "cover",
-          "section",
-          "visual-focus"
-        ]
+        "templateKinds": ["cover", "section", "visual-focus"]
       }
     },
     "glow": {
