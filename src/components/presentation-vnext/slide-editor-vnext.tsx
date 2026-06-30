@@ -110,6 +110,7 @@ import {
 import { applyDiagnosticRepairAction } from "@/lib/presentation-vnext/diagnostic-repairs";
 import {
   classifyDeckSourceLinks,
+  dismissNodeSourceIssue,
   refreshAllSafeSourceLinks,
   refreshNodeSource,
   relinkNodeSource,
@@ -1188,6 +1189,7 @@ export function SlideEditorVNext({
   const [marqueeFrame, setMarqueeFrame] = useState<SelectionFrame | null>(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [stageAnnouncement, setStageAnnouncement] = useState("");
+  const [sourceReviewStatus, setSourceReviewStatus] = useState("");
   const [stageZoomPercent, setStageZoomPercent] = useState(100);
   const [stageViewportSize, setStageViewportSize] =
     useState<StageFitSize | null>(null);
@@ -2693,7 +2695,8 @@ export function SlideEditorVNext({
     if (result.status === "refreshed") {
       onDeckChange(result.deck);
       handleSelectSourceItem(slideId, nodeId);
-      setStageAnnouncement("Refreshed source-linked node");
+      setSourceReviewStatus("Refreshed source-linked node.");
+      setStageAnnouncement("Refreshed source-linked node.");
       return;
     }
     const checked = updateNodeSourceState(
@@ -2706,6 +2709,7 @@ export function SlideEditorVNext({
     );
     onDeckChange(checked);
     handleSelectSourceItem(slideId, nodeId);
+    setSourceReviewStatus(`Skipped source refresh: ${result.reason}`);
     setStageAnnouncement(`Skipped source refresh: ${result.reason}`);
   }
 
@@ -2718,7 +2722,8 @@ export function SlideEditorVNext({
     );
     onDeckChange(updated);
     handleSelectSourceItem(slideId, nodeId);
-    setStageAnnouncement("Marked source link as unlinked");
+    setSourceReviewStatus("Marked source link as unlinked.");
+    setStageAnnouncement("Marked source link as unlinked.");
   }
 
   function handleRelinkSourceAt(
@@ -2732,14 +2737,32 @@ export function SlideEditorVNext({
       nodeId,
       block,
       new Date().toISOString(),
+      { allowDocumentChange: true },
     );
     if (result.status === "refreshed") {
       onDeckChange(result.deck);
       handleSelectSourceItem(slideId, nodeId);
-      setStageAnnouncement(`Relinked node to ${block.displayLabel}`);
+      setSourceReviewStatus(`Relinked node to ${block.displayLabel}.`);
+      setStageAnnouncement(`Relinked node to ${block.displayLabel}.`);
       return;
     }
+    setSourceReviewStatus(`Skipped relink: ${result.reason}`);
     setStageAnnouncement(`Skipped relink: ${result.reason}`);
+  }
+
+  function handleDismissSourceAt(slideId: string, nodeId: string) {
+    if (!sourceBlockIndex) return;
+    const updated = dismissNodeSourceIssue(
+      deck,
+      slideId,
+      nodeId,
+      sourceBlockIndex,
+      new Date().toISOString(),
+    );
+    onDeckChange(updated);
+    handleSelectSourceItem(slideId, nodeId);
+    setSourceReviewStatus("Dismissed source review item.");
+    setStageAnnouncement("Dismissed source review item.");
   }
 
   function handleRefreshAllSources() {
@@ -2750,9 +2773,18 @@ export function SlideEditorVNext({
       new Date().toISOString(),
     );
     onDeckChange(result.deck);
-    setStageAnnouncement(
-      `Refreshed ${result.refreshed.length} source links; skipped ${result.skipped.length}.`,
-    );
+    const skippedDetails =
+      result.skipped.length > 0
+        ? ` Skipped: ${result.skipped
+            .map(
+              ({ item, reason }) =>
+                `${item.nodeName ?? item.nodeId} — ${reason}`,
+            )
+            .join("; ")}`
+        : "";
+    const message = `Refreshed ${result.refreshed.length} source links; skipped ${result.skipped.length}.${skippedDetails}`;
+    setSourceReviewStatus(message);
+    setStageAnnouncement(message);
   }
 
   function handleSelectLayer(nodeId: string) {
@@ -3557,7 +3589,9 @@ export function SlideEditorVNext({
           onRefresh={handleRefreshSourceAt}
           onUnlink={handleUnlinkSourceAt}
           onRelink={handleRelinkSourceAt}
+          onDismiss={handleDismissSourceAt}
           onRefreshAll={handleRefreshAllSources}
+          statusMessage={sourceReviewStatus}
         />
       ) : null}
 

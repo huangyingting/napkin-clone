@@ -41,7 +41,7 @@ describe("presentation diagnostics model", () => {
     assert.equal(exportFallback.target.scope, "export");
   });
 
-  test("declares source and migration repair categories before full source freshness integration", () => {
+  test("declares source and migration repair categories for shared diagnostics", () => {
     assert.equal(categoryForDiagnosticCode("stale-source"), "source");
     assert.equal(categoryForDiagnosticCode("orphaned-source"), "source");
     assert.equal(

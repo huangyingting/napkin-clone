@@ -37,9 +37,11 @@ export function sourceStatus(
   | "Orphaned"
   | "Unknown"
   | "Unlinked"
+  | "Dismissed"
   | "Linked"
   | "Draft link" {
   if (classification) {
+    if (classification.dismissed === true) return "Dismissed";
     switch (classification.state) {
       case "fresh":
         return "Fresh";
@@ -77,6 +79,7 @@ export function sourceWithPatch(
     ...(source?.display ? { display: source.display } : {}),
     ...(source?.refresh ? { refresh: source.refresh } : {}),
     ...(source?.unlinked ? { unlinked: source.unlinked } : {}),
+    ...(source?.extra ? { extra: source.extra } : {}),
     ...patch,
   };
 }
