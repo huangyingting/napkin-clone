@@ -218,6 +218,14 @@ describe("resolveNodeStyle", () => {
       diagnostics.some((d) => d.code === "unknown-style-ref"),
       "Expected unknown-style-ref error",
     );
+    assert.ok(
+      diagnostics.some(
+        (d) =>
+          d.code === "unknown-style-ref" &&
+          d.action?.type === "replace-style-ref",
+      ),
+      "Expected unknown-style-ref repair action",
+    );
   });
 
   test("applies deck-level token overrides to resolved theme", async () => {

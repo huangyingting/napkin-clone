@@ -31,6 +31,7 @@ const ACTION_LABELS: Record<DiagnosticActionType, string> = {
   "split-slide": "Split slide",
   "open-asset-panel": "Open asset panel",
   "remove-override": "Remove override",
+  "restore-decoration": "Restore decoration",
   "replace-style-ref": "Replace style ref",
 };
 

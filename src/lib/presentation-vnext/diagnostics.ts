@@ -23,6 +23,7 @@ export type PresentationDiagnosticCode =
   | "unknown-style-ref"
   | "missing-style-default"
   | "missing-style-variant"
+  | "missing-decoration"
   | "missing-token"
   | "invalid-node-layout"
   | "missing-node-layout"
@@ -148,6 +149,7 @@ export type DiagnosticActionType =
   | "split-slide"
   | "open-asset-panel"
   | "remove-override"
+  | "restore-decoration"
   | "replace-style-ref";
 
 export type DiagnosticAction =
@@ -171,6 +173,11 @@ export type DiagnosticAction =
       type: "remove-override";
       target?: DiagnosticTarget;
       payload?: { styleKeys?: string[] };
+    }
+  | {
+      type: "restore-decoration";
+      target?: DiagnosticTarget;
+      payload?: { decorationId?: string };
     }
   | {
       type: "replace-style-ref";
@@ -238,6 +245,7 @@ export function categoryForDiagnosticCode(
     code === "unknown-style-ref" ||
     code === "missing-style-default" ||
     code === "missing-style-variant" ||
+    code === "missing-decoration" ||
     code === "missing-token" ||
     code === "local-style-overrides"
   ) {
@@ -298,6 +306,17 @@ function inferDiagnosticTarget(
   }
 
   if (code === "unknown-theme-package") {
+    return {
+      scope: "theme",
+      ...(detailString(details, "themePackageId")
+        ? { themePackageId: detailString(details, "themePackageId") }
+        : {}),
+      ...(slideId !== undefined ? { slideId } : {}),
+      ...(path !== undefined ? { path } : {}),
+    };
+  }
+
+  if (code === "missing-decoration") {
     return {
       scope: "theme",
       ...(detailString(details, "themePackageId")

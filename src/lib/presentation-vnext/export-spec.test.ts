@@ -121,6 +121,35 @@ describe("buildExportSpec", () => {
     );
   });
 
+  test("emits theme-decoration-export-fallback for decoration export effects", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()]);
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "glass-corner": {
+          id: "glass-corner",
+          component: "shape",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 0 },
+          style: {
+            fill: { type: "solid", color: "#ffffff" },
+            effect: { kind: "glass", intensity: "light" },
+          },
+        },
+      },
+    });
+
+    const exportSpec = buildExportSpec(resolveDeckRenderTree(deck, pkg));
+
+    assert.ok(
+      exportSpec.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "theme-decoration-export-fallback" &&
+          diagnostic.details?.decorationId === "glass-corner",
+      ),
+    );
+  });
+
   test("preserves speaker notes on export slide spec", () => {
     resetBuilderCounter();
     const slide = { ...buildCoverSlide(), notes: "Remember to breathe." };

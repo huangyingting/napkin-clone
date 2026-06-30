@@ -132,7 +132,11 @@ export function resolveNodeStyle(
     dc.error(
       "unknown-style-ref",
       `Theme package does not define style ref "${ref}"`,
-      { path: `styles.${ref}`, details: { styleRef: ref } },
+      {
+        path: `styles.${ref}`,
+        action: { type: "replace-style-ref" },
+        details: { styleRef: ref },
+      },
     );
     return { style: {}, diagnostics: dc.diagnostics };
   }
@@ -142,7 +146,11 @@ export function resolveNodeStyle(
     dc.error(
       "missing-style-default",
       `Theme package style "${ref}" is missing the "default" variant`,
-      { path: `styles.${ref}.default`, details: { styleRef: ref } },
+      {
+        path: `styles.${ref}.default`,
+        action: { type: "replace-style-ref" },
+        details: { styleRef: ref },
+      },
     );
     return { style: {}, diagnostics: dc.diagnostics };
   }
@@ -158,6 +166,7 @@ export function resolveNodeStyle(
         `Style variant "${variant}" for ref "${ref}" is absent; using "default"`,
         {
           path: `styles.${ref}.${variant}`,
+          action: { type: "replace-style-ref" },
           details: { styleRef: ref },
         },
       );

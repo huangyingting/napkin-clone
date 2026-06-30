@@ -260,6 +260,7 @@ export { buildExportSpec } from "./export-spec";
 // Editor commands
 export {
   insertSlide,
+  insertTemplateSlide,
   insertBlankSlide,
   duplicateSlide,
   deleteSlide,
@@ -284,6 +285,7 @@ export {
   updateNodeStyleBinding,
   updateLocalStyle,
   resetLocalStyleOverride,
+  restoreThemeDecoration,
   detachDecoration,
   groupNodes,
   ungroupNodes,

@@ -113,7 +113,7 @@ import {
   resetSlideLocalStyle,
   updateSlideSourceMetadata,
   setThemePackage,
-  insertBlankSlide,
+  insertTemplateSlide,
   duplicateSlide,
   deleteSlide,
   moveSlide,
@@ -183,6 +183,10 @@ import {
   type SelectionMatchSizeMode,
 } from "./toolbar/context-toolbar";
 import { Filmstrip } from "./filmstrip/filmstrip";
+import {
+  AddSlideTemplatePicker,
+  type AddSlideTemplateChoice,
+} from "./add-slide-template-picker";
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
@@ -1011,6 +1015,22 @@ function slideSpecFromSlide(
   };
 }
 
+function emptySlideSpecFromLayout(
+  kind: SemanticTemplateKind,
+  layoutId?: string,
+): AiSlideSpec {
+  const template = TEMPLATE_REGISTRY.get(kind);
+  const layout = template?.layouts.find(
+    (candidate) => candidate.id === layoutId,
+  );
+  return {
+    kind,
+    ...(layout?.density[0] ? { density: layout.density[0] } : {}),
+    ...(layout?.emphasis[0] ? { emphasis: layout.emphasis[0] } : {}),
+    slots: {},
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -1054,6 +1074,7 @@ export function SlideEditorVNext({
   // Insert dropdown open state
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const insertMenuRef = useRef<HTMLDivElement | null>(null);
+  const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
   const replaceImageTargetIdRef = useRef<string | null>(null);
   const insertImagePendingRef = useRef(false);
@@ -1326,16 +1347,37 @@ export function SlideEditorVNext({
     setZoomMenuOpen(false);
   }
 
-  function handleInsertSlide() {
-    const result = insertBlankSlide(deck, activeSlideIndex + 1);
-    onDeckChange(result.deck);
-    setActiveSlideIndex(activeSlideIndex + 1);
-    setSelection(createSelectionState(selection.mode));
+  function clearActiveEditingState(
+    mode: SelectionState["mode"] = selection.mode,
+  ) {
+    setSelection(createSelectionState(mode));
     setFocusedNodeId(null);
     setHoveredNodeId(null);
     setActiveGroupId(null);
     setTableEditingNodeId(null);
     setActiveTableCell(null);
+  }
+
+  function handleInsertSlide() {
+    setInsertMenuOpen(false);
+    setAddSlidePickerOpen(true);
+  }
+
+  function handleInsertTemplateSlide(choice: AddSlideTemplateChoice) {
+    const template = TEMPLATE_REGISTRY.get(choice.kind);
+    if (!template) return;
+    const spec = emptySlideSpecFromLayout(choice.kind, choice.layoutId);
+    const result = insertTemplateSlide(
+      deck,
+      spec,
+      template,
+      activeSlideIndex + 1,
+    );
+    onDeckChange(result.deck);
+    setActiveSlideIndex(result.index);
+    clearActiveEditingState();
+    setAddSlidePickerOpen(false);
+    setStageAnnouncement(`${template.label} slide added.`);
   }
 
   function handleInsertNode(node: SlideChildNode) {
@@ -2935,6 +2977,12 @@ export function SlideEditorVNext({
     const { layout, style } = selectedResolvedNode;
     // Build a LayoutBox from the resolved layout (drop framePx)
     const { framePx: _framePx, ...persistedLayout } = layout;
+    const decorationContent =
+      selectedResolvedNode.content.type === "text" ||
+      selectedResolvedNode.content.type === "image" ||
+      selectedResolvedNode.content.type === "shape"
+        ? selectedResolvedNode.content
+        : undefined;
     onDeckChange(
       detachDecoration(
         deck,
@@ -2942,6 +2990,7 @@ export function SlideEditorVNext({
         selectedResolvedNode.id,
         persistedLayout,
         style as StylePatch,
+        decorationContent,
       ),
     );
   }
@@ -3039,6 +3088,38 @@ export function SlideEditorVNext({
         }}
       />
 
+      {addSlidePickerOpen ? (
+        <>
+          <div
+            data-floating-panel="true"
+            aria-hidden="true"
+            onClick={() => setAddSlidePickerOpen(false)}
+            className="fixed inset-0 z-modal bg-ds-backdrop"
+          />
+          <FocusTrapped>
+            <div
+              data-floating-panel="true"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Add semantic slide"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  setAddSlidePickerOpen(false);
+                }
+              }}
+              className="fixed inset-x-4 top-8 z-modal mx-auto flex max-h-[calc(100vh-4rem)] max-w-5xl overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay"
+            >
+              <AddSlideTemplatePicker
+                templates={TEMPLATE_OPTIONS}
+                onChoose={handleInsertTemplateSlide}
+                onClose={() => setAddSlidePickerOpen(false)}
+              />
+            </div>
+          </FocusTrapped>
+        </>
+      ) : null}
+
       {/* ------------------------------------------------------------------ */}
       {/* Top Toolbar                                                         */}
       {/* ------------------------------------------------------------------ */}
@@ -3103,6 +3184,14 @@ export function SlideEditorVNext({
                 role="menu"
               >
                 {[
+                  {
+                    label: "Slide",
+                    icon: <LayoutPanelLeft size={13} aria-hidden />,
+                    action: () => {
+                      handleInsertSlide();
+                      setInsertMenuOpen(false);
+                    },
+                  },
                   {
                     label: "Text",
                     icon: <Type size={13} aria-hidden />,
