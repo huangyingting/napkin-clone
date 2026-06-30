@@ -31,7 +31,7 @@ import type {
   ResolvedSlideBackground,
 } from "./render-tree";
 import { resolveNodeStyle, resolveTheme } from "./style-resolver";
-import { DiagnosticCollector } from "./diagnostics";
+import { DiagnosticCollector, retargetDiagnostic } from "./diagnostics";
 import type { StyleObject } from "./style-schema";
 import { normalizeVisualChannelColors } from "./visual-channel-colors";
 
@@ -82,7 +82,12 @@ function resolveChildNode(
       dc.error(
         "missing-asset",
         `Image node "${node.id}" references missing asset "${assetId}"`,
-        { nodeId: node.id, slideId: slide.id, action: "open-asset-panel" },
+        {
+          nodeId: node.id,
+          slideId: slide.id,
+          action: { type: "open-asset-panel" },
+          details: { assetId },
+        },
       );
     }
   }
@@ -92,7 +97,12 @@ function resolveChildNode(
       dc.error(
         "missing-asset",
         `Visual node "${node.id}" references missing asset "${assetId}"`,
-        { nodeId: node.id, slideId: slide.id, action: "open-asset-panel" },
+        {
+          nodeId: node.id,
+          slideId: slide.id,
+          action: { type: "open-asset-panel" },
+          details: { assetId },
+        },
       );
     }
   }
@@ -107,7 +117,9 @@ function resolveChildNode(
       node.localStyle,
     );
     resolvedStyle = s;
-    for (const d of diagnostics) dc.add(d);
+    for (const d of diagnostics) {
+      dc.add(retargetDiagnostic(d, { nodeId: node.id, slideId: slide.id }));
+    }
   }
 
   if (node.type === "visual") {

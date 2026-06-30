@@ -100,6 +100,8 @@ export type { UseDeckV7RenderTreeOptions } from "./use-deck-v7-render-tree";
 
 export { SlideEditorVNext } from "./slide-editor-vnext";
 export type { SlideEditorVNextProps } from "./slide-editor-vnext";
+export { DeckDiagnosticsReview } from "./deck-diagnostics-review";
+export type { DeckDiagnosticsReviewProps } from "./deck-diagnostics-review";
 
 // ---------------------------------------------------------------------------
 // vNext present mode

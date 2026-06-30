@@ -241,21 +241,28 @@ export function sourceLinkDiagnostics(
   return classifications.flatMap((item): PresentationDiagnostic[] => {
     const details = {
       status: item.state,
-      sourceDocumentId: item.source.documentId ?? "",
-      sourceBlockId: item.source.blockId ?? "",
+      documentId: item.source.documentId ?? "",
+      blockId: item.source.blockId ?? "",
       sourceBlockKind: item.source.blockKind ?? "",
       reason: item.reason,
+    };
+    const actionPayload = {
+      ...(item.source.documentId ? { documentId: item.source.documentId } : {}),
+      ...(item.source.blockId ? { blockId: item.source.blockId } : {}),
     };
     if (item.state === "stale") {
       return [
         makeDiagnostic(
-          "source-link-stale",
+          "stale-source",
           "warning",
           `Source link for node "${item.nodeName ?? item.nodeId}" is stale.`,
           {
             slideId: item.slideId,
             nodeId: item.nodeId,
-            action: "refresh-source",
+            action: {
+              type: "refresh-source",
+              payload: actionPayload,
+            },
             details,
           },
         ),
@@ -264,13 +271,16 @@ export function sourceLinkDiagnostics(
     if (item.state === "orphan") {
       return [
         makeDiagnostic(
-          "source-link-orphan",
+          "orphaned-source",
           "warning",
           `Source block "${item.source.blockId ?? "unknown"}" is missing.`,
           {
             slideId: item.slideId,
             nodeId: item.nodeId,
-            action: "relink-source",
+            action: {
+              type: "relink-source",
+              payload: actionPayload,
+            },
             details,
           },
         ),
@@ -279,13 +289,16 @@ export function sourceLinkDiagnostics(
     if (item.state === "unknown") {
       return [
         makeDiagnostic(
-          "source-link-unknown",
+          "source-refresh-failed",
           "info",
           `Source link for node "${item.nodeName ?? item.nodeId}" needs review.`,
           {
             slideId: item.slideId,
             nodeId: item.nodeId,
-            action: "open-source-review",
+            action: {
+              type: "open-source-review",
+              payload: actionPayload,
+            },
             details,
           },
         ),
@@ -294,13 +307,16 @@ export function sourceLinkDiagnostics(
     if (item.state === "unlinked") {
       return [
         makeDiagnostic(
-          "source-link-unlinked",
+          "unlinked-source",
           "info",
           `Node "${item.nodeName ?? item.nodeId}" is marked unlinked from its source.`,
           {
             slideId: item.slideId,
             nodeId: item.nodeId,
-            action: "relink-source",
+            action: {
+              type: "relink-source",
+              payload: actionPayload,
+            },
             details,
           },
         ),

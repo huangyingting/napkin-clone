@@ -146,10 +146,10 @@ describe("v7 source link classification", () => {
     assert.deepEqual(
       diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.nodeId]),
       [
-        ["source-link-stale", "stale-node"],
-        ["source-link-orphan", "orphan-node"],
-        ["source-link-unknown", "remote-node"],
-        ["source-link-unlinked", "unlinked-node"],
+        ["stale-source", "stale-node"],
+        ["orphaned-source", "orphan-node"],
+        ["source-refresh-failed", "remote-node"],
+        ["unlinked-source", "unlinked-node"],
       ],
     );
     assert.equal(

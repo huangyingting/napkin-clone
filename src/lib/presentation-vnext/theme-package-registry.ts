@@ -98,7 +98,10 @@ export function resolveThemePackageForDeck(
         "unknown-theme-package",
         "warning",
         `Unknown v7 theme package "${requestedPackageId}". Rendering with Neutral fallback.`,
-        { path: "theme.packageId" },
+        {
+          path: "theme.packageId",
+          details: { themePackageId: requestedPackageId },
+        },
       ),
     ],
   };

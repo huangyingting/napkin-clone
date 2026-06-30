@@ -132,7 +132,7 @@ export function resolveNodeStyle(
     dc.error(
       "unknown-style-ref",
       `Theme package does not define style ref "${ref}"`,
-      { path: `styles.${ref}` },
+      { path: `styles.${ref}`, details: { styleRef: ref } },
     );
     return { style: {}, diagnostics: dc.diagnostics };
   }
@@ -142,6 +142,7 @@ export function resolveNodeStyle(
     dc.error(
       "missing-style-default",
       `Theme package style "${ref}" is missing the "default" variant`,
+      { path: `styles.${ref}.default`, details: { styleRef: ref } },
     );
     return { style: {}, diagnostics: dc.diagnostics };
   }
@@ -155,7 +156,10 @@ export function resolveNodeStyle(
       dc.warning(
         "missing-style-variant",
         `Style variant "${variant}" for ref "${ref}" is absent; using "default"`,
-        { path: `styles.${ref}.${variant}` },
+        {
+          path: `styles.${ref}.${variant}`,
+          details: { styleRef: ref },
+        },
       );
     } else {
       resolved = mergeStyleObjects(resolved, requestedVariant as StylePatch);
