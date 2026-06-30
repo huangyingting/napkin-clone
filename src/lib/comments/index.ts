@@ -11,6 +11,7 @@ export {
   slideAnchorToRecord,
   commentAnchorFromRecord,
   commentAnchorToRecord,
+  remapCommentAnchorForDeckMigration,
 } from "./anchors";
 export type {
   CommentAnchorType,

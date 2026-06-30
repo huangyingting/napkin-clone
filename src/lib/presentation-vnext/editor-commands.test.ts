@@ -67,6 +67,22 @@ function findNode(
   return undefined;
 }
 
+function assertNoV6ElementsField(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach(assertNoV6ElementsField);
+    return;
+  }
+  if (typeof value !== "object" || value === null) return;
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(value, "elements"),
+    false,
+    "v7 command output must not write legacy Slide.elements fields",
+  );
+  for (const child of Object.values(value)) {
+    assertNoV6ElementsField(child);
+  }
+}
+
 describe("insertSlide", () => {
   test("inserts a compiled slide at the end by default", () => {
     resetIdCounter();
@@ -80,6 +96,29 @@ describe("insertSlide", () => {
     const updated = insertSlide(deck, spec, template);
     assert.equal(updated.slides.length, 3);
     assert.equal(updated.slides[2].template.kind, "section");
+  });
+
+  describe("collaboration safety", () => {
+    test("command outputs never write v6 Slide.elements fields", () => {
+      const deck = makeTestDeck();
+      const slide = deck.slides[0];
+      const nodeId = slide.children[0].id;
+      const inserted = insertBlankSlide(deck).deck;
+      const withNode = insertNode(inserted, slide.id, {
+        id: "safety-node",
+        type: "text",
+        role: "body",
+        layout: { frame: { x: 12, y: 12, w: 30, h: 12 }, zIndex: 50 },
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: "safety-node-p1", text: "Safe" }] },
+      }).deck;
+      const moved = updateNodeLayout(withNode, slide.id, nodeId, {
+        frame: { x: 20, y: 20, w: 40, h: 12 },
+      });
+      const deleted = deleteNodes(moved, slide.id, [nodeId]);
+
+      assertNoV6ElementsField(deleted);
+    });
   });
 
   test("inserts at specified index", () => {

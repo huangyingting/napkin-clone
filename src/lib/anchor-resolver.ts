@@ -11,7 +11,12 @@
  */
 
 import { hashDocumentBlock } from "./presentation/document-block-hash";
-import type { Deck, Slide, SlideElement, SourceRef } from "./presentation/deck";
+import type { SourceRef } from "./presentation/deck";
+import type {
+  DeckV7,
+  SlideChildNode,
+  SlideNode,
+} from "./presentation-vnext/schema";
 import {
   resolveAnchorState,
   type SlideCommentAnchor,
@@ -126,8 +131,8 @@ export function resolveSourceRef(
 
 export function resolveSlideRef(
   slideId: string,
-  deck: Deck,
-): AnchorResolution<Slide> {
+  deck: DeckV7,
+): AnchorResolution<SlideNode> {
   if (!isNonEmptyId(slideId)) {
     return { status: "invalid", reason: "Slide id is empty." };
   }
@@ -140,8 +145,8 @@ export function resolveSlideRef(
 export function resolveSlideElementRef(
   slideId: string,
   elementId: string,
-  deck: Deck,
-): AnchorResolution<SlideElement> {
+  deck: DeckV7,
+): AnchorResolution<SlideChildNode> {
   if (!isNonEmptyId(slideId)) {
     return { status: "invalid", reason: "Slide id is empty." };
   }
@@ -160,9 +165,7 @@ export function resolveSlideElementRef(
     };
   }
 
-  const target = slideResolution.target.elements?.find(
-    (element) => element.id === elementId,
-  );
+  const target = findSlideNodeById(slideResolution.target.children, elementId);
   return target
     ? { status: "found", target }
     : {
@@ -171,11 +174,25 @@ export function resolveSlideElementRef(
       };
 }
 
+function findSlideNodeById(
+  nodes: readonly SlideChildNode[],
+  nodeId: string,
+): SlideChildNode | undefined {
+  for (const node of nodes) {
+    if (node.id === nodeId) return node;
+    if (node.type === "group") {
+      const found = findSlideNodeById(node.children, nodeId);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 /* node:coverage ignore next 4 -- Comment-anchor states are asserted; tsx maps this signature as uncovered. */
 export function resolveCommentAnchor(
   /* node:coverage ignore next -- Signature parameter row is a source-map artifact. */
   anchor: SlideCommentAnchor,
-  deck: Deck | null | undefined,
+  deck: DeckV7 | null | undefined,
 ): AnchorResolution<SlideCommentAnchor> {
   const state = resolveAnchorState(anchor, deck);
   switch (state) {

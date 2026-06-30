@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide, SlideElement } from "./presentation/deck";
+import type {
+  DeckV7,
+  SlideChildNode,
+  SlideNode,
+} from "./presentation-vnext/schema";
 import { hashDocumentBlock } from "./presentation/document-block-hash";
 import type { SlideCommentAnchor } from "./presentation/slide-comment-anchors";
 import {
@@ -33,33 +37,35 @@ function visualBlock(visualId: string): DocumentBlock {
   return { kind: "visual", visualId, visual: {} as Visual };
 }
 
-function textElement(id: string): SlideElement {
+function textElement(id: string): SlideChildNode {
   return {
     id,
-    kind: "text",
-    content: { kind: "text", text: "" },
-    box: { x: 0, y: 0, w: 40, h: 10 },
-    zIndex: 0,
-    designOverrides: {
-      textStyle: { fontSize: 4, bold: false, italic: false, align: "left" },
-    },
+    type: "text",
+    role: "body",
+    layout: { frame: { x: 0, y: 0, w: 40, h: 10 }, zIndex: 0 },
+    style: { ref: "text.body" },
+    content: { paragraphs: [{ id: `${id}-p1`, text: "" }] },
   };
 }
 
-function slide(id: string, elements: SlideElement[] = []): Slide {
+function slide(id: string, elements: SlideChildNode[] = []): SlideNode {
   return {
     id,
-    index: 0,
-    title: "Slide",
+    type: "slide",
+    template: { kind: "content" },
+    style: { ref: "slide.content" },
     notes: "",
-    elements,
+    children: elements,
   };
 }
 
-function deck(slides: Slide[]): Deck {
+function deck(slides: SlideNode[]): DeckV7 {
   return {
-    slides: slides.map((entry, index) => ({ ...entry, index })),
-    design: { themeId: "default" },
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: { images: {} },
+    slides,
   };
 }
 

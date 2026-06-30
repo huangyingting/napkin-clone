@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useYText } from "@/lib/collab/use-collaboration";
 import type { DocumentEditorViewModel } from "@/lib/document-editor/view-model";
+import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { createEditorPlugin, EditorPluginHost } from "@/lib/lexical/editor-api";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
@@ -160,10 +161,16 @@ function RoutedSlideEditorButton({
   documentId,
   initialDeckJson,
   initialContentJson,
+  userId,
+  userName,
+  awareness,
 }: {
   documentId: string;
   initialDeckJson: unknown;
   initialContentJson?: string | null;
+  userId: string;
+  userName: string;
+  awareness: SlidePresenceAwareness | null;
 }) {
   const [editor] = useLexicalComposerContext();
   const [liveContentJson, setLiveContentJson] = useState<string | null>(
@@ -192,6 +199,9 @@ function RoutedSlideEditorButton({
       initialContentJson={liveContentJson}
       deckPort={deckPort}
       slideAssetPort={slideAssetPort}
+      presenceAwareness={awareness}
+      presenceUserId={userId}
+      presenceUserName={userName}
       onOpenRightSurface={openSlideEditor}
       onCloseRightSurface={closeSlideEditor}
     />
@@ -316,6 +326,7 @@ export function LexicalEditor({
   initialTitle,
   initialStateJson = null,
   initialDeckJson = null,
+  userId,
   userName,
   canEdit = true,
   canManage = false,
@@ -352,7 +363,10 @@ export function LexicalEditor({
     | "allTags"
   >
 > &
-  Pick<DocumentEditorViewModel, "documentId" | "initialTitle" | "userName">) {
+  Pick<
+    DocumentEditorViewModel,
+    "documentId" | "initialTitle" | "userId" | "userName"
+  >) {
   const collab = useLexicalCollaboration({ room: documentId, userName });
 
   // Editing is enabled only with permission AND once collaboration is ready
@@ -569,6 +583,9 @@ export function LexicalEditor({
                           documentId={documentId}
                           initialDeckJson={initialDeckJson}
                           initialContentJson={initialStateJson}
+                          userId={userId}
+                          userName={userName}
+                          awareness={collab.awareness}
                         />
                       )}
                       <RoutedPresentButton

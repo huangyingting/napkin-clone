@@ -27,6 +27,7 @@ import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
 import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { downloadBlob } from "@/lib/visual/export";
 
 function SlideEditorOpenRecovery({
@@ -188,6 +189,9 @@ interface SlideEditorButtonProps {
    * finished seeding yet.
    */
   initialContentJson?: string | null;
+  presenceAwareness?: SlidePresenceAwareness | null;
+  presenceUserId?: string;
+  presenceUserName?: string;
   onOpenRightSurface?: () => void;
   onCloseRightSurface?: () => void;
   iconOnly?: boolean;
@@ -199,6 +203,9 @@ export function SlideEditorButton({
   deckPort,
   slideAssetPort,
   initialContentJson = null,
+  presenceAwareness = null,
+  presenceUserId = "",
+  presenceUserName = "Anonymous",
   onOpenRightSurface,
   onCloseRightSurface,
   iconOnly = false,
@@ -439,6 +446,7 @@ export function SlideEditorButton({
       {open && deckV7 ? (
         <SlideEditorOverlay>
           <SlideEditorVNext
+            documentId={documentId}
             deck={deckV7}
             themePackage={themeResolution?.package}
             diagnostics={editorDiagnostics}
@@ -459,6 +467,9 @@ export function SlideEditorButton({
             onSave={handleSaveV7}
             onClose={handleClose}
             onExportPptx={handleExportV7Pptx}
+            presenceAwareness={presenceAwareness}
+            presenceUserId={presenceUserId}
+            presenceUserName={presenceUserName}
           />
         </SlideEditorOverlay>
       ) : null}

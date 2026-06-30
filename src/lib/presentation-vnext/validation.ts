@@ -739,6 +739,26 @@ const SLIDE_EMPHASIS = [
   "action",
 ] as const;
 
+const SLIDE_V7_KEYS = new Set([
+  "id",
+  "name",
+  "role",
+  "slot",
+  "layout",
+  "style",
+  "localStyle",
+  "locked",
+  "hidden",
+  "accessibility",
+  "source",
+  "type",
+  "template",
+  "controls",
+  "props",
+  "children",
+  "notes",
+]);
+
 function validateSlideNode(
   input: unknown,
   ctx: string,
@@ -748,6 +768,14 @@ function validateSlideNode(
   if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
     return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!SLIDE_V7_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not part of the v7 slide schema`);
+    }
+  }
+  if ("elements" in input) {
+    fail(errors, `${ctx}.elements is a v6 field and not valid in a v7 slide`);
   }
   if (input.type !== "slide") {
     fail(errors, `${ctx}.type must be "slide"`);

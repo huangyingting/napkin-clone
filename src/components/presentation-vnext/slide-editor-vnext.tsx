@@ -63,6 +63,7 @@ import {
   Type,
   Ungroup,
   Undo2,
+  Users,
   X,
 } from "lucide-react";
 
@@ -205,6 +206,13 @@ import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
+import {
+  hasRemotePeers,
+  presencePeerLabel,
+  useSlidePresence,
+  type SlidePresenceAwareness,
+  type SlidePresencePeer,
+} from "@/lib/presentation/use-slide-presence";
 
 const TEMPLATE_REGISTRY = createDefaultTemplateRegistry();
 const TEMPLATE_OPTIONS = TEMPLATE_REGISTRY.all();
@@ -265,6 +273,7 @@ export type SlideEditorVNextSourceRefreshResult = {
 // ---------------------------------------------------------------------------
 
 export interface SlideEditorVNextProps {
+  documentId: string;
   /** The v7 deck to edit. */
   deck: DeckV7;
   /** Theme package to use for rendering. Falls back to the neutral package. */
@@ -320,6 +329,9 @@ export interface SlideEditorVNextProps {
    * Thrown errors are caught and displayed inline.
    */
   onExportPptx?: () => Promise<void>;
+  presenceAwareness?: SlidePresenceAwareness | null;
+  presenceUserId?: string;
+  presenceUserName?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -572,6 +584,28 @@ function diagnosticsSummary(count: number): string {
   if (count === 0) return "No diagnostics";
   if (count === 1) return "1 diagnostic";
   return `${count} diagnostics`;
+}
+
+function presencePeerSummary(
+  peer: SlidePresencePeer,
+  deck: DeckV7,
+  activeSlideId: string | undefined,
+): string {
+  const label = presencePeerLabel(peer);
+  if (!peer.selectedSlideId) return `${label}: in deck`;
+  if (peer.selectedSlideId === activeSlideId) {
+    if (peer.selectedNodeIds.length === 1) return `${label}: selecting 1 node`;
+    if (peer.selectedNodeIds.length > 1) {
+      return `${label}: selecting ${peer.selectedNodeIds.length} nodes`;
+    }
+    return `${label}: viewing this slide`;
+  }
+  const slideIndex = deck.slides.findIndex(
+    (slide) => slide.id === peer.selectedSlideId,
+  );
+  return slideIndex >= 0
+    ? `${label}: on ${slideDisplayName(deck.slides[slideIndex], slideIndex)}`
+    : `${label}: in deck`;
 }
 
 function dedupeDiagnostics(
@@ -1032,6 +1066,7 @@ function slideSpecFromSlide(
 // ---------------------------------------------------------------------------
 
 export function SlideEditorVNext({
+  documentId,
   deck,
   themePackage,
   diagnostics: boundaryDiagnostics = [],
@@ -1052,6 +1087,9 @@ export function SlideEditorVNext({
   onSave,
   onClose,
   onExportPptx,
+  presenceAwareness = null,
+  presenceUserId = "",
+  presenceUserName = "Anonymous",
 }: SlideEditorVNextProps): JSX.Element {
   const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
   const editorRootRef = useRef<HTMLDivElement | null>(null);
@@ -2021,6 +2059,22 @@ export function SlideEditorVNext({
             item.slideId === activeSlide.id && item.nodeId === firstSelectedId,
         )
       : undefined;
+  const slidePresence = useSlidePresence({
+    documentId,
+    userName: presenceUserName,
+    userId: presenceUserId,
+    selectedSlideId: activeSlide?.id ?? null,
+    selectedNodeIds: selectedIds,
+    editingMode:
+      inlineEditNodeId || tableEditingNodeId
+        ? "editing"
+        : selectedIds.length > 0
+          ? "selecting"
+          : "browsing",
+    awareness: presenceAwareness,
+    deck,
+  });
+  const remotePresencePeers = slidePresence.peers.filter((peer) => !peer.self);
 
   useEffect(() => {
     if (!activeSlide) {
@@ -3478,6 +3532,31 @@ export function SlideEditorVNext({
             aria-hidden="true"
           />
 
+          <div
+            className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-secondary"
+            aria-label={
+              hasRemotePeers(slidePresence.peers)
+                ? `Slide collaborators: ${remotePresencePeers
+                    .map((peer) =>
+                      presencePeerSummary(peer, deck, activeSlide?.id),
+                    )
+                    .join("; ")}`
+                : "No other slide collaborators"
+            }
+          >
+            <Users size={13} aria-hidden="true" />
+            <span className="font-medium">
+              {remotePresencePeers.length > 0
+                ? `${remotePresencePeers.length} present`
+                : "Solo"}
+            </span>
+          </div>
+
+          <div
+            className="mx-1 h-5 w-px bg-ds-border-subtle"
+            aria-hidden="true"
+          />
+
           {/* Deck diagnostics review */}
           <button
             type="button"
@@ -3966,6 +4045,13 @@ export function SlideEditorVNext({
       <footer className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-transparent px-3 text-[11px] text-ds-text-muted">
         <div className="flex min-w-0 items-center gap-3">
           <span className="truncate">{selectedNodeSummary}</span>
+          {remotePresencePeers.length > 0 ? (
+            <span className="truncate">
+              {remotePresencePeers
+                .map((peer) => presencePeerSummary(peer, deck, activeSlide?.id))
+                .join(" · ")}
+            </span>
+          ) : null}
         </div>
         <div className="flex min-w-0 items-center justify-center gap-1.5">
           <Tooltip
