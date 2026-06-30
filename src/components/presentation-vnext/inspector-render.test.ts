@@ -24,6 +24,7 @@ import {
   buildTableNode,
   buildTextNode,
 } from "@/test/builders/deck-v7";
+import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type {
   NodeSourceMetadata,
   SlideChildNode,
@@ -357,12 +358,12 @@ function shellProps(
     selectedIds: [slide.children[0].id],
     isDecorationSelected: false,
     diagnostics: [
-      {
-        code: "unsupported-export-feature",
-        severity: "warning",
-        message: "Gradient fallback required",
-        action: "replace-style-ref",
-      },
+      makeDiagnostic(
+        "unsupported-export-feature",
+        "warning",
+        "Gradient fallback required",
+        { action: { type: "replace-style-ref" } },
+      ),
     ],
     onUpdateControls: noop,
     onUpdateProps: noop,
@@ -548,17 +549,10 @@ describe("vNext inspector components", () => {
       render(
         createElement(DiagnosticsPanel, {
           diagnostics: [
-            {
-              code: "missing-token",
-              severity: "error",
-              message: "Token missing",
-              action: "reset-to-theme",
-            },
-            {
-              code: "local-style-overrides",
-              severity: "info",
-              message: "Local override",
-            },
+            makeDiagnostic("missing-token", "error", "Token missing", {
+              action: { type: "reset-to-theme" },
+            }),
+            makeDiagnostic("local-style-overrides", "info", "Local override"),
           ],
           onAction: noop,
           hideInfo: false,
@@ -861,12 +855,9 @@ describe("vNext inspector components", () => {
       ),
       DiagnosticsPanel({
         diagnostics: [
-          {
-            code: "missing-token",
-            severity: "error",
-            message: "Token missing",
-            action: "reset-to-theme",
-          },
+          makeDiagnostic("missing-token", "error", "Token missing", {
+            action: { type: "reset-to-theme" },
+          }),
         ],
         onAction: ((action, diagnostic) =>
           updates.push({ action, diagnostic })) as ComponentProps<

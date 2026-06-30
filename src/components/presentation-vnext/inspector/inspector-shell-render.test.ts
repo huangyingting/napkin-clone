@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { DiagnosticsPanel } from "./diagnostics-panel";
 import { InspectorShell } from "./inspector-shell";
+import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type {
   SlideChildNode,
@@ -287,16 +288,12 @@ describe("InspectorShell render affordances", () => {
   test("diagnostics tab displays a count badge", () => {
     const html = renderInspector({
       diagnostics: [
-        {
-          code: "missing-asset",
-          severity: "error",
-          message: "Missing asset",
-        },
-        {
-          code: "unsupported-export-feature",
-          severity: "warning",
-          message: "Unsupported export feature",
-        },
+        makeDiagnostic("missing-asset", "error", "Missing asset"),
+        makeDiagnostic(
+          "unsupported-export-feature",
+          "warning",
+          "Unsupported export feature",
+        ),
       ],
     });
 
@@ -306,48 +303,25 @@ describe("InspectorShell render affordances", () => {
 
   test("diagnostics panel sorts severities, labels actions, and hides info", () => {
     const diagnostics: PresentationDiagnostic[] = [
-      {
-        code: "unknown-template-kind",
-        severity: "info",
-        message: "Info item",
-        action: "replace-style-ref",
-      },
-      {
-        code: "missing-asset",
-        severity: "fatal",
-        message: "Fatal item",
-        action: "open-asset-panel",
-      },
-      {
-        code: "invalid-schema-version",
-        severity: "error",
-        message: "Error item",
-        action: "repair-ai-plan",
-      },
-      {
-        code: "unsupported-export-feature",
-        severity: "warning",
-        message: "Warning item",
-        action: "reset-to-theme",
-      },
-      {
-        code: "missing-token",
-        severity: "warning",
-        message: "Densify item",
-        action: "choose-denser-layout",
-      },
-      {
-        code: "slot-over-capacity",
-        severity: "warning",
-        message: "Split item",
-        action: "split-slide",
-      },
-      {
-        code: "local-style-overrides",
-        severity: "warning",
-        message: "Override item",
-        action: "remove-override",
-      },
+      makeDiagnostic("unknown-template-kind", "info", "Info item", {
+        action: { type: "replace-style-ref" },
+      }),
+      makeDiagnostic("missing-asset", "fatal", "Fatal item", {
+        action: { type: "open-asset-panel" },
+      }),
+      makeDiagnostic("invalid-schema-version", "error", "Error item"),
+      makeDiagnostic("unsupported-export-feature", "warning", "Warning item", {
+        action: { type: "reset-to-theme" },
+      }),
+      makeDiagnostic("missing-token", "warning", "Densify item", {
+        action: { type: "choose-denser-layout" },
+      }),
+      makeDiagnostic("slot-over-capacity", "warning", "Split item", {
+        action: { type: "split-slide" },
+      }),
+      makeDiagnostic("local-style-overrides", "warning", "Override item", {
+        action: { type: "remove-override" },
+      }),
     ];
 
     const html = renderToStaticMarkup(
@@ -372,10 +346,14 @@ describe("InspectorShell render affordances", () => {
     );
 
     assert.ok(html.indexOf("Fatal item") < html.indexOf("Error item"));
-    assert.ok(html.indexOf("Error item") < html.indexOf("Warning item"));
-    assert.ok(html.indexOf("Warning item") < html.indexOf("Info item"));
+    assert.ok(html.indexOf("Error item") < html.indexOf("Split item"));
+    assert.match(html, /Info item/);
+    assert.match(html, /deck/);
+    assert.match(html, /asset/);
+    assert.match(html, /style/);
+    assert.match(html, /export/);
     assert.match(html, /Open asset panel/);
-    assert.match(html, /Repair AI plan/);
+    assert.doesNotMatch(html, /Repair AI plan/);
     assert.match(html, /Reset to theme/);
     assert.match(html, /Use denser layout/);
     assert.match(html, /Split slide/);

@@ -96,6 +96,12 @@ import type {
   PresentationDiagnostic,
   DiagnosticAction,
 } from "@/lib/presentation-vnext/diagnostics";
+import {
+  diagnosticTargetKey,
+  getDiagnosticNodeId,
+  getDiagnosticSlideId,
+} from "@/lib/presentation-vnext/diagnostics";
+import { applyDiagnosticRepairAction } from "@/lib/presentation-vnext/diagnostic-repairs";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
@@ -174,6 +180,7 @@ import {
 import { Filmstrip } from "./filmstrip/filmstrip";
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -513,7 +520,7 @@ function dedupeDiagnostics(
   const seen = new Set<string>();
   const result: PresentationDiagnostic[] = [];
   for (const diagnostic of diagnostics) {
-    const key = `${diagnostic.code}:${diagnostic.path ?? ""}:${diagnostic.nodeId ?? ""}:${diagnostic.message}`;
+    const key = `${diagnostic.code}:${diagnosticTargetKey(diagnostic.target)}:${diagnostic.path ?? ""}:${diagnostic.message}`;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(diagnostic);
@@ -618,64 +625,6 @@ function pointPctFromEvent(
 
 function nodeFactoryId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}`;
-}
-
-function cloneNodeForSplit(node: SlideChildNode): SlideChildNode {
-  const nextId = nodeFactoryId(node.type);
-  if (node.type === "group") {
-    return {
-      ...node,
-      id: nextId,
-      children: node.children.map(cloneNodeForSplit),
-    };
-  }
-  if (node.type === "text") {
-    return {
-      ...node,
-      id: nextId,
-      content: {
-        ...node.content,
-        paragraphs: node.content.paragraphs.map((paragraph, index) => ({
-          ...paragraph,
-          id: `${nextId}-p-${index + 1}`,
-        })),
-      },
-    };
-  }
-  if (node.type === "shape" && node.content.text) {
-    return {
-      ...node,
-      id: nextId,
-      content: {
-        ...node.content,
-        text: {
-          ...node.content.text,
-          paragraphs: node.content.text.paragraphs.map((paragraph, index) => ({
-            ...paragraph,
-            id: `${nextId}-p-${index + 1}`,
-          })),
-        },
-      },
-    };
-  }
-  if (node.type === "table") {
-    return {
-      ...node,
-      id: nextId,
-      content: {
-        ...node.content,
-        columns: node.content.columns.map((column, index) => ({
-          ...column,
-          id: `${nextId}-col-${index + 1}`,
-        })),
-        rows: node.content.rows.map((row, index) => ({
-          ...row,
-          id: `${nextId}-row-${index + 1}`,
-        })),
-      },
-    };
-  }
-  return { ...node, id: nextId } as SlideChildNode;
 }
 
 function assetFactoryId(prefix: string): string {
@@ -1090,6 +1039,8 @@ export function SlideEditorVNext({
   });
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
+  const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
+    useState(false);
   const [inspectorPanelRequest, setInspectorPanelRequest] = useState<{
     panel: InspectorPanelId;
     nonce: number;
@@ -2350,77 +2301,104 @@ export function SlideEditorVNext({
   // Diagnostics actions
   // ---------------------------------------------------------------------------
 
+  function focusDiagnosticTarget(
+    focus: { slideId: string; nodeId?: string },
+    sourceDeck: DeckV7 = deck,
+  ) {
+    const slideIndex = sourceDeck.slides.findIndex(
+      (slide) => slide.id === focus.slideId,
+    );
+    if (slideIndex < 0) return;
+    const targetSlide = sourceDeck.slides[slideIndex];
+    const node =
+      focus.nodeId && targetSlide
+        ? findNodeById(targetSlide.children, focus.nodeId)
+        : undefined;
+    setActiveSlideIndex(slideIndex);
+    setInlineEditNodeId(null);
+    setHoveredNodeId(null);
+    if (node) {
+      setSelection((s) => setSelectedNodeIds(s, [node.id]));
+      setFocusedNodeId(node.id);
+      focusSelectedNodeSoon(node.id);
+      return;
+    }
+    setSelection((s) => clearSelection(s));
+    setFocusedNodeId(null);
+  }
+
+  function handleDiagnosticNavigate(diagnostic: PresentationDiagnostic) {
+    const nodeId = getDiagnosticNodeId(diagnostic);
+    const slideId = getDiagnosticSlideId(diagnostic);
+    const slideIndex = slideId
+      ? deck.slides.findIndex((slide) => slide.id === slideId)
+      : nodeId
+        ? findSlideIndexForFocus(deck, nodeId)
+        : -1;
+    if (slideIndex < 0) {
+      setStageAnnouncement("Diagnostic target is no longer present.");
+      return;
+    }
+    const targetSlide = deck.slides[slideIndex];
+    const targetNode =
+      nodeId && targetSlide
+        ? findNodeById(targetSlide.children, nodeId)
+        : undefined;
+    focusDiagnosticTarget({
+      slideId: targetSlide.id,
+      ...(targetNode ? { nodeId: targetNode.id } : {}),
+    });
+    requestInspectorPanel("diagnostics");
+    if (isMobileInspectorViewport()) setInspectorSheetOpen(true);
+    setDeckDiagnosticsReviewOpen(false);
+    setStageAnnouncement(
+      targetNode
+        ? "Moved to diagnostic target node."
+        : "Moved to diagnostic target slide.",
+    );
+  }
+
   function handleDiagnosticAction(
     action: DiagnosticAction,
     diagnostic: PresentationDiagnostic,
   ) {
-    const targetNodeId = diagnostic.nodeId ?? firstSelectedId;
-    if (!activeSlide || !targetNodeId) {
-      if (action === "choose-denser-layout" && activeSlide) {
-        handleUpdateControls({ density: "dense" });
-      }
+    const result = applyDiagnosticRepairAction(deck, action, diagnostic, {
+      activeSlideId: activeSlide?.id,
+      selectedNodeId: firstSelectedId,
+      defaultStyleBindingForNode,
+    });
+
+    if (result.status === "noop") {
+      setStageAnnouncement(result.reason);
       return;
     }
-    if (action === "reset-to-theme" || action === "remove-override") {
-      onDeckChange(resetLocalStyleOverride(deck, activeSlide.id, targetNodeId));
-      setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
+
+    if (result.status === "applied") {
+      onDeckChange(result.deck);
+      focusDiagnosticTarget(result.focus, result.deck);
+      setStageAnnouncement(result.announcement);
       return;
     }
-    if (action === "replace-style-ref") {
-      const node = findNodeById(activeSlide.children, targetNodeId);
-      if (!node) return;
-      onDeckChange(
-        updateNodeStyleBinding(deck, activeSlide.id, targetNodeId, {
-          ...defaultStyleBindingForNode(node),
-        }),
+
+    if (result.port === "asset-panel") {
+      focusDiagnosticTarget(result.focus);
+      const slide = deck.slides.find(
+        (candidate) => candidate.id === result.focus.slideId,
       );
-      setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
-      return;
-    }
-    if (action === "choose-denser-layout") {
-      handleUpdateControls({ density: "dense" });
-      setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
-      focusSelectedNodeSoon(targetNodeId);
-      return;
-    }
-    if (action === "open-asset-panel") {
-      const node = findNodeById(activeSlide.children, targetNodeId);
-      setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
-      focusSelectedNodeSoon(targetNodeId);
+      const node =
+        result.focus.nodeId && slide
+          ? findNodeById(slide.children, result.focus.nodeId)
+          : undefined;
       if (node?.type === "image") {
-        replaceImageTargetIdRef.current = targetNodeId;
+        replaceImageTargetIdRef.current = node.id;
         insertImagePendingRef.current = false;
         replaceImageFileInputRef.current?.click();
       } else {
+        requestInspectorPanel("diagnostics");
         setStageAnnouncement(
           "Select the asset field in the inspector to repair this node.",
         );
       }
-      return;
-    }
-    if (action === "split-slide") {
-      const node = findNodeById(activeSlide.children, targetNodeId);
-      if (!node) return;
-      const splitNode = cloneNodeForSplit(node);
-      const inserted = insertBlankSlide(deck, activeSlideIndex + 1);
-      const nextDeck: DeckV7 = {
-        ...inserted.deck,
-        slides: inserted.deck.slides.map((slide) =>
-          slide.id === inserted.slideId
-            ? {
-                ...slide,
-                name: `${activeSlide.name ?? `Slide ${activeSlideIndex + 1}`} Split`,
-                children: [splitNode],
-              }
-            : slide,
-        ),
-      };
-      const movedDeck = deleteNodes(nextDeck, activeSlide.id, [targetNodeId]);
-      onDeckChange(movedDeck);
-      setActiveSlideIndex(activeSlideIndex + 1);
-      setSelection((s) => setSelectedNodeIds(s, [splitNode.id]));
-      focusSelectedNodeSoon(splitNode.id);
-      setStageAnnouncement("Moved node to a new split slide");
     }
   }
 
@@ -2797,6 +2775,30 @@ export function SlideEditorVNext({
             aria-hidden="true"
           />
 
+          {/* Deck diagnostics review */}
+          <button
+            type="button"
+            onClick={() => setDeckDiagnosticsReviewOpen(true)}
+            aria-label={`Open deck diagnostics review (${diagnosticsSummary(
+              diagnostics.length,
+            )})`}
+            className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover"
+          >
+            Diagnostics
+            {diagnostics.length > 0 ? (
+              <span className="rounded-full bg-ds-danger-surface px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-ds-danger-text">
+                {diagnostics.length}
+              </span>
+            ) : (
+              <span className="text-[11px] text-ds-text-muted">0</span>
+            )}
+          </button>
+
+          <div
+            className="mx-1 h-5 w-px bg-ds-border-subtle"
+            aria-hidden="true"
+          />
+
           {/* Save / Export / Close */}
           {onSave ? (
             <button
@@ -2884,6 +2886,17 @@ export function SlideEditorVNext({
             </dl>
           </section>
         </div>
+      ) : null}
+
+      {deckDiagnosticsReviewOpen ? (
+        <FocusTrapped>
+          <DeckDiagnosticsReview
+            diagnostics={diagnostics}
+            onClose={() => setDeckDiagnosticsReviewOpen(false)}
+            onNavigate={handleDiagnosticNavigate}
+            onAction={handleDiagnosticAction}
+          />
+        </FocusTrapped>
       ) : null}
 
       {/* ------------------------------------------------------------------ */}

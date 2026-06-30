@@ -169,7 +169,7 @@ function nodeToOperations(
       dc.warning(
         "unsupported-export-feature",
         `Node "${node.id}": effect "${style.effect.kind}" uses a deterministic export fallback`,
-        { nodeId: node.id, action: "replace-style-ref" },
+        { nodeId: node.id, action: { type: "replace-style-ref" } },
       );
     }
   }

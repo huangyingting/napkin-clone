@@ -43,10 +43,35 @@ export {
 export type {
   PresentationDiagnosticCode,
   DiagnosticSeverity,
+  DiagnosticCategory,
+  DiagnosticTargetScope,
+  DiagnosticTarget,
   DiagnosticAction,
+  DiagnosticActionType,
+  DiagnosticGroup,
   PresentationDiagnostic,
 } from "./diagnostics";
-export { makeDiagnostic, DiagnosticCollector } from "./diagnostics";
+export {
+  DIAGNOSTIC_CATEGORIES,
+  DIAGNOSTIC_TARGET_SCOPES,
+  DIAGNOSTIC_SEVERITY_RANK,
+  makeDiagnostic,
+  categoryForDiagnosticCode,
+  retargetDiagnostic,
+  getDiagnosticTarget,
+  getDiagnosticNodeId,
+  getDiagnosticSlideId,
+  diagnosticTargetKey,
+  diagnosticTargetLabel,
+  groupDiagnostics,
+  DiagnosticCollector,
+} from "./diagnostics";
+export type {
+  DiagnosticRepairContext,
+  DiagnosticRepairFocus,
+  DiagnosticRepairResult,
+} from "./diagnostic-repairs";
+export { applyDiagnosticRepairAction } from "./diagnostic-repairs";
 
 // Style schema
 export type {

@@ -997,7 +997,7 @@ export function migrateLegacyDeckV6(raw: unknown): MigrationResult {
 
   const diagnostics: PresentationDiagnostic[] = [
     makeDiagnostic(
-      "invalid-schema-version",
+      "migration-repair-applied",
       "info",
       "Legacy v6 deck was migrated to DeckV7 for editing.",
     ),
