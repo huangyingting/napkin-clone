@@ -595,3 +595,202 @@ describe("buildVnextPptxSpec — visual fallback diagnostics", () => {
     );
   });
 });
+
+describe("buildVnextPptxSpec — direct operation conversion", () => {
+  test("converts styled operation variants and emits deterministic fallback diagnostics", () => {
+    const exportSpec: ExportDeckSpec = {
+      canvas: { format: "custom", width: 120, height: 60, unit: "percent" },
+      diagnostics: [],
+      slides: [
+        {
+          id: "direct-slide",
+          background: {
+            type: "background",
+            fill: {
+              type: "solid",
+              color: { token: "colors.canvas.fill" },
+            },
+          },
+          operations: [
+            {
+              type: "text",
+              id: "direct-text",
+              frame: { x: 12, y: 10, w: 48, h: 12 },
+              content: {
+                paragraphs: [{ id: "direct-text-para", text: "Token text" }],
+              },
+              style: {
+                text: {
+                  color: { token: "colors.accent.text" },
+                  fontFamily: "Inter",
+                  fontSizePt: 22,
+                  weight: 700,
+                  italic: true,
+                  underline: true,
+                  align: "center",
+                  verticalAlign: "bottom",
+                },
+                effect: { kind: "blur", radiusPt: 3 },
+              },
+              rotation: 9,
+              zIndex: 1,
+            },
+            {
+              type: "shape",
+              id: "direct-shape",
+              shape: "diamond",
+              frame: { x: 20, y: 28, w: 20, h: 14 },
+              style: {
+                fill: {
+                  type: "repeatingLinearGradient",
+                  stops: [
+                    {
+                      color: { token: "colors.accent.fill" },
+                      offsetPct: 0,
+                    },
+                  ],
+                },
+                stroke: {
+                  color: { token: "colors.surface.text" },
+                  widthPt: 2,
+                },
+                text: {
+                  color: "#334155",
+                  fontSizePt: 11,
+                  align: "right",
+                },
+                effect: { kind: "glow", color: "#ffffff", blurPt: 6 },
+              },
+              text: {
+                paragraphs: [{ id: "direct-shape-label", text: "Fallback" }],
+              },
+              rotation: -12,
+              zIndex: 2,
+            },
+            {
+              type: "connector",
+              id: "direct-connector",
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+              routing: "straight",
+              frame: { x: 4, y: 50, w: 92, h: 8 },
+              style: {
+                connector: {
+                  stroke: { color: "#123456", widthPt: 1, dash: "dotted" },
+                  startArrow: "arrow",
+                  endArrow: "none",
+                },
+              },
+              zIndex: 3,
+            },
+            {
+              type: "visual",
+              id: "direct-visual",
+              frame: { x: 64, y: 18, w: 24, h: 18 },
+              style: {
+                fill: { type: "solid", color: "#f8fafc" },
+                stroke: { color: "#94a3b8", widthPt: 1 },
+                visual: {
+                  channelColors: { revenue: "#2563eb" },
+                  transparentBackground: true,
+                },
+              },
+              zIndex: 4,
+            },
+            {
+              type: "tableShape",
+              id: "direct-table",
+              frame: { x: 8, y: 68, w: 84, h: 20 },
+              style: {
+                table: {
+                  headerFill: { type: "solid", color: "#0f172a" },
+                  rowFill: {
+                    type: "pattern",
+                    kind: "dots",
+                    color: "#cbd5e1",
+                    background: "#ffffff",
+                  },
+                  text: { fontFamily: "Arial", fontSizePt: 9 },
+                },
+              },
+              table: {
+                columns: [{ id: "metric", label: "Metric" }],
+                rows: [{ id: "value-row", cells: [{ text: "42" }] }],
+                header: true,
+              },
+              zIndex: 5,
+            },
+          ],
+          notes: "Direct operation notes",
+        },
+      ],
+    };
+
+    const pptx = buildVnextPptxSpec(exportSpec);
+    assert.equal(pptx.layout, "LAYOUT_CUSTOM");
+    assert.ok(Math.abs(pptx.slideH - 6.6665) < 0.001);
+    assert.equal(pptx.slides[0].background.fill, "CCCCCC");
+    assert.equal(pptx.slides[0].notes, "Direct operation notes");
+
+    const textOp = pptx.slides[0].ops.find((op) => op.type === "text");
+    assert.ok(textOp);
+    assert.equal(textOp.rotation, 9);
+    assert.equal(textOp.textStyle.fontFace, "Inter");
+    assert.equal(textOp.textStyle.bold, true);
+    assert.equal(textOp.textStyle.italic, true);
+    assert.equal(textOp.textStyle.underline, true);
+    assert.equal(textOp.textStyle.align, "center");
+    assert.equal(textOp.textStyle.valign, "bottom");
+    assert.ok(Object.hasOwn(textOp.textStyle, "color"));
+
+    const shapeOp = pptx.slides[0].ops.find((op) => op.type === "shape");
+    assert.ok(shapeOp);
+    assert.equal(shapeOp.fill, "CCCCCC");
+    assert.deepEqual(shapeOp.stroke, { color: "000000", widthPt: 2 });
+    assert.equal(shapeOp.textStyle?.align, "right");
+    assert.equal(shapeOp.rotation, -12);
+
+    const connectorOp = pptx.slides[0].ops.find(
+      (op) => op.type === "connector",
+    );
+    assert.ok(connectorOp);
+    assert.deepEqual(connectorOp.stroke, {
+      color: "123456",
+      widthPt: 1,
+      dash: "dotted",
+    });
+    assert.equal(connectorOp.startArrow, "arrow");
+    assert.equal(connectorOp.endArrow, "none");
+
+    const visualOp = pptx.slides[0].ops.find((op) => op.type === "visual");
+    assert.ok(visualOp);
+    assert.equal(visualOp.fallbackLabel, "Visual unavailable");
+
+    const tableOp = pptx.slides[0].ops.find((op) => op.type === "tableShape");
+    assert.ok(tableOp);
+    assert.equal(tableOp.headerFill, "0F172A");
+    assert.equal(tableOp.rowFill, "FFFFFF");
+    assert.equal(tableOp.textStyle?.fontFace, "Arial");
+
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) => diagnostic.code === "missing-token",
+      ),
+    );
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.path ===
+            "op(visual:direct-visual).visual.transparentBackground",
+      ),
+    );
+    assert.ok(
+      pptx.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-asset" &&
+          diagnostic.path === "op(visual:direct-visual)",
+      ),
+    );
+  });
+});

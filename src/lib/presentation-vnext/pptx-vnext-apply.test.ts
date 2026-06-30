@@ -19,6 +19,8 @@ import {
   applyVnextImageOp,
   applyVnextVisualOp,
   resolveExportSpecAssetSources,
+  applyVnextPptxSpec,
+  exportDeckV7AsPPTX,
 } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { PptxTextRun } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type {
@@ -30,10 +32,16 @@ import type {
   VnextPptxVisualOp,
 } from "@/lib/presentation-vnext/pptx-export-adapter";
 import type {
+  ConnectorEndpoint,
   TextContent,
   TableContent,
 } from "@/lib/presentation-vnext/schema";
-import { buildDeckV7, buildImageAsset } from "@/test/builders/deck-v7";
+import {
+  buildCoverSlide,
+  buildDeckV7,
+  buildImageAsset,
+  buildMinimalThemePackage,
+} from "@/test/builders/deck-v7";
 
 // ---------------------------------------------------------------------------
 // Mock slide target
@@ -389,6 +397,32 @@ describe("applyVnextTextOp", () => {
     );
     assert.equal((firstArg as PptxTextRun[]).length, 2);
   });
+
+  test("complete text style forwards supported font and alignment options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(
+      slide as never,
+      makeTextOp({
+        textStyle: {
+          color: "0F172A",
+          fontSize: 20,
+          fontFace: "Arial",
+          bold: true,
+          italic: true,
+          underline: true,
+          align: "right",
+          valign: "bottom",
+        },
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.fontFace, "Arial");
+    assert.equal(opts.bold, true);
+    assert.equal(opts.italic, true);
+    assert.deepEqual(opts.underline, { style: "sng" });
+    assert.equal(opts.align, "right");
+    assert.equal(opts.valign, "bottom");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -461,6 +495,25 @@ describe("applyVnextShapeOp", () => {
     const { slide, calls } = makeMockSlide();
     applyVnextShapeOp(slide as never, makeShapeOp({ text: undefined }));
     assert.ok(calls.every((c) => c.kind === "addShape"));
+  });
+
+  test("shape rotation and label style options are forwarded", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextShapeOp(
+      slide as never,
+      makeShapeOp({
+        rotation: 22,
+        text: { paragraphs: [{ id: "p1", text: "Styled label" }] },
+        textStyle: { color: "334155", fontSize: 16, align: "center" },
+      }),
+    );
+    const shapeOpts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(shapeOpts.rotate, 22);
+    const textOpts = calls[1].args[1] as Record<string, unknown>;
+    assert.equal(textOpts.color, "334155");
+    assert.equal(textOpts.fontSize, 16);
+    assert.equal(textOpts.align, "center");
+    assert.equal(textOpts.valign, "middle");
   });
 });
 
@@ -552,6 +605,21 @@ describe("applyVnextTableOp", () => {
     assert.equal(opts.y, 3);
     assert.equal(opts.w, 9);
     assert.equal(opts.h, 5);
+  });
+
+  test("table text style applies font options to header and data cells", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTableOp(
+      slide as never,
+      makeTableOp({ textStyle: { fontSize: 10, fontFace: "Arial" } }),
+    );
+    const rows = calls[0].args[0] as Array<
+      Array<{ options?: Record<string, unknown> }>
+    >;
+    assert.equal(rows[0][0].options?.fontSize, 10);
+    assert.equal(rows[0][0].options?.fontFace, "Arial");
+    assert.equal(rows[1][0].options?.fontSize, 10);
+    assert.equal(rows[1][0].options?.fontFace, "Arial");
   });
 });
 
@@ -658,6 +726,61 @@ describe("applyVnextConnectorOp", () => {
     assert.equal(calls.length, 3);
     assert.ok(calls.every((call) => call.kind === "addShape"));
   });
+
+  test("node anchor endpoints map every anchor to connector frame points", () => {
+    const expected: Record<string, { x: number; y: number }> = {
+      top: { x: 3, y: 2 },
+      right: { x: 5, y: 5 },
+      bottom: { x: 3, y: 8 },
+      left: { x: 1, y: 5 },
+      center: { x: 3, y: 5 },
+    };
+
+    for (const [anchor, point] of Object.entries(expected)) {
+      const { slide, calls } = makeMockSlide();
+      applyVnextConnectorOp(
+        slide as never,
+        makeConnectorOp({
+          x: 1,
+          y: 2,
+          w: 4,
+          h: 6,
+          from: {
+            kind: "node",
+            nodeId: `node-${anchor}`,
+            anchor: anchor as Extract<
+              ConnectorEndpoint,
+              { kind: "node" }
+            >["anchor"],
+          },
+          to: { kind: "point", point: { x: 0, y: 0 } },
+        }),
+      );
+      const opts = calls[0].args[1] as Record<string, unknown>;
+      assert.equal(opts.x, point.x);
+      assert.equal(opts.y, point.y);
+    }
+  });
+
+  test("dotted connector and arrow variants map to pptx line options", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextConnectorOp(
+      slide as never,
+      makeConnectorOp({
+        stroke: { color: "334155", widthPt: 1.5, dash: "dotted" },
+        startArrow: "arrow",
+        endArrow: "filled",
+      }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(opts.line, {
+      color: "334155",
+      width: 1.5,
+      dashType: "sysDot",
+      beginArrowType: "arrow",
+      endArrowType: "triangle",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -762,5 +885,80 @@ describe("applyVnextVisualOp", () => {
     assert.equal(calls[0].kind, "addShape");
     assert.equal(calls[1].kind, "addText");
     assert.equal(calls[1].args[0], "Revenue chart unavailable");
+  });
+
+  test("visual placeholder forwards style defaults and rotation to fallback nodes", async () => {
+    const { slide, calls } = makeMockSlide();
+    await applyVnextVisualOp(
+      slide as never,
+      makeVisualOp({
+        assetId: undefined,
+        visualId: undefined,
+        alt: "Chart fallback",
+        rotation: 18,
+        fill: "EEF2FF",
+        stroke: { color: "4338CA", widthPt: 2 },
+      }),
+    );
+    const shapeOpts = calls[0].args[1] as Record<string, unknown>;
+    assert.deepEqual(shapeOpts.fill, { color: "EEF2FF" });
+    assert.deepEqual(shapeOpts.line, {
+      color: "4338CA",
+      width: 2,
+      dashType: "dash",
+    });
+    assert.equal(shapeOpts.rotate, 18);
+    assert.equal(calls[1].args[0], "Chart fallback");
+    const textOpts = calls[1].args[1] as Record<string, unknown>;
+    assert.equal(textOpts.rotate, 18);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser-style PPTX assembly
+// ---------------------------------------------------------------------------
+
+describe("exportDeckV7AsPPTX", () => {
+  test("assembles a pptx Blob for a resolved v7 deck with speaker notes", async () => {
+    const deck = buildDeckV7([
+      { ...buildCoverSlide(), notes: "Generated speaker notes" },
+    ]);
+    const blob = await exportDeckV7AsPPTX(deck, buildMinimalThemePackage());
+    assert.ok(blob);
+    assert.equal(
+      blob.type,
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    );
+    assert.ok(blob.size > 0);
+  });
+});
+
+describe("applyVnextPptxSpec", () => {
+  test("returns null when a malformed spec causes PPTX assembly to fail", async () => {
+    const blob = await applyVnextPptxSpec({
+      layout: "LAYOUT_CUSTOM",
+      slideW: 0,
+      slideH: 0,
+      diagnostics: [],
+      slides: [
+        {
+          id: "malformed-slide",
+          background: { type: "background", fill: "FFFFFF" },
+          ops: [
+            {
+              type: "image",
+              id: "missing-image-path",
+              assetId: "missing-local-image.png",
+              x: 0,
+              y: 0,
+              w: 1,
+              h: 1,
+              zIndex: 1,
+            },
+          ],
+        },
+      ],
+    });
+    assert.equal(blob, null);
   });
 });

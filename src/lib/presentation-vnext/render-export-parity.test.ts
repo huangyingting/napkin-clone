@@ -8,7 +8,10 @@ import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
 import { buildVnextPptxSpec } from "@/lib/presentation-vnext/pptx-export-adapter";
 import { resolveExportSpecAssetSources } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import type { DeckV7, SlideChildNode } from "@/lib/presentation-vnext/schema";
-import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
+import type {
+  ResolvedDeckRenderTree,
+  ResolvedRenderNode,
+} from "@/lib/presentation-vnext/render-tree";
 import {
   buildDeckV7,
   buildImageNode,
@@ -208,5 +211,139 @@ test("PPTX parity fixture covers representative core node operations", () => {
   assert.equal(
     pptx.diagnostics.some((diagnostic) => diagnostic.code === "missing-asset"),
     false,
+  );
+});
+
+test("export spec flattens grouped nodes after decorations and reports unknown content fallbacks", () => {
+  const decorationNode: ResolvedRenderNode = {
+    id: "decoration-shape",
+    type: "shape",
+    role: "themeDecoration",
+    layout: {
+      frame: { x: 0, y: 0, w: 100, h: 12 },
+      zIndex: 0,
+    },
+    style: { fill: { type: "solid", color: "#eff6ff" } },
+    content: { type: "shape", content: { shape: "rect" } },
+    source: "themeDecoration",
+  };
+  const groupedTextNode: ResolvedRenderNode = {
+    id: "grouped-text",
+    type: "text",
+    role: "body",
+    layout: {
+      frame: { x: 10, y: 20, w: 30, h: 10 },
+      framePx: { x: 96, y: 108, w: 288, h: 54 },
+      rotation: 7,
+      zIndex: 2,
+    },
+    style: {
+      text: { fontSizePt: 18, color: "#111827" },
+      effect: { kind: "blur", radiusPt: 4 },
+    },
+    content: {
+      type: "text",
+      content: { paragraphs: [{ id: "grouped-para", text: "Grouped text" }] },
+    },
+    source: "user",
+  };
+  const groupedImageNode: ResolvedRenderNode = {
+    id: "grouped-image",
+    type: "image",
+    role: "image",
+    layout: {
+      frame: { x: 48, y: 20, w: 24, h: 18 },
+      rotation: -5,
+      zIndex: 3,
+    },
+    style: {},
+    content: {
+      type: "image",
+      content: { assetId: "img-grouped", alt: "Grouped image" },
+    },
+    source: "user",
+  };
+  const groupNode: ResolvedRenderNode = {
+    id: "node-group",
+    type: "group",
+    layout: {
+      frame: { x: 8, y: 18, w: 72, h: 32 },
+      zIndex: 1,
+    },
+    style: {},
+    content: { type: "group" },
+    children: [groupedTextNode, groupedImageNode],
+    source: "user",
+  };
+  const unknownNode: ResolvedRenderNode = {
+    id: "unsupported-node",
+    type: "shape",
+    role: "callout",
+    layout: {
+      frame: { x: 80, y: 20, w: 12, h: 12 },
+      zIndex: 4,
+    },
+    style: {},
+    content: { type: "unsupported-fixture" } as never,
+    source: "user",
+  };
+  const renderTree: ResolvedDeckRenderTree = {
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: {
+      tokens: NEUTRAL_THEME_PACKAGE.tokens,
+      packageId: NEUTRAL_THEME_PACKAGE.id,
+      packageVersion: NEUTRAL_THEME_PACKAGE.version,
+    },
+    diagnostics: [
+      {
+        code: "local-style-overrides",
+        severity: "info",
+        message: "carried from resolver",
+      },
+    ],
+    slides: [
+      {
+        id: "manual-slide",
+        background: {
+          fill: { type: "solid", color: "#ffffff" },
+          decorationLevel: "subtle",
+        },
+        decorations: [decorationNode],
+        nodes: [groupNode, unknownNode],
+        notes: "Manual export notes",
+      },
+    ],
+  };
+
+  const spec = buildExportSpec(renderTree);
+  assert.deepEqual(
+    spec.slides[0].operations.map((operation) => operation.id),
+    ["decoration-shape", "grouped-text", "grouped-image"],
+  );
+  const textOperation = spec.slides[0].operations.find(
+    (operation) => operation.id === "grouped-text",
+  );
+  assert.equal(textOperation?.type, "text");
+  if (textOperation?.type === "text") {
+    assert.deepEqual(textOperation.frame, { x: 96, y: 108, w: 288, h: 54 });
+    assert.equal(textOperation.rotation, 7);
+  }
+  const imageOperation = spec.slides[0].operations.find(
+    (operation) => operation.id === "grouped-image",
+  );
+  assert.equal(imageOperation?.type, "image");
+  if (imageOperation?.type === "image") {
+    assert.equal(imageOperation.alt, "Grouped image");
+  }
+  assert.equal(spec.slides[0].notes, "Manual export notes");
+  assert.ok(
+    spec.diagnostics.some(
+      (diagnostic) => diagnostic.code === "local-style-overrides",
+    ),
+  );
+  assert.ok(
+    spec.diagnostics.some(
+      (diagnostic) => diagnostic.code === "unsupported-export-feature",
+    ),
   );
 });
