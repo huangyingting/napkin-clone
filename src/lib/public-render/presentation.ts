@@ -26,7 +26,14 @@ export interface PublicPresentationModel {
   deckV7: DeckV7;
   themePackage: ThemePackageV1;
   diagnostics: PresentationDiagnostic[];
+  recovery?: PublicPresentationRecovery;
   attribution: PublicAttribution;
+}
+
+export interface PublicPresentationRecovery {
+  error: string;
+  validationErrors?: string[];
+  diagnostics: PresentationDiagnostic[];
 }
 
 export function buildPublicPresentationModelAny(
@@ -43,6 +50,13 @@ export function buildPublicPresentationModel(
     ? opened.deck
     : createBlankDeckV7({ title: document.title });
   const themeResolution = resolveThemePackageForDeck(deckV7);
+  const recovery = opened.ok
+    ? undefined
+    : {
+        error: opened.error,
+        validationErrors: opened.errors,
+        diagnostics: opened.diagnostics,
+      };
 
   return {
     title: document.title,
@@ -52,6 +66,7 @@ export function buildPublicPresentationModel(
       ...(opened.ok ? opened.diagnostics : opened.diagnostics),
       ...themeResolution.diagnostics,
     ],
+    ...(recovery ? { recovery } : {}),
     attribution: buildPublicAttribution(document.owner),
   };
 }

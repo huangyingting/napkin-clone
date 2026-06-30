@@ -29,7 +29,10 @@ export type PresentationDiagnosticCode =
   | "unsupported-template-control"
   | "theme-decoration-export-fallback"
   | "unsupported-export-feature"
-  | "local-style-overrides";
+  | "local-style-overrides"
+  | "migration-id-rewrite"
+  | "migration-dropped-node"
+  | "migration-unmapped-reference";
 
 export type DiagnosticSeverity = "info" | "warning" | "error" | "fatal";
 

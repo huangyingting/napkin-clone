@@ -23,6 +23,7 @@ import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
 import {
   exportDeckV7AsPPTX,
+  openDeckFromJson,
   resolveThemePackageForDeck,
   type PresentationDiagnostic,
 } from "@/lib/presentation-vnext";
@@ -209,6 +210,7 @@ export function SlideEditorButton({
     handleSaveV7,
     handleUndoV7,
     handleRedoV7,
+    undoRedoFocusV7,
     canUndoV7,
     canRedoV7,
     handleOpen,
@@ -257,9 +259,14 @@ export function SlideEditorButton({
 
   const handleExportV7Pptx = useCallback(async () => {
     if (!deckV7) return;
+    const opened = openDeckFromJson(deckV7);
+    if (!opened.ok) {
+      throw new Error(opened.error);
+    }
     const blob = await exportDeckV7AsPPTX(
-      deckV7,
-      themeResolution?.package ?? resolveThemePackageForDeck(deckV7).package,
+      opened.deck,
+      themeResolution?.package ??
+        resolveThemePackageForDeck(opened.deck).package,
     );
     if (!blob) throw new Error("PPTX export returned empty result");
     downloadBlob(blob, "presentation.pptx");
@@ -411,6 +418,7 @@ export function SlideEditorButton({
             canRedo={canRedoV7}
             onUndo={handleUndoV7}
             onRedo={handleRedoV7}
+            undoRedoFocus={undoRedoFocusV7}
             onDeckChange={handleDeckV7Change}
             onUploadImage={slideAssetPort ? handleUploadV7Image : undefined}
             onPickVisual={handlePickV7Visual}

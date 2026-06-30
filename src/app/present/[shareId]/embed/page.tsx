@@ -46,6 +46,7 @@ export default async function PresentEmbedPage({
       themePackage={presentation.themePackage}
       title={presentation.title}
       embed
+      recovery={presentation.recovery}
       showAttribution={presentation.attribution.showAttribution}
     />
   );

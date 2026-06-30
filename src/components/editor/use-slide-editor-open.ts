@@ -24,15 +24,21 @@ import {
 } from "@/lib/presentation/theme-packages";
 import {
   SAVE_STATUS_LABEL,
-  SLIDE_SAVE_DEBOUNCE_MS,
   resolveSaveErrorMessage,
   resolveSaveStatus,
   type SaveStatus,
 } from "@/lib/presentation/save-status";
+import {
+  createSlideAutosaveScheduler,
+  type SlideAutosaveScheduler,
+} from "@/lib/presentation/slide-autosave-scheduler";
 import { bucketCount, emitProductTelemetry } from "@/lib/telemetry/product";
 import {
   createBlankDeckV7,
+  decideDeckOpen,
+  openAiGeneratedDeck,
   openDeckFromJson,
+  pickUndoFocusTarget,
   type DeckV7,
   type PresentationDiagnostic,
 } from "@/lib/presentation-vnext";
@@ -107,20 +113,89 @@ export function useSlideEditorOpen({
     localDeck: DeckV7;
     serverRevisionToken: string | null;
   } | null>(null);
+  const [undoRedoFocusV7, setUndoRedoFocusV7] = useState<{
+    nodeId: string;
+    token: number;
+  } | null>(null);
 
   const aiEnabled = isAiDeckGenClientEnabled();
   const lastSavedRef = useRef<unknown>(initialDeckJson);
   const revisionTokenRef = useRef<string | null>(null);
-  const v7AutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiAppliedDeckRef = useRef<DeckV7 | null>(null);
+  const focusTokenRef = useRef(0);
+  const autosaveSchedulerRef = useRef<SlideAutosaveScheduler<DeckV7> | null>(
+    null,
+  );
+
+  const persistDeckV7 = useCallback(
+    async (updatedDeck: DeckV7): Promise<ActionResult> => {
+      setV7Saving(true);
+      setV7SaveError(null);
+      const saveResult = await deckPort.saveDeckJson(
+        documentId,
+        updatedDeck,
+        revisionTokenRef.current,
+      );
+      if (saveResult.ok === true) {
+        lastSavedRef.current = updatedDeck;
+        revisionTokenRef.current = saveResult.revisionToken;
+        setV7Dirty(false);
+        setV7Saving(false);
+        setV7SaveError(null);
+
+        if (aiAppliedDeckRef.current) {
+          aiAppliedDeckRef.current = null;
+          emitProductTelemetry("product.ai.deck.saved", {
+            editDistanceBucket: bucketCount(updatedDeck.slides.length),
+            slideCount: updatedDeck.slides.length,
+          });
+        }
+
+        return { ok: true, data: undefined };
+      }
+      if (saveResult.ok === "conflict") {
+        const error = "Save conflict: another session modified this deck.";
+        setV7Saving(false);
+        setV7SaveError(error);
+        setConflictStateV7({
+          localDeck: updatedDeck,
+          serverRevisionToken: saveResult.serverRevisionToken,
+        });
+        return {
+          ok: false,
+          error,
+        };
+      }
+      setV7Saving(false);
+      setV7SaveError(saveResult.error);
+      return { ok: false, error: saveResult.error };
+    },
+    [deckPort, documentId],
+  );
 
   useEffect(() => {
+    const scheduler = createSlideAutosaveScheduler<DeckV7>({
+      onDue: (deck) => {
+        void persistDeckV7(deck).then((result) => {
+          if (!result.ok) {
+            logInfo("editor.slide-editor", "v7-autosave-error", {
+              error: result.error,
+            });
+          }
+        });
+      },
+    });
+    autosaveSchedulerRef.current = scheduler;
     return () => {
-      if (v7AutosaveTimerRef.current !== null) {
-        clearTimeout(v7AutosaveTimerRef.current);
-        v7AutosaveTimerRef.current = null;
+      scheduler.cancel();
+      if (autosaveSchedulerRef.current === scheduler) {
+        autosaveSchedulerRef.current = null;
       }
     };
+  }, [persistDeckV7]);
+
+  const cancelAutosaveV7 = useCallback(() => {
+    autosaveSchedulerRef.current?.cancel();
   }, []);
 
   const fallbackDeck = useCallback(
@@ -138,12 +213,34 @@ export function useSlideEditorOpen({
       setV7SaveError(null);
       setUndoStackV7([]);
       setRedoStackV7([]);
+      setUndoRedoFocusV7(null);
       setPendingJson(null);
       setAiPreviewV7(null);
       setOpen(true);
       onOpenRightSurface();
     },
     [onOpenRightSurface],
+  );
+
+  const enterRecoveryV7 = useCallback(
+    (info: SlideEditorOpenErrorV7) => {
+      aiAppliedDeckRef.current = null;
+      cancelAutosaveV7();
+      setDeckV7(null);
+      setDeckOpenDiagnosticsV7(info.diagnostics);
+      setDeckOpenErrorV7(info);
+      setPendingJson(null);
+      setAiPreviewV7(null);
+      setV7Dirty(false);
+      setV7Saving(false);
+      setV7SaveError(info.error);
+      setUndoStackV7([]);
+      setRedoStackV7([]);
+      setUndoRedoFocusV7(null);
+      setOpen(true);
+      onOpenRightSurface();
+    },
+    [cancelAutosaveV7, onOpenRightSurface],
   );
 
   const prepareOpenV7 = useCallback(async (): Promise<PreparedDeckV7> => {
@@ -156,25 +253,24 @@ export function useSlideEditorOpen({
       // Network/auth error: fall back to the last in-memory deck, then blank v7.
     }
 
-    const rawCandidate = fetchedRaw ?? lastSavedRef.current;
-    if (rawCandidate !== null && rawCandidate !== undefined) {
-      const openResult = openDeckFromJson(rawCandidate);
-      if (openResult.ok) {
-        return {
-          ok: true,
-          deck: openResult.deck,
-          diagnostics: openResult.diagnostics,
-        };
-      }
+    const rawCandidate = fetchedRaw ?? lastSavedRef.current ?? null;
+    const decision = decideDeckOpen(rawCandidate);
+    if (decision.mode === "blank") {
+      return { ok: true, deck: fallbackDeck(), diagnostics: [] };
+    }
+    if (decision.mode === "open") {
       return {
-        ok: false,
-        error: openResult.error,
-        diagnostics: openResult.diagnostics,
-        validationErrors: openResult.errors,
+        ok: true,
+        deck: decision.deck,
+        diagnostics: decision.diagnostics,
       };
     }
-
-    return { ok: true, deck: fallbackDeck(), diagnostics: [] };
+    return {
+      ok: false,
+      error: decision.error,
+      diagnostics: decision.diagnostics,
+      validationErrors: decision.errors,
+    };
   }, [deckPort, documentId, fallbackDeck]);
 
   const openDerivedV7 = useCallback(async () => {
@@ -184,34 +280,34 @@ export function useSlideEditorOpen({
       finishOpenV7(prepared.deck, prepared.diagnostics);
       return;
     }
-    setDeckV7(null);
-    setDeckOpenDiagnosticsV7(prepared.diagnostics);
-    setDeckOpenErrorV7({
+    enterRecoveryV7({
       error: prepared.error,
       diagnostics: prepared.diagnostics,
       validationErrors: prepared.validationErrors,
     });
-    setPendingJson(null);
-    setAiPreviewV7(null);
-    setV7Dirty(false);
-    setV7Saving(false);
-    setV7SaveError(prepared.error);
-    setUndoStackV7([]);
-    setRedoStackV7([]);
-    setOpen(true);
-    onOpenRightSurface();
-  }, [finishOpenV7, onOpenRightSurface, prepareOpenV7]);
+  }, [enterRecoveryV7, finishOpenV7, prepareOpenV7]);
 
   const openWithAiDeckV7 = useCallback(
     (aiDeck: DeckV7) => {
-      aiAppliedDeckRef.current = aiDeck;
+      // Route AI proposals through the same open boundary so a malformed deck
+      // surfaces recovery diagnostics instead of silently blanking the editor.
+      const opened = openAiGeneratedDeck(aiDeck);
+      if (!opened.ok) {
+        enterRecoveryV7({
+          error: opened.error,
+          diagnostics: opened.diagnostics,
+          validationErrors: opened.errors,
+        });
+        return;
+      }
+      aiAppliedDeckRef.current = opened.deck;
       emitProductTelemetry("product.ai.deck.applied", {
-        editDistanceBucket: bucketCount(aiDeck.slides.length),
-        slideCount: aiDeck.slides.length,
+        editDistanceBucket: bucketCount(opened.deck.slides.length),
+        slideCount: opened.deck.slides.length,
       });
-      finishOpenV7(aiDeck);
+      finishOpenV7(opened.deck, opened.diagnostics);
     },
-    [finishOpenV7],
+    [enterRecoveryV7, finishOpenV7],
   );
 
   const showAiPreviewV7 = useCallback(
@@ -275,86 +371,40 @@ export function useSlideEditorOpen({
     setV7SaveError(null);
     setUndoStackV7([]);
     setRedoStackV7([]);
+    setUndoRedoFocusV7(null);
     setPendingJson(null);
     setPendingThemePackageId(DEFAULT_THEME_PACKAGE_ID);
     setEmptyDocument(false);
     setAiPreviewV7(null);
     setConflictStateV7(null);
     aiAppliedDeckRef.current = null;
-    if (v7AutosaveTimerRef.current !== null) {
-      clearTimeout(v7AutosaveTimerRef.current);
-      v7AutosaveTimerRef.current = null;
-    }
+    cancelAutosaveV7();
     onCloseRightSurface();
-  }, [onCloseRightSurface]);
+  }, [cancelAutosaveV7, onCloseRightSurface]);
 
   const handleSaveV7 = useCallback(
     async (updatedDeck: DeckV7): Promise<ActionResult> => {
-      if (v7AutosaveTimerRef.current !== null) {
-        clearTimeout(v7AutosaveTimerRef.current);
-        v7AutosaveTimerRef.current = null;
-      }
-      setV7Saving(true);
-      setV7SaveError(null);
-      const saveResult = await deckPort.saveDeckJson(
-        documentId,
-        updatedDeck,
-        revisionTokenRef.current,
-      );
-      if (saveResult.ok === true) {
-        lastSavedRef.current = updatedDeck;
-        revisionTokenRef.current = saveResult.revisionToken;
-        setV7Dirty(false);
-        setV7Saving(false);
-        setV7SaveError(null);
-
-        if (aiAppliedDeckRef.current) {
-          aiAppliedDeckRef.current = null;
-          emitProductTelemetry("product.ai.deck.saved", {
-            editDistanceBucket: bucketCount(updatedDeck.slides.length),
-            slideCount: updatedDeck.slides.length,
-          });
-        }
-
-        return { ok: true, data: undefined };
-      }
-      if (saveResult.ok === "conflict") {
-        const error = "Save conflict: another session modified this deck.";
-        setV7Saving(false);
-        setV7SaveError(error);
-        setConflictStateV7({
-          localDeck: updatedDeck,
-          serverRevisionToken: saveResult.serverRevisionToken,
-        });
-        return {
-          ok: false,
-          error,
-        };
-      }
-      setV7Saving(false);
-      setV7SaveError(saveResult.error);
-      return { ok: false, error: saveResult.error };
+      // Manual save supersedes any debounced autosave: drop the pending timer so
+      // a stale autosave can't fire after we report success (V7-008).
+      cancelAutosaveV7();
+      return persistDeckV7(updatedDeck);
     },
-    [deckPort, documentId],
+    [cancelAutosaveV7, persistDeckV7],
   );
 
-  const scheduleAutosaveV7 = useCallback(
-    (updatedDeck: DeckV7) => {
-      if (v7AutosaveTimerRef.current !== null) {
-        clearTimeout(v7AutosaveTimerRef.current);
+  const scheduleAutosaveV7 = useCallback((updatedDeck: DeckV7) => {
+    autosaveSchedulerRef.current?.schedule(updatedDeck);
+  }, []);
+
+  const focusAfterHistoryV7 = useCallback(
+    (fromDeck: DeckV7, toDeck: DeckV7) => {
+      const target = pickUndoFocusTarget(fromDeck, toDeck);
+      if (target) {
+        focusTokenRef.current += 1;
+        setUndoRedoFocusV7({ nodeId: target, token: focusTokenRef.current });
       }
-      v7AutosaveTimerRef.current = setTimeout(() => {
-        v7AutosaveTimerRef.current = null;
-        void handleSaveV7(updatedDeck).then((result) => {
-          if (!result.ok) {
-            logInfo("editor.slide-editor", "v7-autosave-error", {
-              error: result.error,
-            });
-          }
-        });
-      }, SLIDE_SAVE_DEBOUNCE_MS);
     },
-    [handleSaveV7],
+    [],
   );
 
   const handleDeckV7Change = useCallback(
@@ -376,26 +426,28 @@ export function useSlideEditorOpen({
       const previous = stack.at(-1);
       if (!previous || !deckV7) return stack;
       setRedoStackV7((redoStack) => [...redoStack, deckV7].slice(-50));
+      focusAfterHistoryV7(deckV7, previous);
       setDeckV7(previous);
       setV7Dirty(true);
       setV7SaveError(null);
       scheduleAutosaveV7(previous);
       return stack.slice(0, -1);
     });
-  }, [deckV7, scheduleAutosaveV7]);
+  }, [deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
 
   const handleRedoV7 = useCallback(() => {
     setRedoStackV7((stack) => {
       const next = stack.at(-1);
       if (!next || !deckV7) return stack;
       setUndoStackV7((undoStack) => [...undoStack, deckV7].slice(-50));
+      focusAfterHistoryV7(deckV7, next);
       setDeckV7(next);
       setV7Dirty(true);
       setV7SaveError(null);
       scheduleAutosaveV7(next);
       return stack.slice(0, -1);
     });
-  }, [deckV7, scheduleAutosaveV7]);
+  }, [deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
 
   const handleOpenDialogApply = useCallback(
     ({
@@ -454,6 +506,9 @@ export function useSlideEditorOpen({
         lastSavedRef.current = localDeck;
         revisionTokenRef.current = res.revisionToken;
         setConflictStateV7(null);
+        setV7Dirty(false);
+        setV7Saving(false);
+        setV7SaveError(null);
       } else if (res.ok === "conflict") {
         setConflictStateV7({
           localDeck,
@@ -485,19 +540,17 @@ export function useSlideEditorOpen({
           setUndoStackV7([]);
           setRedoStackV7([]);
         } else {
-          setDeckOpenDiagnosticsV7(openResult.diagnostics);
-          setDeckOpenErrorV7({
+          enterRecoveryV7({
             error: openResult.error,
             diagnostics: openResult.diagnostics,
             validationErrors: openResult.errors,
           });
-          setV7SaveError(openResult.error);
         }
       } catch {
         // Best-effort: keep the user's local deck if fetch fails.
       }
     })();
-  }, [deckPort, documentId]);
+  }, [deckPort, documentId, enterRecoveryV7]);
 
   const handleConflictDismissV7 = useCallback(() => {
     setConflictStateV7(null);
@@ -523,6 +576,7 @@ export function useSlideEditorOpen({
     handleSaveV7,
     handleUndoV7,
     handleRedoV7,
+    undoRedoFocusV7,
     canUndoV7: undoStackV7.length > 0,
     canRedoV7: redoStackV7.length > 0,
     handleOpen,

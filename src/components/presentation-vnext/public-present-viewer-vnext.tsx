@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import type { DeckV7, PresentationDiagnostic } from "@/lib/presentation-vnext";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
@@ -52,6 +52,12 @@ export interface PublicPresentViewerVNextProps {
   embed?: boolean;
   /** When true, shows the "Made with TextIQ" attribution badge. */
   showAttribution?: boolean;
+  /** Recovery details from the open boundary when public deck JSON is invalid. */
+  recovery?: {
+    error: string;
+    validationErrors?: string[];
+    diagnostics: PresentationDiagnostic[];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +70,7 @@ export function PublicPresentViewerVNext({
   title,
   embed = false,
   showAttribution = false,
+  recovery,
 }: PublicPresentViewerVNextProps): JSX.Element {
   const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
   const renderTree = useDeckV7RenderTree(deck, pkg);
@@ -148,6 +155,38 @@ export function PublicPresentViewerVNext({
       ? canvas.width / canvas.height
       : 16 / 9;
   const fittedSlideSize = fitAspectRatio(slideAreaBounds, aspectRatio);
+
+  if (recovery) {
+    const details = [
+      ...recovery.diagnostics.map((diagnostic) => diagnostic.message),
+      ...(recovery.validationErrors ?? []),
+    ];
+    return (
+      <div className="flex h-screen items-center justify-center bg-ds-inverse-surface p-6 text-ds-inverse-text">
+        <section
+          role="alert"
+          aria-labelledby="presentation-recovery-title"
+          className="max-w-xl rounded-ds-lg border border-ds-inverse-border-subtle bg-ds-inverse-surface-muted p-5 shadow-ds-overlay"
+        >
+          <h1
+            id="presentation-recovery-title"
+            className="text-lg font-semibold"
+          >
+            Presentation deck could not be opened
+          </h1>
+          <p className="mt-2 text-sm opacity-80">{recovery.error}</p>
+          {details.length > 0 ? (
+            <ul className="mt-4 list-disc space-y-1 pl-5 text-sm opacity-80">
+              {details.slice(0, 6).map((detail, index) => (
+                <li key={`${detail}-${index}`}>{detail}</li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+        <MadeWithBadge show={showAttribution} />
+      </div>
+    );
+  }
 
   if (!renderTree || total === 0) {
     return (

@@ -47,7 +47,7 @@ test("buildPublicPresentationModel resolves runtime v7 theme package fallback di
   assert.equal(model.diagnostics[0]?.code, "unknown-theme-package");
 });
 
-test("buildPublicPresentationModel falls back to blank v7 for invalid deckJson", () => {
+test("buildPublicPresentationModel exposes recovery for invalid deckJson", () => {
   const model = buildPublicPresentationModel({
     title: "Fallback deck",
     contentJson: { root: { children: [] } },
@@ -56,8 +56,11 @@ test("buildPublicPresentationModel falls back to blank v7 for invalid deckJson",
   });
 
   assert.equal(model.title, "Fallback deck");
-  assert.equal(model.deckV7.schemaVersion, 7);
-  assert.equal(model.deckV7.title, "Fallback deck");
+  assert.equal(
+    model.recovery?.error.includes("Unrecognised deck schema"),
+    true,
+  );
+  assert.equal(model.recovery?.validationErrors?.length, 1);
   assert.equal(model.attribution.ownerName, "Document owner");
 });
 

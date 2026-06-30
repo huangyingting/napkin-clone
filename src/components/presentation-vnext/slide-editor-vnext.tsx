@@ -252,6 +252,12 @@ export interface SlideEditorVNextProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  /**
+   * Focus target emitted after a committed undo/redo. When the `token` changes,
+   * the editor restores selection and DOM focus to `nodeId` (a node, or a slide
+   * id when the affected node was removed) so attention follows the change.
+   */
+  undoRedoFocus?: { nodeId: string; token: number } | null;
   onUploadImage?: (file: File) => Promise<SlideEditorVNextImageUploadResult>;
   onPickVisual?: () => Promise<SlideEditorVNextVisualPickResult | undefined>;
   onRefreshSource?: (args: {
@@ -466,6 +472,23 @@ function focusStageNode(nodeId: string): void {
   const safeId = nodeId.replace(/"/g, '\\"');
   const el = document.querySelector<HTMLElement>(`[data-node-id="${safeId}"]`);
   el?.focus();
+}
+
+/**
+ * Finds the slide index that owns a node id (searching nested group children),
+ * or, failing that, the index of a slide whose own id matches. Returns -1 when
+ * the id is no longer present in the deck.
+ */
+function findSlideIndexForFocus(deck: DeckV7, targetId: string): number {
+  const containsNode = (nodes: readonly SlideChildNode[]): boolean =>
+    nodes.some(
+      (node) =>
+        node.id === targetId ||
+        (node.type === "group" && containsNode(node.children)),
+    );
+  const byNode = deck.slides.findIndex((slide) => containsNode(slide.children));
+  if (byNode !== -1) return byNode;
+  return deck.slides.findIndex((slide) => slide.id === targetId);
 }
 
 function slideDisplayName(slide: SlideNode | undefined, index: number): string {
@@ -882,6 +905,7 @@ export function SlideEditorVNext({
   canRedo = false,
   onUndo,
   onRedo,
+  undoRedoFocus = null,
   onUploadImage,
   onPickVisual,
   onRefreshSource,
@@ -899,6 +923,7 @@ export function SlideEditorVNext({
     setCanvasElement(el);
   }, []);
   const suppressStageClickRef = useRef(false);
+  const lastUndoRedoFocusTokenRef = useRef<number | null>(null);
   const themePackages = listThemePackagesV7();
 
   // Export error surfaced below the toolbar banner
@@ -1049,6 +1074,38 @@ export function SlideEditorVNext({
     nodeId: string;
     handle: CropHandlePosition;
   } | null>(null);
+
+  useEffect(() => {
+    if (!undoRedoFocus) return;
+    if (lastUndoRedoFocusTokenRef.current === undoRedoFocus.token) return;
+    lastUndoRedoFocusTokenRef.current = undoRedoFocus.token;
+    const nextSlideIndex = findSlideIndexForFocus(deck, undoRedoFocus.nodeId);
+    if (nextSlideIndex < 0) {
+      setSelection((s) => clearSelection(s));
+      setFocusedNodeId(null);
+      setInlineEditNodeId(null);
+      window.setTimeout(() => editorRootRef.current?.focus(), 0);
+      return;
+    }
+
+    const targetSlide = deck.slides[nextSlideIndex];
+    const targetNode = targetSlide
+      ? findNodeById(targetSlide.children, undoRedoFocus.nodeId)
+      : undefined;
+    setActiveSlideIndex(nextSlideIndex);
+    setInlineEditNodeId(null);
+    setHoveredNodeId(null);
+    if (targetNode) {
+      setSelection((s) => setSelectedNodeIds(s, [targetNode.id]));
+      setFocusedNodeId(targetNode.id);
+      window.setTimeout(() => focusStageNode(targetNode.id), 0);
+      return;
+    }
+
+    setSelection((s) => clearSelection(s));
+    setFocusedNodeId(null);
+    window.setTimeout(() => editorRootRef.current?.focus(), 0);
+  }, [deck, undoRedoFocus]);
 
   function requestInspectorPanel(panel: InspectorPanelId) {
     setInspectorPanelRequest((current) => ({

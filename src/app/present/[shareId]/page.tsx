@@ -61,6 +61,7 @@ export default async function PresentPage({
       deck={presentation.deckV7}
       themePackage={presentation.themePackage}
       title={presentation.title}
+      recovery={presentation.recovery}
       showAttribution={presentation.attribution.showAttribution}
     />
   );
