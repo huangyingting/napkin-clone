@@ -10,7 +10,12 @@
  */
 
 import type { NodeId, CanvasSpec } from "./types";
-import type { ImageCrop, TextContent, TableContent } from "./schema";
+import type {
+  ImageCrop,
+  TextContent,
+  TableContent,
+  ConnectorEndpoint,
+} from "./schema";
 import type { ImageFitMode, StyleObject, FillStyle } from "./style-schema";
 import type {
   ResolvedDeckRenderTree,
@@ -70,8 +75,9 @@ export type ExportImageOperation = {
 export type ExportConnectorOperation = {
   type: "connector";
   id: NodeId;
-  from: unknown;
-  to: unknown;
+  from: ConnectorEndpoint;
+  to: ConnectorEndpoint;
+  routing?: "straight" | "elbow" | "curved";
   frame: { x: number; y: number; w: number; h: number };
   style: StyleObject;
   zIndex: number;
@@ -232,6 +238,9 @@ function nodeToOperations(
           id: node.id,
           from: node.content.content.from,
           to: node.content.content.to,
+          ...(node.content.content.routing
+            ? { routing: node.content.content.routing }
+            : {}),
           frame,
           style,
           zIndex,

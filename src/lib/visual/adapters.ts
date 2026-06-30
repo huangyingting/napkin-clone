@@ -155,13 +155,15 @@ class ChartAdapter implements VisualKindAdapter {
  *  - The visual should have at least one node.
  *
  */
-class FlowchartAdapter implements VisualKindAdapter { /* node:coverage disable */
+class FlowchartAdapter implements VisualKindAdapter {
+  /* node:coverage disable */
   readonly kind = "flowchart" as const;
 
   validate(visual: Visual): AdapterValidationResult {
     const errors: AdapterValidationError[] = [];
     const nodeIds = new Set(visual.nodes.map((n) => n.id));
-    for (const edge of visual.edges) { /* node:coverage enable */
+    for (const edge of visual.edges) {
+      /* node:coverage enable */
       if (!nodeIds.has(edge.from)) {
         errors.push({
           /* node:coverage disable */ code: "flowchart.dangling-edge-from",

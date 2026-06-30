@@ -27,6 +27,7 @@ import type {
   TextContent,
   ImageCrop,
   TableContent,
+  ConnectorEndpoint,
 } from "@/lib/presentation-vnext/schema";
 import type { ResolvedVisualChannelColors } from "@/lib/presentation-vnext/visual-channel-colors";
 import type {
@@ -112,13 +113,20 @@ export type VnextPptxImageOp = {
 export type VnextPptxConnectorOp = {
   type: "connector";
   id: string;
-  from: unknown;
-  to: unknown;
+  from: ConnectorEndpoint;
+  to: ConnectorEndpoint;
+  routing?: "straight" | "elbow" | "curved";
   x: number;
   y: number;
   w: number;
   h: number;
-  stroke?: { color: string; widthPt: number };
+  stroke?: {
+    color: string;
+    widthPt: number;
+    dash?: "solid" | "dashed" | "dotted";
+  };
+  startArrow?: "none" | "arrow" | "filled";
+  endArrow?: "none" | "arrow" | "filled";
   zIndex: number;
 };
 
@@ -135,6 +143,9 @@ export type VnextPptxVisualOp = {
   transparentBackground?: boolean;
   alt?: string;
   rotation?: number;
+  fill?: string;
+  stroke?: { color: string; widthPt: number };
+  fallbackLabel?: string;
   zIndex: number;
 };
 
@@ -357,6 +368,32 @@ function checkEffect(
   }
 }
 
+function checkVisualStyle(
+  style: StyleObject,
+  dc: DiagnosticCollector,
+  ctx: string,
+): void {
+  const visual = style.visual;
+  if (!visual) return;
+  if (visual.channelColors && Object.keys(visual.channelColors).length > 0) {
+    dc.warning(
+      "unsupported-export-feature",
+      `${ctx}: visual channel colors require a rendered-asset fallback in PPTX export`,
+      { path: `${ctx}.visual.channelColors`, action: "replace-style-ref" },
+    );
+  }
+  if (visual.transparentBackground === true) {
+    dc.warning(
+      "unsupported-export-feature",
+      `${ctx}: transparent visual background requires a rendered-asset fallback in PPTX export`,
+      {
+        path: `${ctx}.visual.transparentBackground`,
+        action: "replace-style-ref",
+      },
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Operation converters
 // ---------------------------------------------------------------------------
@@ -444,24 +481,38 @@ function convertConnector(
   dc: DiagnosticCollector,
 ): VnextPptxConnectorOp {
   const frame = pxToIn(op.frame, basis.w, basis.h, dims.slideW, dims.slideH);
-  const stroke = op.style.stroke
+  const connectorStyle = op.style.connector;
+  const sourceStroke = connectorStyle?.stroke ?? op.style.stroke;
+  const stroke = sourceStroke
     ? {
         color: resolveColor(
-          op.style.stroke.color,
+          sourceStroke.color,
           "#000000",
           dc,
           `op(connector:${op.id}).stroke`,
         ),
-        widthPt: op.style.stroke.widthPt,
+        widthPt: sourceStroke.widthPt,
+        ...(sourceStroke.dash !== undefined ? { dash: sourceStroke.dash } : {}),
       }
     : undefined;
+  const routing = op.routing ?? connectorStyle?.routing;
+  if (routing === "curved") {
+    dc.warning(
+      "unsupported-export-feature",
+      `Connector op "${op.id}" uses curved routing; PPTX export uses a straight-line fallback`,
+      { path: `op(connector:${op.id}).routing`, action: "replace-style-ref" },
+    );
+  }
   return {
     type: "connector",
     id: op.id,
     from: op.from,
     to: op.to,
+    ...(routing !== undefined ? { routing } : {}),
     ...frame,
     ...(stroke !== undefined ? { stroke } : {}),
+    startArrow: connectorStyle?.startArrow ?? "none",
+    endArrow: connectorStyle?.endArrow ?? "arrow",
     zIndex: op.zIndex,
   };
 }
@@ -474,10 +525,29 @@ function convertVisual(
 ): VnextPptxVisualOp {
   const frame = pxToIn(op.frame, basis.w, basis.h, dims.slideW, dims.slideH);
   checkEffect(op.style, dc, `op(visual:${op.id})`);
+  checkVisualStyle(op.style, dc, `op(visual:${op.id})`);
+  const fill = fillToHex(op.style.fill, dc, `op(visual:${op.id}).fill`);
+  const stroke = op.style.stroke
+    ? {
+        color: resolveColor(
+          op.style.stroke.color,
+          "#94a3b8",
+          dc,
+          `op(visual:${op.id}).stroke`,
+        ),
+        widthPt: op.style.stroke.widthPt,
+      }
+    : undefined;
   if (!op.assetId && !op.visualId) {
     dc.warning(
       "missing-asset",
-      `Visual op "${op.id}" has neither assetId nor visualId; PPTX export will skip`,
+      `Visual op "${op.id}" has neither assetId nor visualId; PPTX export uses a labeled placeholder fallback`,
+      { path: `op(visual:${op.id})`, action: "open-asset-panel" },
+    );
+  } else if (!op.assetId && op.visualId) {
+    dc.warning(
+      "unsupported-export-feature",
+      `Visual op "${op.id}" has no rendered asset; PPTX export uses a labeled placeholder fallback`,
       { path: `op(visual:${op.id})`, action: "open-asset-panel" },
     );
   }
@@ -495,6 +565,9 @@ function convertVisual(
       : {}),
     ...(op.alt !== undefined ? { alt: op.alt } : {}),
     ...(op.rotation !== undefined ? { rotation: op.rotation } : {}),
+    ...(fill !== undefined ? { fill } : {}),
+    ...(stroke !== undefined ? { stroke } : {}),
+    fallbackLabel: op.alt ?? op.visualId ?? "Visual unavailable",
     zIndex: op.zIndex,
   };
 }

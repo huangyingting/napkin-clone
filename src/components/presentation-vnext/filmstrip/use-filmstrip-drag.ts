@@ -76,6 +76,7 @@ export function useFilmstripDrag({
     if (event.button !== 0) return;
     const container = containerRef.current;
     if (!container) return;
+    const activeContainer: HTMLOListElement = container;
 
     const startClientX = event.clientX;
     const startClientY = event.clientY;
@@ -99,7 +100,7 @@ export function useFilmstripDrag({
 
     const cells = () =>
       Array.from(
-        container.querySelectorAll<HTMLLIElement>("[data-slide-index]"),
+        activeContainer.querySelectorAll<HTMLLIElement>("[data-slide-index]"),
       );
 
     function getTargetIndex(clientX: number, clientY: number): number | null {
@@ -123,11 +124,11 @@ export function useFilmstripDrag({
     }
 
     function maybeAutoScroll(clientX: number) {
-      const rect = container.getBoundingClientRect();
+      const rect = activeContainer.getBoundingClientRect();
       if (clientX < rect.left + AUTO_SCROLL_ZONE_PX) {
-        container.scrollLeft -= AUTO_SCROLL_STEP_PX;
+        activeContainer.scrollLeft -= AUTO_SCROLL_STEP_PX;
       } else if (clientX > rect.right - AUTO_SCROLL_ZONE_PX) {
-        container.scrollLeft += AUTO_SCROLL_STEP_PX;
+        activeContainer.scrollLeft += AUTO_SCROLL_STEP_PX;
       }
     }
 
@@ -161,7 +162,7 @@ export function useFilmstripDrag({
           };
       setDragState({ ...dragStateRef.current });
       // Update visual indicator via CSS attribute on container
-      container?.setAttribute("data-drag-target", String(idx));
+      activeContainer.setAttribute("data-drag-target", String(idx));
     }
 
     function cleanupDrag() {
@@ -172,7 +173,7 @@ export function useFilmstripDrag({
         dragPreview: null,
       };
       setDragState({ ...dragStateRef.current });
-      container?.removeAttribute("data-drag-target");
+      activeContainer.removeAttribute("data-drag-target");
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerCancel);
