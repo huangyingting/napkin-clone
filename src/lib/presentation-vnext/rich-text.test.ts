@@ -96,6 +96,10 @@ describe("shouldStoreRunsV7", () => {
     assert.equal(shouldStoreRunsV7([{ text: "u", underline: true }]), true);
   });
 
+  test("returns true when any run has strikethrough", () => {
+    assert.equal(shouldStoreRunsV7([{ text: "s", strikethrough: true }]), true);
+  });
+
   test("returns true when any run has code", () => {
     assert.equal(shouldStoreRunsV7([{ text: "code", code: true }]), true);
   });
@@ -173,6 +177,12 @@ describe("mergeRunsV7", () => {
     const merged = mergeRunsV7(runs);
     assert.equal(merged.length, 1);
     assert.equal(merged[0].text, "AB");
+  });
+
+  test("does not merge runs with different strikethrough state", () => {
+    const runs: TextRun[] = [{ text: "A", strikethrough: true }, { text: "B" }];
+    const merged = mergeRunsV7(runs);
+    assert.equal(merged.length, 2);
   });
 
   test("does not mutate input runs", () => {

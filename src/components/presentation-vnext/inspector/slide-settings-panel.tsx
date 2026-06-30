@@ -21,6 +21,34 @@ function slideBackgroundColor(slide: SlideNode): string {
   const background = slide.localStyle?.slide?.background;
   return background?.type === "solid" && typeof background.color === "string"
     ? background.color
+    : background?.type === "linearGradient" &&
+        typeof background.from === "string"
+      ? background.from
+      : background?.type === "radialGradient" &&
+          typeof background.inner === "string"
+        ? background.inner
+        : "#ffffff";
+}
+
+function slideBackgroundSecondaryColor(slide: SlideNode): string {
+  const background = slide.localStyle?.slide?.background;
+  return background?.type === "linearGradient" &&
+    typeof background.to === "string"
+    ? background.to
+    : background?.type === "radialGradient" &&
+        typeof background.outer === "string"
+      ? background.outer
+      : "#f3f4f6";
+}
+
+function slideBackgroundAssetId(slide: SlideNode): string {
+  const background = slide.localStyle?.slide?.background;
+  return background?.type === "image" ? (background.assetId ?? "") : "";
+}
+
+function slideAccentColor(slide: SlideNode): string {
+  return typeof slide.localStyle?.slide?.accent === "string"
+    ? slide.localStyle.slide.accent
     : "#ffffff";
 }
 
@@ -72,24 +100,149 @@ export function SlideSettingsPanel({
         />
       </label>
       <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-          Background
-          <input
-            type="color"
-            value={slideBackgroundColor(slide)}
-            onChange={(event) =>
-              onUpdateLocalStyle({
-                slide: {
-                  background: {
-                    type: "solid",
-                    color: event.currentTarget.value,
-                  },
-                },
-              })
-            }
-            className={`h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
-          />
-        </label>
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Background type
+            <select
+              value={slide.localStyle?.slide?.background?.type ?? "solid"}
+              onChange={(event) => {
+                const type = event.currentTarget.value;
+                if (type === "linearGradient") {
+                  onUpdateLocalStyle({
+                    slide: {
+                      background: {
+                        type: "linearGradient",
+                        from: slideBackgroundColor(slide),
+                        to: slideBackgroundSecondaryColor(slide),
+                        angle: 135,
+                      },
+                    },
+                  });
+                } else if (type === "radialGradient") {
+                  onUpdateLocalStyle({
+                    slide: {
+                      background: {
+                        type: "radialGradient",
+                        inner: slideBackgroundColor(slide),
+                        outer: slideBackgroundSecondaryColor(slide),
+                      },
+                    },
+                  });
+                } else if (type === "image") {
+                  onUpdateLocalStyle({
+                    slide: {
+                      background: {
+                        type: "image",
+                        assetId: slideBackgroundAssetId(slide),
+                        opacity: 1,
+                      },
+                    },
+                  });
+                } else {
+                  onUpdateLocalStyle({
+                    slide: {
+                      background: {
+                        type: "solid",
+                        color: slideBackgroundColor(slide),
+                      },
+                    },
+                  });
+                }
+              }}
+              className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            >
+              <option value="solid">Solid</option>
+              <option value="linearGradient">Linear gradient</option>
+              <option value="radialGradient">Radial gradient</option>
+              <option value="image">Image asset</option>
+            </select>
+          </label>
+          {slide.localStyle?.slide?.background?.type === "image" ? (
+            <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Background asset id
+              <input
+                value={slideBackgroundAssetId(slide)}
+                onChange={(event) =>
+                  onUpdateLocalStyle({
+                    slide: {
+                      background: {
+                        type: "image",
+                        assetId: event.currentTarget.value,
+                        opacity: 1,
+                      },
+                    },
+                  })
+                }
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+              />
+            </label>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+                Background
+                <input
+                  type="color"
+                  value={slideBackgroundColor(slide)}
+                  onChange={(event) => {
+                    const color = event.currentTarget.value;
+                    const background = slide.localStyle?.slide?.background;
+                    if (background?.type === "linearGradient") {
+                      onUpdateLocalStyle({
+                        slide: { background: { ...background, from: color } },
+                      });
+                    } else if (background?.type === "radialGradient") {
+                      onUpdateLocalStyle({
+                        slide: { background: { ...background, inner: color } },
+                      });
+                    } else {
+                      onUpdateLocalStyle({
+                        slide: { background: { type: "solid", color } },
+                      });
+                    }
+                  }}
+                  className={`h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+                Gradient end
+                <input
+                  type="color"
+                  value={slideBackgroundSecondaryColor(slide)}
+                  disabled={
+                    slide.localStyle?.slide?.background?.type === "solid"
+                  }
+                  onChange={(event) => {
+                    const color = event.currentTarget.value;
+                    const background = slide.localStyle?.slide?.background;
+                    if (background?.type === "linearGradient") {
+                      onUpdateLocalStyle({
+                        slide: { background: { ...background, to: color } },
+                      });
+                    } else if (background?.type === "radialGradient") {
+                      onUpdateLocalStyle({
+                        slide: { background: { ...background, outer: color } },
+                      });
+                    }
+                  }}
+                  className={`h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface disabled:opacity-40 ${FOCUS_RING}`}
+                />
+              </label>
+            </div>
+          )}
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Accent override
+            <input
+              type="color"
+              value={slideAccentColor(slide)}
+              onChange={(event) =>
+                onUpdateLocalStyle({
+                  slide: { accent: event.currentTarget.value },
+                })
+              }
+              className={`h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
+            />
+          </label>
+        </div>
         <button
           type="button"
           onClick={onResetLocalStyle}

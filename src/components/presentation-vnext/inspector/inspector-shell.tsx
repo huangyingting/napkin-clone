@@ -36,6 +36,11 @@ import {
 
 import { Tabs } from "@/components/ui/tabs";
 import { cx } from "@/components/ui/tokens";
+import type {
+  SelectionAlignMode,
+  SelectionDistributeMode,
+  SelectionMatchSizeMode,
+} from "../toolbar/context-toolbar";
 
 import {
   SlideControlsPanel,
@@ -62,10 +67,7 @@ function PanelSection({
   className?: string;
 }) {
   return (
-    <div
-      role="tabpanel"
-      className={cx("min-h-0 flex-1 overflow-y-auto", className)}
-    >
+    <div className={cx("min-h-0 flex-1 overflow-y-auto", className)}>
       {children}
     </div>
   );
@@ -129,6 +131,584 @@ function DecorationPanel({ onDetach }: { onDetach: () => void }) {
   );
 }
 
+function ActionButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function MultiArrangePanel({
+  selectedCount,
+  onAlignSelection,
+  onDistributeSelection,
+  onMatchSize,
+  onGroupSelection,
+  onUngroupSelection,
+  onReorderSelection,
+}: {
+  selectedCount: number;
+  onAlignSelection: (mode: SelectionAlignMode) => void;
+  onDistributeSelection: (mode: SelectionDistributeMode) => void;
+  onMatchSize: (mode: SelectionMatchSizeMode) => void;
+  onGroupSelection: () => void;
+  onUngroupSelection: () => void;
+  onReorderSelection: (kind: "forward" | "backward" | "front" | "back") => void;
+}) {
+  return (
+    <PanelSection>
+      <section className="flex flex-col gap-3 px-3 py-2.5">
+        <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          Arrange {selectedCount} nodes
+        </h4>
+        <div className="grid grid-cols-3 gap-1.5">
+          <ActionButton onClick={() => onAlignSelection("left")}>
+            Left
+          </ActionButton>
+          <ActionButton onClick={() => onAlignSelection("center")}>
+            Center
+          </ActionButton>
+          <ActionButton onClick={() => onAlignSelection("right")}>
+            Right
+          </ActionButton>
+          <ActionButton onClick={() => onAlignSelection("top")}>
+            Top
+          </ActionButton>
+          <ActionButton onClick={() => onAlignSelection("middle")}>
+            Middle
+          </ActionButton>
+          <ActionButton onClick={() => onAlignSelection("bottom")}>
+            Bottom
+          </ActionButton>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <ActionButton
+            disabled={selectedCount < 3}
+            onClick={() => onDistributeSelection("horizontal")}
+          >
+            Distribute H
+          </ActionButton>
+          <ActionButton
+            disabled={selectedCount < 3}
+            onClick={() => onDistributeSelection("vertical")}
+          >
+            Distribute V
+          </ActionButton>
+          <ActionButton onClick={() => onMatchSize("width")}>
+            Match width
+          </ActionButton>
+          <ActionButton onClick={() => onMatchSize("height")}>
+            Match height
+          </ActionButton>
+          <ActionButton onClick={() => onMatchSize("both")}>
+            Match both
+          </ActionButton>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <ActionButton onClick={onGroupSelection}>Group</ActionButton>
+          <ActionButton onClick={onUngroupSelection}>Ungroup</ActionButton>
+          <ActionButton onClick={() => onReorderSelection("front")}>
+            Front
+          </ActionButton>
+          <ActionButton onClick={() => onReorderSelection("back")}>
+            Back
+          </ActionButton>
+          <ActionButton onClick={() => onReorderSelection("forward")}>
+            Forward
+          </ActionButton>
+          <ActionButton onClick={() => onReorderSelection("backward")}>
+            Backward
+          </ActionButton>
+        </div>
+      </section>
+    </PanelSection>
+  );
+}
+
+function RangeField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  display,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  display?: (value: number) => string;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+      <span className="flex items-center justify-between gap-2">
+        <span>{label}</span>
+        <span className="font-mono text-[11px] text-ds-text-muted">
+          {display ? display(value) : value}
+        </span>
+      </span>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+      />
+    </label>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+      {label}
+      <input
+        type="number"
+        value={Number.isFinite(value) ? value : 0}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        className="rounded-[var(--ds-radius-md,8px)] border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none focus:border-ds-accent focus:ring-2 focus:ring-ds-focus-ring/20"
+      />
+    </label>
+  );
+}
+
+function AdjustPanel({
+  node,
+  onUpdateContent,
+  onUpdateLocalStyle,
+}: {
+  node: SlideChildNode;
+  onUpdateContent: (patch: Record<string, unknown>) => void;
+  onUpdateLocalStyle: (patch: StylePatch) => void;
+}) {
+  if (node.type !== "image") {
+    return (
+      <PanelSection>
+        <div className="p-3 text-xs text-ds-text-muted">
+          Image adjustment controls are available for image nodes.
+        </div>
+      </PanelSection>
+    );
+  }
+
+  const crop = node.content.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
+  const opacity = node.localStyle?.opacity ?? 1;
+  const brightness = node.localStyle?.image?.brightness ?? 1;
+  const contrast = node.localStyle?.image?.contrast ?? 1;
+  const saturation = node.localStyle?.image?.saturation ?? 1;
+  const blur =
+    node.localStyle?.effect?.kind === "blur"
+      ? (node.localStyle.effect.radiusPt ?? 0)
+      : 0;
+
+  return (
+    <PanelSection>
+      <section className="flex flex-col gap-3 px-3 py-2.5">
+        <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          Image Adjust
+        </h4>
+        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+          Fit mode
+          <select
+            value={node.content.fit ?? "cover"}
+            onChange={(event) =>
+              onUpdateContent({ fit: event.currentTarget.value })
+            }
+            className="rounded-[var(--ds-radius-md,8px)] border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary"
+          >
+            {(["contain", "cover", "fill", "none"] as const).map((fit) => (
+              <option key={fit} value={fit}>
+                {fit}
+              </option>
+            ))}
+          </select>
+        </label>
+        <RangeField
+          label="Opacity"
+          value={opacity}
+          min={0}
+          max={1}
+          step={0.05}
+          display={(value) => `${Math.round(value * 100)}%`}
+          onChange={(value) => onUpdateLocalStyle({ opacity: value })}
+        />
+        <RangeField
+          label="Brightness"
+          value={brightness}
+          min={0}
+          max={2}
+          step={0.05}
+          display={(value) => `${Math.round(value * 100)}%`}
+          onChange={(value) =>
+            onUpdateLocalStyle({ image: { brightness: value } })
+          }
+        />
+        <RangeField
+          label="Contrast"
+          value={contrast}
+          min={0}
+          max={2}
+          step={0.05}
+          display={(value) => `${Math.round(value * 100)}%`}
+          onChange={(value) =>
+            onUpdateLocalStyle({ image: { contrast: value } })
+          }
+        />
+        <RangeField
+          label="Saturation"
+          value={saturation}
+          min={0}
+          max={2}
+          step={0.05}
+          display={(value) => `${Math.round(value * 100)}%`}
+          onChange={(value) =>
+            onUpdateLocalStyle({ image: { saturation: value } })
+          }
+        />
+        <RangeField
+          label="Blur"
+          value={blur}
+          min={0}
+          max={32}
+          step={1}
+          display={(value) => `${value} pt`}
+          onChange={(value) =>
+            onUpdateLocalStyle({
+              effect:
+                value === 0
+                  ? { kind: "none" }
+                  : { kind: "blur", radiusPt: value },
+            })
+          }
+        />
+        <div className="grid grid-cols-2 gap-2">
+          {(["top", "right", "bottom", "left"] as const).map((side) => (
+            <NumberField
+              key={side}
+              label={`Crop ${side}`}
+              value={crop[side]}
+              min={0}
+              max={100}
+              onChange={(value) =>
+                onUpdateContent({ crop: { ...crop, [side]: value } })
+              }
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            onUpdateContent({
+              crop: { top: 0, right: 0, bottom: 0, left: 0 },
+            })
+          }
+          className="self-start rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
+        >
+          Reset crop
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onUpdateLocalStyle({
+              opacity: 1,
+              image: { brightness: 1, contrast: 1, saturation: 1 },
+              effect: { kind: "none" },
+            })
+          }
+          className="self-start rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
+        >
+          Reset adjustments
+        </button>
+      </section>
+    </PanelSection>
+  );
+}
+
+function EffectsPanel({
+  node,
+  onUpdateLocalStyle,
+  onResetToTheme,
+}: {
+  node: SlideChildNode | undefined;
+  onUpdateLocalStyle: (patch: StylePatch) => void;
+  onResetToTheme: () => void;
+}) {
+  const opacity = node?.localStyle?.opacity ?? 1;
+  const shadow = node?.localStyle?.shadow;
+  const effect = node?.localStyle?.effect ?? { kind: "none" as const };
+  const blendMode = node?.localStyle?.blendMode ?? "normal";
+  const shadowEnabled = shadow === undefined || shadow.opacity !== 0;
+
+  return (
+    <PanelSection>
+      <section className="flex flex-col gap-3 px-3 py-2.5">
+        <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          Effects
+        </h4>
+        <RangeField
+          label="Opacity"
+          value={opacity}
+          min={0}
+          max={1}
+          step={0.05}
+          display={(value) => `${Math.round(value * 100)}%`}
+          onChange={(value) => onUpdateLocalStyle({ opacity: value })}
+        />
+        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+          Effect
+          <select
+            value={effect.kind}
+            onChange={(event) => {
+              const kind = event.currentTarget.value;
+              if (kind === "blur") {
+                onUpdateLocalStyle({ effect: { kind: "blur", radiusPt: 12 } });
+              } else if (kind === "glow") {
+                onUpdateLocalStyle({
+                  effect: {
+                    kind: "glow",
+                    color: "#4f46e5",
+                    blurPt: 14,
+                    opacity: 0.35,
+                  },
+                });
+              } else if (kind === "glass") {
+                onUpdateLocalStyle({
+                  effect: { kind: "glass", intensity: "medium" },
+                });
+              } else {
+                onUpdateLocalStyle({ effect: { kind: "none" } });
+              }
+            }}
+            className="rounded-[var(--ds-radius-md,8px)] border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary"
+          >
+            <option value="none">None</option>
+            <option value="blur">Blur</option>
+            <option value="glow">Glow</option>
+            <option value="glass">Glass</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+          Blend mode
+          <select
+            value={blendMode}
+            onChange={(event) =>
+              onUpdateLocalStyle({
+                blendMode: event.currentTarget.value as
+                  | "normal"
+                  | "multiply"
+                  | "screen"
+                  | "overlay"
+                  | "darken"
+                  | "lighten",
+              })
+            }
+            className="rounded-[var(--ds-radius-md,8px)] border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary"
+          >
+            <option value="normal">Normal</option>
+            <option value="multiply">Multiply</option>
+            <option value="screen">Screen</option>
+            <option value="overlay">Overlay</option>
+            <option value="darken">Darken</option>
+            <option value="lighten">Lighten</option>
+          </select>
+        </label>
+        {effect.kind === "blur" ? (
+          <RangeField
+            label="Blur radius"
+            value={effect.radiusPt ?? 12}
+            min={0}
+            max={48}
+            step={1}
+            display={(value) => `${value} pt`}
+            onChange={(value) =>
+              onUpdateLocalStyle({ effect: { kind: "blur", radiusPt: value } })
+            }
+          />
+        ) : null}
+        {effect.kind === "glow" ? (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Glow color
+              <input
+                type="color"
+                value={
+                  typeof effect.color === "string" ? effect.color : "#4f46e5"
+                }
+                onChange={(event) =>
+                  onUpdateLocalStyle({
+                    effect: { ...effect, color: event.currentTarget.value },
+                  })
+                }
+                className="h-8 rounded-[var(--ds-radius-md,8px)] border border-ds-border-subtle bg-ds-surface"
+              />
+            </label>
+            <NumberField
+              label="Glow blur"
+              value={effect.blurPt ?? 14}
+              min={0}
+              max={64}
+              onChange={(value) =>
+                onUpdateLocalStyle({ effect: { ...effect, blurPt: value } })
+              }
+            />
+          </div>
+        ) : null}
+        <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+          <input
+            type="checkbox"
+            checked={shadowEnabled}
+            onChange={(event) =>
+              onUpdateLocalStyle({
+                shadow: event.currentTarget.checked
+                  ? {
+                      xPt: shadow?.xPt ?? 0,
+                      yPt: shadow?.yPt ?? 8,
+                      blurPt: shadow?.blurPt ?? 18,
+                      color:
+                        typeof shadow?.color === "string"
+                          ? shadow.color
+                          : "#000000",
+                      opacity: shadow?.opacity ?? 0.18,
+                    }
+                  : {
+                      xPt: 0,
+                      yPt: 0,
+                      blurPt: 0,
+                      color: "#000000",
+                      opacity: 0,
+                    },
+              })
+            }
+          />
+          Shadow
+        </label>
+        {shadowEnabled ? (
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="X offset"
+              value={shadow?.xPt ?? 0}
+              onChange={(value) =>
+                onUpdateLocalStyle({
+                  shadow: {
+                    xPt: value,
+                    yPt: shadow?.yPt ?? 8,
+                    blurPt: shadow?.blurPt ?? 18,
+                    color:
+                      typeof shadow?.color === "string"
+                        ? shadow.color
+                        : "#000000",
+                    opacity: shadow?.opacity ?? 0.18,
+                  },
+                })
+              }
+            />
+            <NumberField
+              label="Y offset"
+              value={shadow?.yPt ?? 8}
+              onChange={(value) =>
+                onUpdateLocalStyle({
+                  shadow: {
+                    xPt: shadow?.xPt ?? 0,
+                    yPt: value,
+                    blurPt: shadow?.blurPt ?? 18,
+                    color:
+                      typeof shadow?.color === "string"
+                        ? shadow.color
+                        : "#000000",
+                    opacity: shadow?.opacity ?? 0.18,
+                  },
+                })
+              }
+            />
+            <NumberField
+              label="Blur"
+              value={shadow?.blurPt ?? 18}
+              min={0}
+              onChange={(value) =>
+                onUpdateLocalStyle({
+                  shadow: {
+                    xPt: shadow?.xPt ?? 0,
+                    yPt: shadow?.yPt ?? 8,
+                    blurPt: value,
+                    color:
+                      typeof shadow?.color === "string"
+                        ? shadow.color
+                        : "#000000",
+                    opacity: shadow?.opacity ?? 0.18,
+                  },
+                })
+              }
+            />
+            <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Color
+              <input
+                type="color"
+                value={
+                  typeof shadow?.color === "string" ? shadow.color : "#000000"
+                }
+                onChange={(event) =>
+                  onUpdateLocalStyle({
+                    shadow: {
+                      xPt: shadow?.xPt ?? 0,
+                      yPt: shadow?.yPt ?? 8,
+                      blurPt: shadow?.blurPt ?? 18,
+                      color: event.currentTarget.value,
+                      opacity: shadow?.opacity ?? 0.18,
+                    },
+                  })
+                }
+                className="h-8 rounded-[var(--ds-radius-md,8px)] border border-ds-border-subtle bg-ds-surface"
+              />
+            </label>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={onResetToTheme}
+          className="self-start rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
+        >
+          Reset to theme
+        </button>
+      </section>
+    </PanelSection>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Arrangement panel (stub — wraps NodeGeometryPanel)
 // ---------------------------------------------------------------------------
@@ -161,9 +741,18 @@ export interface InspectorShellProps {
   }) => void;
   onUpdateSelectedContent: (patch: Record<string, unknown>) => void;
   onUpdateSelectedLocalStyle: (patch: StylePatch) => void;
+  assetResolver?: (assetId: string) => string | undefined;
+  onReplaceImage?: () => void;
   onResetToTheme: () => void;
   onUpdateSelectedSource: (source: NodeSourceMetadata | undefined) => void;
+  onRefreshSelectedSource?: () => void;
   onChangeStyleBinding: (binding: StyleBinding) => void;
+  onAlignSelection: (mode: SelectionAlignMode) => void;
+  onDistributeSelection: (mode: SelectionDistributeMode) => void;
+  onMatchSize: (mode: SelectionMatchSizeMode) => void;
+  onGroupSelection: () => void;
+  onUngroupSelection: () => void;
+  onReorderSelection: (kind: "forward" | "backward" | "front" | "back") => void;
 
   // Layers
   onSelectLayer: (nodeId: string) => void;
@@ -171,6 +760,7 @@ export interface InspectorShellProps {
     nodeId: string,
     patch: { locked?: boolean; hidden?: boolean },
   ) => void;
+  onReorderLayer: (nodeId: string, targetIndex: number) => void;
 
   // Decoration
   onDetachDecoration: () => void;
@@ -208,11 +798,21 @@ export function InspectorShell({
   onUpdateSelectedAttributes,
   onUpdateSelectedContent,
   onUpdateSelectedLocalStyle,
+  assetResolver,
+  onReplaceImage,
   onResetToTheme,
   onUpdateSelectedSource,
+  onRefreshSelectedSource,
   onChangeStyleBinding,
+  onAlignSelection,
+  onDistributeSelection,
+  onMatchSize,
+  onGroupSelection,
+  onUngroupSelection,
+  onReorderSelection,
   onSelectLayer,
   onUpdateLayer,
+  onReorderLayer,
   onDetachDecoration,
   onDiagnosticAction,
   TEMPLATE_OPTIONS,
@@ -248,6 +848,9 @@ export function InspectorShell({
     value: p.id as string,
     label: p.label,
   }));
+  const inspectorTabId = (panelId: string) => `vnext-inspector-tab-${panelId}`;
+  const inspectorPanelId = (panelId: string) =>
+    `vnext-inspector-panel-${panelId}`;
 
   // Identity label above the tab strip
   let identityLabel = "Inspector";
@@ -295,11 +898,18 @@ export function InspectorShell({
           onChange={(v) => setActivePanel(v as InspectorPanelId)}
           aria-label="Inspector panels"
           size="sm"
+          getTabId={inspectorTabId}
+          getPanelId={inspectorPanelId}
         />
       )}
 
       {/* Panel content */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        id={inspectorPanelId(effectivePanel)}
+        role="tabpanel"
+        aria-labelledby={inspectorTabId(effectivePanel)}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
         {/* Slide panel */}
         {effectivePanel === "slide" && activeSlide && (
           <PanelSection>
@@ -410,21 +1020,42 @@ export function InspectorShell({
               <NodeContentPanel
                 node={selectedNode}
                 onUpdateContent={onUpdateSelectedContent}
+                assetResolver={assetResolver}
+                onReplaceImage={
+                  selectedNode.type === "image" ? onReplaceImage : undefined
+                }
+              />
+              <LocalStylePanel
+                node={selectedNode}
+                onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>
           )}
 
-        {/* Adjust panel (image opacity/crop stubs) */}
+        {/* Adjust panel */}
         {effectivePanel === "adjust" && selectedNode && (
-          <PanelSection>
-            <div className="p-3 text-xs text-ds-text-muted">
-              Adjust controls coming soon.
-            </div>
-          </PanelSection>
+          <AdjustPanel
+            node={selectedNode}
+            onUpdateContent={onUpdateSelectedContent}
+            onUpdateLocalStyle={onUpdateSelectedLocalStyle}
+          />
         )}
 
         {/* Arrange panel */}
+        {effectivePanel === "arrange" && multiSelect && (
+          <MultiArrangePanel
+            selectedCount={selectedIds.length}
+            onAlignSelection={onAlignSelection}
+            onDistributeSelection={onDistributeSelection}
+            onMatchSize={onMatchSize}
+            onGroupSelection={onGroupSelection}
+            onUngroupSelection={onUngroupSelection}
+            onReorderSelection={onReorderSelection}
+          />
+        )}
+
         {effectivePanel === "arrange" &&
+          !multiSelect &&
           selectedNode &&
           !isDecorationSelected && (
             <PanelSection>
@@ -446,13 +1077,13 @@ export function InspectorShell({
             </PanelSection>
           )}
 
-        {/* Effects panel (stub) */}
+        {/* Effects panel */}
         {effectivePanel === "effects" && (
-          <PanelSection>
-            <div className="p-3 text-xs text-ds-text-muted">
-              Effects controls coming soon.
-            </div>
-          </PanelSection>
+          <EffectsPanel
+            node={selectedNode}
+            onUpdateLocalStyle={onUpdateSelectedLocalStyle}
+            onResetToTheme={onResetToTheme}
+          />
         )}
 
         {/* Source panel */}
@@ -463,6 +1094,7 @@ export function InspectorShell({
               <NodeSourcePanel
                 node={selectedNode}
                 onUpdateSource={onUpdateSelectedSource}
+                onRefreshSource={onRefreshSelectedSource}
               />
             </PanelSection>
           )}
@@ -492,6 +1124,7 @@ export function InspectorShell({
               selectedIds={selectedIds}
               onSelectNode={onSelectLayer}
               onUpdateNode={onUpdateLayer}
+              onReorderNode={onReorderLayer}
             />
           </PanelSection>
         )}

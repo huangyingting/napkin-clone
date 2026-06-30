@@ -7,7 +7,7 @@
  * component is purely presentational.
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { LayoutPanelLeft } from "lucide-react";
@@ -16,7 +16,9 @@ import { ConflictRecoveryDialogV7 } from "@/components/presentation-vnext/confli
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
 import { SlideEditorVNext } from "@/components/presentation-vnext/slide-editor-vnext";
 import { DeckGenerationPreviewVNext } from "@/components/presentation-vnext/deck-generation-preview-vnext";
-import type { DeckActionPort } from "@/lib/action-ports";
+import { collectDocumentBlocks } from "@/lib/content/document-blocks";
+import type { DocumentBlock } from "@/lib/content/document-blocks";
+import type { DeckActionPort, SlideAssetActionPort } from "@/lib/action-ports";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
 import {
@@ -24,6 +26,7 @@ import {
   resolveThemePackageForDeck,
   type PresentationDiagnostic,
 } from "@/lib/presentation-vnext";
+import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import { downloadBlob } from "@/lib/visual/export";
 
 function SlideEditorOpenRecovery({
@@ -101,10 +104,65 @@ function SlideEditorOverlay({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SlideVisualPickerOverlay({
+  options,
+  onPick,
+  onCancel,
+}: {
+  options: Extract<DocumentBlock, { kind: "visual" }>[];
+  onPick: (visualId: string) => void;
+  onCancel: () => void;
+}) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/35 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Choose visual"
+        className="w-full max-w-md rounded-ds-md border border-ds-border-subtle bg-ds-surface p-4 shadow-ds-overlay"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-ds-text-primary">
+            Replace visual
+          </h3>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover"
+          >
+            Cancel
+          </button>
+        </div>
+        <div className="mt-3 flex max-h-80 flex-col gap-1 overflow-auto">
+          {options.length > 0 ? (
+            options.map((option) => (
+              <button
+                key={option.visualId}
+                type="button"
+                onClick={() => onPick(option.visualId)}
+                className="rounded-ds-sm border border-ds-border-subtle px-3 py-2 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              >
+                <span className="font-mono">{option.visualId}</span>
+              </button>
+            ))
+          ) : (
+            <p className="text-xs text-ds-text-muted">
+              No document visuals are available to choose from.
+            </p>
+          )}
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 interface SlideEditorButtonProps {
   documentId: string;
   initialDeckJson: unknown;
   deckPort: DeckActionPort;
+  slideAssetPort?: SlideAssetActionPort;
   /**
    * The DB-persisted serialised Lexical state the editor seeds from. Used as a
    * non-empty fallback for AI generation when the live editor state has not
@@ -120,6 +178,7 @@ export function SlideEditorButton({
   documentId,
   initialDeckJson,
   deckPort,
+  slideAssetPort,
   initialContentJson = null,
   onOpenRightSurface,
   onCloseRightSurface,
@@ -171,6 +230,18 @@ export function SlideEditorButton({
     ...deckOpenDiagnosticsV7,
     ...(themeResolution?.diagnostics ?? []),
   ];
+  const visualBlocks = useMemo(
+    () =>
+      collectDocumentBlocks(initialContentJson).filter(
+        (block): block is Extract<DocumentBlock, { kind: "visual" }> =>
+          block.kind === "visual",
+      ),
+    [initialContentJson],
+  );
+  const [visualPickerOpen, setVisualPickerOpen] = useState(false);
+  const visualPickerResolverRef = useRef<
+    ((value: { visualId?: string } | undefined) => void) | null
+  >(null);
 
   const handleExportV7Pptx = useCallback(async () => {
     if (!deckV7) return;
@@ -181,6 +252,103 @@ export function SlideEditorButton({
     if (!blob) throw new Error("PPTX export returned empty result");
     downloadBlob(blob, "presentation.pptx");
   }, [deckV7, themeResolution]);
+
+  const handleUploadV7Image = useCallback(
+    async (file: File) => {
+      if (!slideAssetPort) {
+        throw new Error("Slide asset upload is not configured.");
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await slideAssetPort.uploadSlideAsset(
+        documentId,
+        formData,
+      );
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
+      return {
+        src: result.data.url,
+        assetId: result.data.assetId,
+      };
+    },
+    [documentId, slideAssetPort],
+  );
+
+  const handleRefreshV7Source = useCallback(
+    async ({
+      node,
+      source,
+    }: Parameters<
+      NonNullable<Parameters<typeof SlideEditorVNext>[0]["onRefreshSource"]>
+    >[0]) => {
+      if (!initialContentJson || source.documentId !== documentId)
+        return undefined;
+      const block = collectDocumentBlocks(initialContentJson).find(
+        (candidate) =>
+          "blockId" in candidate && candidate.blockId === source.blockId,
+      );
+      if (!block) return undefined;
+      const refreshedSource = {
+        ...source,
+        contentHash: hashDocumentBlock(block),
+        linkedAt: new Date().toISOString(),
+        unlinked: false,
+      };
+
+      if (block.kind === "visual" && node.type === "visual") {
+        return {
+          contentPatch: { visualId: block.visualId },
+          source: { ...refreshedSource, blockKind: "visual" as const },
+        };
+      }
+      if (block.kind === "table" && node.type === "table") {
+        return {
+          contentPatch: {
+            columns: block.columns,
+            rows: block.rows,
+            ...(block.caption ? { caption: block.caption } : {}),
+          },
+          source: { ...refreshedSource, blockKind: "table" as const },
+        };
+      }
+      if (block.kind === "text") {
+        const paragraph = {
+          id: `${node.id}-source-p-1`,
+          text: block.text,
+          ...(block.runs && block.runs.length > 0 ? { runs: block.runs } : {}),
+        };
+        if (node.type === "text") {
+          return {
+            contentPatch: { paragraphs: [paragraph] },
+            source: { ...refreshedSource, blockKind: "text" as const },
+          };
+        }
+        if (node.type === "shape") {
+          return {
+            contentPatch: { text: { paragraphs: [paragraph] } },
+            source: { ...refreshedSource, blockKind: "text" as const },
+          };
+        }
+      }
+      return { source: refreshedSource };
+    },
+    [documentId, initialContentJson],
+  );
+
+  const handlePickV7Visual = useCallback(async () => {
+    if (visualBlocks.length === 0) return undefined;
+    return await new Promise<{ visualId?: string } | undefined>((resolve) => {
+      visualPickerResolverRef.current = resolve;
+      setVisualPickerOpen(true);
+    });
+  }, [visualBlocks.length]);
+
+  function resolveVisualPicker(value: { visualId?: string } | undefined) {
+    visualPickerResolverRef.current?.(value);
+    visualPickerResolverRef.current = null;
+    setVisualPickerOpen(false);
+  }
 
   return (
     <>
@@ -232,6 +400,9 @@ export function SlideEditorButton({
             onUndo={handleUndoV7}
             onRedo={handleRedoV7}
             onDeckChange={handleDeckV7Change}
+            onUploadImage={slideAssetPort ? handleUploadV7Image : undefined}
+            onPickVisual={handlePickV7Visual}
+            onRefreshSource={handleRefreshV7Source}
             onSave={handleSaveV7}
             onClose={handleClose}
             onExportPptx={handleExportV7Pptx}
@@ -258,6 +429,14 @@ export function SlideEditorButton({
           onKeepMine={handleConflictKeepMineV7}
           onUseTheirs={handleConflictUseTheirsV7}
           onDismiss={handleConflictDismissV7}
+        />
+      ) : null}
+
+      {visualPickerOpen ? (
+        <SlideVisualPickerOverlay
+          options={visualBlocks}
+          onPick={(visualId) => resolveVisualPicker({ visualId })}
+          onCancel={() => resolveVisualPicker(undefined)}
         />
       ) : null}
     </>

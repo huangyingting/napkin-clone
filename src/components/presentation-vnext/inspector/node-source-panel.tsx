@@ -11,6 +11,7 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 export interface NodeSourcePanelProps {
   node: SlideChildNode;
   onUpdateSource: (source: NodeSourceMetadata | undefined) => void;
+  onRefreshSource?: () => void;
 }
 
 const BLOCK_KIND_OPTIONS: NonNullable<NodeSourceMetadata["blockKind"]>[] = [
@@ -23,8 +24,17 @@ const BLOCK_KIND_OPTIONS: NonNullable<NodeSourceMetadata["blockKind"]>[] = [
 export function NodeSourcePanel({
   node,
   onUpdateSource,
+  onRefreshSource,
 }: NodeSourcePanelProps): JSX.Element {
   const source = node.source;
+  const hasLink = Boolean(source?.documentId || source?.blockId);
+  const status = !source
+    ? "Standalone"
+    : source.unlinked
+      ? "Unlinked"
+      : hasLink
+        ? "Linked"
+        : "Draft link";
 
   function updateSource(patch: Partial<NodeSourceMetadata>) {
     onUpdateSource({
@@ -43,6 +53,19 @@ export function NodeSourcePanel({
       <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
         Source
       </h4>
+      <div className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 text-xs text-ds-text-secondary">
+        <div className="font-medium text-ds-text-primary">{status}</div>
+        {source?.linkedAt ? (
+          <div className="mt-0.5 font-mono text-[11px] text-ds-text-muted">
+            Linked {source.linkedAt}
+          </div>
+        ) : null}
+        {source?.contentHash ? (
+          <div className="mt-0.5 truncate font-mono text-[11px] text-ds-text-muted">
+            Hash {source.contentHash}
+          </div>
+        ) : null}
+      </div>
       <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
         Document id
         <input
@@ -94,6 +117,50 @@ export function NodeSourcePanel({
         />
         Unlinked
       </label>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          disabled={!source}
+          onClick={() =>
+            updateSource({
+              linkedAt: new Date().toISOString(),
+              unlinked: false,
+            })
+          }
+          className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+        >
+          Mark updated
+        </button>
+        <button
+          type="button"
+          disabled={!source || onRefreshSource === undefined}
+          onClick={onRefreshSource}
+          className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+        >
+          Update from document
+        </button>
+        <button
+          type="button"
+          disabled={!source || source.unlinked === true}
+          onClick={() => updateSource({ unlinked: true })}
+          className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+        >
+          Unlink
+        </button>
+        <button
+          type="button"
+          disabled={!source || source.unlinked !== true}
+          onClick={() =>
+            updateSource({
+              linkedAt: new Date().toISOString(),
+              unlinked: false,
+            })
+          }
+          className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+        >
+          Relink
+        </button>
+      </div>
       {source ? (
         <button
           type="button"

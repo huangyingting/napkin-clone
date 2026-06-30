@@ -876,6 +876,151 @@ Extend `e2e/slides-smoke.spec.ts`:
 
 ---
 
+## Current Implementation Gap Audit
+
+**Audit date:** 2026-06-30  
+**Scope:** Current `v7-ui` implementation compared against this document, with
+special focus on the middle slide editing surface: stage interaction, inline
+editing, context toolbar behavior, canvas keyboard access, and editing flows.
+
+The current implementation has the main v7 editing skeleton in place and several
+stage-editing gaps have now been closed: focusable stage nodes, hover/focus
+visuals, locked-state visuals, multi-selection bounds, richer inline text
+commands, image insert/replace, connector endpoint resolution, targeted table
+operations, source metadata actions, and toolbar/inspector accessibility
+improvements. The remaining gaps below should be treated as implementation work,
+not changes to the target design.
+
+### Stage Interaction Gaps
+
+| Capability from spec          | Current implementation state                                                               | Gap                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Hover pre-select ring         | Implemented with hovered node tracking and stage node hover outlines                       | Add visual regression coverage                                                                    |
+| Single selection visual state | Selected nodes render rings and resize handles; locked nodes render dashed/grey affordance | Tune final token names against the accepted design system                                         |
+| Multi-selection bbox          | Implemented as a combined multi-selection bounding box                                     | Add component/integration coverage                                                                |
+| Drag state                    | Pointer drag updates frames, shows guides, and suppresses toolbar immediately              | Add final move announcements with richer remaining-context copy                                   |
+| Resize state                  | Pointer handles resize selected node frames; active handle is highlighted                  | Add component coverage for active-handle state                                                    |
+| Marquee state                 | A marquee rectangle is rendered while dragging on empty canvas                             | Confirm styling against the dashed-rect target and add focused tests for selecting multiple nodes |
+| Locked state                  | Locked nodes are skipped by move/resize and show disabled/dashed affordances               | Add keyboard tests for locked-node nudge/resize behavior                                          |
+| Hidden state                  | Hidden nodes are excluded from the render tree and remain manageable through layers mode   | Add tests for hide action focus restoration                                                       |
+| Stage node focus              | Stage nodes render with role/name/tabIndex and mutation focus restoration                  | Add roving-focus integration tests                                                                |
+
+Relevant files:
+
+- `src/components/presentation-vnext/slide-editor-vnext.tsx`
+- `src/components/presentation-vnext/slide-canvas.tsx`
+- `src/components/presentation-vnext/slide-node-renderer.tsx`
+- `src/components/presentation-vnext/selection-model.ts`
+
+### Inline Text Editing Gaps
+
+| Capability from spec | Current implementation state                                                     | Gap                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Double-click entry   | `onNodeDoubleClick`, `inlineEditNodeId`, and `hiddenNodeIds` are wired           | Entry path exists; add tests covering text and shape text entry                                                |
+| Font parity          | Inline editor uses shared `resolveNodeFontCss` mapping for resolved text styles  | Extend helper to consume theme-package font tokens directly if future render styles stop carrying concrete CSS |
+| Rich text runs       | Commit serialization stores basic runs; format commands use Range-based DOM ops  | Add full selection-aware run mutation tests and nested-list/link-edit coverage                                 |
+| Format commands      | Toolbar dispatches custom DOM events handled by local Range/Selection operations | Extract command helpers into a tested pure-ish DOM command module if complexity grows                          |
+| Lists and links      | Basic list/link commands and serialization exist                                 | Add link edit/removal, nested/indented list handling, and tests                                                |
+| Escape behavior      | Empty text cancels; non-empty text commits                                       | Reconfirm desired Escape semantics and align implementation with the final interaction contract                |
+| Auto-height          | `layout.autoHeight` exists and commit can update height                          | Add visual tests for growth, clamping, and shape text behavior                                                 |
+| Tab navigation       | Inline Tab/Shift+Tab moves between inline-editable nodes                         | Add reading-order tests and focus/caret restoration expectations                                               |
+
+Relevant files:
+
+- `src/components/presentation-vnext/inline-text-editor.tsx`
+- `src/lib/presentation-vnext/inline-text-commands.ts`
+- `src/lib/presentation-vnext/rich-text.ts`
+- `src/components/presentation-vnext/slide-editor-vnext.tsx`
+
+### Context Toolbar Gaps
+
+| Capability from spec     | Current implementation state                                                                      | Gap                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Positioning engine       | Toolbar positions from selected node rects and tracks with RAF while visible                      | Add visual/browser coverage during inspector transitions                                               |
+| Design-system primitives | Tooltip, Popover, and ColorPicker are used; some local button/select wrappers remain              | Replace remaining local wrappers with `ToolbarButton`/`ToolbarMenuItem` when extracting toolbar groups |
+| Text group               | Bold/italic/underline/strike/list/align/color/font/link controls exist                            | Add link edit/removal, nested list behavior, and tests                                                 |
+| Image group              | Replace uses a file picker and writes `DeckV7.assets.images`; crop writes and renders crop values | Add interactive crop handles instead of numeric/default crop-only workflow                             |
+| Visual group             | Transparent background, style theme picker, and optional visual replacement port exist            | Add product visual picker implementation at the host layer and final per-channel rendering/export use  |
+| Connector group          | Straight/curved/step, arrowheads, color, width exist and render from endpoints                    | Polish routing/arrow menus into final segmented/menu primitives                                        |
+| Table group              | Add/delete row/column, header toggle, table style, and targeted row/column operations exist       | Add table-cell selection context if dedicated table-cell editing lands                                 |
+| Overflow menu            | `More` overflow includes lock/hide actions                                                        | Expand with duplicate/delete/more arrange actions if toolbar density requires it                       |
+| Keyboard access          | Arrow/Home/End/Escape toolbar key handling exists                                                 | Add focus-restoration tests                                                                            |
+
+Relevant files:
+
+- `src/components/presentation-vnext/toolbar/context-toolbar.tsx`
+- `src/components/presentation-vnext/slide-editor-vnext.tsx`
+
+### Canvas Keyboard And Accessibility Gaps
+
+| Capability from spec     | Current implementation state                                                             | Gap                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Roving tabindex          | Stage nodes render with role/name/tabIndex and editor Tab moves focus/selection          | Add integration tests for focus cycling                                    |
+| Arrow nudge              | Arrow and Shift+Arrow move selected nodes                                                | Add focused tests and ensure locked/hidden behavior is consistent          |
+| Alt+Arrow resize         | Alt+Arrow and Alt+Shift+Arrow resize selected nodes                                      | Add tests and ensure aspect-lock/min-size behavior matches legacy contract |
+| Delete/focus restoration | Delete restores focus to the next sensible stage node or canvas anchor                   | Add integration tests                                                      |
+| Announcements            | A live region announces selection, move, resize, and delete with remaining counts        | Tune final copy and add tests                                              |
+| Toolbar a11y             | Buttons have labels/title/tooltips; toolbar has role and roving key handling             | Add focus-restoration tests                                                |
+| Inspector tabs           | Tab ids and `aria-controls`/`aria-labelledby` are wired through `Tabs` and panel content | Add accessibility tests                                                    |
+
+Relevant files:
+
+- `src/components/presentation-vnext/slide-editor-vnext.tsx`
+- `src/components/presentation-vnext/slide-node-renderer.tsx`
+- `src/components/ui/tabs.tsx`
+- `src/components/presentation-vnext/inspector/inspector-shell.tsx`
+
+### Inspector Editing Gaps
+
+| Capability from spec                      | Current implementation state                                                                                     | Gap                                                                                                |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Text/Shape/Image/Visual/Line/Table panels | Generic content/local-style panels cover many fields                                                             | Split or deepen panel implementations so each panel matches the per-node UX in this spec           |
+| Image panel                               | Asset preview, replace picker, asset id, fit, alt, crop, adjustments exist                                       | Add interactive crop handles and reset behavior tests                                              |
+| Visual panel                              | Visual id, asset id, alt, transparent background, style theme, channel color overrides, and style binding exist  | Add product visual picker implementation at the host layer and document visual insertion flow      |
+| Line panel                                | Routing, endpoint coordinates, node-anchor endpoint binding, and connector style controls exist                  | Polish dash/arrow menus                                                                            |
+| Table panel                               | Column/row labels, cell text, targeted insert/delete, style menu, alternating row controls, header/caption exist | Add table-cell selection context if needed                                                         |
+| Arrange panel                             | Geometry, rotation, flip, aspect lock, z-index, lock/hidden exist                                                | Add fully grouped align/distribute controls for single and multi-select, plus focus/keyboard tests |
+| Source panel                              | Metadata fields, link status, mark updated, unlink, and relink exist                                             | True update-from-document and stale/orphan detection require document-block fetch/hash APIs        |
+| Effects panel                             | Opacity, shadow, blur/glow/glass, and blend mode controls exist                                                  | Ensure export/render parity for every supported effect                                             |
+
+Relevant files:
+
+- `src/components/presentation-vnext/inspector/inspector-shell.tsx`
+- `src/components/presentation-vnext/inspector/node-content-panel.tsx`
+- `src/components/presentation-vnext/inspector/local-style-panel.tsx`
+- `src/components/presentation-vnext/inspector/node-geometry-panel.tsx`
+- `src/components/presentation-vnext/inspector/node-source-panel.tsx`
+
+### Verification Gaps
+
+The verification plan in this document is still mostly ahead of the current
+test coverage. The following tests should be added before treating the stage
+editing migration as complete:
+
+| Missing test                                                             | Purpose                                                                                                 |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `src/components/presentation-vnext/inline-text-editor.test.tsx`          | Commit, cancel, rich runs, lists, links, auto-height, Tab/Shift+Tab traversal                           |
+| `src/components/presentation-vnext/toolbar/context-toolbar.test.tsx`     | Visibility states, inline-edit text-only mode, node-type tool groups, keyboard navigation               |
+| `src/components/presentation-vnext/filmstrip/use-filmstrip-drag.test.ts` | Target index calculation and `moveSlide` calls                                                          |
+| Stage keyboard tests                                                     | Roving focus, nudge, resize, delete focus restoration, announcements                                    |
+| Inspector integration tests                                              | Tab routing, multi-select arrange, image adjust, slide background, source actions                       |
+| `e2e/slides-smoke.spec.ts` extension                                     | Open editor, double-click text edit, change formatting, insert shape/image/table, filmstrip add/reorder |
+| Visual regression screenshots                                            | 1280, 1440, and 1920 px editor layout with toolbar, inspector, and filmstrip visible                    |
+
+### Remaining Blocked Runtime Items
+
+The following target behaviors still need lower-level product/API support before
+they can be implemented honestly in the v7 editor UI:
+
+| Behavior                                | Current blocker                                                                                                                                                                                                                                                             |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Persistent image upload/storage handoff | The editor exposes an optional `onUploadImage(file)` port and falls back to data URLs when absent. The document editor host wires this port to the protected `uploadSlideAsset` server action; other host surfaces should pass an equivalent durable upload implementation. |
+| Visual replacement picker               | The editor exposes an optional `onPickVisual()` port and toolbar action. The document editor host provides a lightweight picker backed by current document visual blocks; richer AI generation/asset browsing can reuse the same port.                                      |
+| Per-channel visual color rendering      | `VisualStyle.channelColors` and inspector controls exist. Visual renderers/exporters still need to interpret those channels for specific visual asset types.                                                                                                                |
+| True source refresh/staleness repair    | The editor exposes an optional `onRefreshSource(...)` port. The document editor host refreshes from its initial document blocks by `blockId`; live editor-state refresh, cross-document fetch, and stale/orphan detection still need host-level data plumbing.              |
+
+---
+
 ## Implementation Blockers
 
 The following issues must be resolved during implementation. They are not

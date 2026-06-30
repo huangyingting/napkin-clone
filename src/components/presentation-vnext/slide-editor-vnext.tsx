@@ -65,6 +65,7 @@ import type { ActionResult } from "@/lib/action-result";
 import type { SaveStatus } from "@/lib/presentation/save-status";
 import type {
   DeckV7,
+  ImageAsset,
   LayoutBox,
   NodeSourceMetadata,
   SemanticTemplateKind,
@@ -124,6 +125,7 @@ import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-pa
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
 import { listThemePackagesV7 } from "@/lib/presentation-vnext/theme-package-registry";
 import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
+import { resolveNodeFontCss } from "@/lib/presentation-vnext/node-font-css";
 import {
   alignmentGuidesForFrames,
   snapFrameToStageGuides,
@@ -146,7 +148,12 @@ import {
   type SelectionState,
 } from "./selection-model";
 import { InspectorShell } from "./inspector";
-import { ContextToolbar } from "./toolbar/context-toolbar";
+import {
+  ContextToolbar,
+  type SelectionAlignMode,
+  type SelectionDistributeMode,
+  type SelectionMatchSizeMode,
+} from "./toolbar/context-toolbar";
 import { Filmstrip } from "./filmstrip/filmstrip";
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
@@ -169,6 +176,27 @@ const TEXT_SLOT_KEYS = new Set<SlotKey>([
   "caption",
 ]);
 
+export type SlideEditorVNextImageUploadResult = {
+  src: string;
+  assetId?: string;
+  alt?: string;
+  widthPx?: number;
+  heightPx?: number;
+  mimeType?: ImageAsset["mimeType"];
+  contentHash?: string;
+};
+
+export type SlideEditorVNextVisualPickResult = {
+  visualId?: string;
+  assetId?: string;
+  alt?: string;
+};
+
+export type SlideEditorVNextSourceRefreshResult = {
+  contentPatch?: Record<string, unknown>;
+  source?: NodeSourceMetadata;
+};
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -188,6 +216,14 @@ export interface SlideEditorVNextProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  onUploadImage?: (file: File) => Promise<SlideEditorVNextImageUploadResult>;
+  onPickVisual?: () => Promise<SlideEditorVNextVisualPickResult | undefined>;
+  onRefreshSource?: (args: {
+    deck: DeckV7;
+    slide: SlideNode;
+    node: SlideChildNode;
+    source: NodeSourceMetadata;
+  }) => Promise<SlideEditorVNextSourceRefreshResult | undefined>;
   /**
    * Called on every structural change. Receives the updated deck with the
    * command result applied. The parent is responsible for persistence.
@@ -238,6 +274,81 @@ function findNodeById(
   return undefined;
 }
 
+function flattenEditorNodes(
+  nodes: readonly SlideChildNode[],
+): SlideChildNode[] {
+  return nodes.flatMap((node) =>
+    node.type === "group"
+      ? [node, ...flattenEditorNodes(node.children)]
+      : [node],
+  );
+}
+
+function nodesInReadingOrder(
+  nodes: readonly SlideChildNode[],
+): SlideChildNode[] {
+  return flattenEditorNodes(nodes)
+    .filter((node) => node.layout !== undefined && node.hidden !== true)
+    .sort((a, b) => {
+      const readingA = a.accessibility?.readingOrder;
+      const readingB = b.accessibility?.readingOrder;
+      if (readingA !== undefined || readingB !== undefined) {
+        return (
+          (readingA ?? Number.MAX_SAFE_INTEGER) -
+          (readingB ?? Number.MAX_SAFE_INTEGER)
+        );
+      }
+      const frameA = a.layout?.frame;
+      const frameB = b.layout?.frame;
+      if (!frameA || !frameB) return 0;
+      return frameA.y === frameB.y ? frameA.x - frameB.x : frameA.y - frameB.y;
+    });
+}
+
+function inlineEditableNodes(
+  nodes: readonly SlideChildNode[],
+): SlideChildNode[] {
+  return nodesInReadingOrder(nodes).filter(
+    (node) => node.type === "text" || node.type === "shape",
+  );
+}
+
+function adjacentNodeId(
+  nodes: readonly SlideChildNode[],
+  currentId: string | undefined,
+  direction: 1 | -1,
+): string | undefined {
+  const ordered = nodesInReadingOrder(nodes);
+  if (ordered.length === 0) return undefined;
+  const currentIndex = currentId
+    ? ordered.findIndex((node) => node.id === currentId)
+    : -1;
+  const nextIndex =
+    currentIndex === -1
+      ? direction === 1
+        ? 0
+        : ordered.length - 1
+      : (currentIndex + direction + ordered.length) % ordered.length;
+  return ordered[nextIndex]?.id;
+}
+
+function adjacentInlineEditableNodeId(
+  nodes: readonly SlideChildNode[],
+  currentId: string,
+  direction: 1 | -1,
+): string | undefined {
+  const ordered = inlineEditableNodes(nodes);
+  if (ordered.length === 0) return undefined;
+  const currentIndex = ordered.findIndex((node) => node.id === currentId);
+  const nextIndex =
+    currentIndex === -1
+      ? direction === 1
+        ? 0
+        : ordered.length - 1
+      : (currentIndex + direction + ordered.length) % ordered.length;
+  return ordered[nextIndex]?.id;
+}
+
 function layoutFramesExcluding(
   nodes: readonly SlideChildNode[],
   excludedIds: ReadonlySet<string>,
@@ -271,10 +382,21 @@ function defaultStyleBindingForNode(node: SlideChildNode): StyleBinding {
   return { ref: "surface.card" };
 }
 
-function canvasFrameStyle(deck: DeckV7): CSSProperties {
+function canvasFrameStyle(deck: DeckV7, zoomPercent: number): CSSProperties {
   const width = deck.canvas.width > 0 ? deck.canvas.width : 16;
   const height = deck.canvas.height > 0 ? deck.canvas.height : 9;
-  return { aspectRatio: `${width} / ${height}` };
+  return {
+    aspectRatio: `${width} / ${height}`,
+    maxWidth: `${1120 * (zoomPercent / 100)}px`,
+    width: "100%",
+  };
+}
+
+function focusStageNode(nodeId: string): void {
+  if (typeof document === "undefined") return;
+  const safeId = nodeId.replace(/"/g, '\\"');
+  const el = document.querySelector<HTMLElement>(`[data-node-id="${safeId}"]`);
+  el?.focus();
 }
 
 function slideDisplayName(slide: SlideNode | undefined, index: number): string {
@@ -353,6 +475,19 @@ function resizeFrame(
   return clampFrame({ x, y, w, h });
 }
 
+function applyAspectLock(
+  original: LayoutBox["frame"],
+  next: LayoutBox["frame"],
+): LayoutBox["frame"] {
+  const aspect = original.w / original.h;
+  if (!Number.isFinite(aspect) || aspect <= 0) return next;
+  const widthDelta = Math.abs(next.w - original.w);
+  const heightDelta = Math.abs(next.h - original.h);
+  return widthDelta >= heightDelta
+    ? clampFrame({ ...next, h: next.w / aspect })
+    : clampFrame({ ...next, w: next.h * aspect });
+}
+
 function canvasRectFromEvent(event: ReactPointerEvent): DOMRect | undefined {
   const target = event.currentTarget;
   if (!(target instanceof HTMLElement)) return undefined;
@@ -386,6 +521,94 @@ function pointPctFromEvent(
 
 function nodeFactoryId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}`;
+}
+
+function cloneNodeForSplit(node: SlideChildNode): SlideChildNode {
+  const nextId = nodeFactoryId(node.type);
+  if (node.type === "group") {
+    return {
+      ...node,
+      id: nextId,
+      children: node.children.map(cloneNodeForSplit),
+    };
+  }
+  if (node.type === "text") {
+    return {
+      ...node,
+      id: nextId,
+      content: {
+        ...node.content,
+        paragraphs: node.content.paragraphs.map((paragraph, index) => ({
+          ...paragraph,
+          id: `${nextId}-p-${index + 1}`,
+        })),
+      },
+    };
+  }
+  if (node.type === "shape" && node.content.text) {
+    return {
+      ...node,
+      id: nextId,
+      content: {
+        ...node.content,
+        text: {
+          ...node.content.text,
+          paragraphs: node.content.text.paragraphs.map((paragraph, index) => ({
+            ...paragraph,
+            id: `${nextId}-p-${index + 1}`,
+          })),
+        },
+      },
+    };
+  }
+  if (node.type === "table") {
+    return {
+      ...node,
+      id: nextId,
+      content: {
+        ...node.content,
+        columns: node.content.columns.map((column, index) => ({
+          ...column,
+          id: `${nextId}-col-${index + 1}`,
+        })),
+        rows: node.content.rows.map((row, index) => ({
+          ...row,
+          id: `${nextId}-row-${index + 1}`,
+        })),
+      },
+    };
+  }
+  return { ...node, id: nextId } as SlideChildNode;
+}
+
+function assetFactoryId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
+
+function imageMimeType(
+  type: string,
+): "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml" | undefined {
+  return type === "image/png" ||
+    type === "image/jpeg" ||
+    type === "image/webp" ||
+    type === "image/svg+xml"
+    ? type
+    : undefined;
+}
+
+function readImageFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = typeof reader.result === "string" ? reader.result : "";
+      src ? resolve(src) : reject(new Error("empty image data"));
+    };
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("image read failed"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function nextZIndex(slide: SlideNode | undefined): number {
@@ -580,6 +803,9 @@ export function SlideEditorVNext({
   canRedo = false,
   onUndo,
   onRedo,
+  onUploadImage,
+  onPickVisual,
+  onRefreshSource,
   onDeckChange,
   onSave,
   onClose,
@@ -602,6 +828,9 @@ export function SlideEditorVNext({
   // Insert dropdown open state
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const insertMenuRef = useRef<HTMLDivElement | null>(null);
+  const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceImageTargetIdRef = useRef<string | null>(null);
+  const insertImagePendingRef = useRef(false);
 
   // Close insert dropdown on click-outside or Escape
   useEffect(() => {
@@ -627,6 +856,12 @@ export function SlideEditorVNext({
 
   // Inline text editing state
   const [inlineEditNodeId, setInlineEditNodeId] = useState<string | null>(null);
+  const [deckTitleEditing, setDeckTitleEditing] = useState(false);
+  const [deckTitleDraft, setDeckTitleDraft] = useState(deck.title ?? "Slides");
+
+  useEffect(() => {
+    if (!deckTitleEditing) setDeckTitleDraft(deck.title ?? "Slides");
+  }, [deck.title, deckTitleEditing]);
 
   async function handleExportPptx() {
     if (!onExportPptx) return;
@@ -654,6 +889,25 @@ export function SlideEditorVNext({
       (candidate) => candidate.id === packageId,
     );
     onDeckChange(setThemePackage(deck, packageId, nextPackage?.version));
+  }
+
+  function handleDeckTitleCommit() {
+    const title = deckTitleDraft.trim();
+    onDeckChange({ ...deck, title: title.length > 0 ? title : undefined });
+    setDeckTitleEditing(false);
+  }
+
+  function handleCanvasRatioChange(format: "16:9" | "4:3" | "square") {
+    const dimensions =
+      format === "4:3"
+        ? { width: 4, height: 3 }
+        : format === "square"
+          ? { width: 1, height: 1 }
+          : { width: 16, height: 9 };
+    onDeckChange({
+      ...deck,
+      canvas: { ...deck.canvas, format, ...dimensions, unit: "percent" },
+    });
   }
 
   function handleReapplyTemplate(
@@ -690,12 +944,24 @@ export function SlideEditorVNext({
   const [stageGuides, setStageGuides] = useState<StageGuide[]>([]);
   const [marqueeFrame, setMarqueeFrame] = useState<SelectionFrame | null>(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [stageAnnouncement, setStageAnnouncement] = useState("");
+  const [stageZoomPercent, setStageZoomPercent] = useState(100);
+  const [speakerNotesOpen, setSpeakerNotesOpen] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const [draggingStage, setDraggingStage] = useState(false);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<{
+    nodeId: string;
+    handle: ResizeHandlePosition;
+  } | null>(null);
 
   function handleInsertSlide() {
     const result = insertBlankSlide(deck, activeSlideIndex + 1);
     onDeckChange(result.deck);
     setActiveSlideIndex(activeSlideIndex + 1);
     setSelection(createSelectionState(selection.mode));
+    setFocusedNodeId(null);
+    setHoveredNodeId(null);
   }
 
   function handleInsertNode(node: SlideChildNode) {
@@ -703,6 +969,8 @@ export function SlideEditorVNext({
     const result = insertNode(deck, activeSlide.id, node);
     onDeckChange(result.deck);
     setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+    setFocusedNodeId(result.nodeId);
+    window.setTimeout(() => focusStageNode(result.nodeId), 0);
   }
 
   function handleInsertText() {
@@ -718,15 +986,115 @@ export function SlideEditorVNext({
   }
 
   function handleInsertImage() {
-    handleInsertNode(defaultImageNode(nextZIndex(activeSlide)));
+    if (!activeSlide) return;
+    insertImagePendingRef.current = true;
+    replaceImageTargetIdRef.current = null;
+    replaceImageFileInputRef.current?.click();
+  }
+
+  function handleReplaceSelectedImageRequest() {
+    if (!selectedNode || selectedNode.type !== "image") return;
+    insertImagePendingRef.current = false;
+    replaceImageTargetIdRef.current = selectedNode.id;
+    replaceImageFileInputRef.current?.click();
+  }
+
+  async function handleReplaceImageFile(file: File | undefined) {
+    const targetId = replaceImageTargetIdRef.current;
+    const inserting = insertImagePendingRef.current;
+    replaceImageTargetIdRef.current = null;
+    insertImagePendingRef.current = false;
+    if (!file || !activeSlide || (!targetId && !inserting)) return;
+    if (!file.type.startsWith("image/")) {
+      setExportError("Choose an image file to replace the selected image.");
+      return;
+    }
+    try {
+      const upload = onUploadImage
+        ? await onUploadImage(file)
+        : { src: await readImageFileAsDataUrl(file) };
+      if (!upload.src) return;
+      const assetId = upload.assetId ?? assetFactoryId("image");
+      const deckWithAsset: DeckV7 = {
+        ...deck,
+        assets: {
+          ...deck.assets,
+          images: {
+            ...deck.assets.images,
+            [assetId]: {
+              id: assetId,
+              src: upload.src,
+              alt: upload.alt ?? file.name,
+              ...(upload.widthPx ? { widthPx: upload.widthPx } : {}),
+              ...(upload.heightPx ? { heightPx: upload.heightPx } : {}),
+              ...((upload.mimeType ?? imageMimeType(file.type))
+                ? { mimeType: upload.mimeType ?? imageMimeType(file.type) }
+                : {}),
+              ...(upload.contentHash
+                ? { contentHash: upload.contentHash }
+                : {}),
+              origin: { kind: "upload", importedAt: new Date().toISOString() },
+            },
+          },
+        },
+      };
+      if (inserting) {
+        const node = defaultImageNode(nextZIndex(activeSlide));
+        if (node.type !== "image") return;
+        const result = insertNode(deckWithAsset, activeSlide.id, {
+          ...node,
+          content: { ...node.content, assetId, alt: upload.alt ?? file.name },
+        });
+        onDeckChange(result.deck);
+        setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+        focusSelectedNodeSoon(result.nodeId);
+      } else if (targetId) {
+        onDeckChange(
+          updateNodeContent(deckWithAsset, activeSlide.id, targetId, {
+            assetId,
+            alt: upload.alt ?? file.name,
+          }),
+        );
+        setSelection((s) => setSelectedNodeIds(s, [targetId]));
+        focusSelectedNodeSoon(targetId);
+      }
+      setExportError(null);
+    } catch {
+      setExportError("Image replacement failed. Please try another file.");
+    }
   }
 
   function handleInsertVisual() {
     handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
   }
 
+  async function handleReplaceSelectedVisual() {
+    if (!activeSlide || !selectedNode || selectedNode.type !== "visual") return;
+    if (!onPickVisual) {
+      setStageAnnouncement("No visual picker is configured for this editor.");
+      return;
+    }
+    const picked = await onPickVisual();
+    if (!picked) return;
+    onDeckChange(
+      updateNodeContent(deck, activeSlide.id, selectedNode.id, {
+        ...(picked.visualId !== undefined ? { visualId: picked.visualId } : {}),
+        ...(picked.assetId !== undefined ? { assetId: picked.assetId } : {}),
+        ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
+      }),
+    );
+    setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
+    focusSelectedNodeSoon(selectedNode.id);
+  }
+
   function handleInsertConnector() {
     handleInsertNode(defaultConnectorNode(nextZIndex(activeSlide)));
+  }
+
+  function focusSelectedNodeSoon(nodeId: string | undefined) {
+    if (!nodeId) return;
+    setFocusedNodeId(nodeId);
+    window.setTimeout(() => focusStageNode(nodeId), 0);
   }
 
   function handleCopyNodes() {
@@ -743,6 +1111,7 @@ export function SlideEditorVNext({
     onDeckChange(result.deck);
     if (result.nodeIds.length > 0) {
       setSelection((s) => setSelectedNodeIds(s, result.nodeIds));
+      focusSelectedNodeSoon(result.nodeIds[0]);
     }
   }
 
@@ -755,6 +1124,7 @@ export function SlideEditorVNext({
       }),
     );
     setSelection((s) => setSelectedNodeIds(s, [groupId]));
+    focusSelectedNodeSoon(groupId);
   }
 
   function handleUngroupSelection() {
@@ -763,6 +1133,7 @@ export function SlideEditorVNext({
     onDeckChange(result.deck);
     if (result.nodeIds.length > 0) {
       setSelection((s) => setSelectedNodeIds(s, result.nodeIds));
+      focusSelectedNodeSoon(result.nodeIds[0]);
     }
   }
 
@@ -771,7 +1142,58 @@ export function SlideEditorVNext({
     if (inlineEditNodeId && inlineEditNodeId !== nodeId) {
       setInlineEditNodeId(null);
     }
+    setFocusedNodeId(nodeId);
     setSelection((s) => selectNode(s, nodeId, event.shiftKey || event.metaKey));
+  }
+
+  function handleNodeFocus(nodeId: string) {
+    setFocusedNodeId(nodeId);
+    if (!selectedIds.includes(nodeId)) {
+      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    }
+  }
+
+  function handleNodeHoverChange(nodeId: string, hovering: boolean) {
+    setHoveredNodeId((current) => {
+      if (hovering) return nodeId;
+      return current === nodeId ? null : current;
+    });
+  }
+
+  function replacementNodeAfterDelete(
+    deletedIds: readonly string[],
+  ): string | undefined {
+    if (!activeSlide) return undefined;
+    const deleted = new Set(deletedIds);
+    const ordered = nodesInReadingOrder(activeSlide.children);
+    const firstDeletedIndex = ordered.findIndex((node) => deleted.has(node.id));
+    const remaining = ordered.filter((node) => !deleted.has(node.id));
+    if (remaining.length === 0) return undefined;
+    return remaining[
+      Math.max(0, Math.min(firstDeletedIndex, remaining.length - 1))
+    ]?.id;
+  }
+
+  function handleDeleteSelection() {
+    if (!activeSlide || selectedIds.length === 0) return;
+    const deletedCount = selectedIds.length;
+    const replacementId = replacementNodeAfterDelete(selectedIds);
+    onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
+    if (replacementId) {
+      setSelection((s) => setSelectedNodeIds(s, [replacementId]));
+      setFocusedNodeId(replacementId);
+      window.setTimeout(() => focusStageNode(replacementId), 0);
+    } else {
+      setSelection((s) => clearSelection(s));
+      setFocusedNodeId(null);
+      window.setTimeout(() => editorRootRef.current?.focus(), 0);
+    }
+    setStageAnnouncement(
+      `Deleted ${deletedCount} ${deletedCount === 1 ? "node" : "nodes"}, ${Math.max(
+        0,
+        nodesInReadingOrder(activeSlide.children).length - deletedCount,
+      )} remaining`,
+    );
   }
 
   function handleNodeDoubleClick(nodeId: string, _event: MouseEvent) {
@@ -788,26 +1210,44 @@ export function SlideEditorVNext({
   function handleInlineEditCommit(
     nodeId: string,
     paragraphs: import("@/lib/presentation-vnext/schema").Paragraph[],
+    nextFrame?: LayoutBox["frame"],
   ) {
     if (!activeSlide) return;
     const node = findNodeById(activeSlide.children, nodeId);
     if (!node) return;
+    let updated = deck;
     if (node.type === "text") {
-      onDeckChange(
-        updateNodeContent(deck, activeSlide.id, nodeId, { paragraphs }),
-      );
+      updated = updateNodeContent(updated, activeSlide.id, nodeId, {
+        paragraphs,
+      });
     } else if (node.type === "shape") {
-      onDeckChange(
-        updateNodeContent(deck, activeSlide.id, nodeId, {
-          text: { paragraphs },
-        }),
-      );
+      updated = updateNodeContent(updated, activeSlide.id, nodeId, {
+        text: { paragraphs },
+      });
     }
+    if (nextFrame) {
+      updated = updateNodeLayout(updated, activeSlide.id, nodeId, {
+        frame: nextFrame,
+      });
+    }
+    onDeckChange(updated);
     setInlineEditNodeId(null);
   }
 
   function handleInlineEditCancel() {
     setInlineEditNodeId(null);
+  }
+
+  function handleInlineEditTab(direction: 1 | -1) {
+    if (!activeSlide || !inlineEditNodeId) return;
+    const nextId = adjacentInlineEditableNodeId(
+      activeSlide.children,
+      inlineEditNodeId,
+      direction,
+    );
+    if (!nextId || nextId === inlineEditNodeId) return;
+    setSelection((s) => setSelectedNodeIds(s, [nextId]));
+    setInlineEditNodeId(nextId);
   }
 
   function handleStageClick(e: MouseEvent) {
@@ -817,6 +1257,7 @@ export function SlideEditorVNext({
       return;
     }
     setSelection((s) => clearSelection(s));
+    setFocusedNodeId(null);
   }
 
   function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -916,6 +1357,19 @@ export function SlideEditorVNext({
         ].find((n) => n.id === firstSelectedId)
       : undefined;
 
+  useEffect(() => {
+    if (selectedIds.length === 0) {
+      setStageAnnouncement("Slide selected");
+    } else if (selectedIds.length === 1) {
+      const type = selectedNode?.type ?? "node";
+      setStageAnnouncement(
+        `${type.charAt(0).toUpperCase()}${type.slice(1)} selected`,
+      );
+    } else {
+      setStageAnnouncement(`${selectedIds.length} nodes selected`);
+    }
+  }, [selectedIds, selectedNode?.type]);
+
   function resolveDeckAsset(assetId: string): string | undefined {
     return (
       deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src
@@ -948,6 +1402,7 @@ export function SlideEditorVNext({
 
     event.preventDefault();
     event.stopPropagation();
+    setDraggingStage(true);
     const startX = event.clientX;
     const startY = event.clientY;
 
@@ -976,13 +1431,16 @@ export function SlideEditorVNext({
     };
 
     const handlePointerUp = () => {
+      setDraggingStage(false);
       setStageGuides([]);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   }
 
   function handleResizeHandlePointerDown(
@@ -998,6 +1456,7 @@ export function SlideEditorVNext({
 
     event.preventDefault();
     event.stopPropagation();
+    setActiveResizeHandle({ nodeId, handle });
     const startX = event.clientX;
     const startY = event.clientY;
     const originalFrame = node.layout.frame;
@@ -1009,7 +1468,12 @@ export function SlideEditorVNext({
       const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
       const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
       const snapped = snapFrameToStageGuides(
-        resizeFrame(originalFrame, handle, deltaX, deltaY),
+        node.layout?.constraints?.preserveAspectRatio
+          ? applyAspectLock(
+              originalFrame,
+              resizeFrame(originalFrame, handle, deltaX, deltaY),
+            )
+          : resizeFrame(originalFrame, handle, deltaX, deltaY),
         0.75,
         alignmentGuides,
       );
@@ -1022,13 +1486,16 @@ export function SlideEditorVNext({
     };
 
     const handlePointerUp = () => {
+      setActiveResizeHandle(null);
       setStageGuides([]);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   }
 
   function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -1036,6 +1503,20 @@ export function SlideEditorVNext({
     if (inlineEditNodeId) return;
     if (isEditableTarget(event.target)) return;
     if (!activeSlide) return;
+    if (event.key === "Tab") {
+      const nextId = adjacentNodeId(
+        activeSlide.children,
+        firstSelectedId,
+        event.shiftKey ? -1 : 1,
+      );
+      if (nextId) {
+        setSelection((s) => setSelectedNodeIds(s, [nextId]));
+        setFocusedNodeId(nextId);
+        window.setTimeout(() => focusStageNode(nextId), 0);
+        event.preventDefault();
+      }
+      return;
+    }
     if (event.key === "Escape") {
       if (selectedIds.length > 0) {
         setSelection((s) => clearSelection(s));
@@ -1102,13 +1583,12 @@ export function SlideEditorVNext({
     }
 
     if (event.key === "Delete" || event.key === "Backspace") {
-      onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
-      setSelection((s) => clearSelection(s));
+      handleDeleteSelection();
       event.preventDefault();
       return;
     }
 
-    const nudge = event.shiftKey ? 2 : 0.5;
+    const nudge = event.shiftKey ? 5 : 1;
     const deltaByKey: Record<string, { x: number; y: number } | undefined> = {
       ArrowLeft: { x: -nudge, y: 0 },
       ArrowRight: { x: nudge, y: 0 },
@@ -1117,7 +1597,41 @@ export function SlideEditorVNext({
     };
     const delta = deltaByKey[event.key];
     if (delta) {
+      if (event.altKey) {
+        const patches = new Map<string, Partial<LayoutBox>>();
+        for (const entry of selectedLayoutEntries()) {
+          const resized = clampFrame({
+            ...entry.frame,
+            w: entry.frame.w + delta.x,
+            h: entry.frame.h + delta.y,
+          });
+          patches.set(entry.id, {
+            frame: entry.node.layout?.constraints?.preserveAspectRatio
+              ? applyAspectLock(entry.frame, resized)
+              : resized,
+          });
+        }
+        if (patches.size > 0) {
+          onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+          setStageAnnouncement(
+            `Resized ${patches.size} ${patches.size === 1 ? "node" : "nodes"}`,
+          );
+        }
+        event.preventDefault();
+        return;
+      }
       onDeckChange(moveNodesBy(deck, activeSlide.id, selectedIds, delta));
+      const direction =
+        delta.x < 0
+          ? "left"
+          : delta.x > 0
+            ? "right"
+            : delta.y < 0
+              ? "up"
+              : "down";
+      setStageAnnouncement(
+        `Moved ${selectedIds.length} ${selectedIds.length === 1 ? "node" : "nodes"} ${direction}`,
+      );
       event.preventDefault();
       return;
     }
@@ -1127,6 +1641,7 @@ export function SlideEditorVNext({
       onDeckChange(result.deck);
       if (result.duplicatedIds.length > 0) {
         setSelection((s) => setSelectedNodeIds(s, result.duplicatedIds));
+        focusSelectedNodeSoon(result.duplicatedIds[0]);
       }
       event.preventDefault();
       return;
@@ -1224,9 +1739,24 @@ export function SlideEditorVNext({
     hidden?: boolean;
   }) {
     if (!activeSlide || !firstSelectedId) return;
-    onDeckChange(
-      updateNodeAttributes(deck, activeSlide.id, firstSelectedId, patch),
-    );
+    let updated = deck;
+    for (const id of selectedIds.length > 0 ? selectedIds : [firstSelectedId]) {
+      updated = updateNodeAttributes(updated, activeSlide.id, id, patch);
+    }
+    onDeckChange(updated);
+    if (patch.hidden === true) {
+      const affectedIds =
+        selectedIds.length > 0 ? selectedIds : [firstSelectedId];
+      const replacementId = replacementNodeAfterDelete(affectedIds);
+      if (replacementId) {
+        setSelection((s) => setSelectedNodeIds(s, [replacementId]));
+        focusSelectedNodeSoon(replacementId);
+      } else {
+        setSelection((s) => clearSelection(s));
+        setFocusedNodeId(null);
+        window.setTimeout(() => editorRootRef.current?.focus(), 0);
+      }
+    }
   }
 
   function handleUpdateSelectedContent(patch: Record<string, unknown>) {
@@ -1261,6 +1791,37 @@ export function SlideEditorVNext({
     );
   }
 
+  async function handleRefreshSelectedSource() {
+    if (!activeSlide || !selectedNode?.source || !onRefreshSource) return;
+    const refreshed = await onRefreshSource({
+      deck,
+      slide: activeSlide,
+      node: selectedNode,
+      source: selectedNode.source,
+    });
+    if (!refreshed) return;
+    let updated = deck;
+    if (refreshed.contentPatch) {
+      updated = updateNodeContent(
+        updated,
+        activeSlide.id,
+        selectedNode.id,
+        refreshed.contentPatch,
+      );
+    }
+    if (refreshed.source) {
+      updated = updateNodeSourceMetadata(
+        updated,
+        activeSlide.id,
+        selectedNode.id,
+        refreshed.source,
+      );
+    }
+    onDeckChange(updated);
+    setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
+    focusSelectedNodeSoon(selectedNode.id);
+  }
+
   function handleSelectLayer(nodeId: string) {
     setSelection((s) => setSelectedNodeIds(s, [nodeId]));
   }
@@ -1271,6 +1832,173 @@ export function SlideEditorVNext({
   ) {
     if (!activeSlide) return;
     onDeckChange(updateNodeAttributes(deck, activeSlide.id, nodeId, patch));
+  }
+
+  function handleReorderLayer(nodeId: string, targetIndex: number) {
+    if (!activeSlide) return;
+    const layers = activeSlide.children
+      .flatMap(function flatten(node): SlideChildNode[] {
+        return node.type === "group"
+          ? [node, ...node.children.flatMap(flatten)]
+          : [node];
+      })
+      .filter((node) => node.layout !== undefined)
+      .sort((a, b) => (b.layout?.zIndex ?? 0) - (a.layout?.zIndex ?? 0));
+    const moving = layers.find((node) => node.id === nodeId);
+    if (!moving) return;
+    const reordered = layers.filter((node) => node.id !== nodeId);
+    const insertIndex = Math.max(0, Math.min(targetIndex, reordered.length));
+    reordered.splice(insertIndex, 0, moving);
+    const patches = new Map<string, Partial<LayoutBox>>();
+    reordered.forEach((node, index) => {
+      patches.set(node.id, { zIndex: reordered.length - index });
+    });
+    onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+  }
+
+  function selectedLayoutEntries(): {
+    id: string;
+    node: SlideChildNode;
+    frame: LayoutBox["frame"];
+  }[] {
+    if (!activeSlide) return [];
+    return selectedIds
+      .map((id) => {
+        const node = findNodeById(activeSlide.children, id);
+        return node?.layout && !node.locked
+          ? { id, node, frame: node.layout.frame }
+          : null;
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          id: string;
+          node: SlideChildNode;
+          frame: LayoutBox["frame"];
+        } => entry !== null,
+      );
+  }
+
+  function handleAlignSelection(mode: SelectionAlignMode) {
+    if (!activeSlide) return;
+    const entries = selectedLayoutEntries();
+    if (entries.length < 2) return;
+    const left = Math.min(...entries.map((entry) => entry.frame.x));
+    const top = Math.min(...entries.map((entry) => entry.frame.y));
+    const right = Math.max(
+      ...entries.map((entry) => entry.frame.x + entry.frame.w),
+    );
+    const bottom = Math.max(
+      ...entries.map((entry) => entry.frame.y + entry.frame.h),
+    );
+    const centerX = left + (right - left) / 2;
+    const centerY = top + (bottom - top) / 2;
+    const patches = new Map<string, Partial<LayoutBox>>();
+    for (const entry of entries) {
+      const frame = entry.frame;
+      const nextFrame = { ...frame };
+      if (mode === "left") nextFrame.x = left;
+      if (mode === "center") nextFrame.x = centerX - frame.w / 2;
+      if (mode === "right") nextFrame.x = right - frame.w;
+      if (mode === "top") nextFrame.y = top;
+      if (mode === "middle") nextFrame.y = centerY - frame.h / 2;
+      if (mode === "bottom") nextFrame.y = bottom - frame.h;
+      patches.set(entry.id, { frame: nextFrame });
+    }
+    onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+  }
+
+  function handleDistributeSelection(mode: SelectionDistributeMode) {
+    if (!activeSlide) return;
+    const entries = selectedLayoutEntries();
+    if (entries.length < 3) return;
+    const sorted = [...entries].sort((a, b) =>
+      mode === "horizontal" ? a.frame.x - b.frame.x : a.frame.y - b.frame.y,
+    );
+    const first = sorted[0].frame;
+    const last = sorted[sorted.length - 1].frame;
+    const start = mode === "horizontal" ? first.x : first.y;
+    const end = mode === "horizontal" ? last.x + last.w : last.y + last.h;
+    const totalSize = sorted.reduce(
+      (sum, entry) =>
+        sum + (mode === "horizontal" ? entry.frame.w : entry.frame.h),
+      0,
+    );
+    const gap = (end - start - totalSize) / (sorted.length - 1);
+    const patches = new Map<string, Partial<LayoutBox>>();
+    let cursor = start;
+    for (const entry of sorted) {
+      const frame = entry.frame;
+      patches.set(entry.id, {
+        frame:
+          mode === "horizontal"
+            ? { ...frame, x: cursor }
+            : { ...frame, y: cursor },
+      });
+      cursor += (mode === "horizontal" ? frame.w : frame.h) + gap;
+    }
+    onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+  }
+
+  function handleMatchSize(mode: SelectionMatchSizeMode) {
+    if (!activeSlide) return;
+    const entries = selectedLayoutEntries();
+    if (entries.length < 2) return;
+    const base = entries[0].frame;
+    const patches = new Map<string, Partial<LayoutBox>>();
+    for (const entry of entries.slice(1)) {
+      patches.set(entry.id, {
+        frame: {
+          ...entry.frame,
+          w: mode === "height" ? entry.frame.w : base.w,
+          h: mode === "width" ? entry.frame.h : base.h,
+        },
+      });
+    }
+    onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+  }
+
+  function handleReorderSelection(
+    kind: "forward" | "backward" | "front" | "back",
+  ) {
+    if (!activeSlide || selectedIds.length === 0) return;
+    const zIndexes = activeSlide.children
+      .map((node) => node.layout?.zIndex)
+      .filter((zIndex): zIndex is number => typeof zIndex === "number");
+    const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
+    const minZ = zIndexes.length > 0 ? Math.min(...zIndexes) : 0;
+    let updated = deck;
+    selectedIds.forEach((id, index) => {
+      const node = findNodeById(activeSlide.children, id);
+      const currentZ = node?.layout?.zIndex ?? 0;
+      const nextZ =
+        kind === "front"
+          ? maxZ + index + 1
+          : kind === "back"
+            ? minZ - index - 1
+            : kind === "forward"
+              ? currentZ + 1
+              : currentZ - 1;
+      updated = reorderZIndex(updated, activeSlide.id, id, nextZ);
+    });
+    onDeckChange(updated);
+  }
+
+  function handleDuplicateActiveSlide() {
+    if (!activeSlide) return;
+    const result = duplicateSlide(deck, activeSlide.id);
+    onDeckChange(result.deck);
+    if (result.index >= 0) setActiveSlideIndex(result.index);
+    setSelection(createSelectionState(selection.mode));
+  }
+
+  function handleDeleteActiveSlide() {
+    if (!activeSlide) return;
+    const result = deleteSlide(deck, activeSlide.id);
+    onDeckChange(result.deck);
+    setActiveSlideIndex(result.index);
+    setSelection(createSelectionState(selection.mode));
   }
 
   // ---------------------------------------------------------------------------
@@ -1307,9 +2035,48 @@ export function SlideEditorVNext({
     if (action === "choose-denser-layout") {
       handleUpdateControls({ density: "dense" });
       setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
+      focusSelectedNodeSoon(targetNodeId);
+      return;
     }
-    // Other actions (split-slide, open-asset-panel, etc.) require parent
-    // routing — a future caller can extend this via a prop callback
+    if (action === "open-asset-panel") {
+      const node = findNodeById(activeSlide.children, targetNodeId);
+      setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
+      focusSelectedNodeSoon(targetNodeId);
+      if (node?.type === "image") {
+        replaceImageTargetIdRef.current = targetNodeId;
+        insertImagePendingRef.current = false;
+        replaceImageFileInputRef.current?.click();
+      } else {
+        setStageAnnouncement(
+          "Select the asset field in the inspector to repair this node.",
+        );
+      }
+      return;
+    }
+    if (action === "split-slide") {
+      const node = findNodeById(activeSlide.children, targetNodeId);
+      if (!node) return;
+      const splitNode = cloneNodeForSplit(node);
+      const inserted = insertBlankSlide(deck, activeSlideIndex + 1);
+      const nextDeck: DeckV7 = {
+        ...inserted.deck,
+        slides: inserted.deck.slides.map((slide) =>
+          slide.id === inserted.slideId
+            ? {
+                ...slide,
+                name: `${activeSlide.name ?? `Slide ${activeSlideIndex + 1}`} Split`,
+                children: [splitNode],
+              }
+            : slide,
+        ),
+      };
+      const movedDeck = deleteNodes(nextDeck, activeSlide.id, [targetNodeId]);
+      onDeckChange(movedDeck);
+      setActiveSlideIndex(activeSlideIndex + 1);
+      setSelection((s) => setSelectedNodeIds(s, [splitNode.id]));
+      focusSelectedNodeSoon(splitNode.id);
+      setStageAnnouncement("Moved node to a new split slide");
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1334,7 +2101,7 @@ export function SlideEditorVNext({
     );
   }
 
-  const stageFrameStyle = canvasFrameStyle(deck);
+  const stageFrameStyle = canvasFrameStyle(deck, stageZoomPercent);
   const activeSlideName = slideDisplayName(activeSlide, activeSlideIndex);
   const selectedNodeSummary = selectedSummary(selectedIds.length);
   const diagnosticSummary = diagnosticsSummary(diagnostics.length);
@@ -1342,6 +2109,11 @@ export function SlideEditorVNext({
     ? TEMPLATE_REGISTRY.get(activeSlide.template.kind)
     : undefined;
   const activeLayoutId = activeSlide?.template.layoutId;
+  const activeSlideBackgroundColor =
+    activeSlide?.localStyle?.slide?.background?.type === "solid" &&
+    typeof activeSlide.localStyle.slide.background.color === "string"
+      ? activeSlide.localStyle.slide.background.color
+      : "#ffffff";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -1360,6 +2132,17 @@ export function SlideEditorVNext({
       onKeyDown={handleEditorKeyDown}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-ds-surface"
     >
+      <input
+        ref={replaceImageFileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={(event) => {
+          handleReplaceImageFile(event.currentTarget.files?.[0]);
+          event.currentTarget.value = "";
+        }}
+      />
+
       {/* ------------------------------------------------------------------ */}
       {/* Top Toolbar                                                         */}
       {/* ------------------------------------------------------------------ */}
@@ -1369,9 +2152,34 @@ export function SlideEditorVNext({
       >
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold text-ds-text-primary">
-              {deck.title ?? "Slides"}
-            </span>
+            {deckTitleEditing ? (
+              <input
+                value={deckTitleDraft}
+                autoFocus
+                onChange={(event) =>
+                  setDeckTitleDraft(event.currentTarget.value)
+                }
+                onBlur={handleDeckTitleCommit}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleDeckTitleCommit();
+                  if (event.key === "Escape") {
+                    setDeckTitleDraft(deck.title ?? "Slides");
+                    setDeckTitleEditing(false);
+                  }
+                }}
+                className="h-6 min-w-0 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1.5 text-sm font-semibold text-ds-text-primary outline-none focus:border-ds-accent focus:ring-2 focus:ring-ds-focus-ring/20"
+                aria-label="Deck title"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDeckTitleEditing(true)}
+                className="truncate text-left text-sm font-semibold text-ds-text-primary underline-offset-2 hover:underline"
+                aria-label="Rename deck"
+              >
+                {deck.title ?? "Slides"}
+              </button>
+            )}
             <span className="truncate text-[11px] text-ds-text-muted">
               {activeSlideName} · {deck.slides.length} slides · {pkg.name}
             </span>
@@ -1481,6 +2289,25 @@ export function SlideEditorVNext({
                   {themePackageOption.name}
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
+            Ratio
+            <select
+              value={
+                deck.canvas.format === "custom" ? "16:9" : deck.canvas.format
+              }
+              onChange={(event) =>
+                handleCanvasRatioChange(
+                  event.currentTarget.value as "16:9" | "4:3" | "square",
+                )
+              }
+              className="h-8 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs font-medium text-ds-text-primary"
+            >
+              <option value="16:9">16:9</option>
+              <option value="4:3">4:3</option>
+              <option value="square">1:1</option>
             </select>
           </label>
 
@@ -1677,18 +2504,18 @@ export function SlideEditorVNext({
           onClick={handleStageClick}
           onPointerDown={handleStagePointerDown}
         >
+          <div className="sr-only" aria-live="polite" aria-atomic="true">
+            {stageAnnouncement}
+          </div>
+
           {/* Context / Popover Toolbar */}
           <ContextToolbar
             selectedIds={selectedIds}
             selectedNode={selectedNode}
             isInlineEditing={inlineEditNodeId !== null}
-            isDragging={stageGuides.length > 0}
+            isDragging={draggingStage || activeResizeHandle !== null}
             isDecorationSelected={isDecorationSelected}
-            onDelete={() => {
-              if (!activeSlide) return;
-              onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
-              setSelection((s) => clearSelection(s));
-            }}
+            onDelete={handleDeleteSelection}
             onDuplicate={() => {
               if (!activeSlide) return;
               const result = duplicateNodes(deck, activeSlide.id, selectedIds);
@@ -1697,40 +2524,28 @@ export function SlideEditorVNext({
                 setSelection((s) =>
                   setSelectedNodeIds(s, result.duplicatedIds),
                 );
+                focusSelectedNodeSoon(result.duplicatedIds[0]);
               }
             }}
             onGroup={handleGroupSelection}
             onUngroup={handleUngroupSelection}
-            onBringForward={() => {
-              if (!activeSlide || selectedIds.length === 0) return;
-              let updated = deck;
-              selectedIds.forEach((id) => {
-                const node = findNodeById(activeSlide.children, id);
-                const currentZ = node?.layout?.zIndex ?? 0;
-                updated = reorderZIndex(
-                  updated,
-                  activeSlide.id,
-                  id,
-                  currentZ + 1,
-                );
-              });
-              onDeckChange(updated);
-            }}
-            onSendBackward={() => {
-              if (!activeSlide || selectedIds.length === 0) return;
-              let updated = deck;
-              selectedIds.forEach((id) => {
-                const node = findNodeById(activeSlide.children, id);
-                const currentZ = node?.layout?.zIndex ?? 0;
-                updated = reorderZIndex(
-                  updated,
-                  activeSlide.id,
-                  id,
-                  currentZ - 1,
-                );
-              });
-              onDeckChange(updated);
-            }}
+            onBringForward={() => handleReorderSelection("forward")}
+            onSendBackward={() => handleReorderSelection("backward")}
+            onBringToFront={() => handleReorderSelection("front")}
+            onSendToBack={() => handleReorderSelection("back")}
+            onAlignSelection={handleAlignSelection}
+            onDistributeSelection={handleDistributeSelection}
+            onMatchSize={handleMatchSize}
+            onUpdateSelectedContent={handleUpdateSelectedContent}
+            onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
+            onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
+            onReplaceImage={handleReplaceSelectedImageRequest}
+            onReplaceVisual={handleReplaceSelectedVisual}
+            slideBackgroundColor={activeSlideBackgroundColor}
+            onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
+            onInsertSlide={handleInsertSlide}
+            onDuplicateSlide={handleDuplicateActiveSlide}
+            onDeleteSlide={handleDeleteActiveSlide}
             onDetachDecoration={handleDetachDecoration}
           />
 
@@ -1750,10 +2565,15 @@ export function SlideEditorVNext({
                   onNodeClick={handleNodeClick}
                   onNodeDoubleClick={handleNodeDoubleClick}
                   onNodePointerDown={handleNodePointerDown}
+                  onNodeFocus={handleNodeFocus}
+                  onNodeHoverChange={handleNodeHoverChange}
                   onResizeHandlePointerDown={handleResizeHandlePointerDown}
+                  activeResizeHandle={activeResizeHandle}
                   hiddenNodeIds={
                     inlineEditNodeId ? new Set([inlineEditNodeId]) : undefined
                   }
+                  hoveredNodeId={hoveredNodeId}
+                  focusedNodeId={focusedNodeId ?? firstSelectedId ?? null}
                   className="rounded-ds-sm shadow-ds-xl ring-1 ring-ds-border-subtle"
                 />
 
@@ -1779,14 +2599,21 @@ export function SlideEditorVNext({
                         : editNode.type === "shape" && editNode.content.text
                           ? editNode.content.text.paragraphs
                           : [{ id: `${inlineEditNodeId}-p-1`, text: "" }];
+                    const resolvedEditNode = activeSlideTree.nodes.find(
+                      (node) => node.id === inlineEditNodeId,
+                    );
                     return (
                       <InlineTextEditorVNext
                         nodeId={inlineEditNodeId}
                         initialParagraphs={paragraphs}
                         frame={editNode.layout.frame}
                         canvasRect={canvasRect}
+                        textStyle={resolveNodeFontCss(resolvedEditNode?.style)}
+                        autoHeight={editNode.layout.autoHeight === true}
                         onCommit={handleInlineEditCommit}
                         onCancel={handleInlineEditCancel}
+                        onTabNext={() => handleInlineEditTab(1)}
+                        onTabPrev={() => handleInlineEditTab(-1)}
                       />
                     );
                   })()}
@@ -1860,11 +2687,21 @@ export function SlideEditorVNext({
           onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
           onUpdateSelectedContent={handleUpdateSelectedContent}
           onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
+          assetResolver={resolveDeckAsset}
+          onReplaceImage={handleReplaceSelectedImageRequest}
           onResetToTheme={handleResetToTheme}
           onUpdateSelectedSource={handleUpdateSelectedSource}
+          onRefreshSelectedSource={handleRefreshSelectedSource}
           onChangeStyleBinding={handleChangeStyleBinding}
+          onAlignSelection={handleAlignSelection}
+          onDistributeSelection={handleDistributeSelection}
+          onMatchSize={handleMatchSize}
+          onGroupSelection={handleGroupSelection}
+          onUngroupSelection={handleUngroupSelection}
+          onReorderSelection={handleReorderSelection}
           onSelectLayer={handleSelectLayer}
           onUpdateLayer={handleUpdateLayer}
+          onReorderLayer={handleReorderLayer}
           onDetachDecoration={handleDetachDecoration}
           onDiagnosticAction={handleDiagnosticAction}
           TEMPLATE_OPTIONS={TEMPLATE_OPTIONS}
@@ -1907,8 +2744,31 @@ export function SlideEditorVNext({
             onDeckChange(result.deck);
             if (result.index >= 0) setActiveSlideIndex(result.index);
           }}
+          zoomPercent={stageZoomPercent}
+          onZoomChange={setStageZoomPercent}
+          notesOpen={speakerNotesOpen}
+          onToggleNotes={() => setSpeakerNotesOpen((open) => !open)}
         />
       )}
+
+      {speakerNotesOpen && activeSlide ? (
+        <section className="shrink-0 border-t border-ds-border-subtle bg-ds-surface px-3 py-2">
+          <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-[0.06em] text-ds-text-muted">
+            Notes
+            <textarea
+              rows={3}
+              value={activeSlide.notes ?? ""}
+              onChange={(event) =>
+                handleUpdateSlideAttributes({
+                  notes: event.currentTarget.value,
+                })
+              }
+              className="min-h-16 resize-y rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-2 text-xs normal-case tracking-normal text-ds-text-primary outline-none focus:border-ds-accent focus:ring-2 focus:ring-ds-focus-ring/20"
+              aria-label="Speaker notes"
+            />
+          </label>
+        </section>
+      ) : null}
 
       {/* Footer status bar */}
       <footer className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-ds-border-subtle bg-ds-surface-chrome px-3 text-[11px] text-ds-text-muted">

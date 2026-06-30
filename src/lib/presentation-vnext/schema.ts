@@ -126,6 +126,9 @@ export type LayoutBox = {
   frame: FramePct;
   rotation?: number;
   zIndex: number;
+  autoHeight?: boolean;
+  flipX?: boolean;
+  flipY?: boolean;
   anchor?: "topLeft" | "center";
   constraints?: LayoutConstraints;
 };
@@ -213,6 +216,7 @@ export type TextRun = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  strikethrough?: boolean;
   code?: boolean;
   link?: string;
   localStyle?: Pick<
@@ -296,7 +300,7 @@ export type ConnectorEndpoint =
 export type ConnectorContent = {
   from: ConnectorEndpoint;
   to: ConnectorEndpoint;
-  routing?: "straight" | "elbow";
+  routing?: "straight" | "elbow" | "curved";
 };
 
 // ---------------------------------------------------------------------------

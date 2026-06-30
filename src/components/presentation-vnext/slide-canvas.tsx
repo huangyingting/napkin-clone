@@ -194,17 +194,27 @@ export interface SlideCanvasVNextProps {
   onNodeDoubleClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when the user starts dragging a node. */
   onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
+  /** Called when a node receives keyboard focus. */
+  onNodeFocus?: (nodeId: string, event: React.FocusEvent) => void;
+  /** Called when pointer hover enters/leaves a node. */
+  onNodeHoverChange?: (nodeId: string, hovering: boolean) => void;
   /** Called when the user starts resizing a selected node. */
   onResizeHandlePointerDown?: (
     nodeId: string,
     handle: ResizeHandlePosition,
     event: React.PointerEvent,
   ) => void;
+  /** Currently active resize handle, if any. */
+  activeResizeHandle?: { nodeId: string; handle: ResizeHandlePosition } | null;
   /**
    * Node ids to hide from the canvas (e.g., the node being inline-edited
    * is hidden while the overlay editor is active).
    */
   hiddenNodeIds?: ReadonlySet<string>;
+  /** Node currently hovered by the pointer. */
+  hoveredNodeId?: string | null;
+  /** Roving-tabindex focus target. */
+  focusedNodeId?: string | null;
   /** True when rendered at reduced size (thumbnail rail, next-slide preview). */
   preview?: boolean;
   /** Optional extra CSS class applied to the outer canvas container. */
@@ -228,8 +238,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   onNodeClick,
   onNodeDoubleClick,
   onNodePointerDown,
+  onNodeFocus,
+  onNodeHoverChange,
   onResizeHandlePointerDown,
+  activeResizeHandle,
   hiddenNodeIds,
+  hoveredNodeId,
+  focusedNodeId,
   preview = false,
   className,
 }: SlideCanvasVNextProps): JSX.Element {
@@ -242,6 +257,11 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const selectedUserNodes = selection
     ? userNodes.filter((node) => isSelected(selection, node.id))
     : [];
+  const selectedResizableNodes = selectedUserNodes.filter(
+    (node) => node.locked !== true,
+  );
+  const multiSelectionFrame =
+    selectedUserNodes.length > 1 ? boundsForNodes(selectedUserNodes) : null;
 
   const handleNodeClick = onNodeClick
     ? (nodeId: string, event: React.MouseEvent) => {
@@ -278,22 +298,54 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
       ))}
 
       {/* User nodes */}
-      {userNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          selected={selection ? isSelected(selection, node.id) : false}
-          onClick={handleNodeClick}
-          onDoubleClick={handleNodeDoubleClick}
-          onPointerDown={preview ? undefined : onNodePointerDown}
-          assetResolver={assetResolver}
-          preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
+      {userNodes.map((node) =>
+        (() => {
+          const selected = selection ? isSelected(selection, node.id) : false;
+          const interactive = !preview && onNodeClick !== undefined;
+          return (
+            <SlideNodeRenderer
+              key={node.id}
+              node={node}
+              selected={selected}
+              hovered={hoveredNodeId === node.id}
+              focused={focusedNodeId === node.id}
+              interactive={interactive}
+              tabIndex={
+                interactive
+                  ? focusedNodeId === node.id ||
+                    (focusedNodeId === undefined && selected)
+                    ? 0
+                    : -1
+                  : undefined
+              }
+              onClick={handleNodeClick}
+              onDoubleClick={handleNodeDoubleClick}
+              onPointerDown={preview ? undefined : onNodePointerDown}
+              onFocus={preview ? undefined : onNodeFocus}
+              onHoverChange={preview ? undefined : onNodeHoverChange}
+              assetResolver={assetResolver}
+              preview={preview}
+              hidden={hiddenNodeIds?.has(node.id)}
+            />
+          );
+        })(),
+      )}
+
+      {!preview && multiSelectionFrame ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute z-raised border border-dashed border-ds-accent-border bg-ds-accent-surface/10"
+          style={{
+            left: `${multiSelectionFrame.x}%`,
+            top: `${multiSelectionFrame.y}%`,
+            width: `${multiSelectionFrame.w}%`,
+            height: `${multiSelectionFrame.h}%`,
+          }}
         />
-      ))}
+      ) : null}
 
       {!preview && onResizeHandlePointerDown
-        ? selectedUserNodes.map((node) => (
+        ? selectedResizableNodes.map((node) => (
             <div
               key={`${node.id}-resize-overlay`}
               aria-hidden="true"
@@ -309,7 +361,12 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                 <span
                   key={handle}
                   data-resize-handle={handle}
-                  className="pointer-events-auto absolute h-2.5 w-2.5 rounded-full border border-ds-accent-border bg-ds-surface shadow-ds-sm"
+                  className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border shadow-ds-sm ${
+                    activeResizeHandle?.nodeId === node.id &&
+                    activeResizeHandle.handle === handle
+                      ? "border-ds-accent-fill bg-ds-accent-fill"
+                      : "border-ds-accent-border bg-ds-surface"
+                  }`}
                   style={resizeHandleStyle(handle)}
                   onPointerDown={(event) =>
                     onResizeHandlePointerDown(node.id, handle, event)
@@ -322,6 +379,21 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
     </div>
   );
 });
+
+function boundsForNodes(
+  nodes: readonly ResolvedRenderNode[],
+): { x: number; y: number; w: number; h: number } | null {
+  if (nodes.length === 0) return null;
+  const left = Math.min(...nodes.map((node) => node.layout.frame.x));
+  const top = Math.min(...nodes.map((node) => node.layout.frame.y));
+  const right = Math.max(
+    ...nodes.map((node) => node.layout.frame.x + node.layout.frame.w),
+  );
+  const bottom = Math.max(
+    ...nodes.map((node) => node.layout.frame.y + node.layout.frame.h),
+  );
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
 
 function resizeHandleStyle(handle: ResizeHandlePosition): React.CSSProperties {
   const horizontal = handle.includes("w")

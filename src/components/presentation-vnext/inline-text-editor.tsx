@@ -22,11 +22,15 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import type { Paragraph } from "@/lib/presentation-vnext/schema";
+import type { Paragraph, TextRun } from "@/lib/presentation-vnext/schema";
 import {
   INLINE_TEXT_COMMAND_EVENT_V7,
   type InlineTextCommandPayload,
 } from "@/lib/presentation-vnext/inline-text-commands";
+import {
+  mergeRunsV7,
+  shouldStoreRunsV7,
+} from "@/lib/presentation-vnext/rich-text";
 
 export interface InlineTextEditorVNextProps {
   /** Stable id of the node being edited. */
@@ -37,8 +41,16 @@ export interface InlineTextEditorVNextProps {
   frame: { x: number; y: number; w: number; h: number };
   /** Canvas element bounding rect (reserved for future px-based font matching). */
   canvasRect?: DOMRect;
+  /** Resolved canvas text CSS for the node being edited. */
+  textStyle?: CSSProperties;
+  /** When true, grow the editor and returned frame to fit edited text. */
+  autoHeight?: boolean;
   /** Called when the user commits the edit (Escape, blur, or Tab). */
-  onCommit: (nodeId: string, paragraphs: Paragraph[]) => void;
+  onCommit: (
+    nodeId: string,
+    paragraphs: Paragraph[],
+    nextFrame?: { x: number; y: number; w: number; h: number },
+  ) => void;
   /** Called when the user cancels (Escape with empty input). */
   onCancel: () => void;
   /**
@@ -56,30 +68,252 @@ export interface InlineTextEditorVNextProps {
 // Run serialization helpers
 // ---------------------------------------------------------------------------
 
-/** Convert the contenteditable DOM back to Paragraph[] preserving basic bold/italic. */
+type InlineRunStyle = Omit<TextRun, "text">;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function styleFromElement(
+  element: HTMLElement,
+  inherited: InlineRunStyle,
+): InlineRunStyle {
+  const tagName = element.tagName.toLowerCase();
+  const next: InlineRunStyle = { ...inherited };
+  if (tagName === "b" || tagName === "strong") next.bold = true;
+  if (tagName === "i" || tagName === "em") next.italic = true;
+  if (tagName === "u") next.underline = true;
+  if (tagName === "s" || tagName === "strike" || tagName === "del") {
+    next.strikethrough = true;
+  }
+  if (tagName === "a") next.link = element.getAttribute("href") ?? undefined;
+
+  const fontWeight = element.style.fontWeight;
+  if (fontWeight === "bold" || Number(fontWeight) >= 600) next.bold = true;
+  if (element.style.fontStyle === "italic") next.italic = true;
+  if (element.style.textDecorationLine.includes("underline")) {
+    next.underline = true;
+  }
+  if (element.style.textDecorationLine.includes("line-through")) {
+    next.strikethrough = true;
+  }
+
+  const color = element.style.color || element.getAttribute("color");
+  const fontSize = element.style.fontSize;
+  if (color || fontSize) {
+    next.localStyle = { ...next.localStyle };
+    if (color) next.localStyle.color = color;
+    if (fontSize.endsWith("pt")) {
+      next.localStyle.fontSizePt = Number.parseFloat(fontSize);
+    } else if (fontSize.endsWith("px")) {
+      next.localStyle.fontSizePt = Number.parseFloat(fontSize) * 0.75;
+    }
+  }
+  return next;
+}
+
+function collectRuns(node: Node, inherited: InlineRunStyle = {}): TextRun[] {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent ?? "";
+    return text.length > 0 ? [{ text, ...inherited }] : [];
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return [];
+  const element = node as HTMLElement;
+  if (element.tagName.toLowerCase() === "br") return [{ text: "\n" }];
+  const style = styleFromElement(element, inherited);
+  return Array.from(element.childNodes).flatMap((child) =>
+    collectRuns(child, style),
+  );
+}
+
+function serializeParagraphNode(
+  node: Node,
+  fallbackId: string,
+  listKind?: "bullet" | "number",
+): Paragraph {
+  const runs = mergeRunsV7(collectRuns(node)).filter(
+    (run) => run.text !== "\n",
+  );
+  const text = runs.map((run) => run.text).join("");
+  return {
+    id: fallbackId,
+    text,
+    ...(shouldStoreRunsV7(runs) ? { runs } : {}),
+    ...(listKind ? { list: { kind: listKind } } : {}),
+  };
+}
+
+function editableParagraphNodes(
+  container: HTMLElement,
+): { node: Node; listKind?: "bullet" | "number" }[] {
+  const nodes: { node: Node; listKind?: "bullet" | "number" }[] = [];
+  for (const child of Array.from(container.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      if ((child.textContent ?? "").length > 0) nodes.push({ node: child });
+      continue;
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) continue;
+    const element = child as HTMLElement;
+    const tagName = element.tagName.toLowerCase();
+    if (tagName === "ul" || tagName === "ol") {
+      const listKind = tagName === "ol" ? "number" : "bullet";
+      for (const item of Array.from(element.children)) {
+        if (item.tagName.toLowerCase() === "li")
+          nodes.push({ node: item, listKind });
+      }
+    } else if (tagName === "li") {
+      const listKind =
+        element.parentElement?.tagName.toLowerCase() === "ol"
+          ? "number"
+          : "bullet";
+      nodes.push({ node: element, listKind });
+    } else {
+      nodes.push({ node: element });
+    }
+  }
+  return nodes;
+}
+
+/** Convert the contenteditable DOM back to Paragraph[] preserving basic runs. */
 function domToParagraphs(
   container: HTMLElement,
   idPrefix: string,
+  initialParagraphs: Paragraph[],
 ): Paragraph[] {
-  const rawText = container.innerText ?? "";
-  const lines = rawText.split(/\n/);
-  return lines.map((text, index) => ({
-    id: `${idPrefix}-p-${index + 1}`,
-    text,
-  }));
+  const paragraphNodes = editableParagraphNodes(container);
+  const nodes =
+    paragraphNodes.length > 0
+      ? paragraphNodes
+      : [{ node: document.createTextNode("") }];
+  return nodes.map(({ node, listKind }, index) =>
+    serializeParagraphNode(
+      node,
+      initialParagraphs[index]?.id ?? `${idPrefix}-p-${index + 1}`,
+      listKind,
+    ),
+  );
+}
+
+function runToHtml(run: TextRun): string {
+  const styles: string[] = [];
+  if (run.bold) styles.push("font-weight:700");
+  if (run.italic) styles.push("font-style:italic");
+  if (run.underline || run.strikethrough) {
+    styles.push(
+      `text-decoration:${[
+        run.underline ? "underline" : undefined,
+        run.strikethrough ? "line-through" : undefined,
+      ]
+        .filter(Boolean)
+        .join(" ")}`,
+    );
+  }
+  if (typeof run.localStyle?.color === "string") {
+    styles.push(`color:${run.localStyle.color}`);
+  }
+  if (typeof run.localStyle?.fontSizePt === "number") {
+    styles.push(`font-size:${run.localStyle.fontSizePt}pt`);
+  }
+  const styleAttr = styles.length > 0 ? ` style="${styles.join(";")}"` : "";
+  return `<span${styleAttr}>${escapeHtml(run.text)}</span>`;
 }
 
 /** Render initial paragraphs as HTML for the contenteditable. */
 function paragraphsToHtml(paragraphs: Paragraph[]): string {
   return paragraphs
     .map((p) => {
-      const text = p.text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+      const text = p.runs?.length
+        ? p.runs.map(runToHtml).join("")
+        : escapeHtml(p.text);
       return `<div>${text || "<br>"}</div>`;
     })
     .join("");
+}
+
+function rangeInside(container: HTMLElement): Range | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+  const start = range.startContainer;
+  const end = range.endContainer;
+  if (!container.contains(start) || !container.contains(end)) return null;
+  return range;
+}
+
+function restoreSelection(node: Node): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function wrapRange(
+  container: HTMLElement,
+  configure: (element: HTMLElement) => void,
+  tagName = "span",
+): void {
+  const range = rangeInside(container);
+  if (!range || range.collapsed) return;
+  const wrapper = document.createElement(tagName);
+  configure(wrapper);
+  const fragment = range.extractContents();
+  wrapper.appendChild(fragment);
+  range.insertNode(wrapper);
+  restoreSelection(wrapper);
+}
+
+function blockForRange(container: HTMLElement, range: Range): HTMLElement {
+  const node =
+    range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? (range.startContainer as HTMLElement)
+      : range.startContainer.parentElement;
+  return node?.closest("p,div,li") ?? container;
+}
+
+function applyBlockAlign(
+  container: HTMLElement,
+  align: "left" | "center" | "right",
+) {
+  const range = rangeInside(container);
+  if (!range) return;
+  blockForRange(container, range).style.textAlign = align;
+}
+
+function toggleList(container: HTMLElement, kind: "bullet" | "number") {
+  const range = rangeInside(container);
+  if (!range) return;
+  const block = blockForRange(container, range);
+  const currentList = block.closest("ul,ol");
+  const targetTag = kind === "number" ? "ol" : "ul";
+  if (currentList) {
+    if (currentList.tagName.toLowerCase() === targetTag) {
+      const replacement = document.createDocumentFragment();
+      for (const item of Array.from(currentList.children)) {
+        const div = document.createElement("div");
+        div.innerHTML = item.innerHTML || "<br>";
+        replacement.appendChild(div);
+      }
+      currentList.replaceWith(replacement);
+    } else {
+      const nextList = document.createElement(targetTag);
+      nextList.innerHTML = currentList.innerHTML;
+      currentList.replaceWith(nextList);
+      restoreSelection(nextList);
+    }
+    return;
+  }
+  const list = document.createElement(targetTag);
+  const item = document.createElement("li");
+  item.innerHTML = block.innerHTML || "<br>";
+  list.appendChild(item);
+  block.replaceWith(list);
+  restoreSelection(item);
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +324,9 @@ export function InlineTextEditorVNext({
   nodeId,
   initialParagraphs,
   frame,
+  canvasRect,
+  textStyle,
+  autoHeight = false,
   onCommit,
   onCancel,
   onTabNext,
@@ -115,9 +352,32 @@ export function InlineTextEditorVNext({
     font: "inherit",
     lineHeight: "inherit",
     color: "inherit",
+    ...textStyle,
     wordBreak: "break-word",
     overflowWrap: "break-word",
   };
+
+  function autoHeightFrame():
+    | { x: number; y: number; w: number; h: number }
+    | undefined {
+    const el = editableRef.current;
+    if (!autoHeight || !el || !canvasRect || canvasRect.height <= 0) {
+      return undefined;
+    }
+    const heightPct = Math.min(
+      100 - frame.y,
+      Math.max(frame.h, (el.scrollHeight / canvasRect.height) * 100),
+    );
+    if (Math.abs(heightPct - frame.h) < 0.1) return undefined;
+    return { ...frame, h: heightPct };
+  }
+
+  function syncAutoHeight() {
+    const nextFrame = autoHeightFrame();
+    if (nextFrame && editableRef.current) {
+      editableRef.current.style.height = `${nextFrame.h}%`;
+    }
+  }
 
   // Focus and place caret at end on mount
   useEffect(() => {
@@ -147,8 +407,8 @@ export function InlineTextEditorVNext({
       onCancel();
       return;
     }
-    const paragraphs = domToParagraphs(el, nodeId);
-    onCommit(nodeId, paragraphs);
+    const paragraphs = domToParagraphs(el, nodeId, initialParagraphs);
+    onCommit(nodeId, paragraphs, autoHeightFrame());
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -193,31 +453,64 @@ export function InlineTextEditorVNext({
       el.focus();
       switch (command) {
         case "bold":
-          document.execCommand("bold");
+          wrapRange(el, (span) => {
+            span.style.fontWeight = "700";
+          });
           break;
         case "italic":
-          document.execCommand("italic");
+          wrapRange(el, (span) => {
+            span.style.fontStyle = "italic";
+          });
           break;
         case "underline":
-          document.execCommand("underline");
+          wrapRange(el, (span) => {
+            span.style.textDecoration = "underline";
+          });
           break;
         case "strikethrough":
-          document.execCommand("strikeThrough");
+          wrapRange(el, (span) => {
+            span.style.textDecoration = "line-through";
+          });
+          break;
+        case "bullet-list":
+          toggleList(el, "bullet");
+          break;
+        case "numbered-list":
+          toggleList(el, "number");
+          break;
+        case "link":
+          if (value) {
+            wrapRange(
+              el,
+              (anchor) => {
+                anchor.setAttribute("href", value);
+              },
+              "a",
+            );
+          }
           break;
         case "align-left":
-          document.execCommand("justifyLeft");
+          applyBlockAlign(el, "left");
           break;
         case "align-center":
-          document.execCommand("justifyCenter");
+          applyBlockAlign(el, "center");
           break;
         case "align-right":
-          document.execCommand("justifyRight");
+          applyBlockAlign(el, "right");
           break;
         case "color":
-          if (value) document.execCommand("foreColor", false, value);
+          if (value) {
+            wrapRange(el, (span) => {
+              span.style.color = value;
+            });
+          }
           break;
         case "font-size":
-          if (value) document.execCommand("fontSize", false, value);
+          if (value) {
+            wrapRange(el, (span) => {
+              span.style.fontSize = value;
+            });
+          }
           break;
       }
     }
@@ -236,6 +529,7 @@ export function InlineTextEditorVNext({
       aria-label="Edit text"
       aria-multiline="true"
       style={style}
+      onInput={syncAutoHeight}
       onKeyDown={handleKeyDown}
       onBlur={doCommit}
     />

@@ -58,10 +58,22 @@ export function NodeGeometryPanel({
 }: NodeGeometryPanelProps): JSX.Element | null {
   const layout = node.layout;
   if (!layout) return null;
+  const currentLayout = layout;
   const frame = layout.frame;
 
   function updateFrame(patch: Partial<LayoutBox["frame"]>) {
-    onUpdateLayout({ frame: { ...frame, ...patch } });
+    const nextFrame = { ...frame, ...patch };
+    if (currentLayout.constraints?.preserveAspectRatio) {
+      const aspect = frame.w / frame.h;
+      if (Number.isFinite(aspect) && aspect > 0) {
+        if (patch.w !== undefined && patch.h === undefined) {
+          nextFrame.h = patch.w / aspect;
+        } else if (patch.h !== undefined && patch.w === undefined) {
+          nextFrame.w = patch.h * aspect;
+        }
+      }
+    }
+    onUpdateLayout({ frame: nextFrame });
   }
 
   return (
@@ -118,6 +130,51 @@ export function NodeGeometryPanel({
         />
       </div>
       <div className="mt-1 flex items-center gap-4 text-xs text-ds-text-secondary">
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={layout.autoHeight === true}
+            onChange={(event) =>
+              onUpdateLayout({ autoHeight: event.currentTarget.checked })
+            }
+          />
+          Auto height
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={layout.constraints?.preserveAspectRatio === true}
+            onChange={(event) =>
+              onUpdateLayout({
+                constraints: {
+                  ...layout.constraints,
+                  preserveAspectRatio: event.currentTarget.checked,
+                },
+              })
+            }
+          />
+          Aspect lock
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={layout.flipX === true}
+            onChange={(event) =>
+              onUpdateLayout({ flipX: event.currentTarget.checked })
+            }
+          />
+          Flip H
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={layout.flipY === true}
+            onChange={(event) =>
+              onUpdateLayout({ flipY: event.currentTarget.checked })
+            }
+          />
+          Flip V
+        </label>
         <label className="flex items-center gap-1.5">
           <input
             type="checkbox"

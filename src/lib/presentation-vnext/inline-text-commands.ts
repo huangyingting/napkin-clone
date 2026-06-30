@@ -12,15 +12,18 @@ export type InlineTextCommandName =
   | "italic"
   | "underline"
   | "strikethrough"
+  | "bullet-list"
+  | "numbered-list"
   | "align-left"
   | "align-center"
   | "align-right"
+  | "link"
   | "color"
   | "font-size";
 
 export type InlineTextCommandPayload = {
   command: InlineTextCommandName;
-  /** Used by "color" and "font-size" commands. */
+  /** Used by "color", "font-size", and "link" commands. */
   value?: string;
 };
 

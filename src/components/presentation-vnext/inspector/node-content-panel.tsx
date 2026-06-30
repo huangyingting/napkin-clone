@@ -1,8 +1,9 @@
 "use client";
 
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 
 import type {
+  ConnectorAnchor,
   ConnectorContent,
   ShapeKind,
   SlideChildNode,
@@ -14,6 +15,8 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 export interface NodeContentPanelProps {
   node: SlideChildNode;
   onUpdateContent: (patch: Record<string, unknown>) => void;
+  assetResolver?: (assetId: string) => string | undefined;
+  onReplaceImage?: () => void;
 }
 
 const SHAPE_OPTIONS: ShapeKind[] = [
@@ -24,6 +27,14 @@ const SHAPE_OPTIONS: ShapeKind[] = [
   "diamond",
   "circle",
   "square",
+];
+
+const CONNECTOR_ANCHORS: ConnectorAnchor[] = [
+  "center",
+  "top",
+  "right",
+  "bottom",
+  "left",
 ];
 
 function textValue(content: TextContent): string {
@@ -61,6 +72,73 @@ function updateTableCell(
   };
 }
 
+function emptyTableRow(table: TableContent, id: string) {
+  return { id, cells: table.columns.map(() => ({ text: "" })) };
+}
+
+function insertTableRow(
+  table: TableContent,
+  index: number,
+  position: "before" | "after",
+  nodeId: string,
+): TableContent {
+  const rows = [...table.rows];
+  const target = position === "before" ? index : index + 1;
+  rows.splice(
+    Math.max(0, Math.min(rows.length, target)),
+    0,
+    emptyTableRow(table, `${nodeId}-row-${Date.now().toString(36)}`),
+  );
+  return { ...table, rows };
+}
+
+function deleteTableRow(table: TableContent, index: number): TableContent {
+  if (table.rows.length <= 1) return table;
+  return { ...table, rows: table.rows.filter((_row, i) => i !== index) };
+}
+
+function insertTableColumn(
+  table: TableContent,
+  index: number,
+  position: "before" | "after",
+  nodeId: string,
+): TableContent {
+  const target = position === "before" ? index : index + 1;
+  const columnIndex = Math.max(0, Math.min(table.columns.length, target));
+  const column = {
+    id: `${nodeId}-col-${Date.now().toString(36)}`,
+    label: `Column ${columnIndex + 1}`,
+  };
+  return {
+    ...table,
+    columns: [
+      ...table.columns.slice(0, columnIndex),
+      column,
+      ...table.columns.slice(columnIndex),
+    ],
+    rows: table.rows.map((row) => ({
+      ...row,
+      cells: [
+        ...row.cells.slice(0, columnIndex),
+        { text: "" },
+        ...row.cells.slice(columnIndex),
+      ],
+    })),
+  };
+}
+
+function deleteTableColumn(table: TableContent, index: number): TableContent {
+  if (table.columns.length <= 1) return table;
+  return {
+    ...table,
+    columns: table.columns.filter((_column, i) => i !== index),
+    rows: table.rows.map((row) => ({
+      ...row,
+      cells: row.cells.filter((_cell, i) => i !== index),
+    })),
+  };
+}
+
 function updateConnectorPoint(
   content: ConnectorContent,
   side: "from" | "to",
@@ -81,7 +159,22 @@ function updateConnectorPoint(
 export function NodeContentPanel({
   node,
   onUpdateContent,
+  assetResolver,
+  onReplaceImage,
 }: NodeContentPanelProps): JSX.Element {
+  const [targetRowIndex, setTargetRowIndex] = useState(0);
+  const [targetColumnIndex, setTargetColumnIndex] = useState(0);
+  const tableRowIndex =
+    node.type === "table"
+      ? Math.max(0, Math.min(targetRowIndex, node.content.rows.length - 1))
+      : 0;
+  const tableColumnIndex =
+    node.type === "table"
+      ? Math.max(
+          0,
+          Math.min(targetColumnIndex, node.content.columns.length - 1),
+        )
+      : 0;
   return (
     <section className="flex flex-col gap-2 px-3 py-2.5">
       <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
@@ -139,6 +232,43 @@ export function NodeContentPanel({
       ) : null}
       {node.type === "image" ? (
         <>
+          <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
+            {assetResolver?.(node.content.assetId) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={assetResolver(node.content.assetId)}
+                alt={node.content.alt ?? ""}
+                className="h-24 w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
+                No image preview
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onReplaceImage}
+            disabled={onReplaceImage === undefined}
+            className="self-start rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+          >
+            Replace image
+          </button>
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Fit
+            <select
+              value={node.content.fit ?? "cover"}
+              onChange={(event) =>
+                onUpdateContent({ fit: event.currentTarget.value })
+              }
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            >
+              <option value="contain">contain</option>
+              <option value="cover">cover</option>
+              <option value="fill">fill</option>
+              <option value="none">none</option>
+            </select>
+          </label>
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Asset id
             <input
@@ -159,19 +289,82 @@ export function NodeContentPanel({
               className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["top", "right", "bottom", "left"] as const).map((side) => (
+              <label
+                key={side}
+                className="flex flex-col gap-1 text-xs text-ds-text-secondary"
+              >
+                Crop {side}
+                <input
+                  type="number"
+                  value={node.content.crop?.[side] ?? 0}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onChange={(event) =>
+                    onUpdateContent({
+                      crop: {
+                        top: node.content.crop?.top ?? 0,
+                        right: node.content.crop?.right ?? 0,
+                        bottom: node.content.crop?.bottom ?? 0,
+                        left: node.content.crop?.left ?? 0,
+                        [side]: Number(event.currentTarget.value),
+                      },
+                    })
+                  }
+                  className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                />
+              </label>
+            ))}
+          </div>
         </>
       ) : null}
       {node.type === "visual" ? (
-        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-          Visual id
-          <input
-            value={node.content.visualId ?? ""}
-            onChange={(event) =>
-              onUpdateContent({ visualId: event.currentTarget.value })
-            }
-            className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-          />
-        </label>
+        <>
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Visual id
+            <input
+              value={node.content.visualId ?? ""}
+              onChange={(event) =>
+                onUpdateContent({ visualId: event.currentTarget.value })
+              }
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Asset id
+            <input
+              value={node.content.assetId ?? ""}
+              onChange={(event) =>
+                onUpdateContent({ assetId: event.currentTarget.value })
+              }
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Alt text
+            <input
+              value={node.content.alt ?? ""}
+              onChange={(event) =>
+                onUpdateContent({ alt: event.currentTarget.value })
+              }
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-ds-text-secondary">
+            <input
+              type="checkbox"
+              checked={node.content.transparentBackground === true}
+              onChange={(event) =>
+                onUpdateContent({
+                  transparentBackground: event.currentTarget.checked,
+                })
+              }
+            />
+            Transparent background
+          </label>
+        </>
       ) : null}
       {node.type === "table" ? (
         <div className="flex flex-col gap-2">
@@ -228,6 +421,122 @@ export function NodeContentPanel({
               ))}
             </div>
           ))}
+          <div className="grid grid-cols-2 gap-2 rounded-ds-sm border border-ds-border-subtle p-2">
+            <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Target row
+              <select
+                value={tableRowIndex}
+                onChange={(event) =>
+                  setTargetRowIndex(Number(event.currentTarget.value))
+                }
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+              >
+                {node.content.rows.map((row, index) => (
+                  <option key={row.id} value={index}>
+                    Row {index + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Target column
+              <select
+                value={tableColumnIndex}
+                onChange={(event) =>
+                  setTargetColumnIndex(Number(event.currentTarget.value))
+                }
+                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+              >
+                {node.content.columns.map((column, index) => (
+                  <option key={column.id} value={index}>
+                    {column.label || `Column ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateContent(
+                  insertTableRow(
+                    node.content,
+                    tableRowIndex,
+                    "before",
+                    node.id,
+                  ),
+                )
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover"
+            >
+              Insert row before
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateContent(
+                  insertTableRow(node.content, tableRowIndex, "after", node.id),
+                )
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover"
+            >
+              Insert row after
+            </button>
+            <button
+              type="button"
+              disabled={node.content.rows.length <= 1}
+              onClick={() =>
+                onUpdateContent(deleteTableRow(node.content, tableRowIndex))
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+            >
+              Delete target row
+            </button>
+            <span aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateContent(
+                  insertTableColumn(
+                    node.content,
+                    tableColumnIndex,
+                    "before",
+                    node.id,
+                  ),
+                )
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover"
+            >
+              Insert col before
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateContent(
+                  insertTableColumn(
+                    node.content,
+                    tableColumnIndex,
+                    "after",
+                    node.id,
+                  ),
+                )
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover"
+            >
+              Insert col after
+            </button>
+            <button
+              type="button"
+              disabled={node.content.columns.length <= 1}
+              onClick={() =>
+                onUpdateContent(
+                  deleteTableColumn(node.content, tableColumnIndex),
+                )
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+            >
+              Delete target column
+            </button>
+          </div>
           <div className="flex gap-1">
             <button
               type="button"
@@ -267,63 +576,190 @@ export function NodeContentPanel({
             >
               Add column
             </button>
+            <button
+              type="button"
+              disabled={node.content.rows.length <= 1}
+              onClick={() =>
+                onUpdateContent({
+                  rows: node.content.rows.slice(0, -1),
+                })
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+            >
+              Delete row
+            </button>
+            <button
+              type="button"
+              disabled={node.content.columns.length <= 1}
+              onClick={() =>
+                onUpdateContent({
+                  columns: node.content.columns.slice(0, -1),
+                  rows: node.content.rows.map((row) => ({
+                    ...row,
+                    cells: row.cells.slice(0, -1),
+                  })),
+                })
+              }
+              className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+            >
+              Delete column
+            </button>
           </div>
+          <label className="flex items-center gap-1.5 text-xs text-ds-text-secondary">
+            <input
+              type="checkbox"
+              checked={node.content.header === true}
+              onChange={(event) =>
+                onUpdateContent({ header: event.currentTarget.checked })
+              }
+            />
+            Header row
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Caption
+            <input
+              value={node.content.caption ?? ""}
+              onChange={(event) =>
+                onUpdateContent({ caption: event.currentTarget.value })
+              }
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            />
+          </label>
         </div>
       ) : null}
       {node.type === "connector" ? (
-        <div className="grid grid-cols-2 gap-2">
-          {(["from", "to"] as const).map((side) => {
-            const endpoint = node.content[side];
-            return endpoint.kind === "point" ? (
-              <div key={side} className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-ds-text-secondary">
-                  {side}
-                </span>
-                <input
-                  type="number"
-                  value={endpoint.point.x}
-                  min={0}
-                  max={100}
-                  step={1}
-                  aria-label={`${side} x`}
-                  onChange={(event) =>
-                    onUpdateContent(
-                      updateConnectorPoint(
-                        node.content,
-                        side,
-                        "x",
-                        Number(event.currentTarget.value),
-                      ),
-                    )
-                  }
-                  className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-                />
-                <input
-                  type="number"
-                  value={endpoint.point.y}
-                  min={0}
-                  max={100}
-                  step={1}
-                  aria-label={`${side} y`}
-                  onChange={(event) =>
-                    onUpdateContent(
-                      updateConnectorPoint(
-                        node.content,
-                        side,
-                        "y",
-                        Number(event.currentTarget.value),
-                      ),
-                    )
-                  }
-                  className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-                />
-              </div>
-            ) : (
-              <p key={side} className="text-xs text-ds-text-secondary">
-                {side}: {endpoint.nodeId} / {endpoint.anchor}
-              </p>
-            );
-          })}
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Routing
+            <select
+              value={node.content.routing ?? "straight"}
+              onChange={(event) =>
+                onUpdateContent({ routing: event.currentTarget.value })
+              }
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+            >
+              <option value="straight">straight</option>
+              <option value="curved">curved</option>
+              <option value="elbow">step</option>
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["from", "to"] as const).map((side) => {
+              const endpoint = node.content[side];
+              return (
+                <div
+                  key={side}
+                  className="flex flex-col gap-1 rounded-ds-sm border border-ds-border-subtle p-1.5"
+                >
+                  <span className="text-xs font-medium text-ds-text-secondary">
+                    {side}
+                  </span>
+                  <select
+                    value={endpoint.kind}
+                    aria-label={`${side} endpoint kind`}
+                    onChange={(event) => {
+                      const kind = event.currentTarget.value;
+                      onUpdateContent({
+                        [side]:
+                          kind === "node"
+                            ? { kind: "node", nodeId: "", anchor: "center" }
+                            : {
+                                kind: "point",
+                                point:
+                                  endpoint.kind === "point"
+                                    ? endpoint.point
+                                    : { x: 50, y: 50 },
+                              },
+                      });
+                    }}
+                    className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                  >
+                    <option value="point">Point</option>
+                    <option value="node">Node</option>
+                  </select>
+                  {endpoint.kind === "point" ? (
+                    <>
+                      <input
+                        type="number"
+                        value={endpoint.point.x}
+                        min={0}
+                        max={100}
+                        step={1}
+                        aria-label={`${side} x`}
+                        onChange={(event) =>
+                          onUpdateContent(
+                            updateConnectorPoint(
+                              node.content,
+                              side,
+                              "x",
+                              Number(event.currentTarget.value),
+                            ),
+                          )
+                        }
+                        className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                      />
+                      <input
+                        type="number"
+                        value={endpoint.point.y}
+                        min={0}
+                        max={100}
+                        step={1}
+                        aria-label={`${side} y`}
+                        onChange={(event) =>
+                          onUpdateContent(
+                            updateConnectorPoint(
+                              node.content,
+                              side,
+                              "y",
+                              Number(event.currentTarget.value),
+                            ),
+                          )
+                        }
+                        className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        value={endpoint.nodeId}
+                        aria-label={`${side} node id`}
+                        placeholder="Node id"
+                        onChange={(event) =>
+                          onUpdateContent({
+                            [side]: {
+                              ...endpoint,
+                              nodeId: event.currentTarget.value,
+                            },
+                          })
+                        }
+                        className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                      />
+                      <select
+                        value={endpoint.anchor}
+                        aria-label={`${side} anchor`}
+                        onChange={(event) =>
+                          onUpdateContent({
+                            [side]: {
+                              ...endpoint,
+                              anchor: event.currentTarget
+                                .value as ConnectorAnchor,
+                            },
+                          })
+                        }
+                        className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                      >
+                        {CONNECTOR_ANCHORS.map((anchor) => (
+                          <option key={anchor} value={anchor}>
+                            {anchor}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : null}
       {node.type === "group" ? (

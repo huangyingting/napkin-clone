@@ -132,6 +132,9 @@ export type ImageFitMode = "contain" | "cover" | "fill" | "none";
 
 export type ImageStyle = {
   fit?: ImageFitMode;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
   maskShape?:
     | "none"
     | "rect"
@@ -148,7 +151,7 @@ export type ConnectorStyle = {
   stroke?: StrokeStyle;
   startArrow?: "none" | "arrow" | "filled";
   endArrow?: "none" | "arrow" | "filled";
-  routing?: "straight" | "elbow";
+  routing?: "straight" | "elbow" | "curved";
 };
 
 export type TableStyle = {
@@ -163,6 +166,7 @@ export type TableStyle = {
 
 export type SlideSurfaceStyle = {
   background?: FillStyle;
+  accent?: ColorValue;
   paddingPct?: InsetsPct;
   chrome?: "default" | "minimal" | "none";
   decoration?: "none" | "subtle" | "default" | "expressive";
@@ -171,11 +175,20 @@ export type SlideSurfaceStyle = {
 export type VisualStyle = {
   styleThemeId?: string;
   transparentBackground?: boolean;
+  channelColors?: Record<string, ColorValue>;
 };
 
 export type ClipStyle = {
   enabled: boolean;
 };
+
+export type BlendMode =
+  | "normal"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten";
 
 // ---------------------------------------------------------------------------
 // Top-level style object
@@ -195,6 +208,7 @@ export type StyleObject = {
   slide?: SlideSurfaceStyle;
   visual?: VisualStyle;
   clip?: ClipStyle;
+  blendMode?: BlendMode;
 };
 
 /** Partial style, used for local overrides and deck-level patches. */

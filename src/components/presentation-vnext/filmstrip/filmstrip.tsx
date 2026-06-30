@@ -11,8 +11,8 @@
  * localStorage under `slide-filmstrip-collapsed`.
  */
 
-import { useState, type JSX, type KeyboardEvent } from "react";
-import { ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { Fragment, useState, type JSX, type KeyboardEvent } from "react";
+import { ChevronDown, ChevronUp, Plus, StickyNote } from "lucide-react";
 
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -30,6 +30,10 @@ export interface FilmstripProps {
   onDuplicateSlide: (slideId: string) => void;
   onDeleteSlide: (slideId: string) => void;
   onMoveSlide: (slideId: string, targetIndex: number) => void;
+  zoomPercent: number;
+  onZoomChange: (zoomPercent: number) => void;
+  notesOpen: boolean;
+  onToggleNotes: () => void;
 }
 
 export function Filmstrip({
@@ -41,13 +45,17 @@ export function Filmstrip({
   onDuplicateSlide,
   onDeleteSlide,
   onMoveSlide,
+  zoomPercent,
+  onZoomChange,
+  notesOpen,
+  onToggleNotes,
 }: FilmstripProps): JSX.Element {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof localStorage === "undefined") return false;
     return localStorage.getItem(COLLAPSED_KEY) === "true";
   });
 
-  const { containerRef, onCellPointerDown } = useFilmstripDrag({
+  const { dragState, containerRef, onCellPointerDown } = useFilmstripDrag({
     onMoveSlide,
   });
 
@@ -84,21 +92,39 @@ export function Filmstrip({
     >
       {/* Collapsed indicator */}
       {collapsed ? (
-        <div className="flex h-8 items-center justify-between px-3">
+        <div className="flex h-8 items-center justify-between gap-3 px-3">
           <span className="text-[11px] text-ds-text-muted">
-            {renderTree.slides.length} slides
+            Slide {activeSlideIndex + 1} of {renderTree.slides.length}
           </span>
-          <button
-            type="button"
-            aria-label="Expand filmstrip"
-            onClick={toggleCollapsed}
-            className={cx(
-              "flex h-6 w-6 items-center justify-center rounded-[var(--ds-radius-sm,6px)] text-ds-text-muted hover:text-ds-text-primary",
-              FOCUS_RING,
-            )}
-          >
-            <ChevronUp size={14} aria-hidden />
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-ds-text-muted">
+              {zoomPercent}%
+            </span>
+            <button
+              type="button"
+              aria-label={notesOpen ? "Hide notes" : "Show notes"}
+              aria-pressed={notesOpen}
+              onClick={onToggleNotes}
+              className={cx(
+                "flex h-6 w-6 items-center justify-center rounded-[var(--ds-radius-sm,6px)] text-ds-text-muted hover:text-ds-text-primary",
+                notesOpen && "bg-ds-accent-surface text-ds-accent-text",
+                FOCUS_RING,
+              )}
+            >
+              <StickyNote size={14} aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Expand filmstrip"
+              onClick={toggleCollapsed}
+              className={cx(
+                "flex h-6 w-6 items-center justify-center rounded-[var(--ds-radius-sm,6px)] text-ds-text-muted hover:text-ds-text-primary",
+                FOCUS_RING,
+              )}
+            >
+              <ChevronUp size={14} aria-hidden />
+            </button>
+          </div>
         </div>
       ) : (
         <div className="relative flex h-[104px] items-center gap-0">
@@ -115,24 +141,39 @@ export function Filmstrip({
             {renderTree.slides.map((slideTree, index) => {
               const slideId = slideTree.id;
               return (
-                <FilmstripSlide
-                  key={slideId}
-                  slideTree={slideTree}
-                  canvas={renderTree.canvas}
-                  index={index}
-                  isActive={index === activeSlideIndex}
-                  slideId={slideId}
-                  totalSlides={renderTree.slides.length}
-                  assetResolver={assetResolver}
-                  onSelect={onSelectSlide}
-                  onMoveLeft={() => onMoveSlide(slideId, index - 1)}
-                  onMoveRight={() => onMoveSlide(slideId, index + 1)}
-                  onDuplicate={() => onDuplicateSlide(slideId)}
-                  onDelete={() => onDeleteSlide(slideId)}
-                  onPointerDown={onCellPointerDown}
-                />
+                <Fragment key={slideId}>
+                  {dragState.isDragging &&
+                  dragState.dragTargetIndex === index ? (
+                    <li
+                      aria-hidden="true"
+                      className="my-1 w-0.5 shrink-0 rounded-full bg-ds-accent-fill"
+                    />
+                  ) : null}
+                  <FilmstripSlide
+                    slideTree={slideTree}
+                    canvas={renderTree.canvas}
+                    index={index}
+                    isActive={index === activeSlideIndex}
+                    slideId={slideId}
+                    totalSlides={renderTree.slides.length}
+                    assetResolver={assetResolver}
+                    onSelect={onSelectSlide}
+                    onMoveLeft={() => onMoveSlide(slideId, index - 1)}
+                    onMoveRight={() => onMoveSlide(slideId, index + 1)}
+                    onDuplicate={() => onDuplicateSlide(slideId)}
+                    onDelete={() => onDeleteSlide(slideId)}
+                    onPointerDown={onCellPointerDown}
+                  />
+                </Fragment>
               );
             })}
+            {dragState.isDragging &&
+            dragState.dragTargetIndex === renderTree.slides.length ? (
+              <li
+                aria-hidden="true"
+                className="my-1 w-0.5 shrink-0 rounded-full bg-ds-accent-fill"
+              />
+            ) : null}
 
             {/* Add slide button */}
             <li className="shrink-0" role="none">
@@ -151,17 +192,48 @@ export function Filmstrip({
           </ol>
 
           {/* Collapse toggle */}
-          <button
-            type="button"
-            aria-label="Collapse filmstrip"
-            onClick={toggleCollapsed}
-            className={cx(
-              "mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--ds-radius-sm,6px)] text-ds-text-muted hover:text-ds-text-primary",
-              FOCUS_RING,
-            )}
-          >
-            <ChevronDown size={14} aria-hidden />
-          </button>
+          <div className="mr-2 flex shrink-0 items-center gap-2">
+            <label className="flex items-center gap-1 text-[11px] text-ds-text-muted">
+              <span>Zoom</span>
+              <input
+                type="range"
+                min={50}
+                max={150}
+                step={10}
+                value={zoomPercent}
+                onChange={(event) =>
+                  onZoomChange(Number(event.currentTarget.value))
+                }
+                className="w-20"
+                aria-label="Zoom"
+              />
+              <span className="w-9 text-right">{zoomPercent}%</span>
+            </label>
+            <button
+              type="button"
+              aria-label={notesOpen ? "Hide notes" : "Show notes"}
+              aria-pressed={notesOpen}
+              onClick={onToggleNotes}
+              className={cx(
+                "flex h-6 w-6 items-center justify-center rounded-[var(--ds-radius-sm,6px)] text-ds-text-muted hover:text-ds-text-primary",
+                notesOpen && "bg-ds-accent-surface text-ds-accent-text",
+                FOCUS_RING,
+              )}
+            >
+              <StickyNote size={14} aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Collapse filmstrip"
+              onClick={toggleCollapsed}
+              className={cx(
+                "flex h-6 w-6 items-center justify-center rounded-[var(--ds-radius-sm,6px)] text-ds-text-muted hover:text-ds-text-primary",
+                FOCUS_RING,
+              )}
+            >
+              <ChevronDown size={14} aria-hidden />
+            </button>
+          </div>
         </div>
       )}
     </div>

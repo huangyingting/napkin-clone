@@ -157,13 +157,21 @@ describe("textContentToPptxRuns", () => {
     assert.equal(runs[1].options?.bold, true);
   });
 
-  test("bold, italic, underline flags are forwarded to run options", () => {
+  test("bold, italic, underline, strikethrough flags are forwarded to run options", () => {
     const content: TextContent = {
       paragraphs: [
         {
           id: "p1",
           text: "styled",
-          runs: [{ text: "styled", bold: true, italic: true, underline: true }],
+          runs: [
+            {
+              text: "styled",
+              bold: true,
+              italic: true,
+              underline: true,
+              strikethrough: true,
+            },
+          ],
         },
       ],
     };
@@ -171,6 +179,7 @@ describe("textContentToPptxRuns", () => {
     assert.equal(run.options?.bold, true);
     assert.equal(run.options?.italic, true);
     assert.deepEqual(run.options?.underline, { style: "sng" });
+    assert.equal(run.options?.strike, true);
   });
 
   test("localStyle color is stripped of # and uppercased", () => {

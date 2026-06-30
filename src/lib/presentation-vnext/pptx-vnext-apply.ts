@@ -109,6 +109,7 @@ export function textContentToPptxRuns(content: TextContent): PptxTextRun[] {
         if (run.bold) runOptions.bold = true;
         if (run.italic) runOptions.italic = true;
         if (run.underline) runOptions.underline = { style: "sng" };
+        if (run.strikethrough) runOptions.strike = true;
         if (run.localStyle?.color && typeof run.localStyle.color === "string") {
           const c = run.localStyle.color.startsWith("#")
             ? run.localStyle.color.slice(1).toUpperCase()

@@ -45,6 +45,7 @@ export function shouldStoreRunsV7(runs: readonly TextRun[]): boolean {
       run.bold ||
       run.italic ||
       run.underline ||
+      run.strikethrough ||
       run.code ||
       run.link !== undefined ||
       run.localStyle !== undefined,
@@ -60,6 +61,7 @@ function sameRunStyle(a: TextRun, b: TextRun): boolean {
     a.bold === b.bold &&
     a.italic === b.italic &&
     a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
     a.code === b.code &&
     a.link === b.link &&
     a.localStyle?.color === b.localStyle?.color &&
