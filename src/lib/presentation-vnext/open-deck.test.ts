@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 
-import { decideDeckOpen, openDeckFromJson, looksLikeDeckV7 } from "./open-deck";
+import {
+  decideDeckOpen,
+  openAiGeneratedDeck,
+  openDeckFromJson,
+  looksLikeDeckV7,
+} from "./open-deck";
+import { safeParseDeckV7 } from "./validation";
 
 // ---------------------------------------------------------------------------
 // Minimal v7 fixture
@@ -87,6 +93,17 @@ describe("openDeckFromJson — v7 pass-through", () => {
     assert.equal(result.deck.slides[0].id, "slide-0001");
   });
 
+  test("routes AI deck proposals through the same v7 validation boundary", () => {
+    const valid = openAiGeneratedDeck(MINIMAL_V7);
+    assert.ok(valid.ok);
+    assert.equal(valid.source, "v7");
+    assert.equal(valid.deck, MINIMAL_V7);
+
+    const invalid = openAiGeneratedDeck({ schemaVersion: 7, slides: [] });
+    assert.ok(!invalid.ok);
+    assert.match(invalid.error, /v7 deck validation failed/);
+  });
+
   test("returns ok=false with validation errors for a malformed v7 deck", () => {
     const bad = { ...MINIMAL_V7, slides: [] }; // slides must be non-empty
     const result = openDeckFromJson(bad);
@@ -116,6 +133,24 @@ describe("openDeckFromJson — legacy schemas", () => {
     assert.equal(result.idMap?.nodes.e1, "e1");
     assert.equal(result.idMap?.sources["block-1"], "block-1");
     assert.equal(result.diagnostics[0]?.message.includes("migrated"), true);
+  });
+
+  test("migrated v6 decks are save-ready v7 without legacy-only fields", () => {
+    const result = openDeckFromJson(MINIMAL_V6);
+    assert.ok(result.ok);
+    assert.equal(result.source, "legacy-v6");
+
+    const validation = safeParseDeckV7(result.deck);
+    assert.ok(
+      validation.success,
+      !validation.success ? validation.errors.join("; ") : "",
+    );
+    assert.equal("design" in result.deck, false);
+    assert.equal("masters" in result.deck, false);
+    assert.equal(
+      "elements" in (result.deck.slides[0] as Record<string, unknown>),
+      false,
+    );
   });
 
   test("migrates rewritten v6 ids with old-to-new idMap and connector remap", () => {
@@ -224,6 +259,15 @@ describe("openDeckFromJson — legacy schemas", () => {
         assert.ok(
           (result.errors ?? []).some((error) => error.includes("slides")),
         );
+      }
+    });
+
+    test("routes failed v6 migration to recovery with fatal diagnostics", () => {
+      const result = decideDeckOpen({ ...MINIMAL_V6, slides: [] });
+      assert.equal(result.mode, "recovery");
+      if (result.mode === "recovery") {
+        assert.match(result.error, /no slides to migrate/i);
+        assert.equal(result.diagnostics[0]?.severity, "fatal");
       }
     });
   });

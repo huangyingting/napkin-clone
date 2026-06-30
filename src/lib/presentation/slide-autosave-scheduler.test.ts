@@ -74,6 +74,26 @@ describe("createSlideAutosaveScheduler", () => {
     assert.deepEqual(saved, ["latest"]);
   });
 
+  test("manual save handoff can cancel stale queued autosave work", () => {
+    const manual = createManualTimer();
+    const saved: string[] = [];
+    const scheduler = createSlideAutosaveScheduler<string>({
+      onDue: (deck) => saved.push(`autosave:${deck}`),
+      timer: manual.timer,
+    });
+
+    scheduler.schedule("draft-1");
+    scheduler.schedule("draft-2");
+    scheduler.cancel();
+    saved.push("manual:draft-2");
+
+    manual.fire(1);
+    manual.fire(2);
+
+    assert.deepEqual(saved, ["manual:draft-2"]);
+    assert.equal(scheduler.hasPending(), false);
+  });
+
   test("cancel drops queued work without saving", () => {
     const manual = createManualTimer();
     const saved: string[] = [];
