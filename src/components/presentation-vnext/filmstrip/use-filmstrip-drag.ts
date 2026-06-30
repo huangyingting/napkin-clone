@@ -76,7 +76,7 @@ export function useFilmstripDrag({
     if (event.button !== 0) return;
     const container = containerRef.current;
     if (!container) return;
-    const activeContainer = container;
+    const activeContainer: HTMLOListElement = container;
 
     const startClientX = event.clientX;
     const startClientY = event.clientY;

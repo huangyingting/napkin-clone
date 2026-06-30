@@ -122,10 +122,12 @@ async function main() {
     },
     update: { name: F.dashboardTag.name },
     create: {
+      id: F.dashboardTag.id,
       ownerId: owner.id,
       name: F.dashboardTag.name,
       slug: F.dashboardTag.slug,
     },
+    select: { id: true },
   });
 
   // -------------------------------------------------------------------------
@@ -198,6 +200,9 @@ async function main() {
       ownerId: owner.id,
       workspaceId: F.workspaceId,
       favorite: true,
+      isShared: false,
+      shareId: null,
+      slug: null,
       deletedAt: null,
       tags: { set: [] },
     },
@@ -219,6 +224,9 @@ async function main() {
       ownerId: owner.id,
       workspaceId: F.workspaceId,
       favorite: false,
+      isShared: false,
+      shareId: null,
+      slug: null,
       deletedAt: null,
       tags: { set: [{ id: dashboardTag.id }] },
     },
