@@ -22,26 +22,25 @@ workflow and are not runtime payload readers.
 
 ## Subsystems
 
-| Section                                             | Contains                                                  |
-| --------------------------------------------------- | --------------------------------------------------------- |
-| [system/](system/README.md)                         | System map, invariants, design system, naming, and ADRs.  |
-| [ai/](ai/README.md)                                 | AI-assisted generation contracts.                         |
-| [auth/](auth/README.md)                             | Authentication, recovery, account settings, and deletion. |
-| [collaboration/](collaboration/README.md)           | Yjs room model, readiness, presence, and room access.     |
-| [data-model/](data-model/README.md)                 | Deck JSON and visual mirror contracts.                    |
-| [documents/](documents/README.md)                   | Document creation, listing, search, tags, and trash.      |
-| [editor/](editor/README.md)                         | Lexical editor and slide theme/layout architecture.       |
-| [import/](import/README.md)                         | Document import parsing, validation, and abuse controls.  |
-| [localization/](localization/README.md)             | Typed catalogs, locale resolution, and activation gate.   |
-| [presentation/](presentation/README.md)             | Slide editor runtime, present mode, and export pipeline.  |
-| [presentation-vnext/](presentation-vnext/README.md) | v7 slide editor UI, vNext runtime, and migration.         |
-| [product/](product/README.md)                       | Brand styles, billing plans, and credits.                 |
-| [public-render/](public-render/README.md)           | Public share/embed/present/asset render resolution.       |
-| [security/](security/README.md)                     | Permissions, sharing, route matrix, and public surface.   |
-| [visual/](visual/README.md)                         | Visual schemas, kind registry, rendering, and export.     |
-| [commands/](commands/README.md)                     | Command envelope and mutation routing inventory.          |
-| [diagnostics/](diagnostics/README.md)               | Logging scopes, diagnostic codes, and telemetry layers.   |
-| [operations/](operations/README.md)                 | Collaboration deployment and release readiness.           |
+| Section                                   | Contains                                                  |
+| ----------------------------------------- | --------------------------------------------------------- |
+| [system/](system/README.md)               | System map, invariants, design system, naming, and ADRs.  |
+| [ai/](ai/README.md)                       | AI-assisted generation contracts.                         |
+| [auth/](auth/README.md)                   | Authentication, recovery, account settings, and deletion. |
+| [collaboration/](collaboration/README.md) | Yjs room model, readiness, presence, and room access.     |
+| [data-model/](data-model/README.md)       | Deck JSON and visual mirror contracts.                    |
+| [documents/](documents/README.md)         | Document creation, listing, search, tags, and trash.      |
+| [editor/](editor/README.md)               | Lexical editor and slide theme/layout architecture.       |
+| [import/](import/README.md)               | Document import parsing, validation, and abuse controls.  |
+| [localization/](localization/README.md)   | Typed catalogs, locale resolution, and activation gate.   |
+| [presentation/](presentation/README.md)   | Slide editor runtime, present mode, and export pipeline.  |
+| [product/](product/README.md)             | Brand styles, billing plans, and credits.                 |
+| [public-render/](public-render/README.md) | Public share/embed/present/asset render resolution.       |
+| [security/](security/README.md)           | Permissions, sharing, route matrix, and public surface.   |
+| [visual/](visual/README.md)               | Visual schemas, kind registry, rendering, and export.     |
+| [commands/](commands/README.md)           | Command envelope and mutation routing inventory.          |
+| [diagnostics/](diagnostics/README.md)     | Logging scopes, diagnostic codes, and telemetry layers.   |
+| [operations/](operations/README.md)       | Collaboration deployment and release readiness.           |
 
 ## Documentation Rules
 
