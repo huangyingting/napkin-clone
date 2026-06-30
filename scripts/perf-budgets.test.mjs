@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -85,4 +86,18 @@ test("runtime performance budget CLI returns status and writes findings", (t) =>
   );
   assert.match(logs[0], /passed/);
   assert.match(errors[0], /Performance budget violations/);
+});
+
+test("runtime performance budget CLI can be executed directly", (t) => {
+  const root = createTestFixtureRoot("perf-budget-cli-direct", t);
+
+  const result = spawnSync(
+    process.execPath,
+    [join(process.cwd(), "scripts", "perf-budgets.mjs")],
+    { cwd: root, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Performance budget check passed/);
+  assert.equal(result.stderr, "");
 });

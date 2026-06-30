@@ -3,9 +3,13 @@ import { describe, test } from "node:test";
 
 import {
   buildDeckV7,
+  buildImageNode,
+  buildShapeNode,
   buildSlideV7,
+  buildTableNode,
   buildTextContent,
   buildTextNode,
+  buildVisualNode,
 } from "@/test/builders/deck-v7";
 import type { SourceBlockIndex } from "./block-index";
 import type { DeckV7, SlideChildNode } from "./schema";
@@ -139,6 +143,41 @@ describe("v7 source link classification", () => {
     );
   });
 
+  test("classifies nested group sources and incomplete metadata", () => {
+    const nested = sourceNode("nested-stale", {
+      documentId: "doc-1",
+      blockId: "block-stale",
+      blockKind: "text",
+      contentHash: "hash-old",
+    });
+    const incomplete = sourceNode("incomplete-source", {
+      documentId: "doc-1",
+      blockKind: "text",
+    } as NonNullable<SlideChildNode["source"]>);
+    const group = {
+      id: "group-1",
+      type: "group",
+      component: "custom",
+      layout: { frame: { x: 0, y: 0, w: 50, h: 50 }, zIndex: 1 },
+      style: { ref: "surface.card" },
+      children: [nested, incomplete],
+    } as unknown as SlideChildNode;
+    const deck = buildDeckV7([
+      buildSlideV7("content", [group], { id: "slide-group" }),
+    ]);
+
+    const classifications = classifyDeckSourceLinks(deck, index());
+
+    assert.deepEqual(
+      classifications.map((item) => [item.nodeId, item.state]),
+      [
+        ["nested-stale", "stale"],
+        ["incomplete-source", "unknown"],
+      ],
+    );
+    assert.match(classifications[1]?.reason ?? "", /missing a document id/);
+  });
+
   test("emits source diagnostics only for non-fresh links", () => {
     const diagnostics = sourceLinkDiagnostics(
       classifyDeckSourceLinks(deckWithSources(), index()),
@@ -195,6 +234,56 @@ describe("v7 source link classification", () => {
       ],
     );
   });
+
+  test("falls back to slide and source metadata when building review rows", () => {
+    const classifications = classifyDeckSourceLinks(
+      buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            sourceNode("missing-label", {
+              documentId: "doc-1",
+              blockId: "missing-source",
+              blockKind: "text",
+              contentHash: "missing-hash",
+            }),
+          ],
+          { id: "slide-without-name", name: undefined },
+        ),
+      ]),
+      index(),
+    );
+
+    const [item] = sourceReviewItems(
+      buildDeckV7([buildSlideV7("content", [], { id: "different-slide" })]),
+      classifications,
+    );
+
+    assert.equal(item?.slideLabel, "Slide 1");
+    assert.equal(item?.sourceLabel, "missing-source");
+  });
+
+  test("source diagnostics use empty payloads for incomplete metadata", () => {
+    const deck = buildDeckV7([
+      buildSlideV7("content", [
+        sourceNode("incomplete-source", {
+          documentId: "doc-1",
+          blockKind: "text",
+        } as NonNullable<SlideChildNode["source"]>),
+      ]),
+    ]);
+    const diagnostics = sourceLinkDiagnostics(
+      classifyDeckSourceLinks(deck, index()),
+    );
+    const action = diagnostics[0]?.action;
+
+    assert.equal(diagnostics[0]?.code, "source-refresh-failed");
+    assert.deepEqual(
+      action && "payload" in action ? action.payload : undefined,
+      { documentId: "doc-1" },
+    );
+    assert.equal(diagnostics[0]?.details?.blockId, "");
+  });
 });
 
 describe("v7 source link commands", () => {
@@ -219,6 +308,219 @@ describe("v7 source link commands", () => {
       assert.equal(node.source?.contentHash, "hash-new");
       assert.equal(node.source?.refresh?.state, "fresh");
     }
+  });
+
+  test("refreshes compatible table, visual, image, and shape source payloads", () => {
+    const richIndex: SourceBlockIndex = {
+      documentId: "doc-1",
+      blocks: [
+        {
+          documentId: "doc-1",
+          id: "shape-text",
+          kind: "text",
+          hash: "shape-hash",
+          revision: "rev-1",
+          displayLabel: "Shape text",
+          refresh: { kind: "text", text: "Updated callout" },
+        },
+        {
+          documentId: "doc-1",
+          id: "table-block",
+          kind: "table",
+          hash: "table-hash",
+          displayLabel: "Metrics",
+          refresh: {
+            kind: "table",
+            columns: [{ id: "metric", label: "Metric" }],
+            rows: [{ id: "row", cells: [{ text: "ARR" }] }],
+            caption: "Updated metrics",
+          },
+        },
+        {
+          documentId: "doc-1",
+          id: "visual-block",
+          kind: "visual",
+          hash: "visual-hash",
+          displayLabel: "Chart",
+          refresh: { kind: "visual", visualId: "visual-new", alt: "Chart alt" },
+        },
+        {
+          documentId: "doc-1",
+          id: "image-block",
+          kind: "image",
+          hash: "image-hash",
+          displayLabel: "Hero",
+          refresh: { kind: "image", assetId: "asset-new", alt: "Hero alt" },
+        },
+      ],
+    };
+    const shape = buildShapeNode({
+      id: "shape-node",
+      content: { shape: "rect", text: buildTextContent(["Old callout"]) },
+      source: {
+        documentId: "doc-1",
+        blockId: "shape-text",
+        blockKind: "text",
+        contentHash: "old-shape",
+      },
+    });
+    const table = buildTableNode({
+      id: "table-node",
+      source: {
+        documentId: "doc-1",
+        blockId: "table-block",
+        blockKind: "table",
+        contentHash: "old-table",
+      },
+    });
+    const visual = buildVisualNode({
+      id: "visual-node",
+      source: {
+        documentId: "doc-1",
+        blockId: "visual-block",
+        blockKind: "visual",
+        contentHash: "old-visual",
+      },
+    });
+    const image = buildImageNode("asset-old", {
+      id: "image-node",
+      source: {
+        documentId: "doc-1",
+        blockId: "image-block",
+        blockKind: "image",
+        contentHash: "old-image",
+      },
+    });
+    let deck = buildDeckV7([
+      buildSlideV7("content", [shape, table, visual, image], {
+        id: "slide-rich",
+      }),
+    ]);
+
+    for (const nodeId of [
+      "shape-node",
+      "table-node",
+      "visual-node",
+      "image-node",
+    ]) {
+      const result = refreshNodeSource(
+        deck,
+        "slide-rich",
+        nodeId,
+        richIndex,
+        NOW,
+      );
+      assert.equal(result.status, "refreshed");
+      if (result.status === "refreshed") deck = result.deck;
+    }
+
+    const byId = Object.fromEntries(
+      deck.slides[0].children.map((node) => [node.id, node]),
+    );
+    const refreshedShape = byId["shape-node"];
+    assert.equal(
+      refreshedShape?.type === "shape"
+        ? refreshedShape.content.text?.paragraphs[0]?.text
+        : "",
+      "Updated callout",
+    );
+    assert.equal(refreshedShape?.source?.blockRevision, "rev-1");
+    const refreshedTable = byId["table-node"];
+    assert.equal(
+      refreshedTable?.type === "table"
+        ? refreshedTable.content.caption
+        : undefined,
+      "Updated metrics",
+    );
+    const refreshedVisual = byId["visual-node"];
+    assert.equal(
+      refreshedVisual?.type === "visual"
+        ? refreshedVisual.content.visualId
+        : "",
+      "visual-new",
+    );
+    assert.equal(
+      refreshedVisual?.type === "visual" ? refreshedVisual.content.alt : "",
+      "Chart alt",
+    );
+    const refreshedImage = byId["image-node"];
+    assert.equal(
+      refreshedImage?.type === "image" ? refreshedImage.content.assetId : "",
+      "asset-new",
+    );
+    assert.equal(
+      refreshedImage?.type === "image" ? refreshedImage.content.alt : "",
+      "Hero alt",
+    );
+  });
+
+  test("refreshNodeSource updates matching nodes nested inside groups", () => {
+    const nested = sourceNode("nested-stale", {
+      documentId: "doc-1",
+      blockId: "block-stale",
+      blockKind: "text",
+      contentHash: "hash-old",
+    });
+    const group = {
+      id: "group-1",
+      type: "group",
+      component: "custom",
+      layout: { frame: { x: 0, y: 0, w: 50, h: 50 }, zIndex: 1 },
+      style: { ref: "surface.card" },
+      children: [nested],
+    } as unknown as SlideChildNode;
+    const deck = buildDeckV7([
+      buildSlideV7("content", [group], { id: "slide-group" }),
+    ]);
+
+    const result = refreshNodeSource(
+      deck,
+      "slide-group",
+      "nested-stale",
+      index(),
+      NOW,
+    );
+
+    assert.equal(result.status, "refreshed");
+    if (result.status !== "refreshed") return;
+    const updatedGroup = result.deck.slides[0].children[0];
+    assert.equal(updatedGroup.type, "group");
+    if (updatedGroup.type !== "group") return;
+    const updatedNode = updatedGroup.children[0];
+    assert.equal(
+      updatedNode?.type === "text"
+        ? updatedNode.content.paragraphs[0]?.text
+        : "",
+      "Updated block",
+    );
+  });
+
+  test("refreshNodeSource explains missing, unlinked, remote, and absent sources", () => {
+    const deck = deckWithSources();
+    const plainDeck = buildDeckV7([
+      buildSlideV7("content", [buildTextNode({ id: "plain-node" })], {
+        id: "plain-slide",
+      }),
+    ]);
+
+    const cases = [
+      refreshNodeSource(plainDeck, "plain-slide", "plain-node", index(), NOW),
+      refreshNodeSource(deck, "slide-1", "unlinked-node", index(), NOW),
+      refreshNodeSource(deck, "slide-1", "remote-node", index(), NOW),
+      refreshNodeSource(deck, "slide-1", "orphan-node", index(), NOW),
+    ];
+
+    assert.deepEqual(
+      cases.map((result) =>
+        result.status === "skipped" ? result.reason : "refreshed",
+      ),
+      [
+        "Node has no source metadata.",
+        "Node is explicitly unlinked.",
+        "Cross-document source requires explicit remote resolution.",
+        "Source block is missing.",
+      ],
+    );
   });
 
   test("marks a node unlinked without deleting content", () => {

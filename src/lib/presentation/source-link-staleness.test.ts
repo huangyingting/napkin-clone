@@ -5,6 +5,7 @@ import type {
   Deck,
   Slide,
   SlideElement,
+  TableElement,
   TextElement,
   VisualElement,
   SourceRef,
@@ -18,11 +19,16 @@ import {
   relinkSource,
   sourceRefFromDurableBlockId,
 } from "@/lib/presentation/deck-source-refs";
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import type {
+  DocumentBlock,
+  DocumentTableBlock,
+  DocumentTextBlock,
+} from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import {
   findStaleSourceLinks,
+  updateTableElementFromBlock,
   updateTextElementFromBlock,
   updateVisualElementFromBlock,
   buildRefreshSourceRef,
@@ -178,6 +184,54 @@ function sourceOf(element: SlideElement | undefined) {
 
 function visualIdOf(element: SlideElement | undefined): string | undefined {
   return (element as any)?.content?.visualId;
+}
+
+function tableBlock(blockId: string, caption = "Forecast"): DocumentTableBlock {
+  return {
+    kind: "table",
+    blockId,
+    caption,
+    columns: [
+      { id: "col-1", label: "Quarter" },
+      { id: "col-2", label: "ARR" },
+    ],
+    rows: [
+      {
+        id: "row-1",
+        cells: [
+          { text: "Q1" },
+          { text: "$2M", runs: [{ text: "$2M", bold: true }] },
+        ],
+      },
+    ],
+  };
+}
+
+function linkedTableElement(
+  id: string,
+  blockId: string,
+  contentHash: string,
+): TableElement {
+  return {
+    id,
+    kind: "table",
+    role: "table",
+    box: { x: 0, y: 0, w: 50, h: 30 },
+    zIndex: 0,
+    content: {
+      kind: "table",
+      header: true,
+      columns: [{ id: "old-col", label: "Old" }],
+      rows: [{ id: "old-row", cells: [{ text: "Old" }] }],
+    },
+    source: {
+      documentId: "doc-1",
+      blockId,
+      contentHash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      blockKind: "table",
+    },
+  } as unknown as TableElement;
 }
 
 function slide(id: string, elements: SlideElement[]): Slide {
@@ -560,6 +614,40 @@ test("blockKind is carried through on each stale entry", () => {
   assert.equal(byEl["ve1"], "visual");
 });
 
+test("table source links detect missing and changed source blocks", () => {
+  const original = tableBlock("table-1", "Original forecast");
+  const changed = tableBlock("table-1", "Updated forecast");
+  const changedElement = linkedTableElement(
+    "table-changed",
+    "table-1",
+    hashDocumentBlock(original),
+  );
+  const missingElement = linkedTableElement("table-missing", "table-2", "old");
+  const d = deck(slide("s1", [changedElement, missingElement]));
+
+  const result = findStaleSourceLinks(d, [changed]);
+
+  assert.deepEqual(
+    result.map((entry) => ({
+      elementId: entry.elementId,
+      reason: entry.reason,
+      blockKind: entry.blockKind,
+    })),
+    [
+      {
+        elementId: "table-changed",
+        reason: "content_changed",
+        blockKind: "table",
+      },
+      {
+        elementId: "table-missing",
+        reason: "block_missing",
+        blockKind: "table",
+      },
+    ],
+  );
+});
+
 // ---------------------------------------------------------------------------
 // #408 action helpers: updateTextElementFromBlock
 // ---------------------------------------------------------------------------
@@ -686,6 +774,35 @@ test("buildRefreshSourceRef: carries documentId and blockKind", () => {
   assert.equal(ref.linkedAt, "2026-06-01T00:00:00.000Z");
   assert.equal(ref.blockKind, "text");
   assert.equal(ref.unlinked, undefined);
+});
+
+test("updateTableElementFromBlock refreshes content and clears stale unlink state", () => {
+  const el = linkedTableElement("table-el", "table-1", "oldhash");
+  el.source = { ...el.source!, unlinked: true };
+  const fresh = tableBlock("table-1");
+  const newRef = buildRefreshSourceRef(
+    el.source!,
+    "table-1",
+    hashDocumentBlock(fresh),
+    "2026-06-01T00:00:00.000Z",
+    "table",
+  );
+
+  const updated = updateTableElementFromBlock(el, fresh, newRef);
+
+  assert.deepEqual(updated.box, el.box);
+  assert.equal(updated.zIndex, el.zIndex);
+  assert.equal(updated.content.caption, "Forecast");
+  assert.deepEqual(updated.content.columns, [
+    { id: "col-1", label: "Quarter" },
+    { id: "col-2", label: "ARR" },
+  ]);
+  assert.deepEqual(updated.content.rows[0]?.cells[1]?.runs, [
+    { text: "$2M", bold: true },
+  ]);
+  assert.equal(updated.source?.contentHash, newRef.contentHash);
+  assert.equal(updated.source?.blockKind, "table");
+  assert.equal(updated.source?.unlinked, undefined);
 });
 
 // ---------------------------------------------------------------------------

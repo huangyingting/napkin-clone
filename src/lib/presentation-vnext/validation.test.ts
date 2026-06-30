@@ -691,4 +691,148 @@ describe("safeParseDeckV7", () => {
       assert.ok(result.errors.some((error) => /mystery/.test(error)));
     }
   });
+
+  test("reports malformed nested optional contracts with specific paths", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const malformedText = {
+      ...slide.children[0],
+      id: "malformed-text",
+      role: "unknown-role",
+      layout: {
+        frame: null,
+        zIndex: "front",
+        rotation: "quarter-turn",
+        anchor: "middle",
+        constraints: {
+          minW: "wide",
+          preserveAspectRatio: "yes",
+          extra: true,
+        },
+      },
+      source: {
+        documentId: 123,
+        blockKind: "audio",
+        unlinked: "yes",
+        display: {
+          documentTitle: 42,
+          unknown: true,
+        },
+        refresh: {
+          state: "later",
+          checkedAt: 42,
+          mystery: true,
+        },
+        extra: "bad",
+      },
+      content: {
+        paragraphs: [
+          null,
+          { id: "", text: 42, runs: [{ text: "does-not-match" }] },
+        ],
+      },
+    };
+    const malformedTable = {
+      ...buildTextNode(),
+      id: "malformed-table",
+      type: "table",
+      role: "table",
+      content: {
+        columns: [
+          { id: "dup", label: "A" },
+          { id: "dup", label: "B" },
+        ],
+        rows: [{ id: "row-1", cells: [{ text: "only one cell" }] }],
+      },
+    };
+    const malformedConnector = {
+      ...buildTextNode(),
+      id: "malformed-connector",
+      type: "connector",
+      role: "connector",
+      style: { ref: "connector.primary" },
+      content: { from: null, to: "bad" },
+    };
+    const malformedShape = {
+      ...buildTextNode(),
+      id: "malformed-shape",
+      type: "shape",
+      role: "callout",
+      style: { ref: "surface.card" },
+      content: { shape: "rect", text: { paragraphs: "not-array" } },
+    };
+    const badSlide = {
+      ...slide,
+      props: {
+        decoration: "maximal",
+        chrome: "full",
+        deckChrome: {
+          sidebar: { mode: "override", value: {} },
+          footer: { mode: "override", value: { enabled: true, text: 123 } },
+        },
+      },
+      children: [
+        malformedText,
+        malformedTable,
+        malformedConnector,
+        malformedShape,
+      ],
+    };
+    const result = safeParseDeckV7(
+      buildDeckV7([badSlide as unknown as SlideNode], {
+        canvas: null,
+        assets: { images: null },
+        chrome: {
+          unexpected: {},
+          logo: "bad",
+          safeArea: { enabled: true, insets: "bad" },
+        },
+      } as unknown as Parameters<typeof buildDeckV7>[1]),
+    );
+
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /Deck\.canvas must be an object/,
+        /Deck\.assets\.images/,
+        /Deck\.chrome\.unexpected/,
+        /Deck\.chrome\.logo must be an object/,
+        /Deck\.chrome\.safeArea\.insets must be an object/,
+        /props\.decoration/,
+        /props\.chrome/,
+        /deckChrome\.sidebar/,
+        /deckChrome\.footer\.value\.footer\.text/,
+        /role is not a known semantic role/,
+        /layout\.frame must be an object/,
+        /layout\.zIndex/,
+        /layout\.rotation/,
+        /layout\.anchor/,
+        /constraints\.extra/,
+        /constraints\.minW/,
+        /constraints\.preserveAspectRatio/,
+        /source\.documentId/,
+        /source\.blockKind/,
+        /source\.unlinked/,
+        /source\.display\.unknown/,
+        /source\.display\.documentTitle/,
+        /source\.refresh\.mystery/,
+        /source\.refresh\.state/,
+        /source\.refresh\.checkedAt/,
+        /source\.extra/,
+        /content\.paragraphs\[0\]/,
+        /content\.paragraphs\[1\]\.id/,
+        /content\.paragraphs\[1\]\.text/,
+        /columns\[1\]\.id/,
+        /must have exactly 2 cells/,
+        /content\.from must be an object/,
+        /content\.to must be an object/,
+        /content\.text\.paragraphs/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
 });
