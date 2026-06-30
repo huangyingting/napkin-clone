@@ -85,6 +85,35 @@ function resolveChildNode(
         { nodeId: node.id, slideId: slide.id, action: "open-asset-panel" },
       );
     }
+    const crop = node.content.crop;
+    if (crop) {
+      const invalidSides = (["top", "right", "bottom", "left"] as const).filter(
+        (side) => {
+          const value = crop[side];
+          return !Number.isFinite(value) || value < 0 || value > 95;
+        },
+      );
+      if (
+        invalidSides.length > 0 ||
+        crop.left + crop.right >= 99 ||
+        crop.top + crop.bottom >= 99
+      ) {
+        dc.warning(
+          "unsupported-export-feature",
+          `Image node "${node.id}" has crop values outside safe bounds; render clamps the crop UI and export may differ`,
+          {
+            nodeId: node.id,
+            slideId: slide.id,
+            path: `slides.${slide.id}.nodes.${node.id}.content.crop`,
+            details: {
+              invalidSides,
+              horizontalCrop: crop.left + crop.right,
+              verticalCrop: crop.top + crop.bottom,
+            },
+          },
+        );
+      }
+    }
   }
   if (node.type === "visual") {
     const { assetId } = node.content;
@@ -184,8 +213,14 @@ function resolveChildNode(
         type: "connector",
         content: {
           ...node.content,
-          from: resolveConnectorEndpoint(node.content.from, node, slide),
-          to: resolveConnectorEndpoint(node.content.to, node, slide),
+          from: resolveConnectorEndpoint(
+            node.content.from,
+            node,
+            slide,
+            dc,
+            "from",
+          ),
+          to: resolveConnectorEndpoint(node.content.to, node, slide, dc, "to"),
         },
       };
       break;
@@ -236,11 +271,25 @@ function resolveConnectorEndpoint(
   endpoint: ConnectorEndpoint,
   connector: SlideChildNode,
   slide: SlideNode,
+  dc: DiagnosticCollector,
+  endpointKey: "from" | "to",
 ): ConnectorEndpoint {
   if (endpoint.kind === "point") return endpoint;
   if (!connector.layout) return endpoint;
   const target = findSlideChildNode(slide.children, endpoint.nodeId);
-  if (!target?.layout) return endpoint;
+  if (!target?.layout) {
+    dc.warning(
+      "unsupported-export-feature",
+      `Connector "${connector.id}" ${endpointKey} endpoint references missing node "${endpoint.nodeId}"`,
+      {
+        nodeId: connector.id,
+        slideId: slide.id,
+        path: `slides.${slide.id}.nodes.${connector.id}.content.${endpointKey}`,
+        details: { targetNodeId: endpoint.nodeId, anchor: endpoint.anchor },
+      },
+    );
+    return endpoint;
+  }
   const anchor = targetAnchorPoint(target.layout.frame, endpoint.anchor);
   const frame = connector.layout.frame;
   if (frame.w <= 0 || frame.h <= 0) return endpoint;

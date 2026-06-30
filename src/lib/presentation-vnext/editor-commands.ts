@@ -8,6 +8,7 @@
  */
 
 import type {
+  ConnectorEndpoint,
   DeckV7,
   SlideNode,
   SlideChildNode,
@@ -60,13 +61,19 @@ function removeNodesById(
   nodes: SlideChildNode[],
   ids: Set<string>,
 ): SlideChildNode[] {
-  return nodes
-    .filter((node) => !ids.has(node.id))
-    .map((node) =>
-      node.type === "group"
-        ? { ...node, children: removeNodesById(node.children, ids) }
-        : node,
-    );
+  const result: SlideChildNode[] = [];
+  for (const node of nodes) {
+    if (ids.has(node.id)) continue;
+    if (node.type === "group") {
+      const children = removeNodesById(node.children, ids);
+      if (children.length > 0) {
+        result.push({ ...node, children });
+      }
+      continue;
+    }
+    result.push(node);
+  }
+  return result;
 }
 
 function collectNodesById(
@@ -83,11 +90,44 @@ function collectNodesById(
   return result;
 }
 
+function findNodeById(
+  nodes: readonly SlideChildNode[],
+  id: string,
+): SlideChildNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.type === "group") {
+      const found = findNodeById(node.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 function collectNodeIds(nodes: SlideChildNode[], ids: Set<string>): void {
   for (const node of nodes) {
     ids.add(node.id);
     if (node.type === "group") collectNodeIds(node.children, ids);
   }
+}
+
+function collectDescendantIds(node: SlideChildNode, ids: Set<string>): void {
+  ids.add(node.id);
+  if (node.type === "group") {
+    for (const child of node.children) collectDescendantIds(child, ids);
+  }
+}
+
+function expandNodeIds(
+  nodes: readonly SlideChildNode[],
+  selectedIds: ReadonlySet<string>,
+): Set<string> {
+  const expanded = new Set(selectedIds);
+  for (const id of selectedIds) {
+    const node = findNodeById(nodes, id);
+    if (node) collectDescendantIds(node, expanded);
+  }
+  return expanded;
 }
 
 function duplicateNodeWithIds(
@@ -138,6 +178,133 @@ function existingDeckIds(deck: DeckV7): Set<string> {
     collectNodeIds(slide.children, ids);
   }
   return ids;
+}
+
+function duplicateSelectedInChildren(
+  nodes: readonly SlideChildNode[],
+  ids: ReadonlySet<string>,
+  nextId: (sourceId: string) => string,
+  duplicatedIds: string[],
+): SlideChildNode[] {
+  const result: SlideChildNode[] = [];
+  for (const node of nodes) {
+    if (ids.has(node.id)) {
+      result.push(node);
+      const duplicate = duplicateNodeWithIds(node, (sourceId) => {
+        const id = nextId(sourceId);
+        duplicatedIds.push(id);
+        return id;
+      });
+      result.push(duplicate);
+      continue;
+    }
+    if (node.type === "group") {
+      result.push({
+        ...node,
+        children: duplicateSelectedInChildren(
+          node.children,
+          ids,
+          nextId,
+          duplicatedIds,
+        ),
+      });
+      continue;
+    }
+    result.push(node);
+  }
+  return result;
+}
+
+function anchorPoint(
+  frame: LayoutBox["frame"],
+  anchor: Extract<ConnectorEndpoint, { kind: "node" }>["anchor"],
+): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: frame.x + frame.w / 2, y: frame.y };
+    case "right":
+      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
+    case "bottom":
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
+    case "left":
+      return { x: frame.x, y: frame.y + frame.h / 2 };
+    case "center":
+    default:
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
+  }
+}
+
+function connectorEndpointToPoint(
+  endpoint: ConnectorEndpoint,
+  connector: SlideChildNode,
+  slide: SlideNode,
+): ConnectorEndpoint {
+  if (endpoint.kind === "point") return endpoint;
+  if (!connector.layout) return endpoint;
+  const target = findNodeById(slide.children, endpoint.nodeId);
+  if (!target?.layout) return endpoint;
+  const targetPoint = anchorPoint(target.layout.frame, endpoint.anchor);
+  const frame = connector.layout.frame;
+  if (frame.w <= 0 || frame.h <= 0) return endpoint;
+  return {
+    kind: "point",
+    point: {
+      x: Math.max(
+        0,
+        Math.min(100, ((targetPoint.x - frame.x) / frame.w) * 100),
+      ),
+      y: Math.max(
+        0,
+        Math.min(100, ((targetPoint.y - frame.y) / frame.h) * 100),
+      ),
+    },
+  };
+}
+
+function repairConnectorBindingsBeforeDelete(
+  nodes: readonly SlideChildNode[],
+  slide: SlideNode,
+  deletedIds: ReadonlySet<string>,
+): SlideChildNode[] {
+  return nodes.map((node) => {
+    if (node.type === "group") {
+      return {
+        ...node,
+        children: repairConnectorBindingsBeforeDelete(
+          node.children,
+          slide,
+          deletedIds,
+        ),
+      };
+    }
+    if (node.type !== "connector") return node;
+    const nextFrom =
+      node.content.from.kind === "node" &&
+      deletedIds.has(node.content.from.nodeId)
+        ? connectorEndpointToPoint(node.content.from, node, slide)
+        : node.content.from;
+    const nextTo =
+      node.content.to.kind === "node" && deletedIds.has(node.content.to.nodeId)
+        ? connectorEndpointToPoint(node.content.to, node, slide)
+        : node.content.to;
+    if (nextFrom === node.content.from && nextTo === node.content.to) {
+      return node;
+    }
+    return {
+      ...node,
+      content: {
+        ...node.content,
+        from: nextFrom,
+        to: nextTo,
+      },
+    };
+  });
+}
+
+function normalizeRotation(rotation: number): number {
+  if (!Number.isFinite(rotation)) return 0;
+  const normalized = ((rotation % 360) + 360) % 360;
+  return Math.round(normalized * 10) / 10;
 }
 
 function reidentifyNode(
@@ -414,6 +581,21 @@ export function updateNodeContent(
   });
 }
 
+export function resetImageCrop(
+  deck: DeckV7,
+  slideId: string,
+  nodeId: string,
+): DeckV7 {
+  return mapSlides(deck, (slide) => {
+    if (slide.id !== slideId) return slide;
+    return mapChildren(slide, nodeId, (node) => {
+      if (node.type !== "image") return node;
+      const { crop: _crop, ...content } = node.content;
+      return { ...node, content };
+    });
+  });
+}
+
 export function insertNode(
   deck: DeckV7,
   slideId: string,
@@ -476,6 +658,17 @@ export function updateNodeLayout(
             : (layoutPatch as LayoutBox),
         }) as SlideChildNode,
     );
+  });
+}
+
+export function updateNodeRotation(
+  deck: DeckV7,
+  slideId: string,
+  nodeId: string,
+  rotation: number,
+): DeckV7 {
+  return updateNodeLayout(deck, slideId, nodeId, {
+    rotation: normalizeRotation(rotation),
   });
 }
 
@@ -568,13 +761,19 @@ export function deleteNodes(
   slideId: string,
   nodeIds: readonly string[],
 ): DeckV7 {
-  const ids = new Set(nodeIds);
-  if (ids.size === 0) return deck;
-  return mapSlides(deck, (slide) =>
-    slide.id === slideId
-      ? { ...slide, children: removeNodesById(slide.children, ids) }
-      : slide,
-  );
+  const selectedIds = new Set(nodeIds);
+  if (selectedIds.size === 0) return deck;
+  return mapSlides(deck, (slide) => {
+    if (slide.id !== slideId) return slide;
+    const ids = expandNodeIds(slide.children, selectedIds);
+    return {
+      ...slide,
+      children: removeNodesById(
+        repairConnectorBindingsBeforeDelete(slide.children, slide, ids),
+        ids,
+      ),
+    };
+  });
 }
 
 export function duplicateNodes(
@@ -588,22 +787,20 @@ export function duplicateNodes(
   if (!slide) return { deck, duplicatedIds: [] };
   const existingIds = new Set<string>();
   for (const id of existingDeckIds(deck)) existingIds.add(id);
-  const sourceNodes = slide.children.filter((node) => ids.has(node.id));
   const duplicatedIds: string[] = [];
-  const duplicatedNodes = sourceNodes.map((node) =>
-    duplicateNodeWithIds(node, (sourceId) => {
-      const id = uniqueDuplicateId(existingIds, sourceId);
-      duplicatedIds.push(id);
-      return id;
-    }),
+  const children = duplicateSelectedInChildren(
+    slide.children,
+    ids,
+    (sourceId) => uniqueDuplicateId(existingIds, sourceId),
+    duplicatedIds,
   );
-  if (duplicatedNodes.length === 0) return { deck, duplicatedIds };
+  if (duplicatedIds.length === 0) return { deck, duplicatedIds };
   return {
     deck: mapSlides(deck, (candidate) =>
       candidate.id === slideId
         ? {
             ...candidate,
-            children: [...candidate.children, ...duplicatedNodes],
+            children,
           }
         : candidate,
     ),

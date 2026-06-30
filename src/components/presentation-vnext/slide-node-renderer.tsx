@@ -327,6 +327,15 @@ function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
   );
 }
 
+function textRunsToPlainText(
+  runs: readonly TextRun[] | undefined,
+  fallback: string,
+): string {
+  return runs && runs.length > 0
+    ? runs.map((run) => run.text).join("")
+    : fallback;
+}
+
 // ---------------------------------------------------------------------------
 // Shape node content
 // ---------------------------------------------------------------------------
@@ -466,9 +475,23 @@ function ImageNodeContent({
 function TableNodeContent({
   content,
   style,
+  editable,
+  activeCell,
+  onCellFocus,
+  onCellCommit,
+  onCellKeyDown,
 }: {
   content: TableContent;
   style: StyleObject;
+  editable?: boolean;
+  activeCell?: { rowIndex: number; colIndex: number } | null;
+  onCellFocus?: (rowIndex: number, colIndex: number) => void;
+  onCellCommit?: (rowIndex: number, colIndex: number, text: string) => void;
+  onCellKeyDown?: (
+    rowIndex: number,
+    colIndex: number,
+    event: React.KeyboardEvent<HTMLElement>,
+  ) => void;
 }): JSX.Element {
   const headerFill =
     style.table?.headerFill?.type === "solid"
@@ -532,12 +555,48 @@ function TableNodeContent({
             {row.cells.map((cell, colIdx) => (
               <td
                 key={content.columns[colIdx]?.id ?? colIdx}
-                className="px-2 py-1 text-xs"
+                className={`px-2 py-1 text-xs ${
+                  editable &&
+                  activeCell?.rowIndex === rowIdx &&
+                  activeCell.colIndex === colIdx
+                    ? "outline outline-2 outline-ds-accent"
+                    : ""
+                }`}
                 style={cellStyle}
+                data-table-cell={editable ? `${rowIdx}:${colIdx}` : undefined}
+                contentEditable={editable ? true : undefined}
+                suppressContentEditableWarning={editable ? true : undefined}
+                tabIndex={editable ? 0 : undefined}
+                role={editable ? "textbox" : undefined}
+                aria-label={
+                  editable
+                    ? `Table cell row ${rowIdx + 1}, column ${colIdx + 1}`
+                    : undefined
+                }
+                onFocus={
+                  editable ? () => onCellFocus?.(rowIdx, colIdx) : undefined
+                }
+                onBlur={
+                  editable
+                    ? (event) =>
+                        onCellCommit?.(
+                          rowIdx,
+                          colIdx,
+                          event.currentTarget.textContent ?? "",
+                        )
+                    : undefined
+                }
+                onKeyDown={
+                  editable
+                    ? (event) => onCellKeyDown?.(rowIdx, colIdx, event)
+                    : undefined
+                }
               >
-                {cell.runs && cell.runs.length > 0
-                  ? renderTextRuns(cell.runs)
-                  : cell.text}
+                {editable
+                  ? textRunsToPlainText(cell.runs, cell.text)
+                  : cell.runs && cell.runs.length > 0
+                    ? renderTextRuns(cell.runs)
+                    : cell.text}
               </td>
             ))}
           </tr>
@@ -778,6 +837,26 @@ export interface SlideNodeRendererProps {
   onFocus?: (nodeId: string, event: React.FocusEvent) => void;
   /** Called when pointer hover enters/leaves this node. */
   onHoverChange?: (nodeId: string, hovering: boolean) => void;
+  /** Enables direct table cell editing for selected table nodes. */
+  tableEditing?: boolean;
+  activeTableCell?: { rowIndex: number; colIndex: number } | null;
+  onTableCellFocus?: (
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+  ) => void;
+  onTableCellCommit?: (
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    text: string,
+  ) => void;
+  onTableCellKeyDown?: (
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    event: React.KeyboardEvent<HTMLElement>,
+  ) => void;
   /**
    * Resolves an asset id to its src URL for images/visuals.
    * Not required for nodes with no media.
@@ -812,6 +891,11 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   tabIndex,
   onFocus,
   onHoverChange,
+  tableEditing = false,
+  activeTableCell,
+  onTableCellFocus,
+  onTableCellCommit,
+  onTableCellKeyDown,
   assetResolver,
   preview = false,
   hidden = false,
@@ -866,7 +950,16 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     onHoverChange?.(node.id, false);
   }
 
-  const inner = renderContent(content, style, assetResolver, preview);
+  const inner = renderContent(content, style, assetResolver, preview, {
+    tableEditing,
+    activeTableCell,
+    onTableCellFocus: (rowIndex, colIndex) =>
+      onTableCellFocus?.(node.id, rowIndex, colIndex),
+    onTableCellCommit: (rowIndex, colIndex, text) =>
+      onTableCellCommit?.(node.id, rowIndex, colIndex, text),
+    onTableCellKeyDown: (rowIndex, colIndex, event) =>
+      onTableCellKeyDown?.(node.id, rowIndex, colIndex, event),
+  });
 
   return (
     <div
@@ -877,9 +970,15 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       data-node-hovered={hovered ? "true" : undefined}
       data-node-focused={focused ? "true" : undefined}
       style={{ ...containerStyle, ...textCss }}
-      role={interactive ? "button" : undefined}
+      role={interactive ? (tableEditing ? "group" : "button") : undefined}
       tabIndex={interactive ? tabIndex : undefined}
-      aria-label={interactive ? accessibleNodeName(node) : undefined}
+      aria-label={
+        interactive
+          ? tableEditing
+            ? "Table node editing cells"
+            : accessibleNodeName(node)
+          : undefined
+      }
       aria-disabled={interactive && isLocked ? true : undefined}
       onClick={onClick ? handleClick : undefined}
       onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
@@ -923,6 +1022,21 @@ function renderContent(
   style: StyleObject,
   assetResolver?: (id: string) => string | undefined,
   _preview?: boolean,
+  editing?: {
+    tableEditing?: boolean;
+    activeTableCell?: { rowIndex: number; colIndex: number } | null;
+    onTableCellFocus?: (rowIndex: number, colIndex: number) => void;
+    onTableCellCommit?: (
+      rowIndex: number,
+      colIndex: number,
+      text: string,
+    ) => void;
+    onTableCellKeyDown?: (
+      rowIndex: number,
+      colIndex: number,
+      event: React.KeyboardEvent<HTMLElement>,
+    ) => void;
+  },
 ): JSX.Element | null {
   switch (content.type) {
     case "text":
@@ -951,7 +1065,17 @@ function renderContent(
       );
 
     case "table":
-      return <TableNodeContent content={content.content} style={style} />;
+      return (
+        <TableNodeContent
+          content={content.content}
+          style={style}
+          editable={editing?.tableEditing}
+          activeCell={editing?.activeTableCell}
+          onCellFocus={editing?.onTableCellFocus}
+          onCellCommit={editing?.onTableCellCommit}
+          onCellKeyDown={editing?.onTableCellKeyDown}
+        />
+      );
 
     case "visual":
       return (

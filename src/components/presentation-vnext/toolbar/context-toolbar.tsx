@@ -37,6 +37,8 @@ import {
   Lock,
   Plus,
   Replace,
+  RotateCcw,
+  RotateCw,
   SendToBack,
   Strikethrough,
   Trash2,
@@ -294,6 +296,7 @@ export interface ContextToolbarProps {
   onDistributeSelection?: (mode: SelectionDistributeMode) => void;
   onMatchSize?: (mode: SelectionMatchSizeMode) => void;
   onUpdateSelectedContent?: (patch: Record<string, unknown>) => void;
+  onUpdateSelectedLayout?: (patch: { rotation?: number }) => void;
   onUpdateSelectedLocalStyle?: (patch: StylePatch) => void;
   onUpdateSelectedAttributes?: (patch: {
     locked?: boolean;
@@ -301,6 +304,8 @@ export interface ContextToolbarProps {
   }) => void;
   onReplaceImage?: () => void;
   onReplaceVisual?: () => void;
+  onResetImageCrop?: () => void;
+  onEnterTableEdit?: () => void;
   slideBackgroundColor?: string;
   onUpdateSlideLocalStyle?: (patch: StylePatch) => void;
   onInsertSlide?: () => void;
@@ -327,10 +332,13 @@ export function ContextToolbar({
   onDistributeSelection,
   onMatchSize,
   onUpdateSelectedContent,
+  onUpdateSelectedLayout,
   onUpdateSelectedLocalStyle,
   onUpdateSelectedAttributes,
   onReplaceImage,
   onReplaceVisual,
+  onResetImageCrop,
+  onEnterTableEdit,
   slideBackgroundColor = "#ffffff",
   onUpdateSlideLocalStyle,
   onInsertSlide,
@@ -425,6 +433,7 @@ export function ContextToolbar({
   const textColor = getColor(textStyle?.color, "#111827");
   const fontSize = textStyle?.fontSizePt ?? 18;
   const opacity = selectedNode?.localStyle?.opacity ?? 1;
+  const rotation = selectedNode?.layout?.rotation ?? 0;
 
   function runTextCommand(command: "bold" | "italic" | "underline") {
     dispatchInlineTextCommand({ command });
@@ -758,17 +767,28 @@ export function ContextToolbar({
               <Replace size={13} aria-hidden />
             </TBtn>
             <TBtn
-              label={selectedNode.content.crop ? "Reset crop" : "Crop image"}
+              label="Crop image"
               active={selectedNode.content.crop !== undefined}
-              onClick={() =>
+              onClick={() => {
+                if (selectedNode.content.crop) {
+                  onResetImageCrop?.();
+                  return;
+                }
                 onUpdateSelectedContent?.({
-                  crop: selectedNode.content.crop
-                    ? undefined
-                    : { top: 8, right: 8, bottom: 8, left: 8 },
-                })
-              }
+                  crop: { top: 8, right: 8, bottom: 8, left: 8 },
+                });
+              }}
             >
               <Crop size={13} aria-hidden />
+            </TBtn>
+            <TBtn
+              label="Reset crop"
+              disabled={!selectedNode.content.crop}
+              onClick={() =>
+                selectedNode.content.crop ? onResetImageCrop?.() : undefined
+              }
+            >
+              <RotateCcw size={13} aria-hidden />
             </TBtn>
             <ToolbarSelect
               label="Image fit"
@@ -921,6 +941,13 @@ export function ContextToolbar({
         {!isInlineEditing && selectedNode?.type === "table" ? (
           <>
             <TBtn
+              label="Edit table cells"
+              onClick={() => onEnterTableEdit?.()}
+              disabled={onEnterTableEdit === undefined}
+            >
+              Edit
+            </TBtn>
+            <TBtn
               label="Insert row"
               onClick={() =>
                 onUpdateSelectedContent?.(tableWithAddedRow(selectedNode))
@@ -973,6 +1000,26 @@ export function ContextToolbar({
         {showArrangeGroup && selectedIds.length > 0 ? (
           <>
             <Divider />
+            {!isMultiSelect && selectedNode?.type !== "connector" ? (
+              <>
+                <TBtn
+                  label="Rotate left 15°"
+                  onClick={() =>
+                    onUpdateSelectedLayout?.({ rotation: rotation - 15 })
+                  }
+                >
+                  <RotateCcw size={13} aria-hidden />
+                </TBtn>
+                <TBtn
+                  label="Rotate right 15°"
+                  onClick={() =>
+                    onUpdateSelectedLayout?.({ rotation: rotation + 15 })
+                  }
+                >
+                  <RotateCw size={13} aria-hidden />
+                </TBtn>
+              </>
+            ) : null}
             {isMultiSelect ? (
               <>
                 <TBtn

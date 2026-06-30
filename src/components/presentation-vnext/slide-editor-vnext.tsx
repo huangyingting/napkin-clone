@@ -69,6 +69,8 @@ import {
 import type { ActionResult } from "@/lib/action-result";
 import type { SaveStatus } from "@/lib/presentation/save-status";
 import type {
+  ConnectorAnchor,
+  ConnectorEndpoint,
   DeckV7,
   ImageCrop,
   ImageAsset,
@@ -112,11 +114,13 @@ import {
   insertNode,
   pasteNodes,
   updateNodeContent,
+  resetImageCrop,
   updateNodeStyleBinding,
   updateLocalStyle,
   resetLocalStyleOverride,
   detachDecoration,
   updateNodeLayout,
+  updateNodeRotation,
   updateNodeLayouts,
   updateNodeAttributes,
   updateNodeSourceMetadata,
@@ -152,6 +156,7 @@ import {
 
 import {
   SlideCanvasVNext,
+  type ConnectorEndpointHandle,
   type CropHandlePosition,
   type ResizeHandlePosition,
 } from "./slide-canvas";
@@ -303,7 +308,7 @@ export interface SlideEditorVNextProps {
  * recursively. Returns undefined if not found.
  */
 function findNodeById(
-  nodes: SlideChildNode[],
+  nodes: readonly SlideChildNode[],
   id: string,
 ): SlideChildNode | undefined {
   for (const node of nodes) {
@@ -391,6 +396,30 @@ function adjacentInlineEditableNodeId(
   return ordered[nextIndex]?.id;
 }
 
+function parentGroupIdForNode(
+  nodes: readonly SlideChildNode[],
+  nodeId: string,
+  parentGroupId: string | null = null,
+): string | null {
+  for (const node of nodes) {
+    if (node.id === nodeId) return parentGroupId;
+    if (node.type === "group") {
+      const found = parentGroupIdForNode(node.children, nodeId, node.id);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+function childIdsForGroup(
+  nodes: readonly SlideChildNode[],
+  groupId: string,
+): string[] {
+  const group = findNodeById(nodes, groupId);
+  if (!group || group.type !== "group") return [];
+  return flattenEditorNodes(group.children).map((node) => node.id);
+}
+
 function layoutFramesExcluding(
   nodes: readonly SlideChildNode[],
   excludedIds: ReadonlySet<string>,
@@ -474,6 +503,21 @@ function focusStageNode(nodeId: string): void {
   el?.focus();
 }
 
+function focusTableCellSoon(
+  nodeId: string,
+  rowIndex: number,
+  colIndex: number,
+): void {
+  if (typeof window === "undefined") return;
+  window.setTimeout(() => {
+    const safeId = nodeId.replace(/"/g, '\\"');
+    const cell = document.querySelector<HTMLElement>(
+      `[data-node-id="${safeId}"] [data-table-cell="${rowIndex}:${colIndex}"]`,
+    );
+    cell?.focus();
+  }, 0);
+}
+
 /**
  * Finds the slide index that owns a node id (searching nested group children),
  * or, failing that, the index of a slide whose own id matches. Returns -1 when
@@ -546,6 +590,18 @@ function clampCrop(value: number): number {
   return Math.max(0, Math.min(95, Math.round(value * 10) / 10));
 }
 
+function normalizeRotationDegrees(rotation: number): number {
+  if (!Number.isFinite(rotation)) return 0;
+  const normalized = ((rotation % 360) + 360) % 360;
+  return Math.round(normalized * 10) / 10;
+}
+
+function snapRotationDegrees(rotation: number, snap: boolean): number {
+  return normalizeRotationDegrees(
+    snap ? Math.round(rotation / 15) * 15 : rotation,
+  );
+}
+
 function resizeFrame(
   frame: LayoutBox["frame"],
   handle: ResizeHandlePosition,
@@ -614,6 +670,91 @@ function pointPctFromEvent(
       Math.min(100, ((event.clientY - rect.top) / rect.height) * 100),
     ),
   };
+}
+
+function connectorEndpointFromSlidePoint(
+  point: { x: number; y: number },
+  connectorFrame: LayoutBox["frame"],
+): ConnectorEndpoint {
+  return {
+    kind: "point",
+    point: {
+      x:
+        connectorFrame.w <= 0
+          ? 0
+          : Math.max(
+              0,
+              Math.min(
+                100,
+                ((point.x - connectorFrame.x) / connectorFrame.w) * 100,
+              ),
+            ),
+      y:
+        connectorFrame.h <= 0
+          ? 0
+          : Math.max(
+              0,
+              Math.min(
+                100,
+                ((point.y - connectorFrame.y) / connectorFrame.h) * 100,
+              ),
+            ),
+    },
+  };
+}
+
+function nodeAnchorPoint(
+  frame: LayoutBox["frame"],
+  anchor: ConnectorAnchor,
+): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: frame.x + frame.w / 2, y: frame.y };
+    case "right":
+      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
+    case "bottom":
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
+    case "left":
+      return { x: frame.x, y: frame.y + frame.h / 2 };
+    case "center":
+    default:
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
+  }
+}
+
+function nearestConnectorAnchor(
+  nodes: readonly SlideChildNode[],
+  point: { x: number; y: number },
+  excludedId: string,
+  thresholdPct = 4,
+): ConnectorEndpoint | null {
+  const anchors: ConnectorAnchor[] = [
+    "top",
+    "right",
+    "bottom",
+    "left",
+    "center",
+  ];
+  let best: { endpoint: ConnectorEndpoint; distance: number } | null = null;
+  for (const node of flattenEditorNodes(nodes)) {
+    if (node.id === excludedId || node.type === "connector" || !node.layout) {
+      continue;
+    }
+    for (const anchor of anchors) {
+      const anchorPoint = nodeAnchorPoint(node.layout.frame, anchor);
+      const distance = Math.hypot(
+        anchorPoint.x - point.x,
+        anchorPoint.y - point.y,
+      );
+      if (!best || distance < best.distance) {
+        best = {
+          endpoint: { kind: "node", nodeId: node.id, anchor },
+          distance,
+        };
+      }
+    }
+  }
+  return best && best.distance <= thresholdPct ? best.endpoint : null;
 }
 
 function nodeFactoryId(prefix: string): string {
@@ -1106,6 +1247,21 @@ export function SlideEditorVNext({
     nodeId: string;
     handle: CropHandlePosition;
   } | null>(null);
+  const [activeRotationNodeId, setActiveRotationNodeId] = useState<
+    string | null
+  >(null);
+  const [activeConnectorEndpoint, setActiveConnectorEndpoint] = useState<{
+    nodeId: string;
+    endpoint: ConnectorEndpointHandle;
+  } | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [tableEditingNodeId, setTableEditingNodeId] = useState<string | null>(
+    null,
+  );
+  const [activeTableCell, setActiveTableCell] = useState<{
+    rowIndex: number;
+    colIndex: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!undoRedoFocus) return;
@@ -1226,6 +1382,9 @@ export function SlideEditorVNext({
     setSelection(createSelectionState(selection.mode));
     setFocusedNodeId(null);
     setHoveredNodeId(null);
+    setActiveGroupId(null);
+    setTableEditingNodeId(null);
+    setActiveTableCell(null);
   }
 
   function handleInsertNode(node: SlideChildNode) {
@@ -1408,6 +1567,8 @@ export function SlideEditorVNext({
       }),
     );
     setSelection((s) => setSelectedNodeIds(s, [groupId]));
+    setActiveGroupId(groupId);
+    setStageAnnouncement("Grouped nodes. Group context active.");
     focusSelectedNodeSoon(groupId);
   }
 
@@ -1415,8 +1576,12 @@ export function SlideEditorVNext({
     if (!activeSlide || !selectedNode || selectedNode.type !== "group") return;
     const result = ungroupNodes(deck, activeSlide.id, selectedNode.id);
     onDeckChange(result.deck);
+    setActiveGroupId((current) =>
+      current === selectedNode.id ? null : current,
+    );
     if (result.nodeIds.length > 0) {
       setSelection((s) => setSelectedNodeIds(s, result.nodeIds));
+      setStageAnnouncement("Ungrouped nodes");
       focusSelectedNodeSoon(result.nodeIds[0]);
     }
   }
@@ -1426,12 +1591,28 @@ export function SlideEditorVNext({
     if (inlineEditNodeId && inlineEditNodeId !== nodeId) {
       setInlineEditNodeId(null);
     }
+    if (tableEditingNodeId && tableEditingNodeId !== nodeId) {
+      setTableEditingNodeId(null);
+      setActiveTableCell(null);
+    }
+    if (activeSlide) {
+      const parentGroupId = parentGroupIdForNode(activeSlide.children, nodeId);
+      if (parentGroupId) {
+        setActiveGroupId(parentGroupId);
+      } else if (activeGroupId && nodeId !== activeGroupId) {
+        setActiveGroupId(null);
+      }
+    }
     setFocusedNodeId(nodeId);
     setSelection((s) => selectNode(s, nodeId, event.shiftKey || event.metaKey));
   }
 
   function handleNodeFocus(nodeId: string) {
     setFocusedNodeId(nodeId);
+    if (activeSlide) {
+      const parentGroupId = parentGroupIdForNode(activeSlide.children, nodeId);
+      if (parentGroupId) setActiveGroupId(parentGroupId);
+    }
     if (!selectedIds.includes(nodeId)) {
       setSelection((s) => setSelectedNodeIds(s, [nodeId]));
     }
@@ -1463,6 +1644,13 @@ export function SlideEditorVNext({
     const deletedCount = selectedIds.length;
     const replacementId = replacementNodeAfterDelete(selectedIds);
     onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
+    if (tableEditingNodeId && selectedIds.includes(tableEditingNodeId)) {
+      setTableEditingNodeId(null);
+      setActiveTableCell(null);
+    }
+    if (activeGroupId && selectedIds.includes(activeGroupId)) {
+      setActiveGroupId(null);
+    }
     if (replacementId) {
       setSelection((s) => setSelectedNodeIds(s, [replacementId]));
       setFocusedNodeId(replacementId);
@@ -1484,9 +1672,28 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     const node = findNodeById(activeSlide.children, nodeId);
     if (!node) return;
+    if (node.type === "group") {
+      setActiveGroupId(node.id);
+      const firstChildId = childIdsForGroup(activeSlide.children, node.id)[0];
+      if (firstChildId) {
+        setSelection((s) => setSelectedNodeIds(s, [firstChildId]));
+        focusSelectedNodeSoon(firstChildId);
+      }
+      setStageAnnouncement("Entered group. Press Escape to exit group.");
+      return;
+    }
+    if (node.type === "table") {
+      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+      setTableEditingNodeId(nodeId);
+      setActiveTableCell({ rowIndex: 0, colIndex: 0 });
+      focusTableCellSoon(nodeId, 0, 0);
+      setStageAnnouncement("Editing table cells");
+      return;
+    }
     // Only text and shape (with text) nodes are inline-editable
     if (node.type === "text" || node.type === "shape") {
       setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+      setActiveGroupId(parentGroupIdForNode(activeSlide.children, nodeId));
       setInlineEditNodeId(nodeId);
     }
   }
@@ -1542,6 +1749,9 @@ export function SlideEditorVNext({
     }
     setSelection((s) => clearSelection(s));
     setFocusedNodeId(null);
+    setActiveGroupId(null);
+    setTableEditingNodeId(null);
+    setActiveTableCell(null);
   }
 
   function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -1552,7 +1762,10 @@ export function SlideEditorVNext({
     if (target instanceof HTMLElement) {
       if (
         target.closest("[data-node-id]") ||
-        target.closest("[data-resize-handle]")
+        target.closest("[data-resize-handle]") ||
+        target.closest("[data-crop-handle]") ||
+        target.closest("[data-rotation-handle]") ||
+        target.closest("[data-connector-endpoint]")
       ) {
         return;
       }
@@ -1649,6 +1862,146 @@ export function SlideEditorVNext({
     window.addEventListener("pointerup", handlePointerUp);
   }
 
+  function handleResetSelectedImageCrop() {
+    if (!activeSlide || !selectedNode || selectedNode.type !== "image") return;
+    onDeckChange(resetImageCrop(deck, activeSlide.id, selectedNode.id));
+    setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
+    focusSelectedNodeSoon(selectedNode.id);
+    setStageAnnouncement("Image crop reset");
+  }
+
+  function handleEnterTableEdit(nodeId = selectedNode?.id) {
+    if (!activeSlide || !nodeId) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node || node.type !== "table") return;
+    setSelection((s) => setSelectedNodeIds(s, [node.id]));
+    setFocusedNodeId(node.id);
+    setTableEditingNodeId(node.id);
+    setActiveTableCell({ rowIndex: 0, colIndex: 0 });
+    focusTableCellSoon(node.id, 0, 0);
+    setStageAnnouncement("Editing table cells. Use Tab or arrow keys to move.");
+  }
+
+  function handleTableCellFocus(
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+  ) {
+    setTableEditingNodeId(nodeId);
+    setActiveTableCell({ rowIndex, colIndex });
+    setFocusedNodeId(nodeId);
+    if (!selectedIds.includes(nodeId)) {
+      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    }
+  }
+
+  function handleTableCellCommit(
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    text: string,
+  ) {
+    if (!activeSlide) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node || node.type !== "table") return;
+    const row = node.content.rows[rowIndex];
+    const current = row?.cells[colIndex];
+    if (!row || !current || current.text === text) return;
+    onDeckChange(
+      updateNodeContent(deck, activeSlide.id, nodeId, {
+        rows: node.content.rows.map((candidateRow, candidateRowIndex) =>
+          candidateRowIndex === rowIndex
+            ? {
+                ...candidateRow,
+                cells: candidateRow.cells.map((cell, candidateColIndex) =>
+                  candidateColIndex === colIndex
+                    ? { text: text.replace(/\s+/g, " ").trim() }
+                    : cell,
+                ),
+              }
+            : candidateRow,
+        ),
+      }),
+    );
+  }
+
+  function moveTableCellFocus(
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    rowDelta: number,
+    colDelta: number,
+  ) {
+    if (!activeSlide) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node || node.type !== "table") return;
+    const rowCount = node.content.rows.length;
+    const colCount = node.content.columns.length;
+    const nextRow = Math.max(0, Math.min(rowCount - 1, rowIndex + rowDelta));
+    const nextCol = Math.max(0, Math.min(colCount - 1, colIndex + colDelta));
+    setActiveTableCell({ rowIndex: nextRow, colIndex: nextCol });
+    focusTableCellSoon(nodeId, nextRow, nextCol);
+  }
+
+  function moveTableCellFocusLinear(
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    direction: 1 | -1,
+  ) {
+    if (!activeSlide) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node || node.type !== "table") return;
+    const colCount = node.content.columns.length;
+    const total = node.content.rows.length * colCount;
+    if (total <= 0) return;
+    const current = rowIndex * colCount + colIndex;
+    const next = (current + direction + total) % total;
+    const nextRow = Math.floor(next / colCount);
+    const nextCol = next % colCount;
+    setActiveTableCell({ rowIndex: nextRow, colIndex: nextCol });
+    focusTableCellSoon(nodeId, nextRow, nextCol);
+  }
+
+  function handleTableCellKeyDown(
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    event: KeyboardEvent<HTMLElement>,
+  ) {
+    if (event.key === "Escape") {
+      setTableEditingNodeId(null);
+      setActiveTableCell(null);
+      focusSelectedNodeSoon(nodeId);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (event.key === "Tab") {
+      moveTableCellFocusLinear(
+        nodeId,
+        rowIndex,
+        colIndex,
+        event.shiftKey ? -1 : 1,
+      );
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    const movement: Record<string, [number, number] | undefined> = {
+      ArrowLeft: [0, -1],
+      ArrowRight: [0, 1],
+      ArrowUp: [-1, 0],
+      ArrowDown: [1, 0],
+    };
+    const delta = movement[event.key];
+    if (delta && (event.metaKey || event.ctrlKey || event.altKey)) {
+      moveTableCellFocus(nodeId, rowIndex, colIndex, delta[0], delta[1]);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   function toggleSelectionMode() {
     setSelection((s) =>
       setSelectionMode(s, s.mode === "normal" ? "layers" : "normal"),
@@ -1686,6 +2039,24 @@ export function SlideEditorVNext({
     activeSlide && firstSelectedId
       ? findNodeById(activeSlide.children, firstSelectedId)
       : undefined;
+
+  useEffect(() => {
+    if (!activeSlide) {
+      setActiveGroupId(null);
+      setTableEditingNodeId(null);
+      return;
+    }
+    if (activeGroupId && !findNodeById(activeSlide.children, activeGroupId)) {
+      setActiveGroupId(null);
+    }
+    if (
+      tableEditingNodeId &&
+      findNodeById(activeSlide.children, tableEditingNodeId)?.type !== "table"
+    ) {
+      setTableEditingNodeId(null);
+      setActiveTableCell(null);
+    }
+  }, [activeGroupId, activeSlide, tableEditingNodeId]);
 
   // Also find the selected resolved node to support decoration detach
   const selectedResolvedNode: ResolvedRenderNode | undefined =
@@ -1843,6 +2214,104 @@ export function SlideEditorVNext({
     window.addEventListener("pointercancel", handlePointerUp);
   }
 
+  function handleRotationHandlePointerDown(
+    nodeId: string,
+    event: ReactPointerEvent,
+  ) {
+    if (!activeSlide || event.button !== 0) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node?.layout || node.locked || node.type === "connector") return;
+    const rect = canvasRectFromEvent(event);
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const frame = node.layout.frame;
+    const center = {
+      x: rect.left + ((frame.x + frame.w / 2) / 100) * rect.width,
+      y: rect.top + ((frame.y + frame.h / 2) / 100) * rect.height,
+    };
+    const startAngle =
+      (Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180) /
+      Math.PI;
+    const startRotation = node.layout.rotation ?? 0;
+
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveRotationNodeId(nodeId);
+    setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const angle =
+        (Math.atan2(
+          moveEvent.clientY - center.y,
+          moveEvent.clientX - center.x,
+        ) *
+          180) /
+        Math.PI;
+      const rotation = snapRotationDegrees(
+        startRotation + angle - startAngle,
+        !moveEvent.altKey,
+      );
+      onDeckChange(updateNodeRotation(deck, activeSlide.id, nodeId, rotation));
+      setStageAnnouncement(`Rotated to ${Math.round(rotation)} degrees`);
+    };
+
+    const handlePointerUp = () => {
+      setActiveRotationNodeId(null);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  }
+
+  function handleConnectorEndpointPointerDown(
+    nodeId: string,
+    endpoint: ConnectorEndpointHandle,
+    event: ReactPointerEvent,
+  ) {
+    if (!activeSlide || event.button !== 0) return;
+    const node = findNodeById(activeSlide.children, nodeId);
+    if (!node?.layout || node.type !== "connector" || node.locked) return;
+    const rect = canvasRectFromEvent(event);
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveConnectorEndpoint({ nodeId, endpoint });
+    setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    const connectorFrame = node.layout.frame;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const slidePoint = pointPctFromEvent(moveEvent, rect);
+      const snapped =
+        nearestConnectorAnchor(activeSlide.children, slidePoint, nodeId) ??
+        connectorEndpointFromSlidePoint(slidePoint, connectorFrame);
+      onDeckChange(
+        updateNodeContent(deck, activeSlide.id, nodeId, {
+          [endpoint]: snapped,
+        }),
+      );
+      setStageAnnouncement(
+        snapped.kind === "node"
+          ? `Connector ${endpoint} bound to ${snapped.anchor} anchor`
+          : `Connector ${endpoint} moved`,
+      );
+    };
+
+    const handlePointerUp = () => {
+      setActiveConnectorEndpoint(null);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  }
+
   function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     // Don't intercept keys when inline editing is active (inline editor handles them)
     if (inlineEditNodeId) return;
@@ -1863,6 +2332,23 @@ export function SlideEditorVNext({
       return;
     }
     if (event.key === "Escape") {
+      if (tableEditingNodeId) {
+        const tableId = tableEditingNodeId;
+        setTableEditingNodeId(null);
+        setActiveTableCell(null);
+        focusSelectedNodeSoon(tableId);
+        event.preventDefault();
+        return;
+      }
+      if (activeGroupId) {
+        const groupId = activeGroupId;
+        setActiveGroupId(null);
+        setSelection((s) => setSelectedNodeIds(s, [groupId]));
+        focusSelectedNodeSoon(groupId);
+        setStageAnnouncement("Exited group");
+        event.preventDefault();
+        return;
+      }
       if (selectedIds.length > 0) {
         setSelection((s) => clearSelection(s));
       } else {
@@ -1874,6 +2360,25 @@ export function SlideEditorVNext({
 
     // Enter key enters inline edit mode on the selected text/shape node
     if (event.key === "Enter" && selectedIds.length === 1 && selectedNode) {
+      if (selectedNode.type === "group") {
+        setActiveGroupId(selectedNode.id);
+        const firstChildId = childIdsForGroup(
+          activeSlide.children,
+          selectedNode.id,
+        )[0];
+        if (firstChildId) {
+          setSelection((s) => setSelectedNodeIds(s, [firstChildId]));
+          focusSelectedNodeSoon(firstChildId);
+        }
+        setStageAnnouncement("Entered group. Press Escape to exit group.");
+        event.preventDefault();
+        return;
+      }
+      if (selectedNode.type === "table") {
+        handleEnterTableEdit(selectedNode.id);
+        event.preventDefault();
+        return;
+      }
       if (selectedNode.type === "text" || selectedNode.type === "shape") {
         setInlineEditNodeId(selectedNode.id);
         event.preventDefault();
@@ -2074,8 +2579,15 @@ export function SlideEditorVNext({
 
   function handleUpdateSelectedLayout(patch: Partial<LayoutBox>) {
     if (!activeSlide || !firstSelectedId) return;
+    const rotation =
+      patch.rotation !== undefined
+        ? normalizeRotationDegrees(patch.rotation)
+        : undefined;
     onDeckChange(
-      updateNodeLayout(deck, activeSlide.id, firstSelectedId, patch),
+      updateNodeLayout(deck, activeSlide.id, firstSelectedId, {
+        ...patch,
+        ...(rotation !== undefined ? { rotation } : {}),
+      }),
     );
   }
 
@@ -2089,6 +2601,12 @@ export function SlideEditorVNext({
       updated = updateNodeAttributes(updated, activeSlide.id, id, patch);
     }
     onDeckChange(updated);
+    if (patch.locked !== undefined) {
+      setStageAnnouncement(
+        patch.locked ? "Selection locked" : "Selection unlocked",
+      );
+      focusSelectedNodeSoon(firstSelectedId);
+    }
     if (patch.hidden === true) {
       const affectedIds =
         selectedIds.length > 0 ? selectedIds : [firstSelectedId];
@@ -2169,6 +2687,10 @@ export function SlideEditorVNext({
 
   function handleSelectLayer(nodeId: string) {
     setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    if (activeSlide) {
+      setActiveGroupId(parentGroupIdForNode(activeSlide.children, nodeId));
+    }
+    focusSelectedNodeSoon(nodeId);
   }
 
   function handleUpdateLayer(
@@ -2904,12 +3426,37 @@ export function SlideEditorVNext({
             {stageAnnouncement}
           </div>
 
+          {activeGroupId ? (
+            <div className="absolute left-4 top-4 z-panel flex items-center gap-2 rounded-ds-md border border-ds-warning-border bg-ds-warning-surface px-2.5 py-1.5 text-xs text-ds-warning-text shadow-ds-popover">
+              <span>Editing group</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const groupId = activeGroupId;
+                  setActiveGroupId(null);
+                  setSelection((s) => setSelectedNodeIds(s, [groupId]));
+                  focusSelectedNodeSoon(groupId);
+                  setStageAnnouncement("Exited group");
+                }}
+                className="rounded-ds-sm px-1.5 py-0.5 font-medium underline-offset-2 hover:underline"
+              >
+                Exit
+              </button>
+            </div>
+          ) : null}
+
           {/* Context / Popover Toolbar */}
           <ContextToolbar
             selectedIds={selectedIds}
             selectedNode={selectedNode}
             isInlineEditing={inlineEditNodeId !== null}
-            isDragging={draggingStage || activeResizeHandle !== null}
+            isDragging={
+              draggingStage ||
+              activeResizeHandle !== null ||
+              activeCropHandle !== null ||
+              activeRotationNodeId !== null ||
+              activeConnectorEndpoint !== null
+            }
             isDecorationSelected={isDecorationSelected}
             onDelete={handleDeleteSelection}
             onDuplicate={() => {
@@ -2933,10 +3480,13 @@ export function SlideEditorVNext({
             onDistributeSelection={handleDistributeSelection}
             onMatchSize={handleMatchSize}
             onUpdateSelectedContent={handleUpdateSelectedContent}
+            onUpdateSelectedLayout={handleUpdateSelectedLayout}
             onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
             onUpdateSelectedAttributes={handleUpdateSelectedAttributes}
             onReplaceImage={handleReplaceSelectedImageRequest}
             onReplaceVisual={handleReplaceSelectedVisual}
+            onResetImageCrop={handleResetSelectedImageCrop}
+            onEnterTableEdit={() => handleEnterTableEdit()}
             slideBackgroundColor={activeSlideBackgroundColor}
             onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
             onInsertSlide={handleInsertSlide}
@@ -2973,8 +3523,22 @@ export function SlideEditorVNext({
                     onNodeHoverChange={handleNodeHoverChange}
                     onResizeHandlePointerDown={handleResizeHandlePointerDown}
                     onCropHandlePointerDown={handleCropHandlePointerDown}
+                    onRotationHandlePointerDown={
+                      handleRotationHandlePointerDown
+                    }
+                    onConnectorEndpointPointerDown={
+                      handleConnectorEndpointPointerDown
+                    }
                     activeResizeHandle={activeResizeHandle}
                     activeCropHandle={activeCropHandle}
+                    activeRotationNodeId={activeRotationNodeId}
+                    activeConnectorEndpoint={activeConnectorEndpoint}
+                    activeGroupId={activeGroupId}
+                    tableEditingNodeId={tableEditingNodeId}
+                    activeTableCell={activeTableCell}
+                    onTableCellFocus={handleTableCellFocus}
+                    onTableCellCommit={handleTableCellCommit}
+                    onTableCellKeyDown={handleTableCellKeyDown}
                     hiddenNodeIds={
                       inlineEditNodeId ? new Set([inlineEditNodeId]) : undefined
                     }
@@ -3167,6 +3731,9 @@ export function SlideEditorVNext({
             setActiveSlideIndex(index);
             setSelection(createSelectionState(selection.mode));
             setInlineEditNodeId(null);
+            setActiveGroupId(null);
+            setTableEditingNodeId(null);
+            setActiveTableCell(null);
           }}
           onInsertSlide={handleInsertSlide}
           onDuplicateSlide={(slideId) => {
@@ -3334,6 +3901,8 @@ export function SlideEditorVNext({
             </span>
           ) : null}
           <span>{diagnosticSummary}</span>
+          {activeGroupId ? <span>Group edit</span> : null}
+          {tableEditingNodeId ? <span>Table edit</span> : null}
           <span>{selection.mode === "layers" ? "Layers" : "Normal"} mode</span>
         </div>
       </footer>

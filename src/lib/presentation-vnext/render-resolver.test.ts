@@ -122,6 +122,74 @@ describe("resolveDeckRenderTree", () => {
     }
   });
 
+  test("diagnoses missing connector endpoint bindings", () => {
+    resetBuilderCounter();
+    const connector: SlideChildNode = {
+      id: "dangling-connector",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 2 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: "missing-node", anchor: "left" },
+        to: { kind: "point", point: { x: 100, y: 50 } },
+      },
+    };
+    const deck = buildDeckV7([
+      {
+        ...buildCoverSlide(),
+        children: [connector],
+      },
+    ]);
+
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.nodeId === "dangling-connector" &&
+          diagnostic.message.includes("missing-node"),
+      ),
+    );
+  });
+
+  test("diagnoses crop values outside safe bounds", () => {
+    resetBuilderCounter();
+    const image = buildImageNode("img-001", {
+      id: "unsafe-crop-image",
+      content: {
+        assetId: "img-001",
+        crop: { top: 70, right: 60, bottom: 40, left: 50 },
+      },
+    });
+    const deck = buildDeckV7(
+      [
+        {
+          ...buildCoverSlide(),
+          children: [image],
+        },
+      ],
+      {
+        assets: {
+          images: {
+            "img-001": buildImageAsset("img-001"),
+          },
+        },
+      },
+    );
+
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unsupported-export-feature" &&
+          diagnostic.nodeId === "unsafe-crop-image" &&
+          diagnostic.message.includes("crop values"),
+      ),
+    );
+  });
+
   test("orders user nodes by ascending zIndex", () => {
     resetBuilderCounter();
     const slide = makeSlideWithZIndices([3, 1, 2]);

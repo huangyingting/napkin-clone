@@ -205,6 +205,78 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.doesNotMatch(html, /locked-resizable-resize-overlay/);
   });
 
+  test("renders rotation handle, connector endpoints, and active group chrome", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "shape-1",
+      "connector-1",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("group-1", { type: "group" }, {}, { type: "group" }),
+          renderNode("shape-1", {
+            type: "shape",
+            content: { shape: "rect" },
+          }),
+          renderNode("connector-1", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+        ]),
+        selection,
+        activeGroupId: "group-1",
+        onNodeClick: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-rotation-handle="true"/);
+    assert.match(html, /data-connector-endpoint="from"/);
+    assert.match(html, /data-connector-endpoint="to"/);
+    assert.match(html, /data-node-chrome-frame="activeGroup"/);
+  });
+
+  test("renders editable table cells with roving cell metadata", () => {
+    const selection = setSelection(createSelectionState("normal"), ["table-1"]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("table-1", {
+            type: "table",
+            content: {
+              columns: [
+                { id: "col-1", label: "A" },
+                { id: "col-2", label: "B" },
+              ],
+              rows: [
+                {
+                  id: "row-1",
+                  cells: [{ text: "Alpha" }, { text: "Beta" }],
+                },
+              ],
+            },
+          }),
+        ]),
+        selection,
+        tableEditingNodeId: "table-1",
+        activeTableCell: { rowIndex: 0, colIndex: 1 },
+        onNodeClick: () => undefined,
+        onTableCellFocus: () => undefined,
+        onTableCellCommit: () => undefined,
+        onTableCellKeyDown: () => undefined,
+      }),
+    );
+
+    assert.match(html, /contentEditable="true"/);
+    assert.match(html, /data-table-cell="0:1"/);
+    assert.match(html, /aria-label="Table cell row 1, column 2"/);
+    assert.match(html, /Table node editing cells/);
+  });
+
   test("renders paragraph list markers", () => {
     const node = textNode("list-node", { x: 10, y: 10, w: 40, h: 20 });
     const html = renderToStaticMarkup(
