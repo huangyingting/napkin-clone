@@ -1,13 +1,9 @@
-import type {
-  DeckV7,
-  PresentationDiagnostic,
-  ThemePackageV1,
-} from "@/lib/presentation-vnext";
-import {
-  createBlankDeckV7,
-  openDeckFromJson,
-  resolveThemePackageForDeck,
-} from "@/lib/presentation-vnext";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
+import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
+import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 
 import { buildPublicAttribution, type PublicAttribution } from "./attribution";
 
@@ -26,7 +22,14 @@ export interface PublicPresentationModel {
   deckV7: DeckV7;
   themePackage: ThemePackageV1;
   diagnostics: PresentationDiagnostic[];
+  recovery?: PublicPresentationRecovery;
   attribution: PublicAttribution;
+}
+
+export interface PublicPresentationRecovery {
+  error: string;
+  validationErrors?: string[];
+  diagnostics: PresentationDiagnostic[];
 }
 
 export function buildPublicPresentationModelAny(
@@ -43,6 +46,13 @@ export function buildPublicPresentationModel(
     ? opened.deck
     : createBlankDeckV7({ title: document.title });
   const themeResolution = resolveThemePackageForDeck(deckV7);
+  const recovery = opened.ok
+    ? undefined
+    : {
+        error: opened.error,
+        validationErrors: opened.errors,
+        diagnostics: opened.diagnostics,
+      };
 
   return {
     title: document.title,
@@ -52,6 +62,7 @@ export function buildPublicPresentationModel(
       ...(opened.ok ? opened.diagnostics : opened.diagnostics),
       ...themeResolution.diagnostics,
     ],
+    ...(recovery ? { recovery } : {}),
     attribution: buildPublicAttribution(document.owner),
   };
 }

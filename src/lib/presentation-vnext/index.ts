@@ -293,9 +293,25 @@ export {
 export { createBlankDeckV7 } from "./empty-deck";
 
 // Open-deck boundary helper (v7 runtime parse + one-time legacy migration path)
-export type { OpenDeckResult } from "./open-deck";
-export { openDeckFromJson, looksLikeDeckV7 } from "./open-deck";
+export type { OpenDeckResult, DeckOpenDecision } from "./open-deck";
+export {
+  openDeckFromJson,
+  openAiGeneratedDeck,
+  decideDeckOpen,
+  looksLikeDeckV7,
+} from "./open-deck";
 export { looksLikeLegacyDeckV6, migrateLegacyDeckV6 } from "./migration-v6";
+export type {
+  MigrationDroppedIdentity,
+  MigrationIdMap,
+  MigrationIdentityKind,
+  MigrationRewrite,
+  MigrationUnmappedReference,
+} from "./migration-v6";
+
+// Undo/redo focus targeting (structural diff of committed deck snapshots)
+export type { DeckNodeDiff } from "./deck-diff";
+export { diffDeckNodes, pickUndoFocusTarget } from "./deck-diff";
 
 // PPTX export adapter (DOM-free; browser applier calls PptxGenJS with the result)
 export type {

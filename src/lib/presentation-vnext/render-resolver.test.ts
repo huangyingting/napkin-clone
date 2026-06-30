@@ -11,7 +11,9 @@ import {
   buildCoverSlide,
   buildContentSlide,
   buildMinimalThemePackage,
+  buildShapeNode,
   buildTextNode,
+  buildImageAsset,
   buildImageNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
@@ -337,5 +339,177 @@ describe("resolveDeckRenderTree", () => {
     for (const node of result.slides[0].nodes) {
       assert.ok(node.layout.framePx, `Expected framePx on node ${node.id}`);
     }
+  });
+
+  test("resolves nested groups, visual assets, decoration content, and connector fallbacks", () => {
+    resetBuilderCounter();
+    const nestedTarget = buildTextNode({
+      id: "nested-target",
+      layout: { frame: { x: 20, y: 20, w: 20, h: 20 }, zIndex: 3 },
+    });
+    const group: SlideChildNode = {
+      id: "group-node",
+      type: "group",
+      component: "custom",
+      role: "body",
+      layout: { frame: { x: 10, y: 10, w: 40, h: 40 }, zIndex: 1 },
+      style: { ref: "surface.card" },
+      locked: true,
+      children: [
+        buildTextNode({
+          id: "group-child-late",
+          layout: { frame: { x: 10, y: 10, w: 20, h: 10 }, zIndex: 2 },
+        }),
+        buildShapeNode({
+          id: "group-child-first",
+          layout: { frame: { x: 10, y: 25, w: 20, h: 10 }, zIndex: 1 },
+        }),
+        nestedTarget,
+      ],
+    };
+    const connectorToNested: SlideChildNode = {
+      id: "connector-to-nested",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 2 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: "nested-target", anchor: "top" },
+        to: { kind: "node", nodeId: "nested-target", anchor: "bottom" },
+        routing: "elbow",
+      },
+    };
+    const zeroSizeConnector: SlideChildNode = {
+      id: "connector-zero",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 0, h: 0 }, zIndex: 3 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: "nested-target", anchor: "left" },
+        to: { kind: "node", nodeId: "missing", anchor: "center" },
+        routing: "straight",
+      },
+    };
+    const visual: SlideChildNode = {
+      id: "visual-node",
+      type: "visual",
+      role: "visual",
+      layout: { frame: { x: 5, y: 5, w: 30, h: 20 }, zIndex: 4 },
+      style: { ref: "chart.primary" },
+      content: { assetId: "visual-asset", visualId: "chart-1" },
+    };
+    const slide: SlideNode = {
+      ...buildContentSlide("Resolver coverage"),
+      template: { kind: "content", layoutId: "content-layout" },
+      props: { chrome: "none", decoration: "expressive" },
+      children: [group, connectorToNested, zeroSizeConnector, visual],
+    };
+    const deck = buildDeckV7([slide], {
+      assets: {
+        images: {
+          "img-001": buildImageAsset("img-001"),
+          "decoration-image": buildImageAsset("decoration-image"),
+        },
+      },
+    });
+    const pkg = buildMinimalThemePackage("test-package", {
+      decorations: {
+        "content-text": {
+          id: "content-text",
+          component: "text",
+          role: "themeDecoration",
+          layout: { frame: { x: 1, y: 2, w: 3, h: 4 }, zIndex: 0 },
+          content: { type: "text", text: "Decorative text" },
+          style: { text: { color: "#123456" } },
+          appliesTo: { layoutIds: ["content-layout"] },
+          visibility: "expressive",
+        },
+        "content-image": {
+          id: "content-image",
+          component: "image",
+          role: "themeDecoration",
+          layout: { frame: { x: 5, y: 6, w: 7, h: 8 }, zIndex: 1 },
+          content: { type: "image", assetId: "decoration-image" },
+          style: {},
+          appliesTo: { templateKinds: ["content"] },
+        },
+        "filtered-layout": {
+          id: "filtered-layout",
+          component: "shape",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 2 },
+          style: {},
+          appliesTo: { layoutIds: ["other-layout"] },
+        },
+        "filtered-chrome": {
+          id: "filtered-chrome",
+          component: "shape",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 3 },
+          style: {},
+          chrome: "minimal",
+        },
+      },
+    });
+
+    const result = resolveDeckRenderTree(deck, pkg, {
+      canvasWidthPx: 1000,
+      canvasHeightPx: 500,
+    });
+    const resolvedSlide = result.slides[0];
+    assert.deepEqual(
+      resolvedSlide.decorations.map((decoration) => decoration.id),
+      ["decoration-content-text", "decoration-content-image"],
+    );
+    assert.equal(resolvedSlide.decorations[0].content.type, "text");
+    assert.equal(resolvedSlide.decorations[1].content.type, "image");
+    assert.deepEqual(resolvedSlide.decorations[0].layout.framePx, {
+      x: 10,
+      y: 10,
+      w: 30,
+      h: 20,
+    });
+
+    const resolvedGroup = resolvedSlide.nodes.find(
+      (node) => node.id === "group-node",
+    );
+    assert.equal(resolvedGroup?.type, "group");
+    assert.equal(resolvedGroup?.locked, true);
+    assert.deepEqual(
+      resolvedGroup?.children?.map((node) => node.id),
+      ["group-child-first", "group-child-late", "nested-target"],
+    );
+
+    const resolvedConnector = resolvedSlide.nodes.find(
+      (node) => node.id === "connector-to-nested",
+    );
+    assert.equal(resolvedConnector?.content.type, "connector");
+    if (resolvedConnector?.content.type === "connector") {
+      assert.deepEqual(resolvedConnector.content.content.from, {
+        kind: "point",
+        point: { x: 30, y: 20 },
+      });
+      assert.deepEqual(resolvedConnector.content.content.to, {
+        kind: "point",
+        point: { x: 30, y: 40 },
+      });
+    }
+
+    const fallbackConnector = resolvedSlide.nodes.find(
+      (node) => node.id === "connector-zero",
+    );
+    assert.equal(fallbackConnector?.content.type, "connector");
+    if (fallbackConnector?.content.type === "connector") {
+      assert.deepEqual(fallbackConnector.content.content.from, {
+        kind: "node",
+        nodeId: "nested-target",
+        anchor: "left",
+      });
+      assert.deepEqual(fallbackConnector.content.content.to, {
+        kind: "node",
+        nodeId: "missing",
+        anchor: "center",
+      });
+    }
+    assert.ok(result.diagnostics.some((d) => d.code === "missing-asset"));
   });
 });

@@ -37,11 +37,14 @@ const CONNECTOR_ANCHORS: ConnectorAnchor[] = [
   "left",
 ];
 
-function textValue(content: TextContent): string {
+export function textValue(content: TextContent): string {
   return content.paragraphs.map((paragraph) => paragraph.text).join("\n");
 }
 
-function textContentFromValue(value: string, idPrefix: string): TextContent {
+export function textContentFromValue(
+  value: string,
+  idPrefix: string,
+): TextContent {
   const lines = value.split("\n");
   return {
     paragraphs: lines.map((text, index) => ({
@@ -51,7 +54,7 @@ function textContentFromValue(value: string, idPrefix: string): TextContent {
   };
 }
 
-function updateTableCell(
+export function updateTableCell(
   table: TableContent,
   rowIndex: number,
   cellIndex: number,
@@ -72,11 +75,11 @@ function updateTableCell(
   };
 }
 
-function emptyTableRow(table: TableContent, id: string) {
+export function emptyTableRow(table: TableContent, id: string) {
   return { id, cells: table.columns.map(() => ({ text: "" })) };
 }
 
-function insertTableRow(
+export function insertTableRow(
   table: TableContent,
   index: number,
   position: "before" | "after",
@@ -92,12 +95,15 @@ function insertTableRow(
   return { ...table, rows };
 }
 
-function deleteTableRow(table: TableContent, index: number): TableContent {
+export function deleteTableRow(
+  table: TableContent,
+  index: number,
+): TableContent {
   if (table.rows.length <= 1) return table;
   return { ...table, rows: table.rows.filter((_row, i) => i !== index) };
 }
 
-function insertTableColumn(
+export function insertTableColumn(
   table: TableContent,
   index: number,
   position: "before" | "after",
@@ -127,7 +133,10 @@ function insertTableColumn(
   };
 }
 
-function deleteTableColumn(table: TableContent, index: number): TableContent {
+export function deleteTableColumn(
+  table: TableContent,
+  index: number,
+): TableContent {
   if (table.columns.length <= 1) return table;
   return {
     ...table,
@@ -139,7 +148,7 @@ function deleteTableColumn(table: TableContent, index: number): TableContent {
   };
 }
 
-function updateConnectorPoint(
+export function updateConnectorPoint(
   content: ConnectorContent,
   side: "from" | "to",
   axis: "x" | "y",

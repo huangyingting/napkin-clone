@@ -17,7 +17,7 @@ export interface SlideSettingsPanelProps {
   onResetLocalStyle: () => void;
 }
 
-function slideBackgroundColor(slide: SlideNode): string {
+export function slideBackgroundColor(slide: SlideNode): string {
   const background = slide.localStyle?.slide?.background;
   return background?.type === "solid" && typeof background.color === "string"
     ? background.color
@@ -30,7 +30,7 @@ function slideBackgroundColor(slide: SlideNode): string {
         : "#ffffff";
 }
 
-function slideBackgroundSecondaryColor(slide: SlideNode): string {
+export function slideBackgroundSecondaryColor(slide: SlideNode): string {
   const background = slide.localStyle?.slide?.background;
   return background?.type === "linearGradient" &&
     typeof background.to === "string"
@@ -41,15 +41,108 @@ function slideBackgroundSecondaryColor(slide: SlideNode): string {
       : "#f3f4f6";
 }
 
-function slideBackgroundAssetId(slide: SlideNode): string {
+export function slideBackgroundAssetId(slide: SlideNode): string {
   const background = slide.localStyle?.slide?.background;
   return background?.type === "image" ? (background.assetId ?? "") : "";
 }
 
-function slideAccentColor(slide: SlideNode): string {
+export function slideAccentColor(slide: SlideNode): string {
   return typeof slide.localStyle?.slide?.accent === "string"
     ? slide.localStyle.slide.accent
     : "#ffffff";
+}
+
+export function slideSourceWithPatch(
+  slide: SlideNode,
+  patch: Partial<NodeSourceMetadata>,
+): NodeSourceMetadata {
+  return {
+    documentId: slide.source?.documentId ?? "",
+    blockId: slide.source?.blockId ?? "",
+    ...(slide.source?.blockKind ? { blockKind: slide.source.blockKind } : {}),
+    ...(slide.source?.contentHash
+      ? { contentHash: slide.source.contentHash }
+      : {}),
+    ...(slide.source?.linkedAt ? { linkedAt: slide.source.linkedAt } : {}),
+    ...(slide.source?.unlinked ? { unlinked: slide.source.unlinked } : {}),
+    ...patch,
+  };
+}
+
+export function slideBackgroundPatchForType(
+  slide: SlideNode,
+  type: string,
+): StylePatch {
+  if (type === "linearGradient") {
+    return {
+      slide: {
+        background: {
+          type: "linearGradient",
+          from: slideBackgroundColor(slide),
+          to: slideBackgroundSecondaryColor(slide),
+          angle: 135,
+        },
+      },
+    };
+  }
+  if (type === "radialGradient") {
+    return {
+      slide: {
+        background: {
+          type: "radialGradient",
+          inner: slideBackgroundColor(slide),
+          outer: slideBackgroundSecondaryColor(slide),
+        },
+      },
+    };
+  }
+  if (type === "image") {
+    return {
+      slide: {
+        background: {
+          type: "image",
+          assetId: slideBackgroundAssetId(slide),
+          opacity: 1,
+        },
+      },
+    };
+  }
+  return {
+    slide: {
+      background: {
+        type: "solid",
+        color: slideBackgroundColor(slide),
+      },
+    },
+  };
+}
+
+export function slideBackgroundColorPatch(
+  slide: SlideNode,
+  color: string,
+): StylePatch {
+  const background = slide.localStyle?.slide?.background;
+  if (background?.type === "linearGradient") {
+    return { slide: { background: { ...background, from: color } } };
+  }
+  if (background?.type === "radialGradient") {
+    return { slide: { background: { ...background, inner: color } } };
+  }
+  return { slide: { background: { type: "solid", color } } };
+}
+
+export function slideBackgroundSecondaryColorPatch(
+  slide: SlideNode,
+  color: string,
+): StylePatch {
+  const background = slide.localStyle?.slide?.background;
+  if (background?.type === "linearGradient") {
+    return { slide: { background: { ...background, to: color } } };
+  }
+  if (background?.type === "radialGradient") {
+    return { slide: { background: { ...background, outer: color } } };
+  }
+  return {};
 }
 
 export function SlideSettingsPanel({
@@ -60,17 +153,7 @@ export function SlideSettingsPanel({
   onResetLocalStyle,
 }: SlideSettingsPanelProps): JSX.Element {
   function updateSource(patch: Partial<NodeSourceMetadata>) {
-    onUpdateSource({
-      documentId: slide.source?.documentId ?? "",
-      blockId: slide.source?.blockId ?? "",
-      ...(slide.source?.blockKind ? { blockKind: slide.source.blockKind } : {}),
-      ...(slide.source?.contentHash
-        ? { contentHash: slide.source.contentHash }
-        : {}),
-      ...(slide.source?.linkedAt ? { linkedAt: slide.source.linkedAt } : {}),
-      ...(slide.source?.unlinked ? { unlinked: slide.source.unlinked } : {}),
-      ...patch,
-    });
+    onUpdateSource(slideSourceWithPatch(slide, patch));
   }
 
   return (
@@ -106,48 +189,9 @@ export function SlideSettingsPanel({
             <select
               value={slide.localStyle?.slide?.background?.type ?? "solid"}
               onChange={(event) => {
-                const type = event.currentTarget.value;
-                if (type === "linearGradient") {
-                  onUpdateLocalStyle({
-                    slide: {
-                      background: {
-                        type: "linearGradient",
-                        from: slideBackgroundColor(slide),
-                        to: slideBackgroundSecondaryColor(slide),
-                        angle: 135,
-                      },
-                    },
-                  });
-                } else if (type === "radialGradient") {
-                  onUpdateLocalStyle({
-                    slide: {
-                      background: {
-                        type: "radialGradient",
-                        inner: slideBackgroundColor(slide),
-                        outer: slideBackgroundSecondaryColor(slide),
-                      },
-                    },
-                  });
-                } else if (type === "image") {
-                  onUpdateLocalStyle({
-                    slide: {
-                      background: {
-                        type: "image",
-                        assetId: slideBackgroundAssetId(slide),
-                        opacity: 1,
-                      },
-                    },
-                  });
-                } else {
-                  onUpdateLocalStyle({
-                    slide: {
-                      background: {
-                        type: "solid",
-                        color: slideBackgroundColor(slide),
-                      },
-                    },
-                  });
-                }
+                onUpdateLocalStyle(
+                  slideBackgroundPatchForType(slide, event.currentTarget.value),
+                );
               }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             >
@@ -184,21 +228,12 @@ export function SlideSettingsPanel({
                   type="color"
                   value={slideBackgroundColor(slide)}
                   onChange={(event) => {
-                    const color = event.currentTarget.value;
-                    const background = slide.localStyle?.slide?.background;
-                    if (background?.type === "linearGradient") {
-                      onUpdateLocalStyle({
-                        slide: { background: { ...background, from: color } },
-                      });
-                    } else if (background?.type === "radialGradient") {
-                      onUpdateLocalStyle({
-                        slide: { background: { ...background, inner: color } },
-                      });
-                    } else {
-                      onUpdateLocalStyle({
-                        slide: { background: { type: "solid", color } },
-                      });
-                    }
+                    onUpdateLocalStyle(
+                      slideBackgroundColorPatch(
+                        slide,
+                        event.currentTarget.value,
+                      ),
+                    );
                   }}
                   className={`h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
                 />
@@ -212,17 +247,12 @@ export function SlideSettingsPanel({
                     slide.localStyle?.slide?.background?.type === "solid"
                   }
                   onChange={(event) => {
-                    const color = event.currentTarget.value;
-                    const background = slide.localStyle?.slide?.background;
-                    if (background?.type === "linearGradient") {
-                      onUpdateLocalStyle({
-                        slide: { background: { ...background, to: color } },
-                      });
-                    } else if (background?.type === "radialGradient") {
-                      onUpdateLocalStyle({
-                        slide: { background: { ...background, outer: color } },
-                      });
-                    }
+                    onUpdateLocalStyle(
+                      slideBackgroundSecondaryColorPatch(
+                        slide,
+                        event.currentTarget.value,
+                      ),
+                    );
                   }}
                   className={`h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface disabled:opacity-40 ${FOCUS_RING}`}
                 />

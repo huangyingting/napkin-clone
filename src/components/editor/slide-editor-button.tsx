@@ -21,11 +21,10 @@ import type { DocumentBlock } from "@/lib/content/document-blocks";
 import type { DeckActionPort, SlideAssetActionPort } from "@/lib/action-ports";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
-import {
-  exportDeckV7AsPPTX,
-  resolveThemePackageForDeck,
-  type PresentationDiagnostic,
-} from "@/lib/presentation-vnext";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
+import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext/pptx-vnext-apply";
+import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import { downloadBlob } from "@/lib/visual/export";
 
@@ -209,6 +208,7 @@ export function SlideEditorButton({
     handleSaveV7,
     handleUndoV7,
     handleRedoV7,
+    undoRedoFocusV7,
     canUndoV7,
     canRedoV7,
     handleOpen,
@@ -257,9 +257,14 @@ export function SlideEditorButton({
 
   const handleExportV7Pptx = useCallback(async () => {
     if (!deckV7) return;
+    const opened = openDeckFromJson(deckV7);
+    if (!opened.ok) {
+      throw new Error(opened.error);
+    }
     const blob = await exportDeckV7AsPPTX(
-      deckV7,
-      themeResolution?.package ?? resolveThemePackageForDeck(deckV7).package,
+      opened.deck,
+      themeResolution?.package ??
+        resolveThemePackageForDeck(opened.deck).package,
     );
     if (!blob) throw new Error("PPTX export returned empty result");
     downloadBlob(blob, "presentation.pptx");
@@ -411,6 +416,7 @@ export function SlideEditorButton({
             canRedo={canRedoV7}
             onUndo={handleUndoV7}
             onRedo={handleRedoV7}
+            undoRedoFocus={undoRedoFocusV7}
             onDeckChange={handleDeckV7Change}
             onUploadImage={slideAssetPort ? handleUploadV7Image : undefined}
             onPickVisual={handlePickV7Visual}
