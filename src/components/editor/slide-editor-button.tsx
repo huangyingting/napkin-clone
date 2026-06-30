@@ -19,10 +19,8 @@ import { DeckGenerationPreviewVNext } from "@/components/presentation-vnext/deck
 import type { DeckActionPort } from "@/lib/action-ports";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
-import {
-  exportDeckV7AsPPTX,
-  resolveThemePackage,
-} from "@/lib/presentation-vnext";
+import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext";
+import { resolveThemePackage } from "@/lib/presentation-vnext/theme-package-registry";
 import { downloadBlob } from "@/lib/visual/export";
 
 function SlideEditorOverlay({ children }: { children: React.ReactNode }) {

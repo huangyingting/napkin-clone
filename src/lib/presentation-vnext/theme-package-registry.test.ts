@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 
 import {
+  describeThemePackageResolution,
+  getRegisteredThemePackage,
+  hasRegisteredThemePackage,
+  registeredThemePackageCount,
   resolveThemePackage,
+  registeredThemePackageSummaries,
   registeredThemePackageIds,
+  themePackageResolutionStatus,
 } from "./theme-package-registry";
 import { NEUTRAL_THEME_PACKAGE } from "./neutral-theme-package";
 
@@ -68,5 +74,55 @@ describe("registeredThemePackageIds", () => {
     const ids = registeredThemePackageIds();
     assert.ok(Array.isArray(ids));
     assert.ok(ids.every((id) => typeof id === "string"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Registry query helpers
+// ---------------------------------------------------------------------------
+
+describe("registry query helpers", () => {
+  test("hasRegisteredThemePackage distinguishes registered and unknown ids", () => {
+    assert.equal(hasRegisteredThemePackage("neutral"), true);
+    assert.equal(hasRegisteredThemePackage("unknown"), false);
+  });
+
+  test("registeredThemePackageSummaries returns picker-ready package metadata", () => {
+    assert.deepEqual(registeredThemePackageSummaries(), [
+      {
+        id: NEUTRAL_THEME_PACKAGE.id,
+        name: NEUTRAL_THEME_PACKAGE.name,
+        version: NEUTRAL_THEME_PACKAGE.version,
+      },
+    ]);
+  });
+
+  test("registeredThemePackageCount returns the runtime registry size", () => {
+    assert.equal(registeredThemePackageCount(), 1);
+  });
+
+  test("getRegisteredThemePackage returns the package or null", () => {
+    assert.equal(getRegisteredThemePackage("neutral"), NEUTRAL_THEME_PACKAGE);
+    assert.equal(getRegisteredThemePackage("missing"), null);
+  });
+
+  test("themePackageResolutionStatus reports registry vs fallback status", () => {
+    assert.equal(themePackageResolutionStatus("neutral"), "registered");
+    assert.equal(themePackageResolutionStatus("missing"), "fallback");
+  });
+
+  test("describeThemePackageResolution returns diagnostic-ready state", () => {
+    assert.deepEqual(describeThemePackageResolution("neutral"), {
+      packageId: "neutral",
+      status: "registered",
+      resolvedPackageId: "neutral",
+      diagnostic: undefined,
+    });
+
+    const fallback = describeThemePackageResolution("missing");
+    assert.equal(fallback.packageId, "missing");
+    assert.equal(fallback.status, "fallback");
+    assert.equal(fallback.resolvedPackageId, "neutral");
+    assert.ok(fallback.diagnostic?.includes("missing"));
   });
 });

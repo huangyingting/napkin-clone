@@ -18,10 +18,12 @@ import type { DeckFetchPort } from "@/lib/action-ports";
 import {
   createBlankDeckV7,
   openDeckFromJson,
-  resolveThemePackage,
   type DeckV7,
-  type ThemeResolutionResult,
 } from "@/lib/presentation-vnext";
+import {
+  resolveThemePackage,
+  type ThemeResolutionResult,
+} from "@/lib/presentation-vnext/theme-package-registry";
 
 interface PresentButtonProps {
   documentId: string;

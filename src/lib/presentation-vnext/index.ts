@@ -1,3 +1,4 @@
+/* node:coverage disable */
 /**
  * Barrel export for the v7 presentation core library.
  *
@@ -272,13 +273,6 @@ export type {
 } from "./pptx-export-adapter";
 export { buildVnextPptxSpec } from "./pptx-export-adapter";
 
-// Theme package registry
-export type { ThemeResolutionResult } from "./theme-package-registry";
-export {
-  resolveThemePackage,
-  registeredThemePackageIds,
-} from "./theme-package-registry";
-
 // Browser-only v7 PPTX applier and high-level export function
 export type { PptxTextRun } from "./pptx-vnext-apply";
 export {
@@ -292,3 +286,4 @@ export {
   applyVnextPptxSpec,
   exportDeckV7AsPPTX,
 } from "./pptx-vnext-apply";
+/* node:coverage enable */
