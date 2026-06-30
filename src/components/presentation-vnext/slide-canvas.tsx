@@ -23,10 +23,43 @@ import type {
 } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
 import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
+import {
+  STAGE_CHROME_Z_INDEX,
+  selectionFrameChrome,
+} from "@/lib/presentation-vnext/stage-chrome";
 
 import { SlideNodeRenderer } from "./slide-node-renderer";
 import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
+
+export type ResizeHandlePosition =
+  | "nw"
+  | "n"
+  | "ne"
+  | "e"
+  | "se"
+  | "s"
+  | "sw"
+  | "w";
+
+export type CropHandlePosition = "top" | "right" | "bottom" | "left";
+
+const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
+  "nw",
+  "n",
+  "ne",
+  "e",
+  "se",
+  "s",
+  "sw",
+  "w",
+];
+const CROP_HANDLES: readonly CropHandlePosition[] = [
+  "top",
+  "right",
+  "bottom",
+  "left",
+];
 
 // ---------------------------------------------------------------------------
 // Background helper
@@ -169,6 +202,39 @@ export interface SlideCanvasVNextProps {
   selection?: SelectionState;
   /** Called when the user clicks a node. */
   onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user double-clicks a node (used to enter inline edit mode). */
+  onNodeDoubleClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user starts dragging a node. */
+  onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
+  /** Called when a node receives keyboard focus. */
+  onNodeFocus?: (nodeId: string, event: React.FocusEvent) => void;
+  /** Called when pointer hover enters/leaves a node. */
+  onNodeHoverChange?: (nodeId: string, hovering: boolean) => void;
+  /** Called when the user starts resizing a selected node. */
+  onResizeHandlePointerDown?: (
+    nodeId: string,
+    handle: ResizeHandlePosition,
+    event: React.PointerEvent,
+  ) => void;
+  /** Called when the user starts cropping a selected image. */
+  onCropHandlePointerDown?: (
+    nodeId: string,
+    handle: CropHandlePosition,
+    event: React.PointerEvent,
+  ) => void;
+  /** Currently active resize handle, if any. */
+  activeResizeHandle?: { nodeId: string; handle: ResizeHandlePosition } | null;
+  /** Currently active crop handle, if any. */
+  activeCropHandle?: { nodeId: string; handle: CropHandlePosition } | null;
+  /**
+   * Node ids to hide from the canvas (e.g., the node being inline-edited
+   * is hidden while the overlay editor is active).
+   */
+  hiddenNodeIds?: ReadonlySet<string>;
+  /** Node currently hovered by the pointer. */
+  hoveredNodeId?: string | null;
+  /** Roving-tabindex focus target. */
+  focusedNodeId?: string | null;
   /** True when rendered at reduced size (thumbnail rail, next-slide preview). */
   preview?: boolean;
   /** Optional extra CSS class applied to the outer canvas container. */
@@ -190,6 +256,17 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   assetResolver,
   selection,
   onNodeClick,
+  onNodeDoubleClick,
+  onNodePointerDown,
+  onNodeFocus,
+  onNodeHoverChange,
+  onResizeHandlePointerDown,
+  onCropHandlePointerDown,
+  activeResizeHandle,
+  activeCropHandle,
+  hiddenNodeIds,
+  hoveredNodeId,
+  focusedNodeId,
   preview = false,
   className,
 }: SlideCanvasVNextProps): JSX.Element {
@@ -199,6 +276,26 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   // Flatten groups for rendering (children positioned in slide-relative space)
   const decorationNodes = flattenNodes(slide.decorations);
   const userNodes = flattenNodes(slide.nodes);
+  const selectedUserNodes = selection
+    ? userNodes.filter((node) => isSelected(selection, node.id))
+    : [];
+  const selectedResizableNodes = selectedUserNodes.filter(
+    (node) => node.locked !== true,
+  );
+  const selectedCroppableNodes = selectedResizableNodes.filter(
+    (node) => node.type === "image" && node.content.type === "image",
+  );
+  const preselectedUserNodes = !preview
+    ? userNodes.filter(
+        (node) =>
+          !selectedUserNodes.some(
+            (selectedNode) => selectedNode.id === node.id,
+          ) &&
+          (hoveredNodeId === node.id || focusedNodeId === node.id),
+      )
+    : [];
+  const multiSelectionFrame =
+    selectedUserNodes.length > 1 ? boundsForNodes(selectedUserNodes) : null;
 
   const handleNodeClick = onNodeClick
     ? (nodeId: string, event: React.MouseEvent) => {
@@ -206,8 +303,15 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
       }
     : undefined;
 
+  const handleNodeDoubleClick = onNodeDoubleClick
+    ? (nodeId: string, event: React.MouseEvent) => {
+        onNodeDoubleClick(nodeId, event);
+      }
+    : undefined;
+
   return (
     <div
+      data-slide-canvas-vnext="true"
       className={`relative overflow-hidden${className ? ` ${className}` : ""}`}
       style={{
         aspectRatio: `${aspectRatio}`,
@@ -222,24 +326,233 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           assetResolver={assetResolver}
           preview={preview}
+          hidden={hiddenNodeIds?.has(node.id)}
           // Decorations are never interactive in the normal canvas
         />
       ))}
 
       {/* User nodes */}
-      {userNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          selected={selection ? isSelected(selection, node.id) : false}
-          onClick={handleNodeClick}
-          assetResolver={assetResolver}
-          preview={preview}
+      {userNodes.map((node) =>
+        (() => {
+          const selected = selection ? isSelected(selection, node.id) : false;
+          const interactive = !preview && onNodeClick !== undefined;
+          return (
+            <SlideNodeRenderer
+              key={node.id}
+              node={node}
+              selected={selected}
+              hovered={hoveredNodeId === node.id}
+              focused={focusedNodeId === node.id}
+              interactive={interactive}
+              tabIndex={
+                interactive
+                  ? focusedNodeId === node.id ||
+                    (focusedNodeId === undefined && selected)
+                    ? 0
+                    : -1
+                  : undefined
+              }
+              onClick={handleNodeClick}
+              onDoubleClick={handleNodeDoubleClick}
+              onPointerDown={preview ? undefined : onNodePointerDown}
+              onFocus={preview ? undefined : onNodeFocus}
+              onHoverChange={preview ? undefined : onNodeHoverChange}
+              assetResolver={assetResolver}
+              preview={preview}
+              hidden={hiddenNodeIds?.has(node.id)}
+            />
+          );
+        })(),
+      )}
+
+      {!preview
+        ? preselectedUserNodes.map((node) => (
+            <NodeChromeFrame
+              key={`${node.id}-preselected-frame`}
+              node={node}
+              variant="preselected"
+            />
+          ))
+        : null}
+
+      {!preview
+        ? selectedUserNodes.map((node) => (
+            <NodeChromeFrame
+              key={`${node.id}-selected-frame`}
+              node={node}
+              variant="selected"
+            />
+          ))
+        : null}
+
+      {!preview && multiSelectionFrame ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute border border-dashed border-ds-accent-border bg-ds-accent-surface/10"
+          style={{
+            left: `${multiSelectionFrame.x}%`,
+            top: `${multiSelectionFrame.y}%`,
+            width: `${multiSelectionFrame.w}%`,
+            height: `${multiSelectionFrame.h}%`,
+            zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
+          }}
         />
-      ))}
+      ) : null}
+
+      {!preview && onResizeHandlePointerDown
+        ? selectedResizableNodes.map((node) => (
+            <div
+              key={`${node.id}-resize-overlay`}
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{
+                left: `${node.layout.frame.x}%`,
+                top: `${node.layout.frame.y}%`,
+                width: `${node.layout.frame.w}%`,
+                height: `${node.layout.frame.h}%`,
+                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame,
+              }}
+            >
+              {RESIZE_HANDLES.map((handle) => (
+                <span
+                  key={handle}
+                  data-resize-handle={handle}
+                  className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border shadow-ds-sm ${
+                    activeResizeHandle?.nodeId === node.id &&
+                    activeResizeHandle.handle === handle
+                      ? "border-ds-accent-fill bg-ds-accent-fill"
+                      : "border-ds-accent-border bg-ds-surface"
+                  }`}
+                  style={resizeHandleStyle(handle)}
+                  onPointerDown={(event) =>
+                    onResizeHandlePointerDown(node.id, handle, event)
+                  }
+                />
+              ))}
+            </div>
+          ))
+        : null}
+
+      {!preview && onCropHandlePointerDown
+        ? selectedCroppableNodes.map((node) => (
+            <div
+              key={`${node.id}-crop-overlay`}
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{
+                left: `${node.layout.frame.x}%`,
+                top: `${node.layout.frame.y}%`,
+                width: `${node.layout.frame.w}%`,
+                height: `${node.layout.frame.h}%`,
+                zIndex: STAGE_CHROME_Z_INDEX.cropHandle,
+              }}
+            >
+              {CROP_HANDLES.map((handle) => (
+                <span
+                  key={handle}
+                  data-crop-handle={handle}
+                  className={`pointer-events-auto absolute rounded-full border shadow-ds-sm ${
+                    activeCropHandle?.nodeId === node.id &&
+                    activeCropHandle.handle === handle
+                      ? "border-ds-accent-fill bg-ds-accent-fill"
+                      : "border-ds-accent-border bg-ds-surface"
+                  }`}
+                  style={cropHandleStyle(handle)}
+                  onPointerDown={(event) =>
+                    onCropHandlePointerDown(node.id, handle, event)
+                  }
+                />
+              ))}
+            </div>
+          ))
+        : null}
     </div>
   );
 });
+
+function NodeChromeFrame({
+  node,
+  variant,
+}: {
+  node: ResolvedRenderNode;
+  variant: "selected" | "preselected";
+}) {
+  const chrome = selectionFrameChrome(variant);
+  const isLocked = node.locked === true;
+  const color =
+    variant === "selected"
+      ? isLocked
+        ? "var(--ds-border, #9ca3af)"
+        : "var(--ds-accent-fill, #6366f1)"
+      : "var(--ds-border, #cbd5e1)";
+  return (
+    <div
+      aria-hidden="true"
+      data-node-chrome-frame={variant}
+      data-node-id={node.id}
+      className="pointer-events-none absolute box-border"
+      style={{
+        left: `${node.layout.frame.x}%`,
+        top: `${node.layout.frame.y}%`,
+        width: `${node.layout.frame.w}%`,
+        height: `${node.layout.frame.h}%`,
+        border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
+        opacity: chrome.opacity,
+        zIndex: chrome.zIndex,
+      }}
+    />
+  );
+}
+
+function boundsForNodes(
+  nodes: readonly ResolvedRenderNode[],
+): { x: number; y: number; w: number; h: number } | null {
+  if (nodes.length === 0) return null;
+  const left = Math.min(...nodes.map((node) => node.layout.frame.x));
+  const top = Math.min(...nodes.map((node) => node.layout.frame.y));
+  const right = Math.max(
+    ...nodes.map((node) => node.layout.frame.x + node.layout.frame.w),
+  );
+  const bottom = Math.max(
+    ...nodes.map((node) => node.layout.frame.y + node.layout.frame.h),
+  );
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+function resizeHandleStyle(handle: ResizeHandlePosition): React.CSSProperties {
+  const horizontal = handle.includes("w")
+    ? { left: 0, transform: "translate(-50%, -50%)" }
+    : handle.includes("e")
+      ? { left: "100%", transform: "translate(-50%, -50%)" }
+      : { left: "50%", transform: "translate(-50%, -50%)" };
+  const vertical = handle.includes("n")
+    ? { top: 0 }
+    : handle.includes("s")
+      ? { top: "100%" }
+      : { top: "50%" };
+  return { ...horizontal, ...vertical };
+}
+
+function cropHandleStyle(handle: CropHandlePosition): React.CSSProperties {
+  if (handle === "top" || handle === "bottom") {
+    return {
+      left: "50%",
+      top: handle === "top" ? 0 : "100%",
+      width: 34,
+      height: 7,
+      transform: "translate(-50%, -50%)",
+      cursor: "ns-resize",
+    };
+  }
+  return {
+    left: handle === "left" ? 0 : "100%",
+    top: "50%",
+    width: 7,
+    height: 34,
+    transform: "translate(-50%, -50%)",
+    cursor: "ew-resize",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // DeckCanvasVNext — renders all slides in a deck tree
@@ -256,6 +569,10 @@ export interface DeckCanvasVNextProps {
   selection?: SelectionState;
   /** Called when the user clicks a node on the active slide. */
   onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Called when the user starts dragging a node on the active slide. */
+  onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
+  /** Called when the user starts resizing a selected node on the active slide. */
+  onResizeHandlePointerDown?: SlideCanvasVNextProps["onResizeHandlePointerDown"];
   /** Called when the user clicks a slide in the thumbnail rail. */
   onSlideClick?: (slideIndex: number) => void;
   /** True when rendered at reduced size. */
@@ -277,6 +594,8 @@ export function DeckCanvasVNext({
   assetResolver,
   selection,
   onNodeClick,
+  onNodePointerDown,
+  onResizeHandlePointerDown,
   preview = false,
   className,
 }: DeckCanvasVNextProps): JSX.Element | null {
@@ -290,6 +609,8 @@ export function DeckCanvasVNext({
       assetResolver={assetResolver}
       selection={selection}
       onNodeClick={onNodeClick}
+      onNodePointerDown={onNodePointerDown}
+      onResizeHandlePointerDown={onResizeHandlePointerDown}
       preview={preview}
       className={className}
     />

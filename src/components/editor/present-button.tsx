@@ -18,7 +18,9 @@ import type { DeckFetchPort } from "@/lib/action-ports";
 import {
   createBlankDeckV7,
   openDeckFromJson,
+  resolveThemePackageForDeck,
   type DeckV7,
+  type ThemePackageV1,
 } from "@/lib/presentation-vnext";
 
 interface PresentButtonProps {
@@ -31,6 +33,7 @@ interface PresentButtonProps {
 
 type PresentData = {
   deck: DeckV7;
+  themePackage: ThemePackageV1;
 };
 
 /**
@@ -62,10 +65,13 @@ export function PresentButton({
 
     const candidate = fetchedRaw ?? initialDeckJson;
     const opened = openDeckFromJson(candidate);
+    const deck = opened.ok
+      ? opened.deck
+      : createBlankDeckV7({ documentId, title: documentTitle });
+    const themeResolution = resolveThemePackageForDeck(deck);
     setPresentData({
-      deck: opened.ok
-        ? opened.deck
-        : createBlankDeckV7({ documentId, title: documentTitle }),
+      deck,
+      themePackage: themeResolution.package,
     });
   }, [deckPort, documentId, documentTitle, initialDeckJson]);
 
@@ -86,7 +92,11 @@ export function PresentButton({
       />
 
       {presentData ? (
-        <PresentModeVNext deck={presentData.deck} onClose={handleClose} />
+        <PresentModeVNext
+          deck={presentData.deck}
+          themePackage={presentData.themePackage}
+          onClose={handleClose}
+        />
       ) : null}
     </>
   );

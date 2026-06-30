@@ -13,10 +13,17 @@ persisted deck contract and the React components that render/edit slides.
 | [theme-packages.md](theme-packages.md)                                           | Theme package catalog, apply behavior, template identity, and master boundaries.                        |
 | [semantic-slide-design-system.md](semantic-slide-design-system.md)               | Implemented vNext semantic slide schema, theme packages, semantic templates, AI generation, and export. |
 | [v7-slide-editor-implementation-plan.md](v7-slide-editor-implementation-plan.md) | Concrete migration plan for making the v7 slide editor production-usable.                               |
+| [v7-slide-editor-github-issues.md](v7-slide-editor-github-issues.md)             | Ordered epic and GitHub issue backlog for the v7 legacy replacement release.                            |
 | [package-template-generation-plan.md](package-template-generation-plan.md)       | Planned package-template AI deck generation, semantic templates, and table element work.                |
 | [slide-editor.md](slide-editor.md)                                               | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.                 |
 | [slide-stage-interactions.md](slide-stage-interactions.md)                       | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior.                |
 | [rendering-and-export.md](rendering-and-export.md)                               | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics.                |
+
+## VNext UI Design
+
+The detailed UI design for the v7/vNext migration lives in this subsystem:
+
+- [slide-editor-ui-v7.md](slide-editor-ui-v7.md) — V7 slide editor UI design spec (top toolbar, context toolbar, right inspector, bottom filmstrip, inline editing, component inventory, a11y, flows, verification).
 
 ## Related Contracts
 

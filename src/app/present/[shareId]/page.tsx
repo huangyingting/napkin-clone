@@ -59,6 +59,7 @@ export default async function PresentPage({
   return (
     <PublicPresentViewerVNext
       deck={presentation.deckV7}
+      themePackage={presentation.themePackage}
       title={presentation.title}
       showAttribution={presentation.attribution.showAttribution}
     />

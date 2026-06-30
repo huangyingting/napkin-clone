@@ -13,6 +13,7 @@ export type PresentationDiagnosticCode =
   | "duplicate-id"
   | "unknown-template-kind"
   | "unknown-template-layout"
+  | "unknown-theme-package"
   | "unknown-style-ref"
   | "missing-style-default"
   | "missing-style-variant"

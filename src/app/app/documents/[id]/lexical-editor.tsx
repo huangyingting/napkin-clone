@@ -35,6 +35,7 @@ import {
   saveDeckPatch,
   saveDocumentLexical,
 } from "./actions";
+import { uploadSlideAsset } from "./slide-asset-actions";
 import { BlockSparkPlugin } from "./block-spark";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
@@ -163,6 +164,7 @@ function RoutedSlideEditorButton({
     () => ({ fetchDeckJson, saveDeckJson, saveDeckPatch }),
     [],
   );
+  const slideAssetPort = useMemo(() => ({ uploadSlideAsset }), []);
 
   return (
     <SlideEditorButton
@@ -170,6 +172,7 @@ function RoutedSlideEditorButton({
       initialDeckJson={initialDeckJson}
       initialContentJson={initialContentJson}
       deckPort={deckPort}
+      slideAssetPort={slideAssetPort}
       onOpenRightSurface={openSlideEditor}
       onCloseRightSurface={closeSlideEditor}
     />

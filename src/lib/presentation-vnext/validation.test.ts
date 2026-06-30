@@ -5,7 +5,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
-import type { SlideNode } from "@/lib/presentation-vnext/schema";
+import type {
+  SlideChildNode,
+  SlideNode,
+} from "@/lib/presentation-vnext/schema";
 import {
   buildDeckV7,
   buildMinimalDeckV7,
@@ -239,6 +242,71 @@ describe("safeParseDeckV7", () => {
     assert.ok(!result.success);
     if (!result.success) {
       assert.ok(result.errors.some((e) => /w.*h|0/.test(e)));
+    }
+  });
+
+  test("accepts auto-height layout metadata", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const sourceChild = slide.children[0];
+    assert.ok(sourceChild.layout);
+    const child = {
+      ...sourceChild,
+      layout: {
+        ...sourceChild.layout,
+        autoHeight: true,
+        flipX: true,
+        flipY: false,
+        constraints: { minH: 6, preserveAspectRatio: false },
+      },
+    };
+    const deck = buildDeckV7([{ ...slide, children: [child] }]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
+  test("rejects invalid auto-height layout metadata", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const sourceChild = slide.children[0];
+    assert.ok(sourceChild.layout);
+    const child = {
+      ...sourceChild,
+      layout: {
+        ...sourceChild.layout,
+        autoHeight: "yes",
+      },
+    } as unknown as SlideChildNode;
+    const deck = buildDeckV7([{ ...slide, children: [child] }]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((error) => /autoHeight/.test(error)));
+    }
+  });
+
+  test("rejects invalid layout flip metadata", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const sourceChild = slide.children[0];
+    assert.ok(sourceChild.layout);
+    const child = {
+      ...sourceChild,
+      layout: {
+        ...sourceChild.layout,
+        flipX: "yes",
+        flipY: "no",
+      },
+    } as unknown as SlideChildNode;
+    const deck = buildDeckV7([{ ...slide, children: [child] }]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((error) => /flipX/.test(error)));
+      assert.ok(result.errors.some((error) => /flipY/.test(error)));
     }
   });
 

@@ -2,7 +2,7 @@
  * Focused tests for v7 editor variant dispatch helpers.
  *
  * Verifies the detection/open logic that keeps slide editor runtime routing
- * v7-only.
+ * DeckV7-only after the open boundary.
  */
 
 import assert from "node:assert/strict";
@@ -77,7 +77,7 @@ describe("looksLikeDeckV7 — variant detection for editor dispatch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// openDeckFromJson — open helper for v7-only runtime
+// openDeckFromJson — open helper for DeckV7-only runtime
 // ---------------------------------------------------------------------------
 
 describe("openDeckFromJson — open helper variant behaviour", () => {
@@ -87,9 +87,11 @@ describe("openDeckFromJson — open helper variant behaviour", () => {
     assert.equal(result.deck.schemaVersion, 7);
   });
 
-  test("v6 input: returns ok=false", () => {
+  test("v6 input: migrates before entering runtime", () => {
     const result = openDeckFromJson(MINIMAL_V6);
-    assert.ok(!result.ok);
+    assert.ok(result.ok);
+    assert.equal(result.source, "legacy-v6");
+    assert.equal(result.deck.schemaVersion, 7);
   });
 
   test("unknown input: returns ok=false", () => {

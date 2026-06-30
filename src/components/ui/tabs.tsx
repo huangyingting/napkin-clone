@@ -19,6 +19,8 @@ export type TabsProps<T extends string> = {
   "aria-label": string;
   className?: string;
   size?: "sm" | "md";
+  getTabId?: (value: T) => string;
+  getPanelId?: (value: T) => string;
 };
 
 const SIZE = {
@@ -32,6 +34,8 @@ export function Tabs<T extends string>({
   onChange,
   className,
   size = "md",
+  getTabId,
+  getPanelId,
   ...rest
 }: TabsProps<T>) {
   return (
@@ -52,9 +56,11 @@ export function Tabs<T extends string>({
         return (
           <button
             key={option.value}
+            id={getTabId?.(option.value)}
             type="button"
             role="tab"
             aria-selected={active}
+            aria-controls={getPanelId?.(option.value)}
             disabled={option.disabled}
             onClick={() => !option.disabled && onChange(option.value)}
             className={cx(

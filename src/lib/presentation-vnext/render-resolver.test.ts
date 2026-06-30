@@ -5,6 +5,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver";
+import { updateSlideLocalStyle } from "@/lib/presentation-vnext/editor-commands";
 import {
   buildDeckV7,
   buildCoverSlide,
@@ -14,7 +15,10 @@ import {
   buildImageNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
-import type { SlideNode } from "@/lib/presentation-vnext/schema";
+import type {
+  SlideChildNode,
+  SlideNode,
+} from "@/lib/presentation-vnext/schema";
 
 function makeSlideWithZIndices(zIndices: number[]): SlideNode {
   resetBuilderCounter();
@@ -57,6 +61,62 @@ describe("resolveDeckRenderTree", () => {
       !resolvedSlide.nodes.some((n) => n.id === "hidden-text"),
       "Hidden node should not appear in resolved output",
     );
+  });
+
+  test("preserves locked node state in resolved render nodes", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const lockedNode = buildTextNode({
+      id: "locked-text",
+      locked: true,
+    });
+    const deck = buildDeckV7([
+      {
+        ...slide,
+        children: [...slide.children, lockedNode],
+      },
+    ]);
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const resolved = result.slides[0].nodes.find(
+      (node) => node.id === "locked-text",
+    );
+    assert.equal(resolved?.locked, true);
+  });
+
+  test("resolves connector node endpoints to target anchor points", () => {
+    resetBuilderCounter();
+    const target = buildTextNode({
+      id: "target-node",
+      layout: { frame: { x: 40, y: 20, w: 20, h: 20 }, zIndex: 1 },
+    });
+    const connector: SlideChildNode = {
+      id: "connector-node",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 2 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "point", point: { x: 0, y: 50 } },
+        to: { kind: "node", nodeId: "target-node", anchor: "right" },
+        routing: "straight",
+      },
+    };
+    const deck = buildDeckV7([
+      {
+        ...buildCoverSlide(),
+        children: [target, connector],
+      },
+    ]);
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const resolved = result.slides[0].nodes.find(
+      (node) => node.id === "connector-node",
+    );
+    assert.equal(resolved?.content.type, "connector");
+    if (resolved?.content.type === "connector") {
+      assert.deepEqual(resolved.content.content.to, {
+        kind: "point",
+        point: { x: 60, y: 30 },
+      });
+    }
   });
 
   test("orders user nodes by ascending zIndex", () => {
@@ -228,6 +288,20 @@ describe("resolveDeckRenderTree", () => {
       result.diagnostics.some((d) => d.code === "missing-node-layout"),
       "Expected missing-node-layout diagnostic",
     );
+  });
+
+  test("slide localStyle overrides theme slide background", () => {
+    resetBuilderCounter();
+    const baseDeck = buildDeckV7([buildCoverSlide()]);
+    const deck = updateSlideLocalStyle(baseDeck, baseDeck.slides[0].id, {
+      slide: { background: { type: "solid", color: "#123456" } },
+    });
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.deepEqual(result.slides[0].background.fill, {
+      type: "solid",
+      color: "#123456",
+    });
   });
 
   test("theme switch preserves node layout frames", () => {

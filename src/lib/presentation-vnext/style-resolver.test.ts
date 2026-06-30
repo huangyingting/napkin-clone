@@ -174,6 +174,21 @@ describe("resolveNodeStyle", () => {
     assert.equal(style.text?.color, "#ff0000");
   });
 
+  test("preserves visual channel color overrides", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    const themeBinding = buildThemeBinding();
+    const binding = { ref: "chart.primary" as const };
+    const localStyle = {
+      visual: { channelColors: { primary: "#2563eb", accent: "#f59e0b" } },
+    };
+    const { style } = resolveNodeStyle(binding, themeBinding, pkg, localStyle);
+    assert.deepEqual(style.visual?.channelColors, {
+      primary: "#2563eb",
+      accent: "#f59e0b",
+    });
+  });
+
   test("emits local-style-overrides info diagnostic", () => {
     resetBuilderCounter();
     const pkg = buildMinimalThemePackage();

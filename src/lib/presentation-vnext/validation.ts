@@ -155,6 +155,21 @@ function validateLayoutBox(
     fail(errors, `${ctx} must be an object`);
     return {};
   }
+  const allowed = new Set([
+    "frame",
+    "rotation",
+    "zIndex",
+    "autoHeight",
+    "flipX",
+    "flipY",
+    "anchor",
+    "constraints",
+  ]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known layout field`);
+    }
+  }
   validateFrame(input.frame, `${ctx}.frame`, errors);
   if (!Number.isInteger(input.zIndex) || typeof input.zIndex !== "number") {
     fail(errors, `${ctx}.zIndex must be an integer`);
@@ -162,7 +177,60 @@ function validateLayoutBox(
   if (input.rotation !== undefined && !isFiniteNumber(input.rotation)) {
     fail(errors, `${ctx}.rotation must be a finite number`);
   }
+  if (input.autoHeight !== undefined && typeof input.autoHeight !== "boolean") {
+    fail(errors, `${ctx}.autoHeight must be a boolean`);
+  }
+  if (input.flipX !== undefined && typeof input.flipX !== "boolean") {
+    fail(errors, `${ctx}.flipX must be a boolean`);
+  }
+  if (input.flipY !== undefined && typeof input.flipY !== "boolean") {
+    fail(errors, `${ctx}.flipY must be a boolean`);
+  }
+  if (
+    input.anchor !== undefined &&
+    input.anchor !== "topLeft" &&
+    input.anchor !== "center"
+  ) {
+    fail(errors, `${ctx}.anchor must be topLeft or center`);
+  }
+  if (input.constraints !== undefined) {
+    validateLayoutConstraints(input.constraints, `${ctx}.constraints`, errors);
+  }
   return input;
+}
+
+function validateLayoutConstraints(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set([
+    "minW",
+    "minH",
+    "maxW",
+    "maxH",
+    "preserveAspectRatio",
+  ]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known constraints field`);
+    }
+  }
+  for (const key of ["minW", "minH", "maxW", "maxH"] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+  if (
+    input.preserveAspectRatio !== undefined &&
+    typeof input.preserveAspectRatio !== "boolean"
+  ) {
+    fail(errors, `${ctx}.preserveAspectRatio must be a boolean`);
+  }
 }
 
 // ---------------------------------------------------------------------------

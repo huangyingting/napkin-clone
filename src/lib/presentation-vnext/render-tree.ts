@@ -56,6 +56,7 @@ export type ResolvedRenderNode = {
   content: ResolvedNodeContent;
   children?: ResolvedRenderNode[];
   source: "user" | "themeDecoration";
+  locked?: boolean;
 };
 
 // ---------------------------------------------------------------------------

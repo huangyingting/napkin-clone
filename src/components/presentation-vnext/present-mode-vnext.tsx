@@ -101,6 +101,11 @@ export function PresentModeVNext({
 
   const currentSlideTree = renderTree?.slides[currentIndex];
   const canvas = renderTree?.canvas;
+  function resolveDeckAsset(assetId: string): string | undefined {
+    return (
+      deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src
+    );
+  }
   const aspectRatio =
     canvas && canvas.width > 0 && canvas.height > 0
       ? canvas.width / canvas.height
@@ -431,7 +436,11 @@ export function PresentModeVNext({
               height: fittedSlideSize.height,
             }}
           >
-            <SlideCanvasVNext slide={currentSlideTree} canvas={canvas} />
+            <SlideCanvasVNext
+              slide={currentSlideTree}
+              canvas={canvas}
+              assetResolver={resolveDeckAsset}
+            />
           </div>
         </div>
 
@@ -514,6 +523,7 @@ export function PresentModeVNext({
           slides={deck.slides}
           renderTree={renderTree}
           currentIndex={currentIndex}
+          assetResolver={resolveDeckAsset}
           onJump={handleJumpToSlide}
           onClose={closeOverview}
         />

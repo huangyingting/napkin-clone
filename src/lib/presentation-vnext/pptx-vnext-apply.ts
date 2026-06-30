@@ -24,8 +24,9 @@ import type PptxGenJS from "pptxgenjs";
 
 import type { DeckV7, Paragraph, TextContent } from "./schema";
 import type { ThemePackageV1 } from "./theme-package-schema";
+import { resolveThemePackageForDeck } from "./theme-package-registry";
 import { resolveDeckRenderTree } from "./render-resolver";
-import { buildExportSpec } from "./export-spec";
+import { buildExportSpec, type ExportDeckSpec } from "./export-spec";
 import {
   buildVnextPptxSpec,
   type VnextPptxDeckSpec,
@@ -41,6 +42,39 @@ import {
 
 const PPTX_MIME =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+function deckAssetSource(deck: DeckV7, assetId: string): string | undefined {
+  return deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src;
+}
+
+export function resolveExportSpecAssetSources(
+  deck: DeckV7,
+  exportSpec: ExportDeckSpec,
+): ExportDeckSpec {
+  return {
+    ...exportSpec,
+    slides: exportSpec.slides.map((slide) => ({
+      ...slide,
+      operations: slide.operations.map((operation) => {
+        if (operation.type === "image") {
+          return {
+            ...operation,
+            assetId:
+              deckAssetSource(deck, operation.assetId) ?? operation.assetId,
+          };
+        }
+        if (operation.type === "visual" && operation.assetId) {
+          return {
+            ...operation,
+            assetId:
+              deckAssetSource(deck, operation.assetId) ?? operation.assetId,
+          };
+        }
+        return operation;
+      }),
+    })),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // PptxGenJS slide type alias
@@ -75,6 +109,7 @@ export function textContentToPptxRuns(content: TextContent): PptxTextRun[] {
         if (run.bold) runOptions.bold = true;
         if (run.italic) runOptions.italic = true;
         if (run.underline) runOptions.underline = { style: "sng" };
+        if (run.strikethrough) runOptions.strike = true;
         if (run.localStyle?.color && typeof run.localStyle.color === "string") {
           const c = run.localStyle.color.startsWith("#")
             ? run.localStyle.color.slice(1).toUpperCase()
@@ -376,6 +411,8 @@ export async function applyVnextPptxSpec(
 
 /**
  * Browser-only: resolves a `DeckV7` + `ThemePackageV1` into a PPTX Blob.
+ * When the package is omitted, `DeckV7.theme.packageId` is resolved through
+ * the runtime v7 theme package registry with neutral fallback.
  *
  * Pipeline:
  *   DeckV7 → resolveDeckRenderTree → buildExportSpec
@@ -385,12 +422,17 @@ export async function applyVnextPptxSpec(
  */
 export async function exportDeckV7AsPPTX(
   deck: DeckV7,
-  themePackage: ThemePackageV1,
+  themePackage?: ThemePackageV1,
   options?: BuildVnextPptxSpecOptions,
 ): Promise<Blob | null> {
   try {
-    const renderTree = resolveDeckRenderTree(deck, themePackage);
-    const exportSpec = buildExportSpec(renderTree);
+    const resolvedThemePackage =
+      themePackage ?? resolveThemePackageForDeck(deck).package;
+    const renderTree = resolveDeckRenderTree(deck, resolvedThemePackage);
+    const exportSpec = resolveExportSpecAssetSources(
+      deck,
+      buildExportSpec(renderTree),
+    );
     const pptxSpec = buildVnextPptxSpec(exportSpec, options);
     return applyVnextPptxSpec(pptxSpec);
   } catch {

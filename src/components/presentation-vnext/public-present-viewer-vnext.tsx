@@ -138,6 +138,11 @@ export function PublicPresentViewerVNext({
   }, [embed, resetHudTimer, scheduleHudHide]);
 
   const canvas = renderTree?.canvas;
+  function resolveDeckAsset(assetId: string): string | undefined {
+    return (
+      deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src
+    );
+  }
   const aspectRatio =
     canvas && canvas.width > 0 && canvas.height > 0
       ? canvas.width / canvas.height
@@ -215,7 +220,11 @@ export function PublicPresentViewerVNext({
               height: fittedSlideSize.height,
             }}
           >
-            <SlideCanvasVNext slide={currentSlideTree} canvas={canvas} />
+            <SlideCanvasVNext
+              slide={currentSlideTree}
+              canvas={canvas}
+              assetResolver={resolveDeckAsset}
+            />
           </div>
         </div>
 

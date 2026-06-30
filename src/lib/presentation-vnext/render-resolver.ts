@@ -16,7 +16,12 @@
  * - Unresolved assets, style refs, and token refs produce diagnostics.
  */
 
-import type { DeckV7, SlideNode, SlideChildNode } from "./schema";
+import type {
+  ConnectorEndpoint,
+  DeckV7,
+  SlideNode,
+  SlideChildNode,
+} from "./schema";
 import type { ThemePackageV1 } from "./theme-package-schema";
 import type {
   ResolvedDeckRenderTree,
@@ -141,6 +146,7 @@ function resolveChildNode(
       content,
       children,
       source: "user",
+      locked: node.locked,
     };
   }
 
@@ -155,7 +161,14 @@ function resolveChildNode(
       content = { type: "shape", content: node.content };
       break;
     case "connector":
-      content = { type: "connector", content: node.content };
+      content = {
+        type: "connector",
+        content: {
+          ...node.content,
+          from: resolveConnectorEndpoint(node.content.from, node, slide),
+          to: resolveConnectorEndpoint(node.content.to, node, slide),
+        },
+      };
       break;
     case "table":
       content = { type: "table", content: node.content };
@@ -172,7 +185,6 @@ function resolveChildNode(
       return null;
     }
   }
-
   return {
     id: node.id,
     type: node.type,
@@ -181,7 +193,62 @@ function resolveChildNode(
     style: resolvedStyle,
     content,
     source: "user",
+    locked: node.locked,
   };
+}
+
+function resolveConnectorEndpoint(
+  endpoint: ConnectorEndpoint,
+  connector: SlideChildNode,
+  slide: SlideNode,
+): ConnectorEndpoint {
+  if (endpoint.kind === "point") return endpoint;
+  if (!connector.layout) return endpoint;
+  const target = findSlideChildNode(slide.children, endpoint.nodeId);
+  if (!target?.layout) return endpoint;
+  const anchor = targetAnchorPoint(target.layout.frame, endpoint.anchor);
+  const frame = connector.layout.frame;
+  if (frame.w <= 0 || frame.h <= 0) return endpoint;
+  return {
+    kind: "point",
+    point: {
+      x: ((anchor.x - frame.x) / frame.w) * 100,
+      y: ((anchor.y - frame.y) / frame.h) * 100,
+    },
+  };
+}
+
+function findSlideChildNode(
+  nodes: readonly SlideChildNode[],
+  id: string,
+): SlideChildNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.type === "group") {
+      const found = findSlideChildNode(node.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function targetAnchorPoint(
+  frame: { x: number; y: number; w: number; h: number },
+  anchor: Extract<ConnectorEndpoint, { kind: "node" }>["anchor"],
+): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: frame.x + frame.w / 2, y: frame.y };
+    case "right":
+      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
+    case "bottom":
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
+    case "left":
+      return { x: frame.x, y: frame.y + frame.h / 2 };
+    case "center":
+    default:
+      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -306,8 +373,14 @@ function resolveSlide(
   // Background
   let slideFill = undefined;
   if (slide.style) {
-    const { style } = resolveNodeStyle(slide.style, deck.theme, pkg);
+    const { style, diagnostics } = resolveNodeStyle(
+      slide.style,
+      deck.theme,
+      pkg,
+      slide.localStyle,
+    );
     slideFill = style.slide?.background;
+    for (const d of diagnostics) dc.add(d);
   }
 
   const background: ResolvedSlideBackground = {
