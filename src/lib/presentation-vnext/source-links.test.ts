@@ -152,6 +152,27 @@ describe("v7 source link classification", () => {
         ["source-refresh-failed", "remote-node"],
       ],
     );
+    assert.deepEqual(
+      diagnostics.map((diagnostic) => [
+        diagnostic.category,
+        diagnostic.target.scope,
+        diagnostic.action?.type,
+      ]),
+      [
+        ["source", "source", "refresh-source"],
+        ["source", "source", "relink-source"],
+        ["source", "source", "open-source-review"],
+      ],
+    );
+    const staleAction = diagnostics[0]?.action;
+    assert.equal(staleAction?.type, "refresh-source");
+    assert.deepEqual(
+      staleAction && "payload" in staleAction ? staleAction.payload : undefined,
+      {
+        documentId: "doc-1",
+        blockId: "block-stale",
+      },
+    );
     assert.equal(
       diagnostics.some((diagnostic) => diagnostic.nodeId === "fresh-node"),
       false,

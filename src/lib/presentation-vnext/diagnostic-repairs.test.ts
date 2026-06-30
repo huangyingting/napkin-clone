@@ -54,6 +54,46 @@ describe("applyDiagnosticRepairAction", () => {
     assert.equal(deck.slides[0].children[0].localStyle?.text?.color, "#111827");
   });
 
+  test("removes only diagnostic-requested override keys", () => {
+    resetBuilderCounter();
+    const node = buildTextNode({
+      id: "text-1",
+      style: { ref: "text.title" },
+      localStyle: {
+        text: { color: "#111827" },
+        fill: { type: "solid", color: "#f97316" },
+      },
+    });
+    const deck = buildDeckV7([
+      { ...buildCoverSlide(), id: "slide-1", children: [node] },
+    ]);
+    const diagnostic = makeDiagnostic(
+      "local-style-overrides",
+      "info",
+      "Override",
+      {
+        slideId: "slide-1",
+        nodeId: "text-1",
+        action: { type: "remove-override", payload: { styleKeys: ["fill"] } },
+      },
+    );
+
+    const result = applyDiagnosticRepairAction(
+      deck,
+      diagnostic.action!,
+      diagnostic,
+      { activeSlideId: "slide-1", defaultStyleBindingForNode },
+    );
+
+    assert.equal(result.status, "applied");
+    if (result.status !== "applied") return;
+    assert.equal(result.deck.slides[0].children[0].localStyle?.fill, undefined);
+    assert.equal(
+      result.deck.slides[0].children[0].localStyle?.text?.color,
+      "#111827",
+    );
+  });
+
   test("replaces style refs and leaves failed repairs unchanged", () => {
     const deck = makeDeckWithStyledNode();
     const diagnostic = makeDiagnostic(

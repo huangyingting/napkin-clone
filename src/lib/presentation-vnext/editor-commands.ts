@@ -1137,7 +1137,7 @@ export function resetLocalStyleOverride(
   deck: DeckV7,
   slideId: string,
   nodeId: string,
-  keys?: (keyof StylePatch)[],
+  keys?: readonly string[],
 ): DeckV7 {
   return mapSlides(deck, (slide) => {
     if (slide.id !== slideId) return slide;

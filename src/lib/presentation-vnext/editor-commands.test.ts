@@ -378,6 +378,31 @@ describe("setThemePackage", () => {
       deck.slides[0].children[0].localStyle,
     );
   });
+
+  test("preserves local overrides until an explicit reset after theme switch", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const withOverride = updateLocalStyle(deck, slide.id, nodeId, {
+      text: { color: "#111827" },
+      fill: { type: "solid", color: "#fde68a" },
+    });
+
+    const switched = setThemePackage(withOverride, "aurora");
+    const reset = resetLocalStyleOverride(switched, slide.id, nodeId, ["fill"]);
+    const resetNode = reset.slides[0].children.find(
+      (node) => node.id === nodeId,
+    );
+
+    assert.equal(switched.theme.packageId, "aurora");
+    assert.equal(
+      switched.slides[0].children[0].localStyle?.fill?.type,
+      "solid",
+    );
+    assert.equal(resetNode?.localStyle?.fill, undefined);
+    assert.equal(resetNode?.localStyle?.text?.color, "#111827");
+    assert.equal(reset.theme.packageId, "aurora");
+  });
 });
 
 describe("updateNodeLayout", () => {
