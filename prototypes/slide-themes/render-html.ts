@@ -258,9 +258,17 @@ export function renderPrototypeSlideHtml(
   if (!slide) return "";
   const background = fillCss(slide.background.fill);
   const decorations = slide.decorations.map(renderNode).join("");
+  const backgroundChrome = slide.chrome
+    .filter((node) => (node.layout.zIndex ?? 0) < 0)
+    .map(renderNode)
+    .join("");
   const nodes = slide.nodes.map(renderNode).join("");
+  const foregroundChrome = slide.chrome
+    .filter((node) => (node.layout.zIndex ?? 0) >= 0)
+    .map(renderNode)
+    .join("");
   const label = deck.slides[index]?.template.kind ?? `Slide ${index + 1}`;
-  return `<figure class="slide-wrap"><div class="slide" style="background:${background};">${decorations}${nodes}</div><figcaption>${index + 1} · ${esc(label)}</figcaption></figure>`;
+  return `<figure class="slide-wrap"><div class="slide" style="background:${background};">${decorations}${backgroundChrome}${nodes}${foregroundChrome}</div><figcaption>${index + 1} · ${esc(label)}</figcaption></figure>`;
 }
 
 function readDeckIds(): string[] {

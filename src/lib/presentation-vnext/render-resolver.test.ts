@@ -194,6 +194,80 @@ describe("resolveDeckRenderTree", () => {
     );
   });
 
+  test("resolves deck chrome with slide-level disable and page numbers", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide(), buildContentSlide()], {
+      chrome: {
+        logo: { enabled: true, assetId: "img-001", placement: "top-left" },
+        footer: {
+          enabled: true,
+          text: "Confidential",
+          align: "center",
+          style: { text: { color: { token: "colors.accent.fill" } } },
+        },
+        pageNumber: { enabled: true, format: "number-total" },
+        watermark: {
+          enabled: true,
+          text: "Draft",
+          layoutMode: "diagonal",
+          opacity: 0.2,
+        },
+        border: { enabled: true, color: "#111111", widthPt: 1 },
+        safeArea: {
+          enabled: true,
+          insets: { top: 8, right: 8, bottom: 8, left: 8 },
+        },
+      },
+      slides: [
+        buildCoverSlide(),
+        {
+          ...buildContentSlide(),
+          props: { deckChrome: { footer: { mode: "disabled" } } },
+        },
+      ],
+    });
+
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const firstChrome = result.slides[0].chrome;
+    assert.deepEqual(
+      firstChrome.map((node) => node.chromeKind),
+      ["logo", "watermark", "border", "safeArea", "footer", "pageNumber"],
+    );
+    assert.ok(firstChrome.every((node) => node.source === "deckChrome"));
+    const pageNumber = firstChrome.find(
+      (node) => node.chromeKind === "pageNumber",
+    );
+    assert.equal(pageNumber?.content.type, "text");
+    if (pageNumber?.content.type === "text") {
+      assert.equal(pageNumber.content.content.paragraphs[0].text, "1 / 2");
+    }
+    const footer = firstChrome.find((node) => node.chromeKind === "footer");
+    assert.equal(footer?.style.text?.color, "#0066cc");
+    assert.equal(
+      result.slides[1].chrome.some((node) => node.chromeKind === "footer"),
+      false,
+    );
+  });
+
+  test("reports missing deck chrome logo assets", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()], {
+      assets: { images: {} },
+      chrome: {
+        logo: { enabled: true, assetId: "missing-logo" },
+      },
+    });
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "missing-asset" &&
+          diagnostic.nodeId === "deck-chrome-logo",
+      ),
+    );
+  });
+
   test("filters decorations by template kind", () => {
     resetBuilderCounter();
     const deck = buildDeckV7([buildCoverSlide(), buildContentSlide()]);

@@ -70,6 +70,8 @@ import type { ActionResult } from "@/lib/action-result";
 import type { SaveStatus } from "@/lib/presentation/save-status";
 import type {
   DeckV7,
+  DeckChromeConfig,
+  DeckChromeKind,
   ImageCrop,
   ImageAsset,
   LayoutBox,
@@ -111,6 +113,7 @@ import {
   resetSlideLocalStyle,
   updateSlideSourceMetadata,
   setThemePackage,
+  updateDeckChrome,
   insertBlankSlide,
   duplicateSlide,
   deleteSlide,
@@ -122,6 +125,7 @@ import {
   updateLocalStyle,
   resetLocalStyleOverride,
   detachDecoration,
+  detachDeckChrome,
   updateNodeLayout,
   updateNodeLayouts,
   updateNodeAttributes,
@@ -134,6 +138,7 @@ import {
   reorderZIndex,
   applyTemplate,
 } from "@/lib/presentation-vnext/editor-commands";
+
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
 import { listThemePackagesV7 } from "@/lib/presentation-vnext/theme-package-registry";
@@ -185,6 +190,15 @@ import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
+
+const DECK_CHROME_KINDS: DeckChromeKind[] = [
+  "logo",
+  "footer",
+  "pageNumber",
+  "watermark",
+  "border",
+  "safeArea",
+];
 
 const TEMPLATE_REGISTRY = createDefaultTemplateRegistry();
 const TEMPLATE_OPTIONS = TEMPLATE_REGISTRY.all();
@@ -1644,6 +1658,7 @@ export function SlideEditorVNext({
       ? [
           ...activeSlideTree.nodes,
           ...(selection.mode === "layers" ? activeSlideTree.decorations : []),
+          ...(selection.mode === "layers" ? activeSlideTree.chrome : []),
         ].find((n) => n.id === firstSelectedId)
       : undefined;
 
@@ -1982,11 +1997,49 @@ export function SlideEditorVNext({
     // by merging into the slide props
     const updated: DeckV7 = {
       ...deck,
-      slides: deck.slides.map((s) =>
-        s.id === activeSlide.id ? { ...s, props: { ...s.props, ...patch } } : s,
-      ),
+      slides: deck.slides.map((s) => {
+        if (s.id !== activeSlide.id) return s;
+        const props = { ...s.props, ...patch };
+        const detachedNodeIds = new Set<string>();
+        if (Object.prototype.hasOwnProperty.call(patch, "deckChrome")) {
+          const nextDeckChrome = patch.deckChrome;
+          for (const kind of DECK_CHROME_KINDS) {
+            const previousOverride = s.props?.deckChrome?.[kind];
+            if (
+              previousOverride?.mode !== "detached" ||
+              !previousOverride.nodeId
+            ) {
+              continue;
+            }
+            const nextOverride = nextDeckChrome?.[kind];
+            if (
+              nextOverride?.mode !== "detached" ||
+              nextOverride.nodeId !== previousOverride.nodeId
+            ) {
+              detachedNodeIds.add(previousOverride.nodeId);
+            }
+          }
+        }
+        for (const key of Object.keys(props) as (keyof SlideProps)[]) {
+          if (props[key] === undefined) {
+            delete props[key];
+          }
+        }
+        return {
+          ...s,
+          props: Object.keys(props).length > 0 ? props : undefined,
+          children:
+            detachedNodeIds.size > 0
+              ? s.children.filter((child) => !detachedNodeIds.has(child.id))
+              : s.children,
+        };
+      }),
     };
     onDeckChange(updated);
+  }
+
+  function handleUpdateDeckChrome(patch: Partial<DeckChromeConfig>) {
+    onDeckChange(updateDeckChrome(deck, patch));
   }
 
   function handleUpdateSlideAttributes(patch: {
@@ -2408,7 +2461,25 @@ export function SlideEditorVNext({
 
   function handleDetachDecoration() {
     if (!activeSlide || !selectedResolvedNode) return;
-    if (selectedResolvedNode.source !== "themeDecoration") return;
+    if (
+      selectedResolvedNode.source !== "themeDecoration" &&
+      selectedResolvedNode.source !== "deckChrome"
+    ) {
+      return;
+    }
+
+    if (selectedResolvedNode.source === "deckChrome") {
+      if (!selectedResolvedNode.chromeKind) return;
+      onDeckChange(
+        detachDeckChrome(
+          deck,
+          activeSlide.id,
+          selectedResolvedNode.chromeKind,
+          selectedResolvedNode,
+        ),
+      );
+      return;
+    }
 
     const { layout, style } = selectedResolvedNode;
     // Build a LayoutBox from the resolved layout (drop framePx)
@@ -2445,19 +2516,30 @@ export function SlideEditorVNext({
   // ---------------------------------------------------------------------------
 
   const isDecorationSelected =
-    selectedResolvedNode?.source === "themeDecoration";
+    selectedResolvedNode?.source === "themeDecoration" ||
+    selectedResolvedNode?.source === "deckChrome";
   const inspectorKey = `${inspectorPanelRequest?.panel ?? "auto"}-${inspectorPanelRequest?.nonce ?? 0}`;
   const renderInspectorShell = () => (
     <InspectorShell
       key={inspectorKey}
       initialPanel={inspectorPanelRequest?.panel}
       activeSlide={activeSlide}
+      deckChrome={deck.chrome}
       selectedNode={selectedNode}
       selectedIds={selectedIds}
       isDecorationSelected={isDecorationSelected}
+      selectedGeneratedSource={
+        selectedResolvedNode?.source === "themeDecoration" ||
+        selectedResolvedNode?.source === "deckChrome"
+          ? selectedResolvedNode.source
+          : undefined
+      }
       diagnostics={diagnostics}
+      layerDecorations={activeSlideTree?.decorations}
+      layerChrome={activeSlideTree?.chrome}
       onUpdateControls={handleUpdateControls}
       onUpdateProps={handleUpdateProps}
+      onUpdateDeckChrome={handleUpdateDeckChrome}
       onUpdateSlideAttributes={handleUpdateSlideAttributes}
       onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
       onResetSlideLocalStyle={handleResetSlideLocalStyle}

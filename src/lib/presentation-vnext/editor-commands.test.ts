@@ -17,6 +17,7 @@ import {
   resetSlideLocalStyle,
   updateSlideSourceMetadata,
   setThemePackage,
+  updateDeckChrome,
   insertNode,
   pasteNodes,
   updateNodeLayout,
@@ -33,7 +34,9 @@ import {
   applyTemplate,
   updateNodeContent,
   detachDecoration,
+  detachDeckChrome,
 } from "@/lib/presentation-vnext/editor-commands";
+import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import { resetIdCounter } from "@/lib/presentation-vnext/template-compiler";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
 import {
@@ -596,6 +599,83 @@ describe("detachDecoration", () => {
     );
     assert.equal(extras.length, 1);
     assert.equal((extras[0] as any).type, "shape");
+    assert.deepEqual(updated.theme.overrides?.disabledDecorations, [
+      "deco-bg-01",
+    ]);
+  });
+
+  test("normalizes resolved decoration ids before disabling theme recipes", () => {
+    const deck = makeTestDeck();
+    const updated = detachDecoration(
+      deck,
+      deck.slides[0].id,
+      "decoration-corner",
+      { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 0 },
+      {},
+    );
+
+    assert.deepEqual(updated.theme.overrides?.disabledDecorations, ["corner"]);
+  });
+});
+
+describe("deck chrome commands", () => {
+  test("updates deck-level chrome without mutating slides", () => {
+    const deck = makeTestDeck();
+    const updated = updateDeckChrome(deck, {
+      footer: { enabled: true, text: "Confidential" },
+    });
+
+    assert.equal(updated.chrome?.footer?.text, "Confidential");
+    assert.strictEqual(updated.slides, deck.slides);
+  });
+
+  test("detaches resolved deck chrome as a slide node and records override", () => {
+    const deck = makeTestDeck();
+    const node: ResolvedRenderNode = {
+      id: "deck-chrome-footer",
+      type: "text",
+      role: "caption",
+      layout: { frame: { x: 6, y: 91, w: 88, h: 5 }, zIndex: 900 },
+      style: { text: { fontSizePt: 9, color: "#64748b" } },
+      content: {
+        type: "text",
+        content: { paragraphs: [{ id: "footer-p0", text: "Footer" }] },
+      },
+      source: "deckChrome",
+      chromeKind: "footer",
+    };
+    const updated = detachDeckChrome(deck, deck.slides[0].id, "footer", node);
+    const detached = updated.slides[0].children.find((child) =>
+      child.id.startsWith("detached-chrome-footer-"),
+    );
+
+    assert.equal(detached?.type, "text");
+    assert.equal(updated.slides[0].props?.deckChrome?.footer?.mode, "detached");
+  });
+
+  test("detaches stroke-only chrome without inheriting a card fill", () => {
+    const deck = makeTestDeck();
+    const node: ResolvedRenderNode = {
+      id: "deck-chrome-border",
+      type: "shape",
+      role: "background",
+      layout: { frame: { x: 1, y: 1, w: 98, h: 98 }, zIndex: 930 },
+      style: { stroke: { color: "#111111", widthPt: 1 } },
+      content: { type: "shape", content: { shape: "rect" } },
+      source: "deckChrome",
+      chromeKind: "border",
+    };
+    const updated = detachDeckChrome(deck, deck.slides[0].id, "border", node);
+    const detached = updated.slides[0].children.find((child) =>
+      child.id.startsWith("detached-chrome-border-"),
+    );
+
+    assert.equal(detached?.type, "shape");
+    assert.deepEqual(detached?.localStyle?.fill, {
+      type: "solid",
+      color: "transparent",
+    });
+    assert.deepEqual(detached?.localStyle?.radius, { allPt: 0 });
   });
 });
 

@@ -1,6 +1,7 @@
 import type {
   ConnectorAnchor,
   ConnectorEndpoint,
+  DeckChromeConfig,
   DeckV7,
   ImageAsset,
   LayoutBox,
@@ -116,6 +117,8 @@ interface MigrationRecorder {
   dropped: MigrationDroppedIdentity[];
   unmapped: MigrationUnmappedReference[];
 }
+
+type LegacyMasterChromeKind = "logo" | "footer" | "pageNumber" | "watermark";
 
 /** Result of attempting to migrate a single v6 element to a v7 node. */
 type ElementMigration =
@@ -751,6 +754,164 @@ function themeFromLegacy(raw: Record<string, unknown>): {
   };
 }
 
+function legacyMasterElements(
+  raw: Record<string, unknown>,
+): Record<string, unknown>[] {
+  if (!Array.isArray(raw.masters)) return [];
+  const masters = raw.masters.filter(isPlainObject);
+  const defaultMaster =
+    typeof raw.defaultMasterId === "string"
+      ? masters.find((master) => master.id === raw.defaultMasterId)
+      : undefined;
+  const master = defaultMaster ?? masters[0];
+  return Array.isArray(master?.elements)
+    ? master.elements.filter(isPlainObject)
+    : [];
+}
+
+function legacyChromeKind(
+  element: Record<string, unknown>,
+): LegacyMasterChromeKind | null {
+  return element.masterChromeKind === "logo" ||
+    element.masterChromeKind === "footer" ||
+    element.masterChromeKind === "pageNumber" ||
+    element.masterChromeKind === "watermark"
+    ? element.masterChromeKind
+    : null;
+}
+
+function legacyText(element: Record<string, unknown>): string {
+  const content = isPlainObject(element.content) ? element.content : {};
+  if (typeof content.text === "string") return content.text;
+  if (Array.isArray(content.paragraphs)) {
+    const paragraph = content.paragraphs.find(isPlainObject);
+    if (paragraph && typeof paragraph.text === "string") return paragraph.text;
+  }
+  return "";
+}
+
+function legacyTextAlign(
+  element: Record<string, unknown>,
+): "left" | "center" | "right" | undefined {
+  const designOverrides = isPlainObject(element.designOverrides)
+    ? element.designOverrides
+    : {};
+  const textStyle = isPlainObject(designOverrides.textStyle)
+    ? designOverrides.textStyle
+    : {};
+  return textStyle.align === "left" ||
+    textStyle.align === "center" ||
+    textStyle.align === "right"
+    ? textStyle.align
+    : undefined;
+}
+
+function pageNumberPlacement(
+  layout: LayoutBox,
+): "bottom-left" | "bottom-center" | "bottom-right" {
+  if (layout.frame.x < 25) return "bottom-left";
+  if (layout.frame.x > 60) return "bottom-right";
+  return "bottom-center";
+}
+
+function watermarkSize(
+  element: Record<string, unknown>,
+): "small" | "medium" | "large" {
+  const designOverrides = isPlainObject(element.designOverrides)
+    ? element.designOverrides
+    : {};
+  const textStyle = isPlainObject(designOverrides.textStyle)
+    ? designOverrides.textStyle
+    : {};
+  const fontSize = finiteNumber(textStyle.fontSize, 10);
+  if (fontSize <= 8) return "small";
+  if (fontSize >= 12) return "large";
+  return "medium";
+}
+
+function migrateLegacyMasterChrome(
+  raw: Record<string, unknown>,
+  images: Record<string, ImageAsset>,
+  usedAssetIds: Set<string>,
+  recordIdentity: (
+    kind: MigrationIdentityKind,
+    assignment: IdAssignment,
+  ) => void,
+): { chrome?: DeckChromeConfig; unsupportedCount: number } {
+  const elements = legacyMasterElements(raw);
+  if (elements.length === 0) return { unsupportedCount: 0 };
+
+  const chrome: DeckChromeConfig = {};
+  let unsupportedCount = 0;
+
+  for (const element of elements) {
+    const kind = legacyChromeKind(element);
+    if (!kind) {
+      if (element.masterChromeKind !== undefined) unsupportedCount += 1;
+      continue;
+    }
+    const content = isPlainObject(element.content) ? element.content : {};
+    const layout = layoutFromElement(element, kind === "watermark" ? -20 : 900);
+    const enabled = element.hidden !== true;
+
+    if (kind === "logo") {
+      const assetId = imageAssetId(
+        content,
+        typeof element.id === "string" ? element.id : "master-logo",
+        images,
+        usedAssetIds,
+        recordIdentity,
+      );
+      if (!assetId) {
+        unsupportedCount += 1;
+        continue;
+      }
+      chrome.logo = {
+        enabled,
+        assetId,
+        alt: typeof content.alt === "string" ? content.alt : "Logo",
+        layout,
+      };
+      continue;
+    }
+
+    if (kind === "footer") {
+      chrome.footer = {
+        enabled,
+        text: legacyText(element),
+        align: legacyTextAlign(element) ?? "center",
+        layout,
+      };
+      continue;
+    }
+
+    if (kind === "pageNumber") {
+      const text = legacyText(element);
+      chrome.pageNumber = {
+        enabled,
+        format: text.includes("{{pageCount}}") ? "number-total" : "number",
+        placement: pageNumberPlacement(layout),
+        layout,
+      };
+      continue;
+    }
+
+    chrome.watermark = {
+      enabled,
+      text: legacyText(element),
+      opacity: finiteNumber(element.opacity, 0.18),
+      layoutMode: typeof element.rotation === "number" ? "diagonal" : "center",
+      size: watermarkSize(element),
+      layout,
+    };
+  }
+
+  return {
+    chrome: Object.keys(chrome).length > 0 ? chrome : undefined,
+    unsupportedCount,
+  };
+}
+
 function remapConnectorEndpoint(
   endpoint: ConnectorEndpoint,
   recorder: MigrationRecorder,
@@ -912,6 +1073,12 @@ export function migrateLegacyDeckV6(raw: unknown): MigrationResult {
       });
     }
   }
+  const legacyChrome = migrateLegacyMasterChrome(
+    raw,
+    images,
+    usedAssetIds,
+    recordIdentity,
+  );
 
   const migratedSlides: SlideNode[] = raw.slides
     .filter(isPlainObject)
@@ -966,6 +1133,7 @@ export function migrateLegacyDeckV6(raw: unknown): MigrationResult {
     ...(deckAssignment ? { id: deckAssignment.id } : {}),
     canvas: canvasFromLegacy(raw),
     theme: legacyTheme.theme,
+    ...(legacyChrome.chrome ? { chrome: legacyChrome.chrome } : {}),
     assets: { images },
     slides: migratedSlides.map((slide) => ({
       ...slide,
@@ -1019,6 +1187,27 @@ export function migrateLegacyDeckV6(raw: unknown): MigrationResult {
             })),
           },
         },
+      ),
+    );
+  }
+
+  if (legacyChrome.chrome) {
+    diagnostics.push(
+      makeDiagnostic(
+        "migration-repair-applied",
+        "info",
+        "Legacy v6 master chrome was migrated to DeckV7 chrome.",
+      ),
+    );
+  }
+
+  if (legacyChrome.unsupportedCount > 0) {
+    diagnostics.push(
+      makeDiagnostic(
+        "unsupported-export-feature",
+        "warning",
+        `${legacyChrome.unsupportedCount} legacy master chrome item(s) could not be migrated to v7 deck chrome.`,
+        { path: "masters" },
       ),
     );
   }

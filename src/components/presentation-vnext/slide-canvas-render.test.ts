@@ -64,6 +64,7 @@ function slide(nodes: ResolvedRenderNode[]): ResolvedSlideRenderTree {
       decorationLevel: "none",
     },
     decorations: [],
+    chrome: [],
     nodes,
   };
 }
@@ -124,6 +125,56 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /aria-disabled="true"/);
     assert.match(html, /data-node-chrome-frame="selected"/);
     assert.match(html, /border:2px dashed var\(--ds-border, #9ca3af\)/);
+  });
+
+  test("renders generated chrome without intercepting pointer events", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlideNodeRenderer, {
+        node: textNode(
+          "deck-chrome-footer",
+          { x: 0, y: 90, w: 100, h: 10 },
+          { source: "deckChrome", chromeKind: "footer" },
+        ),
+      }),
+    );
+
+    assert.match(html, /pointer-events:none/);
+    assert.match(html, /aria-hidden="true"/);
+  });
+
+  test("renders foreground chrome in z-index order", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: {
+          ...slide([]),
+          chrome: [
+            textNode(
+              "deck-chrome-pageNumber",
+              { x: 90, y: 90, w: 6, h: 5 },
+              {
+                source: "deckChrome",
+                chromeKind: "pageNumber",
+                layout: { frame: { x: 90, y: 90, w: 6, h: 5 }, zIndex: 910 },
+              },
+            ),
+            textNode(
+              "deck-chrome-footer",
+              { x: 10, y: 90, w: 80, h: 5 },
+              {
+                source: "deckChrome",
+                chromeKind: "footer",
+                layout: { frame: { x: 10, y: 90, w: 80, h: 5 }, zIndex: 900 },
+              },
+            ),
+          ],
+        },
+      }),
+    );
+
+    assert.ok(
+      html.indexOf("deck-chrome-footer") <
+        html.indexOf("deck-chrome-pageNumber"),
+    );
   });
 
   test("renders hover chrome as a separate preselection frame", () => {

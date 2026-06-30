@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   DiagnosticsPanel,
+  DeckChromePanel,
   InspectorShell,
   LayersPanel,
   LocalOverrideBadge,
@@ -354,6 +355,7 @@ function shellProps(
   const slide = activeSlide();
   return {
     activeSlide: slide,
+    deckChrome: undefined,
     selectedNode: slide.children[0],
     selectedIds: [slide.children[0].id],
     isDecorationSelected: false,
@@ -367,6 +369,7 @@ function shellProps(
     ],
     onUpdateControls: noop,
     onUpdateProps: noop,
+    onUpdateDeckChrome: noop,
     onUpdateSlideAttributes: noop,
     onUpdateSlideLocalStyle: updateStyle,
     onResetSlideLocalStyle: noop,
@@ -567,6 +570,47 @@ describe("vNext inspector components", () => {
     assert.match(html, /Style Binding/);
     assert.match(html, /Layers/);
     assert.match(html, /Token missing/);
+  });
+
+  test("renders deck chrome slide override editors", () => {
+    const html = render(
+      createElement(DeckChromePanel, {
+        chrome: {
+          footer: { enabled: true, text: "Global footer", align: "center" },
+        },
+        slideProps: {
+          deckChrome: {
+            footer: {
+              mode: "override",
+              value: { enabled: true, text: "Slide footer", align: "right" },
+            },
+          },
+        },
+        onUpdateChrome: noop,
+        onUpdateSlideProps: noop,
+      }),
+    );
+
+    assert.match(html, /Slide Overrides/);
+    assert.match(html, /Slide footer/);
+    assert.match(html, /Enabled on this slide/);
+  });
+
+  test("renders configured global chrome as enabled", () => {
+    const html = render(
+      createElement(DeckChromePanel, {
+        chrome: {
+          footer: { text: "Configured footer" },
+        },
+        onUpdateChrome: noop,
+        onUpdateSlideProps: noop,
+      }),
+    );
+
+    assert.match(
+      html,
+      /id="deck-chrome-footer-enabled" type="checkbox" checked=""/,
+    );
   });
 
   test("renders inspector shell route panels for slide, node, multi-select, decoration, and diagnostics contexts", () => {

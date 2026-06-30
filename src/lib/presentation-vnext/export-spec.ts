@@ -322,9 +322,23 @@ function buildSlideExportSpec(
     operations.push(...nodeToOperations(decoration, dc));
   }
 
+  // Background chrome (e.g. watermark) sits above decorations and below user nodes.
+  for (const chrome of slide.chrome
+    .filter((node) => (node.layout.zIndex ?? 0) < 0)
+    .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0))) {
+    operations.push(...nodeToOperations(chrome, dc));
+  }
+
   // User nodes in resolved order (already sorted by zIndex in render resolver)
   for (const node of slide.nodes) {
     operations.push(...nodeToOperations(node, dc));
+  }
+
+  // Foreground chrome (logo/footer/page number/border/safe-area) overlays content.
+  for (const chrome of slide.chrome
+    .filter((node) => (node.layout.zIndex ?? 0) >= 0)
+    .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0))) {
+    operations.push(...nodeToOperations(chrome, dc));
   }
 
   return {

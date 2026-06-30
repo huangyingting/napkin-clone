@@ -66,7 +66,7 @@ function resolveTokenPath(
 }
 
 /** Resolves all `{ token: ... }` refs inside a style object to concrete values. */
-function resolveTokensInStyle(
+export function resolveTokensInStyle(
   style: StyleObject,
   tokens: ThemeTokens,
   dc: DiagnosticCollector,

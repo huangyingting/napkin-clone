@@ -6,6 +6,7 @@
  * - {@link DiagnosticsPanel}   — structured diagnostics with spec action buttons.
  * - {@link SlideControlsPanel} — tone, density, emphasis, decoration, chrome controls.
  * - {@link SlideSettingsPanel} — slide name, notes, background, source controls.
+ * - {@link DeckChromePanel}    — deck chrome and slide override controls.
  * - {@link NodeGeometryPanel}  — frame, rotation, z-index, lock, hidden controls.
  * - {@link NodeContentPanel}   — basic type-specific node content controls.
  * - {@link LocalStylePanel}    — local style patch editing controls.
@@ -28,6 +29,9 @@ export type { SlideControlsPanelProps } from "./slide-controls-panel";
 
 export { SlideSettingsPanel } from "./slide-settings-panel";
 export type { SlideSettingsPanelProps } from "./slide-settings-panel";
+
+export { DeckChromePanel } from "./deck-chrome-panel";
+export type { DeckChromePanelProps } from "./deck-chrome-panel";
 
 export { NodeGeometryPanel } from "./node-geometry-panel";
 export type { NodeGeometryPanelProps } from "./node-geometry-panel";
