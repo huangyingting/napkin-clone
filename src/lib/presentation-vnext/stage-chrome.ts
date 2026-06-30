@@ -31,8 +31,15 @@ export interface SelectionFrameChrome {
 }
 
 export function selectionFrameChrome(
-  variant: "selected" | "preselected",
+  variant: "selected" | "preselected" | "activeGroup",
 ): SelectionFrameChrome {
+  if (variant === "activeGroup") {
+    return {
+      borderWidthPx: 2,
+      opacity: 0.9,
+      zIndex: STAGE_CHROME_Z_INDEX.groupFrame,
+    };
+  }
   return variant === "selected"
     ? {
         borderWidthPx: 2,

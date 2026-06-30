@@ -44,6 +44,8 @@ export type ResizeHandlePosition =
 
 export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
+export type ConnectorEndpointHandle = "from" | "to";
+
 const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
   "nw",
   "n",
@@ -222,10 +224,50 @@ export interface SlideCanvasVNextProps {
     handle: CropHandlePosition,
     event: React.PointerEvent,
   ) => void;
+  /** Called when the user starts rotating a selected node. */
+  onRotationHandlePointerDown?: (
+    nodeId: string,
+    event: React.PointerEvent,
+  ) => void;
+  /** Called when the user drags a connector endpoint. */
+  onConnectorEndpointPointerDown?: (
+    nodeId: string,
+    endpoint: ConnectorEndpointHandle,
+    event: React.PointerEvent,
+  ) => void;
   /** Currently active resize handle, if any. */
   activeResizeHandle?: { nodeId: string; handle: ResizeHandlePosition } | null;
   /** Currently active crop handle, if any. */
   activeCropHandle?: { nodeId: string; handle: CropHandlePosition } | null;
+  /** Currently active rotation handle, if any. */
+  activeRotationNodeId?: string | null;
+  /** Currently active connector endpoint, if any. */
+  activeConnectorEndpoint?: {
+    nodeId: string;
+    endpoint: ConnectorEndpointHandle;
+  } | null;
+  /** Active group context id for group-member direct editing. */
+  activeGroupId?: string | null;
+  /** Active table direct-edit context. */
+  tableEditingNodeId?: string | null;
+  activeTableCell?: { rowIndex: number; colIndex: number } | null;
+  onTableCellFocus?: (
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+  ) => void;
+  onTableCellCommit?: (
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    text: string,
+  ) => void;
+  onTableCellKeyDown?: (
+    nodeId: string,
+    rowIndex: number,
+    colIndex: number,
+    event: React.KeyboardEvent<HTMLElement>,
+  ) => void;
   /**
    * Node ids to hide from the canvas (e.g., the node being inline-edited
    * is hidden while the overlay editor is active).
@@ -262,8 +304,18 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   onNodeHoverChange,
   onResizeHandlePointerDown,
   onCropHandlePointerDown,
+  onRotationHandlePointerDown,
+  onConnectorEndpointPointerDown,
   activeResizeHandle,
   activeCropHandle,
+  activeRotationNodeId,
+  activeConnectorEndpoint,
+  activeGroupId,
+  tableEditingNodeId,
+  activeTableCell,
+  onTableCellFocus,
+  onTableCellCommit,
+  onTableCellKeyDown,
   hiddenNodeIds,
   hoveredNodeId,
   focusedNodeId,
@@ -285,6 +337,18 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const selectedCroppableNodes = selectedResizableNodes.filter(
     (node) => node.type === "image" && node.content.type === "image",
   );
+  const selectedRotatableNodes = selectedResizableNodes.filter(
+    (node) => node.type !== "connector",
+  );
+  const selectedConnectorNodes = selectedResizableNodes.filter(
+    (node) => node.type === "connector" && node.content.type === "connector",
+  );
+  const activeGroupNode =
+    activeGroupId && !preview
+      ? userNodes.find(
+          (node) => node.id === activeGroupId && node.type === "group",
+        )
+      : undefined;
   const preselectedUserNodes = !preview
     ? userNodes.filter(
         (node) =>
@@ -357,6 +421,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
               onPointerDown={preview ? undefined : onNodePointerDown}
               onFocus={preview ? undefined : onNodeFocus}
               onHoverChange={preview ? undefined : onNodeHoverChange}
+              tableEditing={tableEditingNodeId === node.id}
+              activeTableCell={
+                tableEditingNodeId === node.id ? activeTableCell : null
+              }
+              onTableCellFocus={onTableCellFocus}
+              onTableCellCommit={onTableCellCommit}
+              onTableCellKeyDown={onTableCellKeyDown}
               assetResolver={assetResolver}
               preview={preview}
               hidden={hiddenNodeIds?.has(node.id)}
@@ -384,6 +455,10 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             />
           ))
         : null}
+
+      {!preview && activeGroupNode ? (
+        <NodeChromeFrame node={activeGroupNode} variant="activeGroup" />
+      ) : null}
 
       {!preview && multiSelectionFrame ? (
         <div
@@ -433,6 +508,47 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           ))
         : null}
 
+      {!preview && onRotationHandlePointerDown
+        ? selectedRotatableNodes.map((node) => (
+            <div
+              key={`${node.id}-rotation-overlay`}
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{
+                left: `${node.layout.frame.x}%`,
+                top: `${node.layout.frame.y}%`,
+                width: `${node.layout.frame.w}%`,
+                height: `${node.layout.frame.h}%`,
+                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame + 1,
+              }}
+            >
+              <span
+                data-rotation-handle="true"
+                className={`pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border bg-ds-surface text-[10px] leading-none shadow-ds-sm ${
+                  activeRotationNodeId === node.id
+                    ? "border-ds-accent-fill text-ds-accent-text"
+                    : "border-ds-accent-border text-ds-text-secondary"
+                }`}
+                style={{
+                  left: "50%",
+                  top: -28,
+                  transform: "translate(-50%, -50%)",
+                  cursor: "grab",
+                }}
+                onPointerDown={(event) =>
+                  onRotationHandlePointerDown(node.id, event)
+                }
+              >
+                ↻
+              </span>
+              <span
+                aria-hidden="true"
+                className="absolute left-1/2 top-0 h-7 w-px -translate-x-1/2 bg-ds-accent-border"
+              />
+            </div>
+          ))
+        : null}
+
       {!preview && onCropHandlePointerDown
         ? selectedCroppableNodes.map((node) => (
             <div
@@ -466,6 +582,55 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             </div>
           ))
         : null}
+
+      {!preview && onConnectorEndpointPointerDown
+        ? selectedConnectorNodes.map((node) => {
+            if (node.content.type !== "connector") return null;
+            const start = connectorEndpointPoint(node.content.content.from);
+            const end = connectorEndpointPoint(node.content.content.to);
+            return (
+              <div
+                key={`${node.id}-connector-endpoints`}
+                aria-hidden="true"
+                className="pointer-events-none absolute"
+                style={{
+                  left: `${node.layout.frame.x}%`,
+                  top: `${node.layout.frame.y}%`,
+                  width: `${node.layout.frame.w}%`,
+                  height: `${node.layout.frame.h}%`,
+                  zIndex: STAGE_CHROME_Z_INDEX.selectedFrame + 2,
+                }}
+              >
+                {(
+                  [
+                    ["from", start],
+                    ["to", end],
+                  ] as const
+                ).map(([endpoint, point]) => (
+                  <span
+                    key={endpoint}
+                    data-connector-endpoint={endpoint}
+                    className={`pointer-events-auto absolute h-3 w-3 rounded-full border shadow-ds-sm ${
+                      activeConnectorEndpoint?.nodeId === node.id &&
+                      activeConnectorEndpoint.endpoint === endpoint
+                        ? "border-ds-accent-fill bg-ds-accent-fill"
+                        : "border-ds-accent-border bg-ds-surface"
+                    }`}
+                    style={{
+                      left: `${point.x}%`,
+                      top: `${point.y}%`,
+                      transform: "translate(-50%, -50%)",
+                      cursor: "crosshair",
+                    }}
+                    onPointerDown={(event) =>
+                      onConnectorEndpointPointerDown(node.id, endpoint, event)
+                    }
+                  />
+                ))}
+              </div>
+            );
+          })
+        : null}
     </div>
   );
 });
@@ -475,16 +640,18 @@ function NodeChromeFrame({
   variant,
 }: {
   node: ResolvedRenderNode;
-  variant: "selected" | "preselected";
+  variant: "selected" | "preselected" | "activeGroup";
 }) {
   const chrome = selectionFrameChrome(variant);
   const isLocked = node.locked === true;
   const color =
-    variant === "selected"
-      ? isLocked
-        ? "var(--ds-border, #9ca3af)"
-        : "var(--ds-accent-fill, #6366f1)"
-      : "var(--ds-border, #cbd5e1)";
+    variant === "activeGroup"
+      ? "var(--ds-warning-border, #f59e0b)"
+      : variant === "selected"
+        ? isLocked
+          ? "var(--ds-border, #9ca3af)"
+          : "var(--ds-accent-fill, #6366f1)"
+        : "var(--ds-border, #cbd5e1)";
   return (
     <div
       aria-hidden="true"
@@ -502,6 +669,28 @@ function NodeChromeFrame({
       }}
     />
   );
+}
+
+function connectorEndpointPoint(
+  endpoint: Extract<
+    ResolvedRenderNode["content"],
+    { type: "connector" }
+  >["content"]["from"],
+): { x: number; y: number } {
+  if (endpoint.kind === "point") return endpoint.point;
+  switch (endpoint.anchor) {
+    case "top":
+      return { x: 50, y: 0 };
+    case "right":
+      return { x: 100, y: 50 };
+    case "bottom":
+      return { x: 50, y: 100 };
+    case "left":
+      return { x: 0, y: 50 };
+    case "center":
+    default:
+      return { x: 50, y: 50 };
+  }
 }
 
 function boundsForNodes(

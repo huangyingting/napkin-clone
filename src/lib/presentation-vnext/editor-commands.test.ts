@@ -20,6 +20,7 @@ import {
   insertNode,
   pasteNodes,
   updateNodeLayout,
+  updateNodeRotation,
   updateNodeSourceMetadata,
   moveNodesBy,
   deleteNodes,
@@ -32,6 +33,7 @@ import {
   updateAssetMetadata,
   applyTemplate,
   updateNodeContent,
+  resetImageCrop,
   detachDecoration,
 } from "@/lib/presentation-vnext/editor-commands";
 import { resetIdCounter } from "@/lib/presentation-vnext/template-compiler";
@@ -44,10 +46,25 @@ import {
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 import type { AiSlideSpec } from "@/lib/presentation-vnext/ai-plan-schema";
+import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 function makeTestDeck() {
   resetBuilderCounter();
   return buildDeckV7([buildCoverSlide(), buildContentSlide()]);
+}
+
+function findNode(
+  nodes: readonly SlideChildNode[],
+  id: string,
+): SlideChildNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.type === "group") {
+      const found = findNode(node.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 describe("insertSlide", () => {
@@ -252,6 +269,16 @@ describe("updateNodeLayout", () => {
     const node = updated.slides[0].children.find((n) => n.id === nodeId);
     assert.ok(node?.layout?.frame.x === 20);
   });
+
+  test("normalizes command-backed rotation updates", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const updated = updateNodeRotation(deck, slide.id, nodeId, -45.04);
+    const node = findNode(updated.slides[0].children, nodeId);
+
+    assert.equal(node?.layout?.rotation, 315);
+  });
 });
 
 describe("insertNode and pasteNodes", () => {
@@ -340,6 +367,91 @@ describe("deleteNodes", () => {
       false,
     );
   });
+
+  test("repairs connector node bindings before deleting target nodes", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const target = slide.children[0];
+    const connector: SlideChildNode = {
+      id: "connector-bound",
+      type: "connector",
+      role: "connector",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 99 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: target.id, anchor: "right" },
+        to: { kind: "point", point: { x: 100, y: 50 } },
+      },
+    };
+    const withConnector = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, connector] }
+          : candidate,
+      ),
+    };
+
+    const updated = deleteNodes(withConnector, slide.id, [target.id]);
+    const repaired = findNode(updated.slides[0].children, "connector-bound");
+
+    assert.equal(repaired?.type, "connector");
+    if (repaired?.type === "connector") {
+      assert.deepEqual(repaired.content.from, {
+        kind: "point",
+        point: {
+          x: target.layout!.frame.x + target.layout!.frame.w,
+          y: target.layout!.frame.y + target.layout!.frame.h / 2,
+        },
+      });
+    }
+  });
+
+  test("clamps repaired connector endpoints into point percent bounds", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const target: SlideChildNode = {
+      id: "far-target",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 80, y: 80, w: 10, h: 10 }, zIndex: 2 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "far-target-p1", text: "Far" }] },
+    };
+    const connector: SlideChildNode = {
+      id: "small-connector",
+      type: "connector",
+      role: "connector",
+      layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 99 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: target.id, anchor: "right" },
+        to: { kind: "point", point: { x: 100, y: 50 } },
+      },
+    };
+    const withConnector = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? {
+              ...candidate,
+              children: [...candidate.children, target, connector],
+            }
+          : candidate,
+      ),
+    };
+
+    const updated = deleteNodes(withConnector, slide.id, [target.id]);
+    const repaired = findNode(updated.slides[0].children, "small-connector");
+
+    assert.equal(repaired?.type, "connector");
+    if (repaired?.type === "connector") {
+      assert.deepEqual(repaired.content.from, {
+        kind: "point",
+        point: { x: 100, y: 100 },
+      });
+    }
+  });
 });
 
 describe("duplicateNodes", () => {
@@ -359,6 +471,82 @@ describe("duplicateNodes", () => {
     );
     assert.ok(duplicated);
     assert.equal(duplicated.layout?.frame.x, node.layout!.frame.x + 2);
+  });
+
+  test("duplicates selected group children inside their group scope", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const child: SlideChildNode = {
+      id: "group-child",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 10, y: 10, w: 20, h: 8 }, zIndex: 1 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "group-child-p1", text: "Inside" }] },
+    };
+    const group: SlideChildNode = {
+      id: "group-node",
+      type: "group",
+      component: "custom",
+      layout: { frame: { x: 8, y: 8, w: 30, h: 20 }, zIndex: 10 },
+      style: { ref: "surface.card" },
+      children: [child],
+    };
+    const withGroup = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, group] }
+          : candidate,
+      ),
+    };
+
+    const result = duplicateNodes(withGroup, slide.id, [child.id]);
+    const updatedGroup = findNode(result.deck.slides[0].children, group.id);
+
+    assert.equal(result.duplicatedIds.length, 1);
+    assert.equal(updatedGroup?.type, "group");
+    if (updatedGroup?.type === "group") {
+      assert.deepEqual(
+        updatedGroup.children.map((node) => node.id),
+        [child.id, result.duplicatedIds[0]],
+      );
+    }
+  });
+});
+
+describe("resetImageCrop", () => {
+  test("removes crop metadata from image content", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const image: SlideChildNode = {
+      id: "crop-image",
+      type: "image",
+      role: "image",
+      layout: { frame: { x: 10, y: 10, w: 30, h: 20 }, zIndex: 5 },
+      style: { ref: "media.inline" },
+      content: {
+        assetId: "placeholder",
+        crop: { top: 10, right: 5, bottom: 0, left: 2 },
+      },
+    };
+    const withImage = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, image] }
+          : candidate,
+      ),
+    };
+
+    const updated = resetImageCrop(withImage, slide.id, image.id);
+    const updatedImage = findNode(updated.slides[0].children, image.id);
+
+    assert.equal(updatedImage?.type, "image");
+    if (updatedImage?.type === "image") {
+      assert.equal(updatedImage.content.crop, undefined);
+      assert.equal("crop" in updatedImage.content, false);
+    }
   });
 });
 
