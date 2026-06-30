@@ -87,7 +87,9 @@ export function ChoiceGroup<Value extends string | number>({
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cx(
               "rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
-              active ? TOOLBAR_BUTTON_CHROME.active : TOOLBAR_BUTTON_CHROME.subtle,
+              active
+                ? TOOLBAR_BUTTON_CHROME.active
+                : TOOLBAR_BUTTON_CHROME.subtle,
               FOCUS_RING,
             )}
           >

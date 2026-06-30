@@ -19,253 +19,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -288,253 +224,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -557,253 +429,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -826,253 +634,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -1095,253 +839,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -1364,253 +1044,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -1633,253 +1249,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     },
@@ -1902,253 +1454,189 @@
           "label": "Cover",
           "group": "orient",
           "priority": 100,
-          "layouts": [
-            "cover-default"
-          ]
+          "layouts": ["cover-default"]
         },
         {
           "kind": "agenda",
           "label": "Agenda",
           "group": "orient",
           "priority": 85,
-          "layouts": [
-            "agenda-default",
-            "agenda-dense"
-          ]
+          "layouts": ["agenda-default", "agenda-dense"]
         },
         {
           "kind": "section",
           "label": "Section Divider",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "section-default"
-          ]
+          "layouts": ["section-default"]
         },
         {
           "kind": "executive-summary",
           "label": "Executive Summary",
           "group": "orient",
           "priority": 80,
-          "layouts": [
-            "exec-summary-airy",
-            "exec-summary-normal"
-          ]
+          "layouts": ["exec-summary-airy", "exec-summary-normal"]
         },
         {
           "kind": "content",
           "label": "Content",
           "group": "explain",
           "priority": 70,
-          "layouts": [
-            "content-airy",
-            "content-dense"
-          ]
+          "layouts": ["content-airy", "content-dense"]
         },
         {
           "kind": "detail",
           "label": "Detail",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "detail-default"
-          ]
+          "layouts": ["detail-default"]
         },
         {
           "kind": "quote",
           "label": "Quote",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "quote-default"
-          ]
+          "layouts": ["quote-default"]
         },
         {
           "kind": "big-stat",
           "label": "Big Stat",
           "group": "prove",
           "priority": 60,
-          "layouts": [
-            "big-stat-default"
-          ]
+          "layouts": ["big-stat-default"]
         },
         {
           "kind": "metric-row",
           "label": "Metric Row",
           "group": "prove",
           "priority": 65,
-          "layouts": [
-            "metric-row-default"
-          ]
+          "layouts": ["metric-row-default"]
         },
         {
           "kind": "insight",
           "label": "Insight",
           "group": "prove",
           "priority": 58,
-          "layouts": [
-            "insight-default"
-          ]
+          "layouts": ["insight-default"]
         },
         {
           "kind": "evidence",
           "label": "Evidence",
           "group": "prove",
           "priority": 55,
-          "layouts": [
-            "evidence-text",
-            "evidence-split"
-          ]
+          "layouts": ["evidence-text", "evidence-split"]
         },
         {
           "kind": "table",
           "label": "Table",
           "group": "explain",
           "priority": 60,
-          "layouts": [
-            "table-default"
-          ]
+          "layouts": ["table-default"]
         },
         {
           "kind": "comparison",
           "label": "Comparison",
           "group": "compare",
           "priority": 65,
-          "layouts": [
-            "comparison-two-col"
-          ]
+          "layouts": ["comparison-two-col"]
         },
         {
           "kind": "matrix",
           "label": "Matrix",
           "group": "compare",
           "priority": 55,
-          "layouts": [
-            "matrix-2x2"
-          ]
+          "layouts": ["matrix-2x2"]
         },
         {
           "kind": "framework",
           "label": "Framework",
           "group": "explain",
           "priority": 52,
-          "layouts": [
-            "framework-default",
-            "framework-dense"
-          ]
+          "layouts": ["framework-default", "framework-dense"]
         },
         {
           "kind": "process",
           "label": "Process",
           "group": "sequence",
           "priority": 55,
-          "layouts": [
-            "process-default",
-            "process-dense"
-          ]
+          "layouts": ["process-default", "process-dense"]
         },
         {
           "kind": "timeline",
           "label": "Timeline",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "timeline-default",
-            "timeline-dense"
-          ]
+          "layouts": ["timeline-default", "timeline-dense"]
         },
         {
           "kind": "roadmap",
           "label": "Roadmap",
           "group": "sequence",
           "priority": 58,
-          "layouts": [
-            "roadmap-default",
-            "roadmap-dense"
-          ]
+          "layouts": ["roadmap-default", "roadmap-dense"]
         },
         {
           "kind": "architecture",
           "label": "Architecture",
           "group": "explain",
           "priority": 50,
-          "layouts": [
-            "architecture-default"
-          ]
+          "layouts": ["architecture-default"]
         },
         {
           "kind": "case-study",
           "label": "Case Study",
           "group": "prove",
           "priority": 52,
-          "layouts": [
-            "case-study-split",
-            "case-study-dense"
-          ]
+          "layouts": ["case-study-split", "case-study-dense"]
         },
         {
           "kind": "risks",
           "label": "Risks",
           "group": "decision",
           "priority": 50,
-          "layouts": [
-            "risks-table"
-          ]
+          "layouts": ["risks-table"]
         },
         {
           "kind": "recommendation",
           "label": "Recommendation",
           "group": "decision",
           "priority": 55,
-          "layouts": [
-            "recommendation-default"
-          ]
+          "layouts": ["recommendation-default"]
         },
         {
           "kind": "pricing",
           "label": "Pricing",
           "group": "commercial",
           "priority": 55,
-          "layouts": [
-            "pricing-cards"
-          ]
+          "layouts": ["pricing-cards"]
         },
         {
           "kind": "team",
           "label": "Team",
           "group": "orient",
           "priority": 55,
-          "layouts": [
-            "team-cards"
-          ]
+          "layouts": ["team-cards"]
         },
         {
           "kind": "visual-focus",
           "label": "Visual Focus",
           "group": "explain",
           "priority": 55,
-          "layouts": [
-            "visual-focus-hero"
-          ]
+          "layouts": ["visual-focus-hero"]
         },
         {
           "kind": "closing",
           "label": "Closing",
           "group": "closing",
           "priority": 90,
-          "layouts": [
-            "closing-default"
-          ]
+          "layouts": ["closing-default"]
         },
         {
           "kind": "appendix",
           "label": "Appendix",
           "group": "closing",
           "priority": 40,
-          "layouts": [
-            "appendix-text",
-            "appendix-table"
-          ]
+          "layouts": ["appendix-text", "appendix-table"]
         }
       ]
     }

@@ -1,81 +1,800 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><title>07 · Luxe Maroon Magazine</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Dancing+Script:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#3a0d12;--ink:#f6ece2;--gold:#c9a24a;--rose:#e8b9b0;--surf:#4a131a;--mut:#a07b76;--line:rgba(201,162,74,.3);--co:"Cormorant Garamond",serif;--sc:"Dancing Script",cursive;--in:"Inter",sans-serif}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#1c0508;font-family:var(--in);padding:30px;display:flex;flex-direction:column;align-items:center;gap:26px}
-.slide{width:1280px;height:720px;background:radial-gradient(900px 600px at 70% 0%,#5a1820,#3a0d12);color:var(--ink);position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.silk{position:absolute;inset:0;background:radial-gradient(600px 400px at 80% 100%,rgba(201,162,74,.12),transparent),radial-gradient(500px 400px at 0% 0%,rgba(232,185,176,.08),transparent)}
-.pad{position:absolute;inset:0;padding:60px 76px;display:flex;flex-direction:column}.z{position:relative;z-index:3}
-.kind{position:absolute;top:26px;left:48px;font:600 10px var(--in);letter-spacing:.34em;text-transform:uppercase;color:var(--mut)}
-.num{position:absolute;bottom:26px;right:48px;font:500 13px var(--co);color:var(--gold)}
-h1{font:500 110px/.92 var(--co);letter-spacing:-.01em}h2{font:500 56px/1.02 var(--co)}h3{font:600 26px var(--co)}.script{font:600 80px var(--sc);color:var(--gold)}
-.tag{font:600 11px var(--in);letter-spacing:.3em;text-transform:uppercase;color:var(--gold)}
-p{font:400 17px/1.6 var(--in);color:#d8c4b8;max-width:58ch}.sm{font-size:13px;color:#b09a92}
-.row{display:flex}.col{flex-direction:column}.bt{justify-content:space-between}.cn{justify-content:center}.ac{align-items:center}.g{gap:26px}.fill{flex:1}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:32px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-.card{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:26px}.acc{background:var(--gold);color:#3a0d12;border:none}
-.stat{font:500 78px/1 var(--co);color:var(--gold)}.rule{height:1px;background:var(--line)}
-.pill{display:inline-flex;padding:6px 18px;border:1px solid var(--gold);color:var(--gold);border-radius:30px;font:600 11px var(--in);letter-spacing:.18em;text-transform:uppercase}
-table{width:100%;border-collapse:collapse;font:400 16px var(--in)}th{text-align:left;padding:13px;border-bottom:1px solid var(--gold);font:600 11px var(--in);letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}td{padding:13px;border-bottom:1px solid var(--line)}
-ul{list-style:none}li{padding:8px 0 8px 26px;position:relative;font:400 17px var(--in);color:#d8c4b8}li:before{content:"✦";position:absolute;left:0;color:var(--gold);font-size:12px;top:11px}
-.ph{background:linear-gradient(135deg,#6a1f28,#2a080c);border:1px solid var(--line);border-radius:8px;position:relative;overflow:hidden}.ph:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(201,162,74,.2),transparent)}
-.arr{color:var(--gold);font-size:22px}
-</style></head><body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>07 · Luxe Maroon Magazine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Dancing+Script:wght@600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #3a0d12;
+        --ink: #f6ece2;
+        --gold: #c9a24a;
+        --rose: #e8b9b0;
+        --surf: #4a131a;
+        --mut: #a07b76;
+        --line: rgba(201, 162, 74, 0.3);
+        --co: "Cormorant Garamond", serif;
+        --sc: "Dancing Script", cursive;
+        --in: "Inter", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #1c0508;
+        font-family: var(--in);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+      }
+      .slide {
+        width: 1280px;
+        height: 720px;
+        background: radial-gradient(900px 600px at 70% 0%, #5a1820, #3a0d12);
+        color: var(--ink);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+      .silk {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            600px 400px at 80% 100%,
+            rgba(201, 162, 74, 0.12),
+            transparent
+          ),
+          radial-gradient(
+            500px 400px at 0% 0%,
+            rgba(232, 185, 176, 0.08),
+            transparent
+          );
+      }
+      .pad {
+        position: absolute;
+        inset: 0;
+        padding: 60px 76px;
+        display: flex;
+        flex-direction: column;
+      }
+      .z {
+        position: relative;
+        z-index: 3;
+      }
+      .kind {
+        position: absolute;
+        top: 26px;
+        left: 48px;
+        font: 600 10px var(--in);
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        color: var(--mut);
+      }
+      .num {
+        position: absolute;
+        bottom: 26px;
+        right: 48px;
+        font: 500 13px var(--co);
+        color: var(--gold);
+      }
+      h1 {
+        font: 500 110px/0.92 var(--co);
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        font: 500 56px/1.02 var(--co);
+      }
+      h3 {
+        font: 600 26px var(--co);
+      }
+      .script {
+        font: 600 80px var(--sc);
+        color: var(--gold);
+      }
+      .tag {
+        font: 600 11px var(--in);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--gold);
+      }
+      p {
+        font: 400 17px/1.6 var(--in);
+        color: #d8c4b8;
+        max-width: 58ch;
+      }
+      .sm {
+        font-size: 13px;
+        color: #b09a92;
+      }
+      .row {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .bt {
+        justify-content: space-between;
+      }
+      .cn {
+        justify-content: center;
+      }
+      .ac {
+        align-items: center;
+      }
+      .g {
+        gap: 26px;
+      }
+      .fill {
+        flex: 1;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+      }
+      .g4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+      }
+      .card {
+        background: var(--surf);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 26px;
+      }
+      .acc {
+        background: var(--gold);
+        color: #3a0d12;
+        border: none;
+      }
+      .stat {
+        font: 500 78px/1 var(--co);
+        color: var(--gold);
+      }
+      .rule {
+        height: 1px;
+        background: var(--line);
+      }
+      .pill {
+        display: inline-flex;
+        padding: 6px 18px;
+        border: 1px solid var(--gold);
+        color: var(--gold);
+        border-radius: 30px;
+        font: 600 11px var(--in);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 400 16px var(--in);
+      }
+      th {
+        text-align: left;
+        padding: 13px;
+        border-bottom: 1px solid var(--gold);
+        font: 600 11px var(--in);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--mut);
+      }
+      td {
+        padding: 13px;
+        border-bottom: 1px solid var(--line);
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 8px 0 8px 26px;
+        position: relative;
+        font: 400 17px var(--in);
+        color: #d8c4b8;
+      }
+      li:before {
+        content: "✦";
+        position: absolute;
+        left: 0;
+        color: var(--gold);
+        font-size: 12px;
+        top: 11px;
+      }
+      .ph {
+        background: linear-gradient(135deg, #6a1f28, #2a080c);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+      }
+      .ph:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 30% 20%,
+          rgba(201, 162, 74, 0.2),
+          transparent
+        );
+      }
+      .arr {
+        color: var(--gold);
+        font-size: 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <div class="silk"></div>
+      <svg
+        style="position: absolute; right: 60px; bottom: 60px; opacity: 0.5"
+        width="200"
+        height="200"
+      >
+        <rect
+          x="2"
+          y="2"
+          width="196"
+          height="196"
+          rx="10"
+          fill="none"
+          stroke="#c9a24a"
+          stroke-width="1"
+        />
+      </svg>
+      <div class="kind">Cover</div>
+      <div class="pad z">
+        <div class="row bt ac">
+          <span class="tag">Rosa Maria Aguado</span
+          ><span class="pill">2026</span>
+        </div>
+        <div class="fill col" style="justify-content: center">
+          <h1>Creative</h1>
+          <h1>
+            PORT<span class="script" style="font-size: 110px">folio</span>
+          </h1>
+        </div>
+        <div class="rule"></div>
+        <div class="row bt ac" style="margin-top: 18px">
+          <span class="sm">A curated collection of brand work.</span
+          ><span class="tag">@reallygreatsite</span>
+        </div>
+      </div>
+      <div class="num">01</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><svg style="position:absolute;right:60px;bottom:60px;opacity:.5" width="200" height="200"><rect x="2" y="2" width="196" height="196" rx="10" fill="none" stroke="#c9a24a" stroke-width="1"/></svg><div class="kind">Cover</div><div class="pad z"><div class="row bt ac"><span class="tag">Rosa Maria Aguado</span><span class="pill">2026</span></div><div class="fill col" style="justify-content:center"><h1>Creative</h1><h1>PORT<span class="script" style="font-size:110px">folio</span></h1></div><div class="rule"></div><div class="row bt ac" style="margin-top:18px"><span class="sm">A curated collection of brand work.</span><span class="tag">@reallygreatsite</span></div></div><div class="num">01</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Agenda</div>
+      <div class="pad z g">
+        <span class="tag">Contents</span>
+        <h2>The collection</h2>
+        <div class="rule"></div>
+        <div class="g2 fill">
+          <div class="row g ac">
+            <span class="stat">01</span>
+            <h3>Identity</h3>
+          </div>
+          <div class="row g ac">
+            <span class="stat">02</span>
+            <h3>Editorial</h3>
+          </div>
+          <div class="row g ac">
+            <span class="stat">03</span>
+            <h3>Campaign</h3>
+          </div>
+          <div class="row g ac">
+            <span class="stat">04</span>
+            <h3>Contact</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">02</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Agenda</div><div class="pad z g"><span class="tag">Contents</span><h2>The collection</h2><div class="rule"></div><div class="g2 fill"><div class="row g ac"><span class="stat">01</span><h3>Identity</h3></div><div class="row g ac"><span class="stat">02</span><h3>Editorial</h3></div><div class="row g ac"><span class="stat">03</span><h3>Campaign</h3></div><div class="row g ac"><span class="stat">04</span><h3>Contact</h3></div></div></div><div class="num">02</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #3a0d12">Section</div>
+      <div class="pad z cn col" style="justify-content: center">
+        <span class="pill" style="border-color: #3a0d12; color: #3a0d12"
+          >Part One</span
+        >
+        <h1 style="color: #3a0d12">Identity</h1>
+        <p style="color: #5a1820">Marks, type, and palette.</p>
+      </div>
+      <div class="num" style="color: #3a0d12">03</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#3a0d12">Section</div><div class="pad z cn col" style="justify-content:center"><span class="pill" style="border-color:#3a0d12;color:#3a0d12">Part One</span><h1 style="color:#3a0d12">Identity</h1><p style="color:#5a1820">Marks, type, and palette.</p></div><div class="num" style="color:#3a0d12">03</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Executive Summary</div>
+      <div class="pad z g">
+        <h2>In brief</h2>
+        <div class="rule"></div>
+        <div class="g3 fill">
+          <div class="card">
+            <span class="tag">Focus</span>
+            <h3 style="margin-top: 8px">Luxury brands</h3>
+          </div>
+          <div class="card">
+            <span class="tag">Reach</span>
+            <h3 style="margin-top: 8px">3.2M</h3>
+          </div>
+          <div class="card">
+            <span class="tag">Awards</span>
+            <h3 style="margin-top: 8px">14 won</h3>
+          </div>
+        </div>
+        <p>
+          An editorial practice built on restraint, gold accents, and quiet
+          confidence.
+        </p>
+      </div>
+      <div class="num">04</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Executive Summary</div><div class="pad z g"><h2>In brief</h2><div class="rule"></div><div class="g3 fill"><div class="card"><span class="tag">Focus</span><h3 style="margin-top:8px">Luxury brands</h3></div><div class="card"><span class="tag">Reach</span><h3 style="margin-top:8px">3.2M</h3></div><div class="card"><span class="tag">Awards</span><h3 style="margin-top:8px">14 won</h3></div></div><p>An editorial practice built on restraint, gold accents, and quiet confidence.</p></div><div class="num">04</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Content</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="tag">Overview</span>
+          <h2 style="margin: 14px 0">The craft</h2>
+          <ul>
+            <li>Heritage identities</li>
+            <li>Editorial layouts</li>
+            <li>Gold-foil systems</li>
+            <li>Slow, deliberate work</li>
+          </ul>
+        </div>
+        <div class="ph fill" style="height: 480px"></div>
+      </div>
+      <div class="num">05</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Content</div><div class="pad z g2 ac"><div><span class="tag">Overview</span><h2 style="margin:14px 0">The craft</h2><ul><li>Heritage identities</li><li>Editorial layouts</li><li>Gold-foil systems</li><li>Slow, deliberate work</li></ul></div><div class="ph fill" style="height:480px"></div></div><div class="num">05</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Detail</div>
+      <div class="pad z g2 ac">
+        <p style="font-size: 19px">
+          A high-contrast serif meets a hand-script accent — the language of
+          fashion houses and fine print.
+        </p>
+        <div class="cn col ac">
+          <h1 style="font-size: 120px">Aa</h1>
+          <span class="script">folio</span>
+        </div>
+      </div>
+      <div class="num">06</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Detail</div><div class="pad z g2 ac"><p style="font-size:19px">A high-contrast serif meets a hand-script accent — the language of fashion houses and fine print.</p><div class="cn col ac"><h1 style="font-size:120px">Aa</h1><span class="script">folio</span></div></div><div class="num">06</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #3a0d12">Quote</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h2
+          style="
+            color: #3a0d12;
+            font-style: italic;
+            text-align: center;
+            max-width: 20ch;
+          "
+        >
+          "Luxury is restraint, beautifully kept."
+        </h2>
+        <span class="tag" style="color: #3a0d12; margin-top: 20px"
+          >Rosa Maria</span
+        >
+      </div>
+      <div class="num" style="color: #3a0d12">07</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#3a0d12">Quote</div><div class="pad z cn col ac" style="justify-content:center"><h2 style="color:#3a0d12;font-style:italic;text-align:center;max-width:20ch">"Luxury is restraint, beautifully kept."</h2><span class="tag" style="color:#3a0d12;margin-top:20px">Rosa Maria</span></div><div class="num" style="color:#3a0d12">07</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Big Stat</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <span class="tag">brands shaped</span>
+        <div class="stat" style="font-size: 220px">14</div>
+        <p>award-winning identities</p>
+      </div>
+      <div class="num">08</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Big Stat</div><div class="pad z cn col ac" style="justify-content:center"><span class="tag">brands shaped</span><div class="stat" style="font-size:220px">14</div><p>award-winning identities</p></div><div class="num">08</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Metric Row</div>
+      <div class="pad z g">
+        <h2>By numbers</h2>
+        <div class="rule"></div>
+        <div class="g4 fill">
+          <div>
+            <div class="stat">14</div>
+            <p class="sm">awards</p>
+          </div>
+          <div>
+            <div class="stat">3.2M</div>
+            <p class="sm">reach</p>
+          </div>
+          <div>
+            <div class="stat">9yr</div>
+            <p class="sm">practice</p>
+          </div>
+          <div>
+            <div class="stat">98%</div>
+            <p class="sm">repeat</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">09</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Metric Row</div><div class="pad z g"><h2>By numbers</h2><div class="rule"></div><div class="g4 fill"><div><div class="stat">14</div><p class="sm">awards</p></div><div><div class="stat">3.2M</div><p class="sm">reach</p></div><div><div class="stat">9yr</div><p class="sm">practice</p></div><div><div class="stat">98%</div><p class="sm">repeat</p></div></div></div><div class="num">09</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #3a0d12">Insight</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="pill" style="border-color: #3a0d12; color: #3a0d12"
+          >Insight</span
+        >
+        <h2 style="color: #3a0d12; max-width: 18ch; margin-top: 12px">
+          Fewer marks, deeper memory.
+        </h2>
+      </div>
+      <div class="num" style="color: #3a0d12">10</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#3a0d12">Insight</div><div class="pad z col" style="justify-content:center"><span class="pill" style="border-color:#3a0d12;color:#3a0d12">Insight</span><h2 style="color:#3a0d12;max-width:18ch;margin-top:12px">Fewer marks, deeper memory.</h2></div><div class="num" style="color:#3a0d12">10</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Evidence</div>
+      <div class="pad z g2 ac">
+        <div>
+          <span class="tag">Evidence</span>
+          <h2 style="margin: 12px 0">Recall study</h2>
+          <p>Minimal marks held 2.6× recall vs busy ones after a month.</p>
+        </div>
+        <div class="card cn ac">
+          <div class="stat" style="font-size: 120px">2.6×</div>
+        </div>
+      </div>
+      <div class="num">11</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Evidence</div><div class="pad z g2 ac"><div><span class="tag">Evidence</span><h2 style="margin:12px 0">Recall study</h2><p>Minimal marks held 2.6× recall vs busy ones after a month.</p></div><div class="card cn ac"><div class="stat" style="font-size:120px">2.6×</div></div></div><div class="num">11</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Table</div>
+      <div class="pad z g">
+        <h2>Services</h2>
+        <table>
+          <tr>
+            <th>Service</th>
+            <th>Lead time</th>
+            <th>From</th>
+          </tr>
+          <tr>
+            <td>Identity</td>
+            <td>8 wk</td>
+            <td>$40k</td>
+          </tr>
+          <tr>
+            <td>Editorial</td>
+            <td>4 wk</td>
+            <td>$18k</td>
+          </tr>
+          <tr>
+            <td>Campaign</td>
+            <td>10 wk</td>
+            <td>$70k</td>
+          </tr>
+        </table>
+      </div>
+      <div class="num">12</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Table</div><div class="pad z g"><h2>Services</h2><table><tr><th>Service</th><th>Lead time</th><th>From</th></tr><tr><td>Identity</td><td>8 wk</td><td>$40k</td></tr><tr><td>Editorial</td><td>4 wk</td><td>$18k</td></tr><tr><td>Campaign</td><td>10 wk</td><td>$70k</td></tr></table></div><div class="num">12</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Comparison</div>
+      <div class="pad z g">
+        <h2>Fast vs fine</h2>
+        <div class="g2 fill">
+          <div class="card">
+            <span class="pill">Fast</span>
+            <h3 style="margin-top: 12px">Templated</h3>
+          </div>
+          <div class="card acc">
+            <span class="pill" style="border-color: #3a0d12; color: #3a0d12"
+              >Fine</span
+            >
+            <h3 style="margin-top: 12px; color: #3a0d12">Bespoke</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">13</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Comparison</div><div class="pad z g"><h2>Fast vs fine</h2><div class="g2 fill"><div class="card"><span class="pill">Fast</span><h3 style="margin-top:12px">Templated</h3></div><div class="card acc"><span class="pill" style="border-color:#3a0d12;color:#3a0d12">Fine</span><h3 style="margin-top:12px;color:#3a0d12">Bespoke</h3></div></div></div><div class="num">13</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Matrix</div>
+      <div class="pad z g">
+        <h2>Positioning</h2>
+        <div class="g2 fill" style="grid-template-rows: 1fr 1fr">
+          <div class="card acc cn ac"><h3 style="color: #3a0d12">Luxe</h3></div>
+          <div class="card cn ac"><h3>Niche</h3></div>
+          <div class="card cn ac"><h3>Mass</h3></div>
+          <div class="card cn ac"><h3 style="color: var(--mut)">Cheap</h3></div>
+        </div>
+      </div>
+      <div class="num">14</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Matrix</div><div class="pad z g"><h2>Positioning</h2><div class="g2 fill" style="grid-template-rows:1fr 1fr"><div class="card acc cn ac"><h3 style="color:#3a0d12">Luxe</h3></div><div class="card cn ac"><h3>Niche</h3></div><div class="card cn ac"><h3>Mass</h3></div><div class="card cn ac"><h3 style="color:var(--mut)">Cheap</h3></div></div></div><div class="num">14</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Framework</div>
+      <div class="pad z g">
+        <h2>Pillars</h2>
+        <div class="g3 fill">
+          <div class="card cn ac col">
+            <span class="stat" style="font-size: 48px">01</span>
+            <h3>Restraint</h3>
+          </div>
+          <div class="card cn ac col">
+            <span class="stat" style="font-size: 48px">02</span>
+            <h3>Material</h3>
+          </div>
+          <div class="card cn ac col">
+            <span class="stat" style="font-size: 48px">03</span>
+            <h3>Time</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">15</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Framework</div><div class="pad z g"><h2>Pillars</h2><div class="g3 fill"><div class="card cn ac col"><span class="stat" style="font-size:48px">01</span><h3>Restraint</h3></div><div class="card cn ac col"><span class="stat" style="font-size:48px">02</span><h3>Material</h3></div><div class="card cn ac col"><span class="stat" style="font-size:48px">03</span><h3>Time</h3></div></div></div><div class="num">15</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Process</div>
+      <div class="pad z g">
+        <h2>Process</h2>
+        <div class="rule"></div>
+        <div class="row ac fill cn g">
+          <h3>Listen</h3>
+          <span class="arr">→</span>
+          <h3>Sketch</h3>
+          <span class="arr">→</span>
+          <h3>Refine</h3>
+          <span class="arr">→</span>
+          <h3>Foil</h3>
+        </div>
+      </div>
+      <div class="num">16</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Process</div><div class="pad z g"><h2>Process</h2><div class="rule"></div><div class="row ac fill cn g"><h3>Listen</h3><span class="arr">→</span><h3>Sketch</h3><span class="arr">→</span><h3>Refine</h3><span class="arr">→</span><h3>Foil</h3></div></div><div class="num">16</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Timeline</div>
+      <div class="pad z g">
+        <h2>2026</h2>
+        <div class="rule"></div>
+        <div class="g4 fill">
+          <div>
+            <h3 class="tag">Q1</h3>
+            <p class="sm">Discovery</p>
+          </div>
+          <div>
+            <h3 class="tag">Q2</h3>
+            <p class="sm">Design</p>
+          </div>
+          <div>
+            <h3 class="tag">Q3</h3>
+            <p class="sm">Foil</p>
+          </div>
+          <div>
+            <h3 class="tag">Q4</h3>
+            <p class="sm">Launch</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">17</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Timeline</div><div class="pad z g"><h2>2026</h2><div class="rule"></div><div class="g4 fill"><div><h3 class="tag">Q1</h3><p class="sm">Discovery</p></div><div><h3 class="tag">Q2</h3><p class="sm">Design</p></div><div><h3 class="tag">Q3</h3><p class="sm">Foil</p></div><div><h3 class="tag">Q4</h3><p class="sm">Launch</p></div></div></div><div class="num">17</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Roadmap</div>
+      <div class="pad z g">
+        <h2>Roadmap</h2>
+        <div class="g3 fill">
+          <div class="card">
+            <span class="pill">Now</span>
+            <ul>
+              <li>Identity</li>
+            </ul>
+          </div>
+          <div class="card acc">
+            <span class="pill" style="border-color: #3a0d12; color: #3a0d12"
+              >Next</span
+            >
+            <ul>
+              <li>Print</li>
+            </ul>
+          </div>
+          <div class="card">
+            <span class="pill">Later</span>
+            <ul>
+              <li>Boutique</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="num">18</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Roadmap</div><div class="pad z g"><h2>Roadmap</h2><div class="g3 fill"><div class="card"><span class="pill">Now</span><ul><li>Identity</li></ul></div><div class="card acc"><span class="pill" style="border-color:#3a0d12;color:#3a0d12">Next</span><ul><li>Print</li></ul></div><div class="card"><span class="pill">Later</span><ul><li>Boutique</li></ul></div></div></div><div class="num">18</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Architecture</div>
+      <div class="pad z g">
+        <h2>System</h2>
+        <div class="g3 fill ac cn">
+          <div class="card cn ac"><h3>Brand</h3></div>
+          <span class="arr">→</span>
+          <div class="card acc cn ac">
+            <h3 style="color: #3a0d12">Foil kit</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">19</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Architecture</div><div class="pad z g"><h2>System</h2><div class="g3 fill ac cn"><div class="card cn ac"><h3>Brand</h3></div><span class="arr">→</span><div class="card acc cn ac"><h3 style="color:#3a0d12">Foil kit</h3></div></div></div><div class="num">19</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Case Study</div>
+      <div class="pad z g2 ac">
+        <div class="ph fill" style="height: 480px"></div>
+        <div>
+          <span class="tag">Case</span>
+          <h2 style="margin: 12px 0">Maison V</h2>
+          <p>Repositioned a heritage house; sales +48%.</p>
+          <div class="stat" style="font-size: 90px; margin-top: 14px">+48%</div>
+        </div>
+      </div>
+      <div class="num">20</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Case Study</div><div class="pad z g2 ac"><div class="ph fill" style="height:480px"></div><div><span class="tag">Case</span><h2 style="margin:12px 0">Maison V</h2><p>Repositioned a heritage house; sales +48%.</p><div class="stat" style="font-size:90px;margin-top:14px">+48%</div></div></div><div class="num">20</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Risks</div>
+      <div class="pad z g">
+        <h2>Risks</h2>
+        <div class="g2 fill">
+          <div class="card">
+            <h3>Slow pace</h3>
+            <p class="sm">Premium pricing.</p>
+          </div>
+          <div class="card">
+            <h3>Niche</h3>
+            <p class="sm">Curate clients.</p>
+          </div>
+        </div>
+      </div>
+      <div class="num">21</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Risks</div><div class="pad z g"><h2>Risks</h2><div class="g2 fill"><div class="card"><h3>Slow pace</h3><p class="sm">Premium pricing.</p></div><div class="card"><h3>Niche</h3><p class="sm">Curate clients.</p></div></div></div><div class="num">21</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #3a0d12">Recommendation</div>
+      <div class="pad z col" style="justify-content: center">
+        <span class="pill" style="border-color: #3a0d12; color: #3a0d12"
+          >Recommend</span
+        >
+        <h2 style="color: #3a0d12; max-width: 20ch">
+          Build the boutique tier — fewer clients, finer work.
+        </h2>
+      </div>
+      <div class="num" style="color: #3a0d12">22</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#3a0d12">Recommendation</div><div class="pad z col" style="justify-content:center"><span class="pill" style="border-color:#3a0d12;color:#3a0d12">Recommend</span><h2 style="color:#3a0d12;max-width:20ch">Build the boutique tier — fewer clients, finer work.</h2></div><div class="num" style="color:#3a0d12">22</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Pricing</div>
+      <div class="pad z g">
+        <h2>Packages</h2>
+        <div class="g3 fill">
+          <div class="card col">
+            <h3>Essential</h3>
+            <div class="stat">$18k</div>
+          </div>
+          <div class="card acc col">
+            <h3 style="color: #3a0d12">Signature</h3>
+            <div class="stat" style="color: #3a0d12">$40k</div>
+          </div>
+          <div class="card col">
+            <h3>Maison</h3>
+            <div class="stat">$70k</div>
+          </div>
+        </div>
+      </div>
+      <div class="num">23</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Pricing</div><div class="pad z g"><h2>Packages</h2><div class="g3 fill"><div class="card col"><h3>Essential</h3><div class="stat">$18k</div></div><div class="card acc col"><h3 style="color:#3a0d12">Signature</h3><div class="stat" style="color:#3a0d12">$40k</div></div><div class="card col"><h3>Maison</h3><div class="stat">$70k</div></div></div></div><div class="num">23</div></section>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Team</div>
+      <div class="pad z g">
+        <h2>Atelier</h2>
+        <div class="g4 fill">
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 90px; height: 90px; border-radius: 50%"
+            ></div>
+            <h3>Rosa</h3>
+          </div>
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 90px; height: 90px; border-radius: 50%"
+            ></div>
+            <h3>Mateo</h3>
+          </div>
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 90px; height: 90px; border-radius: 50%"
+            ></div>
+            <h3>Inés</h3>
+          </div>
+          <div class="cn col ac g">
+            <div
+              class="ph"
+              style="width: 90px; height: 90px; border-radius: 50%"
+            ></div>
+            <h3>Luca</h3>
+          </div>
+        </div>
+      </div>
+      <div class="num">24</div>
+    </section>
 
-<section class="slide"><div class="silk"></div><div class="kind">Team</div><div class="pad z g"><h2>Atelier</h2><div class="g4 fill"><div class="cn col ac g"><div class="ph" style="width:90px;height:90px;border-radius:50%"></div><h3>Rosa</h3></div><div class="cn col ac g"><div class="ph" style="width:90px;height:90px;border-radius:50%"></div><h3>Mateo</h3></div><div class="cn col ac g"><div class="ph" style="width:90px;height:90px;border-radius:50%"></div><h3>Inés</h3></div><div class="cn col ac g"><div class="ph" style="width:90px;height:90px;border-radius:50%"></div><h3>Luca</h3></div></div></div><div class="num">24</div></section>
+    <section class="slide ph">
+      <div class="kind" style="color: #fff">Visual Focus</div>
+      <div class="pad z col" style="justify-content: flex-end">
+        <h1 style="color: #fff">Quietly bold.</h1>
+      </div>
+      <div class="num" style="color: #fff">25</div>
+    </section>
 
-<section class="slide ph"><div class="kind" style="color:#fff">Visual Focus</div><div class="pad z col" style="justify-content:flex-end"><h1 style="color:#fff">Quietly bold.</h1></div><div class="num" style="color:#fff">25</div></section>
+    <section class="slide acc">
+      <div class="kind" style="color: #3a0d12">Closing</div>
+      <div class="pad z cn col ac" style="justify-content: center">
+        <h1 style="color: #3a0d12">Merci</h1>
+        <p style="color: #5a1820; margin-top: 12px">
+          hello@reallygreatsite.com
+        </p>
+      </div>
+      <div class="num" style="color: #3a0d12">26</div>
+    </section>
 
-<section class="slide acc"><div class="kind" style="color:#3a0d12">Closing</div><div class="pad z cn col ac" style="justify-content:center"><h1 style="color:#3a0d12">Merci</h1><p style="color:#5a1820;margin-top:12px">hello@reallygreatsite.com</p></div><div class="num" style="color:#3a0d12">26</div></section>
-
-<section class="slide"><div class="silk"></div><div class="kind">Appendix</div><div class="pad z g"><h2>Appendix</h2><div class="rule"></div><ul><li>Recall study</li><li>Award index</li><li>Material library</li></ul></div><div class="num">27</div></section>
-
-</body></html>
+    <section class="slide">
+      <div class="silk"></div>
+      <div class="kind">Appendix</div>
+      <div class="pad z g">
+        <h2>Appendix</h2>
+        <div class="rule"></div>
+        <ul>
+          <li>Recall study</li>
+          <li>Award index</li>
+          <li>Material library</li>
+        </ul>
+      </div>
+      <div class="num">27</div>
+    </section>
+  </body>
+</html>

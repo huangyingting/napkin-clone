@@ -2838,7 +2838,7 @@ export function SlideEditorVNext({
         <div
           data-slide-stage-shell="true"
           data-slide-toolbar-anchor="true"
-          className="relative z-0 h-full min-w-0 overflow-hidden bg-ds-surface-recessed"
+          className="relative h-full min-w-0 overflow-hidden bg-ds-surface-recessed"
           onClick={handleStageClick}
           onPointerDown={handleStagePointerDown}
         >

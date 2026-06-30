@@ -22,7 +22,12 @@ export type CardProps = HTMLAttributes<HTMLDivElement> & {
   padding?: "none" | "sm" | "md" | "lg";
 };
 
-const CARD_PADDING: Record<NonNullable<CardProps["padding"]>, string> = { none: "", sm: "p-3", md: "p-5", lg: "p-6" };
+const CARD_PADDING: Record<NonNullable<CardProps["padding"]>, string> = {
+  none: "",
+  sm: "p-3",
+  md: "p-5",
+  lg: "p-6",
+};
 export function Card(props: CardProps) {
   const { elevation = "raised", padding = "md", className, ...rest } = props;
   return (
@@ -218,9 +223,13 @@ export function ToolbarButton({
   children,
   ...rest
 }: ToolbarButtonProps) {
-  const widthClass = iconOnly ? TOOLBAR_ICON_WIDTH[size] : TOOLBAR_TEXT_PADDING[size];
+  const widthClass = iconOnly
+    ? TOOLBAR_ICON_WIDTH[size]
+    : TOOLBAR_TEXT_PADDING[size];
   const chromeClass =
-    active === true ? TOOLBAR_BUTTON_CHROME.active : TOOLBAR_BUTTON_CHROME[tone];
+    active === true
+      ? TOOLBAR_BUTTON_CHROME.active
+      : TOOLBAR_BUTTON_CHROME[tone];
   const buttonClassName = cx(
     "inline-flex items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-50",
     TOOLBAR_SIZE[size],
@@ -346,7 +355,15 @@ export function FieldRow({
     </p>
   ) : null;
 
-  return createElement("div", { className: cx("flex flex-col gap-1.5", className), ...rest }, labelNode, children, hintNode, errorNode); }
+  return createElement(
+    "div",
+    { className: cx("flex flex-col gap-1.5", className), ...rest },
+    labelNode,
+    children,
+    hintNode,
+    errorNode,
+  );
+}
 export function IconActionCluster({
   bordered = true,
   className,

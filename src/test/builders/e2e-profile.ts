@@ -40,9 +40,22 @@ export const E2E_PROFILE_FIXTURE = {
   shareId: "e2efixtureshare01",
   slug: "e2e-fixture-deck",
   slideTitleText: "Release Gate Fixture Slide",
+  slideTwoTitleText: "Release Gate Fixture Follow-up",
   slideBodyText: "Deterministic deck for the E2E release gate.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
+  dashboardTag: {
+    name: "release-gate",
+    slug: "release-gate",
+  },
+  dashboardDocuments: {
+    alphaFavorite: {
+      title: "Alpha favorite deterministic dashboard",
+    },
+    betaTagged: {
+      title: "Beta tagged deterministic dashboard",
+    },
+  },
 } as const;
 
 const F = E2E_PROFILE_FIXTURE;
@@ -141,6 +154,32 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
           }),
         ],
       }),
+      buildSlide({
+        id: "e2e-fixture-slide-2",
+        title: F.slideTwoTitleText,
+        notes: "",
+        designOverrides: {
+          background: { type: "solid", color: { value: "#ffffff" } },
+        },
+        elements: [
+          buildTextElement({
+            id: "fixture-second-title",
+            role: "title",
+            text: F.slideTwoTitleText,
+            box: { x: 6, y: 6, w: 88, h: 14 },
+            zIndex: 0,
+            style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          }),
+          buildBulletsElement({
+            id: "fixture-second-bullets",
+            bullets: ["Second seeded slide for navigation coverage."],
+            items: [{ text: "Second seeded slide for navigation coverage." }],
+            box: { x: 8, y: 26, w: 80, h: 50 },
+            zIndex: 1,
+            style: { fontSize: 4, bold: false, italic: false, align: "left" },
+          }),
+        ],
+      }),
     ],
   });
 }
@@ -165,6 +204,7 @@ export function buildE2EProfileFixtureDescriptor(opts: {
     privateDocumentId: F.privateDocumentId,
     privateAssetPath: opts.privateAssetPath,
     slideTitleText: F.slideTitleText,
+    slideTwoTitleText: F.slideTwoTitleText,
     seededAt: opts.seededAt,
   };
 }

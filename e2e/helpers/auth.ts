@@ -36,6 +36,7 @@ export function viewerCredentials(): Credentials | null {
 export async function login(
   page: Page,
   { email, password }: Credentials,
+  redirectPath?: string,
 ): Promise<void> {
   await page.goto("/login");
   await page.locator('input[name="email"]').fill(email);
@@ -43,4 +44,7 @@ export async function login(
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForURL(/\/app(\/|$|\?)/);
   await expect(page).toHaveURL(/\/app/);
+  if (redirectPath) {
+    await page.goto(redirectPath);
+  }
 }

@@ -94,10 +94,10 @@ export function FilmstripSlide({
         >
           <span
             className={cx(
-              "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm transition-shadow duration-150 ease-out",
+              "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm transition-[box-shadow] duration-150 ease-out",
               isActive
-                ? "shadow-[0_0_0_2px_var(--ds-accent)]"
-                : "group-hover:shadow-[0_0_0_1px_var(--ds-border-subtle)]",
+                ? "ring-2 ring-ds-accent ring-inset"
+                : "group-hover:ring-1 group-hover:ring-ds-border-subtle group-hover:ring-inset",
             )}
           >
             <SlideCanvasVNext

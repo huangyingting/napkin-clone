@@ -311,12 +311,7 @@
       "semanticKind": "cover",
       "layoutFamily": "cover",
       "styleMode": "theme-aware",
-      "accepts": [
-        "kicker",
-        "title",
-        "subtitle",
-        "caption"
-      ],
+      "accepts": ["kicker", "title", "subtitle", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -623,13 +618,7 @@
       "semanticKind": "agenda",
       "layoutFamily": "agenda",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -1196,12 +1185,7 @@
       "semanticKind": "section",
       "layoutFamily": "section-divider",
       "styleMode": "theme-aware",
-      "accepts": [
-        "kicker",
-        "title",
-        "subtitle",
-        "caption"
-      ],
+      "accepts": ["kicker", "title", "subtitle", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -1437,13 +1421,7 @@
       "semanticKind": "executive-summary",
       "layoutFamily": "summary-list",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -2032,13 +2010,7 @@
       "semanticKind": "content",
       "layoutFamily": "title-bullets",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -2355,13 +2327,7 @@
       "semanticKind": "detail",
       "layoutFamily": "title-body",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "body": {
           "paragraphs": 4,
@@ -2675,12 +2641,7 @@
       "semanticKind": "quote",
       "layoutFamily": "quote-hero",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "quote",
-        "attribution",
-        "caption"
-      ],
+      "accepts": ["title", "quote", "attribution", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -2888,12 +2849,7 @@
       "semanticKind": "big-stat",
       "layoutFamily": "stat-hero",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "stat",
-        "statLabel",
-        "caption"
-      ],
+      "accepts": ["title", "stat", "statLabel", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -3132,11 +3088,7 @@
       "semanticKind": "metric-row",
       "layoutFamily": "metric-row",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "metrics",
-        "caption"
-      ],
+      "accepts": ["title", "metrics", "caption"],
       "capacity": {
         "metrics": 4
       },
@@ -3654,12 +3606,7 @@
       "semanticKind": "insight",
       "layoutFamily": "data-insight",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "table",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "table", "caption"],
       "capacity": {
         "table": {
           "columns": 4,
@@ -3880,12 +3827,7 @@
       "semanticKind": "evidence",
       "layoutFamily": "table",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "table",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "table", "caption"],
       "capacity": {
         "table": {
           "columns": 4,
@@ -4194,12 +4136,7 @@
       "semanticKind": "table",
       "layoutFamily": "table",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "table",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "table", "caption"],
       "capacity": {
         "table": {
           "columns": 4,
@@ -4955,13 +4892,7 @@
       "semanticKind": "matrix",
       "layoutFamily": "matrix-2x2",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -5936,11 +5867,7 @@
       "semanticKind": "process",
       "layoutFamily": "process-steps",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "steps",
-        "caption"
-      ],
+      "accepts": ["title", "steps", "caption"],
       "capacity": {
         "steps": 5
       },
@@ -6324,11 +6251,7 @@
       "semanticKind": "timeline",
       "layoutFamily": "timeline",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "steps",
-        "caption"
-      ],
+      "accepts": ["title", "steps", "caption"],
       "capacity": {
         "steps": 5
       },
@@ -6846,11 +6769,7 @@
       "semanticKind": "roadmap",
       "layoutFamily": "roadmap",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "steps",
-        "caption"
-      ],
+      "accepts": ["title", "steps", "caption"],
       "capacity": {
         "steps": 5
       },
@@ -7814,13 +7733,7 @@
       "semanticKind": "case-study",
       "layoutFamily": "case-study",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -8131,12 +8044,7 @@
       "semanticKind": "risks",
       "layoutFamily": "risk-register",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "table",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "table", "caption"],
       "capacity": {
         "table": {
           "columns": 4,
@@ -8689,13 +8597,7 @@
       "semanticKind": "recommendation",
       "layoutFamily": "recommendation",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -8918,11 +8820,7 @@
       "semanticKind": "pricing",
       "layoutFamily": "pricing-cards",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "cards",
-        "caption"
-      ],
+      "accepts": ["title", "cards", "caption"],
       "capacity": {
         "cards": 3
       },
@@ -9462,11 +9360,7 @@
       "semanticKind": "team",
       "layoutFamily": "team-grid",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "cards",
-        "caption"
-      ],
+      "accepts": ["title", "cards", "caption"],
       "capacity": {
         "cards": 3
       },
@@ -10062,12 +9956,7 @@
       "semanticKind": "closing",
       "layoutFamily": "closing",
       "styleMode": "theme-aware",
-      "accepts": [
-        "kicker",
-        "title",
-        "subtitle",
-        "caption"
-      ],
+      "accepts": ["kicker", "title", "subtitle", "caption"],
       "capacity": {
         "bullets": 5
       },
@@ -10277,13 +10166,7 @@
       "semanticKind": "appendix",
       "layoutFamily": "appendix-detail",
       "styleMode": "theme-aware",
-      "accepts": [
-        "title",
-        "subtitle",
-        "body",
-        "bullets",
-        "caption"
-      ],
+      "accepts": ["title", "subtitle", "body", "bullets", "caption"],
       "capacity": {
         "bullets": 5
       },
