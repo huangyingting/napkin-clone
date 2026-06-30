@@ -12,11 +12,11 @@ describe the current system.
 
 | Document                                                         | Scope                                                                                                      |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [current-state.md](current-state.md)                             | End-to-end system architecture and source-of-truth map.                                                    |
-| [subsystem-map.md](subsystem-map.md)                             | Code subsystem to documentation coverage map.                                                              |
+| [architecture.md](architecture.md)                               | End-to-end system architecture and source-of-truth map.                                                    |
+| [documentation-map.md](documentation-map.md)                     | Code subsystem to documentation coverage map.                                                              |
 | [design-system.md](design-system.md)                             | App chrome token ownership, shared UI primitives, and guardrails for z-index/color usage.                  |
 | [identity-and-payload-naming.md](identity-and-payload-naming.md) | Durable identity taxonomy, asset URL vocabulary, and payload/result suffix playbook.                       |
-| [decisions.md](decisions.md)                                     | Architecture Decision Records (ADRs), accepted-decision index, supersession fields, and source-drift rule. |
+| [architecture-decisions.md](architecture-decisions.md)           | Architecture Decision Records (ADRs), accepted-decision index, supersession fields, and source-drift rule. |
 
 ## Contract Groups
 

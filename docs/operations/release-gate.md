@@ -25,6 +25,10 @@ under 30 minutes.
 The primary gate is a single CI command that runs on every push to `main` and
 on every pull request (see `.github/workflows/ci.yml`):
 
+The individual scripts and ownership rules are documented in
+[quality-gates.md](quality-gates.md); this runbook records the release-blocking
+sequence.
+
 ```bash
 export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
 npm run db:schema:check
@@ -109,7 +113,7 @@ The CLI (`src/scripts/audit-persisted-schema.ts`, core in
 `src/lib/schema-audit/audit.ts`) exits non-zero when any row fails its schema
 validator and reports only safe identifiers (document id / row id / schema area
 / failure reason) — never document content. A clean run is a precondition for
-release; drift is remediated with the [repair playbook](./persisted-schema-repair.md).
+release; drift is remediated with the [repair playbook](./schema-repair-runbook.md).
 
 ### Test coverage scope
 
@@ -323,6 +327,6 @@ Before each foundation release wave:
 | #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                                                   |
 | #461          | Performance budgets — `scripts/perf-budgets.mjs`, `scripts/check-next-build-constraints.mjs`                                                                                                                                                    |
 | #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                                              |
-| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/persisted-schema-repair.md`                                                                                                                                          |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/schema-repair-runbook.md`                                                                                                                                            |
 | #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [slide canvas keyboard accessibility decision](../system/slide-canvas-keyboard-accessibility.md) |
-| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/decisions.md), `npm run docs:check`                               |
+| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/architecture-decisions.md), `npm run docs:check`                  |

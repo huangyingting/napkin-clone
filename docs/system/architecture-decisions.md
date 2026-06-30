@@ -2,7 +2,7 @@
 
 **Type:** Reference  
 **Status:** Current  
-**Last updated:** 2026-06-25
+**Last updated:** 2026-07-01
 
 Architecture Decision Records (ADRs) capture durable choices that shape TextIQ's
 runtime architecture. Source, tests, and schemas remain authoritative for current
@@ -13,7 +13,7 @@ when source behavior materially changes.
 
 | ADR                                                                                | Status   | Supersedes | Superseded by | Related docs                                                                                                           |
 | ---------------------------------------------------------------------------------- | -------- | ---------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [Realtime collaboration scaling and durability](realtime-collaboration-scaling.md) | Accepted | —          | —             | [Collab deployment](../operations/collab-deployment.md), [current state](current-state.md)                             |
+| [Realtime collaboration scaling and durability](realtime-collaboration-scaling.md) | Accepted | —          | —             | [Collaboration deployment](../operations/collaboration-deployment.md), [system architecture](architecture.md)          |
 | [Slide canvas keyboard accessibility](slide-canvas-keyboard-accessibility.md)      | Accepted | —          | —             | [Slide-stage interactions](../presentation/slide-stage-interactions.md), [release gate](../operations/release-gate.md) |
 
 ## Drift rule

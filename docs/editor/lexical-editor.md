@@ -376,7 +376,7 @@ On the debounced autosave, the serialized state is written to `contentJson`, and
 removed nodes prune their rows. Every payload is re-validated with
 `safeParseVisual` before it is written, so a tampered visual can never be
 persisted. Real-time collaboration is layered on Lexical via Yjs/`y-websocket`
-(see [collab-deployment.md](../operations/collab-deployment.md)); the database remains the
+(see [collaboration-deployment.md](../operations/collaboration-deployment.md)); the database remains the
 durable source of truth.
 
 ## Deck (slide) autosave and version semantics

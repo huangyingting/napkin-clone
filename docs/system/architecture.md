@@ -392,36 +392,36 @@ durable command log yet.
 
 ## Architecture Documents
 
-| Document                                                                           | Status   | Notes                                                    |
-| ---------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- |
-| [../ai/generation.md](../ai/generation.md)                                         | Current  | AI generation request flow and validation contracts      |
-| [../auth/README.md](../auth/README.md)                                             | Current  | Authentication and account lifecycle                     |
-| [../collaboration/README.md](../collaboration/README.md)                           | Current  | Collaboration room model and runtime readiness           |
-| [../data-model/deck.md](../data-model/deck.md)                                     | Current  | DeckV7 schema, source refs, rendering, and persistence   |
-| [../data-model/database-persistence.md](../data-model/database-persistence.md)     | Current  | Prisma provider resolution and relational model          |
-| [../data-model/document-persistence.md](../data-model/document-persistence.md)     | Current  | Document save transactions and version restore           |
-| [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                   | Current  | Visual projection contract                               |
-| [../documents/README.md](../documents/README.md)                                   | Current  | Document creation, listing, search, tags, and trash      |
-| [../editor/comments-and-anchors.md](../editor/comments-and-anchors.md)             | Current  | Comment threads and document/slide anchors               |
-| [../editor/lexical-editor.md](../editor/lexical-editor.md)                         | Current  | Editor surfaces, visual lifecycle, and deck autosave UX  |
-| [../presentation/theme-packages.md](../presentation/theme-packages.md)             | Current  | Theme packages, semantic templates, styles, and chrome   |
-| [../import/README.md](../import/README.md)                                         | Current  | Document import validation, parsing, and abuse controls  |
-| [../localization/README.md](../localization/README.md)                             | Current  | Localization catalogs, locale resolution, and activation |
-| [../presentation/assets.md](../presentation/assets.md)                             | Current  | Slide asset upload, serving, references, and cleanup     |
-| [../presentation/slide-editor.md](../presentation/slide-editor.md)                 | Current  | Slide editor runtime and interaction boundaries          |
-| [../presentation/rendering-and-export.md](../presentation/rendering-and-export.md) | Current  | Shared rendering, present mode, and export pipeline      |
-| [../product/billing.md](../product/billing.md)                                     | Current  | Plan entitlements, providers, and AI credits             |
-| [../product/brand-studio.md](../product/brand-studio.md)                           | Current  | Saved brand styles and brand asset lifecycle             |
-| [../public-render/README.md](../public-render/README.md)                           | Current  | Public render resolver, metadata, and asset access       |
-| [../security/access-and-sharing.md](../security/access-and-sharing.md)             | Current  | Document permissions, public links, and asset access     |
-| [../security/workspaces.md](../security/workspaces.md)                             | Current  | Workspace roles, invites, and membership behavior        |
-| [../visual/README.md](../visual/README.md)                                         | Current  | Visual schema, registry, rendering, and export support   |
-| [../commands/command-envelope.md](../commands/command-envelope.md)                 | Current  | Cross-surface command envelope                           |
-| [../commands/mutation-audit.md](../commands/mutation-audit.md)                     | Current  | Mutation inventory and routing decisions                 |
-| [subsystem-map.md](subsystem-map.md)                                               | Current  | Code subsystem to documentation coverage map             |
-| [decisions.md](decisions.md)                                                       | Current  | ADR index, supersession status, and source-drift rule    |
-| [realtime-collaboration-scaling.md](realtime-collaboration-scaling.md)             | Accepted | ADR: realtime collaboration scaling and durability       |
-| [slide-canvas-keyboard-accessibility.md](slide-canvas-keyboard-accessibility.md)   | Accepted | ADR: canvas keyboard accessibility decisions             |
-| [../operations/collab-deployment.md](../operations/collab-deployment.md)           | Current  | Collaboration deployment and scaling                     |
-| [../operations/release-gate.md](../operations/release-gate.md)                     | Current  | Release readiness checklist                              |
-| [../operations/resource-limits.md](../operations/resource-limits.md)               | Current  | Resource limit inventory and budget helpers              |
+| Document                                                                               | Status   | Notes                                                    |
+| -------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- |
+| [../ai/generation.md](../ai/generation.md)                                             | Current  | AI generation request flow and validation contracts      |
+| [../auth/README.md](../auth/README.md)                                                 | Current  | Authentication and account lifecycle                     |
+| [../collaboration/README.md](../collaboration/README.md)                               | Current  | Collaboration room model and runtime readiness           |
+| [../data-model/deck.md](../data-model/deck.md)                                         | Current  | DeckV7 schema, source refs, rendering, and persistence   |
+| [../data-model/database-persistence.md](../data-model/database-persistence.md)         | Current  | Prisma provider resolution and relational model          |
+| [../data-model/document-persistence.md](../data-model/document-persistence.md)         | Current  | Document save transactions and version restore           |
+| [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                       | Current  | Visual projection contract                               |
+| [../documents/README.md](../documents/README.md)                                       | Current  | Document creation, listing, search, tags, and trash      |
+| [../editor/comments-and-anchors.md](../editor/comments-and-anchors.md)                 | Current  | Comment threads and document/slide anchors               |
+| [../editor/lexical-editor.md](../editor/lexical-editor.md)                             | Current  | Editor surfaces, visual lifecycle, and deck autosave UX  |
+| [../presentation/theme-packages.md](../presentation/theme-packages.md)                 | Current  | Theme packages, semantic templates, styles, and chrome   |
+| [../import/README.md](../import/README.md)                                             | Current  | Document import validation, parsing, and abuse controls  |
+| [../localization/README.md](../localization/README.md)                                 | Current  | Localization catalogs, locale resolution, and activation |
+| [../presentation/assets.md](../presentation/assets.md)                                 | Current  | Slide asset upload, serving, references, and cleanup     |
+| [../presentation/slide-editor.md](../presentation/slide-editor.md)                     | Current  | Slide editor runtime and interaction boundaries          |
+| [../presentation/rendering-and-export.md](../presentation/rendering-and-export.md)     | Current  | Shared rendering, present mode, and export pipeline      |
+| [../product/billing.md](../product/billing.md)                                         | Current  | Plan entitlements, providers, and AI credits             |
+| [../product/brand-studio.md](../product/brand-studio.md)                               | Current  | Saved brand styles and brand asset lifecycle             |
+| [../public-render/README.md](../public-render/README.md)                               | Current  | Public render resolver, metadata, and asset access       |
+| [../security/access-and-sharing.md](../security/access-and-sharing.md)                 | Current  | Document permissions, public links, and asset access     |
+| [../security/workspaces.md](../security/workspaces.md)                                 | Current  | Workspace roles, invites, and membership behavior        |
+| [../visual/README.md](../visual/README.md)                                             | Current  | Visual schema, registry, rendering, and export support   |
+| [../commands/command-envelope.md](../commands/command-envelope.md)                     | Current  | Cross-surface command envelope                           |
+| [../commands/mutation-routing-inventory.md](../commands/mutation-routing-inventory.md) | Current  | Mutation inventory and routing decisions                 |
+| [documentation-map.md](documentation-map.md)                                           | Current  | Code subsystem to documentation coverage map             |
+| [architecture-decisions.md](architecture-decisions.md)                                 | Current  | ADR index, supersession status, and source-drift rule    |
+| [realtime-collaboration-scaling.md](realtime-collaboration-scaling.md)                 | Accepted | ADR: realtime collaboration scaling and durability       |
+| [slide-canvas-keyboard-accessibility.md](slide-canvas-keyboard-accessibility.md)       | Accepted | ADR: canvas keyboard accessibility decisions             |
+| [../operations/collaboration-deployment.md](../operations/collaboration-deployment.md) | Current  | Collaboration deployment and scaling                     |
+| [../operations/release-gate.md](../operations/release-gate.md)                         | Current  | Release readiness checklist                              |
+| [../operations/resource-limits.md](../operations/resource-limits.md)                   | Current  | Resource limit inventory and budget helpers              |

@@ -25,9 +25,9 @@ and deck shapes are documented in [../data-model/](../data-model/README.md).
 
 ## Plans
 
-| Document                                       | Type | Scope                                                                                     |
-| ---------------------------------------------- | ---- | ----------------------------------------------------------------------------------------- |
-| [table-support-plan.md](table-support-plan.md) | Plan | Planned first-class document table blocks, Lexical table editing, import, and slide flow. |
+| Document                         | Type | Scope                                                                                     |
+| -------------------------------- | ---- | ----------------------------------------------------------------------------------------- |
+| [tables-plan.md](tables-plan.md) | Plan | Planned first-class document table blocks, Lexical table editing, import, and slide flow. |
 
 ## Creation Paths
 

@@ -5,14 +5,14 @@
  *
  * When the server fails to parse a persisted payload (a deck, a visual, or a
  * source reference) we must record a structured, actionable diagnostic so the
- * repair playbook (`docs/operations/persisted-schema-repair.md`) and the audit
+ * repair playbook (`docs/operations/schema-repair-runbook.md`) and the audit
  * CLI (#501) can be pointed at the affected row — WITHOUT ever leaking document
  * content.
  *
  * The contract is deliberately narrow:
  *  - Callers pass a {@link SchemaFailureCategory} and a small bag of SAFE
  *    identifiers (ids, counts, an opaque validator `reason` string).
- *  - The validator `reason` strings produced by `safeParseDeck` /
+ *  - The validator `reason` strings produced by `safeParseDeckV7` /
  *    `safeParseVisual` / `validateSourceRef` describe the schema violation
  *    (e.g. "Deck.slides[0].id must be a non-empty string"); they never echo
  *    document text, so they are safe to record.

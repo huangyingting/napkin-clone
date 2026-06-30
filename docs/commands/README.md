@@ -7,10 +7,10 @@
 These documents cover serializable user intent, mutation routing, and command
 metadata across document visuals and deck artifacts.
 
-| Document                                   | Type      | Scope                                                          |
-| ------------------------------------------ | --------- | -------------------------------------------------------------- |
-| [command-envelope.md](command-envelope.md) | Contract  | Cross-surface command envelope schema and validation contract. |
-| [mutation-audit.md](mutation-audit.md)     | Reference | Inventory of mutation paths and routing decisions.             |
+| Document                                                       | Type      | Scope                                                          |
+| -------------------------------------------------------------- | --------- | -------------------------------------------------------------- |
+| [command-envelope.md](command-envelope.md)                     | Contract  | Cross-surface command envelope schema and validation contract. |
+| [mutation-routing-inventory.md](mutation-routing-inventory.md) | Reference | Inventory of mutation paths and routing decisions.             |
 
 ## Boundaries
 

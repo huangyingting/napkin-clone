@@ -7,7 +7,7 @@
 This subsystem covers the application-level collaboration contract: Yjs room
 identity, client readiness, degraded local-only mode, title sync, presence, and
 room authorization. Deployment and scaling procedures live in
-[../operations/collab-deployment.md](../operations/collab-deployment.md).
+[../operations/collaboration-deployment.md](../operations/collaboration-deployment.md).
 
 ## Source Anchors
 

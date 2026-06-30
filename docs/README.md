@@ -15,13 +15,13 @@ payloads.
 
 ## Start Here
 
-| Document                                           | Type         | Purpose                                                  |
-| -------------------------------------------------- | ------------ | -------------------------------------------------------- |
-| [system/current-state.md](system/current-state.md) | Architecture | System-wide runtime architecture and write paths.        |
-| [system/subsystem-map.md](system/subsystem-map.md) | Reference    | Code subsystem to documentation ownership map.           |
-| [data-model/deck.md](data-model/deck.md)           | Contract     | Current DeckV7 `Document.deckJson` persisted contract.   |
-| [presentation/README.md](presentation/README.md)   | Architecture | Slide editor, rendering, present mode, and export index. |
-| [operations/README.md](operations/README.md)       | Runbook      | Deployment, release gates, and operational entry points. |
+| Document                                                   | Type         | Purpose                                                  |
+| ---------------------------------------------------------- | ------------ | -------------------------------------------------------- |
+| [system/architecture.md](system/architecture.md)           | Architecture | System-wide runtime architecture and write paths.        |
+| [system/documentation-map.md](system/documentation-map.md) | Reference    | Code subsystem to documentation ownership map.           |
+| [data-model/deck.md](data-model/deck.md)                   | Contract     | Current DeckV7 `Document.deckJson` persisted contract.   |
+| [presentation/README.md](presentation/README.md)           | Architecture | Slide editor, rendering, present mode, and export index. |
+| [operations/quality-gates.md](operations/quality-gates.md) | Reference    | Local/CI quality gates and governance scripts.           |
 
 ## Document Types
 
@@ -73,7 +73,7 @@ contracts must not depend on plan documents for behavior.
 - Prefer links to source files for implementation detail, but keep docs readable
   without opening code.
 - Material source behavior changes must amend the relevant ADR or supersede it
-  with a new ADR; see the [ADR index](system/decisions.md).
+  with a new ADR; see the [ADR index](system/architecture-decisions.md).
 
 ## Verification
 

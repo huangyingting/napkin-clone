@@ -2,7 +2,8 @@
  * Pure, DOM-free staleness signal for a {@link Deck}.
  *
  * The deck is a one-time snapshot taken from the Lexical document at open time
- * (decisions.md #53 keeps `deckJson` intentionally separate from `contentJson`).
+ * (see `docs/system/architecture-decisions.md`: `deckJson` is intentionally
+ * separate from `contentJson`).
  * To detect when the document has drifted away from the deck WITHOUT a schema
  * change, we embed a stable hash of the document-derived content inside the deck
  * JSON itself (`Deck.deckContentHash`, option (a)). On open the editor recomputes
