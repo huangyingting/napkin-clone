@@ -46,7 +46,8 @@ export async function writeDeckWithCas({
 
   const parsedData = v7Result.data;
   const serialized = JSON.stringify(parsedData);
-  if (serialized.length > MAX_DECK_JSON_BYTES) {
+  const serializedBytes = Buffer.byteLength(serialized, "utf8");
+  if (serializedBytes > MAX_DECK_JSON_BYTES) {
     return { ok: false, error: formatDeckTooLargeError() };
   }
 
