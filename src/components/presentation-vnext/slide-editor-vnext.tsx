@@ -166,7 +166,6 @@ import {
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
 import { listThemePackagesV7 } from "@/lib/presentation-vnext/theme-package-registry";
-import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
 import { resolveNodeFontCss } from "@/lib/presentation-vnext/node-font-css";
 import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import {
@@ -245,6 +244,7 @@ import {
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { applyInlineTextCommit } from "./inline-text-commit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { useExportDiagnostics } from "./use-export-diagnostics";
 import { useTableCellEditing } from "./use-table-cell-editing";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
@@ -2471,13 +2471,7 @@ export function SlideEditorVNext({
     return drafts.size > 0 ? drafts : undefined;
   })();
 
-  const exportDiagnostics = renderTree
-    ? buildExportSpec(renderTree).diagnostics.filter(
-        (diagnostic) =>
-          diagnostic.code === "unsupported-export-feature" ||
-          diagnostic.code === "theme-decoration-export-fallback",
-      )
-    : [];
+  const exportDiagnostics = useExportDiagnostics(renderTree);
   const sourceDerivations = useMemo(
     () => deriveSourceReviewDerivations(deck, documentSourceIndex),
     [deck, documentSourceIndex],
