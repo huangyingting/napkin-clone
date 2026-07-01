@@ -1528,7 +1528,7 @@ describe("SlideNodeRenderer resolved node content branches", () => {
     assert.match(html, /href="https:\/\/example.com"/);
     assert.match(html, /Shape label/);
     assert.match(html, /Revenue/);
-    assert.match(html, /connector-start-arrow-v7/);
+    assert.match(html, /connector-start-arrow-v7-render-connector/);
     assert.match(html, /Resolved image/);
     assert.match(html, /Missing image/);
     assert.match(html, /Resolved visual/);
@@ -1903,7 +1903,9 @@ describe("SlideCanvasVNext E01 rendering coverage", () => {
     assert.match(html, /118%/);
     assert.match(html, /Chart/);
     assert.match(html, /Chart placeholder/);
-    assert.match(html, /connector-start-arrow-v7/);
+    assert.match(html, /connector-start-arrow-v7-connector-curved/);
+    assert.match(html, /connector-start-arrow-v7-connector-elbow/);
+    assert.match(html, /connector-end-arrow-v7-connector-elbow/);
     assert.match(html, /stroke-dasharray="1 4"/);
     assert.match(html, /stroke-dasharray="6 4"/);
     assert.match(html, /Group node/);

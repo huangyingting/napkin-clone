@@ -601,6 +601,13 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(html, /stroke="#ef4444"/);
     assert.match(html, /stroke-dasharray="6 4"/);
     assert.match(html, /L 50 10 L 50 90 L 100 90/);
+    assert.match(html, /id="connector-start-arrow-v7-node-1"/);
+    assert.match(html, /id="connector-end-arrow-v7-node-1"/);
+    assert.match(
+      html,
+      /marker-start="url\(#connector-start-arrow-v7-node-1\)"/,
+    );
+    assert.match(html, /marker-end="url\(#connector-end-arrow-v7-node-1\)"/);
   });
 
   test("renders curved and anchored connectors with filled end arrows", () => {
