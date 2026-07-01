@@ -2,6 +2,7 @@ import "server-only";
 
 import { uploadValidationStatus } from "@/lib/api/errors";
 import { rejectOversizedBody } from "@/lib/api/route-adapters";
+import { prisma } from "@/lib/prisma";
 import {
   formatAssetUploadPolicyError,
   imageDimensionsFromBytes,
@@ -21,7 +22,7 @@ import {
   type UploadValidation,
 } from "./upload";
 
-type BrandUploadStatus = 400 | 413 | 415;
+type BrandUploadStatus = 400 | 404 | 413 | 415;
 
 export type BrandLogoUploadBody = {
   url: string;
@@ -57,6 +58,27 @@ type BrandUploadConfig<TBody> = {
 function brandIdFromFormData(formData: FormData): string | null {
   const brandIdRaw = formData.get("brandId");
   return typeof brandIdRaw === "string" && brandIdRaw ? brandIdRaw : null;
+}
+
+async function verifyOwnedBrandId(
+  ownerId: string,
+  brandId: string | null,
+): Promise<{ ok: true } | { ok: false; status: 404; error: string }> {
+  if (!brandId) return { ok: true };
+
+  const ownedBrand = await prisma.brand.findFirst({
+    where: { id: brandId, ownerId },
+    select: { id: true },
+  });
+  if (!ownedBrand) {
+    return {
+      ok: false,
+      status: 404,
+      error: "Brand not found.",
+    };
+  }
+
+  return { ok: true };
 }
 
 function familyNameFromFileName(fileName: string): string {
@@ -137,12 +159,18 @@ async function uploadBrandAsset<TBody>(
       };
     }
   }
+  const brandId = brandIdFromFormData(formData);
+  const ownedBrand = await verifyOwnedBrandId(ownerId, brandId);
+  if (!ownedBrand.ok) {
+    return ownedBrand;
+  }
+
   const stored = await storeBrandAsset({
     ownerId,
     buffer,
     mimeType: validation.mime,
     originalName: file.name || undefined,
-    brandId: brandIdFromFormData(formData),
+    brandId,
   });
 
   return {
