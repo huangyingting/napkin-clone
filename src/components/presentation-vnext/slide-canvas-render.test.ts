@@ -598,7 +598,13 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
               rows: [
                 {
                   id: "row-1",
-                  cells: [{ text: "Alpha" }, { text: "Beta" }],
+                  cells: [
+                    { text: "Alpha" },
+                    {
+                      text: "Beta",
+                      runs: [{ text: "Be", bold: true }, { text: "ta" }],
+                    },
+                  ],
                 },
               ],
             },
@@ -617,6 +623,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /contentEditable="true"/);
     assert.match(html, /data-table-cell="0:1"/);
     assert.match(html, /aria-label="Table cell row 1, column 2"/);
+    assert.match(html, /Beta/);
     assert.match(html, /Table node editing cells/);
   });
 

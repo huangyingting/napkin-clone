@@ -177,6 +177,7 @@ import {
   connectorAnchorPoint,
   connectorEndpointFromSlidePoint,
 } from "@/lib/presentation-vnext/connector-geometry";
+import { applyPlainTextEditToTableContent } from "@/lib/presentation-vnext/table-cell-editing";
 
 import {
   SlideCanvasVNext,
@@ -2163,23 +2164,16 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     const node = findNodeById(activeSlide.children, nodeId);
     if (!node || node.type !== "table") return;
-    const row = node.content.rows[rowIndex];
-    const current = row?.cells[colIndex];
-    if (!row || !current || current.text === text) return;
+    const nextContent = applyPlainTextEditToTableContent(
+      node.content,
+      rowIndex,
+      colIndex,
+      text,
+    );
+    if (nextContent === node.content) return;
     onDeckChange(
       updateNodeContent(deck, activeSlide.id, nodeId, {
-        rows: node.content.rows.map((candidateRow, candidateRowIndex) =>
-          candidateRowIndex === rowIndex
-            ? {
-                ...candidateRow,
-                cells: candidateRow.cells.map((cell, candidateColIndex) =>
-                  candidateColIndex === colIndex
-                    ? { text: text.replace(/\s+/g, " ").trim() }
-                    : cell,
-                ),
-              }
-            : candidateRow,
-        ),
+        rows: nextContent.rows,
       }),
     );
   }

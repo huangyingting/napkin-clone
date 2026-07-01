@@ -28,6 +28,7 @@ import type {
   ImageCrop,
   ConnectorEndpoint,
 } from "@/lib/presentation-vnext/schema";
+import { tableCellEditableText } from "@/lib/presentation-vnext/table-cell-editing";
 import { colorValueToCss, fillStyleToCss } from "./fill-style-css";
 
 // ---------------------------------------------------------------------------
@@ -354,15 +355,6 @@ function TextNodeContent({
   );
 }
 
-function textRunsToPlainText(
-  runs: readonly TextRun[] | undefined,
-  fallback: string,
-): string {
-  return runs && runs.length > 0
-    ? runs.map((run) => run.text).join("")
-    : fallback;
-}
-
 // ---------------------------------------------------------------------------
 // Shape node content
 // ---------------------------------------------------------------------------
@@ -672,7 +664,7 @@ function TableNodeContent({
                 }
               >
                 {editable
-                  ? textRunsToPlainText(cell.runs, cell.text)
+                  ? tableCellEditableText(cell)
                   : cell.runs && cell.runs.length > 0
                     ? renderTextRuns(cell.runs)
                     : cell.text}
