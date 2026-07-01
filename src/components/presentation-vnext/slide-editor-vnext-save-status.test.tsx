@@ -54,4 +54,15 @@ describe("SlideEditorVNext save status announcements", () => {
     );
     assert.match(html, />Save failed — Retry<\/button>/);
   });
+
+  test("renders a disabled save action while a save is in progress", () => {
+    const html = renderEditor({
+      saveStatus: "saving",
+      saveStatusLabel: "Saving…",
+      onSave: async () => ({ ok: true }),
+    });
+
+    assert.match(html, /aria-label="Save slides"/);
+    assert.match(html, /<button[^>]*disabled[^>]*>Saving<\/button>/);
+  });
 });
