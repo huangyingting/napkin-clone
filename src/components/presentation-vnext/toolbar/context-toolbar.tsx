@@ -87,15 +87,45 @@ const INLINE_ONLY_TEXT_COMMANDS = new Set<InlineTextCommandName>([
   "link",
   "unlink",
 ]);
+const CONTEXT_TOOLBAR_TEXT_ROLES = [
+  "title",
+  "subtitle",
+  "body",
+  "quote",
+  "caption",
+] as const satisfies readonly SlideChildNode["role"][];
+
+type ContextToolbarTextRole = (typeof CONTEXT_TOOLBAR_TEXT_ROLES)[number];
+
+const CONTEXT_TOOLBAR_TEXT_ROLE_FONT_SIZE_PT: Record<
+  ContextToolbarTextRole,
+  number
+> = {
+  title: 34,
+  subtitle: 24,
+  body: 18,
+  quote: 26,
+  caption: 11,
+};
 
 export type SelectionAlignMode =
-  "left" | "center" | "right" | "top" | "middle" | "bottom";
+  | "left"
+  | "center"
+  | "right"
+  | "top"
+  | "middle"
+  | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
 type SlideToolInsertActionKey =
-  "text" | "shape" | "image" | "visual" | "connector" | "table";
+  | "text"
+  | "shape"
+  | "image"
+  | "visual"
+  | "connector"
+  | "table";
 
 export function isContextToolbarInlineTextCommandEnabled(
   command: InlineTextCommandName,
@@ -103,6 +133,24 @@ export function isContextToolbarInlineTextCommandEnabled(
 ): boolean {
   if (!INLINE_ONLY_TEXT_COMMANDS.has(command)) return true;
   return isInlineEditing;
+}
+
+export function isContextToolbarTextRole(
+  value: string,
+): value is ContextToolbarTextRole {
+  return CONTEXT_TOOLBAR_TEXT_ROLES.includes(value as ContextToolbarTextRole);
+}
+
+export function resolveContextToolbarTextRole(
+  role: SlideChildNode["role"] | undefined,
+): ContextToolbarTextRole {
+  return role && isContextToolbarTextRole(role) ? role : "body";
+}
+
+export function contextToolbarTextRoleFontSizePt(
+  role: ContextToolbarTextRole,
+): number {
+  return CONTEXT_TOOLBAR_TEXT_ROLE_FONT_SIZE_PT[role];
 }
 
 const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
@@ -253,12 +301,14 @@ function ToolbarSelect({
   onChange,
   children,
   width = "w-20",
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   children: ReactNode;
   width?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="flex items-center gap-1 text-[11px] text-ds-text-muted">
@@ -267,6 +317,7 @@ function ToolbarSelect({
         aria-label={label}
         title={label}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
         className={cx(
           "h-7 rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle bg-ds-surface px-1.5 text-[11px] text-ds-text-secondary outline-none",
@@ -497,6 +548,7 @@ export interface ContextToolbarProps {
   onUpdateSelectedLayout?: (patch: { rotation?: number }) => void;
   onUpdateSelectedLocalStyle?: (patch: StylePatch) => void;
   onUpdateSelectedAttributes?: (patch: {
+    role?: SlideChildNode["role"];
     locked?: boolean;
     hidden?: boolean;
   }) => void;
@@ -709,6 +761,7 @@ export function ContextToolbar({
   const fontSize = styleSeed.fontSize;
   const opacity = styleSeed.opacity;
   const rotation = selectedNode?.layout?.rotation ?? 0;
+  const selectedTextRole = resolveContextToolbarTextRole(selectedNode?.role);
 
   function runTextCommand(
     command: "bold" | "italic" | "underline" | "strikethrough",
@@ -908,18 +961,12 @@ export function ContextToolbar({
             <Divider />
             <ToolbarSelect
               label="Text role"
-              value={selectedNode?.role ?? "body"}
+              value={selectedTextRole}
+              disabled={!selectedNode || !onUpdateSelectedAttributes}
               onChange={(role) => {
-                const fontSizePt =
-                  role === "title"
-                    ? 34
-                    : role === "subtitle"
-                      ? 24
-                      : role === "quote"
-                        ? 26
-                        : role === "caption"
-                          ? 11
-                          : 18;
+                if (!isContextToolbarTextRole(role)) return;
+                onUpdateSelectedAttributes?.({ role });
+                const fontSizePt = contextToolbarTextRoleFontSizePt(role);
                 onUpdateSelectedLocalStyle?.({ text: { fontSizePt } });
               }}
             >
