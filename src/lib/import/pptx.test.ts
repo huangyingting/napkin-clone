@@ -1,0 +1,114 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import JSZip from "jszip";
+
+import { parsePptx } from "./pptx";
+
+test("parsePptx extracts shape text, native table cells, and linked notes", async () => {
+  const zip = new JSZip();
+  zip.file(
+    "ppt/slides/slide1.xml",
+    `
+    <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      <p:cSld>
+        <p:spTree>
+          <p:sp>
+            <p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+            <p:txBody><a:p><a:r><a:t>Quarterly update</a:t></a:r></a:p></p:txBody>
+          </p:sp>
+          <p:sp>
+            <p:nvSpPr><p:nvPr/></p:nvSpPr>
+            <p:txBody><a:p><a:r><a:t>Intro text</a:t></a:r></a:p></p:txBody>
+          </p:sp>
+          <p:graphicFrame>
+            <a:graphic>
+              <a:graphicData>
+                <a:tbl>
+                  <a:tr>
+                    <a:tc><a:txBody><a:p><a:r><a:t>Region</a:t></a:r></a:p></a:txBody></a:tc>
+                    <a:tc><a:txBody><a:p><a:r><a:t>ARR</a:t></a:r></a:p></a:txBody></a:tc>
+                  </a:tr>
+                  <a:tr>
+                    <a:tc><a:txBody><a:p><a:r><a:t>NA</a:t></a:r></a:p></a:txBody></a:tc>
+                    <a:tc><a:txBody><a:p><a:r><a:t>$12M</a:t></a:r></a:p></a:txBody></a:tc>
+                  </a:tr>
+                </a:tbl>
+              </a:graphicData>
+            </a:graphic>
+          </p:graphicFrame>
+        </p:spTree>
+      </p:cSld>
+    </p:sld>
+    `,
+  );
+  zip.file(
+    "ppt/slides/_rels/slide1.xml.rels",
+    `
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/>
+    </Relationships>
+    `,
+  );
+  zip.file(
+    "ppt/notesSlides/notesSlide1.xml",
+    `
+    <p:notes xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld>
+        <p:spTree>
+          <p:sp>
+            <p:txBody><a:p><a:r><a:t>Remember to mention retention.</a:t></a:r></a:p></p:txBody>
+          </p:sp>
+        </p:spTree>
+      </p:cSld>
+    </p:notes>
+    `,
+  );
+
+  const buffer = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
+  const text = await parsePptx(buffer);
+
+  assert.ok(text.includes("## Quarterly update"));
+  assert.ok(text.includes("Intro text"));
+  assert.ok(text.includes("| Region | ARR |"));
+  assert.ok(text.includes("| NA | $12M |"));
+  assert.ok(text.includes("### Speaker notes"));
+  assert.ok(text.includes("Remember to mention retention."));
+});
+
+test("parsePptx retains table-only slide content", async () => {
+  const zip = new JSZip();
+  zip.file(
+    "ppt/slides/slide1.xml",
+    `
+    <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld>
+        <p:spTree>
+          <p:graphicFrame>
+            <a:graphic>
+              <a:graphicData>
+                <a:tbl>
+                  <a:tr>
+                    <a:tc><a:txBody><a:p><a:r><a:t>KPI</a:t></a:r></a:p></a:txBody></a:tc>
+                    <a:tc><a:txBody><a:p><a:r><a:t>Value</a:t></a:r></a:p></a:txBody></a:tc>
+                  </a:tr>
+                  <a:tr>
+                    <a:tc><a:txBody><a:p><a:r><a:t>Retention</a:t></a:r></a:p></a:txBody></a:tc>
+                    <a:tc><a:txBody><a:p><a:r><a:t>96%</a:t></a:r></a:p></a:txBody></a:tc>
+                  </a:tr>
+                </a:tbl>
+              </a:graphicData>
+            </a:graphic>
+          </p:graphicFrame>
+        </p:spTree>
+      </p:cSld>
+    </p:sld>
+    `,
+  );
+
+  const buffer = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
+  const text = await parsePptx(buffer);
+
+  assert.ok(text.includes("| KPI | Value |"));
+  assert.ok(text.includes("| Retention | 96% |"));
+});
