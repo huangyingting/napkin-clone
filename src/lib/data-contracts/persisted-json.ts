@@ -4,7 +4,7 @@ import {
   validateSlideId,
 } from "@/lib/comments/anchors";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import { safeParseVisual } from "@/lib/visual/schema";
 
 import {
@@ -13,8 +13,7 @@ import {
 } from "./literals";
 
 export type ContractValidationResult =
-  | { success: true }
-  | { success: false; error: string };
+  { success: true } | { success: false; error: string };
 
 export interface PersistedJsonContract {
   name: string;
@@ -36,8 +35,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validateDeckContract(value: unknown): ContractValidationResult {
-  const parsed = safeParseDeck(value);
-  return parsed.success ? ok() : fail(parsed.error);
+  const parsed = safeParseDeckV7(value);
+  return parsed.success ? ok() : fail(parsed.errors.join("; "));
 }
 
 function validateContentVisualsContract(
@@ -114,7 +113,7 @@ export const PERSISTED_JSON_CONTRACTS = {
   "Document.deckJson": {
     name: "Document.deckJson",
     sourceOfTruth: "Document.deckJson is the source of truth for slides.",
-    validator: "@/lib/presentation/deck-schema#safeParseDeck",
+    validator: "@/lib/presentation-vnext/validation#safeParseDeckV7",
     validate: validateDeckContract,
   },
   "Document.contentJson:visual": {
@@ -129,7 +128,7 @@ export const PERSISTED_JSON_CONTRACTS = {
     name: "DocumentVersion.deckJson",
     sourceOfTruth:
       "DocumentVersion.deckJson snapshots must use the current deck schema.",
-    validator: "@/lib/presentation/deck-schema#safeParseDeck",
+    validator: "@/lib/presentation-vnext/validation#safeParseDeckV7",
     validate: validateDeckContract,
   },
   "DocumentVersion.contentJson:visual": {

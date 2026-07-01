@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { buildMinimalDeckV7 } from "@/test/builders/deck-v7";
 
 import {
   PERSISTED_JSON_CONTRACTS,
@@ -9,8 +9,12 @@ import {
 } from "./persisted-json";
 
 function validDeck(): unknown {
+  return buildMinimalDeckV7();
+}
+
+function legacyV6Deck(): unknown {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: 6,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -52,6 +56,14 @@ test("persisted JSON registry points at current validators", () => {
     true,
   );
   assert.equal(
+    PERSISTED_JSON_CONTRACTS["Document.deckJson"].validator,
+    "@/lib/presentation-vnext/validation#safeParseDeckV7",
+  );
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["DocumentVersion.deckJson"].validator,
+    "@/lib/presentation-vnext/validation#safeParseDeckV7",
+  );
+  assert.equal(
     PERSISTED_JSON_CONTRACTS["Visual.data"].validate(validVisual()).success,
     true,
   );
@@ -60,6 +72,11 @@ test("persisted JSON registry points at current validators", () => {
 
 // @compat — confirms superseded deck shapes and retired anchor types are rejected at the persistence boundary
 test("registry rejects superseded deck and invalid comment anchor shapes", () => {
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(legacyV6Deck())
+      .success,
+    false,
+  );
   assert.equal(
     PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(
       JSON.stringify(validDeck()),
