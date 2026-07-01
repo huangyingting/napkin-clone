@@ -82,23 +82,13 @@ const INLINE_ONLY_TEXT_COMMANDS = new Set<InlineTextCommandName>([
 ]);
 
 export type SelectionAlignMode =
-  | "left"
-  | "center"
-  | "right"
-  | "top"
-  | "middle"
-  | "bottom";
+  "left" | "center" | "right" | "top" | "middle" | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
 type SlideToolInsertActionKey =
-  | "text"
-  | "shape"
-  | "image"
-  | "visual"
-  | "connector"
-  | "table";
+  "text" | "shape" | "image" | "visual" | "connector" | "table";
 
 export function isContextToolbarInlineTextCommandEnabled(
   command: InlineTextCommandName,
@@ -393,9 +383,23 @@ function getSelectionRect(selectedIds: string[]): DOMRect | null {
 }
 
 function getSlideAnchorRect(): DOMRect | null {
-  if (typeof document === "undefined") return null;
-  const frame = document.querySelector('[data-slide-stage-frame="true"]');
+  const frame = getSlideAnchorElement();
   return frame?.getBoundingClientRect() ?? null;
+}
+
+function getSlideAnchorElement(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>('[data-slide-stage-frame="true"]');
+}
+
+function getSelectionElements(selectedIds: string[]): HTMLElement[] {
+  if (typeof document === "undefined" || selectedIds.length === 0) return [];
+  const nodes: HTMLElement[] = [];
+  for (const id of selectedIds) {
+    const node = document.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+    if (node) nodes.push(node);
+  }
+  return nodes;
 }
 
 function tableWithAddedRow(node: TableNode) {
@@ -596,29 +600,51 @@ export function ContextToolbar({
 
   useEffect(() => {
     if (!visible) return;
-    const handler = () => updateToolbarPosition();
+    let frameId: number | null = null;
+    const schedulePositionUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        updateToolbarPosition();
+      });
+    };
+    const handler = () => schedulePositionUpdate();
+    schedulePositionUpdate();
     window.addEventListener("resize", handler, { passive: true });
     window.addEventListener("scroll", handler, {
       passive: true,
       capture: true,
     });
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(schedulePositionUpdate);
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(schedulePositionUpdate);
+    const observedNodes = new Set<HTMLElement>();
+    const toolbarNode = toolbarRef.current;
+    const slideAnchorNode = getSlideAnchorElement();
+    if (toolbarNode) observedNodes.add(toolbarNode);
+    if (slideAnchorNode) observedNodes.add(slideAnchorNode);
+    for (const node of getSelectionElements(selectedIds)) {
+      observedNodes.add(node);
+    }
+    for (const node of observedNodes) {
+      resizeObserver?.observe(node);
+      mutationObserver?.observe(node, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
     return () => {
       window.removeEventListener("resize", handler);
       window.removeEventListener("scroll", handler, true);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
     };
-    // updateToolbarPosition intentionally reads live DOM geometry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, selectedIds, showSlideTools]);
-
-  useEffect(() => {
-    if (!visible) return;
-    let frame = 0;
-    const tick = () => {
-      updateToolbarPosition();
-      frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
     // updateToolbarPosition intentionally reads live DOM geometry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedIds, showSlideTools]);
