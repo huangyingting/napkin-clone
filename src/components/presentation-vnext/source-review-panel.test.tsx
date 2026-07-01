@@ -6,7 +6,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { SourceBlockIndexEntry } from "@/lib/presentation-vnext/block-index";
 import type { SourceReviewItem } from "@/lib/presentation-vnext/source-links";
-import { SourceReviewPanel } from "./source-review-panel";
+import {
+  SourceReviewPanel,
+  sourceReviewActionAriaLabel,
+} from "./source-review-panel";
 
 const block: SourceBlockIndexEntry = {
   documentId: "doc-1",
@@ -16,6 +19,17 @@ const block: SourceBlockIndexEntry = {
   displayLabel: "Executive summary",
   refresh: { kind: "text", text: "Executive summary" },
 };
+
+function makeTextBlock(id: string, label: string): SourceBlockIndexEntry {
+  return {
+    documentId: "doc-1",
+    id,
+    kind: "text",
+    hash: `hash-${id}`,
+    displayLabel: label,
+    refresh: { kind: "text", text: label },
+  };
+}
 
 const items: SourceReviewItem[] = [
   {
@@ -105,6 +119,31 @@ describe("SourceReviewPanel", () => {
     assert.match(html, /Refreshed 1 source links; skipped 1\./);
     assert.match(html, /Mark unlinked/);
     assert.match(html, /Dismiss/);
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Go to target", items[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Refresh source link", items[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Relink source", items[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Mark source as unlinked", items[1])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Dismiss source issue", items[1])}"`,
+      ),
+    );
   });
 
   test("routes one-by-one source review actions", () => {
@@ -150,5 +189,32 @@ describe("SourceReviewPanel", () => {
     select("text:block-1");
 
     assert.deepEqual(calls, ["slide-2:node-orphan:block-1"]);
+  });
+
+  test("supports relinking to source blocks beyond the previous eight-item cap", () => {
+    const calls: string[] = [];
+    const sourceBlocks = [
+      ...Array.from({ length: 8 }, (_, index) =>
+        makeTextBlock(`block-${index + 1}`, `Block ${index + 1}`),
+      ),
+      makeTextBlock("block-9", "Block 9"),
+    ];
+    const element = SourceReviewPanel({
+      items: [items[1]],
+      sourceBlocks,
+      onSelect: () => undefined,
+      onRefresh: () => undefined,
+      onUnlink: () => undefined,
+      onRelink: (slideId, nodeId, selectedBlock) =>
+        calls.push(`${slideId}:${nodeId}:${selectedBlock.id}`),
+      onDismiss: () => undefined,
+      onRefreshAll: () => undefined,
+    });
+
+    const [select] = collectSelectHandlers(element);
+    assert.ok(select);
+    select("text:block-9");
+
+    assert.deepEqual(calls, ["slide-2:node-orphan:block-9"]);
   });
 });

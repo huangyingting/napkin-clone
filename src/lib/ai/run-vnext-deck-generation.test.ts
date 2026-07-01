@@ -50,6 +50,21 @@ function makeStubComplete(response: string): CompleteFn {
   return async () => response;
 }
 
+function makeSequenceComplete(responses: string[]): {
+  complete: CompleteFn;
+  getCallCount: () => number;
+} {
+  let calls = 0;
+  return {
+    complete: async () => {
+      const response = responses[Math.min(calls, responses.length - 1)];
+      calls += 1;
+      return response;
+    },
+    getCallCount: () => calls,
+  };
+}
+
 function makeInput(
   complete: CompleteFn,
   overrides: Partial<RunVnextDeckGenerationInput> = {},
@@ -199,6 +214,52 @@ describe("runVnextDeckGeneration", () => {
     await assert.rejects(
       runVnextDeckGeneration(makeInput(badComplete, { maxAttempts: 1 })),
       /Could not generate/i,
+    );
+  });
+
+  test("retries malformed slot payload through normal repair path", async () => {
+    const malformedPlan = JSON.stringify({
+      planVersion: 1,
+      slides: [
+        {
+          kind: "cover",
+          slots: {
+            title: { type: "shortText", text: { bad: true } },
+          },
+        },
+      ],
+    });
+
+    const { complete, getCallCount } = makeSequenceComplete([
+      malformedPlan,
+      VALID_PLAN_JSON,
+    ]);
+
+    const result = await runVnextDeckGeneration(
+      makeInput(complete, { maxAttempts: 2 }),
+    );
+    assert.equal(getCallCount(), 2);
+    assert.equal(result.deck.slides.length, 2);
+  });
+
+  test("rejects malformed slot payload with final generation error", async () => {
+    const malformedPlan = JSON.stringify({
+      planVersion: 1,
+      slides: [
+        {
+          kind: "cover",
+          slots: {
+            title: { type: "shortText", text: { bad: true } },
+          },
+        },
+      ],
+    });
+
+    await assert.rejects(
+      runVnextDeckGeneration(
+        makeInput(makeStubComplete(malformedPlan), { maxAttempts: 1 }),
+      ),
+      /Could not generate a valid v7 deck plan/i,
     );
   });
 

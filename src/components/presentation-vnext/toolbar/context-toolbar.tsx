@@ -10,11 +10,13 @@
 
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
   type JSX,
   type KeyboardEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import {
@@ -28,6 +30,8 @@ import {
   Ellipsis,
   Group,
   EyeOff,
+  FileText,
+  Image as ImageIcon,
   IndentDecrease,
   IndentIncrease,
   Italic,
@@ -39,9 +43,14 @@ import {
   Replace,
   RotateCcw,
   RotateCw,
+  Scissors,
   SendToBack,
+  Spline,
+  Square,
   Strikethrough,
+  Table2,
   Trash2,
+  Type as TypeIcon,
   Underline,
   Ungroup,
   Unlock,
@@ -50,6 +59,7 @@ import {
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type {
   ImageFitMode,
+  StyleObject,
   StylePatch,
 } from "@/lib/presentation-vnext/style-schema";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -57,22 +67,110 @@ import { FloatingSurface } from "@/components/ui/floating-surface";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
-import { dispatchInlineTextCommand } from "@/lib/presentation-vnext/inline-text-commands";
+import {
+  dispatchInlineTextCommand,
+  type InlineTextCommandName,
+} from "@/lib/presentation-vnext/inline-text-commands";
+import {
+  focusFirstMenuCommand,
+  isMenuCommandNavigationKey,
+  moveMenuCommandFocus,
+} from "@/lib/a11y/menu-command-semantics";
 
 const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
+const INLINE_ONLY_TEXT_COMMANDS = new Set<InlineTextCommandName>([
+  "strikethrough",
+  "bullet-list",
+  "numbered-list",
+  "indent-list",
+  "outdent-list",
+  "link",
+  "unlink",
+]);
 
 export type SelectionAlignMode =
-  | "left"
-  | "center"
-  | "right"
-  | "top"
-  | "middle"
-  | "bottom";
+  "left" | "center" | "right" | "top" | "middle" | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
+type SlideToolInsertActionKey =
+  "text" | "shape" | "image" | "visual" | "connector" | "table";
+
+export function isContextToolbarInlineTextCommandEnabled(
+  command: InlineTextCommandName,
+  isInlineEditing: boolean,
+): boolean {
+  if (!INLINE_ONLY_TEXT_COMMANDS.has(command)) return true;
+  return isInlineEditing;
+}
+
+const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
+  text: "Insert text",
+  shape: "Insert shape",
+  image: "Insert image",
+  visual: "Insert visual",
+  connector: "Insert connector",
+  table: "Insert table",
+};
+
+interface SlideToolInsertCallbacks {
+  onInsertText?: () => void;
+  onInsertShape?: () => void;
+  onInsertImage?: () => void;
+  onInsertVisual?: () => void;
+  onInsertConnector?: () => void;
+  onInsertTable?: () => void;
+}
+
+interface SlideToolInsertAction {
+  key: SlideToolInsertActionKey;
+  label: string;
+  onClick: () => void;
+}
+
+export function buildSlideToolInsertActions({
+  onInsertText,
+  onInsertShape,
+  onInsertImage,
+  onInsertVisual,
+  onInsertConnector,
+  onInsertTable,
+}: SlideToolInsertCallbacks): SlideToolInsertAction[] {
+  const handlers: Partial<Record<SlideToolInsertActionKey, () => void>> = {
+    text: onInsertText,
+    shape: onInsertShape,
+    image: onInsertImage,
+    visual: onInsertVisual,
+    connector: onInsertConnector,
+    table: onInsertTable,
+  };
+  return (["text", "shape", "image", "visual", "connector", "table"] as const)
+    .map((key) => {
+      const onClick = handlers[key];
+      if (!onClick) return null;
+      return { key, label: SLIDE_TOOL_INSERT_LABELS[key], onClick };
+    })
+    .filter((action): action is SlideToolInsertAction => action !== null);
+}
+
+function renderSlideToolInsertIcon(key: SlideToolInsertActionKey) {
+  switch (key) {
+    case "text":
+      return <TypeIcon size={13} aria-hidden />;
+    case "shape":
+      return <Square size={13} aria-hidden />;
+    case "image":
+      return <ImageIcon size={13} aria-hidden />;
+    case "visual":
+      return <FileText size={13} aria-hidden />;
+    case "connector":
+      return <Spline size={13} aria-hidden />;
+    case "table":
+      return <Table2 size={13} aria-hidden />;
+  }
+}
 
 interface TBtnProps {
   label: string;
@@ -80,16 +178,34 @@ interface TBtnProps {
   disabled?: boolean;
   onClick: () => void;
   children: ReactNode;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
+  hasPopup?: "menu" | "dialog";
+  expanded?: boolean;
+  controls?: string;
 }
 
-function TBtn({ label, active, disabled, onClick, children }: TBtnProps) {
+function TBtn({
+  label,
+  active,
+  disabled,
+  onClick,
+  children,
+  buttonRef,
+  hasPopup,
+  expanded,
+  controls,
+}: TBtnProps) {
   return (
     <Tooltip label={label} delay={250}>
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label}
         title={label}
         aria-pressed={active}
+        aria-haspopup={hasPopup}
+        aria-expanded={hasPopup ? expanded : undefined}
+        aria-controls={controls}
         disabled={disabled}
         onClick={onClick}
         className={cx(
@@ -204,10 +320,77 @@ function getColor(value: unknown, fallback: string): string {
 
 function getSolidFillColor(
   localStyle: StylePatch | undefined,
+  resolvedStyle: StyleObject | undefined,
   fallback: string,
 ): string {
-  const fill = localStyle?.fill;
-  return fill?.type === "solid" ? getColor(fill.color, fallback) : fallback;
+  const resolvedFill = resolvedStyle?.fill;
+  if (resolvedFill?.type === "solid") {
+    return getColor(resolvedFill.color, fallback);
+  }
+  const localFill = localStyle?.fill;
+  return localFill?.type === "solid"
+    ? getColor(localFill.color, fallback)
+    : fallback;
+}
+
+export type ContextToolbarStyleSeed = {
+  textStyle: StyleObject["text"] | StylePatch["text"] | undefined;
+  fillColor: string;
+  shapeStrokeColor: string;
+  shapeStrokeWidth: number;
+  connectorStrokeColor: string;
+  connectorStrokeWidth: number;
+  connectorStartArrow: "none" | "arrow" | "filled";
+  connectorEndArrow: "none" | "arrow" | "filled";
+  textColor: string;
+  fontSize: number;
+  opacity: number;
+};
+
+export function seedContextToolbarStyles(
+  selectedNode: SlideChildNode | undefined,
+  selectedResolvedStyle: StyleObject | undefined,
+): ContextToolbarStyleSeed {
+  const textStyle =
+    selectedResolvedStyle?.text ?? selectedNode?.localStyle?.text;
+  const shapeStrokeColor = getColor(
+    selectedResolvedStyle?.stroke?.color,
+    getColor(selectedNode?.localStyle?.stroke?.color, "#111827"),
+  );
+  const connectorStrokeColor = getColor(
+    selectedResolvedStyle?.connector?.stroke?.color,
+    getColor(selectedNode?.localStyle?.connector?.stroke?.color, "#111827"),
+  );
+  return {
+    textStyle,
+    fillColor: getSolidFillColor(
+      selectedNode?.localStyle,
+      selectedResolvedStyle,
+      "#ffffff",
+    ),
+    shapeStrokeColor,
+    shapeStrokeWidth:
+      selectedResolvedStyle?.stroke?.widthPt ??
+      selectedNode?.localStyle?.stroke?.widthPt ??
+      1,
+    connectorStrokeColor,
+    connectorStrokeWidth:
+      selectedResolvedStyle?.connector?.stroke?.widthPt ??
+      selectedNode?.localStyle?.connector?.stroke?.widthPt ??
+      1.5,
+    connectorStartArrow:
+      selectedResolvedStyle?.connector?.startArrow ??
+      selectedNode?.localStyle?.connector?.startArrow ??
+      "none",
+    connectorEndArrow:
+      selectedResolvedStyle?.connector?.endArrow ??
+      selectedNode?.localStyle?.connector?.endArrow ??
+      "arrow",
+    textColor: getColor(textStyle?.color, "#111827"),
+    fontSize: textStyle?.fontSizePt ?? 18,
+    opacity:
+      selectedResolvedStyle?.opacity ?? selectedNode?.localStyle?.opacity ?? 1,
+  };
 }
 
 function getSelectionRect(selectedIds: string[]): DOMRect | null {
@@ -226,9 +409,23 @@ function getSelectionRect(selectedIds: string[]): DOMRect | null {
 }
 
 function getSlideAnchorRect(): DOMRect | null {
-  if (typeof document === "undefined") return null;
-  const frame = document.querySelector('[data-slide-stage-frame="true"]');
+  const frame = getSlideAnchorElement();
   return frame?.getBoundingClientRect() ?? null;
+}
+
+function getSlideAnchorElement(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>('[data-slide-stage-frame="true"]');
+}
+
+function getSelectionElements(selectedIds: string[]): HTMLElement[] {
+  if (typeof document === "undefined" || selectedIds.length === 0) return [];
+  const nodes: HTMLElement[] = [];
+  for (const id of selectedIds) {
+    const node = document.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+    if (node) nodes.push(node);
+  }
+  return nodes;
 }
 
 function tableWithAddedRow(node: TableNode) {
@@ -281,10 +478,12 @@ function tableWithDeletedLastColumn(node: TableNode) {
 export interface ContextToolbarProps {
   selectedIds: string[];
   selectedNode: SlideChildNode | undefined;
+  selectedResolvedStyle?: StyleObject;
   isInlineEditing: boolean;
   isDragging: boolean;
   isDecorationSelected: boolean;
   onDelete: () => void;
+  onCut: () => void;
   onDuplicate: () => void;
   onGroup: () => void;
   onUngroup: () => void;
@@ -309,18 +508,39 @@ export interface ContextToolbarProps {
   slideBackgroundColor?: string;
   onUpdateSlideLocalStyle?: (patch: StylePatch) => void;
   onInsertSlide?: () => void;
+  onInsertText?: () => void;
+  onInsertShape?: () => void;
+  onInsertImage?: () => void;
+  onInsertVisual?: () => void;
+  onInsertConnector?: () => void;
+  onInsertTable?: () => void;
   onDuplicateSlide?: () => void;
   onDeleteSlide?: () => void;
+  canDeleteSlide?: boolean;
   onDetachDecoration?: () => void;
+  onRequestStageFocus?: () => void;
+}
+
+export function restoreFocusAfterContextToolbarEscape(
+  onRequestStageFocus: (() => void) | undefined,
+): void {
+  if (onRequestStageFocus) {
+    onRequestStageFocus();
+    return;
+  }
+  if (typeof document === "undefined") return;
+  (document.activeElement as HTMLElement | null)?.blur();
 }
 
 export function ContextToolbar({
   selectedIds,
   selectedNode,
+  selectedResolvedStyle,
   isInlineEditing,
   isDragging,
   isDecorationSelected,
   onDelete,
+  onCut,
   onDuplicate,
   onGroup,
   onUngroup,
@@ -342,21 +562,42 @@ export function ContextToolbar({
   slideBackgroundColor = "#ffffff",
   onUpdateSlideLocalStyle,
   onInsertSlide,
+  onInsertText,
+  onInsertShape,
+  onInsertImage,
+  onInsertVisual,
+  onInsertConnector,
+  onInsertTable,
   onDuplicateSlide,
   onDeleteSlide,
+  canDeleteSlide = true,
   onDetachDecoration,
+  onRequestStageFocus,
 }: ContextToolbarProps): JSX.Element | null {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState({ top: -1000, left: -1000 });
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkDraft, setLinkDraft] = useState("https://");
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuId = useId();
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const moreMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const prevPositionRef = useRef({ top: -1000, left: -1000 });
   const isMultiSelect = selectedIds.length > 1;
+  const slideToolInsertActions = buildSlideToolInsertActions({
+    onInsertText,
+    onInsertShape,
+    onInsertImage,
+    onInsertVisual,
+    onInsertConnector,
+    onInsertTable,
+  });
   const showSlideTools =
     selectedIds.length === 0 &&
     !isInlineEditing &&
-    Boolean(onUpdateSlideLocalStyle || onInsertSlide);
+    Boolean(
+      onUpdateSlideLocalStyle || onInsertSlide || slideToolInsertActions.length,
+    );
   const visible = !isDragging && (selectedIds.length > 0 || showSlideTools);
 
   function updateToolbarPosition() {
@@ -390,32 +631,59 @@ export function ContextToolbar({
 
   useEffect(() => {
     if (!visible) return;
-    const handler = () => updateToolbarPosition();
+    let frameId: number | null = null;
+    const schedulePositionUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        updateToolbarPosition();
+      });
+    };
+    const handler = () => schedulePositionUpdate();
+    schedulePositionUpdate();
     window.addEventListener("resize", handler, { passive: true });
     window.addEventListener("scroll", handler, {
       passive: true,
       capture: true,
     });
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(schedulePositionUpdate);
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(schedulePositionUpdate);
+    const observedNodes = new Set<HTMLElement>();
+    const toolbarNode = toolbarRef.current;
+    const slideAnchorNode = getSlideAnchorElement();
+    if (toolbarNode) observedNodes.add(toolbarNode);
+    if (slideAnchorNode) observedNodes.add(slideAnchorNode);
+    for (const node of getSelectionElements(selectedIds)) {
+      observedNodes.add(node);
+    }
+    for (const node of observedNodes) {
+      resizeObserver?.observe(node);
+      mutationObserver?.observe(node, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
     return () => {
       window.removeEventListener("resize", handler);
       window.removeEventListener("scroll", handler, true);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
     };
     // updateToolbarPosition intentionally reads live DOM geometry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedIds, showSlideTools]);
 
   useEffect(() => {
-    if (!visible) return;
-    let frame = 0;
-    const tick = () => {
-      updateToolbarPosition();
-      frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-    // updateToolbarPosition intentionally reads live DOM geometry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, selectedIds, showSlideTools]);
+    if (!moreOpen) return;
+    focusFirstMenuCommand(moreMenuRef.current);
+  }, [moreOpen]);
 
   const nodeType = selectedNode?.type;
   const showTextGroup =
@@ -423,16 +691,24 @@ export function ContextToolbar({
     nodeType === "text" ||
     (nodeType === "shape" && !isMultiSelect);
   const showArrangeGroup = !isInlineEditing && !isDecorationSelected;
-
-  const textStyle = selectedNode?.localStyle?.text;
-  const fillColor = getSolidFillColor(selectedNode?.localStyle, "#ffffff");
-  const strokeColor = getColor(
-    selectedNode?.localStyle?.stroke?.color,
-    "#111827",
+  const linkCommandEnabled = isContextToolbarInlineTextCommandEnabled(
+    "link",
+    isInlineEditing,
   );
-  const textColor = getColor(textStyle?.color, "#111827");
-  const fontSize = textStyle?.fontSizePt ?? 18;
-  const opacity = selectedNode?.localStyle?.opacity ?? 1;
+
+  const styleSeed = seedContextToolbarStyles(
+    selectedNode,
+    selectedResolvedStyle,
+  );
+  const textStyle = styleSeed.textStyle;
+  const fillColor = styleSeed.fillColor;
+  const shapeStrokeColor = styleSeed.shapeStrokeColor;
+  const shapeStrokeWidth = styleSeed.shapeStrokeWidth;
+  const connectorStrokeColor = styleSeed.connectorStrokeColor;
+  const connectorStrokeWidth = styleSeed.connectorStrokeWidth;
+  const textColor = styleSeed.textColor;
+  const fontSize = styleSeed.fontSize;
+  const opacity = styleSeed.opacity;
   const rotation = selectedNode?.layout?.rotation ?? 0;
 
   function runTextCommand(command: "bold" | "italic" | "underline") {
@@ -459,7 +735,7 @@ export function ContextToolbar({
 
   function updateTextAlign(align: "left" | "center" | "right") {
     dispatchInlineTextCommand({ command: `align-${align}` });
-    if (!isInlineEditing) onUpdateSelectedLocalStyle?.({ text: { align } });
+    onUpdateSelectedLocalStyle?.({ text: { align } });
   }
 
   function updateFontSize(value: number) {
@@ -470,6 +746,11 @@ export function ContextToolbar({
     if (!isInlineEditing) {
       onUpdateSelectedLocalStyle?.({ text: { fontSizePt: value } });
     }
+  }
+
+  function closeMoreMenuAndRestoreFocus() {
+    setMoreOpen(false);
+    moreMenuTriggerRef.current?.focus();
   }
 
   function handleToolbarKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -485,8 +766,9 @@ export function ContextToolbar({
     const toolbar = toolbarRef.current;
     if (!toolbar) return;
     if (event.key === "Escape") {
-      (document.activeElement as HTMLElement | null)?.blur();
       event.preventDefault();
+      event.stopPropagation();
+      restoreFocusAfterContextToolbarEscape(onRequestStageFocus);
       return;
     }
     const controls = Array.from(
@@ -509,6 +791,26 @@ export function ContextToolbar({
             : (currentIndex + direction + controls.length) % controls.length;
     controls[nextIndex]?.focus();
     event.preventDefault();
+  }
+
+  function handleMoreMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMoreMenuAndRestoreFocus();
+      return;
+    }
+    if (!isMenuCommandNavigationKey(event.key)) return;
+    if (
+      moveMenuCommandFocus({
+        container: moreMenuRef.current,
+        key: event.key,
+        currentTarget: event.target,
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   return (
@@ -545,10 +847,24 @@ export function ContextToolbar({
             <TBtn label="Add slide" onClick={() => onInsertSlide?.()}>
               <Plus size={13} aria-hidden />
             </TBtn>
+            {slideToolInsertActions.length > 0 ? <Divider /> : null}
+            {slideToolInsertActions.map((action) => (
+              <TBtn
+                key={action.key}
+                label={action.label}
+                onClick={() => action.onClick()}
+              >
+                {renderSlideToolInsertIcon(action.key)}
+              </TBtn>
+            ))}
             <TBtn label="Duplicate slide" onClick={() => onDuplicateSlide?.()}>
               <Copy size={13} aria-hidden />
             </TBtn>
-            <TBtn label="Delete slide" onClick={() => onDeleteSlide?.()}>
+            <TBtn
+              label="Delete slide"
+              disabled={!canDeleteSlide || !onDeleteSlide}
+              onClick={() => onDeleteSlide?.()}
+            >
               <Trash2 size={13} aria-hidden />
             </TBtn>
           </>
@@ -579,6 +895,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Strikethrough"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "strikethrough",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "strikethrough" })
               }
@@ -611,6 +933,12 @@ export function ContextToolbar({
             </ToolbarSelect>
             <TBtn
               label="Bullet list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "bullet-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "bullet-list" })
               }
@@ -619,6 +947,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Numbered list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "numbered-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "numbered-list" })
               }
@@ -627,6 +961,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Outdent list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "outdent-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "outdent-list" })
               }
@@ -635,6 +975,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Indent list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "indent-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "indent-list" })
               }
@@ -667,12 +1013,16 @@ export function ContextToolbar({
               onChange={updateFontSize}
             />
             <Popover
-              open={linkOpen}
+              open={linkCommandEnabled && linkOpen}
               onClose={() => setLinkOpen(false)}
               portal
               align="center"
               trigger={
-                <TBtn label="Link" onClick={() => setLinkOpen((open) => !open)}>
+                <TBtn
+                  label="Link"
+                  disabled={!linkCommandEnabled}
+                  onClick={() => setLinkOpen((open) => !open)}
+                >
                   <Link size={13} aria-hidden />
                 </TBtn>
               }
@@ -683,6 +1033,7 @@ export function ContextToolbar({
                 className="flex flex-col gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  if (!linkCommandEnabled) return;
                   const url = linkDraft.trim();
                   if (url) {
                     dispatchInlineTextCommand({ command: "link", value: url });
@@ -702,13 +1053,16 @@ export function ContextToolbar({
                 </label>
                 <button
                   type="submit"
+                  disabled={!linkCommandEnabled}
                   className="self-end rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
                 >
                   Apply link
                 </button>
                 <button
                   type="button"
+                  disabled={!linkCommandEnabled}
                   onClick={() => {
+                    if (!linkCommandEnabled) return;
                     dispatchInlineTextCommand({ command: "unlink" });
                     setLinkOpen(false);
                   }}
@@ -735,12 +1089,12 @@ export function ContextToolbar({
             />
             <ColorInput
               label="Border color"
-              value={strokeColor}
+              value={shapeStrokeColor}
               onChange={(color) =>
                 onUpdateSelectedLocalStyle?.({
                   stroke: {
                     color,
-                    widthPt: selectedNode.localStyle?.stroke?.widthPt ?? 1,
+                    widthPt: shapeStrokeWidth,
                   },
                 })
               }
@@ -873,15 +1227,13 @@ export function ContextToolbar({
             </ToolbarSelect>
             <ColorInput
               label="Line color"
-              value={strokeColor}
+              value={connectorStrokeColor}
               onChange={(color) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
                     stroke: {
                       color,
-                      widthPt:
-                        selectedNode.localStyle?.connector?.stroke?.widthPt ??
-                        1.5,
+                      widthPt: connectorStrokeWidth,
                     },
                   },
                 })
@@ -889,21 +1241,21 @@ export function ContextToolbar({
             />
             <ToolbarNumber
               label="Line width"
-              value={selectedNode.localStyle?.connector?.stroke?.widthPt ?? 1.5}
+              value={connectorStrokeWidth}
               min={0.5}
               max={12}
               step={0.5}
               onChange={(widthPt) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
-                    stroke: { color: strokeColor, widthPt },
+                    stroke: { color: connectorStrokeColor, widthPt },
                   },
                 })
               }
             />
             <ToolbarSelect
               label="Start arrow"
-              value={selectedNode.localStyle?.connector?.startArrow ?? "none"}
+              value={styleSeed.connectorStartArrow}
               onChange={(startArrow) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
@@ -920,7 +1272,7 @@ export function ContextToolbar({
             </ToolbarSelect>
             <ToolbarSelect
               label="End arrow"
-              value={selectedNode.localStyle?.connector?.endArrow ?? "arrow"}
+              value={styleSeed.connectorEndArrow}
               onChange={(endArrow) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
@@ -1101,6 +1453,13 @@ export function ContextToolbar({
 
             <Divider />
             <TBtn
+              label="Cut"
+              onClick={onCut}
+              disabled={selectedIds.length === 0}
+            >
+              <Scissors size={13} aria-hidden />
+            </TBtn>
+            <TBtn
               label="Duplicate"
               onClick={onDuplicate}
               disabled={selectedIds.length === 0}
@@ -1120,7 +1479,14 @@ export function ContextToolbar({
               portal
               align="center"
               trigger={
-                <TBtn label="More" onClick={() => setMoreOpen((open) => !open)}>
+                <TBtn
+                  label="More"
+                  buttonRef={moreMenuTriggerRef}
+                  hasPopup="menu"
+                  expanded={moreOpen}
+                  controls={moreOpen ? moreMenuId : undefined}
+                  onClick={() => setMoreOpen((open) => !open)}
+                >
                   <Ellipsis size={13} aria-hidden />
                 </TBtn>
               }
@@ -1128,36 +1494,43 @@ export function ContextToolbar({
               aria-label="More object actions"
               role="menu"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onUpdateSelectedAttributes?.({
-                    locked: selectedNode?.locked !== true,
-                  });
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              <div
+                ref={moreMenuRef}
+                id={moreMenuId}
+                className="flex flex-col"
+                onKeyDown={handleMoreMenuKeyDown}
               >
-                {selectedNode?.locked ? (
-                  <Unlock size={12} aria-hidden />
-                ) : (
-                  <Lock size={12} aria-hidden />
-                )}
-                {selectedNode?.locked ? "Unlock" : "Lock"}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onUpdateSelectedAttributes?.({ hidden: true });
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-              >
-                <EyeOff size={12} aria-hidden />
-                Hide
-              </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    onUpdateSelectedAttributes?.({
+                      locked: selectedNode?.locked !== true,
+                    });
+                    closeMoreMenuAndRestoreFocus();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                >
+                  {selectedNode?.locked ? (
+                    <Unlock size={12} aria-hidden />
+                  ) : (
+                    <Lock size={12} aria-hidden />
+                  )}
+                  {selectedNode?.locked ? "Unlock" : "Lock"}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    onUpdateSelectedAttributes?.({ hidden: true });
+                    closeMoreMenuAndRestoreFocus();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                >
+                  <EyeOff size={12} aria-hidden />
+                  Hide
+                </button>
+              </div>
             </Popover>
           </>
         ) : null}

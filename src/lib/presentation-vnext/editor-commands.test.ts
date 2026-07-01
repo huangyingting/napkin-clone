@@ -21,6 +21,7 @@ import {
   setThemePackage,
   insertNode,
   pasteNodes,
+  cutNodes,
   updateNodeLayout,
   updateNodeAttributes,
   updateNodeRotation,
@@ -518,6 +519,44 @@ describe("insertNode and pasteNodes", () => {
   });
 });
 
+describe("cutNodes", () => {
+  test("cuts selected nodes so they can be pasted back as new copies", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const selected = slide.children[0];
+    const cut = cutNodes(deck, slide.id, [selected.id]);
+
+    assert.deepEqual(
+      cut.nodes.map((node) => node.id),
+      [selected.id],
+    );
+    assert.equal(
+      cut.deck.slides[0].children.some((node) => node.id === selected.id),
+      false,
+    );
+
+    const pasted = pasteNodes(cut.deck, slide.id, cut.nodes);
+    assert.equal(pasted.nodeIds.length, 1);
+    assert.notEqual(pasted.nodeIds[0], selected.id);
+    assert.equal(
+      pasted.deck.slides[0].children.some(
+        (node) => node.id === pasted.nodeIds[0],
+      ),
+      true,
+    );
+  });
+
+  test("preserves delete behavior by using the same delete output", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const selectedId = slide.children[0].id;
+    const cut = cutNodes(deck, slide.id, [selectedId]);
+    const deleted = deleteNodes(deck, slide.id, [selectedId]);
+
+    assert.deepEqual(cut.deck, deleted);
+  });
+});
+
 describe("updateNodeSourceMetadata", () => {
   test("sets and clears source metadata on a node", () => {
     const deck = makeTestDeck();
@@ -557,6 +596,82 @@ describe("moveNodesBy", () => {
 
     assert.equal(node?.layout?.frame.x, original.x + 1);
     assert.equal(node?.layout?.frame.y, original.y - 1);
+  });
+
+  test("moves grouped children with their selected group and preserves ungroup positions", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const grouped = groupNodes(
+      deck,
+      slide.id,
+      slide.children.map((node) => node.id),
+      "move-group",
+      { ref: "surface.card" },
+    );
+    const groupBeforeMove = findNode(grouped.slides[0].children, "move-group");
+    assert.equal(groupBeforeMove?.type, "group");
+    if (groupBeforeMove?.type !== "group") return;
+    const childFrameBefore = groupBeforeMove.children[0]?.layout?.frame;
+    assert.ok(childFrameBefore);
+
+    const moved = moveNodesBy(grouped, slide.id, ["move-group"], {
+      x: 4,
+      y: 3,
+    });
+    const groupAfterMove = findNode(moved.slides[0].children, "move-group");
+    assert.equal(groupAfterMove?.type, "group");
+    if (groupAfterMove?.type !== "group") return;
+    const childFrameAfter = groupAfterMove.children[0]?.layout?.frame;
+    assert.ok(childFrameAfter);
+    assert.equal(
+      groupAfterMove.layout?.frame.x,
+      groupBeforeMove.layout!.frame.x + 4,
+    );
+    assert.equal(
+      groupAfterMove.layout?.frame.y,
+      groupBeforeMove.layout!.frame.y + 3,
+    );
+    assert.equal(childFrameAfter?.x, childFrameBefore!.x + 4);
+    assert.equal(childFrameAfter?.y, childFrameBefore!.y + 3);
+
+    const ungrouped = ungroupNodes(moved, slide.id, "move-group");
+    const ungroupedChild = findNode(
+      ungrouped.deck.slides[0].children,
+      groupAfterMove.children[0]!.id,
+    );
+    assert.deepEqual(ungroupedChild?.layout?.frame, childFrameAfter);
+  });
+
+  test("keeps direct child layout edits working after moving a group", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const grouped = groupNodes(
+      deck,
+      slide.id,
+      slide.children.map((node) => node.id),
+      "edit-group",
+      { ref: "surface.card" },
+    );
+    const moved = moveNodesBy(grouped, slide.id, ["edit-group"], {
+      x: 2,
+      y: 2,
+    });
+    const movedGroup = findNode(moved.slides[0].children, "edit-group");
+    assert.equal(movedGroup?.type, "group");
+    if (movedGroup?.type !== "group") return;
+    const targetChild = movedGroup.children[0];
+    assert.ok(targetChild?.layout);
+    if (!targetChild?.layout) return;
+
+    const edited = updateNodeLayout(moved, slide.id, targetChild.id, {
+      frame: {
+        ...targetChild.layout.frame,
+        x: targetChild.layout.frame.x + 5,
+      },
+    });
+    const editedChild = findNode(edited.slides[0].children, targetChild.id);
+    assert.equal(editedChild?.layout?.frame.x, targetChild.layout.frame.x + 5);
+    assert.equal(editedChild?.layout?.frame.y, targetChild.layout.frame.y);
   });
 });
 
@@ -1261,6 +1376,50 @@ describe("updateLocalStyle deep merge", () => {
     assert.equal(node?.localStyle?.text?.fontSizePt, 44);
     assert.equal(node?.localStyle?.text?.italic, true);
     assert.equal(node?.localStyle?.text?.color, "#ff0000");
+  });
+
+  test("preserves existing nested connector stroke fields across toolbar patches", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const step1 = updateLocalStyle(deck, slide.id, nodeId, {
+      connector: {
+        stroke: { color: "#334155", widthPt: 1.5, dash: "dotted" },
+      },
+    });
+    const step2 = updateLocalStyle(step1, slide.id, nodeId, {
+      connector: { stroke: { color: "#ef4444", widthPt: 2 } },
+    });
+    const node = step2.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.equal(node?.localStyle?.connector?.stroke?.color, "#ef4444");
+    assert.equal(node?.localStyle?.connector?.stroke?.widthPt, 2);
+    assert.equal(node?.localStyle?.connector?.stroke?.dash, "dotted");
+  });
+
+  test("preserves sibling visual channel colors across sequential patches", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const step1 = updateLocalStyle(deck, slide.id, nodeId, {
+      visual: {
+        channelColors: {
+          primary: "#2563eb",
+          secondary: "#f59e0b",
+          tertiary: "#10b981",
+        },
+      },
+    });
+    const step2 = updateLocalStyle(step1, slide.id, nodeId, {
+      visual: { channelColors: { primary: "#7c3aed" } },
+    });
+    const node = step2.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.deepEqual(node?.localStyle?.visual?.channelColors, {
+      primary: "#7c3aed",
+      secondary: "#f59e0b",
+      tertiary: "#10b981",
+    });
   });
 });
 

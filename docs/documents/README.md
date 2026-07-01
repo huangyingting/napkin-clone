@@ -37,8 +37,8 @@ plain content from the catalog.
 
 Import creation receives normalized Markdown-compatible text from the
 [import subsystem](../import/README.md), clamps title/content to configured
-limits, converts content through `markdownToLexicalState`, and stores both plain
-`content` and `contentJson`.
+limits, converts content through `markdownToLexicalState`, and stores canonical
+`contentJson` without writing the deprecated plaintext `content` mirror.
 
 New credentials and OAuth users receive onboarding content through the sample
 document seed path.

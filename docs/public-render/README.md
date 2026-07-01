@@ -46,9 +46,10 @@ taxonomy from [../security/access-and-sharing.md](../security/access-and-sharing
 Missing shares return concealed 404 decisions. Disabled or expired shares return
 the denial semantics selected by the share-access policy.
 
-Protected public slide assets are served only when the document allows public
-present or embed access. Deleted or missing documents deny with 404; existing
-documents without public asset access deny with 403.
+Protected public slide assets are served only when the request includes the
+share link binding that exposed the deck (`shareId` + `shareMode`) and that
+binding still passes public share policy checks. Deleted or missing documents
+deny with 404; existing documents without valid bound access deny with 403.
 
 ## Presentation Model
 
@@ -76,7 +77,7 @@ decision.
 
 1. Public render never mutates document, deck, or visual state.
 2. Mode/projection mismatches fail before producing a public model.
-3. Public asset access requires active present or embed public access.
+3. Public asset access requires active share-bound present/embed access.
 4. Missing shares are concealed as not found.
 5. Public metadata defaults to generic, non-discoverable output.
 6. Public presentation output reconciles deck refs with available visuals.

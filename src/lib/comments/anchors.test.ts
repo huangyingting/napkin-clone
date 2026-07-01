@@ -253,9 +253,13 @@ test("validateAnchorGeometry accepts bounds and rejects invalid values", () => {
   assert.deepEqual(validateAnchorGeometry({ x: 0, y: 100 }), { x: 0, y: 100 });
   assert.throws(() => validateAnchorGeometry({ x: -1, y: 50 }));
   assert.throws(() => validateAnchorGeometry({ x: "25", y: 50 }));
+  assert.throws(() => validateAnchorGeometry({ x: Number.NaN, y: 50 }));
+  assert.throws(() => validateAnchorGeometry({ x: 50, y: Number.NaN }));
 });
 
 test("sanitizeAnchorGeometry drops non-objects and out-of-range values", () => {
   assert.equal(sanitizeAnchorGeometry("bad"), null);
   assert.equal(sanitizeAnchorGeometry({ x: 50, y: 101 }), null);
+  assert.equal(sanitizeAnchorGeometry({ x: Number.NaN, y: 50 }), null);
+  assert.equal(sanitizeAnchorGeometry({ x: 50, y: Number.NaN }), null);
 });

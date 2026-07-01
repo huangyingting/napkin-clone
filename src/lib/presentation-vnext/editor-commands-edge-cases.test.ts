@@ -150,6 +150,50 @@ describe("editor command edge cases", () => {
     }
   });
 
+  test("keeps connector endpoint bindings when connector frame is zero-sized", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const target: SlideChildNode = {
+      id: "zero-frame-target",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 40, y: 40, w: 20, h: 10 }, zIndex: 3 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "zero-frame-p1", text: "Target" }] },
+    };
+    const connector: SlideChildNode = {
+      id: "zero-frame-connector",
+      type: "connector",
+      role: "connector",
+      layout: { frame: { x: 0, y: 0, w: 0, h: 30 }, zIndex: 9 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: target.id, anchor: "top" },
+        to: { kind: "point", point: { x: 50, y: 50 } },
+      },
+    };
+    const withConnector = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? {
+              ...candidate,
+              children: [...candidate.children, target, connector],
+            }
+          : candidate,
+      ),
+    };
+
+    const updated = deleteNodes(withConnector, slide.id, [target.id]);
+    const repaired = findNode(updated.slides[0].children, connector.id);
+
+    assert.equal(repaired?.type, "connector");
+    if (repaired?.type === "connector") {
+      assert.deepEqual(repaired.content.from, connector.content.from);
+      assert.deepEqual(repaired.content.to, connector.content.to);
+    }
+  });
+
   test("restoreThemeDecoration preserves remaining disabled decorations", () => {
     const deck = buildDeckV7([buildCoverSlide()], {
       theme: {

@@ -2,10 +2,10 @@
  * Persisted-payload schema audit (#501).
  *
  * Pure, DB-free auditing of the persisted shapes that the runtime trusts:
- *  - `Document.deckJson`          → {@link safeParseDeck}
+ *  - `Document.deckJson`          → {@link safeParseDeckV7}
  *  - `Document.contentJson` visuals → {@link safeParseVisual} per visual node
  *  - `Visual.data`                → {@link safeParseVisual}
- *  - active `SourceRef` fields    → {@link validateSourceRef}
+ *  - active DeckV7 `source` metadata → {@link safeParseDeckV7}
  *
  * The audit reports ONLY safe identifiers and an opaque validator reason — row
  * id / document id / schema area / failure reason — and NEVER any document
@@ -18,7 +18,7 @@
  * runs inside request handling.
  */
 
-import { validateSourceRef } from "@/lib/presentation/deck-schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import { safeParseVisual } from "@/lib/visual/schema";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import {
@@ -37,7 +37,7 @@ export const SCHEMA_AREAS = [
   "DocumentVersion.deckJson",
   "DocumentVersion.contentJson:visual",
   "Visual.data",
-  "SourceRef",
+  "NodeSourceMetadata",
   "Comment.anchor",
   "Tag.slug",
   "WorkspaceMember.role",
@@ -196,28 +196,87 @@ function contractViolation(
   return result.success ? null : result.error;
 }
 
-/**
- * Collects active (`unlinked !== true`) `sourceRef` objects from a raw deck
- * JSON structure WITHOUT trusting the deck schema, so source-ref issues are
- * caught even when the surrounding deck fails to parse for unrelated reasons.
- */
-function collectRawSourceRefs(rawDeck: unknown): unknown[] {
-  const refs: unknown[] = [];
-  if (!isRecord(rawDeck) || !Array.isArray(rawDeck.slides)) return refs;
-  for (const slide of rawDeck.slides) {
-    if (!isRecord(slide) || !Array.isArray(slide.elements)) continue;
-    for (const element of slide.elements) {
-      if (!isRecord(element)) continue;
-      const ref = element.sourceRef;
-      if (ref !== undefined && isRecord(ref) && ref.unlinked !== true) {
-        refs.push(ref);
-      }
-    }
-  }
-  return refs;
+interface RawNodeSourceMetadataEntry {
+  source: unknown;
+  path: string;
 }
 
-/** Audits a single `Document.deckJson` value (deck + active source refs). */
+function isActiveSourceMetadata(source: unknown): boolean {
+  return !(isRecord(source) && source.unlinked === true);
+}
+
+function collectRawNodeSourceMetadata(
+  rawDeck: unknown,
+): RawNodeSourceMetadataEntry[] {
+  const sources: RawNodeSourceMetadataEntry[] = [];
+  if (!isRecord(rawDeck) || !Array.isArray(rawDeck.slides)) return sources;
+
+  const collectChildSources = (node: unknown, path: string): void => {
+    if (!isRecord(node)) return;
+    if (node.source !== undefined && isActiveSourceMetadata(node.source)) {
+      sources.push({ source: node.source, path: `${path}.source` });
+    }
+    if (node.type === "group" && Array.isArray(node.children)) {
+      node.children.forEach((child, childIndex) => {
+        collectChildSources(child, `${path}.children[${childIndex}]`);
+      });
+    }
+  };
+
+  rawDeck.slides.forEach((slide, slideIndex) => {
+    if (!isRecord(slide)) return;
+    const slidePath = `slides[${slideIndex}]`;
+    if (slide.source !== undefined && isActiveSourceMetadata(slide.source)) {
+      sources.push({ source: slide.source, path: `${slidePath}.source` });
+    }
+    if (!Array.isArray(slide.children)) return;
+    slide.children.forEach((child, childIndex) => {
+      collectChildSources(child, `${slidePath}.children[${childIndex}]`);
+    });
+  });
+
+  return sources;
+}
+
+function validateNodeSourceMetadata(
+  source: unknown,
+  sourcePath: string,
+): string | null {
+  const parsed = safeParseDeckV7({
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "audit-validator" },
+    assets: { images: {} },
+    slides: [
+      {
+        id: "slide-audit",
+        type: "slide",
+        template: { kind: "content" },
+        children: [
+          {
+            id: "node-audit",
+            type: "text",
+            content: { paragraphs: [{ id: "para-audit", text: "audit" }] },
+            source,
+          },
+        ],
+      },
+    ],
+  });
+  if (parsed.success) return null;
+  const sourceErrorPath = "slides[0].children[0].source";
+  const sourceErrors = parsed.errors.filter((error) =>
+    error.includes(sourceErrorPath),
+  );
+  if (sourceErrors.length === 0) {
+    return `${sourcePath} failed DeckV7 source metadata validation.`;
+  }
+  return sourceErrors
+    .map((error) => error.replace(sourceErrorPath, sourcePath))
+    .join("; ");
+}
+
+/** Audits a single `Document.deckJson` value (deck + active source metadata). */
 export function auditDocumentDeck(row: DocumentAuditRow): SchemaViolation[] {
   const violations: SchemaViolation[] = [];
   if (row.deckJson == null) return violations;
@@ -232,16 +291,15 @@ export function auditDocumentDeck(row: DocumentAuditRow): SchemaViolation[] {
     });
   }
 
-  // Independently validate every active source ref.
-  collectRawSourceRefs(row.deckJson).forEach((ref, index) => {
-    try {
-      validateSourceRef(ref, `Document.deckJson sourceRef[${index}]`);
-    } catch (error) {
+  // Independently validate active source metadata paths without trusting deck parse.
+  collectRawNodeSourceMetadata(row.deckJson).forEach(({ source, path }) => {
+    const error = validateNodeSourceMetadata(source, path);
+    if (error) {
       violations.push({
-        area: "SourceRef",
+        area: "NodeSourceMetadata",
         documentId: row.id,
         rowId: row.id,
-        reason: error instanceof Error ? error.message : "Invalid source ref",
+        reason: error,
       });
     }
   });
@@ -434,7 +492,7 @@ function emptyByArea(): Record<SchemaArea, number> {
     "DocumentVersion.deckJson": 0,
     "DocumentVersion.contentJson:visual": 0,
     "Visual.data": 0,
-    SourceRef: 0,
+    NodeSourceMetadata: 0,
     "Comment.anchor": 0,
     "Tag.slug": 0,
     "WorkspaceMember.role": 0,

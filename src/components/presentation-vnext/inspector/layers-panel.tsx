@@ -1,10 +1,19 @@
 "use client";
 
-import { Eye, EyeOff, GripVertical, Lock, PenLine, Unlock } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Lock,
+  PenLine,
+  Unlock,
+} from "lucide-react";
 import { useState, type DragEvent, type JSX, type KeyboardEvent } from "react";
 
-import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
+import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 export interface LayersPanelProps {
   nodes: readonly SlideChildNode[];
@@ -104,6 +113,7 @@ export function LayersPanel({
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const userLayers: LayerItem[] = flattenLayers(nodes).map(
     ({ node, depth }) => ({
       id: node.id,
@@ -119,6 +129,7 @@ export function LayersPanel({
   const userLayerIndexById = new Map(
     sortedUserLayers.map((item, index) => [item.id, index]),
   );
+  const userLayersById = new Map(userLayers.map((item) => [item.id, item]));
   const layers = [
     ...userLayers,
     ...flattenGeneratedLayers(decorations, "themeDecoration"),
@@ -126,8 +137,23 @@ export function LayersPanel({
   ].sort((a, b) => b.zIndex - a.zIndex);
   if (layers.length === 0) return null;
 
+  function handleReorder(nodeId: string, targetIndex: number) {
+    if (!onReorderNode || sortedUserLayers.length === 0) return;
+    const nextIndex = Math.max(
+      0,
+      Math.min(targetIndex, sortedUserLayers.length - 1),
+    );
+    onReorderNode(nodeId, nextIndex);
+    const movedLayer = userLayersById.get(nodeId);
+    const label = movedLayer?.label ?? "Layer";
+    setStatusMessage(
+      `Moved ${label} to position ${nextIndex + 1} of ${sortedUserLayers.length}.`,
+    );
+  }
+
   function handleDragStart(event: DragEvent<HTMLDivElement>, item: LayerItem) {
-    if (!item.editable) return;
+    if (!item.editable || !onReorderNode || item.node?.layout === undefined)
+      return;
     setDraggingId(item.id);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", item.id);
@@ -137,11 +163,12 @@ export function LayersPanel({
     const targetIndex = userLayerIndexById.get(item.id);
     if (
       draggingId &&
+      draggingId !== item.id &&
       item.editable &&
       targetIndex !== undefined &&
       onReorderNode
     ) {
-      onReorderNode(draggingId, targetIndex);
+      handleReorder(draggingId, targetIndex);
     }
     setDraggingId(null);
     setDropIndex(null);
@@ -185,8 +212,20 @@ export function LayersPanel({
     }
   }
 
+  function handleMove(item: LayerItem, direction: "forward" | "backward") {
+    const currentIndex = userLayerIndexById.get(item.id);
+    if (currentIndex === undefined) return;
+    const targetIndex =
+      direction === "forward" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sortedUserLayers.length) return;
+    handleReorder(item.id, targetIndex);
+  }
+
   return (
     <section className="flex flex-col gap-2 px-3 py-2.5">
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {statusMessage}
+      </div>
       <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
         Layers
       </h4>
@@ -196,15 +235,26 @@ export function LayersPanel({
           const node = item.node;
           const editable = item.editable && node !== undefined;
           const renaming = renamingId === item.id;
+          const reorderable =
+            editable &&
+            onReorderNode !== undefined &&
+            node.layout !== undefined;
+          const currentUserIndex =
+            editable && reorderable
+              ? userLayerIndexById.get(item.id)
+              : undefined;
+          const canMoveForward =
+            currentUserIndex !== undefined && currentUserIndex > 0;
+          const canMoveBackward =
+            currentUserIndex !== undefined &&
+            currentUserIndex < sortedUserLayers.length - 1;
+          const hidden = node?.hidden === true;
+          const locked = node?.locked === true;
           return (
             <li key={`${item.source}-${item.id}`}>
               <div
                 data-layer-source={item.source}
-                draggable={
-                  editable &&
-                  onReorderNode !== undefined &&
-                  renamingId !== item.id
-                }
+                draggable={reorderable && renamingId !== item.id}
                 onDragStart={(event) => handleDragStart(event, item)}
                 onDragEnd={() => {
                   setDraggingId(null);
@@ -280,6 +330,28 @@ export function LayersPanel({
                 <span className="rounded-ds-sm bg-ds-surface-2 px-1.5 py-0.5 text-[10px] text-ds-text-muted">
                   {sourceBadge(item.source)}
                 </span>
+                {reorderable ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Move layer forward"
+                      disabled={!canMoveForward}
+                      onClick={() => handleMove(item, "forward")}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronUp size={12} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Move layer backward"
+                      disabled={!canMoveBackward}
+                      onClick={() => handleMove(item, "backward")}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronDown size={12} aria-hidden="true" />
+                    </button>
+                  </>
+                ) : null}
                 {editable ? (
                   <>
                     {!renaming ? (
@@ -298,13 +370,12 @@ export function LayersPanel({
                     ) : null}
                     <button
                       type="button"
-                      aria-label={node.hidden ? "Show layer" : "Hide layer"}
-                      onClick={() =>
-                        onUpdateNode(item.id, { hidden: !node.hidden })
-                      }
+                      aria-label={`${hidden ? "Show" : "Hide"} layer "${item.label}"`}
+                      aria-pressed={hidden}
+                      onClick={() => onUpdateNode(item.id, { hidden: !hidden })}
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover"
                     >
-                      {node.hidden ? (
+                      {hidden ? (
                         <EyeOff size={12} aria-hidden="true" />
                       ) : (
                         <Eye size={12} aria-hidden="true" />
@@ -312,13 +383,12 @@ export function LayersPanel({
                     </button>
                     <button
                       type="button"
-                      aria-label={node.locked ? "Unlock layer" : "Lock layer"}
-                      onClick={() =>
-                        onUpdateNode(item.id, { locked: !node.locked })
-                      }
+                      aria-label={`${locked ? "Unlock" : "Lock"} layer "${item.label}"`}
+                      aria-pressed={locked}
+                      onClick={() => onUpdateNode(item.id, { locked: !locked })}
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover"
                     >
-                      {node.locked ? (
+                      {locked ? (
                         <Lock size={12} aria-hidden="true" />
                       ) : (
                         <Unlock size={12} aria-hidden="true" />

@@ -1,12 +1,5 @@
-import type { Deck } from "@/lib/presentation/deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { Visual } from "@/lib/visual/schema";
-import {
-  buildBulletsElement,
-  buildDeck,
-  buildImageElement,
-  buildSlide,
-  buildTextElement,
-} from "./deck";
 import { fixtureAssetChecksum, fixturePngBuffer } from "./assets";
 import {
   buildEditorState,
@@ -15,6 +8,16 @@ import {
   type SerializedFixtureEditorState,
 } from "./lexical";
 import { buildVisual, buildVisualEdge, buildVisualNode } from "./visual";
+import {
+  buildDeckV7,
+  buildLayoutBox as buildLayoutBoxV7,
+  buildShapeNode,
+  buildSlideV7,
+  buildStyleBinding as buildStyleBindingV7,
+  buildTextContent,
+  buildTextNode,
+  buildTitleNode,
+} from "./deck-v7";
 
 export {
   FIXTURE_PNG_BASE64,
@@ -35,6 +38,7 @@ export const E2E_PROFILE_FIXTURE = {
   },
   workspaceId: "e2efixtureworkspace0000001",
   documentId: "e2efixturedocument0000001",
+  layoutDocumentId: "e2efixturelayoutdoc000001",
   privateDocumentId: "e2efixtureprivatedoc00001",
   visualId: "e2efixturevisual000000001",
   shareId: "e2efixtureshare01",
@@ -44,6 +48,7 @@ export const E2E_PROFILE_FIXTURE = {
   slideBodyText: "Deterministic deck for the E2E release gate.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
+  layoutDocumentTitle: "E2E Fixture Layout Deck",
   dashboardTag: {
     name: "Release Gate",
     slug: "release-gate",
@@ -116,82 +121,158 @@ export function buildE2EProfileContentJson(
   ]);
 }
 
-export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
-  return buildDeck({
-    design: { themeId: "default" },
+export function buildE2EProfileDeck(assetUrl: string, assetId: string): DeckV7 {
+  return {
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: {
+      images: {
+        [assetId]: {
+          id: assetId,
+          src: assetUrl,
+          alt: "Seeded fixture image",
+          mimeType: "image/png",
+        },
+      },
+    },
     slides: [
-      buildSlide({
+      {
         id: "e2e-fixture-slide-1",
-        title: F.slideTitleText,
+        type: "slide",
+        template: { kind: "content" },
+        style: { ref: "slide.content" },
         notes: "",
-        designOverrides: {
-          background: { type: "solid", color: { value: "#ffffff" } },
-        },
-        elements: [
-          buildTextElement({
+        children: [
+          {
             id: "fixture-title",
+            type: "text",
             role: "title",
-            text: F.slideTitleText,
-            box: { x: 6, y: 6, w: 88, h: 14 },
-            zIndex: 0,
-            style: { fontSize: 6, bold: true, italic: false, align: "left" },
-          }),
-          buildBulletsElement({
+            layout: { frame: { x: 6, y: 6, w: 88, h: 14 }, zIndex: 0 },
+            style: { ref: "text.title" },
+            content: {
+              paragraphs: [{ id: "fixture-title-p1", text: F.slideTitleText }],
+            },
+          },
+          {
             id: "fixture-bullets",
-            bullets: [F.slideBodyText, "Second deterministic point"],
-            items: [
-              { text: F.slideBodyText },
-              { text: "Second deterministic point" },
-            ],
-            box: { x: 8, y: 26, w: 56, h: 50 },
-            zIndex: 1,
-            style: { fontSize: 4, bold: false, italic: false, align: "left" },
-          }),
-          buildImageElement({
+            type: "text",
+            role: "body",
+            layout: { frame: { x: 8, y: 26, w: 56, h: 50 }, zIndex: 1 },
+            style: { ref: "text.body" },
+            content: {
+              paragraphs: [
+                {
+                  id: "fixture-bullet-p1",
+                  text: F.slideBodyText,
+                  list: { kind: "bullet" },
+                },
+                {
+                  id: "fixture-bullet-p2",
+                  text: "Second deterministic point",
+                  list: { kind: "bullet" },
+                },
+              ],
+            },
+          },
+          {
             id: "fixture-image",
-            src: assetUrl,
-            assetId,
-            alt: "Seeded fixture image",
-            fitMode: "contain",
-            box: { x: 68, y: 26, w: 26, h: 26 },
-            zIndex: 2,
-          }),
+            type: "image",
+            role: "image",
+            layout: { frame: { x: 68, y: 26, w: 26, h: 26 }, zIndex: 2 },
+            style: { ref: "media.inline" },
+            content: { assetId, fit: "contain", alt: "Seeded fixture image" },
+          },
         ],
-      }),
-      buildSlide({
+      },
+      {
         id: "e2e-fixture-slide-2",
-        title: F.slideTwoTitleText,
+        type: "slide",
+        template: { kind: "detail" },
+        style: { ref: "slide.content" },
         notes: "Use this seeded slide to verify presentation navigation.",
-        designOverrides: {
-          background: { type: "solid", color: { value: "#f8fafc" } },
-        },
-        elements: [
-          buildTextElement({
+        children: [
+          {
             id: "fixture-detail-title",
+            type: "text",
             role: "title",
-            text: F.slideTwoTitleText,
-            box: { x: 6, y: 8, w: 88, h: 14 },
-            zIndex: 0,
-            style: { fontSize: 5, bold: true, italic: false, align: "left" },
-          }),
-          buildBulletsElement({
+            layout: { frame: { x: 6, y: 8, w: 88, h: 14 }, zIndex: 0 },
+            style: { ref: "text.title" },
+            content: {
+              paragraphs: [
+                { id: "fixture-detail-title-p1", text: F.slideTwoTitleText },
+              ],
+            },
+          },
+          {
             id: "fixture-detail-bullets",
-            bullets: [
-              "Navigation stays deterministic.",
-              "Exports include a second seeded slide.",
-            ],
-            items: [
-              { text: "Navigation stays deterministic." },
-              { text: "Exports include a second seeded slide." },
-            ],
-            box: { x: 8, y: 28, w: 76, h: 42 },
-            zIndex: 1,
-            style: { fontSize: 4, bold: false, italic: false, align: "left" },
-          }),
+            type: "text",
+            role: "body",
+            layout: { frame: { x: 8, y: 28, w: 76, h: 42 }, zIndex: 1 },
+            style: { ref: "text.body" },
+            content: {
+              paragraphs: [
+                {
+                  id: "fixture-detail-bullet-p1",
+                  text: "Navigation stays deterministic.",
+                  list: { kind: "bullet" },
+                },
+                {
+                  id: "fixture-detail-bullet-p2",
+                  text: "Exports include a second seeded slide.",
+                  list: { kind: "bullet" },
+                },
+              ],
+            },
+          },
         ],
-      }),
+      },
     ],
-  });
+  };
+}
+
+export function buildE2EProfileDeckV7(): DeckV7 {
+  const slideOne = buildSlideV7("content", [
+    buildTitleNode(F.slideTitleText),
+    buildTextNode({
+      id: "layout-body",
+      role: "body",
+      layout: buildLayoutBoxV7({
+        frame: { x: 8, y: 28, w: 56, h: 44 },
+        zIndex: 2,
+      }),
+      style: buildStyleBindingV7("text.body"),
+      content: buildTextContent([F.slideBodyText, "Layout regression fixture"]),
+    }),
+    buildShapeNode({
+      id: "layout-callout",
+      role: "callout",
+      layout: buildLayoutBoxV7({
+        frame: { x: 68, y: 30, w: 24, h: 20 },
+        zIndex: 3,
+      }),
+      style: buildStyleBindingV7("surface.callout"),
+      content: { shape: "rect" },
+    }),
+  ]);
+
+  const slideTwo = buildSlideV7("content", [
+    buildTitleNode(F.slideTwoTitleText),
+    buildTextNode({
+      id: "layout-details",
+      role: "body",
+      layout: buildLayoutBoxV7({
+        frame: { x: 8, y: 28, w: 84, h: 48 },
+        zIndex: 1,
+      }),
+      style: buildStyleBindingV7("text.body"),
+      content: buildTextContent([
+        "Use this seeded deck for deterministic screenshot gating.",
+      ]),
+    }),
+  ]);
+
+  return buildDeckV7([slideOne, slideTwo]);
 }
 
 export function buildE2EProfileFixtureDescriptor(opts: {
@@ -205,6 +286,8 @@ export function buildE2EProfileFixtureDescriptor(opts: {
     viewer: { email: F.viewer.email, password: F.viewer.password },
     documentId: F.documentId,
     documentPath: `/app/documents/${F.documentId}`,
+    layoutDocumentId: F.layoutDocumentId,
+    layoutDocumentPath: `/app/documents/${F.layoutDocumentId}`,
     shareId: F.shareId,
     slug: F.slug,
     presentPath: `/present/${F.slug}-${F.shareId}`,

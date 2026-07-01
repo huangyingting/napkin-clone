@@ -14,6 +14,7 @@ import {
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 import type { RunVnextDeckGenerationResult } from "@/lib/ai/run-vnext-deck-generation";
+import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 
 import type { GenerateDeckPayload } from "./parser";
 import {
@@ -60,6 +61,11 @@ function makeVnextResult(deck: DeckV7): RunVnextDeckGenerationResult {
 
 test("generateDeckForRoute calls runVnext with correct inputs", async () => {
   let vnextCalls = 0;
+  const diagnostics = [
+    makeDiagnostic("slot-over-capacity", "warning", "Adjusted slot payload", {
+      slideId: "slide-1",
+    }),
+  ];
 
   const result = await generateDeckForRoute(
     { payload: makePayload(), complete },
@@ -71,7 +77,7 @@ test("generateDeckForRoute calls runVnext with correct inputs", async () => {
           deck: makeDeckV7(true),
           truncated: true,
           selectedKindCounts: { cover: 1, table: 1 },
-          diagnostics: [],
+          diagnostics,
         };
       },
     },
@@ -83,6 +89,7 @@ test("generateDeckForRoute calls runVnext with correct inputs", async () => {
   assert.equal(result.themePackageId, "noir");
   assert.deepEqual(result.selectedKindCounts, { cover: 1, table: 1 });
   assert.equal(result.truncated, true);
+  assert.deepEqual(result.diagnostics, diagnostics);
 });
 
 test("generateDeckForRoute returns a DeckV7 with schemaVersion 7", async () => {
@@ -110,9 +117,15 @@ test("generateDeckForRoute propagates vnext failures", async () => {
 
 test("buildGenerateDeckSuccessResponse includes vnext metadata", () => {
   const deck = makeDeckV7(true);
+  const diagnostics = [
+    makeDiagnostic("missing-required-slot", "warning", "Filled missing slot", {
+      slideId: "slide-2",
+    }),
+  ];
   const response = buildGenerateDeckSuccessResponse({
     deck,
     truncated: false,
+    diagnostics,
     requestedGenerationMode: "package-template",
     generationMode: "vnext",
     themePackageId: "terra",
@@ -126,6 +139,7 @@ test("buildGenerateDeckSuccessResponse includes vnext metadata", () => {
   assert.equal(response.metadata.themePackageId, "terra");
   assert.equal(response.metadata.tableSlideCount, 1);
   assert.equal(response.metadata.schemaValid, true);
+  assert.deepEqual(response.diagnostics, diagnostics);
   assert.deepEqual(response.metadata.selectedKindCounts, {
     cover: 1,
     table: 1,
@@ -140,6 +154,7 @@ test("buildGenerateDeckSuccessLogFields includes vnext telemetry", () => {
     {
       deck,
       truncated: true,
+      diagnostics: [],
       requestedGenerationMode: "package-template",
       generationMode: "vnext",
       themePackageId: "noir",
@@ -178,6 +193,7 @@ test("computeV7RouteMetrics: percentSlidesWithVisual never exceeds 1", () => {
     {
       deck,
       truncated: false,
+      diagnostics: [],
       requestedGenerationMode: "package-template",
       generationMode: "vnext",
     },
@@ -196,6 +212,7 @@ test("computeV7RouteMetrics: visual-only deck percentSlidesWithVisual is 1", () 
     {
       deck,
       truncated: false,
+      diagnostics: [],
       requestedGenerationMode: "package-template",
       generationMode: "vnext",
     },

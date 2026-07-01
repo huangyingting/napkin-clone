@@ -26,9 +26,14 @@ export function fitCanvasToViewport({
 }): CanvasStageFit {
   const viewportWidth = Math.max(1, viewport.width);
   const viewportHeight = Math.max(1, viewport.height);
+  const overlayWidth = Math.min(
+    Math.max(0, rightOverlayWidth),
+    Math.max(0, viewportWidth - 1),
+  );
+  const fitViewportWidth = Math.max(1, viewportWidth - overlayWidth);
   const safeAspectRatio = aspectRatio > 0 ? aspectRatio : 16 / 9;
   const safeZoom = Math.max(0.25, Math.min(2, zoomPercent / 100));
-  const viewportAspectRatio = viewportWidth / viewportHeight;
+  const viewportAspectRatio = fitViewportWidth / viewportHeight;
   const fitted =
     viewportAspectRatio > safeAspectRatio
       ? {
@@ -36,19 +41,19 @@ export function fitCanvasToViewport({
           height: viewportHeight,
         }
       : {
-          width: viewportWidth,
-          height: viewportWidth / safeAspectRatio,
+          width: fitViewportWidth,
+          height: fitViewportWidth / safeAspectRatio,
         };
 
   const frameWidth = fitted.width * safeZoom;
   const frameHeight = fitted.height * safeZoom;
-  const leftMargin = Math.max(0, (viewportWidth - frameWidth) / 2);
+  const leftMargin = Math.max(0, (fitViewportWidth - frameWidth) / 2);
   const topMargin = Math.max(0, (viewportHeight - frameHeight) / 2);
-  const leftShift = Math.min(leftMargin, Math.max(0, rightOverlayWidth) / 2);
-  const frameLeft = leftMargin - leftShift;
+  const frameLeft = leftMargin;
   const frameTop = topMargin;
+  const frameRight = frameLeft + frameWidth;
   const scrollContentSize = {
-    width: Math.max(viewportWidth, frameLeft + frameWidth + leftMargin),
+    width: Math.max(viewportWidth, frameRight + leftMargin + overlayWidth),
     height: Math.max(viewportHeight, frameTop + frameHeight + topMargin),
   };
 

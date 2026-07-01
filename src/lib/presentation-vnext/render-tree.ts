@@ -9,6 +9,7 @@
 import type { NodeId, CanvasSpec } from "./types";
 import type { StyleObject, FillStyle } from "./style-schema";
 import type {
+  AccessibilityMetadata,
   SemanticRole,
   SlideChildNode,
   TextContent,
@@ -59,6 +60,8 @@ export type ResolvedRenderNode = {
   source: "user" | "themeDecoration" | "deckChrome";
   chromeKind?: DeckChromeKind;
   locked?: boolean;
+  name?: string;
+  accessibility?: AccessibilityMetadata;
 };
 
 // ---------------------------------------------------------------------------
