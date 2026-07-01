@@ -807,6 +807,7 @@ export interface InspectorShellProps {
   onUpdateSelectedLocalStyle: (patch: StylePatch) => void;
   assetResolver?: (assetId: string) => string | undefined;
   onReplaceImage?: () => void;
+  onReplaceVisual?: () => void;
   onResetToTheme: () => void;
   onUpdateSelectedSource: (source: NodeSourceMetadata | undefined) => void;
   onRefreshSelectedSource?: () => void;
@@ -874,6 +875,7 @@ export function InspectorShell({
   onUpdateSelectedLocalStyle,
   assetResolver,
   onReplaceImage,
+  onReplaceVisual,
   onResetToTheme,
   onUpdateSelectedSource,
   onRefreshSelectedSource,
@@ -1119,6 +1121,9 @@ export function InspectorShell({
                 assetResolver={assetResolver}
                 onReplaceImage={
                   selectedNode.type === "image" ? onReplaceImage : undefined
+                }
+                onReplaceVisual={
+                  selectedNode.type === "visual" ? onReplaceVisual : undefined
                 }
               />
               <LocalStylePanel
