@@ -167,6 +167,70 @@ describe("compileSlide", () => {
     assert.ok(!diagnostics.some((d) => d.severity === "error"));
   });
 
+  test("materialises timeline slot items into timeline group text nodes", () => {
+    resetIdCounter();
+    const registry = createDefaultTemplateRegistry();
+    const template = registry.get("timeline")!;
+    const spec: AiSlideSpec = {
+      kind: "timeline",
+      slots: {
+        title: { type: "shortText", text: "Milestones" },
+        steps: {
+          type: "timeline",
+          items: [
+            { label: "2022", title: "Started", body: "Team formed" },
+            { label: "2023", title: "Scaled", body: "Series A" },
+            { label: "2024", title: "Expanded", body: "Global launch" },
+          ],
+        },
+      },
+    };
+
+    const { slide, diagnostics } = compileSlide(spec, template);
+    const timelineGroup = slide.children.find(
+      (node) => node.type === "group" && node.slot === "steps",
+    );
+    assert.ok(timelineGroup?.type === "group", "Expected timeline group node");
+
+    if (timelineGroup?.type === "group") {
+      const labelNode = timelineGroup.children.find(
+        (node) => node.type === "text" && node.role === "label",
+      );
+      const titleNode = timelineGroup.children.find(
+        (node) => node.type === "text" && node.role === "title",
+      );
+      const bodyNode = timelineGroup.children.find(
+        (node) => node.type === "text" && node.role === "body",
+      );
+
+      assert.equal(labelNode?.type, "text");
+      if (labelNode?.type === "text") {
+        assert.deepEqual(
+          labelNode.content.paragraphs.map((paragraph) => paragraph.text),
+          ["2022", "2023", "2024"],
+        );
+      }
+
+      assert.equal(titleNode?.type, "text");
+      if (titleNode?.type === "text") {
+        assert.deepEqual(
+          titleNode.content.paragraphs.map((paragraph) => paragraph.text),
+          ["Started", "Scaled", "Expanded"],
+        );
+      }
+
+      assert.equal(bodyNode?.type, "text");
+      if (bodyNode?.type === "text") {
+        assert.deepEqual(
+          bodyNode.content.paragraphs.map((paragraph) => paragraph.text),
+          ["Team formed", "Series A", "Global launch"],
+        );
+      }
+    }
+
+    assert.ok(!diagnostics.some((d) => d.severity === "error"));
+  });
+
   test("generates unique node ids (never copies AI ids)", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
