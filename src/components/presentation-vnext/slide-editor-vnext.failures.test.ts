@@ -5,6 +5,7 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
 } from "react";
 
@@ -12,6 +13,7 @@ import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import {
   buildDeckV7,
   buildImageNode,
+  buildShapeNode,
   buildSlideV7,
   buildTextNode,
 } from "@/test/builders/deck-v7";
@@ -706,6 +708,225 @@ describe("SlideEditorVNext failure-state coverage", () => {
         }
       ).hiddenNodeIds;
       assert.ok(hiddenNodeIds?.has("existing-text"));
+    });
+  });
+
+  describe("SlideEditorVNext semantic hit testing parity", () => {
+    test("semantic click selects covered text under a large covering shape", () => {
+      withMockHTMLElement((createElement) => {
+        const hookRenderer = createHookRenderer();
+        let currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "covered-text",
+                layout: { frame: { x: 10, y: 40, w: 80, h: 20 }, zIndex: 1 },
+                content: {
+                  paragraphs: [
+                    {
+                      id: "covered-text-p1",
+                      text: "Quarterly revenue growth reached 37 percent.",
+                    },
+                  ],
+                },
+              }),
+              buildShapeNode({
+                id: "cover-shape",
+                layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 20 },
+                content: { shape: "rect" },
+              }),
+            ],
+            { id: "slide-overlap", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-semantic-click",
+              deck: currentDeck,
+              onDeckChange: (nextDeck) => {
+                currentDeck = nextDeck;
+              },
+            }),
+          );
+
+        let tree = renderTree();
+        const stageCanvas = findRequiredElement(
+          tree,
+          (element) =>
+            element.type === SlideCanvasVNext &&
+            typeof (
+              element.props as {
+                onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+              }
+            ).onNodeClick === "function",
+          "Expected stage canvas with node click handler.",
+        );
+        const onNodeClick = (
+          stageCanvas.props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        assert.ok(onNodeClick, "Expected stage canvas node click handler.");
+
+        const canvasElement = createElement({
+          rect: { left: 100, top: 200, width: 1000, height: 500 },
+        });
+        const target = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+
+        onNodeClick?.("cover-shape", {
+          clientX: 220,
+          clientY: 450,
+          target,
+        } as unknown as MouseEvent);
+
+        tree = renderTree();
+        const updatedCanvas = findRequiredElement(
+          tree,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected updated stage canvas.",
+        );
+        const selection = (
+          updatedCanvas.props as {
+            selection?: { nodeIds?: ReadonlySet<string> };
+          }
+        ).selection;
+        assert.ok(
+          selection?.nodeIds?.has("covered-text"),
+          "Expected semantic click to select the covered text node.",
+        );
+      });
+    });
+
+    test("Alt+] cycles to covered nodes for select-under parity", async () => {
+      await withWindow(async () =>
+        withMockHTMLElement((createElement) => {
+          const hookRenderer = createHookRenderer();
+          let currentDeck = buildDeckV7([
+            buildSlideV7(
+              "content",
+              [
+                buildTextNode({
+                  id: "covered-text",
+                  layout: { frame: { x: 10, y: 40, w: 80, h: 20 }, zIndex: 1 },
+                  content: {
+                    paragraphs: [
+                      {
+                        id: "covered-text-p1",
+                        text: "Quarterly revenue growth reached 37 percent.",
+                      },
+                    ],
+                  },
+                }),
+                buildShapeNode({
+                  id: "cover-shape",
+                  layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 20 },
+                  content: { shape: "rect" },
+                }),
+              ],
+              { id: "slide-select-under", name: "Slide 1" },
+            ),
+          ]);
+
+          const renderTree = () =>
+            hookRenderer.run(() =>
+              SlideEditorVNext({
+                documentId: "doc-select-under",
+                deck: currentDeck,
+                onDeckChange: (nextDeck) => {
+                  currentDeck = nextDeck;
+                },
+              }),
+            );
+
+          let tree = renderTree();
+          const stageCanvas = findRequiredElement(
+            tree,
+            (element) =>
+              element.type === SlideCanvasVNext &&
+              typeof (
+                element.props as {
+                  onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+                }
+              ).onNodeClick === "function",
+            "Expected stage canvas with node click handler.",
+          );
+          const onNodeClick = (
+            stageCanvas.props as {
+              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+            }
+          ).onNodeClick;
+          assert.ok(onNodeClick, "Expected stage canvas node click handler.");
+          const canvasElement = createElement({
+            rect: { left: 100, top: 200, width: 1000, height: 500 },
+          });
+          const target = createElement({
+            closestMap: {
+              '[data-slide-canvas-vnext="true"]': canvasElement,
+            },
+          });
+          onNodeClick?.("cover-shape", {
+            clientX: 500,
+            clientY: 300,
+            target,
+          } as unknown as MouseEvent);
+
+          tree = renderTree();
+          const editorRoot = findRequiredElement(
+            tree,
+            (element) =>
+              element.type === "div" &&
+              (element.props as { "data-slide-editor-vnext"?: string })[
+                "data-slide-editor-vnext"
+              ] === "true" &&
+              typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+                "function",
+            "Expected editor root keydown handler.",
+          );
+          const onEditorKeyDown = (
+            editorRoot.props as {
+              onKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+            }
+          ).onKeyDown;
+          assert.ok(onEditorKeyDown, "Expected editor keydown handler.");
+          let prevented = false;
+          onEditorKeyDown?.({
+            key: "]",
+            altKey: true,
+            target: createElement(),
+            preventDefault: () => {
+              prevented = true;
+            },
+          } as unknown as ReactKeyboardEvent<HTMLDivElement>);
+
+          tree = renderTree();
+          const updatedCanvas = findRequiredElement(
+            tree,
+            (element) => element.type === SlideCanvasVNext,
+            "Expected stage canvas after Alt+] cycle.",
+          );
+          const selection = (
+            updatedCanvas.props as {
+              selection?: { nodeIds?: ReadonlySet<string> };
+            }
+          ).selection;
+          assert.equal(
+            prevented,
+            true,
+            "Expected Alt+] keydown to be handled.",
+          );
+          assert.ok(
+            selection?.nodeIds?.has("covered-text"),
+            "Expected Alt+] to cycle to the covered text node.",
+          );
+        }),
+      );
     });
   });
 });
