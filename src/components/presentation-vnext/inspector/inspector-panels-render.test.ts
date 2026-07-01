@@ -355,11 +355,70 @@ describe("inspector panels render and wire controls", () => {
         onUpdateSource: (source) => updates.push(source),
         onUpdateLocalStyle: (patch) => updates.push(patch),
         onResetLocalStyle: () => updates.push("reset"),
+        assetResolver: (assetId) =>
+          assetId === "asset-1" ? "https://example.com/asset-1.png" : undefined,
+        onUploadBackgroundImage: () => updates.push("upload"),
       });
       assert.match(render(element), /Slide/);
       assert.ok(invokeHandlers(element) >= 7);
     }
+    assert.ok(updates.includes("upload"));
     assert.ok(updates.length >= 28);
+  });
+
+  test("SlideSettingsPanel shows image preview and missing-state placeholders", () => {
+    const baseSlide: SlideNode = {
+      id: "slide-1",
+      type: "slide",
+      name: "Slide 1",
+      template: { kind: "cover", layoutId: "default" },
+      controls: {},
+      props: {},
+      children: [],
+    };
+
+    const previewElement = SlideSettingsPanel({
+      slide: {
+        ...baseSlide,
+        localStyle: {
+          slide: { background: { type: "image", assetId: "asset-1" } },
+        },
+      },
+      onUpdateSlide: () => undefined,
+      onUpdateSource: () => undefined,
+      onUpdateLocalStyle: () => undefined,
+      onResetLocalStyle: () => undefined,
+      assetResolver: () => "https://example.com/asset-1.png",
+      onUploadBackgroundImage: () => undefined,
+    });
+    const missingElement = SlideSettingsPanel({
+      slide: {
+        ...baseSlide,
+        localStyle: {
+          slide: { background: { type: "image", assetId: "asset-missing" } },
+        },
+      },
+      onUpdateSlide: () => undefined,
+      onUpdateSource: () => undefined,
+      onUpdateLocalStyle: () => undefined,
+      onResetLocalStyle: () => undefined,
+    });
+    const emptyElement = SlideSettingsPanel({
+      slide: {
+        ...baseSlide,
+        localStyle: { slide: { background: { type: "image", assetId: "" } } },
+      },
+      onUpdateSlide: () => undefined,
+      onUpdateSource: () => undefined,
+      onUpdateLocalStyle: () => undefined,
+      onResetLocalStyle: () => undefined,
+    });
+
+    assert.match(render(previewElement), /https:\/\/example.com\/asset-1\.png/);
+    assert.match(render(previewElement), /Replace image/);
+    assert.match(render(missingElement), /Missing image asset/);
+    assert.match(render(emptyElement), /No background image selected/);
+    assert.match(render(emptyElement), /Upload image/);
   });
 
   test("DiagnosticsPanel sorts severities, filters info, and invokes actions", () => {

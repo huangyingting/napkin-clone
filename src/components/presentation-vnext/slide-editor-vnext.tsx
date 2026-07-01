@@ -1146,6 +1146,9 @@ export function SlideEditorVNext({
   const insertMenuRef = useRef<HTMLDivElement | null>(null);
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceSlideBackgroundFileInputRef = useRef<HTMLInputElement | null>(
+    null,
+  );
   const replaceImageTargetIdRef = useRef<string | null>(null);
   const insertImagePendingRef = useRef(false);
 
@@ -1486,6 +1489,48 @@ export function SlideEditorVNext({
     replaceImageFileInputRef.current?.click();
   }
 
+  async function deckWithUploadedImageAsset(file: File): Promise<
+    | {
+        deckWithAsset: DeckV7;
+        assetId: string;
+        alt: string;
+      }
+    | undefined
+  > {
+    const upload = onUploadImage
+      ? await onUploadImage(file)
+      : { src: await readImageFileAsDataUrl(file) };
+    if (!upload.src) return undefined;
+    const assetId = upload.assetId ?? assetFactoryId("image");
+    const alt = upload.alt ?? file.name;
+    const mimeType = upload.mimeType ?? imageMimeType(file.type);
+    return {
+      deckWithAsset: {
+        ...deck,
+        assets: {
+          ...deck.assets,
+          images: {
+            ...deck.assets.images,
+            [assetId]: {
+              id: assetId,
+              src: upload.src,
+              alt,
+              ...(upload.widthPx ? { widthPx: upload.widthPx } : {}),
+              ...(upload.heightPx ? { heightPx: upload.heightPx } : {}),
+              ...(mimeType ? { mimeType } : {}),
+              ...(upload.contentHash
+                ? { contentHash: upload.contentHash }
+                : {}),
+              origin: { kind: "upload", importedAt: new Date().toISOString() },
+            },
+          },
+        },
+      },
+      assetId,
+      alt,
+    };
+  }
+
   async function handleReplaceImageFile(file: File | undefined) {
     const targetId = replaceImageTargetIdRef.current;
     const inserting = insertImagePendingRef.current;
@@ -1497,40 +1542,15 @@ export function SlideEditorVNext({
       return;
     }
     try {
-      const upload = onUploadImage
-        ? await onUploadImage(file)
-        : { src: await readImageFileAsDataUrl(file) };
-      if (!upload.src) return;
-      const assetId = upload.assetId ?? assetFactoryId("image");
-      const deckWithAsset: DeckV7 = {
-        ...deck,
-        assets: {
-          ...deck.assets,
-          images: {
-            ...deck.assets.images,
-            [assetId]: {
-              id: assetId,
-              src: upload.src,
-              alt: upload.alt ?? file.name,
-              ...(upload.widthPx ? { widthPx: upload.widthPx } : {}),
-              ...(upload.heightPx ? { heightPx: upload.heightPx } : {}),
-              ...((upload.mimeType ?? imageMimeType(file.type))
-                ? { mimeType: upload.mimeType ?? imageMimeType(file.type) }
-                : {}),
-              ...(upload.contentHash
-                ? { contentHash: upload.contentHash }
-                : {}),
-              origin: { kind: "upload", importedAt: new Date().toISOString() },
-            },
-          },
-        },
-      };
+      const uploadedImage = await deckWithUploadedImageAsset(file);
+      if (!uploadedImage) return;
+      const { deckWithAsset, assetId, alt } = uploadedImage;
       if (inserting) {
         const node = defaultImageNode(nextZIndex(activeSlide));
         if (node.type !== "image") return;
         const result = insertNode(deckWithAsset, activeSlide.id, {
           ...node,
-          content: { ...node.content, assetId, alt: upload.alt ?? file.name },
+          content: { ...node.content, assetId, alt },
         });
         onDeckChange(result.deck);
         setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
@@ -1539,7 +1559,7 @@ export function SlideEditorVNext({
         onDeckChange(
           updateNodeContent(deckWithAsset, activeSlide.id, targetId, {
             assetId,
-            alt: upload.alt ?? file.name,
+            alt,
           }),
         );
         setSelection((s) => setSelectedNodeIds(s, [targetId]));
@@ -1548,6 +1568,40 @@ export function SlideEditorVNext({
       setExportError(null);
     } catch {
       setExportError("Image replacement failed. Please try another file.");
+    }
+  }
+
+  function handleUploadSlideBackgroundImageRequest() {
+    if (!activeSlide) return;
+    replaceSlideBackgroundFileInputRef.current?.click();
+  }
+
+  async function handleReplaceSlideBackgroundImageFile(file: File | undefined) {
+    if (!file || !activeSlide) return;
+    if (!file.type.startsWith("image/")) {
+      setExportError("Choose an image file to set the slide background.");
+      return;
+    }
+    const slideId = activeSlide.id;
+    try {
+      const uploadedImage = await deckWithUploadedImageAsset(file);
+      if (!uploadedImage) return;
+      onDeckChange(
+        updateSlideLocalStyle(uploadedImage.deckWithAsset, slideId, {
+          slide: {
+            background: {
+              type: "image",
+              assetId: uploadedImage.assetId,
+              opacity: 1,
+            },
+          },
+        }),
+      );
+      setExportError(null);
+    } catch {
+      setExportError(
+        "Background image upload failed. Please try another file.",
+      );
     }
   }
 
@@ -3369,6 +3423,7 @@ export function SlideEditorVNext({
       onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
       onResetSlideLocalStyle={handleResetSlideLocalStyle}
       onUpdateSlideSource={handleUpdateSlideSource}
+      onUploadSlideBackgroundImage={handleUploadSlideBackgroundImageRequest}
       onUpdateSelectedLayout={
         handleUpdateSelectedLayout as Parameters<
           typeof InspectorShell
@@ -3433,6 +3488,16 @@ export function SlideEditorVNext({
         className="hidden"
         onChange={(event) => {
           handleReplaceImageFile(event.currentTarget.files?.[0]);
+          event.currentTarget.value = "";
+        }}
+      />
+      <input
+        ref={replaceSlideBackgroundFileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={(event) => {
+          handleReplaceSlideBackgroundImageFile(event.currentTarget.files?.[0]);
           event.currentTarget.value = "";
         }}
       />

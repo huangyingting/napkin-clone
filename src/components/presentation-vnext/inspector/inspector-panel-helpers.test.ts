@@ -34,6 +34,7 @@ import {
   slideBackgroundColor,
   slideBackgroundColorPatch,
   slideBackgroundPatchForType,
+  slideBackgroundPreviewAsset,
   slideBackgroundSecondaryColor,
   slideBackgroundSecondaryColorPatch,
   slideSourceWithPatch,
@@ -239,6 +240,13 @@ describe("inspector panel pure helpers", () => {
     assert.equal(slideBackgroundSecondaryColor(blankSlide), "#f3f4f6");
     assert.equal(slideBackgroundAssetId(imageSlide), "asset-1");
     assert.equal(slideBackgroundAssetId(blankSlide), "");
+    assert.equal(
+      slideBackgroundPreviewAsset(imageSlide, (assetId) =>
+        assetId === "asset-1" ? "https://example.com/asset-1.png" : undefined,
+      ),
+      "https://example.com/asset-1.png",
+    );
+    assert.equal(slideBackgroundPreviewAsset(imageSlide), undefined);
     assert.equal(slideAccentColor(slide), "#38bdf8");
     assert.equal(slideAccentColor(blankSlide), "#ffffff");
     assert.deepEqual(slideSourceWithPatch(slide, { blockId: "block-2" }), {
