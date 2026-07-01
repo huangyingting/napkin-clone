@@ -32,6 +32,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -237,6 +238,11 @@ import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
+import {
+  focusFirstMenuCommand,
+  isMenuCommandNavigationKey,
+  moveMenuCommandFocus,
+} from "@/lib/a11y/menu-command-semantics";
 import {
   hasRemotePeers,
   presencePeerLabel,
@@ -1508,6 +1514,12 @@ export function SlideEditorVNext({
   );
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [footerStatusMenuOpen, setFooterStatusMenuOpen] = useState(false);
+  const zoomMenuId = useId();
+  const zoomMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const zoomMenuPanelRef = useRef<HTMLDivElement | null>(null);
+  const footerStatusMenuId = useId();
+  const footerStatusMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const footerStatusMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const [deckChromeToolbarOpen, setDeckChromeToolbarOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
@@ -1569,6 +1581,16 @@ export function SlideEditorVNext({
     );
     focusTarget?.focus();
   }, [deckChromeToolbarOpen]);
+
+  useEffect(() => {
+    if (!zoomMenuOpen) return;
+    focusFirstMenuCommand(zoomMenuPanelRef.current);
+  }, [zoomMenuOpen]);
+
+  useEffect(() => {
+    if (!footerStatusMenuOpen) return;
+    focusFirstMenuCommand(footerStatusMenuPanelRef.current);
+  }, [footerStatusMenuOpen]);
 
   useEffect(() => {
     if (isDesktopInspectorViewport && inspectorSheetOpen) {
@@ -1696,6 +1718,56 @@ export function SlideEditorVNext({
   function setFooterZoom(percent: number) {
     setStageZoomPercent(percent);
     setZoomMenuOpen(false);
+  }
+
+  function closeZoomMenuAndRestoreFocus() {
+    setZoomMenuOpen(false);
+    zoomMenuTriggerRef.current?.focus();
+  }
+
+  function closeFooterStatusMenuAndRestoreFocus() {
+    setFooterStatusMenuOpen(false);
+    footerStatusMenuTriggerRef.current?.focus();
+  }
+
+  function handleZoomMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeZoomMenuAndRestoreFocus();
+      return;
+    }
+    if (!isMenuCommandNavigationKey(event.key)) return;
+    if (
+      moveMenuCommandFocus({
+        container: zoomMenuPanelRef.current,
+        key: event.key,
+        currentTarget: event.target,
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  function handleFooterStatusMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeFooterStatusMenuAndRestoreFocus();
+      return;
+    }
+    if (!isMenuCommandNavigationKey(event.key)) return;
+    if (
+      moveMenuCommandFocus({
+        container: footerStatusMenuPanelRef.current,
+        key: event.key,
+        currentTarget: event.target,
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   function clearActiveEditingState(
@@ -2309,8 +2381,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {
@@ -3685,6 +3756,8 @@ export function SlideEditorVNext({
       {/* Top Toolbar                                                         */}
       {/* ------------------------------------------------------------------ */}
       <header
+        role="toolbar"
+        aria-label="Slide editing tools"
         data-slide-editor-chrome="true"
         className="flex shrink-0 items-center justify-between gap-3 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur"
       >
@@ -4414,14 +4487,17 @@ export function SlideEditorVNext({
           <Popover
             open={zoomMenuOpen}
             onClose={() => setZoomMenuOpen(false)}
+            role="menu"
             aria-label="Zoom presets"
             placement="top"
             className="w-20 p-1"
             trigger={
               <button
+                ref={zoomMenuTriggerRef}
                 type="button"
-                aria-haspopup="dialog"
+                aria-haspopup="menu"
                 aria-expanded={zoomMenuOpen}
+                aria-controls={zoomMenuOpen ? zoomMenuId : undefined}
                 aria-label={`Set slide zoom (${stageZoomPercent}%)`}
                 onClick={() => setZoomMenuOpen((open) => !open)}
                 className={cx(
@@ -4433,12 +4509,22 @@ export function SlideEditorVNext({
               </button>
             }
           >
-            <div className="flex flex-col">
+            <div
+              ref={zoomMenuPanelRef}
+              id={zoomMenuId}
+              className="flex flex-col"
+              onKeyDown={handleZoomMenuKeyDown}
+            >
               {ZOOM_PERCENT_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
-                  onClick={() => setFooterZoom(preset)}
+                  role="menuitemradio"
+                  aria-checked={preset === stageZoomPercent}
+                  onClick={() => {
+                    setFooterZoom(preset);
+                    closeZoomMenuAndRestoreFocus();
+                  }}
                   className={cx(
                     "rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
                     preset === stageZoomPercent
@@ -4453,7 +4539,11 @@ export function SlideEditorVNext({
               <div className="my-1 border-t border-ds-border-subtle" />
               <button
                 type="button"
-                onClick={() => setFooterZoom(100)}
+                role="menuitem"
+                onClick={() => {
+                  setFooterZoom(100);
+                  closeZoomMenuAndRestoreFocus();
+                }}
                 className={cx(
                   "rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
                   FOCUS_RING,
@@ -4466,15 +4556,20 @@ export function SlideEditorVNext({
           <Popover
             open={footerStatusMenuOpen}
             onClose={() => setFooterStatusMenuOpen(false)}
+            role="menu"
             aria-label="Footer status"
             placement="top"
             align="end"
             className="w-56 p-2.5 sm:hidden"
             trigger={
               <button
+                ref={footerStatusMenuTriggerRef}
                 type="button"
-                aria-haspopup="dialog"
+                aria-haspopup="menu"
                 aria-expanded={footerStatusMenuOpen}
+                aria-controls={
+                  footerStatusMenuOpen ? footerStatusMenuId : undefined
+                }
                 aria-label={`Footer status: ${saveStatusLabel}. ${diagnosticSummary}.`}
                 onClick={() => setFooterStatusMenuOpen((open) => !open)}
                 className={cx(
@@ -4486,11 +4581,20 @@ export function SlideEditorVNext({
               </button>
             }
           >
-            <div className="space-y-2 text-xs">
+            <div
+              ref={footerStatusMenuPanelRef}
+              id={footerStatusMenuId}
+              className="space-y-2 text-xs"
+              onKeyDown={handleFooterStatusMenuKeyDown}
+            >
               {saveStatus === "error" && onSave ? (
                 <button
                   type="button"
-                  onClick={() => void onSave(deck)}
+                  role="menuitem"
+                  onClick={() => {
+                    void onSave(deck);
+                    closeFooterStatusMenuAndRestoreFocus();
+                  }}
                   className="text-ds-danger-text underline-offset-2 hover:underline"
                 >
                   {saveStatusLabel}
@@ -4505,9 +4609,10 @@ export function SlideEditorVNext({
               ) : null}
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => {
                   setDeckDiagnosticsReviewOpen(true);
-                  setFooterStatusMenuOpen(false);
+                  closeFooterStatusMenuAndRestoreFocus();
                 }}
                 aria-label={`Open deck diagnostics review (${diagnosticSummary})`}
                 className={cx(

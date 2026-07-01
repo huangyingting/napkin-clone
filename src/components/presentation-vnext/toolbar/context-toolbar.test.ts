@@ -236,6 +236,27 @@ describe("inline align persistence wiring", () => {
   });
 });
 
+describe("context toolbar more-menu accessibility wiring", () => {
+  test("exposes the More trigger as a menu button", () => {
+    assert.equal(source.includes('hasPopup="menu"'), true);
+    assert.equal(source.includes("buttonRef={moreMenuTriggerRef}"), true);
+    assert.equal(
+      source.includes("controls={moreOpen ? moreMenuId : undefined}"),
+      true,
+    );
+  });
+
+  test("focuses and keyboard-navigates menu commands", () => {
+    assert.equal(
+      source.includes("focusFirstMenuCommand(moreMenuRef.current)"),
+      true,
+    );
+    assert.equal(source.includes("onKeyDown={handleMoreMenuKeyDown}"), true);
+    assert.equal(source.includes("moveMenuCommandFocus({"), true);
+    assert.equal(source.includes("closeMoreMenuAndRestoreFocus();"), true);
+  });
+});
+
 describe("slide delete affordance wiring", () => {
   test("threads canDeleteSlide into the context-toolbar contract", () => {
     assert.equal(source.includes("canDeleteSlide?: boolean;"), true);

@@ -10,11 +10,13 @@
 
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
   type JSX,
   type KeyboardEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import {
@@ -68,6 +70,11 @@ import {
   dispatchInlineTextCommand,
   type InlineTextCommandName,
 } from "@/lib/presentation-vnext/inline-text-commands";
+import {
+  focusFirstMenuCommand,
+  isMenuCommandNavigationKey,
+  moveMenuCommandFocus,
+} from "@/lib/a11y/menu-command-semantics";
 
 const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
@@ -170,16 +177,34 @@ interface TBtnProps {
   disabled?: boolean;
   onClick: () => void;
   children: ReactNode;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
+  hasPopup?: "menu" | "dialog";
+  expanded?: boolean;
+  controls?: string;
 }
 
-function TBtn({ label, active, disabled, onClick, children }: TBtnProps) {
+function TBtn({
+  label,
+  active,
+  disabled,
+  onClick,
+  children,
+  buttonRef,
+  hasPopup,
+  expanded,
+  controls,
+}: TBtnProps) {
   return (
     <Tooltip label={label} delay={250}>
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label}
         title={label}
         aria-pressed={active}
+        aria-haspopup={hasPopup}
+        aria-expanded={hasPopup ? expanded : undefined}
+        aria-controls={controls}
         disabled={disabled}
         onClick={onClick}
         className={cx(
@@ -551,6 +576,9 @@ export function ContextToolbar({
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkDraft, setLinkDraft] = useState("https://");
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuId = useId();
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const moreMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const prevPositionRef = useRef({ top: -1000, left: -1000 });
   const isMultiSelect = selectedIds.length > 1;
   const slideToolInsertActions = buildSlideToolInsertActions({
@@ -649,6 +677,11 @@ export function ContextToolbar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedIds, showSlideTools]);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+    focusFirstMenuCommand(moreMenuRef.current);
+  }, [moreOpen]);
+
   const nodeType = selectedNode?.type;
   const showTextGroup =
     isInlineEditing ||
@@ -712,6 +745,11 @@ export function ContextToolbar({
     }
   }
 
+  function closeMoreMenuAndRestoreFocus() {
+    setMoreOpen(false);
+    moreMenuTriggerRef.current?.focus();
+  }
+
   function handleToolbarKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
       event.key !== "ArrowLeft" &&
@@ -750,6 +788,26 @@ export function ContextToolbar({
             : (currentIndex + direction + controls.length) % controls.length;
     controls[nextIndex]?.focus();
     event.preventDefault();
+  }
+
+  function handleMoreMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMoreMenuAndRestoreFocus();
+      return;
+    }
+    if (!isMenuCommandNavigationKey(event.key)) return;
+    if (
+      moveMenuCommandFocus({
+        container: moreMenuRef.current,
+        key: event.key,
+        currentTarget: event.target,
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   return (
@@ -1411,7 +1469,14 @@ export function ContextToolbar({
               portal
               align="center"
               trigger={
-                <TBtn label="More" onClick={() => setMoreOpen((open) => !open)}>
+                <TBtn
+                  label="More"
+                  buttonRef={moreMenuTriggerRef}
+                  hasPopup="menu"
+                  expanded={moreOpen}
+                  controls={moreOpen ? moreMenuId : undefined}
+                  onClick={() => setMoreOpen((open) => !open)}
+                >
                   <Ellipsis size={13} aria-hidden />
                 </TBtn>
               }
@@ -1419,36 +1484,43 @@ export function ContextToolbar({
               aria-label="More object actions"
               role="menu"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onUpdateSelectedAttributes?.({
-                    locked: selectedNode?.locked !== true,
-                  });
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              <div
+                ref={moreMenuRef}
+                id={moreMenuId}
+                className="flex flex-col"
+                onKeyDown={handleMoreMenuKeyDown}
               >
-                {selectedNode?.locked ? (
-                  <Unlock size={12} aria-hidden />
-                ) : (
-                  <Lock size={12} aria-hidden />
-                )}
-                {selectedNode?.locked ? "Unlock" : "Lock"}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onUpdateSelectedAttributes?.({ hidden: true });
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-              >
-                <EyeOff size={12} aria-hidden />
-                Hide
-              </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    onUpdateSelectedAttributes?.({
+                      locked: selectedNode?.locked !== true,
+                    });
+                    closeMoreMenuAndRestoreFocus();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                >
+                  {selectedNode?.locked ? (
+                    <Unlock size={12} aria-hidden />
+                  ) : (
+                    <Lock size={12} aria-hidden />
+                  )}
+                  {selectedNode?.locked ? "Unlock" : "Lock"}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    onUpdateSelectedAttributes?.({ hidden: true });
+                    closeMoreMenuAndRestoreFocus();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                >
+                  <EyeOff size={12} aria-hidden />
+                  Hide
+                </button>
+              </div>
             </Popover>
           </>
         ) : null}
