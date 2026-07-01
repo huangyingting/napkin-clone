@@ -107,6 +107,46 @@ function skipOptionalSlidesFixture(reason: string): never {
   throw new Error(reason);
 }
 
+const STAGE_NODE_SELECTOR = '[data-slide-canvas-vnext="true"] [data-node-id]';
+
+async function selectedStageNodeId(
+  stageShell: Locator,
+): Promise<string | null> {
+  const selected = stageShell
+    .locator(`${STAGE_NODE_SELECTOR}[role="button"][aria-pressed="true"]`)
+    .first();
+  if ((await selected.count()) === 0) return null;
+  return await selected.getAttribute("data-node-id");
+}
+
+async function focusedStageNodeId(stageShell: Locator): Promise<string | null> {
+  const focused = stageShell
+    .locator(`${STAGE_NODE_SELECTOR}[role="button"][data-node-focused="true"]`)
+    .first();
+  if ((await focused.count()) === 0) return null;
+  return await focused.getAttribute("data-node-id");
+}
+
+async function stageNodeSize(
+  stageShell: Locator,
+  nodeId: string,
+): Promise<{ width: number; height: number } | null> {
+  const node = stageShell
+    .locator(`${STAGE_NODE_SELECTOR}[role="button"][data-node-id="${nodeId}"]`)
+    .first();
+  if ((await node.count()) === 0) return null;
+  const style = await node.getAttribute("style");
+  if (!style) return null;
+  const width = Number.parseFloat(
+    style.match(/width:\s*([0-9.]+)%/i)?.[1] ?? "",
+  );
+  const height = Number.parseFloat(
+    style.match(/height:\s*([0-9.]+)%/i)?.[1] ?? "",
+  );
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return { width, height };
+}
+
 // ---------------------------------------------------------------------------
 // Smoke: document → Slides editor navigation
 // ---------------------------------------------------------------------------
@@ -476,6 +516,101 @@ test.describe("authenticated workspace accessibility", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("slides editor accessible toolbar controls", () => {
+  test("v7 stage keyboard traversal, resize shortcuts, and live announcements are behavioral", async ({
+    page,
+  }) => {
+    const creds = ownerCredentials();
+    test.skip(!creds, "Set E2E_USER_EMAIL/E2E_USER_PASSWORD to run this flow");
+    const docUrl = slidesDocUrl();
+    test.skip(
+      !docUrl,
+      "Set E2E_SLIDES_DOC_URL to run the stage keyboard/screen-reader coverage",
+    );
+
+    await login(page, creds!);
+    await page.goto(docUrl!);
+
+    const slidesTab = page
+      .getByRole("tab", { name: /slides/i })
+      .or(page.getByRole("button", { name: /slides/i }))
+      .or(page.getByRole("link", { name: /slides/i }))
+      .first();
+    await clickIfPresent(slidesTab);
+
+    const stageShell = page.locator('[data-slide-stage-shell="true"]').first();
+    await expect(stageShell).toBeVisible({ timeout: 10_000 });
+
+    const liveRegion = stageShell.locator('[aria-live="polite"]').first();
+    await expect(liveRegion).toBeAttached();
+
+    const stageNodes = stageShell.locator(
+      `${STAGE_NODE_SELECTOR}[role="button"]:not([aria-disabled="true"])`,
+    );
+    if ((await stageNodes.count()) === 0) {
+      skipOptionalSlidesFixture("No focusable stage nodes were available");
+    }
+
+    await stageNodes.first().click();
+    await expect(stageNodes.first()).toHaveAttribute("aria-pressed", "true");
+
+    if ((await stageNodes.count()) < 2) {
+      await page.keyboard.press("ControlOrMeta+d");
+      await expect.poll(() => stageNodes.count()).toBeGreaterThanOrEqual(2);
+    }
+    if ((await stageNodes.count()) < 2) {
+      skipOptionalSlidesFixture(
+        "Need at least two stage nodes for Tab/Shift+Tab traversal coverage",
+      );
+    }
+
+    const firstSelectedId = await selectedStageNodeId(stageShell);
+    if (!firstSelectedId) {
+      skipOptionalSlidesFixture(
+        "Could not read the initial selected stage node",
+      );
+    }
+
+    await expect(async () => {
+      await page.keyboard.press("Tab");
+      const nextSelectedId = await selectedStageNodeId(stageShell);
+      expect(nextSelectedId).toBeTruthy();
+      expect(nextSelectedId).not.toBe(firstSelectedId);
+      expect(await focusedStageNodeId(stageShell)).toBe(nextSelectedId);
+    }).toPass({ timeout: 10_000 });
+
+    await expect(async () => {
+      await page.keyboard.press("Shift+Tab");
+      expect(await selectedStageNodeId(stageShell)).toBe(firstSelectedId);
+      expect(await focusedStageNodeId(stageShell)).toBe(firstSelectedId);
+    }).toPass({ timeout: 10_000 });
+
+    const beforeResize = await stageNodeSize(stageShell, firstSelectedId);
+    if (!beforeResize) {
+      skipOptionalSlidesFixture(
+        "Could not parse stage node width/height styles",
+      );
+    }
+
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect(liveRegion).toContainText(/Resized 1 node/i);
+    const afterAltResize = await stageNodeSize(stageShell, firstSelectedId);
+    expect(afterAltResize).not.toBeNull();
+    expect(afterAltResize!.width).toBeGreaterThan(beforeResize.width);
+
+    await page.keyboard.press("Alt+Shift+ArrowDown");
+    await expect(liveRegion).toContainText(/Resized 1 node/i);
+    const afterShiftAltResize = await stageNodeSize(
+      stageShell,
+      firstSelectedId,
+    );
+    expect(afterShiftAltResize).not.toBeNull();
+    expect(afterShiftAltResize!.height).toBeGreaterThan(afterAltResize!.height);
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => selectedStageNodeId(stageShell)).toBe(null);
+    await expect(liveRegion).toContainText(/Slide selected/i);
+  });
+
   test("slide editor toolbar controls are reachable by accessible role", async ({
     page,
   }) => {
