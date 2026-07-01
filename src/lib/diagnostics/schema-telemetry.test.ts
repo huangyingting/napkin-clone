@@ -79,6 +79,25 @@ describe("buildSchemaDiagnostic", () => {
     assert.equal(record.Authorization, REDACTED);
     assert.ok(!JSON.stringify(record).includes("sk-secret"));
   });
+
+  test("redacts quoted prose in reason strings", () => {
+    const paragraphText = "USER PROVIDED PARAGRAPH CONTENT";
+    const record = buildSchemaDiagnostic("deck-parse-failed", {
+      reason: `Deck.slides[0].children[0].content.paragraphs[0]: runs text "${paragraphText}" does not equal paragraph text "${paragraphText}"`,
+    });
+
+    assert.equal(
+      record.reason,
+      'Deck.slides[0].children[0].content.paragraphs[0]: runs text "[redacted]" does not equal paragraph text "[redacted]"',
+    );
+    assert.ok(!JSON.stringify(record).includes(paragraphText));
+  });
+
+  test("keeps short quoted enum values in reason strings", () => {
+    const reason = 'blockKind must be "text" or "visual"';
+    const record = buildSchemaDiagnostic("sourceref-invalid", { reason });
+    assert.equal(record.reason, reason);
+  });
 });
 
 describe("isContentKey", () => {

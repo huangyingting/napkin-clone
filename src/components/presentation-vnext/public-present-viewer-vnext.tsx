@@ -21,6 +21,7 @@ import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostic
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
+import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import {
   initialPublicHashSlideIndex,
@@ -147,15 +148,7 @@ export function PublicPresentViewerVNext({
 
   const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
-    const visualAssetId = deck.assets.visuals?.[assetId]?.id;
-    return (
-      deck.assets.images[assetId]?.src ??
-      deck.assets.files?.[assetId]?.src ??
-      (visualAssetId
-        ? (deck.assets.images[visualAssetId]?.src ??
-          deck.assets.files?.[visualAssetId]?.src)
-        : undefined)
-    );
+    return resolveDeckAssetSource(deck, assetId);
   }
   const aspectRatio =
     canvas && canvas.width > 0 && canvas.height > 0
@@ -227,7 +220,7 @@ export function PublicPresentViewerVNext({
       {!embed && (
         <div
           aria-label="Presentation controls"
-          className={`pointer-events-none absolute inset-x-0 top-0 z-raised flex items-center justify-between gap-4 px-4 py-3 transition-opacity duration-300 motion-reduce:transition-none ${hudVisible ? "opacity-100" : "opacity-0"}`}
+          className={`tiq-safe-present-top pointer-events-none absolute inset-x-0 top-0 z-raised flex items-center justify-between gap-4 pb-3 transition-opacity duration-300 motion-reduce:transition-none ${hudVisible ? "opacity-100" : "opacity-0"}`}
         >
           <div className="pointer-events-auto flex items-center gap-3">
             <span
@@ -303,7 +296,7 @@ export function PublicPresentViewerVNext({
 
       {/* Bottom nav bar */}
       <div
-        className={`pointer-events-none absolute bottom-4 left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 motion-reduce:transition-none ${!embed && !hudVisible ? "opacity-0" : "opacity-100"}`}
+        className={`tiq-safe-present-bottom pointer-events-none absolute left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 motion-reduce:transition-none ${!embed && !hudVisible ? "opacity-0" : "opacity-100"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button

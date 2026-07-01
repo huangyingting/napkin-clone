@@ -81,6 +81,11 @@ function resolveTokensDeep(
   dc: DiagnosticCollector,
   ctx: string,
 ): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      resolveTokensDeep(item, tokens, dc, `${ctx}.${index}`),
+    );
+  }
   if (!isPlainObject(value)) return value;
   if (typeof value.token === "string") {
     const resolved = resolveTokenPath(tokens, value.token);

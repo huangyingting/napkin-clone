@@ -26,7 +26,7 @@ describe("DeckDiagnosticsReview", () => {
         details: { assetId: "hero" },
         action: { type: "open-asset-panel" },
       }),
-      makeDiagnostic("migration-repair-applied", "info", "Migrated deck"),
+      makeDiagnostic("duplicate-id", "info", "Duplicate id in deck"),
     ];
 
     const html = renderToStaticMarkup(
@@ -45,9 +45,9 @@ describe("DeckDiagnosticsReview", () => {
     assert.match(html, /Open asset panel/);
   });
 
-  test("renders migration, source, asset, theme, render, and export diagnostics in one surface", () => {
+  test("renders validation, source, asset, theme, render, and export diagnostics in one surface", () => {
     const diagnostics: PresentationDiagnostic[] = [
-      makeDiagnostic("migration-repair-applied", "info", "Migrated deck"),
+      makeDiagnostic("duplicate-id", "info", "Duplicate id in deck"),
       makeDiagnostic("stale-source", "warning", "Source is stale", {
         slideId: "slide-1",
         nodeId: "text-1",
@@ -87,7 +87,7 @@ describe("DeckDiagnosticsReview", () => {
     );
 
     for (const category of [
-      "migration",
+      "validation",
       "source",
       "asset",
       "theme",

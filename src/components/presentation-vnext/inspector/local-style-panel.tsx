@@ -5,6 +5,11 @@ import type { JSX } from "react";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type { StylePatch } from "@/lib/presentation-vnext/style-schema";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  clampToRange,
+  parseFiniteNumberInput,
+  sanitizeBoundedNumber,
+} from "./numeric-sanitization";
 
 export interface LocalStylePanelProps {
   node: SlideChildNode;
@@ -93,11 +98,19 @@ export function LocalStylePanel({
                 min={4}
                 max={160}
                 step={1}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const parsed = parseFiniteNumberInput(
+                    event.currentTarget.value,
+                  );
+                  const fontSize =
+                    parsed === undefined
+                      ? undefined
+                      : sanitizeBoundedNumber(parsed, 4, 160);
+                  if (fontSize === undefined) return;
                   onUpdateLocalStyle({
-                    text: { fontSizePt: Number(event.currentTarget.value) },
-                  })
-                }
+                    text: { fontSizePt: fontSize },
+                  });
+                }}
                 className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
               />
             </label>
@@ -105,11 +118,17 @@ export function LocalStylePanel({
               Weight
               <select
                 value={node.localStyle?.text?.weight ?? 400}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const parsed = parseFiniteNumberInput(
+                    event.currentTarget.value,
+                  );
+                  if (parsed === undefined) return;
                   onUpdateLocalStyle({
-                    text: { weight: Number(event.currentTarget.value) },
-                  })
-                }
+                    text: {
+                      weight: Math.round(clampToRange(parsed, 100, 900)),
+                    },
+                  });
+                }}
                 className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
               >
                 <option value={300}>Light</option>
@@ -126,9 +145,7 @@ export function LocalStylePanel({
                   onUpdateLocalStyle({
                     text: {
                       align: event.currentTarget.value as
-                        | "left"
-                        | "center"
-                        | "right",
+                        "left" | "center" | "right",
                     },
                   })
                 }
@@ -148,11 +165,19 @@ export function LocalStylePanel({
               min={0.8}
               max={2}
               step={0.05}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const lineHeight =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0.8, 2);
+                if (lineHeight === undefined) return;
                 onUpdateLocalStyle({
-                  text: { lineHeight: Number(event.currentTarget.value) },
-                })
-              }
+                  text: { lineHeight },
+                });
+              }}
             />
           </label>
           <div className="flex gap-4 text-xs text-ds-text-secondary">
@@ -224,14 +249,22 @@ export function LocalStylePanel({
               min={0}
               max={24}
               step={0.5}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const widthPt =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0, 24);
+                if (widthPt === undefined) return;
                 onUpdateLocalStyle({
                   stroke: {
                     color: strokeColor(node.localStyle),
-                    widthPt: Number(event.currentTarget.value),
+                    widthPt,
                   },
-                })
-              }
+                });
+              }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
@@ -267,17 +300,25 @@ export function LocalStylePanel({
               min={0.5}
               max={24}
               step={0.5}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const widthPt =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0.5, 24);
+                if (widthPt === undefined) return;
                 onUpdateLocalStyle({
                   connector: {
                     ...node.localStyle?.connector,
                     stroke: {
                       color: connectorStrokeColor(node.localStyle),
-                      widthPt: Number(event.currentTarget.value),
+                      widthPt,
                     },
                   },
-                })
-              }
+                });
+              }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
@@ -294,9 +335,7 @@ export function LocalStylePanel({
                       widthPt:
                         node.localStyle?.connector?.stroke?.widthPt ?? 1.5,
                       dash: event.currentTarget.value as
-                        | "solid"
-                        | "dashed"
-                        | "dotted",
+                        "solid" | "dashed" | "dotted",
                     },
                   },
                 })
@@ -317,9 +356,7 @@ export function LocalStylePanel({
                   connector: {
                     ...node.localStyle?.connector,
                     startArrow: event.currentTarget.value as
-                      | "none"
-                      | "arrow"
-                      | "filled",
+                      "none" | "arrow" | "filled",
                   },
                 })
               }
@@ -339,9 +376,7 @@ export function LocalStylePanel({
                   connector: {
                     ...node.localStyle?.connector,
                     endArrow: event.currentTarget.value as
-                      | "none"
-                      | "arrow"
-                      | "filled",
+                      "none" | "arrow" | "filled",
                   },
                 })
               }
@@ -525,7 +560,15 @@ export function LocalStylePanel({
               min={0}
               max={8}
               step={0.5}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const widthPt =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0, 8);
+                if (widthPt === undefined) return;
                 onUpdateLocalStyle({
                   table: {
                     ...node.localStyle?.table,
@@ -535,11 +578,11 @@ export function LocalStylePanel({
                         "string"
                           ? node.localStyle.table.border.color
                           : "#cbd5e1",
-                      widthPt: Number(event.currentTarget.value),
+                      widthPt,
                     },
                   },
-                })
-              }
+                });
+              }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
@@ -552,7 +595,14 @@ export function LocalStylePanel({
               max={24}
               step={1}
               onChange={(event) => {
-                const padding = Number(event.currentTarget.value);
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const padding =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0, 24);
+                if (padding === undefined) return;
                 onUpdateLocalStyle({
                   table: {
                     ...node.localStyle?.table,
@@ -578,9 +628,15 @@ export function LocalStylePanel({
           min={0}
           max={1}
           step={0.05}
-          onChange={(event) =>
-            onUpdateLocalStyle({ opacity: Number(event.currentTarget.value) })
-          }
+          onChange={(event) => {
+            const parsed = parseFiniteNumberInput(event.currentTarget.value);
+            const nextOpacity =
+              parsed === undefined
+                ? undefined
+                : sanitizeBoundedNumber(parsed, 0, 1);
+            if (nextOpacity === undefined) return;
+            onUpdateLocalStyle({ opacity: nextOpacity });
+          }}
         />
       </label>
     </section>

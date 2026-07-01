@@ -221,15 +221,12 @@ test("#510: anonymous request denied for an expired share link", () => {
   });
 });
 
-test("#510: anonymous request denied for a revoked (rotated shareId) link", () => {
-  // shareId was rotated, but the asset row still carries the document's current
-  // shareId; an old predictable URL must not resolve. The decision derives the
-  // requested id from the document's current shareId, so a mismatch can only
-  // occur via a stale link — modeled here by clearing isShared after rotation.
+test("#1420: anonymous request denied when share-bound public access is stale", () => {
   const decision = decideSlideAssetAccess({
     asset: ASSET,
-    document: sharedDoc({ isShared: false, shareId: "rotated-id" }),
+    document: sharedDoc({ shareId: "rotated-id" }),
     userId: null,
+    publicAssetAccess: { allow: false, status: 403, reason: "forbidden" },
     now: NOW,
   });
   assert.deepEqual(decision, {

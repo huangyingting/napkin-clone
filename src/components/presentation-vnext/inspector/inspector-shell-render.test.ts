@@ -215,6 +215,7 @@ function renderInspector({
   activeLayoutId = "default",
   assetResolver,
   onReplaceImage,
+  onReplaceVisual,
 }: {
   initialPanel?: InspectorProps["initialPanel"];
   diagnostics?: PresentationDiagnostic[];
@@ -227,6 +228,7 @@ function renderInspector({
   activeLayoutId?: string;
   assetResolver?: InspectorProps["assetResolver"];
   onReplaceImage?: InspectorProps["onReplaceImage"];
+  onReplaceVisual?: InspectorProps["onReplaceVisual"];
 } = {}) {
   const noop = () => undefined;
   return renderToStaticMarkup(
@@ -273,6 +275,7 @@ function renderInspector({
       onToggleSelectionMode: noop,
       assetResolver,
       onReplaceImage,
+      onReplaceVisual,
       initialPanel,
     }),
   );
@@ -414,7 +417,11 @@ describe("InspectorShell render affordances", () => {
       assetResolver: () => "https://example.com/image.png",
       onReplaceImage: () => undefined,
     });
-    const visualHtml = renderInspector({ selectedNode: visualNode });
+    const visualHtml = renderInspector({
+      selectedNode: visualNode,
+      assetResolver: () => "https://example.com/visual.png",
+      onReplaceVisual: () => undefined,
+    });
     const tableHtml = renderInspector({ selectedNode: tableNode });
     const connectorHtml = renderInspector({
       initialPanel: "line",
@@ -423,7 +430,8 @@ describe("InspectorShell render affordances", () => {
 
     assert.match(imageHtml, /Product screenshot/);
     assert.match(imageHtml, /Replace image/);
-    assert.match(visualHtml, /Visual id/);
+    assert.match(visualHtml, /Replace visual/);
+    assert.match(visualHtml, /Debug identifiers/);
     assert.match(visualHtml, /Transparent background/);
     assert.match(tableHtml, /Metrics table/);
     assert.match(tableHtml, /Insert row before/);
