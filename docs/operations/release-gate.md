@@ -194,11 +194,12 @@ Key properties:
 - Seeded owner/viewer emails and passwords are fixed test credentials (see
   `e2e/helpers/profile.ts` / the emitted `e2e/.e2e-fixture.json`).
 
-| Spec (Epic #517)             | Covers                                                                                         |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `import-roundtrip.spec.ts`   | #519 Markdown import → editor render → edit/save → reload persistence; unsupported-type error  |
-| `present-export.spec.ts`     | #520 authenticated + public present render seeded text; real PDF download (nonzero bytes)      |
-| `slide-asset-upload.spec.ts` | #521 inspector image upload → reload resolves protected asset; private-asset 403 vs shared 200 |
+| Spec (Epic #517)                    | Covers                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `import-roundtrip.spec.ts`          | #519 Markdown import → editor render → edit/save → reload persistence; unsupported-type error                 |
+| `present-export.spec.ts`            | #520 authenticated + public present render seeded text; real PDF download (nonzero bytes)                     |
+| `slide-asset-upload.spec.ts`        | #521 inspector image upload → reload resolves protected asset; private-asset 403 vs shared 200                |
+| `slides-layout-screenshots.spec.ts` | #1449 deterministic v7 layout screenshots (desktop/tablet/mobile + rail-hidden + notes-expanded + panel-open) |
 
 See [`e2e/README.md`](../../e2e/README.md) for the full environment-variable
 reference and per-spec run instructions.
@@ -233,6 +234,7 @@ For each flow below, check the indicated owner: **A** = automated test,
 | S-5 | Present mode (read-only render)     | **M** + **E2E** | SlideCanvas rendering; authenticated + public present asserted in `e2e/present-export.spec.ts` (#520) |
 | S-6 | Deck PPTX / PDF export              | **A** + **E2E** | `export-preflight.test.ts`; real PDF download asserted in `e2e/present-export.spec.ts` (#520)         |
 | S-7 | Export preflight (fatal / warning)  | **A**           | `export-preflight.test.ts`                                                                            |
+| S-8 | Slide editor responsive layout      | **A** + **E2E** | Deterministic v7 layout screenshots in `e2e/slides-layout-screenshots.spec.ts` (#1449)                |
 
 ### Visual projection flows
 
@@ -317,16 +319,17 @@ Before each foundation release wave:
 
 ## Part 5 — Cross-references
 
-| Related issue | Area                                                                                                                                                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                                                    |
-| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                                                 |
-| #436          | Command envelope — `commands/`, `presentation-vnext/editor-commands.ts`                                                                                                                                                                         |
-| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                                                       |
-| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                                                    |
-| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                                                   |
-| #461          | Performance budgets — `scripts/perf-budgets.mjs`, `scripts/check-next-build-constraints.mjs`                                                                                                                                                    |
-| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                                              |
-| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/schema-repair-runbook.md`                                                                                                                                            |
-| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [slide canvas keyboard accessibility decision](../system/slide-canvas-keyboard-accessibility.md) |
-| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/architecture-decisions.md), `npm run docs:check`                  |
+| Related issue | Area                                                                                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                                                                              |
+| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                                                                           |
+| #436          | Command envelope — `commands/`, `presentation-vnext/editor-commands.ts`                                                                                                                                                                                                   |
+| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                                                                                 |
+| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                                                                              |
+| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                                                                             |
+| #461          | Performance budgets — `scripts/perf-budgets.mjs`, `scripts/check-next-build-constraints.mjs`                                                                                                                                                                              |
+| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                                                                        |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/schema-repair-runbook.md`                                                                                                                                                                      |
+| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload,slides-layout-screenshots}.spec.ts`, [slide canvas keyboard accessibility decision](../system/slide-canvas-keyboard-accessibility.md) |
+| #1449         | Deterministic v7 layout screenshot gate — `e2e/slides-layout-screenshots.spec.ts`, `playwright.config.ts`, [E2E README](../../e2e/README.md)                                                                                                                              |
+| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/architecture-decisions.md), `npm run docs:check`                                            |

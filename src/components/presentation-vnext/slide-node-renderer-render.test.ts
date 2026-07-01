@@ -7,7 +7,9 @@ import {
   SlideNodeRenderer,
   styleObjectToContainerCss,
 } from "./slide-node-renderer";
+import { fillStyleToCss } from "./fill-style-css";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
+import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
 
 function node(
   content: ResolvedRenderNode["content"],
@@ -38,6 +40,38 @@ function renderNode(
 }
 
 describe("styleObjectToContainerCss", () => {
+  test("uses shared fill-style conversion for representative fill variants", () => {
+    const resolver = (id: string) =>
+      id === "missing" ? undefined : `https://assets.example/${id}.png`;
+    const fills: FillStyle[] = [
+      { type: "solid", color: "#f8fafc" },
+      {
+        type: "linearGradient",
+        from: "#111111",
+        to: "#eeeeee",
+        stops: [
+          { color: "#111111", offsetPct: 0 },
+          { color: "#eeeeee", offsetPct: 100 },
+        ],
+      },
+      {
+        type: "pattern",
+        kind: "dots",
+        color: "#334155",
+        background: "#ffffff",
+      },
+      { type: "image", assetId: "bg", opacity: 0.4 },
+      { type: "image", assetId: "missing", opacity: 0.4 },
+    ];
+
+    for (const fill of fills) {
+      assert.deepEqual(
+        styleObjectToContainerCss({ fill }, resolver),
+        fillStyleToCss(fill, resolver),
+      );
+    }
+  });
+
   test("converts rich fills and visual effects into deterministic inline CSS", () => {
     const css = styleObjectToContainerCss({
       fill: {
@@ -354,7 +388,57 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(html, /text-transform:uppercase/);
   });
 
-  test("renders styled shape labels and SVG path shapes", () => {
+  test("renders ordered list markers from contiguous runs, indent, and numberStyle", () => {
+    const html = renderNode(
+      node({
+        type: "text",
+        content: {
+          paragraphs: [
+            { id: "p1", text: "Bullet lead", list: { kind: "bullet" } },
+            { id: "p2", text: "Decimal one", list: { kind: "number" } },
+            {
+              id: "p3",
+              text: "Nested one",
+              list: { kind: "number", indent: 1 },
+            },
+            {
+              id: "p4",
+              text: "Nested two",
+              list: { kind: "number", indent: 1 },
+            },
+            { id: "p5", text: "Decimal two", list: { kind: "number" } },
+            { id: "p6", text: "Break" },
+            {
+              id: "p7",
+              text: "Lower alpha restart",
+              list: { kind: "number", numberStyle: "lower-alpha" },
+            },
+            {
+              id: "p8",
+              text: "Upper alpha continuation",
+              list: { kind: "number", numberStyle: "upper-alpha" },
+            },
+            {
+              id: "p9",
+              text: "Lower roman continuation",
+              list: { kind: "number", numberStyle: "lower-roman" },
+            },
+          ],
+        },
+      }),
+    );
+
+    assert.match(html, />•<\/span><span>Bullet lead<\/span>/);
+    assert.match(html, />1\.<\/span><span>Decimal one<\/span>/);
+    assert.match(html, />1\.<\/span><span>Nested one<\/span>/);
+    assert.match(html, />2\.<\/span><span>Nested two<\/span>/);
+    assert.match(html, />2\.<\/span><span>Decimal two<\/span>/);
+    assert.match(html, />a\.<\/span><span>Lower alpha restart<\/span>/);
+    assert.match(html, />B\.<\/span><span>Upper alpha continuation<\/span>/);
+    assert.match(html, />iii\.<\/span><span>Lower roman continuation<\/span>/);
+  });
+
+  test("renders styled shape labels and SVG geometry", () => {
     const html = renderNode(
       node(
         {
@@ -376,10 +460,11 @@ describe("SlideNodeRenderer content variants", () => {
 
     assert.match(html, /<svg/);
     assert.match(html, /Decision/);
-    assert.match(html, /background-color:#ffeeaa/);
+    assert.match(html, /fill="#ffeeaa"/);
+    assert.doesNotMatch(html, /background-color:#ffeeaa/);
   });
 
-  test("renders path, triangle, and ellipse shape variants", () => {
+  test("renders ellipse, circle, line, triangle, diamond, square, and path variants", () => {
     const pathHtml = renderNode(
       node(
         {
@@ -397,6 +482,12 @@ describe("SlideNodeRenderer content variants", () => {
         },
       ),
     );
+    const diamondHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "diamond" },
+      }),
+    );
     const triangleHtml = renderNode(
       node({
         type: "shape",
@@ -409,10 +500,34 @@ describe("SlideNodeRenderer content variants", () => {
         content: { shape: "ellipse" },
       }),
     );
+    const circleHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "circle" },
+      }),
+    );
+    const lineHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "line" },
+      }),
+    );
+    const squareHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "square" },
+      }),
+    );
 
     assert.match(pathHtml, /M 0 0 L 100 0 L 50 100 Z/);
+    assert.match(pathHtml, /fill="#ddeeff"/);
+    assert.doesNotMatch(pathHtml, /background-color:#ddeeff/);
+    assert.match(diamondHtml, /M 50 0 L 100 50 L 50 100 L 0 50 Z/);
     assert.match(triangleHtml, /M 50 0 L 100 100 L 0 100 Z/);
-    assert.doesNotMatch(ellipseHtml, /<svg/);
+    assert.match(ellipseHtml, /<ellipse/);
+    assert.match(circleHtml, /<circle/);
+    assert.match(lineHtml, /<line/);
+    assert.match(squareHtml, /M 0 0 L 100 0 L 100 100 L 0 100 Z/);
   });
 
   test("renders table headers, cell runs, and alternating row fill", () => {

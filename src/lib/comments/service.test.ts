@@ -3,8 +3,10 @@ import { test } from "node:test";
 
 import {
   createCommentService,
+  type LoadDeckV7ForDocument,
   type RequireCommentDocumentContext,
 } from "./service";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 type FakeAuthor = { id: string; name: string | null; email: string };
 
@@ -70,6 +72,30 @@ function rootComment(partial: Partial<FakeComment> = {}): FakeComment {
     createdAt: partial.createdAt ?? new Date("2024-01-01T00:00:00Z"),
     author,
   };
+}
+
+function buildDeck(
+  slides: Array<{ id: string; elementIds?: string[] }>,
+): DeckV7 {
+  return {
+    schemaVersion: 7,
+    canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+    theme: { packageId: "neutral" },
+    assets: { images: {} },
+    slides: slides.map(({ id, elementIds = [] }) => ({
+      id,
+      type: "slide",
+      template: { kind: "content" },
+      style: { ref: "slide.content" },
+      children: elementIds.map((elementId) => ({
+        id: elementId,
+        type: "text",
+        role: "body",
+        style: { ref: "text.body" },
+        content: { paragraphs: [{ id: `${elementId}-p1`, text: "" }] },
+      })),
+    })),
+  } as never;
 }
 
 function matchesWhere(comment: FakeComment, where: FakeWhere): boolean {
@@ -233,7 +259,11 @@ class FakeDb {
   };
 }
 
-function makeService(db: FakeDb, userId = "viewer") {
+function makeService(
+  db: FakeDb,
+  userId = "viewer",
+  loadDeckV7ForDocument?: LoadDeckV7ForDocument,
+) {
   const seenContexts: string[] = [];
   const requireDocumentContext: RequireCommentDocumentContext = async (
     documentId,
@@ -247,6 +277,7 @@ function makeService(db: FakeDb, userId = "viewer") {
       db: db as never,
       now: () => new Date("2024-01-02T00:00:00Z"),
       requireDocumentContext,
+      loadDeckV7ForDocument,
     }),
     seenContexts,
   };
@@ -356,7 +387,9 @@ test("comment service creates trimmed text and visual root comments", async () =
 
 test("comment service creates slide root comments with geometry", async () => {
   const db = new FakeDb();
-  const { service } = makeService(db, "author-1");
+  const { service } = makeService(db, "author-1", async () =>
+    buildDeck([{ id: "slide-1", elementIds: ["element-1"] }]),
+  );
 
   await service.createComment("doc-1", {
     body: "Slide anchor",
@@ -368,6 +401,74 @@ test("comment service creates slide root comments with geometry", async () => {
   assert.equal(db.comments[0].slideId, "slide-1");
   assert.equal(db.comments[0].elementId, "element-1");
   assert.deepEqual(db.comments[0].anchorGeometry, { x: 1, y: 2 });
+});
+
+test("comment service rejects slide comments anchored to missing slides", async () => {
+  const db = new FakeDb();
+  const { service } = makeService(db, "author-1", async () =>
+    buildDeck([{ id: "slide-1", elementIds: ["element-1"] }]),
+  );
+
+  await assert.rejects(
+    () =>
+      service.createComment("doc-1", {
+        body: "Missing slide",
+        slideId: "missing-slide",
+        elementId: "element-1",
+      }),
+    /existing slide or element in the saved deck/i,
+  );
+});
+
+test("comment service rejects slide comments anchored to missing elements", async () => {
+  const db = new FakeDb();
+  const { service } = makeService(db, "author-1", async () =>
+    buildDeck([{ id: "slide-1", elementIds: ["element-1"] }]),
+  );
+
+  await assert.rejects(
+    () =>
+      service.createComment("doc-1", {
+        body: "Missing element",
+        slideId: "slide-1",
+        elementId: "missing-element",
+      }),
+    /existing slide or element in the saved deck/i,
+  );
+});
+
+test("comment service rejects slide comments when the saved deck is unavailable", async () => {
+  const db = new FakeDb();
+  const loadDeckV7ForDocument: LoadDeckV7ForDocument = async () => {
+    throw new Error("Slide comments require a saved deck on this document.");
+  };
+  const { service } = makeService(db, "author-1", loadDeckV7ForDocument);
+
+  await assert.rejects(
+    () =>
+      service.createComment("doc-1", {
+        body: "No deck",
+        slideId: "slide-1",
+      }),
+    /saved deck on this document/i,
+  );
+});
+
+test("comment service rejects slide comments when the saved deck is invalid", async () => {
+  const db = new FakeDb();
+  const loadDeckV7ForDocument: LoadDeckV7ForDocument = async () => {
+    throw new Error("Slide comments require a valid saved v7 deck.");
+  };
+  const { service } = makeService(db, "author-1", loadDeckV7ForDocument);
+
+  await assert.rejects(
+    () =>
+      service.createComment("doc-1", {
+        body: "Bad deck",
+        slideId: "slide-1",
+      }),
+    /valid saved v7 deck/i,
+  );
 });
 
 test("comment service rejects empty created and edited comments", async () => {

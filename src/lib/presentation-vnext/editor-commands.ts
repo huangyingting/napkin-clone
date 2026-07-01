@@ -28,6 +28,8 @@ import type { ResolvedRenderNode } from "./render-tree";
 import type { AiSlideSpec } from "./ai-plan-schema";
 import type { SemanticTemplateV1 } from "./template-registry";
 import { compileSlide } from "./template-compiler";
+import { connectorEndpointToPointFallback } from "./connector-geometry";
+import { mergeStylePatchDeep } from "./style-patch-merge";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -373,50 +375,16 @@ function duplicateSelectedInChildren(
   return result;
 }
 
-function anchorPoint(
-  frame: LayoutBox["frame"],
-  anchor: Extract<ConnectorEndpoint, { kind: "node" }>["anchor"],
-): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: frame.x + frame.w / 2, y: frame.y };
-    case "right":
-      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
-    case "bottom":
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
-    case "left":
-      return { x: frame.x, y: frame.y + frame.h / 2 };
-    case "center":
-    default:
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
-  }
-}
-
 function connectorEndpointToPoint(
   endpoint: ConnectorEndpoint,
   connector: SlideChildNode,
   slide: SlideNode,
 ): ConnectorEndpoint {
-  if (endpoint.kind === "point") return endpoint;
-  if (!connector.layout) return endpoint;
-  const target = findNodeById(slide.children, endpoint.nodeId);
-  if (!target?.layout) return endpoint;
-  const targetPoint = anchorPoint(target.layout.frame, endpoint.anchor);
-  const frame = connector.layout.frame;
-  if (frame.w <= 0 || frame.h <= 0) return endpoint;
-  return {
-    kind: "point",
-    point: {
-      x: Math.max(
-        0,
-        Math.min(100, ((targetPoint.x - frame.x) / frame.w) * 100),
-      ),
-      y: Math.max(
-        0,
-        Math.min(100, ((targetPoint.y - frame.y) / frame.h) * 100),
-      ),
-    },
-  };
+  return connectorEndpointToPointFallback(
+    endpoint,
+    connector.layout?.frame,
+    (nodeId) => findNodeById(slide.children, nodeId)?.layout?.frame,
+  );
 }
 
 function repairConnectorBindingsBeforeDelete(
@@ -726,7 +694,13 @@ export function updateSlideLocalStyle(
 ): DeckV7 {
   return mapSlides(deck, (slide) =>
     slide.id === slideId
-      ? { ...slide, localStyle: mergeStylePatch(slide.localStyle, patch) }
+      ? {
+          ...slide,
+          localStyle: mergeStylePatchDeep(
+            slide.localStyle,
+            patch,
+          ) as StylePatch,
+        }
       : slide,
   );
 }
@@ -1107,38 +1081,10 @@ export function updateLocalStyle(
       (node) =>
         ({
           ...node,
-          localStyle: mergeStylePatch(node.localStyle, patch),
+          localStyle: mergeStylePatchDeep(node.localStyle, patch) as StylePatch,
         }) as SlideChildNode,
     );
   });
-}
-
-function mergeStylePatch(
-  base: StylePatch | undefined,
-  patch: StylePatch,
-): StylePatch {
-  if (!base) return patch;
-  const result: StylePatch = { ...base };
-  for (const key of Object.keys(patch) as (keyof StylePatch)[]) {
-    const pv = patch[key];
-    const bv = base[key];
-    if (
-      pv !== undefined &&
-      typeof pv === "object" &&
-      !Array.isArray(pv) &&
-      typeof bv === "object" &&
-      bv !== null &&
-      !Array.isArray(bv)
-    ) {
-      (result as Record<string, unknown>)[key] = {
-        ...(bv as object),
-        ...(pv as object),
-      };
-    } else {
-      (result as Record<string, unknown>)[key] = pv;
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------

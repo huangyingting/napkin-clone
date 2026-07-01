@@ -435,6 +435,7 @@ export function SlideEditorButton({
           proposedDeck={aiPreviewV7.proposedDeck}
           baselineDeck={aiPreviewV7.baselineDeck}
           truncated={aiPreviewV7.truncated}
+          generationDiagnostics={aiPreviewV7.generationDiagnostics}
           contentJson={aiPreviewV7.contentJson}
           options={aiPreviewV7.options}
           onApply={handleAiPreviewV7Apply}

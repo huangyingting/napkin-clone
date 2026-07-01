@@ -19,8 +19,7 @@ import { SEMANTIC_TEMPLATE_KINDS } from "./template-registry";
 // ---------------------------------------------------------------------------
 
 export type DeckV7ParseResult =
-  | { success: true; data: DeckV7 }
-  | { success: false; errors: string[] };
+  { success: true; data: DeckV7 } | { success: false; errors: string[] };
 
 /** Validates and parses an unknown value as a v7 deck. Does not mutate input. */
 export function safeParseDeckV7(input: unknown): DeckV7ParseResult {
@@ -95,6 +94,9 @@ function validateCanvas(
   }
   if (input.unit !== "percent") {
     fail(errors, `${ctx}.unit must be "percent"`);
+  }
+  if (input.safeArea !== undefined) {
+    validateInsetsPct(input.safeArea, `${ctx}.safeArea`, errors);
   }
   return input;
 }
@@ -264,6 +266,12 @@ function validateInsetsPct(
   if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
     return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known inset field`);
+    }
   }
   for (const key of ["top", "right", "bottom", "left"] as const) {
     if (!isFiniteNumber(input[key])) {
@@ -547,7 +555,7 @@ function validateTextContent(
       if (joined !== para.text) {
         fail(
           errors,
-          `${pCtx}: runs text "${joined}" does not equal paragraph text "${para.text}"`,
+          `${pCtx}: runs text must concatenate to paragraph text (runLength=${joined.length}, paragraphLength=${para.text.length})`,
         );
       }
     }
@@ -1161,6 +1169,8 @@ function validateSlideNode(
   if (input.source !== undefined) {
     validateSourceMetadata(input.source, `${ctx}.source`, errors);
   }
+
+  validateOptionalString(input.notes, `${ctx}.notes`, errors);
 
   if (!Array.isArray(input.children)) {
     fail(errors, `${ctx}.children must be an array`);

@@ -17,6 +17,7 @@ import type { ThemePackageV1 } from "./theme-package-schema";
 import type { DeckThemeBinding } from "./schema";
 import type { PresentationDiagnostic } from "./diagnostics";
 import { DiagnosticCollector } from "./diagnostics";
+import { mergeStylePatchDeep } from "./style-patch-merge";
 
 // ---------------------------------------------------------------------------
 // Deep merge helpers
@@ -24,26 +25,6 @@ import { DiagnosticCollector } from "./diagnostics";
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-/** Shallow-merges nested style objects (depth 2: top-level key -> sub-object). */
-function mergeStyleObjects(base: StyleObject, patch: StylePatch): StyleObject {
-  const result: StyleObject = { ...base };
-  for (const key of Object.keys(patch) as (keyof StylePatch)[]) {
-    const patchValue = patch[key];
-    if (patchValue === undefined) continue;
-    const baseValue = base[key as keyof StyleObject];
-    if (isPlainObject(baseValue) && isPlainObject(patchValue)) {
-      // Merge sub-object one level deep
-      (result as Record<string, unknown>)[key] = {
-        ...(baseValue as Record<string, unknown>),
-        ...(patchValue as Record<string, unknown>),
-      };
-    } else {
-      (result as Record<string, unknown>)[key] = patchValue;
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +62,11 @@ function resolveTokensDeep(
   dc: DiagnosticCollector,
   ctx: string,
 ): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      resolveTokensDeep(item, tokens, dc, `${ctx}.${index}`),
+    );
+  }
   if (!isPlainObject(value)) return value;
   if (typeof value.token === "string") {
     const resolved = resolveTokenPath(tokens, value.token);
@@ -171,7 +157,9 @@ export function resolveNodeStyle(
         },
       );
     } else {
-      resolved = mergeStyleObjects(resolved, requestedVariant as StylePatch);
+      resolved = mergeStylePatchDeep(resolved, requestedVariant as StylePatch, {
+        skipUndefined: true,
+      }) as StyleObject;
     }
   }
 
@@ -181,16 +169,22 @@ export function resolveNodeStyle(
     const variantOverride = variant ? deckOverrides[variant] : undefined;
     const defaultOverride = deckOverrides["default"];
     if (defaultOverride) {
-      resolved = mergeStyleObjects(resolved, defaultOverride as StylePatch);
+      resolved = mergeStylePatchDeep(resolved, defaultOverride as StylePatch, {
+        skipUndefined: true,
+      }) as StyleObject;
     }
     if (variantOverride && variantOverride !== defaultOverride) {
-      resolved = mergeStyleObjects(resolved, variantOverride as StylePatch);
+      resolved = mergeStylePatchDeep(resolved, variantOverride as StylePatch, {
+        skipUndefined: true,
+      }) as StyleObject;
     }
   }
 
   // 4. Apply local style override
   if (localStyle) {
-    resolved = mergeStyleObjects(resolved, localStyle);
+    resolved = mergeStylePatchDeep(resolved, localStyle, {
+      skipUndefined: true,
+    }) as StyleObject;
     if (Object.keys(localStyle).length > 0) {
       dc.info(
         "local-style-overrides",

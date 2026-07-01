@@ -28,6 +28,8 @@ import {
   Ellipsis,
   Group,
   EyeOff,
+  FileText,
+  Image as ImageIcon,
   IndentDecrease,
   IndentIncrease,
   Italic,
@@ -40,8 +42,12 @@ import {
   RotateCcw,
   RotateCw,
   SendToBack,
+  Spline,
+  Square,
   Strikethrough,
+  Table2,
   Trash2,
+  Type as TypeIcon,
   Underline,
   Ungroup,
   Unlock,
@@ -50,6 +56,7 @@ import {
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type {
   ImageFitMode,
+  StyleObject,
   StylePatch,
 } from "@/lib/presentation-vnext/style-schema";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -73,6 +80,79 @@ export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
+type SlideToolInsertActionKey =
+  | "text"
+  | "shape"
+  | "image"
+  | "visual"
+  | "connector"
+  | "table";
+
+const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
+  text: "Insert text",
+  shape: "Insert shape",
+  image: "Insert image",
+  visual: "Insert visual",
+  connector: "Insert connector",
+  table: "Insert table",
+};
+
+interface SlideToolInsertCallbacks {
+  onInsertText?: () => void;
+  onInsertShape?: () => void;
+  onInsertImage?: () => void;
+  onInsertVisual?: () => void;
+  onInsertConnector?: () => void;
+  onInsertTable?: () => void;
+}
+
+interface SlideToolInsertAction {
+  key: SlideToolInsertActionKey;
+  label: string;
+  onClick: () => void;
+}
+
+export function buildSlideToolInsertActions({
+  onInsertText,
+  onInsertShape,
+  onInsertImage,
+  onInsertVisual,
+  onInsertConnector,
+  onInsertTable,
+}: SlideToolInsertCallbacks): SlideToolInsertAction[] {
+  const handlers: Partial<Record<SlideToolInsertActionKey, () => void>> = {
+    text: onInsertText,
+    shape: onInsertShape,
+    image: onInsertImage,
+    visual: onInsertVisual,
+    connector: onInsertConnector,
+    table: onInsertTable,
+  };
+  return (["text", "shape", "image", "visual", "connector", "table"] as const)
+    .map((key) => {
+      const onClick = handlers[key];
+      if (!onClick) return null;
+      return { key, label: SLIDE_TOOL_INSERT_LABELS[key], onClick };
+    })
+    .filter((action): action is SlideToolInsertAction => action !== null);
+}
+
+function renderSlideToolInsertIcon(key: SlideToolInsertActionKey) {
+  switch (key) {
+    case "text":
+      return <TypeIcon size={13} aria-hidden />;
+    case "shape":
+      return <Square size={13} aria-hidden />;
+    case "image":
+      return <ImageIcon size={13} aria-hidden />;
+    case "visual":
+      return <FileText size={13} aria-hidden />;
+    case "connector":
+      return <Spline size={13} aria-hidden />;
+    case "table":
+      return <Table2 size={13} aria-hidden />;
+  }
+}
 
 interface TBtnProps {
   label: string;
@@ -204,10 +284,77 @@ function getColor(value: unknown, fallback: string): string {
 
 function getSolidFillColor(
   localStyle: StylePatch | undefined,
+  resolvedStyle: StyleObject | undefined,
   fallback: string,
 ): string {
-  const fill = localStyle?.fill;
-  return fill?.type === "solid" ? getColor(fill.color, fallback) : fallback;
+  const resolvedFill = resolvedStyle?.fill;
+  if (resolvedFill?.type === "solid") {
+    return getColor(resolvedFill.color, fallback);
+  }
+  const localFill = localStyle?.fill;
+  return localFill?.type === "solid"
+    ? getColor(localFill.color, fallback)
+    : fallback;
+}
+
+export type ContextToolbarStyleSeed = {
+  textStyle: StyleObject["text"] | StylePatch["text"] | undefined;
+  fillColor: string;
+  shapeStrokeColor: string;
+  shapeStrokeWidth: number;
+  connectorStrokeColor: string;
+  connectorStrokeWidth: number;
+  connectorStartArrow: "none" | "arrow" | "filled";
+  connectorEndArrow: "none" | "arrow" | "filled";
+  textColor: string;
+  fontSize: number;
+  opacity: number;
+};
+
+export function seedContextToolbarStyles(
+  selectedNode: SlideChildNode | undefined,
+  selectedResolvedStyle: StyleObject | undefined,
+): ContextToolbarStyleSeed {
+  const textStyle =
+    selectedResolvedStyle?.text ?? selectedNode?.localStyle?.text;
+  const shapeStrokeColor = getColor(
+    selectedResolvedStyle?.stroke?.color,
+    getColor(selectedNode?.localStyle?.stroke?.color, "#111827"),
+  );
+  const connectorStrokeColor = getColor(
+    selectedResolvedStyle?.connector?.stroke?.color,
+    getColor(selectedNode?.localStyle?.connector?.stroke?.color, "#111827"),
+  );
+  return {
+    textStyle,
+    fillColor: getSolidFillColor(
+      selectedNode?.localStyle,
+      selectedResolvedStyle,
+      "#ffffff",
+    ),
+    shapeStrokeColor,
+    shapeStrokeWidth:
+      selectedResolvedStyle?.stroke?.widthPt ??
+      selectedNode?.localStyle?.stroke?.widthPt ??
+      1,
+    connectorStrokeColor,
+    connectorStrokeWidth:
+      selectedResolvedStyle?.connector?.stroke?.widthPt ??
+      selectedNode?.localStyle?.connector?.stroke?.widthPt ??
+      1.5,
+    connectorStartArrow:
+      selectedResolvedStyle?.connector?.startArrow ??
+      selectedNode?.localStyle?.connector?.startArrow ??
+      "none",
+    connectorEndArrow:
+      selectedResolvedStyle?.connector?.endArrow ??
+      selectedNode?.localStyle?.connector?.endArrow ??
+      "arrow",
+    textColor: getColor(textStyle?.color, "#111827"),
+    fontSize: textStyle?.fontSizePt ?? 18,
+    opacity:
+      selectedResolvedStyle?.opacity ?? selectedNode?.localStyle?.opacity ?? 1,
+  };
 }
 
 function getSelectionRect(selectedIds: string[]): DOMRect | null {
@@ -281,6 +428,7 @@ function tableWithDeletedLastColumn(node: TableNode) {
 export interface ContextToolbarProps {
   selectedIds: string[];
   selectedNode: SlideChildNode | undefined;
+  selectedResolvedStyle?: StyleObject;
   isInlineEditing: boolean;
   isDragging: boolean;
   isDecorationSelected: boolean;
@@ -309,14 +457,33 @@ export interface ContextToolbarProps {
   slideBackgroundColor?: string;
   onUpdateSlideLocalStyle?: (patch: StylePatch) => void;
   onInsertSlide?: () => void;
+  onInsertText?: () => void;
+  onInsertShape?: () => void;
+  onInsertImage?: () => void;
+  onInsertVisual?: () => void;
+  onInsertConnector?: () => void;
+  onInsertTable?: () => void;
   onDuplicateSlide?: () => void;
   onDeleteSlide?: () => void;
   onDetachDecoration?: () => void;
+  onRequestStageFocus?: () => void;
+}
+
+export function restoreFocusAfterContextToolbarEscape(
+  onRequestStageFocus: (() => void) | undefined,
+): void {
+  if (onRequestStageFocus) {
+    onRequestStageFocus();
+    return;
+  }
+  if (typeof document === "undefined") return;
+  (document.activeElement as HTMLElement | null)?.blur();
 }
 
 export function ContextToolbar({
   selectedIds,
   selectedNode,
+  selectedResolvedStyle,
   isInlineEditing,
   isDragging,
   isDecorationSelected,
@@ -342,9 +509,16 @@ export function ContextToolbar({
   slideBackgroundColor = "#ffffff",
   onUpdateSlideLocalStyle,
   onInsertSlide,
+  onInsertText,
+  onInsertShape,
+  onInsertImage,
+  onInsertVisual,
+  onInsertConnector,
+  onInsertTable,
   onDuplicateSlide,
   onDeleteSlide,
   onDetachDecoration,
+  onRequestStageFocus,
 }: ContextToolbarProps): JSX.Element | null {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState({ top: -1000, left: -1000 });
@@ -353,10 +527,20 @@ export function ContextToolbar({
   const [moreOpen, setMoreOpen] = useState(false);
   const prevPositionRef = useRef({ top: -1000, left: -1000 });
   const isMultiSelect = selectedIds.length > 1;
+  const slideToolInsertActions = buildSlideToolInsertActions({
+    onInsertText,
+    onInsertShape,
+    onInsertImage,
+    onInsertVisual,
+    onInsertConnector,
+    onInsertTable,
+  });
   const showSlideTools =
     selectedIds.length === 0 &&
     !isInlineEditing &&
-    Boolean(onUpdateSlideLocalStyle || onInsertSlide);
+    Boolean(
+      onUpdateSlideLocalStyle || onInsertSlide || slideToolInsertActions.length,
+    );
   const visible = !isDragging && (selectedIds.length > 0 || showSlideTools);
 
   function updateToolbarPosition() {
@@ -424,15 +608,19 @@ export function ContextToolbar({
     (nodeType === "shape" && !isMultiSelect);
   const showArrangeGroup = !isInlineEditing && !isDecorationSelected;
 
-  const textStyle = selectedNode?.localStyle?.text;
-  const fillColor = getSolidFillColor(selectedNode?.localStyle, "#ffffff");
-  const strokeColor = getColor(
-    selectedNode?.localStyle?.stroke?.color,
-    "#111827",
+  const styleSeed = seedContextToolbarStyles(
+    selectedNode,
+    selectedResolvedStyle,
   );
-  const textColor = getColor(textStyle?.color, "#111827");
-  const fontSize = textStyle?.fontSizePt ?? 18;
-  const opacity = selectedNode?.localStyle?.opacity ?? 1;
+  const textStyle = styleSeed.textStyle;
+  const fillColor = styleSeed.fillColor;
+  const shapeStrokeColor = styleSeed.shapeStrokeColor;
+  const shapeStrokeWidth = styleSeed.shapeStrokeWidth;
+  const connectorStrokeColor = styleSeed.connectorStrokeColor;
+  const connectorStrokeWidth = styleSeed.connectorStrokeWidth;
+  const textColor = styleSeed.textColor;
+  const fontSize = styleSeed.fontSize;
+  const opacity = styleSeed.opacity;
   const rotation = selectedNode?.layout?.rotation ?? 0;
 
   function runTextCommand(command: "bold" | "italic" | "underline") {
@@ -485,8 +673,9 @@ export function ContextToolbar({
     const toolbar = toolbarRef.current;
     if (!toolbar) return;
     if (event.key === "Escape") {
-      (document.activeElement as HTMLElement | null)?.blur();
       event.preventDefault();
+      event.stopPropagation();
+      restoreFocusAfterContextToolbarEscape(onRequestStageFocus);
       return;
     }
     const controls = Array.from(
@@ -545,6 +734,16 @@ export function ContextToolbar({
             <TBtn label="Add slide" onClick={() => onInsertSlide?.()}>
               <Plus size={13} aria-hidden />
             </TBtn>
+            {slideToolInsertActions.length > 0 ? <Divider /> : null}
+            {slideToolInsertActions.map((action) => (
+              <TBtn
+                key={action.key}
+                label={action.label}
+                onClick={() => action.onClick()}
+              >
+                {renderSlideToolInsertIcon(action.key)}
+              </TBtn>
+            ))}
             <TBtn label="Duplicate slide" onClick={() => onDuplicateSlide?.()}>
               <Copy size={13} aria-hidden />
             </TBtn>
@@ -735,12 +934,12 @@ export function ContextToolbar({
             />
             <ColorInput
               label="Border color"
-              value={strokeColor}
+              value={shapeStrokeColor}
               onChange={(color) =>
                 onUpdateSelectedLocalStyle?.({
                   stroke: {
                     color,
-                    widthPt: selectedNode.localStyle?.stroke?.widthPt ?? 1,
+                    widthPt: shapeStrokeWidth,
                   },
                 })
               }
@@ -873,15 +1072,13 @@ export function ContextToolbar({
             </ToolbarSelect>
             <ColorInput
               label="Line color"
-              value={strokeColor}
+              value={connectorStrokeColor}
               onChange={(color) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
                     stroke: {
                       color,
-                      widthPt:
-                        selectedNode.localStyle?.connector?.stroke?.widthPt ??
-                        1.5,
+                      widthPt: connectorStrokeWidth,
                     },
                   },
                 })
@@ -889,21 +1086,21 @@ export function ContextToolbar({
             />
             <ToolbarNumber
               label="Line width"
-              value={selectedNode.localStyle?.connector?.stroke?.widthPt ?? 1.5}
+              value={connectorStrokeWidth}
               min={0.5}
               max={12}
               step={0.5}
               onChange={(widthPt) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
-                    stroke: { color: strokeColor, widthPt },
+                    stroke: { color: connectorStrokeColor, widthPt },
                   },
                 })
               }
             />
             <ToolbarSelect
               label="Start arrow"
-              value={selectedNode.localStyle?.connector?.startArrow ?? "none"}
+              value={styleSeed.connectorStartArrow}
               onChange={(startArrow) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {
@@ -920,7 +1117,7 @@ export function ContextToolbar({
             </ToolbarSelect>
             <ToolbarSelect
               label="End arrow"
-              value={selectedNode.localStyle?.connector?.endArrow ?? "arrow"}
+              value={styleSeed.connectorEndArrow}
               onChange={(endArrow) =>
                 onUpdateSelectedLocalStyle?.({
                   connector: {

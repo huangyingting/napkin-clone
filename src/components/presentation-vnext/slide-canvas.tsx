@@ -24,12 +24,17 @@ import type {
   ResolvedRenderNode,
 } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
-import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
+import type {
+  ConnectorEndpoint,
+  ImageCrop,
+  LayoutBox,
+} from "@/lib/presentation-vnext/schema";
 import {
   STAGE_CHROME_Z_INDEX,
   selectionFrameChrome,
 } from "@/lib/presentation-vnext/stage-chrome";
 
+import { fillStyleToCss } from "./fill-style-css";
 import { SlideNodeRenderer } from "./slide-node-renderer";
 import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
@@ -48,6 +53,15 @@ export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
 export type ConnectorEndpointHandle = "from" | "to";
 
+export interface SlideCanvasNodeGestureDraft {
+  frame?: LayoutBox["frame"];
+  rotation?: number;
+  crop?: ImageCrop;
+  connectorEndpoints?: Partial<
+    Record<ConnectorEndpointHandle, ConnectorEndpoint>
+  >;
+}
+
 const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
   "nw",
   "n",
@@ -64,100 +78,6 @@ const CROP_HANDLES: readonly CropHandlePosition[] = [
   "bottom",
   "left",
 ];
-
-// ---------------------------------------------------------------------------
-// Background helper
-// ---------------------------------------------------------------------------
-
-function backgroundToCss(
-  fill: FillStyle | undefined,
-  assetResolver?: (id: string) => string | undefined,
-): React.CSSProperties {
-  if (!fill) return {};
-  const stopsToCss = (
-    stops: readonly { color: unknown; offsetPct: number }[] | undefined,
-  ) =>
-    stops
-      ?.map((stop) => {
-        const color =
-          typeof stop.color === "string" ? stop.color : "transparent";
-        return `${color} ${stop.offsetPct}%`;
-      })
-      .join(", ");
-  switch (fill.type) {
-    case "solid":
-      return typeof fill.color === "string"
-        ? { backgroundColor: fill.color }
-        : {};
-    case "linearGradient": {
-      const from = typeof fill.from === "string" ? fill.from : "transparent";
-      const to = typeof fill.to === "string" ? fill.to : "transparent";
-      const angle = fill.angle ?? 90;
-      const stops = stopsToCss(fill.stops);
-      return {
-        background: `linear-gradient(${angle}deg, ${stops ?? `${from}, ${to}`})`,
-      };
-    }
-    case "radialGradient": {
-      const inner = typeof fill.inner === "string" ? fill.inner : "transparent";
-      const outer = typeof fill.outer === "string" ? fill.outer : "transparent";
-      const stops = stopsToCss(fill.stops);
-      return {
-        background: `radial-gradient(${fill.rx ?? fill.r ?? 70}% ${fill.ry ?? fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${inner}, ${outer}`})`,
-      };
-    }
-    case "conicGradient": {
-      const stops = stopsToCss(fill.stops) ?? "transparent, transparent";
-      return {
-        background: `conic-gradient(from ${fill.fromAngle ?? 0}deg at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`,
-      };
-    }
-    case "repeatingLinearGradient": {
-      const stops =
-        stopsToCss(fill.stops) ?? "transparent 0%, transparent 100%";
-      return {
-        background: `repeating-linear-gradient(${fill.angle ?? 90}deg, ${stops})`,
-      };
-    }
-    case "pattern": {
-      const color =
-        typeof fill.color === "string" ? fill.color : "currentColor";
-      const background =
-        typeof fill.background === "string" ? fill.background : undefined;
-      const spacing = fill.spacingPct ?? 8;
-      const width = fill.strokeWidthPct ?? 0.25;
-      if (fill.kind === "grid") {
-        return {
-          ...(background ? { backgroundColor: background } : {}),
-          backgroundImage: `linear-gradient(${color} ${width}%, transparent ${width}%), linear-gradient(90deg, ${color} ${width}%, transparent ${width}%)`,
-          backgroundSize: `${spacing}% ${spacing}%`,
-        };
-      }
-      if (fill.kind === "dots") {
-        return {
-          ...(background ? { backgroundColor: background } : {}),
-          backgroundImage: `radial-gradient(circle, ${color} ${width}%, transparent ${width}%)`,
-          backgroundSize: `${spacing}% ${spacing}%`,
-        };
-      }
-      const angle = fill.kind === "scanlines" ? 0 : (fill.angle ?? 135);
-      return {
-        ...(background ? { backgroundColor: background } : {}),
-        backgroundImage: `repeating-linear-gradient(${angle}deg, ${color} 0%, ${color} ${width}%, transparent ${width}%, transparent ${spacing}%)`,
-      };
-    }
-    case "image": {
-      const src = assetResolver?.(fill.assetId);
-      if (!src) return {};
-      return {
-        backgroundImage: `url(${JSON.stringify(src)})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        opacity: fill.opacity,
-      };
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Canvas aspect ratio
@@ -248,6 +168,8 @@ export interface SlideCanvasVNextProps {
     nodeId: string;
     endpoint: ConnectorEndpointHandle;
   } | null;
+  /** Transient, gesture-local node patches rendered before commit. */
+  nodeGestureDrafts?: ReadonlyMap<string, SlideCanvasNodeGestureDraft>;
   /** Active group context id for group-member direct editing. */
   activeGroupId?: string | null;
   /** Active table direct-edit context. */
@@ -312,6 +234,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   activeCropHandle,
   activeRotationNodeId,
   activeConnectorEndpoint,
+  nodeGestureDrafts,
   activeGroupId,
   tableEditingNodeId,
   activeTableCell,
@@ -325,7 +248,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   className,
 }: SlideCanvasVNextProps): JSX.Element {
   const aspectRatio = canvas ? canvasAspectRatio(canvas) : 16 / 9;
-  const bgStyle = backgroundToCss(slide.background.fill, assetResolver);
+  const bgStyle = fillStyleToCss(slide.background.fill, assetResolver);
 
   // Flatten groups for rendering (children positioned in slide-relative space)
   const decorationNodes = flattenNodes(slide.decorations);
@@ -336,7 +259,9 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const foregroundChromeNodes = chromeNodes
     .filter((node) => (node.layout.zIndex ?? 0) >= 0)
     .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
-  const userNodes = flattenNodes(slide.nodes);
+  const userNodes = flattenNodes(slide.nodes).map((node) =>
+    applyNodeGestureDraft(node, nodeGestureDrafts),
+  );
   const selectedUserNodes = selection
     ? userNodes.filter((node) => isSelected(selection, node.id))
     : [];
@@ -700,6 +625,61 @@ function NodeChromeFrame({
       }}
     />
   );
+}
+
+function applyNodeGestureDraft(
+  node: ResolvedRenderNode,
+  nodeGestureDrafts:
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined,
+): ResolvedRenderNode {
+  const draft = nodeGestureDrafts?.get(node.id);
+  if (!draft) return node;
+  let nextNode = node;
+  if (draft.frame || draft.rotation !== undefined) {
+    nextNode = {
+      ...nextNode,
+      layout: {
+        ...nextNode.layout,
+        ...(draft.frame ? { frame: draft.frame } : {}),
+        ...(draft.rotation !== undefined ? { rotation: draft.rotation } : {}),
+      },
+    };
+  }
+  if (draft.crop && nextNode.content.type === "image") {
+    nextNode = {
+      ...nextNode,
+      content: {
+        ...nextNode.content,
+        content: {
+          ...nextNode.content.content,
+          crop: draft.crop,
+        },
+      },
+    };
+  }
+  if (
+    draft.connectorEndpoints &&
+    (draft.connectorEndpoints.from || draft.connectorEndpoints.to) &&
+    nextNode.content.type === "connector"
+  ) {
+    nextNode = {
+      ...nextNode,
+      content: {
+        ...nextNode.content,
+        content: {
+          ...nextNode.content.content,
+          ...(draft.connectorEndpoints.from
+            ? { from: draft.connectorEndpoints.from }
+            : {}),
+          ...(draft.connectorEndpoints.to
+            ? { to: draft.connectorEndpoints.to }
+            : {}),
+        },
+      },
+    };
+  }
+  return nextNode;
 }
 
 function connectorEndpointPoint(

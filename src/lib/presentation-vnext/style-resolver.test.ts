@@ -127,6 +127,40 @@ describe("validateThemePackage", () => {
     }
   });
 
+  test("rejects missing token ref inside gradient stop arrays", () => {
+    const pkg = buildMinimalThemePackage();
+    const badPkg = {
+      ...pkg,
+      styles: {
+        ...pkg.styles,
+        "surface.card": {
+          default: {
+            fill: {
+              type: "linearGradient",
+              from: "#111111",
+              to: "#ffffff",
+              stops: [
+                { color: { token: "colors.accent.missing" }, offsetPct: 0 },
+                { color: "#ffffff", offsetPct: 100 },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const result = validateThemePackage(badPkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some(
+          (d) =>
+            d.code === "missing-token" &&
+            d.path === "styles.surface.card.default.fill.stops.0.color",
+        ),
+      );
+    }
+  });
+
   test("rejects invalid package deck chrome defaults", () => {
     const pkg = buildMinimalThemePackage("bad-chrome-package", {
       chrome: {
@@ -213,6 +247,54 @@ describe("resolveNodeStyle", () => {
     const { style } = resolveNodeStyle(binding, themeBinding, pkg, localStyle);
     assert.equal(style.text?.fontSizePt, 60);
     assert.equal(style.text?.color, "#ff0000");
+  });
+
+  test("deep-merges nested connector stroke overrides without dropping dash", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    pkg.styles["connector.primary"] = {
+      default: {
+        connector: {
+          stroke: { color: "#334155", widthPt: 1.5, dash: "dotted" },
+        },
+      },
+    };
+    const themeBinding = buildThemeBinding();
+    const binding = { ref: "connector.primary" as const };
+    const localStyle = {
+      connector: { stroke: { color: "#ef4444", widthPt: 2 } },
+    };
+    const { style } = resolveNodeStyle(binding, themeBinding, pkg, localStyle);
+
+    assert.equal(style.connector?.stroke?.color, "#ef4444");
+    assert.equal(style.connector?.stroke?.widthPt, 2);
+    assert.equal(style.connector?.stroke?.dash, "dotted");
+  });
+
+  test("deep-merges visual channel colors without dropping sibling channels", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    pkg.styles["chart.primary"] = {
+      default: {
+        visual: {
+          channelColors: {
+            primary: "#2563eb",
+            secondary: "#f59e0b",
+            tertiary: "#10b981",
+          },
+        },
+      },
+    };
+    const themeBinding = buildThemeBinding();
+    const binding = { ref: "chart.primary" as const };
+    const localStyle = { visual: { channelColors: { primary: "#7c3aed" } } };
+    const { style } = resolveNodeStyle(binding, themeBinding, pkg, localStyle);
+
+    assert.deepEqual(style.visual?.channelColors, {
+      primary: "#7c3aed",
+      secondary: "#f59e0b",
+      tertiary: "#10b981",
+    });
   });
 
   test("preserves visual channel color overrides", () => {
@@ -377,5 +459,39 @@ describe("resolveNodeStyle", () => {
       diagnostics.some((d) => d.code === "missing-token"),
       "Expected missing-token diagnostic for non-scalar token",
     );
+  });
+
+  test("resolves token refs inside gradient stop arrays", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage("gradient-stop-token-pkg", {
+      styles: {
+        ...buildMinimalThemePackage().styles,
+        "surface.card": {
+          default: {
+            fill: {
+              type: "linearGradient",
+              from: "#111111",
+              to: "#ffffff",
+              stops: [
+                { color: { token: "colors.accent.fill" }, offsetPct: 0 },
+                { color: { token: "colors.accent.text" }, offsetPct: 100 },
+              ],
+            },
+          },
+        },
+      },
+    });
+    const themeBinding = buildThemeBinding();
+    const { style, diagnostics } = resolveNodeStyle(
+      { ref: "surface.card" },
+      themeBinding,
+      pkg,
+    );
+
+    assert.deepEqual((style.fill as { stops?: unknown[] })?.stops, [
+      { color: "#0066cc", offsetPct: 0 },
+      { color: "#ffffff", offsetPct: 100 },
+    ]);
+    assert.ok(!diagnostics.some((d) => d.code === "missing-token"));
   });
 });

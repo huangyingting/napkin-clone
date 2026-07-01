@@ -557,6 +557,151 @@ test.describe("deterministic profile document editor smoke", () => {
     await expect(editor).toHaveCount(0);
   });
 
+  test("context toolbar Escape restores focus to the selected stage target", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openProfileDocument(page);
+    const editor = await openProfileSlideEditor(page);
+
+    const selectedNode = editor.locator("[data-node-id]:visible").first();
+    await expect(selectedNode).toBeVisible();
+    const selectedNodeId = await selectedNode.getAttribute("data-node-id");
+    expect(selectedNodeId).toBeTruthy();
+    await selectedNode.click();
+
+    const contextToolbar = page.getByRole("toolbar", {
+      name: "Context toolbar",
+    });
+    await expect(contextToolbar).toBeVisible();
+    const deleteButton = contextToolbar.getByRole("button", { name: "Delete" });
+    await deleteButton.focus();
+    await expect(deleteButton).toBeFocused();
+
+    await page.keyboard.press("Escape");
+
+    await expect(async () => {
+      const focusTarget = await page.evaluate(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active) return null;
+        const nodeId = active.getAttribute("data-node-id");
+        if (nodeId) return `node:${nodeId}`;
+        return active.getAttribute("data-slide-stage-viewport") === "true"
+          ? "stage-viewport"
+          : null;
+      });
+      expect(
+        focusTarget === `node:${selectedNodeId}` ||
+          focusTarget === "stage-viewport",
+      ).toBe(true);
+    }, "Escape should return focus to the selected node or stage viewport").toPass(
+      {
+        timeout: 5_000,
+      },
+    );
+
+    await expect(contextToolbar).toBeVisible();
+  });
+
+  test("slide editor bottom dock stays compact and keyboard reachable across viewports", async ({
+    page,
+  }) => {
+    const viewports = [
+      { width: 390, height: 844 },
+      { width: 834, height: 1112 },
+      { width: 1280, height: 900 },
+    ] as const;
+
+    await page.setViewportSize({
+      width: viewports[0].width,
+      height: viewports[0].height,
+    });
+    await openProfileDocument(page);
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+
+      const editor = await openProfileSlideEditor(page);
+      const bottomDock = editor.locator('[data-slide-bottom-dock="true"]');
+      await expect(bottomDock).toBeVisible();
+
+      await expect
+        .poll(async () => {
+          return await page.evaluate(() =>
+            Math.max(
+              0,
+              document.documentElement.scrollWidth -
+                document.documentElement.clientWidth,
+            ),
+          );
+        })
+        .toBeLessThanOrEqual(1);
+
+      await expect
+        .poll(async () =>
+          bottomDock.evaluate((node) =>
+            Math.max(0, node.scrollWidth - node.clientWidth),
+          ),
+        )
+        .toBeLessThanOrEqual(1);
+
+      const railToggle = editor.getByRole("button", {
+        name: /slide thumbnails/i,
+      });
+      await railToggle.focus();
+      await expect(railToggle).toBeFocused();
+
+      const notesButton = editor.getByRole("button", { name: /^Notes$/i });
+      await notesButton.focus();
+      await expect(notesButton).toBeFocused();
+
+      const zoomButton = editor.getByRole("button", {
+        name: /set slide zoom/i,
+      });
+      await zoomButton.focus();
+      await expect(zoomButton).toBeFocused();
+
+      if (viewport.width < 640) {
+        const footerStatus = editor.getByRole("button", {
+          name: /footer status:/i,
+        });
+        await footerStatus.focus();
+        await expect(footerStatus).toBeFocused();
+        await activate(footerStatus);
+
+        const statusPopover = page.getByRole("dialog", {
+          name: "Footer status",
+        });
+        await expect(statusPopover).toBeVisible();
+        const diagnosticsButton = statusPopover.getByRole("button", {
+          name: /open deck diagnostics review/i,
+        });
+        await diagnosticsButton.focus();
+        await expect(diagnosticsButton).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(statusPopover).toHaveCount(0);
+      } else {
+        const zoomSlider = editor.getByLabel("Slide zoom");
+        await zoomSlider.focus();
+        await expect(zoomSlider).toBeFocused();
+
+        const diagnosticsButton = bottomDock.getByRole("button", {
+          name: /open deck diagnostics review/i,
+        });
+        await diagnosticsButton.focus();
+        await expect(diagnosticsButton).toBeFocused();
+      }
+
+      await activate(
+        editor.getByRole("button", { name: "Close slide editor" }),
+      );
+      await expect(editor).toHaveCount(0);
+    }
+  });
+
   test("viewer can open the seeded document in read-only mode without owner controls", async ({
     page,
   }) => {
