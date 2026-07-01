@@ -914,6 +914,124 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts valid slide and child base-node metadata", () => {
+    resetBuilderCounter();
+    const node = buildTextNode({
+      name: "Body content",
+      role: "body",
+      slot: "body",
+      locked: false,
+      hidden: false,
+      accessibility: {
+        label: "Body content",
+        alt: "Body content",
+        decorative: false,
+        readingOrder: 2,
+      },
+    });
+    const slide = buildSlideV7("content", [node], {
+      name: "Slide name",
+      role: "slide",
+      slot: "title",
+      locked: false,
+      hidden: false,
+      accessibility: {
+        label: "Slide label",
+        decorative: false,
+        readingOrder: 1,
+      },
+    });
+    const result = safeParseDeckV7(buildDeckV7([slide]));
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
+  test("rejects malformed child base-node metadata with precise paths", () => {
+    resetBuilderCounter();
+    const badNode = {
+      ...buildTextNode(),
+      name: 42,
+      role: "unknown-role",
+      slot: "not-a-slot",
+      locked: "yes",
+      hidden: "no",
+      accessibility: {
+        label: 123,
+        alt: false,
+        decorative: "yes",
+        readingOrder: "first",
+        mystery: true,
+      },
+    } as unknown as SlideChildNode;
+    const result = safeParseDeckV7(
+      buildDeckV7([buildSlideV7("content", [badNode])]),
+    );
+
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /slides\[0\]\.children\[0\]\.name must be a string/,
+        /slides\[0\]\.children\[0\]\.role is not a known semantic role/,
+        /slides\[0\]\.children\[0\]\.slot is not a known slot key/,
+        /slides\[0\]\.children\[0\]\.locked must be a boolean/,
+        /slides\[0\]\.children\[0\]\.hidden must be a boolean/,
+        /slides\[0\]\.children\[0\]\.accessibility\.label must be a string/,
+        /slides\[0\]\.children\[0\]\.accessibility\.alt must be a string/,
+        /slides\[0\]\.children\[0\]\.accessibility\.decorative must be a boolean/,
+        /slides\[0\]\.children\[0\]\.accessibility\.readingOrder must be a finite number/,
+        /slides\[0\]\.children\[0\]\.accessibility\.mystery is not a known accessibility field/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
+
+  test("rejects malformed slide base-node metadata with precise paths", () => {
+    resetBuilderCounter();
+    const badSlide = {
+      ...buildCoverSlide(),
+      name: 42,
+      role: "unknown-role",
+      slot: "not-a-slot",
+      locked: "yes",
+      hidden: "no",
+      accessibility: {
+        label: 123,
+        alt: false,
+        decorative: "yes",
+        readingOrder: "first",
+        mystery: true,
+      },
+    } as unknown as SlideNode;
+    const result = safeParseDeckV7(buildDeckV7([badSlide]));
+
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /slides\[0\]\.name must be a string/,
+        /slides\[0\]\.role is not a known semantic role/,
+        /slides\[0\]\.slot is not a known slot key/,
+        /slides\[0\]\.locked must be a boolean/,
+        /slides\[0\]\.hidden must be a boolean/,
+        /slides\[0\]\.accessibility\.label must be a string/,
+        /slides\[0\]\.accessibility\.alt must be a string/,
+        /slides\[0\]\.accessibility\.decorative must be a boolean/,
+        /slides\[0\]\.accessibility\.readingOrder must be a finite number/,
+        /slides\[0\]\.accessibility\.mystery is not a known accessibility field/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
+
   test("reports malformed nested optional contracts with specific paths", () => {
     resetBuilderCounter();
     const slide = buildCoverSlide();
