@@ -197,7 +197,7 @@ import {
   selectedNodeIds,
   type SelectionState,
 } from "./selection-model";
-import { InspectorShell } from "./inspector";
+import { DeckChromePanel, InspectorShell } from "./inspector";
 import {
   ContextToolbar,
   type SelectionAlignMode,
@@ -1451,6 +1451,7 @@ export function SlideEditorVNext({
   );
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [footerStatusMenuOpen, setFooterStatusMenuOpen] = useState(false);
+  const [deckChromeToolbarOpen, setDeckChromeToolbarOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
     useState(false);
@@ -1500,6 +1501,17 @@ export function SlideEditorVNext({
   } | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const isDesktopInspectorViewport = useDesktopInspectorViewport();
+  const deckChromeToolbarPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!deckChromeToolbarOpen) return;
+    const panel = deckChromeToolbarPanelRef.current;
+    if (!panel) return;
+    const focusTarget = panel.querySelector<HTMLElement>(
+      "input, select, button, textarea, [tabindex]:not([tabindex='-1'])",
+    );
+    focusTarget?.focus();
+  }, [deckChromeToolbarOpen]);
 
   useEffect(() => {
     if (isDesktopInspectorViewport && inspectorSheetOpen) {
@@ -2240,8 +2252,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {
@@ -3771,6 +3782,41 @@ export function SlideEditorVNext({
               <option value="square">1:1</option>
             </select>
           </label>
+
+          <Popover
+            open={deckChromeToolbarOpen}
+            onClose={() => setDeckChromeToolbarOpen(false)}
+            aria-label="Deck chrome controls"
+            className="max-h-[calc(100vh-6rem)] w-[22rem] overflow-y-auto p-0"
+            trigger={
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={deckChromeToolbarOpen}
+                aria-label="Deck chrome"
+                onClick={() => setDeckChromeToolbarOpen((open) => !open)}
+                className={cx(
+                  "flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover",
+                  FOCUS_RING,
+                )}
+              >
+                Deck chrome
+              </button>
+            }
+          >
+            <div
+              ref={deckChromeToolbarPanelRef}
+              data-deck-chrome-toolbar-panel="true"
+            >
+              <DeckChromePanel
+                idPrefix="deck-chrome-toolbar"
+                chrome={deck.chrome}
+                slideProps={activeSlide?.props}
+                onUpdateChrome={handleUpdateDeckChrome}
+                onUpdateSlideProps={handleUpdateProps}
+              />
+            </div>
+          </Popover>
 
           <div
             className="mx-1 h-5 w-px bg-ds-border-subtle"

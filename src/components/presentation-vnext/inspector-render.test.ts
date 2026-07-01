@@ -613,6 +613,25 @@ describe("vNext inspector components", () => {
     );
   });
 
+  test("supports custom deck chrome control ids for additional toolbar mounts", () => {
+    const html = render(
+      createElement(DeckChromePanel, {
+        idPrefix: "deck-chrome-toolbar",
+        chrome: {
+          footer: { text: "Configured footer" },
+        },
+        onUpdateChrome: noop,
+        onUpdateSlideProps: noop,
+      }),
+    );
+
+    assert.match(
+      html,
+      /id="deck-chrome-toolbar-footer-enabled" type="checkbox" checked=""/,
+    );
+    assert.match(html, /id="deck-chrome-toolbar-override-logo"/);
+  });
+
   test("renders inspector shell route panels for slide, node, multi-select, decoration, and diagnostics contexts", () => {
     const slide = activeSlide();
     const [text, , image] = slide.children;

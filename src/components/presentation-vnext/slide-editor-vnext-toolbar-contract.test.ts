@@ -12,6 +12,21 @@ const source = readFileSync(
 );
 
 describe("SlideEditorVNext toolbar command ownership", () => {
+  test("renders deck chrome in the top toolbar as a keyboard-focusable dialog command", () => {
+    assert.match(
+      source,
+      /aria-haspopup="dialog"[\s\S]*aria-label="Deck chrome"[\s\S]*setDeckChromeToolbarOpen\(\(open\) => !open\)/,
+    );
+    assert.equal(source.includes('aria-label="Deck chrome controls"'), true);
+  });
+
+  test("routes toolbar deck chrome updates through existing deck and slide patch handlers", () => {
+    assert.match(
+      source,
+      /<DeckChromePanel[\s\S]*onUpdateChrome={handleUpdateDeckChrome}[\s\S]*onUpdateSlideProps={handleUpdateProps}/,
+    );
+  });
+
   test("removes generic element insertion from the top toolbar", () => {
     assert.equal(source.includes('aria-label="Insert element"'), false);
   });
