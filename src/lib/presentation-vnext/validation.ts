@@ -19,8 +19,7 @@ import { SEMANTIC_TEMPLATE_KINDS } from "./template-registry";
 // ---------------------------------------------------------------------------
 
 export type DeckV7ParseResult =
-  | { success: true; data: DeckV7 }
-  | { success: false; errors: string[] };
+  { success: true; data: DeckV7 } | { success: false; errors: string[] };
 
 /** Validates and parses an unknown value as a v7 deck. Does not mutate input. */
 export function safeParseDeckV7(input: unknown): DeckV7ParseResult {
@@ -513,6 +512,8 @@ function validateStyleBinding(
 // Text content
 // ---------------------------------------------------------------------------
 
+const TEXT_FIT_MODES = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
+
 function validateTextContent(
   input: unknown,
   ctx: string,
@@ -526,6 +527,8 @@ function validateTextContent(
     fail(errors, `${ctx}.paragraphs must be an array`);
     return;
   }
+  validateEnumValue(input.fit, TEXT_FIT_MODES, `${ctx}.fit`, errors);
+  validateOptionalString(input.language, `${ctx}.language`, errors);
   for (let i = 0; i < input.paragraphs.length; i++) {
     const para = input.paragraphs[i];
     const pCtx = `${ctx}.paragraphs[${i}]`;
