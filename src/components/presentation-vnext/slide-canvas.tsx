@@ -35,19 +35,16 @@ import {
 } from "@/lib/presentation-vnext/stage-chrome";
 
 import { fillStyleToCss } from "./fill-style-css";
-import { SlideNodeRenderer } from "./slide-node-renderer";
+import {
+  frameToCss,
+  nodeLayoutTransformToCss,
+  SlideNodeRenderer,
+} from "./slide-node-renderer";
 import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
 
 export type ResizeHandlePosition =
-  | "nw"
-  | "n"
-  | "ne"
-  | "e"
-  | "se"
-  | "s"
-  | "sw"
-  | "w";
+  "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
@@ -435,14 +432,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-resize-overlay`}
               aria-hidden="true"
+              data-node-chrome-overlay="resize"
+              data-node-id={node.id}
               className="pointer-events-none absolute"
-              style={{
-                left: `${node.layout.frame.x}%`,
-                top: `${node.layout.frame.y}%`,
-                width: `${node.layout.frame.w}%`,
-                height: `${node.layout.frame.h}%`,
-                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame,
-              }}
+              style={nodeChromeOverlayFrameStyle(
+                node,
+                STAGE_CHROME_Z_INDEX.selectedFrame,
+              )}
             >
               {RESIZE_HANDLES.map((handle) => (
                 <span
@@ -469,14 +465,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-rotation-overlay`}
               aria-hidden="true"
+              data-node-chrome-overlay="rotation"
+              data-node-id={node.id}
               className="pointer-events-none absolute"
-              style={{
-                left: `${node.layout.frame.x}%`,
-                top: `${node.layout.frame.y}%`,
-                width: `${node.layout.frame.w}%`,
-                height: `${node.layout.frame.h}%`,
-                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame + 1,
-              }}
+              style={nodeChromeOverlayFrameStyle(
+                node,
+                STAGE_CHROME_Z_INDEX.selectedFrame + 1,
+              )}
             >
               <span
                 data-rotation-handle="true"
@@ -510,14 +505,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-crop-overlay`}
               aria-hidden="true"
+              data-node-chrome-overlay="crop"
+              data-node-id={node.id}
               className="pointer-events-none absolute"
-              style={{
-                left: `${node.layout.frame.x}%`,
-                top: `${node.layout.frame.y}%`,
-                width: `${node.layout.frame.w}%`,
-                height: `${node.layout.frame.h}%`,
-                zIndex: STAGE_CHROME_Z_INDEX.cropHandle,
-              }}
+              style={nodeChromeOverlayFrameStyle(
+                node,
+                STAGE_CHROME_Z_INDEX.cropHandle,
+              )}
             >
               {CROP_HANDLES.map((handle) => (
                 <span
@@ -548,14 +542,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
               <div
                 key={`${node.id}-connector-endpoints`}
                 aria-hidden="true"
+                data-node-chrome-overlay="connector-endpoints"
+                data-node-id={node.id}
                 className="pointer-events-none absolute"
-                style={{
-                  left: `${node.layout.frame.x}%`,
-                  top: `${node.layout.frame.y}%`,
-                  width: `${node.layout.frame.w}%`,
-                  height: `${node.layout.frame.h}%`,
-                  zIndex: STAGE_CHROME_Z_INDEX.selectedFrame + 2,
-                }}
+                style={nodeChromeOverlayFrameStyle(
+                  node,
+                  STAGE_CHROME_Z_INDEX.selectedFrame + 2,
+                )}
               >
                 {(
                   [
@@ -615,23 +608,29 @@ function NodeChromeFrame({
       data-node-id={node.id}
       className="pointer-events-none absolute box-border"
       style={{
-        left: `${node.layout.frame.x}%`,
-        top: `${node.layout.frame.y}%`,
-        width: `${node.layout.frame.w}%`,
-        height: `${node.layout.frame.h}%`,
+        ...nodeChromeOverlayFrameStyle(node, chrome.zIndex),
         border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
         opacity: chrome.opacity,
-        zIndex: chrome.zIndex,
       }}
     />
   );
 }
 
+function nodeChromeOverlayFrameStyle(
+  node: ResolvedRenderNode,
+  zIndex: number,
+): React.CSSProperties {
+  return {
+    ...frameToCss(node.layout.frame),
+    ...nodeLayoutTransformToCss(node.layout),
+    zIndex,
+  };
+}
+
 function applyNodeGestureDraft(
   node: ResolvedRenderNode,
   nodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined,
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined,
 ): ResolvedRenderNode {
   const draft = nodeGestureDrafts?.get(node.id);
   if (!draft) return node;
@@ -708,15 +707,52 @@ function boundsForNodes(
   nodes: readonly ResolvedRenderNode[],
 ): { x: number; y: number; w: number; h: number } | null {
   if (nodes.length === 0) return null;
-  const left = Math.min(...nodes.map((node) => node.layout.frame.x));
-  const top = Math.min(...nodes.map((node) => node.layout.frame.y));
-  const right = Math.max(
-    ...nodes.map((node) => node.layout.frame.x + node.layout.frame.w),
-  );
-  const bottom = Math.max(
-    ...nodes.map((node) => node.layout.frame.y + node.layout.frame.h),
-  );
+  const transformedBounds = nodes.map(transformedNodeBounds);
+  const left = Math.min(...transformedBounds.map((bounds) => bounds.left));
+  const top = Math.min(...transformedBounds.map((bounds) => bounds.top));
+  const right = Math.max(...transformedBounds.map((bounds) => bounds.right));
+  const bottom = Math.max(...transformedBounds.map((bounds) => bounds.bottom));
   return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+function transformedNodeBounds(node: ResolvedRenderNode): {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+} {
+  const { x, y, w, h } = node.layout.frame;
+  const rotation = node.layout.rotation ?? 0;
+  if (rotation % 360 === 0) {
+    return { left: x, top: y, right: x + w, bottom: y + h };
+  }
+  const radians = (rotation * Math.PI) / 180;
+  const sin = Math.sin(radians);
+  const cos = Math.cos(radians);
+  const centerX = x + w / 2;
+  const centerY = y + h / 2;
+  const corners: ReadonlyArray<readonly [number, number]> = [
+    [x, y],
+    [x + w, y],
+    [x + w, y + h],
+    [x, y + h],
+  ];
+  const transformedCorners = corners.map(([cornerX, cornerY]) => {
+    const localX = cornerX - centerX;
+    const localY = cornerY - centerY;
+    return {
+      x: centerX + localX * cos - localY * sin,
+      y: centerY + localX * sin + localY * cos,
+    };
+  });
+  const xs = transformedCorners.map((corner) => corner.x);
+  const ys = transformedCorners.map((corner) => corner.y);
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+  };
 }
 
 function resizeHandleStyle(handle: ResizeHandlePosition): React.CSSProperties {

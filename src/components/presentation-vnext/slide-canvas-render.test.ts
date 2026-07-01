@@ -370,6 +370,120 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /data-node-chrome-frame="activeGroup"/);
   });
 
+  test("applies node transforms to selection and handle overlays", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "rotated-image",
+      "rotated-connector",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          imageNode(
+            "rotated-image",
+            { x: 10, y: 10, w: 20, h: 16 },
+            {
+              layout: {
+                frame: { x: 10, y: 10, w: 20, h: 16 },
+                zIndex: 2,
+                rotation: 30,
+                flipX: true,
+                flipY: true,
+              },
+            },
+          ),
+          renderNode(
+            "rotated-connector",
+            {
+              type: "connector",
+              content: {
+                from: { kind: "point", point: { x: 0, y: 50 } },
+                to: { kind: "point", point: { x: 100, y: 50 } },
+              },
+            },
+            {},
+            {
+              layout: {
+                frame: { x: 48, y: 20, w: 28, h: 12 },
+                zIndex: 3,
+                rotation: 30,
+                flipX: true,
+                flipY: true,
+              },
+            },
+          ),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        onResizeHandlePointerDown: () => undefined,
+        onCropHandlePointerDown: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(
+      html,
+      /data-node-chrome-frame="selected"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="resize"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="rotation"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="crop"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="connector-endpoints"[^>]*data-node-id="rotated-connector"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+  });
+
+  test("includes rotated node geometry when drawing multi-selection bounds", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "rotated",
+      "plain",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          textNode(
+            "rotated",
+            { x: 10, y: 10, w: 20, h: 10 },
+            {
+              layout: {
+                frame: { x: 10, y: 10, w: 20, h: 10 },
+                zIndex: 1,
+                rotation: 90,
+              },
+            },
+          ),
+          textNode("plain", { x: 40, y: 30, w: 20, h: 10 }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+      }),
+    );
+    const multiBoundsStyleMatch = html.match(
+      /border-dashed border-ds-accent-border[^>]*style="([^"]+)"/,
+    );
+    assert.ok(multiBoundsStyleMatch);
+    const multiBoundsStyle = multiBoundsStyleMatch[1];
+    const left = Number(multiBoundsStyle.match(/left:([^;%]+)%/)?.[1]);
+    const top = Number(multiBoundsStyle.match(/top:([^;%]+)%/)?.[1]);
+    const width = Number(multiBoundsStyle.match(/width:([^;%]+)%/)?.[1]);
+    const height = Number(multiBoundsStyle.match(/height:([^;%]+)%/)?.[1]);
+
+    assert.ok(Math.abs(left - 15) < 0.001);
+    assert.ok(Math.abs(top - 5) < 0.001);
+    assert.ok(Math.abs(width - 45) < 0.001);
+    assert.ok(Math.abs(height - 35) < 0.001);
+  });
+
   test("renders a deterministic dense stage chrome regression signature", () => {
     const selection = setSelection(createSelectionState("normal"), [
       "overlap-image",
