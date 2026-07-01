@@ -1,4 +1,5 @@
 import type { Deck } from "@/lib/presentation/deck";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { Visual } from "@/lib/visual/schema";
 import {
   buildBulletsElement,
@@ -15,6 +16,16 @@ import {
   type SerializedFixtureEditorState,
 } from "./lexical";
 import { buildVisual, buildVisualEdge, buildVisualNode } from "./visual";
+import {
+  buildDeckV7,
+  buildLayoutBox as buildLayoutBoxV7,
+  buildShapeNode,
+  buildSlideV7,
+  buildStyleBinding as buildStyleBindingV7,
+  buildTextContent,
+  buildTextNode,
+  buildTitleNode,
+} from "./deck-v7";
 
 export {
   FIXTURE_PNG_BASE64,
@@ -35,6 +46,7 @@ export const E2E_PROFILE_FIXTURE = {
   },
   workspaceId: "e2efixtureworkspace0000001",
   documentId: "e2efixturedocument0000001",
+  layoutDocumentId: "e2efixturelayoutdoc000001",
   privateDocumentId: "e2efixtureprivatedoc00001",
   visualId: "e2efixturevisual000000001",
   shareId: "e2efixtureshare01",
@@ -44,6 +56,7 @@ export const E2E_PROFILE_FIXTURE = {
   slideBodyText: "Deterministic deck for the E2E release gate.",
   documentBodyText: "E2E fixture document body for the release gate profile.",
   documentTitle: "E2E Fixture Deck",
+  layoutDocumentTitle: "E2E Fixture Layout Deck",
   dashboardTag: {
     name: "Release Gate",
     slug: "release-gate",
@@ -194,6 +207,50 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
   });
 }
 
+export function buildE2EProfileDeckV7(): DeckV7 {
+  const slideOne = buildSlideV7("content", [
+    buildTitleNode(F.slideTitleText),
+    buildTextNode({
+      id: "layout-body",
+      role: "body",
+      layout: buildLayoutBoxV7({
+        frame: { x: 8, y: 28, w: 56, h: 44 },
+        zIndex: 2,
+      }),
+      style: buildStyleBindingV7("text.body"),
+      content: buildTextContent([F.slideBodyText, "Layout regression fixture"]),
+    }),
+    buildShapeNode({
+      id: "layout-callout",
+      role: "callout",
+      layout: buildLayoutBoxV7({
+        frame: { x: 68, y: 30, w: 24, h: 20 },
+        zIndex: 3,
+      }),
+      style: buildStyleBindingV7("surface.callout"),
+      content: { shape: "rect" },
+    }),
+  ]);
+
+  const slideTwo = buildSlideV7("content", [
+    buildTitleNode(F.slideTwoTitleText),
+    buildTextNode({
+      id: "layout-details",
+      role: "body",
+      layout: buildLayoutBoxV7({
+        frame: { x: 8, y: 28, w: 84, h: 48 },
+        zIndex: 1,
+      }),
+      style: buildStyleBindingV7("text.body"),
+      content: buildTextContent([
+        "Use this seeded deck for deterministic screenshot gating.",
+      ]),
+    }),
+  ]);
+
+  return buildDeckV7([slideOne, slideTwo]);
+}
+
 export function buildE2EProfileFixtureDescriptor(opts: {
   assetId: string;
   assetPath: string;
@@ -205,6 +262,8 @@ export function buildE2EProfileFixtureDescriptor(opts: {
     viewer: { email: F.viewer.email, password: F.viewer.password },
     documentId: F.documentId,
     documentPath: `/app/documents/${F.documentId}`,
+    layoutDocumentId: F.layoutDocumentId,
+    layoutDocumentPath: `/app/documents/${F.layoutDocumentId}`,
     shareId: F.shareId,
     slug: F.slug,
     presentPath: `/present/${F.slug}-${F.shareId}`,
