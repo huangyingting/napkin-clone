@@ -127,6 +127,40 @@ describe("validateThemePackage", () => {
     }
   });
 
+  test("rejects missing token ref inside gradient stop arrays", () => {
+    const pkg = buildMinimalThemePackage();
+    const badPkg = {
+      ...pkg,
+      styles: {
+        ...pkg.styles,
+        "surface.card": {
+          default: {
+            fill: {
+              type: "linearGradient",
+              from: "#111111",
+              to: "#ffffff",
+              stops: [
+                { color: { token: "colors.accent.missing" }, offsetPct: 0 },
+                { color: "#ffffff", offsetPct: 100 },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const result = validateThemePackage(badPkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some(
+          (d) =>
+            d.code === "missing-token" &&
+            d.path === "styles.surface.card.default.fill.stops.0.color",
+        ),
+      );
+    }
+  });
+
   test("rejects invalid package deck chrome defaults", () => {
     const pkg = buildMinimalThemePackage("bad-chrome-package", {
       chrome: {
@@ -377,5 +411,39 @@ describe("resolveNodeStyle", () => {
       diagnostics.some((d) => d.code === "missing-token"),
       "Expected missing-token diagnostic for non-scalar token",
     );
+  });
+
+  test("resolves token refs inside gradient stop arrays", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage("gradient-stop-token-pkg", {
+      styles: {
+        ...buildMinimalThemePackage().styles,
+        "surface.card": {
+          default: {
+            fill: {
+              type: "linearGradient",
+              from: "#111111",
+              to: "#ffffff",
+              stops: [
+                { color: { token: "colors.accent.fill" }, offsetPct: 0 },
+                { color: { token: "colors.accent.text" }, offsetPct: 100 },
+              ],
+            },
+          },
+        },
+      },
+    });
+    const themeBinding = buildThemeBinding();
+    const { style, diagnostics } = resolveNodeStyle(
+      { ref: "surface.card" },
+      themeBinding,
+      pkg,
+    );
+
+    assert.deepEqual((style.fill as { stops?: unknown[] })?.stops, [
+      { color: "#0066cc", offsetPct: 0 },
+      { color: "#ffffff", offsetPct: 100 },
+    ]);
+    assert.ok(!diagnostics.some((d) => d.code === "missing-token"));
   });
 });

@@ -7,7 +7,9 @@ import {
   SlideNodeRenderer,
   styleObjectToContainerCss,
 } from "./slide-node-renderer";
+import { fillStyleToCss } from "./fill-style-css";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
+import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
 
 function node(
   content: ResolvedRenderNode["content"],
@@ -38,6 +40,38 @@ function renderNode(
 }
 
 describe("styleObjectToContainerCss", () => {
+  test("uses shared fill-style conversion for representative fill variants", () => {
+    const resolver = (id: string) =>
+      id === "missing" ? undefined : `https://assets.example/${id}.png`;
+    const fills: FillStyle[] = [
+      { type: "solid", color: "#f8fafc" },
+      {
+        type: "linearGradient",
+        from: "#111111",
+        to: "#eeeeee",
+        stops: [
+          { color: "#111111", offsetPct: 0 },
+          { color: "#eeeeee", offsetPct: 100 },
+        ],
+      },
+      {
+        type: "pattern",
+        kind: "dots",
+        color: "#334155",
+        background: "#ffffff",
+      },
+      { type: "image", assetId: "bg", opacity: 0.4 },
+      { type: "image", assetId: "missing", opacity: 0.4 },
+    ];
+
+    for (const fill of fills) {
+      assert.deepEqual(
+        styleObjectToContainerCss({ fill }, resolver),
+        fillStyleToCss(fill, resolver),
+      );
+    }
+  });
+
   test("converts rich fills and visual effects into deterministic inline CSS", () => {
     const css = styleObjectToContainerCss({
       fill: {

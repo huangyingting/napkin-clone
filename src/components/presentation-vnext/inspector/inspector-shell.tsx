@@ -796,6 +796,7 @@ export interface InspectorShellProps {
   onUpdateSlideLocalStyle: (patch: StylePatch) => void;
   onResetSlideLocalStyle: () => void;
   onUpdateSlideSource: (source: NodeSourceMetadata | undefined) => void;
+  onUploadSlideBackgroundImage?: () => void;
 
   // Node-level handlers
   onUpdateSelectedLayout: (patch: Record<string, unknown>) => void;
@@ -807,6 +808,7 @@ export interface InspectorShellProps {
   onUpdateSelectedLocalStyle: (patch: StylePatch) => void;
   assetResolver?: (assetId: string) => string | undefined;
   onReplaceImage?: () => void;
+  onReplaceVisual?: () => void;
   onResetToTheme: () => void;
   onUpdateSelectedSource: (source: NodeSourceMetadata | undefined) => void;
   onRefreshSelectedSource?: () => void;
@@ -868,12 +870,14 @@ export function InspectorShell({
   onUpdateSlideLocalStyle,
   onResetSlideLocalStyle,
   onUpdateSlideSource,
+  onUploadSlideBackgroundImage,
   onUpdateSelectedLayout,
   onUpdateSelectedAttributes,
   onUpdateSelectedContent,
   onUpdateSelectedLocalStyle,
   assetResolver,
   onReplaceImage,
+  onReplaceVisual,
   onResetToTheme,
   onUpdateSelectedSource,
   onRefreshSelectedSource,
@@ -1065,6 +1069,8 @@ export function InspectorShell({
               onUpdateSource={onUpdateSlideSource}
               onUpdateLocalStyle={onUpdateSlideLocalStyle}
               onResetLocalStyle={onResetSlideLocalStyle}
+              assetResolver={assetResolver}
+              onUploadBackgroundImage={onUploadSlideBackgroundImage}
             />
           </PanelSection>
         )}
@@ -1119,6 +1125,9 @@ export function InspectorShell({
                 assetResolver={assetResolver}
                 onReplaceImage={
                   selectedNode.type === "image" ? onReplaceImage : undefined
+                }
+                onReplaceVisual={
+                  selectedNode.type === "visual" ? onReplaceVisual : undefined
                 }
               />
               <LocalStylePanel

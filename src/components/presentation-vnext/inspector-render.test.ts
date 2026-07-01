@@ -487,7 +487,7 @@ describe("vNext inspector components", () => {
     assert.match(html, /Primary insight/);
     assert.match(html, /Product screenshot/);
     assert.match(html, /Routing/);
-    assert.match(html, /Visual id/);
+    assert.match(html, /Replace visual/);
     assert.match(html, /Header row/);
     assert.match(html, /Local Style/);
   });
