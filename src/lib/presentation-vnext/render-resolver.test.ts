@@ -90,6 +90,36 @@ describe("resolveDeckRenderTree", () => {
     assert.equal(resolved?.locked, true);
   });
 
+  test("preserves authored node name and accessibility metadata", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const authoredNode = buildShapeNode({
+      id: "authored-shape",
+      name: "Quarterly highlight",
+      accessibility: {
+        label: "Quarterly highlight callout",
+        alt: "Quarterly highlight alt",
+        decorative: false,
+      },
+    });
+    const deck = buildDeckV7([
+      {
+        ...slide,
+        children: [...slide.children, authoredNode],
+      },
+    ]);
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const resolved = result.slides[0].nodes.find(
+      (node) => node.id === "authored-shape",
+    );
+    assert.equal(resolved?.name, "Quarterly highlight");
+    assert.deepEqual(resolved?.accessibility, {
+      label: "Quarterly highlight callout",
+      alt: "Quarterly highlight alt",
+      decorative: false,
+    });
+  });
+
   test("resolves connector node endpoints to target anchor points", () => {
     resetBuilderCounter();
     const target = buildTextNode({
@@ -744,8 +774,7 @@ describe("resolveDeckRenderTree", () => {
     if (!firstChild) return;
     const sourceChild = (
       moved.slides[0].children.find((node) => node.id === "moved-group") as
-        | Extract<SlideChildNode, { type: "group" }>
-        | undefined
+        Extract<SlideChildNode, { type: "group" }> | undefined
     )?.children.find((node) => node.id === firstChild.id);
     assert.deepEqual(firstChild.layout.frame, sourceChild?.layout?.frame);
   });

@@ -139,6 +139,30 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /role="button"/);
     assert.match(html, /tabindex="0"/);
     assert.match(html, /aria-label="Text: node-1"/);
+    assert.match(html, /aria-pressed="true"/);
+  });
+
+  test("exposes selected and unselected state with aria-pressed", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "node-selected",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          textNode("node-selected", { x: 10, y: 10, w: 20, h: 10 }),
+          textNode("node-unselected", { x: 40, y: 10, w: 20, h: 10 }),
+        ]),
+        selection,
+        focusedNodeId: "node-selected",
+        onNodeClick: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-node-id="node-selected"[^>]*aria-pressed="true"/);
+    assert.match(
+      html,
+      /data-node-id="node-unselected"[^>]*aria-pressed="false"/,
+    );
   });
 
   test("keeps a single focused node in the roving tabindex order", () => {

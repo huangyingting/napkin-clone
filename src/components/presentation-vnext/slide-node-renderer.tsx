@@ -1058,6 +1058,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
           : undefined
       }
       aria-disabled={interactive && isLocked ? true : undefined}
+      aria-pressed={interactive && !tableEditing ? selected : undefined}
       onClick={onClick ? handleClick : undefined}
       onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
       onPointerDown={onPointerDown ? handlePointerDown : undefined}
@@ -1076,27 +1077,62 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
 });
 
 function accessibleNodeName(node: ResolvedRenderNode): string {
+  const explicitAccessibilityName = firstNonEmptyText(
+    node.accessibility?.label,
+    node.accessibility?.alt,
+  );
+  if (explicitAccessibilityName) return explicitAccessibilityName;
+  const nodeName = firstNonEmptyText(node.name);
+  if (nodeName) return nodeName;
+  if (node.accessibility?.decorative) {
+    return `Decorative ${node.content.type}`;
+  }
   if (node.content.type === "text") {
-    const text = node.content.content.paragraphs
-      .map((paragraph) => paragraph.text.trim())
-      .filter(Boolean)
-      .join(" ");
+    const text = textContentSummary(node.content.content);
     return text ? `Text: ${text}` : "Text node";
   }
   if (node.content.type === "shape") {
+    const shapeText = node.content.content.text
+      ? textContentSummary(node.content.content.text)
+      : undefined;
+    if (shapeText) return `Shape: ${shapeText}`;
     return `${node.content.content.shape} shape`;
   }
   if (node.content.type === "image") {
-    return node.content.content.alt ?? "Image node";
+    return firstNonEmptyText(node.content.content.alt) ?? "Image node";
   }
   if (node.content.type === "visual") {
     return (
-      node.content.content.alt ?? node.content.content.visualId ?? "Visual node"
+      firstNonEmptyText(
+        node.content.content.alt,
+        node.content.content.visualId,
+      ) ?? "Visual node"
     );
   }
-  if (node.content.type === "table") return "Table node";
+  if (node.content.type === "table") {
+    const caption = firstNonEmptyText(node.content.content.caption);
+    return caption ? `Table: ${caption}` : "Table node";
+  }
   if (node.content.type === "connector") return "Connector node";
   return "Group node";
+}
+
+function textContentSummary(content: TextContent): string {
+  return content.paragraphs
+    .map((paragraph) => paragraph.text.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function firstNonEmptyText(
+  ...values: Array<string | null | undefined>
+): string | undefined {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return undefined;
 }
 
 function renderContent(
