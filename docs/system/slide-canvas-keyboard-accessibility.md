@@ -43,6 +43,11 @@ The canvas already supports a non-trivial keyboard model:
 - **Move.** With an element selected, **Arrow** keys nudge it by `1%`;
   **Shift+Arrow** nudges by `5%`.
   - `slide-editor.tsx:1287-1332`
+- **Rotate.** With an element selected, **Shift+[ / ]** rotates it by `1°`
+  (`{`/`}` keys in `event.key`), with a live announcement.
+  - `slide-editor-vnext.tsx` keyboard handler (`keyboardRotationDelta` +
+    `updateNodeLayouts`) and
+    `slide-editor-vnext.failures.test.ts` keyboard rotation smoke.
 - **Delete.** **Delete** / **Backspace** removes the selected element(s).
   - `slide-editor.tsx:1304-1313`
 - **Slide navigation.** **Arrow Left/Right** pages between slides when no
@@ -69,8 +74,6 @@ The canvas already supports a non-trivial keyboard model:
   "next/previous element" model, and focus is not guaranteed to be restored to a
   sensible element after a mutation (move/delete/duplicate/group). There is no
   `aria-live` announcement of selection or move/resize results.
-- **No keyboard rotation.** Rotation is pointer-only (decorative) and tracked in
-  #1575.
 
 ## Decision
 
@@ -107,8 +110,8 @@ A discoverable in-product **keyboard shortcut help dialog** (#535, opened with
 pure `canvasShortcutHelp` helper.
 
 **User impact now:** keyboard-only and screen-reader users can focus, select,
-move, **resize**, delete, duplicate and group elements, traverse deterministically,
-and keep their place after every edit.
+move, **resize**, rotate selected nodes, delete, duplicate and group elements,
+traverse deterministically, and keep their place after every edit.
 
 ### Accepted limitations (deferred with rationale)
 
@@ -122,28 +125,22 @@ and keep their place after every edit.
   impact:** keyboard users can connect and rebind elements but cannot free-draw
   an arbitrary path; mitigated by default-endpoint insertion + anchor cycling +
   nudging.
-- **A2 — Keyboard rotation.** Deferred and tracked in #1575. Rotation is
-  decorative and rarely needed for comprehension; pointer-only is acceptable
-  short term. **User impact:** minimal; rotation is not required to author
-  readable slides.
-
-These limitations remain recorded as release-gate **AC-5** warnings (Part 3 of
-`docs/operations/release-gate.md`) until #1574 and #1575 are closed.
+  These limitations remain recorded as release-gate **AC-5** warnings (Part 3 of
+  `docs/operations/release-gate.md`) until #1574 is closed.
 
 ### Ownership and timing
 
 - **Owner:** Accessibility / QA (Ghost) with the Presentation surface owner.
 - **Time-box:** R1–R3 shipped in the canvas keyboard accessibility wave
   (issues #530–#535), together with the A1 interim subset (connector
-  create/reattach). A2 (rotation, #1575) and free-draw connector authoring (#1574)
-  are revisited in a later wave; AC-5 stays an explicit, signed-off release
-  warning for those remaining gaps.
+  create/reattach). Free-draw connector authoring (#1574) is revisited in a
+  later wave; AC-5 stays an explicit, signed-off release warning for that
+  remaining gap.
 
 ## Consequences
 
 - The release gate's AC-5 item now points at this ADR; R1–R3 ship and AC-5 is a
-  narrowed warning covering only the accepted A1 (free-draw, #1574) / A2
-  (rotation, #1575) limitations.
+  narrowed warning covering only the accepted A1 free-draw limitation (#1574).
 - R1–R3 are additive to the existing keyboard model and pure helper coverage for
   accessible names, nudge/step geometry, selection, and stage state. They do not
   change the persisted DeckV7 schema.
@@ -151,8 +148,10 @@ These limitations remain recorded as release-gate **AC-5** warnings (Part 3 of
   (`src/lib/a11y/a11y-helpers.test.ts`, `element-accessible-name.test.ts`,
   `src/components/presentation-vnext/selection-traversal.test.ts`,
   `src/components/presentation-vnext/slide-canvas-render.test.ts`,
-  `src/lib/presentation/canvas-a11y.test.ts`). Direct `SlideEditorVNext`
-  keyboard interaction coverage for AC-5 is still pending.
+  `src/lib/presentation/canvas-a11y.test.ts`,
+  `src/components/presentation-vnext/slide-editor-vnext.failures.test.ts`).
+  Broader direct `SlideEditorVNext` keyboard interaction coverage for AC-5 is
+  still pending.
 
 ## Implementation issues (delivered)
 
@@ -172,6 +171,8 @@ The wave delivered these (status in parentheses):
    free-draw tracked in #1574).
 6. **In-product canvas keyboard shortcut help** — surface the keyboard model in
    the slide editor help overlay (#535 — ✅ shipped).
+7. **Keyboard rotation for SlideEditorVNext** — rotate selected nodes with
+   **Shift+[ / ]** and announce the new angle (#1575 — ✅ shipped).
 
 ## Rollback
 

@@ -290,6 +290,11 @@ import {
   type SlidePresencePeer,
 } from "@/lib/presentation/use-slide-presence";
 import { canvasArrangeShortcutKind } from "@/lib/shortcuts/canvas-runtime";
+import {
+  announceRotation,
+  applyKeyboardRotation,
+  keyboardRotationDelta,
+} from "@/lib/presentation/canvas-keyboard-rotate";
 
 const DECK_CHROME_KINDS: DeckChromeKind[] = [
   "logo",
@@ -2884,6 +2889,39 @@ export function SlideEditorVNext({
     const arrangeKind = canvasArrangeShortcutKind(event);
     if (arrangeKind) {
       handleReorderSelection(arrangeKind);
+      event.preventDefault();
+      return;
+    }
+
+    const rotationDelta = keyboardRotationDelta(event);
+    if (rotationDelta !== null) {
+      const patches = new Map<string, Partial<LayoutBox>>();
+      let rotationAnnouncement: string | null = null;
+      for (const entry of collectSelectedLayoutEntries(
+        activeSlide.children,
+        selectedIds,
+      )) {
+        if (entry.node.locked || entry.node.type === "connector") continue;
+        const nextRotation = applyKeyboardRotation(
+          entry.node.layout?.rotation,
+          rotationDelta,
+        );
+        patches.set(entry.id, { rotation: nextRotation.rotation });
+        if (!rotationAnnouncement) {
+          rotationAnnouncement = announceRotation(
+            entry.node.name ?? entry.node.type,
+            nextRotation.angle,
+          );
+        }
+      }
+      if (patches.size > 0) {
+        onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+        setStageAnnouncement(
+          patches.size === 1 && rotationAnnouncement
+            ? rotationAnnouncement
+            : `Rotated ${patches.size} ${patches.size === 1 ? "node" : "nodes"} by ${Math.abs(rotationDelta)}°`,
+        );
+      }
       event.preventDefault();
       return;
     }
