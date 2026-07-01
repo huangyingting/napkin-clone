@@ -771,7 +771,7 @@ function canvasElementFromTarget(
 }
 
 function pointPctFromEvent(
-  event: PointerEvent | ReactPointerEvent,
+  event: PointerEvent | ReactPointerEvent | MouseEvent,
   rect: DOMRect,
 ): { x: number; y: number } {
   return {
@@ -973,11 +973,38 @@ function nextZIndex(slide: SlideNode | undefined): number {
 
 function defaultTextNode(zIndex: number): SlideChildNode {
   const id = nodeFactoryId("text");
+  const frame = { x: 12, y: 16, w: 42, h: 12 } satisfies LayoutBox["frame"];
   return {
     id,
     type: "text",
     role: "body",
-    layout: { frame: { x: 12, y: 16, w: 42, h: 12 }, zIndex },
+    layout: { frame, zIndex },
+    style: { ref: "text.body" },
+    content: { paragraphs: [{ id: `${id}-p-1`, text: "Text" }] },
+  };
+}
+
+function textFrameAtPoint(point: { x: number; y: number }): LayoutBox["frame"] {
+  const frame = { x: 12, y: 16, w: 42, h: 12 } satisfies LayoutBox["frame"];
+  return clampFrame({
+    x: point.x - frame.w / 2,
+    y: point.y - frame.h / 2,
+    w: frame.w,
+    h: frame.h,
+  });
+}
+
+function textNodeAtPoint(
+  point: { x: number; y: number },
+  zIndex: number,
+): SlideChildNode {
+  const id = nodeFactoryId("text");
+  const frame = textFrameAtPoint(point);
+  return {
+    id,
+    type: "text",
+    role: "body",
+    layout: { frame, zIndex },
     style: { ref: "text.body" },
     content: { paragraphs: [{ id: `${id}-p-1`, text: "Text" }] },
   };
@@ -2122,6 +2149,47 @@ export function SlideEditorVNext({
     setFocusedNodeId(null);
     setActiveGroupId(null);
     clearTableEditing();
+  }
+
+  function handleStageDoubleClick(event: MouseEvent<HTMLDivElement>) {
+    if (
+      !activeSlide ||
+      inlineEditNodeId ||
+      tableEditingNodeId ||
+      isEditableTarget(event.target)
+    ) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof HTMLElement) {
+      if (
+        target.closest("[data-node-id]") ||
+        target.closest("[data-resize-handle]") ||
+        target.closest("[data-crop-handle]") ||
+        target.closest("[data-rotation-handle]") ||
+        target.closest("[data-connector-endpoint]")
+      ) {
+        return;
+      }
+    }
+    const canvasElement = canvasElementFromTarget(event.target);
+    if (!canvasElement) return;
+    const rect = canvasElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const point = pointPctFromEvent(event, rect);
+    const result = insertNode(
+      deck,
+      activeSlide.id,
+      textNodeAtPoint(point, nextZIndex(activeSlide)),
+    );
+    onDeckChange(result.deck);
+    setSelection((selectionState) =>
+      setSelectedNodeIds(selectionState, [result.nodeId]),
+    );
+    setFocusedNodeId(result.nodeId);
+    setActiveGroupId(null);
+    clearTableEditing();
+    setInlineEditNodeId(result.nodeId);
   }
 
   function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -4001,6 +4069,7 @@ export function SlideEditorVNext({
           data-slide-toolbar-anchor="true"
           className="relative h-full min-w-0 overflow-hidden bg-ds-surface-recessed"
           onClick={handleStageClick}
+          onDoubleClick={handleStageDoubleClick}
           onPointerDown={handleStagePointerDown}
         >
           <div className="sr-only" aria-live="polite" aria-atomic="true">
