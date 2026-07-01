@@ -4,8 +4,9 @@
 
 **Last updated:** 2026-07-01
 
-- **Status:** Accepted — R1–R3 implemented (canvas keyboard accessibility wave,
-  issues #530–#535); A1 partially implemented; A2 deferred
+- **Status:** Accepted with release-gate caveat — R1–R3 behavior exists in v7
+  source, but AC-5 remains deferred until direct `SlideEditorVNext` keyboard
+  interaction tests are wired into release-gate evidence
 - **Date:** 2026-06-23
 - **Epic:** #517 — Release Gate Automation and Critical Flow E2E Coverage
 - **Issue:** #522
@@ -69,7 +70,7 @@ The canvas already supports a non-trivial keyboard model:
   sensible element after a mutation (move/delete/duplicate/group). There is no
   `aria-live` announcement of selection or move/resize results.
 - **No keyboard rotation.** Rotation is pointer-only (decorative) and tracked in
-  #931.
+  #1575.
 
 ## Decision
 
@@ -117,39 +118,41 @@ and keep their place after every edit.
   both (facing anchors via `buildConnectorBetween`); with a connector selected,
   **C** / **Shift+C** cycle its end / start endpoint among the candidate anchors
   (`cycleEndpointAnchor`). **Still deferred:** free-draw connector authoring
-  with arbitrary routing remains pointer-only and is tracked in #930. **User
+  with arbitrary routing remains pointer-only and is tracked in #1574. **User
   impact:** keyboard users can connect and rebind elements but cannot free-draw
   an arbitrary path; mitigated by default-endpoint insertion + anchor cycling +
   nudging.
-- **A2 — Keyboard rotation.** Deferred and tracked in #931. Rotation is
+- **A2 — Keyboard rotation.** Deferred and tracked in #1575. Rotation is
   decorative and rarely needed for comprehension; pointer-only is acceptable
   short term. **User impact:** minimal; rotation is not required to author
   readable slides.
 
 These limitations remain recorded as release-gate **AC-5** warnings (Part 3 of
-`docs/operations/release-gate.md`) until #930 and #931 are closed.
+`docs/operations/release-gate.md`) until #1574 and #1575 are closed.
 
 ### Ownership and timing
 
 - **Owner:** Accessibility / QA (Ghost) with the Presentation surface owner.
 - **Time-box:** R1–R3 shipped in the canvas keyboard accessibility wave
   (issues #530–#535), together with the A1 interim subset (connector
-  create/reattach). A2 (rotation, #931) and free-draw connector authoring (#930)
+  create/reattach). A2 (rotation, #1575) and free-draw connector authoring (#1574)
   are revisited in a later wave; AC-5 stays an explicit, signed-off release
   warning for those remaining gaps.
 
 ## Consequences
 
 - The release gate's AC-5 item now points at this ADR; R1–R3 ship and AC-5 is a
-  narrowed warning covering only the accepted A1 (free-draw, #930) / A2
-  (rotation, #931) limitations.
+  narrowed warning covering only the accepted A1 (free-draw, #1574) / A2
+  (rotation, #1575) limitations.
 - R1–R3 are additive to the existing keyboard model and pure helper coverage for
   accessible names, nudge/step geometry, selection, and stage state. They do not
   change the persisted DeckV7 schema.
-- Automated a11y assertions continue to cover the helper-level guarantees
-  (`src/lib/a11y/a11y-helpers.test.ts`, `element-accessible-name.test.ts`); the
-  resize/traversal/announcement logic is covered by focused presentation stage
-  tests.
+- Automated a11y assertions continue to cover helper and render guarantees
+  (`src/lib/a11y/a11y-helpers.test.ts`, `element-accessible-name.test.ts`,
+  `src/components/presentation-vnext/selection-traversal.test.ts`,
+  `src/components/presentation-vnext/slide-canvas-render.test.ts`,
+  `src/lib/presentation/canvas-a11y.test.ts`). Direct `SlideEditorVNext`
+  keyboard interaction coverage for AC-5 is still pending.
 
 ## Implementation issues (delivered)
 
@@ -166,7 +169,7 @@ The wave delivered these (status in parentheses):
    `aria-live` updates for selection and operation results (#533 R3 — ✅ shipped).
 5. **Keyboard connector create/reattach** — connect two selected elements and
    rebind endpoints to anchors via keyboard (#534 A1 — 🟡 interim subset shipped;
-   free-draw tracked in #930).
+   free-draw tracked in #1574).
 6. **In-product canvas keyboard shortcut help** — surface the keyboard model in
    the slide editor help overlay (#535 — ✅ shipped).
 

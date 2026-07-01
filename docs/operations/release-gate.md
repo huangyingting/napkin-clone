@@ -270,13 +270,13 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Accessibility flows
 
-| #    | Flow                                               | Owner | Notes                                                                                                                                                                                                                                                                                                                   |
-| ---- | -------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-1 | VisualRenderer role=img + aria-label               | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
-| AC-2 | Decorative canvas elements aria-hidden             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
-| AC-3 | Icon-only toolbar controls labelled                | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
-| AC-4 | Modal dialog semantics                             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                  |
-| AC-5 | Canvas keyboard resize / traversal / announcements | **A** | Keyboard resize, deterministic traversal (roving tabindex), focus restoration, and `aria-live` announcements ship (#530–#535). Remaining accepted limitations are tracked as connector free-draw (#930) and rotation (#931) in [Slide canvas keyboard accessibility](../system/slide-canvas-keyboard-accessibility.md). |
+| #    | Flow                                               | Owner | Notes                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | -------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1 | VisualRenderer role=img + aria-label               | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                                            |
+| AC-2 | Decorative canvas elements aria-hidden             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                                            |
+| AC-3 | Icon-only toolbar controls labelled                | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                                            |
+| AC-4 | Modal dialog semantics                             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                                                            |
+| AC-5 | Canvas keyboard resize / traversal / announcements | **D** | v7 keyboard behavior exists in `slide-editor-vnext.tsx`, but release-gate automation is not yet tied to direct `SlideEditorVNext` keyboard interaction tests. Current evidence is helper/render-level (`selection-traversal.test.ts`, `slide-canvas-render.test.ts`, `canvas-a11y.test.ts`). Track deferred keyboard free-draw/rotation scope in #1574 and #1575. |
 
 ---
 
@@ -297,10 +297,11 @@ For each flow below, check the indicated owner: **A** = automated test,
   the responsible engineer signs off that it is safe to proceed.
 - A known canvas keyboard limitation (**D**) is present: confirm it is recorded in
   `a11y-helpers.test.ts`, in [Slide canvas keyboard accessibility](../system/slide-canvas-keyboard-accessibility.md),
-  and the deferred-risk list. The R1–R3 keyboard parity work (resize, traversal,
-  focus restoration, announcements) now ships (#530–#535, covered by
-  `canvas-a11y.test.ts`); only the accepted A1 (connector free-draw) and A2
-  (rotation) limitations remain as documented warnings tracked by #930 and #931.
+  and the deferred-risk list. The v7 editor (`slide-editor-vnext.tsx`) ships
+  keyboard resize/traversal/announcement behavior, but the release gate does not
+  yet have direct `SlideEditorVNext` keyboard interaction tests for those flows.
+  Keep **AC-5** as deferred until that coverage lands; track connector free-draw
+  and keyboard rotation follow-up in #1574 and #1575.
 - Slide patch-save flow (**S-2 / D**) remains deferred while `patchDeck` is
   fallback-only (`{ ok: "fallback" }`): keep #1336 open and do not sign off this
   path as automated patch persistence until DeckV7 patch replay is implemented.
