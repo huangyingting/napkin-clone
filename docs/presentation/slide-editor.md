@@ -80,6 +80,8 @@ the same controlled editor surface. The bottom dock also compacts for narrow
 viewports: rail toggle, Notes, and zoom stay visible; save/diagnostics/mode
 details collapse into a keyboard-reachable status popover; and the dock applies
 bottom safe-area padding when pinned to the viewport edge.
+Desktop and mobile status surfaces announce save state with live regions:
+steady-state save labels are polite updates, and save failures are assertive.
 
 ## Top Toolbar
 
@@ -101,20 +103,25 @@ Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Shortcuts   
   templates. The picker updates automatically after the slide kit changes.
 - **Slide ratio** changes the deck format through the ratio selector.
 - **Insert actions** live in the current-object surfaces: slide templates come
-  from Add slide, while text, image, shape, visual, connector, and document
-  text/visual insertion are exposed through the canvas popover and inspector.
-  Newly inserted objects become selected so those surfaces take over editing.
+  from Add slide, while text, image, shape, visual, connector, and table
+  insertion are exposed through the canvas popover and inspector. Newly inserted
+  objects become selected so those surfaces take over editing.
 - **Design/style controls** own deck canvas size, slide kit style
   customization, presentation theme tokens, current-slide background,
   current-slide accent, clearing current-slide background/accent overrides, and
   applying the selected solid/gradient background or accent across the deck.
   Deck-level theme controls are reached from Slide kit and Deck chrome; selected
   object styling remains in the canvas popover and inspector.
-- **Source** owns source-link review status, refresh/relink/unlink actions, and
-  batch source review operations.
+- **Source** owns source-link review status, sync/review actions, selected-node
+  refresh/unlink actions, and direct insertion of document blocks (text/table/
+  visual) through `document-source-commands.ts`.
 - **Snap** toggles snap-to-grid directly from the toolbar.
 - **Shortcuts** opens the keyboard shortcut dialog. Zoom remains in the bottom
   dock.
+
+Toolbar popovers that execute commands expose menu semantics
+(`role="menu"`/`menuitem*`) and keyboard traversal so assistive technology gets
+the same command contract as pointer users.
 
 Fine-grained selected-element formatting stays out of the top toolbar. The
 canvas popover and inspector continue to own text style, object-specific
@@ -126,7 +133,7 @@ current object.
 `SlideEditorVNext` renders `SlideCanvasVNext` and overlays editing chrome. The
 stage is responsible for pointer/keyboard interaction only; deck mutations are
 routed through `onDeckChange` callbacks and pure helpers in
-`editor-commands.ts` / `source-links.ts`.
+`editor-commands.ts` / `source-links.ts` / `document-source-commands.ts`.
 
 Current stage capabilities:
 
@@ -160,9 +167,10 @@ editor shell keeps thin wiring around those helpers.
   `updateNodeLayouts`).
 - **Traversal:** Tab / Shift+Tab select the next / previous element in a
   deterministic reading order (`orderedElementIds` + `nextElementId`) while a
-  canvas element has focus, backed by a roving tabindex (the primary selection,
-  or the first element in reading order, is the single Tab stop). Escape releases
-  canvas focus so users are never trapped.
+  canvas element has focus (helpers in `selection-traversal.ts`), backed by a
+  roving tabindex (the primary selection, or the first element in reading order,
+  is the single Tab stop). Escape releases canvas focus so users are never
+  trapped.
 - **Focus restoration:** after move/resize the moved element keeps focus; after
   delete the next/previous survivor (or the stage container) is focused
   (`focusTargetAfterDelete`); after duplicate the new copy; after group the group
@@ -252,7 +260,7 @@ Most user actions flow through pure v7 helpers:
 ```text
 UI event
   -> SlideEditorVNext handler
-  -> editor-commands.ts / source-links.ts helper
+  -> editor-commands.ts / source-links.ts / document-source-commands.ts helper
   -> next DeckV7
   -> onDeckChange
   -> useSlideEditorOpen undo stack + autosave scheduler

@@ -2,7 +2,7 @@
 
 **Type:** Contract  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 This document defines document-level access control and public share behavior.
 It covers authenticated app permissions, public share/embed/present routes, and
@@ -10,18 +10,19 @@ collaboration upgrade authorization.
 
 ## Source Files
 
-| Area                    | Source                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| Access taxonomy         | [`src/lib/access-policy/taxonomy.ts`](../../src/lib/access-policy/taxonomy.ts)             |
-| Access adapters         | [`src/lib/access-policy/adapters.ts`](../../src/lib/access-policy/adapters.ts)             |
-| Document capabilities   | [`src/lib/auth/document-permissions.ts`](../../src/lib/auth/document-permissions.ts)       |
-| Workspace role coercion | [`src/lib/workspace/roles.ts`](../../src/lib/workspace/roles.ts)                           |
-| Share access policy     | [`src/lib/share-access.ts`](../../src/lib/share-access.ts)                                 |
-| Share route             | [`src/app/share/[shareId]/page.tsx`](../../src/app/share/%5BshareId%5D/page.tsx)           |
-| Embed route             | [`src/app/embed/[shareId]/page.tsx`](../../src/app/embed/%5BshareId%5D/page.tsx)           |
-| Present route           | [`src/app/present/[shareId]/page.tsx`](../../src/app/present/%5BshareId%5D/page.tsx)       |
-| Collab authorize route  | [`src/app/api/collab/authorize/route.ts`](../../src/app/api/collab/authorize/route.ts)     |
-| Share actions           | [`src/app/app/documents/[id]/actions.ts`](../../src/app/app/documents/%5Bid%5D/actions.ts) |
+| Area                    | Source                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| Access taxonomy         | [`src/lib/access-policy/taxonomy.ts`](../../src/lib/access-policy/taxonomy.ts)                   |
+| Access adapters         | [`src/lib/access-policy/adapters.ts`](../../src/lib/access-policy/adapters.ts)                   |
+| Document capabilities   | [`src/lib/auth/document-permissions.ts`](../../src/lib/auth/document-permissions.ts)             |
+| Workspace role coercion | [`src/lib/workspace/roles.ts`](../../src/lib/workspace/roles.ts)                                 |
+| Share access policy     | [`src/lib/share-access.ts`](../../src/lib/share-access.ts)                                       |
+| Share route             | [`src/app/share/[shareId]/page.tsx`](../../src/app/share/%5BshareId%5D/page.tsx)                 |
+| Embed route             | [`src/app/embed/[shareId]/page.tsx`](../../src/app/embed/%5BshareId%5D/page.tsx)                 |
+| Present route           | [`src/app/present/[shareId]/page.tsx`](../../src/app/present/%5BshareId%5D/page.tsx)             |
+| Present embed route     | [`src/app/present/[shareId]/embed/page.tsx`](../../src/app/present/%5BshareId%5D/embed/page.tsx) |
+| Collab authorize route  | [`src/app/api/collab/authorize/route.ts`](../../src/app/api/collab/authorize/route.ts)           |
+| Share actions           | [`src/app/app/documents/[id]/actions.ts`](../../src/app/app/documents/%5Bid%5D/actions.ts)       |
 
 ## Authenticated Document Roles
 
@@ -90,7 +91,10 @@ mode is disabled.
 | `/share/[shareId]`         | `view`    | Read-only Lexical document.            |
 | `/embed/[shareId]`         | `embed`   | Embeddable read-only document surface. |
 | `/present/[shareId]`       | `present` | Public presentation viewer.            |
-| `/present/[shareId]/embed` | `present` | Embeddable public presentation viewer. |
+| `/present/[shareId]/embed` | `embed`   | Embeddable public presentation viewer. |
+
+`/present/[shareId]/embed` still renders the presentation projection, but access
+is evaluated in embed mode (`shareEmbedEnabled`).
 
 Denied requests become `notFound()` or no-index metadata. Private titles or
 content must not leak through metadata.

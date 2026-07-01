@@ -145,6 +145,9 @@ Image nodes reference `assets.images`. Visual nodes may reference a visual
 registry entry or carry a direct `visualId`. Export resolution may resolve visual
 registry entries through backing image/file assets, but unresolved references
 produce diagnostics rather than being silently rewritten in persisted JSON.
+Asset `src` values are validated as safe URLs: `http:`, `https:`, and `data:`
+schemes are accepted, while protocol-relative and control-character URLs are
+rejected.
 
 ## Slide Model
 
@@ -191,7 +194,7 @@ Key content rules:
 - Text nodes store `content.paragraphs[]`; each run must provide string `text`,
   optional boolean formatting flags, optional `localStyle` scalar fields
   (`color`, `fontSizePt`, `fontFamily`), and optional `link` values limited to
-  `http:`, `https:`, or `mailto:`. Run text must concatenate exactly to
+  `http:`, `https:`, `mailto:`, or `tel:`. Run text must concatenate exactly to
   paragraph text.
 - Paragraph `list` markers require `kind: "bullet" | "number"`; optional
   `indent` must be an integer `>= 0`, and optional `numberStyle` must be one of
@@ -206,6 +209,8 @@ Key content rules:
 - Visual nodes must provide `assetId` or `visualId`.
 - Group nodes require a supported `component`, a non-empty `children` array, and
   nesting depth no greater than 4.
+- `localStyle`, slide style, chrome style, and theme override style patches only
+  accept known style fields; unknown keys are rejected at validation time.
 
 ## Source Metadata
 
