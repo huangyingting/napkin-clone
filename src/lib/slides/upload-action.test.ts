@@ -23,11 +23,72 @@ import {
   ASSET_MAX_BYTES,
 } from "@/lib/slides/asset-upload";
 import {
+  imageDimensionsFromBytes,
+  validateAssetDimensionsPolicy,
+  validateAssetMagicBytes,
+} from "@/lib/assets/upload-policy";
+import { SLIDE_ASSET_UPLOAD_POLICY } from "@/lib/slides/asset-policy";
+import {
   deriveStorageKey,
   setDefaultStorageAdapter,
   resetDefaultStorageAdapter,
 } from "@/lib/slides/asset-storage";
 import { withP2002Fallback } from "@/lib/db/p2002-fallback";
+
+function createGifBytes(width: number, height: number): Uint8Array {
+  return new Uint8Array([
+    0x47,
+    0x49,
+    0x46,
+    0x38,
+    0x39,
+    0x61,
+    width & 0xff,
+    (width >> 8) & 0xff,
+    height & 0xff,
+    (height >> 8) & 0xff,
+    0x00,
+    0x00,
+    0x00,
+  ]);
+}
+
+function createWebpVp8XBytes(width: number, height: number): Uint8Array {
+  const widthMinusOne = width - 1;
+  const heightMinusOne = height - 1;
+  return new Uint8Array([
+    0x52,
+    0x49,
+    0x46,
+    0x46,
+    22,
+    0x00,
+    0x00,
+    0x00,
+    0x57,
+    0x45,
+    0x42,
+    0x50,
+    0x56,
+    0x50,
+    0x38,
+    0x58,
+    10,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    widthMinusOne & 0xff,
+    (widthMinusOne >> 8) & 0xff,
+    (widthMinusOne >> 16) & 0xff,
+    heightMinusOne & 0xff,
+    (heightMinusOne >> 8) & 0xff,
+    (heightMinusOne >> 16) & 0xff,
+  ]);
+}
 
 // ---------------------------------------------------------------------------
 // SHA-256 checksum computation
@@ -98,6 +159,74 @@ describe("upload action validation pipeline", () => {
     const v = validateAssetUpload("text/html", "page.html", 100);
     assert.ok(!v.ok);
     assert.equal(v.error.code, "type_rejected");
+  });
+
+  it("rejects oversized GIF/WebP dimensions before storage", () => {
+    const maxPx = SLIDE_ASSET_UPLOAD_POLICY.dimensions!.maxPx;
+    const oversizedUploads = [
+      {
+        mime: "image/gif",
+        name: "anim.gif",
+        bytes: createGifBytes(maxPx + 1, 10),
+      },
+      {
+        mime: "image/webp",
+        name: "photo.webp",
+        bytes: createWebpVp8XBytes(10, maxPx + 1),
+      },
+    ] as const;
+
+    for (const upload of oversizedUploads) {
+      const validated = validateAssetUpload(
+        upload.mime,
+        upload.name,
+        upload.bytes.length,
+      );
+      assert.ok(validated.ok);
+      if (!validated.ok) continue;
+
+      assert.deepEqual(validateAssetMagicBytes(validated.mime, upload.bytes), {
+        ok: true,
+      });
+      const dimensions = imageDimensionsFromBytes(validated.mime, upload.bytes);
+      const dimensionCheck = validateAssetDimensionsPolicy(
+        SLIDE_ASSET_UPLOAD_POLICY,
+        dimensions.widthPx,
+        dimensions.heightPx,
+      );
+      assert.ok(!dimensionCheck.ok);
+      if (!dimensionCheck.ok) {
+        assert.equal(dimensionCheck.error.code, "dimension_exceeded");
+      }
+    }
+  });
+
+  it("keeps extracted GIF/WebP dimensions in upload metadata", () => {
+    const uploads = [
+      { mime: "image/gif", name: "anim.gif", bytes: createGifBytes(320, 180) },
+      {
+        mime: "image/webp",
+        name: "hero.webp",
+        bytes: createWebpVp8XBytes(640, 360),
+      },
+    ] as const;
+
+    for (const upload of uploads) {
+      const dimensions = imageDimensionsFromBytes(upload.mime, upload.bytes);
+      const meta = buildAssetMeta({
+        type: upload.mime,
+        name: upload.name,
+        size: upload.bytes.length,
+        checksum: "abc123",
+        widthPx: dimensions.widthPx,
+        heightPx: dimensions.heightPx,
+      });
+      assert.ok(meta.ok);
+      if (!meta.ok) continue;
+
+      assert.equal(meta.meta.widthPx, dimensions.widthPx);
+      assert.equal(meta.meta.heightPx, dimensions.heightPx);
+    }
   });
 });
 
