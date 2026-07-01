@@ -12,6 +12,13 @@ const source = readFileSync(
 );
 
 describe("SlideEditorVNext toolbar command ownership", () => {
+  test("exposes the top command row as a named editing toolbar landmark", () => {
+    assert.match(
+      source,
+      /<header[\s\S]*role="toolbar"[\s\S]*aria-label="Slide editing tools"/,
+    );
+  });
+
   test("renders deck chrome in the top toolbar as a keyboard-focusable dialog command", () => {
     assert.match(
       source,
@@ -51,6 +58,58 @@ describe("SlideEditorVNext toolbar command ownership", () => {
       source.includes("canDeleteSlide={deck.slides.length > 1}"),
       true,
     );
+  });
+
+  test("gives zoom and status popovers menu trigger semantics", () => {
+    assert.equal(
+      source.includes("aria-label={`Set slide zoom (${stageZoomPercent}%)`}"),
+      true,
+    );
+    assert.equal(
+      source.includes("aria-controls={zoomMenuOpen ? zoomMenuId : undefined}"),
+      true,
+    );
+    assert.equal(
+      source.includes(
+        "aria-label={`Footer status: ${saveStatusLabel}. ${diagnosticSummary}.`}",
+      ),
+      true,
+    );
+    assert.equal(
+      source.includes("footerStatusMenuOpen ? footerStatusMenuId : undefined"),
+      true,
+    );
+    assert.equal(source.includes('aria-haspopup="menu"'), true);
+    assert.equal(source.includes('role="menu"'), true);
+  });
+
+  test("routes toolbar menu keyboard handling through menu command helpers", () => {
+    assert.equal(
+      source.includes("focusFirstMenuCommand(zoomMenuPanelRef.current)"),
+      true,
+    );
+    assert.equal(
+      source.includes(
+        "focusFirstMenuCommand(footerStatusMenuPanelRef.current)",
+      ),
+      true,
+    );
+    assert.equal(source.includes("onKeyDown={handleZoomMenuKeyDown}"), true);
+    assert.equal(
+      source.includes("onKeyDown={handleFooterStatusMenuKeyDown}"),
+      true,
+    );
+    assert.equal(source.includes("moveMenuCommandFocus({"), true);
+    assert.equal(source.includes("closeZoomMenuAndRestoreFocus();"), true);
+    assert.equal(
+      source.includes("closeFooterStatusMenuAndRestoreFocus();"),
+      true,
+    );
+  });
+
+  test("marks zoom and status commands with menu item roles", () => {
+    assert.equal(source.includes('role="menuitemradio"'), true);
+    assert.equal(source.includes('role="menuitem"'), true);
   });
 });
 
