@@ -55,6 +55,7 @@ import {
   LayoutPanelLeft,
   Plus,
   Redo2,
+  Scissors,
   Save,
   Spline,
   Square,
@@ -138,6 +139,7 @@ import {
   moveSlide,
   insertNode,
   pasteNodes,
+  cutNodes,
   updateNodeContent,
   resetImageCrop,
   updateNodeStyleBinding,
@@ -212,6 +214,7 @@ import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
+import { clipboardShortcutActionFromKey } from "./clipboard-shortcuts";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -1622,6 +1625,46 @@ export function SlideEditorVNext({
     }
   }
 
+  function applySelectionDeletion(
+    deletedIds: readonly string[],
+    nextDeck: DeckV7,
+  ) {
+    if (!activeSlide || deletedIds.length === 0) return;
+    const deletedCount = deletedIds.length;
+    const replacementId = replacementNodeAfterDelete(deletedIds);
+    onDeckChange(nextDeck);
+    if (tableEditingNodeId && deletedIds.includes(tableEditingNodeId)) {
+      setTableEditingNodeId(null);
+      setActiveTableCell(null);
+    }
+    if (activeGroupId && deletedIds.includes(activeGroupId)) {
+      setActiveGroupId(null);
+    }
+    if (replacementId) {
+      setSelection((s) => setSelectedNodeIds(s, [replacementId]));
+      setFocusedNodeId(replacementId);
+      window.setTimeout(() => focusStageNode(replacementId), 0);
+    } else {
+      setSelection((s) => clearSelection(s));
+      setFocusedNodeId(null);
+      window.setTimeout(() => editorRootRef.current?.focus(), 0);
+    }
+    setStageAnnouncement(
+      `Deleted ${deletedCount} ${deletedCount === 1 ? "node" : "nodes"}, ${Math.max(
+        0,
+        nodesInReadingOrder(activeSlide.children).length - deletedCount,
+      )} remaining`,
+    );
+  }
+
+  function handleCutNodes() {
+    if (!activeSlide || selectedIds.length === 0) return;
+    const result = cutNodes(deck, activeSlide.id, selectedIds);
+    if (result.nodes.length === 0) return;
+    setClipboardNodes(result.nodes);
+    applySelectionDeletion(selectedIds, result.deck);
+  }
+
   function handleGroupSelection() {
     if (!activeSlide || selectedIds.length < 2) return;
     const groupId = nodeFactoryId("group");
@@ -1705,30 +1748,9 @@ export function SlideEditorVNext({
 
   function handleDeleteSelection() {
     if (!activeSlide || selectedIds.length === 0) return;
-    const deletedCount = selectedIds.length;
-    const replacementId = replacementNodeAfterDelete(selectedIds);
-    onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
-    if (tableEditingNodeId && selectedIds.includes(tableEditingNodeId)) {
-      setTableEditingNodeId(null);
-      setActiveTableCell(null);
-    }
-    if (activeGroupId && selectedIds.includes(activeGroupId)) {
-      setActiveGroupId(null);
-    }
-    if (replacementId) {
-      setSelection((s) => setSelectedNodeIds(s, [replacementId]));
-      setFocusedNodeId(replacementId);
-      window.setTimeout(() => focusStageNode(replacementId), 0);
-    } else {
-      setSelection((s) => clearSelection(s));
-      setFocusedNodeId(null);
-      window.setTimeout(() => editorRootRef.current?.focus(), 0);
-    }
-    setStageAnnouncement(
-      `Deleted ${deletedCount} ${deletedCount === 1 ? "node" : "nodes"}, ${Math.max(
-        0,
-        nodesInReadingOrder(activeSlide.children).length - deletedCount,
-      )} remaining`,
+    applySelectionDeletion(
+      selectedIds,
+      deleteNodes(deck, activeSlide.id, selectedIds),
     );
   }
 
@@ -2481,7 +2503,9 @@ export function SlideEditorVNext({
       }
     }
 
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "v") {
+    const clipboardAction = clipboardShortcutActionFromKey(event);
+
+    if (clipboardAction === "paste") {
       handlePasteNodes();
       event.preventDefault();
       return;
@@ -2511,8 +2535,14 @@ export function SlideEditorVNext({
 
     if (selectedIds.length === 0) return;
 
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+    if (clipboardAction === "copy") {
       handleCopyNodes();
+      event.preventDefault();
+      return;
+    }
+
+    if (clipboardAction === "cut") {
+      handleCutNodes();
       event.preventDefault();
       return;
     }
@@ -3662,6 +3692,15 @@ export function SlideEditorVNext({
           </button>
           <button
             type="button"
+            onClick={handleCutNodes}
+            aria-label="Cut selected nodes"
+            disabled={selectedIds.length === 0}
+            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+          >
+            <Scissors size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
             onClick={handlePasteNodes}
             aria-label="Paste nodes"
             disabled={clipboardNodes.length === 0 || !activeSlide}
@@ -3871,7 +3910,7 @@ export function SlideEditorVNext({
                 ["Move selection", "Arrow keys"],
                 ["Large move", "Shift + Arrow"],
                 ["Duplicate nodes", "Cmd/Ctrl + D"],
-                ["Copy / Paste nodes", "Cmd/Ctrl + C / V"],
+                ["Copy / Cut / Paste nodes", "Cmd/Ctrl + C / X / V"],
                 ["Group / Ungroup", "Cmd/Ctrl + G / Shift + Cmd/Ctrl + G"],
                 ["Layer forward / backward", "] / ["],
                 ["Undo / Redo", "Cmd/Ctrl + Z / Shift + Cmd/Ctrl + Z"],
@@ -3949,6 +3988,7 @@ export function SlideEditorVNext({
             }
             isDecorationSelected={isDecorationSelected}
             onDelete={handleDeleteSelection}
+            onCut={handleCutNodes}
             onDuplicate={() => {
               if (!activeSlide) return;
               const result = duplicateNodes(deck, activeSlide.id, selectedIds);

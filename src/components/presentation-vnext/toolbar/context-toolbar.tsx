@@ -39,6 +39,7 @@ import {
   Replace,
   RotateCcw,
   RotateCw,
+  Scissors,
   SendToBack,
   Strikethrough,
   Trash2,
@@ -63,12 +64,7 @@ const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
 
 export type SelectionAlignMode =
-  | "left"
-  | "center"
-  | "right"
-  | "top"
-  | "middle"
-  | "bottom";
+  "left" | "center" | "right" | "top" | "middle" | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
@@ -285,6 +281,7 @@ export interface ContextToolbarProps {
   isDragging: boolean;
   isDecorationSelected: boolean;
   onDelete: () => void;
+  onCut: () => void;
   onDuplicate: () => void;
   onGroup: () => void;
   onUngroup: () => void;
@@ -321,6 +318,7 @@ export function ContextToolbar({
   isDragging,
   isDecorationSelected,
   onDelete,
+  onCut,
   onDuplicate,
   onGroup,
   onUngroup,
@@ -1100,6 +1098,13 @@ export function ContextToolbar({
             ) : null}
 
             <Divider />
+            <TBtn
+              label="Cut"
+              onClick={onCut}
+              disabled={selectedIds.length === 0}
+            >
+              <Scissors size={13} aria-hidden />
+            </TBtn>
             <TBtn
               label="Duplicate"
               onClick={onDuplicate}
