@@ -11,6 +11,7 @@ import type {
   SlideChildNode,
   SlideNode,
 } from "@/lib/presentation-vnext/schema";
+import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
 
 const textNode: SlideChildNode = {
   id: "text-1",
@@ -216,6 +217,7 @@ function renderInspector({
   assetResolver,
   onReplaceImage,
   onReplaceVisual,
+  selectedResolvedStyle,
 }: {
   initialPanel?: InspectorProps["initialPanel"];
   diagnostics?: PresentationDiagnostic[];
@@ -229,6 +231,7 @@ function renderInspector({
   assetResolver?: InspectorProps["assetResolver"];
   onReplaceImage?: InspectorProps["onReplaceImage"];
   onReplaceVisual?: InspectorProps["onReplaceVisual"];
+  selectedResolvedStyle?: StyleObject;
 } = {}) {
   const noop = () => undefined;
   return renderToStaticMarkup(
@@ -236,6 +239,7 @@ function renderInspector({
       activeSlide,
       deckChrome: undefined,
       selectedNode,
+      selectedResolvedStyle,
       selectedIds: selectedIds ?? (selectedNode ? [selectedNode.id] : []),
       isDecorationSelected,
       diagnostics,
@@ -409,6 +413,35 @@ describe("InspectorShell render affordances", () => {
     assert.match(textHtml, /3 local overrides/);
     assert.match(shapeHtml, /Shape label/);
     assert.match(shapeHtml, /Stroke width/);
+  });
+
+  test("local style controls seed from resolved styles", () => {
+    const inheritedShape: SlideChildNode = {
+      ...shapeNode,
+      localStyle: { text: { weight: 700 } },
+    };
+    const resolvedStyle: StyleObject = {
+      text: {
+        color: "#1d4ed8",
+        fontSizePt: 28,
+        lineHeight: 1.4,
+        align: "right",
+      },
+      fill: { type: "solid", color: "#dbeafe" },
+      stroke: { color: "#2563eb", widthPt: 3 },
+    };
+
+    const shapeHtml = renderInspector({
+      initialPanel: "shape",
+      selectedNode: inheritedShape,
+      selectedResolvedStyle: resolvedStyle,
+    });
+
+    assert.match(shapeHtml, /value="#1d4ed8"/);
+    assert.match(shapeHtml, /value="28"/);
+    assert.match(shapeHtml, /value="#dbeafe"/);
+    assert.match(shapeHtml, /value="#2563eb"/);
+    assert.match(shapeHtml, /value="3"/);
   });
 
   test("image, visual, table, and connector content panels render type controls", () => {
