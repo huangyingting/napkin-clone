@@ -1,5 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import * as React from "react";
 import {
   Children,
   createElement,
@@ -77,6 +78,42 @@ function childNode(patch: Partial<SlideChildNode>): SlideChildNode {
 
 function render(element: ReactNode) {
   return element ? renderToStaticMarkup(element as ReactElement) : "";
+}
+
+function withFakeHooks<T>(renderComponent: () => T): T {
+  const internals = (
+    React as unknown as {
+      __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
+        H: unknown;
+      };
+    }
+  ).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  if (!internals) return renderComponent();
+
+  const previous = internals.H;
+  internals.H = {
+    useState: <S>(initial: S | (() => S)) => [
+      typeof initial === "function" ? (initial as () => S)() : initial,
+      () => undefined,
+    ],
+    useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
+    useRef: <T>(initial: T) => ({ current: initial }),
+    useMemo: <T>(factory: () => T) => factory(),
+    useCallback: <T>(callback: T) => callback,
+    useId: () => "fake-react-id",
+    useContext: () => undefined,
+    useEffect: () => undefined,
+    useLayoutEffect: () => undefined,
+    useInsertionEffect: () => undefined,
+    useSyncExternalStore: () => undefined,
+    useTransition: () => [false, () => undefined],
+    useDeferredValue: <T>(value: T) => value,
+  };
+  try {
+    return renderComponent();
+  } finally {
+    internals.H = previous;
+  }
 }
 
 describe("inspector panels render and wire controls", () => {
@@ -423,14 +460,19 @@ describe("inspector panels render and wire controls", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      createElement(LayersPanel, {
+    const panel = withFakeHooks(() =>
+      LayersPanel({
         nodes: [group],
         selectedIds: ["child-text"],
         onSelectNode: (id) => updates.push(["select", id]),
         onUpdateNode: (id, patch) => updates.push(["update", id, patch]),
         onReorderNode: (id, index) => updates.push(["reorder", id, index]),
       }),
+    );
+    const html = render(panel);
+    const interactions = invokeHandlers(panel);
+    const reorderEvents = updates.filter(
+      (event) => Array.isArray(event) && event[0] === "reorder",
     );
     const empty = renderToStaticMarkup(
       createElement(LayersPanel, {
@@ -444,6 +486,11 @@ describe("inspector panels render and wire controls", () => {
     assert.match(html, /Group/);
     assert.match(html, /Nested text/);
     assert.match(html, /Nested image/);
+    assert.match(html, /Move layer forward/);
+    assert.match(html, /Move layer backward/);
+    assert.match(html, /aria-live="polite"/);
+    assert.ok(interactions >= 8);
+    assert.ok(reorderEvents.length >= 2);
     assert.equal(empty, "");
   });
 });
