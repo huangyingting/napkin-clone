@@ -57,9 +57,8 @@ export interface DeckGenerateError {
 
 /** Result of a deck-generation request: a usable deck or a classified error. */
 export interface DeckGenerationResponseMetadata {
-  requestedGenerationMode?: "package-template" | "vnext";
-  generationMode?: "package-template" | "vnext";
-  fallback?: boolean;
+  planner?: "ai";
+  mode?: NonNullable<DeckGenerationOptions["mode"]>;
   tableSlideCount?: number;
   schemaValid?: boolean;
   themePackageId?: ThemePackageId;
@@ -141,6 +140,7 @@ export function buildDeckGenerationBody(
   ) {
     opts.audience = options.audience.trim();
   }
+  if (options.mode) opts.mode = options.mode;
   const body: Record<string, unknown> = { contentJson };
   if (Object.keys(opts).length > 0) {
     body.options = opts;
@@ -158,12 +158,6 @@ export function buildDeckGenerationBody(
  * and the `truncated` flag, or `null` when the payload is missing/invalid.
  */
 /* node:coverage ignore stop */
-function parseGenerationMode(
-  value: unknown,
-): "package-template" | "vnext" | undefined {
-  return value === "package-template" || value === "vnext" ? value : undefined;
-}
-
 function parseKindCounts(value: unknown): Record<string, number> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
@@ -185,18 +179,11 @@ function parseDeckResponseMetadata(
   }
   const raw = value as Record<string, unknown>;
   const metadata: DeckGenerationResponseMetadata = {};
-  const requestedGenerationMode = parseGenerationMode(
-    raw.requestedGenerationMode,
-  );
-  if (requestedGenerationMode) {
-    metadata.requestedGenerationMode = requestedGenerationMode;
+  if (raw.planner === "ai") {
+    metadata.planner = raw.planner;
   }
-  const generationMode = parseGenerationMode(raw.generationMode);
-  if (generationMode) {
-    metadata.generationMode = generationMode;
-  }
-  if (typeof raw.fallback === "boolean") {
-    metadata.fallback = raw.fallback;
+  if (raw.mode === "faithful" || raw.mode === "presentationRewrite") {
+    metadata.mode = raw.mode;
   }
   if (typeof raw.tableSlideCount === "number" && raw.tableSlideCount >= 0) {
     metadata.tableSlideCount = raw.tableSlideCount;

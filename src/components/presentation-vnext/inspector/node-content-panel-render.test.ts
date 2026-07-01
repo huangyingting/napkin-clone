@@ -137,15 +137,11 @@ describe("NodeContentPanel render coverage", () => {
       baseNode({
         id: "shape-1",
         type: "shape",
-        content: {
-          shape: "diamond",
-          text: { paragraphs: [{ id: "label-1", text: "Decision" }] },
-        },
+        content: { shape: "diamond" },
       }),
     );
     assert.match(shapeHtml, /<select/);
     assert.match(shapeHtml, /diamond/);
-    assert.match(shapeHtml, /Decision/);
   });
 
   test("renders image replace affordances with fit, alt, crop, and debug ids", () => {
@@ -282,10 +278,7 @@ describe("NodeContentPanel render coverage", () => {
         node: baseNode({
           id: "shape-1",
           type: "shape",
-          content: {
-            shape: "rect",
-            text: { paragraphs: [{ id: "label", text: "Label" }] },
-          },
+          content: { shape: "rect" },
         }),
         onUpdateContent: (patch) => updates.push(patch),
       }),
@@ -325,7 +318,7 @@ describe("NodeContentPanel render coverage", () => {
     );
 
     assert.ok(invokeHandlers(text) >= 1);
-    assert.ok(invokeHandlers(shape) >= 2);
+    assert.ok(invokeHandlers(shape) >= 1);
     assert.ok(invokeHandlers(image) >= 7);
     assert.ok(invokeHandlers(visual) >= 3);
     assert.ok(

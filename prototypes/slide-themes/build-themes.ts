@@ -13,9 +13,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type {
-  AiSlideSpec,
+  SemanticSlideSpecV1,
   SlotValue,
-} from "@/lib/presentation-vnext/ai-plan-schema";
+} from "@/lib/presentation-vnext/semantic-deck-plan";
 import {
   DECK_SCHEMA_VERSION_V7,
   type DeckV7,
@@ -158,10 +158,10 @@ function sampleSlotValue(slot: SlotKey, kind: SemanticTemplateKind): SlotValue {
   return { type: "shortText", text: sampleText(slot, kind) };
 }
 
-function sampleSlideSpec(kind: SemanticTemplateKind): AiSlideSpec {
+function sampleSlideSpec(kind: SemanticTemplateKind): SemanticSlideSpecV1 {
   const template = registry.get(kind);
   if (!template) throw new Error(`Missing v7 semantic template: ${kind}`);
-  const slots: AiSlideSpec["slots"] = {};
+  const slots: SemanticSlideSpecV1["slots"] = {};
   for (const slot of Object.keys(template.slots) as SlotKey[]) {
     slots[slot] = sampleSlotValue(slot, kind);
   }

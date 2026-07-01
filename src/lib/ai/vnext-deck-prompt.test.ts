@@ -2,9 +2,9 @@
  * vNext deck prompt builder tests.
  *
  * Verifies that `buildVnextDeckMessages` produces messages that:
- * - contain the AiDeckPlanV1 JSON shape description,
+ * - contain the DocumentSlidePlanV1 JSON shape description,
  * - list all semantic template kinds,
- * - include the outline,
+ * - include the structured source plan and fallback outline,
  * - include visual inventory entries,
  * - respect generation options (length, tone, audience),
  * - include the retry reason on retry attempts.
@@ -16,23 +16,55 @@ import assert from "node:assert/strict";
 import { buildVnextDeckMessages } from "@/lib/ai/vnext-deck-prompt";
 import { SEMANTIC_TEMPLATE_KINDS } from "@/lib/presentation-vnext/template-registry";
 
+const SOURCE_PLAN = {
+  planVersion: 1 as const,
+  contentHash: "hash-1",
+  truncated: false,
+  originalChars: 32,
+  keptChars: 32,
+  sections: [
+    {
+      id: "section-1",
+      title: "Roadmap",
+      sourceBlockIds: ["heading-1", "paragraph-1"],
+      blocks: [
+        {
+          id: "heading-1",
+          kind: "heading" as const,
+          level: 1 as const,
+          text: "Roadmap",
+        },
+        { id: "paragraph-1", kind: "paragraph" as const, text: "Launch in Q3" },
+      ],
+    },
+  ],
+  visualInventory: [
+    {
+      id: "vis-001",
+      title: "Revenue Chart",
+      type: "chart",
+      summary: "Q1 2024 revenue by region",
+    },
+  ],
+};
+
 describe("buildVnextDeckMessages", () => {
   test("returns exactly two messages (system + user)", () => {
     const messages = buildVnextDeckMessages({
       outline: "A test outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
     });
     assert.equal(messages.length, 2);
     assert.equal(messages[0].role, "system");
     assert.equal(messages[1].role, "user");
   });
 
-  test("system prompt describes AiDeckPlanV1 shape (planVersion: 1)", () => {
+  test("system prompt describes DocumentSlidePlanV1 shape (planVersion: 1)", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
     });
     assert.ok(
       messages[0].content.includes("planVersion"),
@@ -43,8 +75,8 @@ describe("buildVnextDeckMessages", () => {
   test("system prompt describes typed slot values (shortText)", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
     });
     assert.ok(
       messages[0].content.includes("shortText"),
@@ -55,8 +87,8 @@ describe("buildVnextDeckMessages", () => {
   test("user message includes all semantic template kinds", () => {
     const messages = buildVnextDeckMessages({
       outline: "some outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
     });
     const userContent = messages[1].content;
     for (const kind of SEMANTIC_TEMPLATE_KINDS) {
@@ -71,8 +103,8 @@ describe("buildVnextDeckMessages", () => {
     const outline = "This is a unique outline string 42xz";
     const messages = buildVnextDeckMessages({
       outline,
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
     });
     assert.ok(
       messages[1].content.includes(outline),
@@ -80,11 +112,21 @@ describe("buildVnextDeckMessages", () => {
     );
   });
 
+  test("user message includes structured source block ids", () => {
+    const messages = buildVnextDeckMessages({
+      outline: "outline",
+      sourcePlan: SOURCE_PLAN,
+      themePackageId: "clarity",
+    });
+    assert.ok(messages[1].content.includes("heading-1"));
+    assert.ok(messages[1].content.includes("Document source plan"));
+  });
+
   test("user message includes the theme package id", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "noir",
-      visualInventory: [],
     });
     assert.ok(
       messages[1].content.includes("noir"),
@@ -95,15 +137,8 @@ describe("buildVnextDeckMessages", () => {
   test("visual inventory entries appear in user message", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [
-        {
-          id: "vis-001",
-          title: "Revenue Chart",
-          type: "chart",
-          summary: "Q1 2024 revenue by region",
-        },
-      ],
     });
     assert.ok(
       messages[1].content.includes("vis-001"),
@@ -118,8 +153,8 @@ describe("buildVnextDeckMessages", () => {
   test("empty visual inventory produces a none message", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: { ...SOURCE_PLAN, visualInventory: [] },
       themePackageId: "clarity",
-      visualInventory: [],
     });
     assert.ok(
       messages[1].content.includes("none"),
@@ -130,8 +165,8 @@ describe("buildVnextDeckMessages", () => {
   test("length option produces guidance note", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
       options: { length: "short" },
     });
     assert.ok(
@@ -143,8 +178,8 @@ describe("buildVnextDeckMessages", () => {
   test("tone option is included in user message", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
       options: { tone: "confident" },
     });
     assert.ok(
@@ -156,8 +191,8 @@ describe("buildVnextDeckMessages", () => {
   test("audience option is included in user message", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
       options: { audience: "technical leadership" },
     });
     assert.ok(
@@ -166,12 +201,22 @@ describe("buildVnextDeckMessages", () => {
     );
   });
 
+  test("mode option is included in user message", () => {
+    const messages = buildVnextDeckMessages({
+      outline: "outline",
+      sourcePlan: SOURCE_PLAN,
+      themePackageId: "clarity",
+      options: { mode: "presentationRewrite" },
+    });
+    assert.ok(messages[1].content.includes("presentationRewrite"));
+  });
+
   test("retryReason is included on retry attempts", () => {
     const reason = "Previous plan had only one slide";
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
       retryReason: reason,
     });
     assert.ok(
@@ -183,8 +228,8 @@ describe("buildVnextDeckMessages", () => {
   test("no retryReason in user message on first attempt", () => {
     const messages = buildVnextDeckMessages({
       outline: "outline",
+      sourcePlan: SOURCE_PLAN,
       themePackageId: "clarity",
-      visualInventory: [],
     });
     assert.ok(
       !messages[1].content.includes("Previous attempt"),

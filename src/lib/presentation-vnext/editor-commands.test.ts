@@ -52,7 +52,7 @@ import {
   buildTextNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
-import type { AiSlideSpec } from "@/lib/presentation-vnext/ai-plan-schema";
+import type { SemanticSlideSpecV1 } from "@/lib/presentation-vnext/semantic-deck-plan";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 function makeTestDeck() {
@@ -96,7 +96,7 @@ describe("insertSlide", () => {
     const deck = makeTestDeck();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("section")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "section",
       slots: { title: { type: "shortText", text: "New Section" } },
     };
@@ -133,7 +133,7 @@ describe("insertSlide", () => {
     const deck = makeTestDeck();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("section")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "section",
       slots: { title: { type: "shortText", text: "Inserted" } },
     };
@@ -147,7 +147,7 @@ describe("insertSlide", () => {
     const deck = makeTestDeck();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("content")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       density: "dense",
       emphasis: "data",
@@ -168,7 +168,7 @@ describe("insertSlide", () => {
     const originalLength = deck.slides.length;
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("cover")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "cover",
       slots: { title: { type: "shortText", text: "Hi" } },
     };
@@ -1284,7 +1284,7 @@ describe("applyTemplate", () => {
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("content")!;
     const slideId = deck.slides[0].id;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       slots: { title: { type: "shortText", text: "Reapplied Title" } },
     };
@@ -1343,7 +1343,7 @@ describe("applyTemplate", () => {
       children: [titleNode, bodyNode],
     };
     const deck = buildDeckV7([slide]);
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       density: "dense",
       emphasis: "data",
@@ -1384,7 +1384,7 @@ describe("applyTemplate", () => {
     const deck = makeTestDeck();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("content")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       slots: { title: { type: "shortText", text: "X" } },
     };

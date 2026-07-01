@@ -2,8 +2,9 @@
  * Deck-source extraction (issue #263).
  *
  * Turns a serialised Lexical document (`contentJson`) plus the document's
- * visuals into the exact `{ outline, visualInventory }` shape consumed by the
- * package-template deck generator.
+ * visuals into the `{ outline, visualInventory }` compatibility shape consumed
+ * by the vNext deck generator for input limits, logging, and fallback prompt
+ * context.
  *
  * Responsibilities:
  *   - reuse the pure {@link collectDocumentBlocks} walk (and the rich-text runs
@@ -36,8 +37,8 @@ import {
 import type { Visual } from "@/lib/visual/schema";
 
 /**
- * The structured source the package-template generator consumes, plus truncation metadata so
- * callers (the route, the UI) can notify the user when the document outline was
+ * The compatibility outline source plus truncation metadata so callers (the
+ * route, the UI) can notify the user when the document outline was
  * deterministically trimmed to fit {@link MAX_INPUT_CHARS}.
  */
 export interface DeckGenerationSource {

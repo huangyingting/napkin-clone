@@ -22,7 +22,7 @@ generation, and presentation table/evidence slots.
   plain-text projection, search, export, source references, and slide
   generation.
 - Map document tables cleanly into presentation `TableElement` data or
-  package-template table slots when selected by deterministic or AI generation.
+  DocumentSlidePlan table slots when selected by deterministic or AI generation.
 
 ## Non-Goals
 
@@ -48,9 +48,9 @@ generation, and presentation table/evidence slots.
   metadata such as HTML `<caption>`, not heuristic nearby paragraph inference.
 - Document table editor limits are wider than presentation limits: 1-12 columns
   and 1-100 rows.
-- Presentation mapping applies its own slide-friendly limits. AI/package
-  template generation still clamps to 2-4 columns and 2-6 rows and moves
-  overflow to notes.
+- Presentation mapping applies its own slide-friendly limits. AI document slide
+  planning still clamps to slide-friendly columns/rows and moves overflow to
+  notes.
 - Document tables participate in plain-text/search/export/AI/staleness
   projections. Markdown pipe table is the default plain-text representation.
 - Document tables are structured candidates for slides, not mandatory one-table
@@ -151,7 +151,7 @@ Document tables feed presentation generation as structured candidates:
 
 - Deterministic fallback generation may create a table slide for an independent
   table block when slide count and content density allow it.
-- Package-template AI generation receives tables as structured context and can
+- AI document slide planning receives tables as structured context and can
   choose `evidence`, `table`, `data-insight`, `comparison`, notes, or no slide.
 - Manual insert-from-document can materialize a document table as a presentation
   `TableElement` with `source.blockKind = "table"`.
@@ -193,8 +193,7 @@ Document tables feed presentation generation as structured candidates:
 ### Phase 5: Presentation Integration
 
 - Map `DocumentTableBlock` into manual insert-from-document `TableElement`.
-- Feed table blocks into package-template generation as structured table
-  context.
+- Feed table blocks into DocumentSourcePlanV1 as structured table context.
 - Keep deterministic slide generation conservative: table slides are candidates,
   not mandatory output.
 

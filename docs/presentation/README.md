@@ -11,14 +11,15 @@ These documents describe the runtime presentation layer: the slide editor UI,
 stage interactions, present mode, and export pipeline. They sit between the
 persisted deck contract and the React components that render/edit slides.
 
-| Document                                                           | Type         | Scope                                                                                     |
-| ------------------------------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------- |
-| [slide-editor.md](slide-editor.md)                                 | Architecture | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.   |
-| [slide-stage-interactions.md](slide-stage-interactions.md)         | Design       | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior.  |
-| [theme-packages.md](theme-packages.md)                             | Contract     | Theme package catalog, apply behavior, template identity, and master boundaries.          |
-| [assets.md](assets.md)                                             | Architecture | Slide image upload, storage, protected serving, deck references, and cleanup.             |
-| [rendering-and-export.md](rendering-and-export.md)                 | Architecture | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics.  |
-| [legacy-interaction-port-plan.md](legacy-interaction-port-plan.md) | Plan         | Feasibility of porting legacy staging interaction UI onto the vNext model and operations. |
+| Document                                                               | Type         | Scope                                                                                         |
+| ---------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| [slide-editor.md](slide-editor.md)                                     | Architecture | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.       |
+| [slide-stage-interactions.md](slide-stage-interactions.md)             | Design       | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior.      |
+| [theme-packages.md](theme-packages.md)                                 | Contract     | Theme package catalog, apply behavior, template identity, and master boundaries.              |
+| [assets.md](assets.md)                                                 | Architecture | Slide image upload, storage, protected serving, deck references, and cleanup.                 |
+| [rendering-and-export.md](rendering-and-export.md)                     | Architecture | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics.      |
+| [document-slide-derivation-plan.md](document-slide-derivation-plan.md) | Plan         | Hard-cut migration for document-derived slides, AI proposals, semantic plans, and provenance. |
+| [legacy-interaction-port-plan.md](legacy-interaction-port-plan.md)     | Plan         | Feasibility of porting legacy staging interaction UI onto the vNext model and operations.     |
 
 Future presentation work should live in this directory as `*-plan.md` and must
 separate current behavior from target behavior, phases, and acceptance checks.

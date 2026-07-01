@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import * as runtime from "@/lib/presentation-vnext";
-import { repairAiDeckPlan } from "@/lib/presentation-vnext/ai-plan-repair";
+import { repairSemanticDeckPlan } from "@/lib/presentation-vnext/semantic-deck-plan-repair";
 import {
   cutNodes,
   deleteNodes,
@@ -331,8 +331,8 @@ describe("presentation-vnext final library coverage", () => {
     );
   });
 
-  test("repairAiDeckPlan truncates every capacity-managed slot type", () => {
-    const result = repairAiDeckPlan(
+  test("repairSemanticDeckPlan truncates every capacity-managed slot type", () => {
+    const result = repairSemanticDeckPlan(
       {
         planVersion: 1,
         title: 123,

@@ -245,11 +245,11 @@ describe("presentation-vnext runtime barrel coverage", () => {
     const slideId = deck.slides[0].id;
     deck = runtime.insertNode(deck, slideId, {
       id: "focus-node",
-      type: "shape",
-      role: "background",
+      type: "text",
+      role: "body",
       layout: { frame: { x: 10, y: 10, w: 20, h: 20 }, zIndex: 1 },
-      style: { ref: "surface.card" },
-      content: { shape: "rect" },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "focus-p", text: "Original source" }] },
     }).deck;
 
     const chromeNode: ResolvedRenderNode = {

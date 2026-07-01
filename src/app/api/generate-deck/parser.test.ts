@@ -24,9 +24,19 @@ import {
 
 test("parseDeckOptions accepts current tuning fields", () => {
   assert.deepEqual(
-    parseDeckOptions({ length: "short", tone: "clear", audience: "execs" }),
+    parseDeckOptions({
+      length: "short",
+      tone: "clear",
+      audience: "execs",
+      mode: "presentationRewrite",
+    }),
     {
-      options: { length: "short", tone: "clear", audience: "execs" },
+      options: {
+        length: "short",
+        tone: "clear",
+        audience: "execs",
+        mode: "presentationRewrite",
+      },
     },
   );
 });
@@ -61,6 +71,9 @@ test("parseDeckOptions rejects non-object and invalid option shapes", () => {
       error: `\`options.audience\` is too long (${AI_OPTION_MAX_CHARS + 1} characters). The maximum is ${AI_OPTION_MAX_CHARS}.`,
     },
   );
+  assert.deepEqual(parseDeckOptions({ mode: "magic" }), {
+    error: "`options.mode` must be one of: faithful, presentationRewrite.",
+  });
 });
 
 test("parseGenerateDeckPayload preserves required content errors", () => {
@@ -99,61 +112,44 @@ test("parseGenerateDeckPayload builds a payload with outline and options", () =>
     contentJson: buildContentJson([
       buildParagraphNode([buildTextNode("Roadmap")]),
     ]),
-    options: { length: "medium", tone: "direct" },
+    options: { length: "medium", tone: "direct", mode: "faithful" },
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.payload.options.length, "medium");
   assert.equal(result.payload.options.tone, "direct");
-  assert.equal(result.payload.generationMode, "package-template");
+  assert.equal(result.payload.options.mode, "faithful");
   assert.equal(result.payload.themePackageId, "clarity");
   assert.match(result.payload.outline, /Roadmap/);
 });
 
-test("parseGenerateDeckPayload accepts package-template request fields", () => {
+test("parseGenerateDeckPayload accepts current request fields", () => {
   const result = parseGenerateDeckPayload({
     contentJson: buildContentJson([
       buildParagraphNode([buildTextNode("Roadmap")]),
     ]),
-    generationMode: "package-template",
     themePackageId: "noir",
   });
   assert.equal(result.ok, true);
-  assert.equal(result.payload.generationMode, "package-template");
   assert.equal(result.payload.themePackageId, "noir");
 });
 
-test("parseGenerateDeckPayload defaults package-template mode to clarity package", () => {
+test("parseGenerateDeckPayload defaults theme package to clarity", () => {
   const result = parseGenerateDeckPayload({
     contentJson: buildContentJson([
       buildParagraphNode([buildTextNode("Roadmap")]),
     ]),
-    generationMode: "package-template",
   });
   assert.equal(result.ok, true);
   assert.equal(result.payload.themePackageId, "clarity");
 });
 
-test("parseGenerateDeckPayload rejects invalid package-template request fields", () => {
+test("parseGenerateDeckPayload rejects invalid request fields", () => {
   assert.deepEqual(
     parseGenerateDeckPayload({
       contentJson: buildContentJson([
         buildParagraphNode([buildTextNode("Roadmap")]),
       ]),
-      generationMode: "magic",
-    }),
-    {
-      ok: false,
-      status: 400,
-      message: '`generationMode` must be "package-template".',
-    },
-  );
-  assert.deepEqual(
-    parseGenerateDeckPayload({
-      contentJson: buildContentJson([
-        buildParagraphNode([buildTextNode("Roadmap")]),
-      ]),
-      generationMode: "package-template",
       themePackageId: "unknown",
     }),
     { ok: false, status: 400, message: "`themePackageId` is invalid." },

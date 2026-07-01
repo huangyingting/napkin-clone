@@ -15,22 +15,19 @@ import type { GenerateDeckPayload } from "./parser";
 
 export const GENERATE_DECK_LOG_SCOPE = "api.generate-deck";
 
-export type GenerateDeckMode = "package-template" | "vnext";
-
 export interface GenerateDeckRouteResult {
   deck: DeckV7;
   truncated: boolean;
   diagnostics: PresentationDiagnostic[];
-  requestedGenerationMode: GenerateDeckMode;
-  generationMode: GenerateDeckMode;
+  planner: "ai";
+  mode: NonNullable<GenerateDeckPayload["options"]["mode"]>;
   themePackageId?: ThemePackageId;
   selectedKindCounts?: Record<string, number>;
 }
 
 export interface GenerateDeckResponseMetadata {
-  requestedGenerationMode: GenerateDeckMode;
-  generationMode: GenerateDeckMode;
-  fallback: boolean;
+  planner: "ai";
+  mode: NonNullable<GenerateDeckPayload["options"]["mode"]>;
   tableSlideCount: number;
   schemaValid: boolean;
   themePackageId?: ThemePackageId;
@@ -74,8 +71,8 @@ export async function generateDeckForRoute(
     deck: result.deck,
     truncated: result.truncated,
     diagnostics: result.diagnostics,
-    requestedGenerationMode: payload.generationMode,
-    generationMode: "vnext",
+    planner: "ai",
+    mode: payload.options.mode ?? "faithful",
     themePackageId: payload.themePackageId,
     selectedKindCounts: result.selectedKindCounts,
   };
@@ -157,9 +154,8 @@ function buildGenerateDeckResponseMetadata(
   schemaValid: boolean,
 ): GenerateDeckResponseMetadata {
   return {
-    requestedGenerationMode: result.requestedGenerationMode,
-    generationMode: result.generationMode,
-    fallback: false,
+    planner: result.planner,
+    mode: result.mode,
     tableSlideCount: countTableSlides(result.deck),
     schemaValid,
     ...(result.themePackageId ? { themePackageId: result.themePackageId } : {}),
@@ -207,10 +203,9 @@ export function buildGenerateDeckSuccessLogFields(
     percentSlidesWithVisual: metrics.percentSlidesWithVisual,
     schemaValid: metrics.schemaValid,
     truncated: result.truncated,
-    requestedGenerationMode: result.requestedGenerationMode,
-    generationMode: result.generationMode,
+    planner: result.planner,
+    mode: result.mode,
     tableSlideCount: countTableSlides(result.deck),
-    fallback: false,
     ...(result.themePackageId ? { packageId: result.themePackageId } : {}),
     ...(result.selectedKindCounts
       ? { selectedKindCounts: result.selectedKindCounts }

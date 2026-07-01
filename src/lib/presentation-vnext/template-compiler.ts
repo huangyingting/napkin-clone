@@ -1,7 +1,7 @@
 /**
  * Template compiler for the v7 presentation system.
  *
- * Compiles an `AiSlideSpec` + `SemanticTemplateV1` into a `SlideNode` tree.
+ * Compiles a `SemanticSlideSpecV1` + `SemanticTemplateV1` into a `SlideNode` tree.
  * The compiler:
  * - Selects the best layout variant for the given controls.
  * - Materialises slot values into node content.
@@ -27,11 +27,11 @@ import type {
   SlideControls,
 } from "./schema";
 import type {
-  AiSlideSpec,
+  SemanticSlideSpecV1,
   SlotValue,
   BulletSlotItem,
   TimelineSlotItem,
-} from "./ai-plan-schema";
+} from "./semantic-deck-plan";
 import type {
   SemanticTemplateV1,
   TemplateNodeBlueprint,
@@ -370,7 +370,7 @@ export type TemplateCompileResult = {
 };
 
 /**
- * Compiles an `AiSlideSpec` and a `SemanticTemplateV1` into a `SlideNode`.
+ * Compiles a `SemanticSlideSpecV1` and a `SemanticTemplateV1` into a `SlideNode`.
  *
  * Rules:
  * - Layout selection is deterministic: exact match -> density -> emphasis -> default.
@@ -379,7 +379,7 @@ export type TemplateCompileResult = {
  * - Diagnostics are returned alongside the compiled node.
  */
 export function compileSlide(
-  spec: AiSlideSpec,
+  spec: SemanticSlideSpecV1,
   template: SemanticTemplateV1,
   slideIndex: number = 0,
 ): TemplateCompileResult {

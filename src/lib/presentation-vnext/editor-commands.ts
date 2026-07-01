@@ -25,7 +25,7 @@ import type {
 } from "./schema";
 import type { StylePatch } from "./style-schema";
 import type { ResolvedRenderNode } from "./render-tree";
-import type { AiSlideSpec } from "./ai-plan-schema";
+import type { SemanticSlideSpecV1 } from "./semantic-deck-plan";
 import type { SemanticTemplateV1 } from "./template-registry";
 import { compileSlide } from "./template-compiler";
 import { connectorEndpointToPointFallback } from "./connector-geometry";
@@ -605,7 +605,7 @@ function reidentifyNode(
  */
 export function insertSlide(
   deck: DeckV7,
-  spec: AiSlideSpec,
+  spec: SemanticSlideSpecV1,
   template: SemanticTemplateV1,
   atIndex?: number,
 ): DeckV7 {
@@ -614,7 +614,7 @@ export function insertSlide(
 
 export function insertTemplateSlide(
   deck: DeckV7,
-  spec: AiSlideSpec,
+  spec: SemanticSlideSpecV1,
   template: SemanticTemplateV1,
   atIndex?: number,
 ): { deck: DeckV7; slideId: string; index: number } {
@@ -754,7 +754,7 @@ export function moveSlide(
 export function applyTemplate(
   deck: DeckV7,
   slideId: string,
-  spec: AiSlideSpec,
+  spec: SemanticSlideSpecV1,
   template: SemanticTemplateV1,
 ): DeckV7 {
   const slideIndex = deck.slides.findIndex((s) => s.id === slideId);

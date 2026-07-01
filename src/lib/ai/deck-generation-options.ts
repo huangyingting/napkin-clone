@@ -13,4 +13,5 @@ export interface DeckGenerationOptions {
   length?: "short" | "medium" | "long";
   tone?: string;
   audience?: string;
+  mode?: "faithful" | "presentationRewrite";
 }

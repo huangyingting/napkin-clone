@@ -1,8 +1,10 @@
 /**
- * AI deck plan schema for v7.
+ * Semantic deck plan schema for v7.
  *
- * AI generates plans, not rendered decks. The plan is validated and repaired
- * before being compiled into SlideNode trees via the template compiler.
+ * Semantic plans are template-compiler inputs, not rendered decks and not
+ * intrinsically AI-specific. Document-derived, AI-generated, and hand-authored
+ * planning paths can all project into this source-agnostic shape before repair
+ * and template compilation.
  */
 
 import type {
@@ -52,10 +54,10 @@ export type SlotValue =
   | { type: "visual"; visualId: string; caption?: string };
 
 // ---------------------------------------------------------------------------
-// AI slide spec
+// Semantic slide spec
 // ---------------------------------------------------------------------------
 
-export type AiSlideSpec = {
+export type SemanticSlideSpecV1 = {
   kind: SemanticTemplateKind;
   tone?: SlideTone;
   density?: SlideDensity;
@@ -65,14 +67,14 @@ export type AiSlideSpec = {
 };
 
 // ---------------------------------------------------------------------------
-// AI deck plan
+// Semantic deck plan
 // ---------------------------------------------------------------------------
 
-export type AiDeckPlanV1 = {
+export type SemanticDeckPlanV1 = {
   planVersion: 1;
   title?: string;
   locale?: string;
-  slides: AiSlideSpec[];
+  slides: SemanticSlideSpecV1[];
 };
 
 // ---------------------------------------------------------------------------

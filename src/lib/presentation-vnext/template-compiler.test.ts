@@ -14,8 +14,8 @@ import {
   compileSlide,
   resetIdCounter,
 } from "@/lib/presentation-vnext/template-compiler";
-import { repairAiDeckPlan } from "@/lib/presentation-vnext/ai-plan-repair";
-import type { AiSlideSpec } from "@/lib/presentation-vnext/ai-plan-schema";
+import { repairSemanticDeckPlan } from "@/lib/presentation-vnext/semantic-deck-plan-repair";
+import type { SemanticSlideSpecV1 } from "@/lib/presentation-vnext/semantic-deck-plan";
 import type { SemanticTemplateV1 } from "@/lib/presentation-vnext/template-registry";
 
 describe("SEMANTIC_TEMPLATE_KINDS", () => {
@@ -94,7 +94,7 @@ describe("compileSlide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("cover")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "cover",
       slots: {
         title: { type: "shortText", text: "My Presentation" },
@@ -118,7 +118,7 @@ describe("compileSlide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("content")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       density: "airy",
       slots: {
@@ -239,7 +239,7 @@ describe("compileSlide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("table")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "table",
       slots: {
         title: { type: "shortText", text: "Data Table" },
@@ -267,7 +267,7 @@ describe("compileSlide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("timeline")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "timeline",
       slots: {
         title: { type: "shortText", text: "Milestones" },
@@ -331,7 +331,7 @@ describe("compileSlide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("cover")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "cover",
       slots: { title: { type: "shortText", text: "Hi" } },
     };
@@ -357,7 +357,7 @@ describe("compileSlide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
     const template = registry.get("cover")!;
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "cover",
       slots: { title: { type: "shortText", text: "Hello" } },
       speakerNotes: "Remember to pause here.",
@@ -459,7 +459,7 @@ describe("compileSlide", () => {
         signals: [],
       },
     };
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       tone: "technical",
       density: "dense",
@@ -591,7 +591,7 @@ describe("compileSlide", () => {
       ],
       selection: { priority: 1, bestFor: "fallbacks", signals: [] },
     };
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       slots: {
         body: { type: "image", assetId: undefined },
@@ -628,7 +628,7 @@ describe("compileSlide", () => {
   });
 });
 
-describe("repairAiDeckPlan", () => {
+describe("repairSemanticDeckPlan", () => {
   test("accepts a valid plan", () => {
     const registry = createDefaultTemplateRegistry();
     const plan = {
@@ -641,7 +641,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.planVersion, 1);
     assert.equal(repaired.slides.length, 1);
     assert.equal(repaired.slides[0].kind, "cover");
@@ -663,7 +666,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.slides[0].kind, "content");
     assert.ok(
       diagnostics.some((d) => d.code === "unknown-template-kind"),
@@ -683,7 +689,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.slides[0].tone, undefined);
     assert.ok(
       diagnostics.some((d) => d.code === "unsupported-template-control"),
@@ -708,7 +717,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const bullets = repaired.slides[0].slots.bullets;
     assert.ok(bullets?.type === "bullets" && bullets.items.length <= 6);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -716,7 +728,7 @@ describe("repairAiDeckPlan", () => {
 
   test("errors on non-object input", () => {
     const registry = createDefaultTemplateRegistry();
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
       "not-a-plan",
       registry,
     );
@@ -726,7 +738,7 @@ describe("repairAiDeckPlan", () => {
 
   test("errors on wrong planVersion", () => {
     const registry = createDefaultTemplateRegistry();
-    const { diagnostics } = repairAiDeckPlan(
+    const { diagnostics } = repairSemanticDeckPlan(
       { planVersion: 2, slides: [] },
       registry,
     );
@@ -740,7 +752,7 @@ describe("repairAiDeckPlan", () => {
       planVersion: 1,
       slides: [{ kind: "cover", slots: {} }],
     };
-    const { diagnostics } = repairAiDeckPlan(plan, registry);
+    const { diagnostics } = repairSemanticDeckPlan(plan, registry);
     assert.ok(
       diagnostics.some((d) => d.code === "missing-required-slot"),
       "Expected missing-required-slot diagnostic",
@@ -767,7 +779,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const table = repaired.slides[0].slots.table;
     assert.ok(table?.type === "table" && table.rows.length <= 10);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -788,7 +803,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const title = repaired.slides[0].slots.title;
     assert.ok(title?.type === "shortText" && title.text.length <= 120);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -814,7 +832,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const body = repaired.slides[0].slots.body;
     assert.ok(body?.type === "paragraph" && body.paragraphs.length <= 3);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -851,7 +872,10 @@ describe("repairAiDeckPlan", () => {
       ],
     };
 
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const slots = repaired.slides[0].slots as Record<string, unknown>;
     const malformedSlotKeys = [
       "badShortText",
@@ -900,7 +924,10 @@ describe("repairAiDeckPlan", () => {
       ],
     };
 
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.slides[0].slots.title, undefined);
     assert.ok(
       diagnostics.some(
@@ -933,7 +960,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const table = repaired.slides[0].slots.table;
     assert.ok(table?.type === "table" && table.columns.length <= 6);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -951,7 +981,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.slides[0].density, undefined);
     assert.ok(
       diagnostics.some((d) => d.code === "unsupported-template-control"),
@@ -970,7 +1003,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.slides[0].emphasis, undefined);
     assert.ok(
       diagnostics.some((d) => d.code === "unsupported-template-control"),
@@ -991,7 +1027,10 @@ describe("repairAiDeckPlan", () => {
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     assert.equal(repaired.slides[0].tone, "confident");
     assert.equal(repaired.slides[0].density, "dense");
     assert.equal(repaired.slides[0].emphasis, "data");
@@ -1006,7 +1045,7 @@ describe("repairAiDeckPlan", () => {
       planVersion: 1,
       slides: [null], // slide must be an object
     };
-    const { diagnostics } = repairAiDeckPlan(plan, registry);
+    const { diagnostics } = repairSemanticDeckPlan(plan, registry);
     assert.ok(diagnostics.some((d) => d.severity === "error"));
   });
 });

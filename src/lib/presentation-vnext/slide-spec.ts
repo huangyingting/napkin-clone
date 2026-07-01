@@ -1,4 +1,4 @@
-import type { AiSlideSpec, SlotValue } from "./ai-plan-schema";
+import type { SemanticSlideSpecV1, SlotValue } from "./semantic-deck-plan";
 import type { SemanticTemplateRegistry } from "./template-registry";
 import type {
   SemanticTemplateKind,
@@ -101,7 +101,7 @@ export function slideSpecFromSlide(
   kind: SemanticTemplateKind,
   layoutId?: string,
   templateRegistry: TemplateRegistryLookup = DEFAULT_TEMPLATE_REGISTRY,
-): AiSlideSpec {
+): SemanticSlideSpecV1 {
   const layout = layoutFor(kind, layoutId, templateRegistry);
   const slots: Partial<Record<SlotKey, SlotValue>> = {};
   collectSlideSlots(slide.children, slots);
@@ -127,7 +127,7 @@ export function emptySlideSpecFromLayout(
   kind: SemanticTemplateKind,
   layoutId?: string,
   templateRegistry: TemplateRegistryLookup = DEFAULT_TEMPLATE_REGISTRY,
-): AiSlideSpec {
+): SemanticSlideSpecV1 {
   const layout = layoutFor(kind, layoutId, templateRegistry);
   return {
     kind,

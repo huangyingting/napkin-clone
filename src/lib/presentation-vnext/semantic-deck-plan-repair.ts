@@ -9,15 +9,15 @@
  */
 
 import type {
-  AiDeckPlanV1,
-  AiSlideSpec,
+  SemanticDeckPlanV1,
+  SemanticSlideSpecV1,
   SlotValue,
   BulletSlotItem,
   MetricSlotItem,
   CardSlotItem,
   StepSlotItem,
   TimelineSlotItem,
-} from "./ai-plan-schema";
+} from "./semantic-deck-plan";
 import type { SlotContract } from "./template-registry";
 import type { PresentationDiagnostic } from "./diagnostics";
 import { DiagnosticCollector } from "./diagnostics";
@@ -619,7 +619,7 @@ function repairSlide(
   index: number,
   registry: SemanticTemplateRegistry,
   dc: DiagnosticCollector,
-): AiSlideSpec | null {
+): SemanticSlideSpecV1 | null {
   const ctx = `slides[${index}]`;
 
   if (typeof slide !== "object" || slide === null) {
@@ -753,8 +753,8 @@ function repairSlide(
 // Public API
 // ---------------------------------------------------------------------------
 
-export type AiPlanRepairResult = {
-  plan: AiDeckPlanV1;
+export type SemanticDeckPlanRepairResult = {
+  plan: SemanticDeckPlanV1;
   diagnostics: PresentationDiagnostic[];
 };
 
@@ -770,10 +770,10 @@ export type AiPlanRepairResult = {
  *
  * The returned plan is safe to pass to the template compiler.
  */
-export function repairAiDeckPlan(
+export function repairSemanticDeckPlan(
   input: unknown,
   registry: SemanticTemplateRegistry,
-): AiPlanRepairResult {
+): SemanticDeckPlanRepairResult {
   const dc = new DiagnosticCollector();
 
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
@@ -805,7 +805,7 @@ export function repairAiDeckPlan(
     };
   }
 
-  const repairedSlides: AiSlideSpec[] = [];
+  const repairedSlides: SemanticSlideSpecV1[] = [];
   for (let i = 0; i < p.slides.length; i++) {
     const repaired = repairSlide(p.slides[i], i, registry, dc);
     if (repaired !== null) {

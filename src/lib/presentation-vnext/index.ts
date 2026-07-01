@@ -265,14 +265,14 @@ export type {
   StepSlotItem,
   TimelineSlotItem,
   SlotValue,
-  AiSlideSpec,
-  AiDeckPlanV1,
-} from "./ai-plan-schema";
-export { isSlotValue } from "./ai-plan-schema";
+  SemanticSlideSpecV1,
+  SemanticDeckPlanV1,
+} from "./semantic-deck-plan";
+export { isSlotValue } from "./semantic-deck-plan";
 
 // AI plan repair
-export type { AiPlanRepairResult } from "./ai-plan-repair";
-export { repairAiDeckPlan } from "./ai-plan-repair";
+export type { SemanticDeckPlanRepairResult } from "./semantic-deck-plan-repair";
+export { repairSemanticDeckPlan } from "./semantic-deck-plan-repair";
 
 // Template compiler
 export type { TemplateCompileResult } from "./template-compiler";

@@ -31,6 +31,11 @@ const DECK_LENGTHS: readonly NonNullable<DeckGenerationOptions["length"]>[] = [
   "long",
 ];
 
+const DECK_MODES: readonly NonNullable<DeckGenerationOptions["mode"]>[] = [
+  "faithful",
+  "presentationRewrite",
+];
+
 export interface GenerateDeckPayload {
   contentJson: unknown;
   options: DeckGenerationOptions;
@@ -39,7 +44,6 @@ export interface GenerateDeckPayload {
   outline: string;
   truncated: boolean;
   themePackageId: ThemePackageId;
-  generationMode: "package-template";
 }
 
 export function visualsFromContent(
@@ -103,6 +107,18 @@ export function parseDeckOptions(
     }
     options.audience = value.audience;
   }
+  if (value.mode !== undefined && value.mode !== null) {
+    if (
+      !DECK_MODES.includes(
+        value.mode as NonNullable<DeckGenerationOptions["mode"]>,
+      )
+    ) {
+      return {
+        error: `\`options.mode\` must be one of: ${DECK_MODES.join(", ")}.`,
+      };
+    }
+    options.mode = value.mode as DeckGenerationOptions["mode"];
+  }
 
   return { options };
 }
@@ -135,18 +151,6 @@ export function parseGenerateDeckPayload(
       message: formatDeckInputTooLongError(outline.length),
     };
   }
-  const generationModeRaw = body.generationMode;
-  if (
-    generationModeRaw !== undefined &&
-    generationModeRaw !== null &&
-    generationModeRaw !== "package-template"
-  ) {
-    return {
-      ok: false,
-      status: 400,
-      message: '`generationMode` must be "package-template".',
-    };
-  }
   let themePackageId: ThemePackageId | undefined;
   if (body.themePackageId !== undefined && body.themePackageId !== null) {
     if (!isThemePackageId(body.themePackageId)) {
@@ -171,7 +175,6 @@ export function parseGenerateDeckPayload(
       outline,
       truncated,
       themePackageId,
-      generationMode: "package-template",
     },
   };
 }

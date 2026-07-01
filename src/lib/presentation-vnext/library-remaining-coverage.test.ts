@@ -14,7 +14,7 @@ import {
   updateNodeLayout,
   updateNodeRotation,
 } from "@/lib/presentation-vnext/editor-commands";
-import { repairAiDeckPlan } from "@/lib/presentation-vnext/ai-plan-repair";
+import { repairSemanticDeckPlan } from "@/lib/presentation-vnext/semantic-deck-plan-repair";
 import { hitTestSlideNodes } from "@/lib/presentation-vnext/stage-hit-test";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
@@ -459,9 +459,9 @@ describe("presentation-vnext remaining library coverage", () => {
     );
   });
 
-  test("repairAiDeckPlan emits malformed slot diagnostics and preserves safe unknown slots", () => {
+  test("repairSemanticDeckPlan emits malformed slot diagnostics and preserves safe unknown slots", () => {
     const registry = createDefaultTemplateRegistry();
-    const result = repairAiDeckPlan(
+    const result = repairSemanticDeckPlan(
       {
         planVersion: 1,
         title: "Repair coverage",

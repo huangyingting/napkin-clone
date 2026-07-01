@@ -44,10 +44,16 @@ test("buildDeckGenerationBody includes only the set knobs", () => {
     length: "short",
     tone: "  playful  ",
     audience: "  execs  ",
+    mode: "faithful",
   });
   assert.deepEqual(body, {
     contentJson: CONTENT_JSON,
-    options: { length: "short", tone: "playful", audience: "execs" },
+    options: {
+      length: "short",
+      tone: "playful",
+      audience: "execs",
+      mode: "faithful",
+    },
   });
 });
 
@@ -89,9 +95,8 @@ test("parseDeckResponse returns vnext response metadata", () => {
     deck: VALID_DECK_V7,
     truncated: false,
     metadata: {
-      requestedGenerationMode: "package-template",
-      generationMode: "vnext",
-      fallback: false,
+      planner: "ai",
+      mode: "presentationRewrite",
       tableSlideCount: 2,
       schemaValid: true,
       themePackageId: "noir",
@@ -101,9 +106,8 @@ test("parseDeckResponse returns vnext response metadata", () => {
 
   assert.ok(parsed);
   assert.deepEqual(parsed.metadata, {
-    requestedGenerationMode: "package-template",
-    generationMode: "vnext",
-    fallback: false,
+    planner: "ai",
+    mode: "presentationRewrite",
     tableSlideCount: 2,
     schemaValid: true,
     themePackageId: "noir",
@@ -115,9 +119,8 @@ test("parseDeckResponse drops invalid metadata fields and empty kind counts", ()
   const parsed = parseDeckResponse({
     deck: VALID_DECK_V7,
     metadata: {
-      requestedGenerationMode: "legacy",
-      generationMode: "vnext",
-      fallback: "no",
+      planner: "legacy",
+      mode: "magic",
       tableSlideCount: -1,
       schemaValid: "yes",
       themePackageId: "not-a-package",
@@ -126,7 +129,7 @@ test("parseDeckResponse drops invalid metadata fields and empty kind counts", ()
   });
 
   assert.ok(parsed);
-  assert.deepEqual(parsed.metadata, { generationMode: "vnext" });
+  assert.equal(parsed.metadata, undefined);
   assert.equal(
     parseDeckResponse({ deck: VALID_DECK_V7, metadata: [] })?.metadata,
     undefined,

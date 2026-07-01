@@ -14,23 +14,24 @@ validate/normalize output, and charge only successful generations.
 
 ## Source Files
 
-| Area                   | Source                                                                                                     |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Visual route           | [`src/app/api/generate/route.ts`](../../src/app/api/generate/route.ts)                                     |
-| Deck route             | [`src/app/api/generate-deck/route.ts`](../../src/app/api/generate-deck/route.ts)                           |
-| Azure client           | [`src/lib/ai/azure.ts`](../../src/lib/ai/azure.ts)                                                         |
-| Deadline wrapper       | [`src/lib/ai/deadline.ts`](../../src/lib/ai/deadline.ts)                                                   |
-| Visual generation core | [`src/lib/ai/generate.ts`](../../src/lib/ai/generate.ts)                                                   |
-| Deck source extraction | [`src/lib/ai/deck-source.ts`](../../src/lib/ai/deck-source.ts)                                             |
-| Deck route logic       | [`src/app/api/generate-deck/route-logic.ts`](../../src/app/api/generate-deck/route-logic.ts)               |
-| Deck orchestration     | [`src/lib/ai/run-vnext-deck-generation.ts`](../../src/lib/ai/run-vnext-deck-generation.ts)                 |
-| Deck prompt            | [`src/lib/ai/vnext-deck-prompt.ts`](../../src/lib/ai/vnext-deck-prompt.ts)                                 |
-| AI plan repair         | [`src/lib/presentation-vnext/ai-plan-repair.ts`](../../src/lib/presentation-vnext/ai-plan-repair.ts)       |
-| Template compiler      | [`src/lib/presentation-vnext/template-compiler.ts`](../../src/lib/presentation-vnext/template-compiler.ts) |
-| Deck schema validation | [`src/lib/presentation-vnext/validation.ts`](../../src/lib/presentation-vnext/validation.ts)               |
-| Quota                  | [`src/lib/ai/quota.ts`](../../src/lib/ai/quota.ts)                                                         |
-| Credits                | [`src/lib/billing/credits.ts`](../../src/lib/billing/credits.ts)                                           |
-| Usage ledger           | [`src/lib/billing/usage-ledger.ts`](../../src/lib/billing/usage-ledger.ts)                                 |
+| Area                   | Source                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Visual route           | [`src/app/api/generate/route.ts`](../../src/app/api/generate/route.ts)                                                     |
+| Deck route             | [`src/app/api/generate-deck/route.ts`](../../src/app/api/generate-deck/route.ts)                                           |
+| Azure client           | [`src/lib/ai/azure.ts`](../../src/lib/ai/azure.ts)                                                                         |
+| Deadline wrapper       | [`src/lib/ai/deadline.ts`](../../src/lib/ai/deadline.ts)                                                                   |
+| Visual generation core | [`src/lib/ai/generate.ts`](../../src/lib/ai/generate.ts)                                                                   |
+| Deck source extraction | [`src/lib/ai/deck-source.ts`](../../src/lib/ai/deck-source.ts)                                                             |
+| Deck route logic       | [`src/app/api/generate-deck/route-logic.ts`](../../src/app/api/generate-deck/route-logic.ts)                               |
+| Deck orchestration     | [`src/lib/ai/run-vnext-deck-generation.ts`](../../src/lib/ai/run-vnext-deck-generation.ts)                                 |
+| Deck prompt            | [`src/lib/ai/vnext-deck-prompt.ts`](../../src/lib/ai/vnext-deck-prompt.ts)                                                 |
+| Document plan repair   | [`src/lib/presentation-vnext/document-slide-plan.ts`](../../src/lib/presentation-vnext/document-slide-plan.ts)             |
+| Semantic plan repair   | [`src/lib/presentation-vnext/semantic-deck-plan-repair.ts`](../../src/lib/presentation-vnext/semantic-deck-plan-repair.ts) |
+| Template compiler      | [`src/lib/presentation-vnext/template-compiler.ts`](../../src/lib/presentation-vnext/template-compiler.ts)                 |
+| Deck schema validation | [`src/lib/presentation-vnext/validation.ts`](../../src/lib/presentation-vnext/validation.ts)                               |
+| Quota                  | [`src/lib/ai/quota.ts`](../../src/lib/ai/quota.ts)                                                                         |
+| Credits                | [`src/lib/billing/credits.ts`](../../src/lib/billing/credits.ts)                                                           |
+| Usage ledger           | [`src/lib/billing/usage-ledger.ts`](../../src/lib/billing/usage-ledger.ts)                                                 |
 
 ## Shared Route Flow
 
@@ -106,16 +107,19 @@ contentJson + visuals
   -> buildDeckSource
   -> { outline, visualInventory, truncated }
   -> runVnextDeckGeneration
-  -> repairAiDeckPlan
-  -> compileSlide
+   -> DocumentSourcePlanV1
+   -> repairDocumentSlidePlan
+   -> compileDocumentSlidePlanToDeckV7
   -> safeParseDeckV7
   -> { deck, truncated }
 ```
 
-The model returns a package-template slide plan: semantic `templateKind` values
-plus slot content. The repair step normalizes that plan, and the materializer
-fills installed theme-package templates into editable DeckV7 slide nodes. The
-final deck must pass `safeParseDeckV7` before it can open in the editor.
+The model returns a `DocumentSlidePlanV1`: semantic template kinds, typed slot
+content, source block ids, and slot-source mappings. The repair step validates
+source ids and normalizes the semantic slide specs, then the shared document
+slide plan compiler materializes editable DeckV7 slide nodes with derivation
+provenance. The final deck must pass `safeParseDeckV7` before it can open in
+the editor.
 
 Template text nodes are never left blank when a slot is absent. `compileSlide`
 uses static template text when provided, otherwise it fills a readable fallback
@@ -170,8 +174,8 @@ entitlements/configuration.
 
 - [`src/lib/ai/generate.test.ts`](../../src/lib/ai/generate.test.ts)
 - [`src/lib/ai/deck-source.test.ts`](../../src/lib/ai/deck-source.test.ts)
-- [`src/lib/ai/package-template-deck-plan.test.ts`](../../src/lib/ai/package-template-deck-plan.test.ts)
-- [`src/lib/ai/package-template-acceptance.test.ts`](../../src/lib/ai/package-template-acceptance.test.ts)
+- [`src/lib/ai/run-vnext-deck-generation.test.ts`](../../src/lib/ai/run-vnext-deck-generation.test.ts)
+- [`src/lib/presentation-vnext/document-slide-plan.test.ts`](../../src/lib/presentation-vnext/document-slide-plan.test.ts)
 - [`src/lib/ai/deck-generation-request.test.ts`](../../src/lib/ai/deck-generation-request.test.ts)
 - [`src/lib/ai/quota.test.ts`](../../src/lib/ai/quota.test.ts)
 - [`src/lib/billing/credits.test.ts`](../../src/lib/billing/credits.test.ts)

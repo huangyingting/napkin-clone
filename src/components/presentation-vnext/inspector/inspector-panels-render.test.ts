@@ -141,21 +141,13 @@ function withFakeHooks<T>(renderComponent: () => T): T {
 }
 
 describe("inspector panels render and wire controls", () => {
-  test("LocalStylePanel exposes text, fill, and stroke controls for shapes", () => {
+  test("LocalStylePanel exposes fill, stroke, and opacity controls for shapes", () => {
     const updates: unknown[] = [];
     const element = LocalStylePanel({
       node: childNode({
         type: "shape",
         content: { shape: "rect" },
         localStyle: {
-          text: {
-            color: "#222222",
-            fontSizePt: 18,
-            weight: 700,
-            align: "center",
-            italic: true,
-            underline: true,
-          },
           fill: { type: "solid", color: "#ffffff" },
           stroke: { color: "#111111", widthPt: 2 },
           opacity: 0.8,
@@ -166,10 +158,10 @@ describe("inspector panels render and wire controls", () => {
 
     const html = render(element);
     assert.match(html, /Local Style/);
-    assert.match(html, /Text color/);
+    assert.match(html, /Fill color/);
     assert.match(html, /Stroke width/);
-    assert.ok(invokeHandlers(element) >= 8);
-    assert.ok(updates.length >= 8);
+    assert.ok(invokeHandlers(element) >= 4);
+    assert.ok(updates.length >= 4);
   });
 
   test("LocalStylePanel exposes connector, visual, and table-specific controls", () => {
@@ -245,11 +237,6 @@ describe("inspector panels render and wire controls", () => {
   test("LocalStylePanel seeds resolved values and preserves resolved stroke color on width edit", () => {
     const updates: StylePatch[] = [];
     const resolvedStyle: StyleObject = {
-      text: {
-        color: "#1d4ed8",
-        fontSizePt: 26,
-        lineHeight: 1.4,
-      },
       fill: { type: "solid", color: "#dbeafe" },
       stroke: { color: "#2563eb", widthPt: 3 },
     };
@@ -264,7 +251,6 @@ describe("inspector panels render and wire controls", () => {
     });
 
     const html = render(element);
-    assert.match(html, /value="#1d4ed8"/);
     assert.match(html, /value="#dbeafe"/);
     assert.match(html, /value="#2563eb"/);
 

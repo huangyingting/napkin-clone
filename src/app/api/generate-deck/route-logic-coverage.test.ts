@@ -18,7 +18,6 @@ const payload: GenerateDeckPayload = {
   outline: "Launch\nMeasure",
   truncated: false,
   themePackageId: DEFAULT_THEME_PACKAGE_ID,
-  generationMode: "package-template",
 };
 
 test("generate deck success helpers preserve result payload and telemetry", () => {
@@ -30,8 +29,8 @@ test("generate deck success helpers preserve result payload and telemetry", () =
     deck,
     truncated: true,
     diagnostics,
-    requestedGenerationMode: "package-template" as const,
-    generationMode: "vnext" as const,
+    planner: "ai" as const,
+    mode: "faithful" as const,
   };
 
   const response = buildGenerateDeckSuccessResponse(result);
@@ -40,6 +39,8 @@ test("generate deck success helpers preserve result payload and telemetry", () =
   assert.equal(response.diagnostics, diagnostics);
   assert.equal(response.metadata.schemaValid, true);
   assert.equal(response.metadata.tableSlideCount, 0);
+  assert.equal(response.metadata.planner, "ai");
+  assert.equal(response.metadata.mode, "faithful");
 
   const fields = buildGenerateDeckSuccessLogFields(result, {
     payload,

@@ -21,7 +21,7 @@ test("presentation-vnext barrel exposes the stable runtime surface", () => {
     "SemanticTemplateRegistry",
     "selectLayout",
     "isSlotValue",
-    "repairAiDeckPlan",
+    "repairSemanticDeckPlan",
     "compileSlide",
     "resetIdCounter",
     "slideSpecFromSlide",

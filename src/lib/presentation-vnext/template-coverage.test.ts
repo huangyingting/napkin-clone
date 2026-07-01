@@ -5,7 +5,7 @@
  * 1. Is registered in the default registry.
  * 2. Has at least one layout variant whose root is a "slide" blueprint.
  * 3. Has all AI-facing slots with at least one capacity field and an overflow policy.
- * 4. Compiles a representative AiSlideSpec into a valid v7 SlideNode with no
+ * 4. Compiles a representative SemanticSlideSpecV1 into a valid v7 SlideNode with no
  *    error-severity diagnostics (only missing optional data produces none).
  * 5. Produces the expected diagnostic codes when required slots are absent.
  */
@@ -18,11 +18,11 @@ import {
   compileSlide,
   resetIdCounter,
 } from "@/lib/presentation-vnext/template-compiler";
-import { repairAiDeckPlan } from "@/lib/presentation-vnext/ai-plan-repair";
+import { repairSemanticDeckPlan } from "@/lib/presentation-vnext/semantic-deck-plan-repair";
 import type {
-  AiSlideSpec,
+  SemanticSlideSpecV1,
   SlotValue,
-} from "@/lib/presentation-vnext/ai-plan-schema";
+} from "@/lib/presentation-vnext/semantic-deck-plan";
 
 // ---------------------------------------------------------------------------
 // Minimal representative slot payloads for each template kind
@@ -74,7 +74,7 @@ const imageValue: SlotValue = {
 };
 
 // Representative specs for each template kind
-const REPRESENTATIVE_SPECS: Record<string, AiSlideSpec> = {
+const REPRESENTATIVE_SPECS: Record<string, SemanticSlideSpecV1> = {
   cover: {
     kind: "cover",
     slots: {
@@ -508,7 +508,7 @@ describe("template compilation: representative specs", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Overflow capacity enforcement via repairAiDeckPlan
+// Overflow capacity enforcement via repairSemanticDeckPlan
 // ---------------------------------------------------------------------------
 
 describe("template capacity: overflow triggers slot-over-capacity diagnostic", () => {
@@ -532,7 +532,10 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const s = repaired.slides[0].slots.steps;
     assert.ok(s?.type === "steps" && s.items.length <= 8);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -552,7 +555,7 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
     };
     // stat is type "metric"; repair only handles shortText truncation, so no
     // slot-over-capacity is emitted for metric — but also no error.
-    const { diagnostics } = repairAiDeckPlan(plan, registry);
+    const { diagnostics } = repairSemanticDeckPlan(plan, registry);
     assert.ok(!diagnostics.some((d) => d.severity === "fatal"));
   });
 
@@ -574,7 +577,10 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const c = repaired.slides[0].slots.cards;
     assert.ok(c?.type === "cards" && c.items.length <= 6);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -596,7 +602,10 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const t = repaired.slides[0].slots.table;
     assert.ok(t?.type === "table" && t.rows.length <= 8);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -622,7 +631,10 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const repairedSteps = repaired.slides[0].slots.steps;
     assert.ok(repairedSteps?.type === "timeline");
     if (repairedSteps?.type === "timeline") {
@@ -631,7 +643,10 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
 
     const template = registry.get("timeline")!;
-    const { slide } = compileSlide(repaired.slides[0] as AiSlideSpec, template);
+    const { slide } = compileSlide(
+      repaired.slides[0] as SemanticSlideSpecV1,
+      template,
+    );
     const timelineGroup = slide.children.find(
       (node) => node.type === "group" && node.slot === "steps",
     );
@@ -690,7 +705,10 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
         },
       ],
     };
-    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const { plan: repaired, diagnostics } = repairSemanticDeckPlan(
+      plan,
+      registry,
+    );
     const t = repaired.slides[0].slots.table;
     assert.ok(t?.type === "table" && t.columns.length <= 6);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
@@ -740,7 +758,7 @@ describe("template diagnostics: missing-required-slot", () => {
         planVersion: 1,
         slides: [{ kind, slots: {} }],
       };
-      const { diagnostics } = repairAiDeckPlan(plan, registry);
+      const { diagnostics } = repairSemanticDeckPlan(plan, registry);
       assert.ok(
         diagnostics.some(
           (d) =>
@@ -761,7 +779,7 @@ describe("diagnostics: all documented codes are used in core paths", () => {
   const registry = createDefaultTemplateRegistry();
 
   test("invalid-schema-version emitted for wrong planVersion", () => {
-    const { diagnostics } = repairAiDeckPlan(
+    const { diagnostics } = repairSemanticDeckPlan(
       { planVersion: 99, slides: [] },
       registry,
     );
@@ -769,7 +787,7 @@ describe("diagnostics: all documented codes are used in core paths", () => {
   });
 
   test("unknown-template-kind emitted for bogus kind", () => {
-    const { diagnostics } = repairAiDeckPlan(
+    const { diagnostics } = repairSemanticDeckPlan(
       { planVersion: 1, slides: [{ kind: "not-real", slots: {} }] },
       registry,
     );
@@ -777,7 +795,7 @@ describe("diagnostics: all documented codes are used in core paths", () => {
   });
 
   test("unsupported-template-control emitted for invalid tone", () => {
-    const { diagnostics } = repairAiDeckPlan(
+    const { diagnostics } = repairSemanticDeckPlan(
       {
         planVersion: 1,
         slides: [{ kind: "content", tone: "aggressive", slots: {} }],
@@ -790,7 +808,7 @@ describe("diagnostics: all documented codes are used in core paths", () => {
   });
 
   test("missing-required-slot emitted for cover without title", () => {
-    const { diagnostics } = repairAiDeckPlan(
+    const { diagnostics } = repairSemanticDeckPlan(
       { planVersion: 1, slides: [{ kind: "cover", slots: {} }] },
       registry,
     );
@@ -798,7 +816,7 @@ describe("diagnostics: all documented codes are used in core paths", () => {
   });
 
   test("slot-over-capacity emitted when bullets exceed maxItems", () => {
-    const { diagnostics } = repairAiDeckPlan(
+    const { diagnostics } = repairSemanticDeckPlan(
       {
         planVersion: 1,
         slides: [

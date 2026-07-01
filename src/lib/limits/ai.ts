@@ -22,12 +22,12 @@ export const AI_INPUT_LIMIT: LimitDefinition = {
 export const AI_DECK_INPUT_LIMIT: LimitDefinition = {
   id: "ai.deck.input.chars",
   description:
-    "Maximum outline accepted by deck generation before an LLM call.",
+    "Maximum document source outline accepted by deck generation before an LLM call.",
   value: AI_GENERATION_INPUT_MAX_CHARS,
   unit: "chars",
   enforcement: "enforced",
   diagnostic: { scope: "api.generate-deck", metric: "aiDeckInputChars" },
-  source: "src/lib/ai/run-package-template-deck-generation.ts",
+  source: "src/lib/ai/run-vnext-deck-generation.ts",
 };
 
 export const GENERATED_DECK_SLIDE_LIMIT: LimitDefinition = {
@@ -47,7 +47,7 @@ export const DECK_OUTPUT_TOKEN_LIMIT: LimitDefinition = {
   unit: "count",
   enforcement: "warning",
   diagnostic: { scope: "api.generate-deck", metric: "deckOutputTokens" },
-  source: "src/lib/ai/package-template-deck-prompt.ts",
+  source: "src/lib/ai/vnext-deck-prompt.ts",
 };
 
 export function formatVisualInputTooLongError(length: number): string {

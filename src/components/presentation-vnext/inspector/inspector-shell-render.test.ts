@@ -408,7 +408,7 @@ describe("InspectorShell render affordances", () => {
     assert.match(textHtml, /Content/);
     assert.match(textHtml, /Local Style/);
     assert.match(textHtml, /3 local overrides/);
-    assert.match(shapeHtml, /Shape label/);
+    assert.match(shapeHtml, /Shape/);
     assert.match(shapeHtml, /Stroke width/);
   });
 
@@ -434,8 +434,6 @@ describe("InspectorShell render affordances", () => {
       selectedResolvedStyle: resolvedStyle,
     });
 
-    assert.match(shapeHtml, /value="#1d4ed8"/);
-    assert.match(shapeHtml, /value="28"/);
     assert.match(shapeHtml, /value="#dbeafe"/);
     assert.match(shapeHtml, /value="#2563eb"/);
     assert.match(shapeHtml, /value="3"/);

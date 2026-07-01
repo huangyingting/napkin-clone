@@ -19,7 +19,7 @@ import {
   buildTextNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
-import type { AiSlideSpec } from "@/lib/presentation-vnext/ai-plan-schema";
+import type { SemanticSlideSpecV1 } from "@/lib/presentation-vnext/semantic-deck-plan";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 function makeTestDeck() {
@@ -59,7 +59,7 @@ describe("editor command edge cases", () => {
         ],
       },
     ]);
-    const spec: AiSlideSpec = {
+    const spec: SemanticSlideSpecV1 = {
       kind: "content",
       slots: { title: { type: "shortText", text: "Inserted content" } },
     };

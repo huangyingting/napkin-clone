@@ -43,7 +43,6 @@ function makePayload(): GenerateDeckPayload {
     visuals: new Map(),
     outline: "Roadmap\nLaunch plan",
     truncated: false,
-    generationMode: "package-template",
     themePackageId: "noir",
   };
 }
@@ -84,8 +83,8 @@ test("generateDeckForRoute calls runVnext with correct inputs", async () => {
   );
 
   assert.equal(vnextCalls, 1);
-  assert.equal(result.requestedGenerationMode, "package-template");
-  assert.equal(result.generationMode, "vnext");
+  assert.equal(result.planner, "ai");
+  assert.equal(result.mode, "faithful");
   assert.equal(result.themePackageId, "noir");
   assert.deepEqual(result.selectedKindCounts, { cover: 1, table: 1 });
   assert.equal(result.truncated, true);
@@ -126,16 +125,15 @@ test("buildGenerateDeckSuccessResponse includes vnext metadata", () => {
     deck,
     truncated: false,
     diagnostics,
-    requestedGenerationMode: "package-template",
-    generationMode: "vnext",
+    planner: "ai",
+    mode: "faithful",
     themePackageId: "terra",
     selectedKindCounts: { cover: 1, table: 1 },
   });
 
   assert.equal(response.truncated, false);
-  assert.equal(response.metadata.requestedGenerationMode, "package-template");
-  assert.equal(response.metadata.generationMode, "vnext");
-  assert.equal(response.metadata.fallback, false);
+  assert.equal(response.metadata.planner, "ai");
+  assert.equal(response.metadata.mode, "faithful");
   assert.equal(response.metadata.themePackageId, "terra");
   assert.equal(response.metadata.tableSlideCount, 1);
   assert.equal(response.metadata.schemaValid, true);
@@ -155,8 +153,8 @@ test("buildGenerateDeckSuccessLogFields includes vnext telemetry", () => {
       deck,
       truncated: true,
       diagnostics: [],
-      requestedGenerationMode: "package-template",
-      generationMode: "vnext",
+      planner: "ai",
+      mode: "presentationRewrite",
       themePackageId: "noir",
       selectedKindCounts: { cover: 1, table: 1 },
     },
@@ -170,9 +168,8 @@ test("buildGenerateDeckSuccessLogFields includes vnext telemetry", () => {
   assert.equal(fields.requestId, "req-2");
   assert.equal(fields.latencyMs, 24);
   assert.equal(fields.packageId, "noir");
-  assert.equal(fields.requestedGenerationMode, "package-template");
-  assert.equal(fields.generationMode, "vnext");
-  assert.equal(fields.fallback, false);
+  assert.equal(fields.planner, "ai");
+  assert.equal(fields.mode, "presentationRewrite");
   assert.equal(fields.tableSlideCount, 1);
   assert.equal(fields.schemaValid, true);
   assert.deepEqual(fields.selectedKindCounts, { cover: 1, table: 1 });
@@ -194,8 +191,8 @@ test("computeV7RouteMetrics: percentSlidesWithVisual never exceeds 1", () => {
       deck,
       truncated: false,
       diagnostics: [],
-      requestedGenerationMode: "package-template",
-      generationMode: "vnext",
+      planner: "ai",
+      mode: "faithful",
     },
     { payload: makePayload(), requestId: "req-3", latencyMs: 10 },
   );
@@ -213,8 +210,8 @@ test("computeV7RouteMetrics: visual-only deck percentSlidesWithVisual is 1", () 
       deck,
       truncated: false,
       diagnostics: [],
-      requestedGenerationMode: "package-template",
-      generationMode: "vnext",
+      planner: "ai",
+      mode: "faithful",
     },
     { payload: makePayload(), requestId: "req-4", latencyMs: 5 },
   );

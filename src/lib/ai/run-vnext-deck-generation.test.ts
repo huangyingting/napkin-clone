@@ -2,7 +2,7 @@
  * vNext deck generation contract tests.
  *
  * Tests the generation pipeline:
- *   AiDeckPlanV1 (raw AI output) → repairAiDeckPlan → compileSlide → DeckV7
+ *   DocumentSlidePlanV1 (raw AI output) → repairDocumentSlidePlan → DeckV7
  *
  * Uses a stub `complete` function so no real AI calls are made.
  */
@@ -21,20 +21,29 @@ import { DECK_SCHEMA_VERSION_V7 } from "@/lib/presentation-vnext/schema";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Minimal valid AiDeckPlanV1 JSON with a cover + content slide. */
+/** Minimal valid DocumentSlidePlanV1 JSON with a cover + content slide. */
 const VALID_PLAN_JSON = JSON.stringify({
   planVersion: 1,
+  planner: "ai",
+  mode: "faithful",
   locale: "en",
+  source: { contentHash: "ignored-by-repair", truncated: false },
   slides: [
     {
+      id: "plan-slide-1",
       kind: "cover",
+      sourceBlockIds: ["heading-1"],
+      slotSources: { title: ["heading-1"], subtitle: ["paragraph-1"] },
       slots: {
         title: { type: "shortText", text: "My Presentation" },
         subtitle: { type: "shortText", text: "A strategic overview" },
       },
     },
     {
+      id: "plan-slide-2",
       kind: "content",
+      sourceBlockIds: ["paragraph-1"],
+      slotSources: { title: ["paragraph-1"], bullets: ["paragraph-1"] },
       slots: {
         title: { type: "shortText", text: "Key Findings" },
         bullets: {
@@ -76,10 +85,12 @@ function makeInput(
           {
             type: "heading",
             tag: "h1",
+            bid: "heading-1",
             children: [{ text: "My Presentation" }],
           },
           {
             type: "paragraph",
+            bid: "paragraph-1",
             children: [{ text: "Key findings from our research." }],
           },
         ],
@@ -179,10 +190,16 @@ describe("runVnextDeckGeneration", () => {
   test("repair diagnostic for unknown kind surfaces in result diagnostics", async () => {
     const planWithUnknownKind = JSON.stringify({
       planVersion: 1,
+      planner: "ai",
+      mode: "faithful",
+      source: { contentHash: "ignored-by-repair", truncated: false },
       locale: "en",
       slides: [
         {
+          id: "plan-slide-1",
           kind: "not-a-real-kind",
+          sourceBlockIds: ["heading-1"],
+          slotSources: { title: ["heading-1"] },
           slots: { title: { type: "shortText", text: "T" } },
         },
       ],
@@ -220,9 +237,15 @@ describe("runVnextDeckGeneration", () => {
   test("retries malformed slot payload through normal repair path", async () => {
     const malformedPlan = JSON.stringify({
       planVersion: 1,
+      planner: "ai",
+      mode: "faithful",
+      source: { contentHash: "ignored-by-repair", truncated: false },
       slides: [
         {
+          id: "plan-slide-1",
           kind: "cover",
+          sourceBlockIds: ["heading-1"],
+          slotSources: { title: ["heading-1"] },
           slots: {
             title: { type: "shortText", text: { bad: true } },
           },
@@ -245,9 +268,15 @@ describe("runVnextDeckGeneration", () => {
   test("rejects malformed slot payload with final generation error", async () => {
     const malformedPlan = JSON.stringify({
       planVersion: 1,
+      planner: "ai",
+      mode: "faithful",
+      source: { contentHash: "ignored-by-repair", truncated: false },
       slides: [
         {
+          id: "plan-slide-1",
           kind: "cover",
+          sourceBlockIds: ["heading-1"],
+          slotSources: { title: ["heading-1"] },
           slots: {
             title: { type: "shortText", text: { bad: true } },
           },
@@ -259,7 +288,7 @@ describe("runVnextDeckGeneration", () => {
       runVnextDeckGeneration(
         makeInput(makeStubComplete(malformedPlan), { maxAttempts: 1 }),
       ),
-      /Could not generate a valid v7 deck plan/i,
+      /Could not generate a valid v7 document slide plan/i,
     );
   });
 
@@ -273,10 +302,16 @@ describe("runVnextDeckGeneration", () => {
   test("plan locale is preserved in deck metadata", async () => {
     const frPlan = JSON.stringify({
       planVersion: 1,
+      planner: "ai",
+      mode: "faithful",
+      source: { contentHash: "ignored-by-repair", truncated: false },
       locale: "fr",
       slides: [
         {
+          id: "plan-slide-1",
           kind: "cover",
+          sourceBlockIds: ["heading-1"],
+          slotSources: { title: ["heading-1"] },
           slots: { title: { type: "shortText", text: "Ma Présentation" } },
         },
       ],

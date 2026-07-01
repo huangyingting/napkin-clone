@@ -1,23 +1,16 @@
 /**
- * AI prompt builder for vNext (v7) semantic deck plans.
+ * AI prompt builder for vNext (v7) document slide plans.
  *
- * Builds messages that instruct the AI to produce an `AiDeckPlanV1` JSON plan
- * using typed slot values, semantic template kinds, and tone/density/emphasis
- * controls. The plan is consumed by `repairAiDeckPlan` then `compileSlide`.
- *
- * Key differences from `package-template-deck-prompt.ts`:
- * - Outputs `{ planVersion: 1, ... }` shape (not `schemaVersion: 1`).
- * - Slot values are typed: `{ type: "shortText", text: "..." }` etc.
- * - Uses SemanticTemplateRegistry (all 27 kinds) instead of v6 package catalog.
- * - Controls (tone/density/emphasis) are explicit slide-level fields.
+ * Builds messages that instruct the AI to produce a `DocumentSlidePlanV1` JSON
+ * plan using typed slot values, semantic template kinds, and source block ids.
+ * The plan is consumed by `repairDocumentSlidePlan`, projected into semantic
+ * template compiler input, then compiled into DeckV7.
  */
 
 import type { ChatMessage } from "@/lib/ai/prompt";
-import type {
-  DeckGenerationOptions,
-  DeckVisualInventoryItem,
-} from "@/lib/ai/deck-generation-options";
+import type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
+import type { DocumentSourcePlanV1 } from "@/lib/presentation-vnext/document-slide-plan";
 import type {
   SemanticTemplateV1,
   SlotContract,
@@ -25,8 +18,8 @@ import type {
 
 export interface BuildVnextDeckMessagesOptions {
   outline: string;
+  sourcePlan: DocumentSourcePlanV1;
   themePackageId: string;
-  visualInventory: ReadonlyArray<DeckVisualInventoryItem>;
   options?: DeckGenerationOptions;
   retryReason?: string;
 }
@@ -72,19 +65,30 @@ function renderTemplateCatalog(templates: SemanticTemplateV1[]): string {
 // Visual inventory rendering
 // ---------------------------------------------------------------------------
 
-function renderInventory(
-  visualInventory: ReadonlyArray<DeckVisualInventoryItem>,
-): string {
-  if (visualInventory.length === 0) {
+function renderInventory(sourcePlan: DocumentSourcePlanV1): string {
+  if (sourcePlan.visualInventory.length === 0) {
     return "Visual inventory: (none — do not include visual type slots)";
   }
   return [
     "Visual inventory (use visualId exactly as listed):",
-    ...visualInventory.map(
+    ...sourcePlan.visualInventory.map(
       (item) =>
         `  - ${item.id} | ${item.title} (${item.type}): ${item.summary}`,
     ),
   ].join("\n");
+}
+
+function renderSourcePlan(sourcePlan: DocumentSourcePlanV1): string {
+  return JSON.stringify(
+    {
+      planVersion: sourcePlan.planVersion,
+      contentHash: sourcePlan.contentHash,
+      truncated: sourcePlan.truncated,
+      sections: sourcePlan.sections,
+    },
+    null,
+    2,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -92,19 +96,27 @@ function renderInventory(
 // ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT = [
-  "You generate a v7 semantic slide plan, not free-form deck JSON.",
+  "You generate a v7 document slide plan, not free-form deck JSON.",
   "Return valid JSON only. No markdown, no prose, no code fences.",
   "",
   "Required JSON shape:",
   "{",
   '  "planVersion": 1,',
+  '  "planner": "ai",',
+  '  "mode": "faithful|presentationRewrite",',
   '  "locale": "<BCP-47 code matching source language>",',
+  '  "source": { "contentHash": "<copy from source plan>", "truncated": false },',
   '  "slides": [',
   "    {",
+  '      "id": "plan-slide-1",',
   '      "kind": "<kind from catalog>",',
-  '      "tone": "<optional: neutral|confident|warm|urgent|premium|technical>",',
-  '      "density": "<optional: airy|normal|dense>",',
-  '      "emphasis": "<optional: balanced|title|data|visual|quote|action>",',
+  '      "sourceBlockIds": ["<block id from source plan>"],',
+  '      "slotSources": { "title": ["<block id>"], "bullets": ["<block id>"] },',
+  '      "controls": {',
+  '        "tone": "<optional: neutral|confident|warm|urgent|premium|technical>",',
+  '        "density": "<optional: airy|normal|dense>",',
+  '        "emphasis": "<optional: balanced|title|data|visual|quote|action>"',
+  "      },",
   '      "slots": {',
   '        "title":       { "type": "shortText",  "text": "..." },',
   '        "subtitle":    { "type": "shortText",  "text": "..." },',
@@ -125,7 +137,9 @@ const SYSTEM_PROMPT = [
   "",
   "Rules:",
   "- Use kind values from the template catalog only.",
-  "- First slide: cover. Last slide: closing or recommendation.",
+  "- Default to faithful compression: do not invent unsupported claims.",
+  "- Use sourceBlockIds and slotSources from the source plan exactly; omit ids only when unused.",
+  "- First slide: cover. Add closing/recommendation only when supported by source content.",
   "- Fill only slots declared for each template. Omit all others.",
   "- Use the exact slot value type shown in the catalog for each slot.",
   "- Keep visible slot text concise. Put overflow and context in speakerNotes.",
@@ -162,12 +176,14 @@ export function buildVnextDeckMessages(
   const audienceNote = options.options?.audience
     ? `Audience: ${options.options.audience}.`
     : null;
+  const modeNote = `Mode: ${options.options?.mode ?? "faithful"}.`;
 
   const userParts = [
     `Active theme package: ${options.themePackageId}`,
     lengthNote,
     toneNote,
     audienceNote,
+    modeNote,
     options.retryReason
       ? `Previous attempt rejected: ${options.retryReason}`
       : null,
@@ -175,9 +191,12 @@ export function buildVnextDeckMessages(
     "Template catalog:",
     catalog,
     "",
-    renderInventory(options.visualInventory),
+    renderInventory(options.sourcePlan),
     "",
-    "Source outline:",
+    "Document source plan (use block ids exactly):",
+    renderSourcePlan(options.sourcePlan),
+    "",
+    "Outline fallback:",
     '"""',
     options.outline,
     '"""',
