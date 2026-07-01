@@ -9,6 +9,7 @@ import {
   profileShareSegment,
   profileViewerCredentials,
 } from "./helpers/profile";
+import { waitForSlideAutosave } from "./helpers/readiness";
 
 async function activate(locator: Locator): Promise<void> {
   await locator.focus();
@@ -82,9 +83,30 @@ async function openProfileDocument(page: Page): Promise<void> {
 
 async function openProfileSlideEditor(page: Page): Promise<Locator> {
   await activate(page.getByRole("button", { name: "Open slide editor" }));
-  const editor = page.getByRole("dialog", { name: "Slide editor" });
+  const editor = page.getByRole("dialog", { name: "Slide editor" }).first();
   await expect(editor).toBeVisible({ timeout: 20_000 });
   return editor;
+}
+
+async function expectHistoryFocusOnNodeOrStage(
+  page: Page,
+  expectedNodeId: string,
+): Promise<void> {
+  await expect(async () => {
+    const focusTarget = await page.evaluate(() => {
+      const active = document.activeElement as HTMLElement | null;
+      if (!active) return null;
+      const nodeId = active.getAttribute("data-node-id");
+      if (nodeId) return `node:${nodeId}`;
+      return active.getAttribute("data-slide-stage-viewport") === "true"
+        ? "stage-viewport"
+        : null;
+    });
+    expect(
+      focusTarget === `node:${expectedNodeId}` ||
+        focusTarget === "stage-viewport",
+    ).toBe(true);
+  }).toPass({ timeout: 5_000 });
 }
 
 test.describe("deterministic profile document editor smoke", () => {
@@ -555,6 +577,65 @@ test.describe("deterministic profile document editor smoke", () => {
 
     await activate(editor.getByRole("button", { name: "Close slide editor" }));
     await expect(editor).toHaveCount(0);
+  });
+
+  test("slide editor undo and redo keep deck state, autosave status, and focus coherent", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openProfileDocument(page);
+    const editor = await openProfileSlideEditor(page);
+
+    const undoButton = editor.getByRole("button", { name: "Undo" });
+    const redoButton = editor.getByRole("button", { name: "Redo" });
+    await expect(undoButton).toBeDisabled();
+    await expect(redoButton).toBeDisabled();
+
+    const titleNode = editor.locator('[data-node-id="fixture-title"]').first();
+    await expect(titleNode).toBeVisible();
+    const originalLabel =
+      (await titleNode.getAttribute("aria-label")) ??
+      `Text: ${E2E_PROFILE_FIXTURE.slideTitleText}`;
+    const originalTitle = originalLabel.replace(/^Text:\s*/i, "").trim();
+    const mutationToken = Date.now().toString().slice(-6);
+    const editedTitle = `${originalTitle} ${mutationToken}`;
+
+    await titleNode.dblclick();
+    const inlineEditor = page.getByRole("textbox", { name: "Edit text" });
+    await expect(inlineEditor).toBeVisible();
+    await inlineEditor.fill(editedTitle);
+    await page.keyboard.press("Escape");
+    await expect(inlineEditor).toHaveCount(0);
+
+    const editedTitleNode = editor
+      .getByRole("button", {
+        name: new RegExp(`Text:\\s*${escapeRegExp(editedTitle)}`, "i"),
+      })
+      .first();
+    const originalTitleNode = editor
+      .getByRole("button", {
+        name: new RegExp(`Text:\\s*${escapeRegExp(originalTitle)}`, "i"),
+      })
+      .first();
+
+    await expect(editedTitleNode).toBeVisible();
+    await expect(undoButton).toBeEnabled();
+    await expect(redoButton).toBeDisabled();
+    await waitForSlideAutosave(page);
+
+    await activate(undoButton);
+    await expect(originalTitleNode).toBeVisible();
+    await expect(editedTitleNode).toHaveCount(0);
+    await expect(undoButton).toBeDisabled();
+    await expect(redoButton).toBeEnabled();
+    await expectHistoryFocusOnNodeOrStage(page, "fixture-title");
+    await waitForSlideAutosave(page);
+
+    await activate(redoButton);
+    await expect(editedTitleNode).toBeVisible();
+    await expect(undoButton).toBeEnabled();
+    await expectHistoryFocusOnNodeOrStage(page, "fixture-title");
+    await waitForSlideAutosave(page);
   });
 
   test("context toolbar Escape restores focus to the selected stage target", async ({
