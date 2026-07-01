@@ -7,12 +7,13 @@ import {
   EyeOff,
   GripVertical,
   Lock,
+  PenLine,
   Unlock,
 } from "lucide-react";
-import { useState, type DragEvent, type JSX } from "react";
+import { useState, type DragEvent, type JSX, type KeyboardEvent } from "react";
 
-import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
+import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
 export interface LayersPanelProps {
   nodes: readonly SlideChildNode[];
@@ -22,7 +23,7 @@ export interface LayersPanelProps {
   onSelectNode: (nodeId: string) => void;
   onUpdateNode: (
     nodeId: string,
-    patch: { locked?: boolean; hidden?: boolean },
+    patch: { name?: string; locked?: boolean; hidden?: boolean },
   ) => void;
   onReorderNode?: (nodeId: string, targetIndex: number) => void;
 }
@@ -110,6 +111,8 @@ export function LayersPanel({
 }: LayersPanelProps): JSX.Element | null {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const userLayers: LayerItem[] = flattenLayers(nodes).map(
     ({ node, depth }) => ({
@@ -171,6 +174,44 @@ export function LayersPanel({
     setDropIndex(null);
   }
 
+  function startRename(item: LayerItem) {
+    if (!item.editable || !item.node) return;
+    setRenamingId(item.id);
+    setRenameValue(item.node.name ?? "");
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue("");
+  }
+
+  function commitRename(item: LayerItem) {
+    if (!item.editable || !item.node || renamingId !== item.id) return;
+    const nextName = renameValue.trim();
+    const currentName = item.node.name ?? "";
+    if (nextName !== currentName) {
+      onUpdateNode(item.id, { name: nextName || undefined });
+    }
+    cancelRename();
+  }
+
+  function handleRenameKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    item: LayerItem,
+  ) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      commitRename(item);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelRename();
+    }
+  }
+
   function handleMove(item: LayerItem, direction: "forward" | "backward") {
     const currentIndex = userLayerIndexById.get(item.id);
     if (currentIndex === undefined) return;
@@ -193,6 +234,7 @@ export function LayersPanel({
           const selected = selectedIds.includes(item.id);
           const node = item.node;
           const editable = item.editable && node !== undefined;
+          const renaming = renamingId === item.id;
           const reorderable =
             editable &&
             onReorderNode !== undefined &&
@@ -212,7 +254,7 @@ export function LayersPanel({
             <li key={`${item.source}-${item.id}`}>
               <div
                 data-layer-source={item.source}
-                draggable={reorderable}
+                draggable={reorderable && renamingId !== item.id}
                 onDragStart={(event) => handleDragStart(event, item)}
                 onDragEnd={() => {
                   setDraggingId(null);
@@ -228,6 +270,12 @@ export function LayersPanel({
                 onDrop={(event) => {
                   event.preventDefault();
                   handleDrop(item);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "F2" || !editable || renaming) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  startRename(item);
                 }}
                 className={`flex items-center gap-1 rounded-ds-sm border px-1.5 py-1 text-xs ${
                   selected
@@ -250,13 +298,35 @@ export function LayersPanel({
                     className="h-3 w-3 shrink-0 rounded-full bg-ds-surface-2"
                   />
                 )}
-                <button
-                  type="button"
-                  onClick={() => onSelectNode(item.id)}
-                  className="min-w-0 flex-1 truncate text-left"
-                >
-                  {item.label}
-                </button>
+                {renaming ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={renameValue}
+                    onChange={(event) =>
+                      setRenameValue(event.currentTarget.value)
+                    }
+                    onBlur={() => commitRename(item)}
+                    onKeyDown={(event) => handleRenameKeyDown(event, item)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="min-w-0 flex-1 rounded-ds-sm border border-ds-accent-border bg-ds-surface px-1 py-0.5 text-left text-xs text-ds-text-primary outline-none"
+                    aria-label="Rename layer"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelectNode(item.id)}
+                    onDoubleClick={(event) => {
+                      if (!editable) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      startRename(item);
+                    }}
+                    className="min-w-0 flex-1 truncate text-left"
+                  >
+                    {item.label}
+                  </button>
+                )}
                 <span className="rounded-ds-sm bg-ds-surface-2 px-1.5 py-0.5 text-[10px] text-ds-text-muted">
                   {sourceBadge(item.source)}
                 </span>
@@ -284,6 +354,20 @@ export function LayersPanel({
                 ) : null}
                 {editable ? (
                   <>
+                    {!renaming ? (
+                      <button
+                        type="button"
+                        aria-label={`Rename layer ${item.label}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          startRename(item);
+                        }}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover"
+                      >
+                        <PenLine size={12} aria-hidden="true" />
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       aria-label={`${hidden ? "Show" : "Hide"} layer "${item.label}"`}

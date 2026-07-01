@@ -23,6 +23,7 @@ import {
   pasteNodes,
   cutNodes,
   updateNodeLayout,
+  updateNodeAttributes,
   updateNodeRotation,
   updateNodeSourceMetadata,
   moveNodesBy,
@@ -426,6 +427,26 @@ describe("updateNodeLayout", () => {
     const node = findNode(updated.slides[0].children, nodeId);
 
     assert.equal(node?.layout?.rotation, 315);
+  });
+});
+
+describe("updateNodeAttributes", () => {
+  test("renames a node and can clear the custom name", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+
+    const renamed = updateNodeAttributes(deck, slide.id, nodeId, {
+      name: "Renamed from layers",
+    });
+    const renamedNode = findNode(renamed.slides[0].children, nodeId);
+    assert.equal(renamedNode?.name, "Renamed from layers");
+
+    const cleared = updateNodeAttributes(renamed, slide.id, nodeId, {
+      name: undefined,
+    });
+    const clearedNode = findNode(cleared.slides[0].children, nodeId);
+    assert.equal(clearedNode?.name, undefined);
   });
 });
 
