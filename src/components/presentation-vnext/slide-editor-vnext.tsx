@@ -32,6 +32,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -112,13 +113,11 @@ import {
 } from "@/lib/presentation-vnext/diagnostics";
 import { applyDiagnosticRepairAction } from "@/lib/presentation-vnext/diagnostic-repairs";
 import {
-  classifyDeckSourceLinks,
+  deriveSourceReviewDerivations,
   dismissNodeSourceIssue,
   refreshAllSafeSourceLinks,
   refreshNodeSource,
   relinkNodeSource,
-  sourceLinkDiagnostics,
-  sourceReviewItems,
   unlinkNodeSource,
   updateNodeSourceState,
 } from "@/lib/presentation-vnext/source-links";
@@ -1140,7 +1139,7 @@ export function SlideEditorVNext({
   }, []);
   const suppressStageClickRef = useRef(false);
   const lastUndoRedoFocusTokenRef = useRef<number | null>(null);
-  const themePackages = listThemePackagesV7();
+  const themePackages = useMemo(() => listThemePackagesV7(), []);
 
   // Recoverable export/media errors surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
@@ -2107,18 +2106,18 @@ export function SlideEditorVNext({
           diagnostic.code === "theme-decoration-export-fallback",
       )
     : [];
-  const sourceClassifications = sourceBlockIndex
-    ? classifyDeckSourceLinks(deck, sourceBlockIndex)
-    : [];
+  const sourceDerivations = useMemo(
+    () => deriveSourceReviewDerivations(deck, sourceBlockIndex),
+    [deck, sourceBlockIndex],
+  );
+  const sourceClassifications = sourceDerivations.classifications;
   const diagnostics = dedupeDiagnostics([
     ...boundaryDiagnostics,
     ...(renderTree?.diagnostics ?? []),
     ...exportDiagnostics,
-    ...sourceLinkDiagnostics(sourceClassifications),
+    ...sourceDerivations.diagnostics,
   ]);
-  const sourceReview = sourceBlockIndex
-    ? sourceReviewItems(deck, sourceClassifications)
-    : [];
+  const sourceReview = sourceDerivations.reviewItems;
 
   // ---------------------------------------------------------------------------
   // Selected node data (from the persisted deck, not the resolved tree)
