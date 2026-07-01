@@ -13,6 +13,92 @@ import {
 import { BRAND_LOGO_UPLOAD_POLICY } from "@/lib/brand/asset-policy";
 import { SLIDE_ASSET_UPLOAD_POLICY } from "@/lib/slides/asset-policy";
 
+function createGifBytes(width: number, height: number): Uint8Array {
+  return new Uint8Array([
+    0x47,
+    0x49,
+    0x46,
+    0x38,
+    0x39,
+    0x61,
+    width & 0xff,
+    (width >> 8) & 0xff,
+    height & 0xff,
+    (height >> 8) & 0xff,
+    0x00,
+    0x00,
+    0x00,
+  ]);
+}
+
+function createWebpVp8XBytes(width: number, height: number): Uint8Array {
+  const widthMinusOne = width - 1;
+  const heightMinusOne = height - 1;
+  return new Uint8Array([
+    0x52,
+    0x49,
+    0x46,
+    0x46,
+    22,
+    0x00,
+    0x00,
+    0x00,
+    0x57,
+    0x45,
+    0x42,
+    0x50,
+    0x56,
+    0x50,
+    0x38,
+    0x58,
+    10,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    widthMinusOne & 0xff,
+    (widthMinusOne >> 8) & 0xff,
+    (widthMinusOne >> 16) & 0xff,
+    heightMinusOne & 0xff,
+    (heightMinusOne >> 8) & 0xff,
+    (heightMinusOne >> 16) & 0xff,
+  ]);
+}
+
+function createWebpVp8LBytes(width: number, height: number): Uint8Array {
+  const bits = (width - 1) | ((height - 1) << 14);
+  return new Uint8Array([
+    0x52,
+    0x49,
+    0x46,
+    0x46,
+    17,
+    0x00,
+    0x00,
+    0x00,
+    0x57,
+    0x45,
+    0x42,
+    0x50,
+    0x56,
+    0x50,
+    0x38,
+    0x4c,
+    5,
+    0x00,
+    0x00,
+    0x00,
+    0x2f,
+    bits & 0xff,
+    (bits >> 8) & 0xff,
+    (bits >> 16) & 0xff,
+    (bits >> 24) & 0xff,
+  ]);
+}
+
 describe("asset upload policy validation", () => {
   it("keeps slide SVG rejected while accepting declared raster types", () => {
     const png = validateAssetUploadPolicy(
@@ -108,6 +194,16 @@ describe("asset upload policy validation", () => {
     }
   });
 
+  it("sniffs GIF content and extracts GIF dimensions", () => {
+    const gif = createGifBytes(320, 240);
+    assert.equal(sniffAssetMime(gif), "image/gif");
+    assert.deepEqual(validateAssetMagicBytes("image/gif", gif), { ok: true });
+    assert.deepEqual(imageDimensionsFromBytes("image/gif", gif), {
+      widthPx: 320,
+      heightPx: 240,
+    });
+  });
+
   it("sniffs WEBP content and rejects mismatched font MIME aliases", () => {
     const webp = Buffer.from("RIFF0000WEBP");
     assert.equal(sniffAssetMime(webp), "image/webp");
@@ -124,6 +220,23 @@ describe("asset upload policy validation", () => {
         error: { code: "signature_mismatch" },
       });
     }
+  });
+
+  it("extracts WEBP dimensions across VP8X and VP8L chunks", () => {
+    assert.deepEqual(
+      imageDimensionsFromBytes("image/webp", createWebpVp8XBytes(640, 360)),
+      {
+        widthPx: 640,
+        heightPx: 360,
+      },
+    );
+    assert.deepEqual(
+      imageDimensionsFromBytes("image/webp", createWebpVp8LBytes(800, 600)),
+      {
+        widthPx: 800,
+        heightPx: 600,
+      },
+    );
   });
 
   it("rejects mismatched signatures and returns empty dimensions for unsupported images", () => {
