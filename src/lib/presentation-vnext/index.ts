@@ -329,6 +329,7 @@ export {
   updateDeckChrome,
   insertNode,
   pasteNodes,
+  cutNodes,
   updateNodeContent,
   resetImageCrop,
   updateNodeLayout,
