@@ -205,6 +205,10 @@ export interface SlideCanvasVNextProps {
   hiddenNodeIds?: ReadonlySet<string>;
   /** Node currently hovered by the pointer. */
   hoveredNodeId?: string | null;
+  /** True when the slide background is the current hover/preselection target. */
+  slideHovered?: boolean;
+  /** True when the slide itself is selected (no node selection). */
+  slideSelected?: boolean;
   /** Roving-tabindex focus target. */
   focusedNodeId?: string | null;
   /** True when rendered at reduced size (thumbnail rail, next-slide preview). */
@@ -249,6 +253,8 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   onTableCellKeyDown,
   hiddenNodeIds,
   hoveredNodeId,
+  slideHovered = false,
+  slideSelected = false,
   focusedNodeId,
   preview = false,
   className,
@@ -429,6 +435,14 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           />
         ))}
 
+        {!preview && slideHovered && !slideSelected ? (
+          <SlideChromeFrame variant="preselected" />
+        ) : null}
+
+        {!preview && slideSelected ? (
+          <SlideChromeFrame variant="selected" />
+        ) : null}
+
         {!preview
           ? preselectedUserNodes.map((node) => (
               <NodeChromeFrame
@@ -525,7 +539,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                   }`}
                   style={{
                     left: "50%",
-                    top: -28,
+                    top: "calc(100% + 28px)",
                     transform: "translate(-50%, -50%)",
                     cursor: "grab",
                   }}
@@ -537,7 +551,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                 </span>
                 <span
                   aria-hidden="true"
-                  className="absolute left-1/2 top-0 h-7 w-px -translate-x-1/2 bg-ds-accent-border"
+                  className="absolute left-1/2 top-full h-7 w-px -translate-x-1/2 bg-ds-accent-border"
                 />
               </div>
             ))
@@ -658,6 +672,30 @@ function NodeChromeFrame({
         ...nodeChromeOverlayFrameStyle(node, chrome.zIndex),
         border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
         opacity: chrome.opacity,
+      }}
+    />
+  );
+}
+
+function SlideChromeFrame({
+  variant,
+}: {
+  variant: "selected" | "preselected";
+}) {
+  const chrome = selectionFrameChrome(variant);
+  const color =
+    variant === "selected"
+      ? "var(--ds-accent-fill, #6366f1)"
+      : "var(--ds-border, #cbd5e1)";
+  return (
+    <div
+      aria-hidden="true"
+      data-slide-chrome-frame={variant}
+      className="pointer-events-none absolute inset-0 box-border"
+      style={{
+        border: `${chrome.borderWidthPx}px solid ${color}`,
+        opacity: chrome.opacity,
+        zIndex: chrome.zIndex,
       }}
     />
   );

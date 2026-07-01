@@ -351,6 +351,34 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /border:1.5px solid var\(--ds-border, #cbd5e1\)/);
   });
 
+  test("renders slide chrome for slide preselection and selection", () => {
+    const preselectedHtml = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
+        slideHovered: true,
+        onNodeClick: () => undefined,
+      }),
+    );
+    const selectedHtml = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
+        slideSelected: true,
+        onNodeClick: () => undefined,
+      }),
+    );
+
+    assert.match(preselectedHtml, /data-slide-chrome-frame="preselected"/);
+    assert.match(
+      preselectedHtml,
+      /border:1.5px solid var\(--ds-border, #cbd5e1\)/,
+    );
+    assert.match(selectedHtml, /data-slide-chrome-frame="selected"/);
+    assert.match(
+      selectedHtml,
+      /border:2px solid var\(--ds-accent-fill, #6366f1\)/,
+    );
+  });
+
   test("renders a multi-selection bounding box", () => {
     const selection = setSelection(createSelectionState("normal"), ["a", "b"]);
     const html = renderToStaticMarkup(
@@ -1470,6 +1498,32 @@ describe("SlideNodeRenderer resolved node content branches", () => {
     assert.match(middleShape, /justify-content:center/);
     assert.match(bottomShape, /justify-content:flex-end/);
     assert.equal((spacedShape.match(/margin-bottom:4pt/g) ?? []).length, 1);
+  });
+
+  test("keeps shape paint visible while inline editing and hides only its text", () => {
+    const editingShape = renderToStaticMarkup(
+      createElement(SlideNodeRenderer, {
+        node: renderNode("shape-editing", {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [{ id: "shape-editing-p1", text: "Editing me" }],
+            },
+          },
+        }),
+        hidden: true,
+      }),
+    );
+
+    // Shape container must not be hidden, so its fill/border keep rendering.
+    assert.doesNotMatch(
+      editingShape,
+      /data-node-id="shape-editing"[^>]*visibility:hidden/,
+    );
+    // The shape's own text is hidden so it does not double-render with the
+    // inline editor overlay.
+    assert.doesNotMatch(editingShape, /Editing me/);
   });
 
   test("renders text, shape, media, table, connector, visual, and group node content", () => {

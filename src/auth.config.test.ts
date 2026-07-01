@@ -164,6 +164,43 @@ test("auth config uses the shared route protection policy data", () => {
   assert.equal(isPublicRoute("/app"), false);
 });
 
+test("auth logger suppresses recoverable JWT session decode errors", () => {
+  const calls: unknown[][] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    calls.push(args);
+  };
+  try {
+    const error = Object.assign(new Error("stale session cookie"), {
+      name: "JWTSessionError",
+      type: "JWTSessionError",
+    });
+
+    authConfig.logger?.error?.(error);
+
+    assert.deepEqual(calls, []);
+  } finally {
+    console.error = originalConsoleError;
+  }
+});
+
+test("auth logger forwards non-JWT auth errors", () => {
+  const calls: unknown[][] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    calls.push(args);
+  };
+  try {
+    const error = new Error("auth misconfigured");
+
+    authConfig.logger?.error?.(error);
+
+    assert.deepEqual(calls, [[error]]);
+  } finally {
+    console.error = originalConsoleError;
+  }
+});
+
 test("edge-safe auth config runtime imports stay free of Prisma, bcrypt, and providers", () => {
   const graph = collectRuntimeImportGraph(join(SRC_DIR, "auth.config.ts"));
 

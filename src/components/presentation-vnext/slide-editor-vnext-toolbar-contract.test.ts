@@ -46,6 +46,21 @@ describe("SlideEditorVNext toolbar command ownership", () => {
     assert.equal(source.includes('aria-label="More toolbar commands"'), true);
   });
 
+  test("portals top toolbar popovers out of clipped editor chrome", () => {
+    assert.match(
+      source,
+      /<Popover[\s\S]*aria-label="Document source commands"[\s\S]*portal[\s\S]*className="w-72 p-2"/,
+    );
+    assert.match(
+      source,
+      /<Popover[\s\S]*aria-label="Deck chrome controls"[\s\S]*portal[\s\S]*className="max-h-\[calc\(100vh-6rem\)\] w-\[22rem\] overflow-y-auto p-0"/,
+    );
+    assert.match(
+      source,
+      /<Popover[\s\S]*aria-label="More toolbar commands"[\s\S]*portal[\s\S]*className="w-72 p-2"/,
+    );
+  });
+
   test("keeps compact toolbar menu keyboard navigable", () => {
     assert.equal(
       source.includes(

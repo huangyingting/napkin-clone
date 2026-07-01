@@ -433,11 +433,13 @@ function ShapeNodeContent({
   text,
   path,
   style,
+  hideText = false,
 }: {
   shape: ShapeKind;
   text?: TextContent;
   path?: string;
   style: StyleObject;
+  hideText?: boolean;
 }): JSX.Element {
   const hasSvgGeometry = shapeUsesSvgGeometry(shape);
   const fillColor =
@@ -503,7 +505,7 @@ function ShapeNodeContent({
           )}
         </svg>
       )}
-      {text && (
+      {text && !hideText && (
         <div className="absolute inset-0">
           <TextNodeContent
             content={text}
@@ -1021,6 +1023,10 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   hidden = false,
 }: SlideNodeRendererProps): JSX.Element | null {
   const { layout, style, content } = node;
+  const isShapeNode = content.type === "shape";
+  // While inline editing a shape, keep its paint/geometry rendered and hide
+  // only the shape's text (the inline editor overlays the text).
+  const hideShapeText = hidden && isShapeNode;
   const shouldIncludeShapePaint =
     content.type !== "shape" || !shapeUsesSvgGeometry(content.content.shape);
 
@@ -1045,8 +1051,9 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     ...(node.source === "themeDecoration" || node.source === "deckChrome"
       ? { pointerEvents: "none" }
       : {}),
-    // Hide when inline editor is active for this node
-    ...(hidden ? { visibility: "hidden" } : {}),
+    // Hide when inline editor is active for this node. Shapes stay visible so
+    // their paint/geometry keeps rendering; only their text is hidden below.
+    ...(hidden && !isShapeNode ? { visibility: "hidden" } : {}),
   };
   const fillLayerStyle = shouldIncludeShapePaint
     ? imageFillLayerCss(style.fill, assetResolver)
@@ -1080,6 +1087,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
 
   const inner = renderContent(node.id, content, style, assetResolver, preview, {
     tableEditing,
+    hideShapeText,
     activeTableCell,
     onTableCellFocus: (rowIndex, colIndex) =>
       onTableCellFocus?.(node.id, rowIndex, colIndex),
@@ -1213,6 +1221,7 @@ function renderContent(
   _preview?: boolean,
   editing?: {
     tableEditing?: boolean;
+    hideShapeText?: boolean;
     activeTableCell?: { rowIndex: number; colIndex: number } | null;
     onTableCellFocus?: (rowIndex: number, colIndex: number) => void;
     onTableCellCommit?: (
@@ -1244,6 +1253,7 @@ function renderContent(
           text={content.content.text}
           path={content.content.path}
           style={style}
+          hideText={editing?.hideShapeText}
         />
       );
 

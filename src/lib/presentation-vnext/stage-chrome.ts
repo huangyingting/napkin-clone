@@ -9,6 +9,7 @@ export const STAGE_CHROME_Z_INDEX = {
   cropHandle: 2210,
   snapGuide: 2300,
   marquee: 2400,
+  liveBadge: 2450,
   inlineEditor: 2500,
 } as const;
 

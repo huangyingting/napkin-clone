@@ -5,6 +5,13 @@ import {
   routeProtectionPolicy,
 } from "@/lib/auth/route-protection-policy";
 
+function isJwtSessionError(error: Error): boolean {
+  return (
+    error.name === "JWTSessionError" ||
+    (error as Error & { type?: unknown }).type === "JWTSessionError"
+  );
+}
+
 /**
  * Edge-safe Auth.js configuration.
  *
@@ -19,6 +26,12 @@ export const authConfig = {
   pages: {
     signIn: routeProtectionPolicy.signIn,
     error: routeProtectionPolicy.signIn,
+  },
+  logger: {
+    error(error) {
+      if (isJwtSessionError(error)) return;
+      console.error(error);
+    },
   },
   providers: [],
   callbacks: {

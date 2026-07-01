@@ -19,6 +19,7 @@ import {
 } from "@/test/builders/deck-v7";
 import { InspectorShell } from "./inspector";
 import { SlideCanvasVNext } from "./slide-canvas";
+import { StageNodeContextMenu } from "./stage-context-menu";
 import {
   SlideEditorInspectorRegion,
   SlideEditorVNext,
@@ -209,6 +210,48 @@ async function withWindow<T>(run: () => Promise<T> | T): Promise<T> {
   };
   try {
     return await run();
+  } finally {
+    if (previousWindow === undefined) delete globalWithWindow.window;
+    else globalWithWindow.window = previousWindow;
+  }
+}
+
+type PointerListenerType = "pointermove" | "pointerup" | "pointercancel";
+
+function withPointerWindow<T>(
+  run: (
+    listeners: Map<PointerListenerType, (event: PointerEvent) => void>,
+  ) => T,
+): T {
+  const globalWithWindow = globalThis as typeof globalThis & {
+    window?: {
+      setTimeout: typeof setTimeout;
+      addEventListener: (
+        type: PointerListenerType,
+        listener: (event: PointerEvent) => void,
+      ) => void;
+      removeEventListener: (
+        type: PointerListenerType,
+        listener: (event: PointerEvent) => void,
+      ) => void;
+    };
+  };
+  const previousWindow = globalWithWindow.window;
+  const listeners = new Map<
+    PointerListenerType,
+    (event: PointerEvent) => void
+  >();
+  globalWithWindow.window = {
+    setTimeout: globalThis.setTimeout.bind(globalThis),
+    addEventListener(type, listener) {
+      listeners.set(type, listener);
+    },
+    removeEventListener(type, listener) {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+  };
+  try {
+    return run(listeners);
   } finally {
     if (previousWindow === undefined) delete globalWithWindow.window;
     else globalWithWindow.window = previousWindow;
@@ -629,6 +672,1433 @@ describe("SlideEditorVNext failure-state coverage", () => {
     });
   });
 
+  test("shift-marquee adds framed nodes to the existing selection", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        const currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "already-selected",
+                layout: { frame: { x: 10, y: 10, w: 10, h: 10 }, zIndex: 1 },
+              }),
+              buildTextNode({
+                id: "marquee-target",
+                layout: { frame: { x: 50, y: 10, w: 10, h: 10 }, zIndex: 2 },
+              }),
+            ],
+            { id: "slide-marquee-additive", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-marquee-additive",
+              deck: currentDeck,
+              onDeckChange: () => undefined,
+            }),
+          );
+        const stageCanvasFrom = (root: ReactNode) =>
+          findRequiredElement(
+            root,
+            (element) => element.type === SlideCanvasVNext,
+            "Expected stage canvas to render.",
+          );
+
+        let tree = renderTree();
+        const onNodeClick = (
+          stageCanvasFrom(tree).props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        assert.ok(onNodeClick);
+        onNodeClick("already-selected", {
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+        } as MouseEvent);
+
+        tree = renderTree();
+        const stageShell = findRequiredElement(
+          tree,
+          (element) =>
+            element.type === "div" &&
+            (element.props as { "data-slide-stage-shell"?: string })[
+              "data-slide-stage-shell"
+            ] === "true" &&
+            typeof (element.props as { onPointerDown?: unknown })
+              .onPointerDown === "function",
+          "Expected stage shell with pointerdown handler.",
+        );
+        const onPointerDown = (
+          stageShell.props as {
+            onPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
+          }
+        ).onPointerDown;
+        assert.ok(onPointerDown);
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const target = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+        let prevented = false;
+
+        onPointerDown({
+          button: 0,
+          pointerId: 1,
+          clientX: 400,
+          clientY: 50,
+          shiftKey: true,
+          metaKey: false,
+          ctrlKey: false,
+          target,
+          currentTarget: {
+            setPointerCapture: () => undefined,
+            releasePointerCapture: () => undefined,
+          },
+          preventDefault: () => {
+            prevented = true;
+          },
+        } as unknown as React.PointerEvent<HTMLDivElement>);
+
+        assert.equal(prevented, true);
+        const pointerMove = listeners.get("pointermove");
+        assert.ok(pointerMove, "Expected marquee to register pointermove.");
+        pointerMove({ clientX: 700, clientY: 300 } as PointerEvent);
+
+        tree = renderTree();
+        const selection = (
+          stageCanvasFrom(tree).props as {
+            selection?: { nodeIds?: ReadonlySet<string> };
+          }
+        ).selection;
+        assert.ok(selection?.nodeIds?.has("already-selected"));
+        assert.ok(selection?.nodeIds?.has("marquee-target"));
+      }),
+    );
+  });
+
+  test("mod+a selects all editable slide nodes", async () => {
+    await withWindow(() => {
+      const hookRenderer = createHookRenderer();
+      const currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "select-all-first",
+              layout: { frame: { x: 10, y: 10, w: 10, h: 10 }, zIndex: 1 },
+            }),
+            buildTextNode({
+              id: "select-all-second",
+              layout: { frame: { x: 50, y: 10, w: 10, h: 10 }, zIndex: 2 },
+            }),
+          ],
+          { id: "slide-select-all", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-select-all",
+            deck: currentDeck,
+            onDeckChange: () => undefined,
+          }),
+        );
+
+      let tree = renderTree();
+      const editorRoot = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "data-slide-editor-vnext"?: string })[
+            "data-slide-editor-vnext"
+          ] === "true" &&
+          typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+            "function",
+        "Expected editor root with keydown handler.",
+      );
+      const onKeyDown = (
+        editorRoot.props as {
+          onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+        }
+      ).onKeyDown;
+      assert.ok(onKeyDown);
+      let prevented = false;
+      onKeyDown({
+        key: "a",
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+        altKey: false,
+        target: null,
+        preventDefault: () => {
+          prevented = true;
+        },
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      assert.equal(prevented, true);
+      tree = renderTree();
+      const stageCanvas = findRequiredElement(
+        tree,
+        (element) => element.type === SlideCanvasVNext,
+        "Expected stage canvas after select-all.",
+      );
+      const selection = (
+        stageCanvas.props as {
+          selection?: { nodeIds?: ReadonlySet<string> };
+        }
+      ).selection;
+      assert.ok(selection?.nodeIds?.has("select-all-first"));
+      assert.ok(selection?.nodeIds?.has("select-all-second"));
+    });
+  });
+
+  test("space selects and shift-space toggles the focused stage node", async () => {
+    await withWindow(() => {
+      const hookRenderer = createHookRenderer();
+      const currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "space-target",
+              layout: { frame: { x: 10, y: 10, w: 10, h: 10 }, zIndex: 1 },
+            }),
+          ],
+          { id: "slide-space-select", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-space-select",
+            deck: currentDeck,
+            onDeckChange: () => undefined,
+          }),
+        );
+      const stageCanvasFrom = (root: ReactNode) =>
+        findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+      const keyDownFrom = (root: ReactNode) =>
+        (
+          findRequiredElement(
+            root,
+            (element) =>
+              element.type === "div" &&
+              (element.props as { "data-slide-editor-vnext"?: string })[
+                "data-slide-editor-vnext"
+              ] === "true" &&
+              typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+                "function",
+            "Expected editor root with keydown handler.",
+          ).props as {
+            onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+          }
+        ).onKeyDown;
+
+      let tree = renderTree();
+      const onNodeFocus = (
+        stageCanvasFrom(tree).props as {
+          onNodeFocus?: (nodeId: string) => void;
+        }
+      ).onNodeFocus;
+      assert.ok(onNodeFocus);
+      onNodeFocus("space-target");
+
+      tree = renderTree();
+      let prevented = false;
+      keyDownFrom(tree)?.({
+        key: " ",
+        shiftKey: false,
+        target: null,
+        preventDefault: () => {
+          prevented = true;
+        },
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      assert.equal(prevented, true);
+      tree = renderTree();
+      let selection = (
+        stageCanvasFrom(tree).props as {
+          selection?: { nodeIds?: ReadonlySet<string> };
+        }
+      ).selection;
+      assert.ok(selection?.nodeIds?.has("space-target"));
+
+      keyDownFrom(tree)?.({
+        key: " ",
+        shiftKey: true,
+        target: null,
+        preventDefault: () => undefined,
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      tree = renderTree();
+      selection = (
+        stageCanvasFrom(tree).props as {
+          selection?: { nodeIds?: ReadonlySet<string> };
+        }
+      ).selection;
+      assert.equal(selection?.nodeIds?.has("space-target"), false);
+    });
+  });
+
+  test("inline edit keeps stage hover preselection for other nodes", () => {
+    withMockHTMLElement((createElement) => {
+      const hookRenderer = createHookRenderer();
+      const currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "editing-node",
+              layout: { frame: { x: 10, y: 10, w: 20, h: 10 }, zIndex: 1 },
+            }),
+            buildTextNode({
+              id: "hover-other",
+              layout: { frame: { x: 50, y: 10, w: 20, h: 10 }, zIndex: 2 },
+            }),
+          ],
+          { id: "slide-inline-hover", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-inline-hover",
+            deck: currentDeck,
+            onDeckChange: () => undefined,
+          }),
+        );
+      const stageCanvasFrom = (root: ReactNode) =>
+        findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+
+      let tree = renderTree();
+      const onNodeClick = (
+        stageCanvasFrom(tree).props as {
+          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeClick;
+      assert.ok(onNodeClick);
+      onNodeClick("editing-node", {
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+      tree = renderTree();
+      onNodeClick("editing-node", {
+        clientX: 120,
+        clientY: 120,
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const stageShell = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "data-slide-stage-shell"?: string })[
+            "data-slide-stage-shell"
+          ] === "true" &&
+          typeof (element.props as { onPointerMove?: unknown })
+            .onPointerMove === "function",
+        "Expected stage shell with pointermove handler.",
+      );
+      const onPointerMove = (
+        stageShell.props as {
+          onPointerMove?: (event: React.PointerEvent<HTMLDivElement>) => void;
+        }
+      ).onPointerMove;
+      assert.ok(onPointerMove);
+      const canvasElement = createElement({
+        rect: { left: 0, top: 0, width: 1000, height: 1000 },
+      });
+      const target = createElement({
+        closestMap: {
+          '[data-slide-canvas-vnext="true"]': canvasElement,
+        },
+      });
+
+      onPointerMove({
+        clientX: 550,
+        clientY: 150,
+        target,
+      } as unknown as React.PointerEvent<HTMLDivElement>);
+
+      tree = renderTree();
+      const stageCanvas = stageCanvasFrom(tree);
+      assert.equal(
+        (stageCanvas.props as { hoveredNodeId?: string | null }).hoveredNodeId,
+        "hover-other",
+      );
+    });
+  });
+
+  test("right-clicking a stage node selects it for context actions", () => {
+    withMockHTMLElement((createElement) => {
+      const hookRenderer = createHookRenderer();
+      const currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "context-text",
+              layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+              content: {
+                paragraphs: [{ id: "context-text-p1", text: "Context menu" }],
+              },
+            }),
+          ],
+          { id: "slide-context-menu", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-context-menu",
+            deck: currentDeck,
+            onDeckChange: () => undefined,
+          }),
+        );
+
+      let tree = renderTree();
+      const stageShell = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "data-slide-stage-shell"?: string })[
+            "data-slide-stage-shell"
+          ] === "true" &&
+          typeof (element.props as { onContextMenu?: unknown })
+            .onContextMenu === "function",
+        "Expected stage shell with contextmenu handler.",
+      );
+      const onContextMenu = (
+        stageShell.props as {
+          onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
+        }
+      ).onContextMenu;
+      assert.ok(onContextMenu);
+      const canvasElement = createElement({
+        rect: { left: 100, top: 200, width: 1000, height: 500 },
+      });
+      const target = createElement({
+        closestMap: {
+          '[data-slide-canvas-vnext="true"]': canvasElement,
+        },
+      });
+      let prevented = false;
+      let stopped = false;
+
+      onContextMenu({
+        clientX: 360,
+        clientY: 330,
+        target,
+        preventDefault: () => {
+          prevented = true;
+        },
+        stopPropagation: () => {
+          stopped = true;
+        },
+      } as unknown as MouseEvent<HTMLDivElement>);
+
+      assert.equal(prevented, true);
+      assert.equal(stopped, true);
+      tree = renderTree();
+      const stageCanvas = findRequiredElement(
+        tree,
+        (element) => element.type === SlideCanvasVNext,
+        "Expected stage canvas after context-menu selection.",
+      );
+      const selection = (
+        stageCanvas.props as { selection?: { nodeIds?: ReadonlySet<string> } }
+      ).selection;
+      assert.ok(selection?.nodeIds?.has("context-text"));
+    });
+  });
+
+  test("context menu detaches a bound connector endpoint", async () => {
+    await withWindow(() =>
+      withMockHTMLElement((createElement) => {
+        const hookRenderer = createHookRenderer();
+        let currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "detach-a",
+                layout: { frame: { x: 10, y: 10, w: 12, h: 12 }, zIndex: 1 },
+              }),
+              buildTextNode({
+                id: "detach-b",
+                layout: { frame: { x: 60, y: 10, w: 12, h: 12 }, zIndex: 2 },
+              }),
+              {
+                id: "detach-connector",
+                type: "connector" as const,
+                role: "connector" as const,
+                layout: { frame: { x: 22, y: 16, w: 38, h: 1 }, zIndex: 3 },
+                style: { ref: "connector.primary" as const },
+                content: {
+                  from: {
+                    kind: "node" as const,
+                    nodeId: "detach-a",
+                    anchor: "right" as const,
+                  },
+                  to: {
+                    kind: "node" as const,
+                    nodeId: "detach-b",
+                    anchor: "left" as const,
+                  },
+                  routing: "straight" as const,
+                },
+              },
+            ],
+            { id: "slide-detach-connector", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-detach-connector",
+              deck: currentDeck,
+              onDeckChange: (nextDeck) => {
+                currentDeck = nextDeck;
+              },
+            }),
+          );
+
+        let tree = renderTree();
+        const stageShell = findRequiredElement(
+          tree,
+          (element) =>
+            element.type === "div" &&
+            (element.props as { "data-slide-stage-shell"?: string })[
+              "data-slide-stage-shell"
+            ] === "true" &&
+            typeof (element.props as { onContextMenu?: unknown })
+              .onContextMenu === "function",
+          "Expected stage shell with contextmenu handler.",
+        );
+        const onContextMenu = (
+          stageShell.props as {
+            onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
+          }
+        ).onContextMenu;
+        assert.ok(onContextMenu);
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const target = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+
+        onContextMenu({
+          clientX: 410,
+          clientY: 165,
+          target,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as MouseEvent<HTMLDivElement>);
+
+        tree = renderTree();
+        const menu = findRequiredElement(
+          tree,
+          (element) => element.type === StageNodeContextMenu,
+          "Expected stage context menu to render.",
+        );
+        const detachStart = (
+          menu.props as { onDetachConnectorFrom?: () => void }
+        ).onDetachConnectorFrom;
+        assert.equal(typeof detachStart, "function");
+        detachStart?.();
+
+        const connector = currentDeck.slides[0]?.children.find(
+          (node) => node.id === "detach-connector" && node.type === "connector",
+        );
+        assert.ok(connector && connector.type === "connector");
+        assert.equal(connector.content.from.kind, "point");
+        if (connector.content.from.kind === "point") {
+          assert.deepEqual(connector.content.from.point, { x: 0, y: 0 });
+        }
+      }),
+    );
+  });
+
+  test("moving a node shows the live position badge", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        const currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "badge-move-node",
+                layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+              }),
+            ],
+            { id: "slide-badge-move", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-badge-move",
+              deck: currentDeck,
+              onDeckChange: () => undefined,
+            }),
+          );
+
+        let tree = renderTree();
+        const stageCanvas = findRequiredElement(
+          tree,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+        const onNodePointerDown = (
+          stageCanvas.props as {
+            onNodePointerDown?: (
+              nodeId: string,
+              event: React.PointerEvent,
+            ) => void;
+          }
+        ).onNodePointerDown;
+        assert.ok(onNodePointerDown);
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const currentTarget = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+
+        onNodePointerDown("badge-move-node", {
+          button: 0,
+          pointerId: 1,
+          clientX: 200,
+          clientY: 200,
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          target: currentTarget,
+          currentTarget,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as React.PointerEvent);
+        listeners.get("pointermove")?.({
+          clientX: 250,
+          clientY: 220,
+          altKey: true,
+        } as PointerEvent);
+
+        tree = renderTree();
+        const badge = findRequiredElement(
+          tree,
+          (element) =>
+            element.type === "div" &&
+            (element.props as { "data-stage-gesture-badge"?: string })[
+              "data-stage-gesture-badge"
+            ] === "true",
+          "Expected live move badge.",
+        );
+        assert.equal(flattenText(badge), "25, 22");
+      }),
+    );
+  });
+
+  test("dragging an already-selected text node does not enter inline edit", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        const currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "drag-selected-text",
+                layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+              }),
+            ],
+            { id: "slide-drag-selected-text", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-drag-selected-text",
+              deck: currentDeck,
+              onDeckChange: () => undefined,
+            }),
+          );
+        const stageCanvasFrom = (root: ReactNode) =>
+          findRequiredElement(
+            root,
+            (element) => element.type === SlideCanvasVNext,
+            "Expected stage canvas to render.",
+          );
+
+        let tree = renderTree();
+        const stageCanvas = stageCanvasFrom(tree);
+        const onNodeClick = (
+          stageCanvas.props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        const onNodePointerDown = (
+          stageCanvas.props as {
+            onNodePointerDown?: (
+              nodeId: string,
+              event: React.PointerEvent,
+            ) => void;
+          }
+        ).onNodePointerDown;
+        assert.ok(onNodeClick);
+        assert.ok(onNodePointerDown);
+        onNodeClick("drag-selected-text", {
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+        } as MouseEvent);
+
+        tree = renderTree();
+        const selectedStageCanvas = stageCanvasFrom(tree);
+        const selectedNodeClick = (
+          selectedStageCanvas.props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        const selectedNodePointerDown = (
+          selectedStageCanvas.props as {
+            onNodePointerDown?: (
+              nodeId: string,
+              event: React.PointerEvent,
+            ) => void;
+          }
+        ).onNodePointerDown;
+        assert.ok(selectedNodeClick);
+        assert.ok(selectedNodePointerDown);
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const currentTarget = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+        selectedNodePointerDown("drag-selected-text", {
+          button: 0,
+          pointerId: 1,
+          clientX: 200,
+          clientY: 200,
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          target: currentTarget,
+          currentTarget,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as React.PointerEvent);
+        listeners.get("pointermove")?.({
+          clientX: 250,
+          clientY: 220,
+          altKey: true,
+        } as PointerEvent);
+        listeners.get("pointerup")?.({
+          clientX: 250,
+          clientY: 220,
+        } as PointerEvent);
+        selectedNodeClick("drag-selected-text", {
+          clientX: 250,
+          clientY: 220,
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as MouseEvent);
+
+        tree = renderTree();
+        const updatedStageCanvas = stageCanvasFrom(tree);
+        const hiddenNodeIds = (
+          updatedStageCanvas.props as { hiddenNodeIds?: ReadonlySet<string> }
+        ).hiddenNodeIds;
+        assert.notEqual(hiddenNodeIds?.has("drag-selected-text"), true);
+      }),
+    );
+  });
+
+  test("pressing another node exits the first node's inline edit", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        const currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "edit-first",
+                layout: { frame: { x: 10, y: 10, w: 25, h: 12 }, zIndex: 1 },
+              }),
+              buildTextNode({
+                id: "press-second",
+                layout: { frame: { x: 60, y: 10, w: 25, h: 12 }, zIndex: 2 },
+              }),
+            ],
+            { id: "slide-exit-edit", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-exit-edit",
+              deck: currentDeck,
+              onDeckChange: () => undefined,
+            }),
+          );
+        const stageCanvasFrom = (root: ReactNode) =>
+          findRequiredElement(
+            root,
+            (element) => element.type === SlideCanvasVNext,
+            "Expected stage canvas to render.",
+          );
+        const hiddenNodeIdsFrom = (root: ReactNode) =>
+          (
+            stageCanvasFrom(root).props as {
+              hiddenNodeIds?: ReadonlySet<string>;
+            }
+          ).hiddenNodeIds;
+        const pointerDownFrom = (root: ReactNode) =>
+          (
+            stageCanvasFrom(root).props as {
+              onNodePointerDown?: (
+                nodeId: string,
+                event: React.PointerEvent,
+              ) => void;
+            }
+          ).onNodePointerDown;
+
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const currentTarget = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+        const pressNode = (
+          pointerDown: (nodeId: string, event: React.PointerEvent) => void,
+          nodeId: string,
+          clientX: number,
+        ) => {
+          pointerDown(nodeId, {
+            button: 0,
+            pointerId: 1,
+            clientX,
+            clientY: 120,
+            shiftKey: false,
+            metaKey: false,
+            ctrlKey: false,
+            altKey: false,
+            target: currentTarget,
+            currentTarget,
+            preventDefault: () => undefined,
+            stopPropagation: () => undefined,
+          } as unknown as React.PointerEvent);
+          listeners.get("pointerup")?.({
+            clientX,
+            clientY: 120,
+          } as PointerEvent);
+        };
+
+        let tree = renderTree();
+        const onNodeClick = (
+          stageCanvasFrom(tree).props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        assert.ok(onNodeClick);
+        onNodeClick("edit-first", {
+          clientX: 120,
+          clientY: 120,
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+        } as MouseEvent);
+
+        tree = renderTree();
+        const selectedPointerDown = pointerDownFrom(tree);
+        assert.ok(selectedPointerDown);
+        pressNode(selectedPointerDown, "edit-first", 120);
+
+        tree = renderTree();
+        assert.ok(
+          hiddenNodeIdsFrom(tree)?.has("edit-first"),
+          "Expected first node to enter inline edit mode.",
+        );
+
+        const pressSecondPointerDown = pointerDownFrom(tree);
+        assert.ok(pressSecondPointerDown);
+        pressNode(pressSecondPointerDown, "press-second", 620);
+
+        tree = renderTree();
+        assert.notEqual(
+          hiddenNodeIdsFrom(tree)?.has("edit-first"),
+          true,
+          "Expected pressing another node to exit the first node's inline edit.",
+        );
+      }),
+    );
+  });
+
+  test("alt-dragging a node duplicates it at the drop point", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        let currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "alt-drag-source",
+                layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+              }),
+            ],
+            { id: "slide-alt-drag", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-alt-drag",
+              deck: currentDeck,
+              onDeckChange: (nextDeck) => {
+                currentDeck = nextDeck;
+              },
+            }),
+          );
+        const stageCanvasFrom = (root: ReactNode) =>
+          findRequiredElement(
+            root,
+            (element) => element.type === SlideCanvasVNext,
+            "Expected stage canvas to render.",
+          );
+
+        let tree = renderTree();
+        const stageCanvas = stageCanvasFrom(tree);
+        const onNodePointerDown = (
+          stageCanvas.props as {
+            onNodePointerDown?: (
+              nodeId: string,
+              event: React.PointerEvent,
+            ) => void;
+          }
+        ).onNodePointerDown;
+        assert.ok(onNodePointerDown);
+
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const currentTarget = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+        onNodePointerDown("alt-drag-source", {
+          button: 0,
+          pointerId: 1,
+          clientX: 200,
+          clientY: 200,
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+          altKey: true,
+          target: currentTarget,
+          currentTarget,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as React.PointerEvent);
+        listeners.get("pointermove")?.({
+          clientX: 350,
+          clientY: 260,
+          altKey: true,
+          shiftKey: false,
+        } as PointerEvent);
+        listeners.get("pointerup")?.({
+          clientX: 350,
+          clientY: 260,
+        } as PointerEvent);
+
+        const children = currentDeck.slides[0]?.children ?? [];
+        assert.equal(
+          children.length,
+          2,
+          "Expected the original plus one duplicate.",
+        );
+        const original = children.find((node) => node.id === "alt-drag-source");
+        assert.ok(original);
+        assert.deepEqual(
+          original.layout?.frame,
+          { x: 20, y: 20, w: 30, h: 12 },
+          "Expected the original to stay in place.",
+        );
+        const duplicate = children.find(
+          (node) => node.id !== "alt-drag-source",
+        );
+        assert.ok(duplicate, "Expected a duplicate node to be created.");
+        const frame = duplicate.layout?.frame;
+        assert.ok(frame);
+        assert.ok(
+          frame.x > 20 && frame.y > 20,
+          "Expected the duplicate to land at the moved position.",
+        );
+
+        tree = renderTree();
+        const updatedStageCanvas = stageCanvasFrom(tree);
+        const selectedNodeIds = (
+          updatedStageCanvas.props as {
+            selection?: { nodeIds?: ReadonlySet<string> };
+          }
+        ).selection?.nodeIds;
+        assert.equal(
+          selectedNodeIds?.has(duplicate.id),
+          true,
+          "Expected the duplicate to become selected.",
+        );
+      }),
+    );
+  });
+
+  test("resizing a node shows the live size badge", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        const currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "badge-resize-node",
+                layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+              }),
+            ],
+            { id: "slide-badge-resize", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-badge-resize",
+              deck: currentDeck,
+              onDeckChange: () => undefined,
+            }),
+          );
+
+        let tree = renderTree();
+        const stageCanvas = findRequiredElement(
+          tree,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+        const onResizeHandlePointerDown = (
+          stageCanvas.props as {
+            onResizeHandlePointerDown?: (
+              nodeId: string,
+              handle: "se",
+              event: React.PointerEvent,
+            ) => void;
+          }
+        ).onResizeHandlePointerDown;
+        assert.ok(onResizeHandlePointerDown);
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const currentTarget = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+
+        onResizeHandlePointerDown("badge-resize-node", "se", {
+          button: 0,
+          pointerId: 1,
+          clientX: 500,
+          clientY: 320,
+          altKey: false,
+          target: currentTarget,
+          currentTarget,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as React.PointerEvent);
+        listeners.get("pointermove")?.({
+          clientX: 550,
+          clientY: 350,
+          altKey: true,
+        } as PointerEvent);
+
+        tree = renderTree();
+        const badge = findRequiredElement(
+          tree,
+          (element) =>
+            element.type === "div" &&
+            (element.props as { "data-stage-gesture-badge"?: string })[
+              "data-stage-gesture-badge"
+            ] === "true",
+          "Expected live resize badge.",
+        );
+        assert.equal(flattenText(badge), "35 × 15");
+      }),
+    );
+  });
+
+  test("bare c connects exactly two selected nodes", async () => {
+    await withWindow(() => {
+      const hookRenderer = createHookRenderer();
+      let currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "connect-a",
+              layout: { frame: { x: 10, y: 10, w: 12, h: 12 }, zIndex: 1 },
+            }),
+            buildTextNode({
+              id: "connect-b",
+              layout: { frame: { x: 60, y: 10, w: 12, h: 12 }, zIndex: 2 },
+            }),
+          ],
+          { id: "slide-connect-pair", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-connect-pair",
+            deck: currentDeck,
+            onDeckChange: (nextDeck) => {
+              currentDeck = nextDeck;
+            },
+          }),
+        );
+      const stageCanvasFrom = (root: ReactNode) =>
+        findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+      const editorRootFrom = (root: ReactNode) =>
+        findRequiredElement(
+          root,
+          (element) =>
+            element.type === "div" &&
+            (element.props as { "data-slide-editor-vnext"?: string })[
+              "data-slide-editor-vnext"
+            ] === "true" &&
+            typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+              "function",
+          "Expected editor root with keydown handler.",
+        );
+
+      let tree = renderTree();
+      const onNodeClick = (
+        stageCanvasFrom(tree).props as {
+          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeClick;
+      assert.ok(onNodeClick);
+      onNodeClick("connect-a", {
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+      tree = renderTree();
+      onNodeClick("connect-b", {
+        shiftKey: true,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const onKeyDown = (
+        editorRootFrom(tree).props as {
+          onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+        }
+      ).onKeyDown;
+      assert.ok(onKeyDown);
+      let prevented = false;
+      onKeyDown({
+        key: "c",
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: null,
+        preventDefault: () => {
+          prevented = true;
+        },
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      assert.equal(prevented, true);
+      const connector = currentDeck.slides[0]?.children.find(
+        (node) => node.type === "connector",
+      );
+      assert.ok(connector);
+      assert.equal(connector.content.from.kind, "node");
+      assert.equal(connector.content.to.kind, "node");
+      if (connector.content.from.kind === "node") {
+        assert.equal(connector.content.from.nodeId, "connect-a");
+      }
+      if (connector.content.to.kind === "node") {
+        assert.equal(connector.content.to.nodeId, "connect-b");
+      }
+    });
+  });
+
+  test("bare c starts connector mode and Enter confirms target", async () => {
+    await withWindow(() => {
+      const hookRenderer = createHookRenderer();
+      let currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "connect-source",
+              layout: { frame: { x: 10, y: 10, w: 12, h: 12 }, zIndex: 1 },
+            }),
+            buildTextNode({
+              id: "connect-target",
+              layout: { frame: { x: 60, y: 10, w: 12, h: 12 }, zIndex: 2 },
+            }),
+          ],
+          { id: "slide-connect-mode", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-connect-mode",
+            deck: currentDeck,
+            onDeckChange: (nextDeck) => {
+              currentDeck = nextDeck;
+            },
+          }),
+        );
+      const stageCanvasFrom = (root: ReactNode) =>
+        findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+      const keyDownFrom = (root: ReactNode) =>
+        (
+          findRequiredElement(
+            root,
+            (element) =>
+              element.type === "div" &&
+              (element.props as { "data-slide-editor-vnext"?: string })[
+                "data-slide-editor-vnext"
+              ] === "true" &&
+              typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+                "function",
+            "Expected editor root with keydown handler.",
+          ).props as {
+            onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+          }
+        ).onKeyDown;
+
+      let tree = renderTree();
+      const onNodeClick = (
+        stageCanvasFrom(tree).props as {
+          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeClick;
+      assert.ok(onNodeClick);
+      onNodeClick("connect-source", {
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      keyDownFrom(tree)?.({
+        key: "c",
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: null,
+        preventDefault: () => undefined,
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      tree = renderTree();
+      const selection = (
+        stageCanvasFrom(tree).props as {
+          selection?: { nodeIds?: ReadonlySet<string> };
+        }
+      ).selection;
+      assert.ok(selection?.nodeIds?.has("connect-source"));
+      assert.ok(selection?.nodeIds?.has("connect-target"));
+
+      keyDownFrom(tree)?.({
+        key: "Enter",
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: null,
+        preventDefault: () => undefined,
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      const connector = currentDeck.slides[0]?.children.find(
+        (node) => node.type === "connector",
+      );
+      assert.ok(connector);
+      assert.equal(connector.content.from.kind, "node");
+      assert.equal(connector.content.to.kind, "node");
+    });
+  });
+
+  test("bare c cycles the selected connector end anchor", async () => {
+    await withWindow(() => {
+      const hookRenderer = createHookRenderer();
+      let currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "anchor-a",
+              layout: { frame: { x: 10, y: 10, w: 12, h: 12 }, zIndex: 1 },
+            }),
+            buildTextNode({
+              id: "anchor-b",
+              layout: { frame: { x: 60, y: 10, w: 12, h: 12 }, zIndex: 2 },
+            }),
+            {
+              id: "anchor-connector",
+              type: "connector" as const,
+              role: "connector" as const,
+              layout: { frame: { x: 22, y: 16, w: 38, h: 1 }, zIndex: 3 },
+              style: { ref: "connector.primary" as const },
+              content: {
+                from: {
+                  kind: "node" as const,
+                  nodeId: "anchor-a",
+                  anchor: "right" as const,
+                },
+                to: {
+                  kind: "node" as const,
+                  nodeId: "anchor-b",
+                  anchor: "left" as const,
+                },
+                routing: "straight" as const,
+              },
+            },
+          ],
+          { id: "slide-anchor-cycle", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-anchor-cycle",
+            deck: currentDeck,
+            onDeckChange: (nextDeck) => {
+              currentDeck = nextDeck;
+            },
+          }),
+        );
+      const stageCanvasFrom = (root: ReactNode) =>
+        findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+
+      let tree = renderTree();
+      const onNodeClick = (
+        stageCanvasFrom(tree).props as {
+          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeClick;
+      assert.ok(onNodeClick);
+      onNodeClick("anchor-connector", {
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const editorRoot = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "data-slide-editor-vnext"?: string })[
+            "data-slide-editor-vnext"
+          ] === "true" &&
+          typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+            "function",
+        "Expected editor root with keydown handler.",
+      );
+      const onKeyDown = (
+        editorRoot.props as {
+          onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+        }
+      ).onKeyDown;
+      assert.ok(onKeyDown);
+      onKeyDown({
+        key: "c",
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: null,
+        preventDefault: () => undefined,
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      const connector = currentDeck.slides[0]?.children.find(
+        (node) => node.id === "anchor-connector" && node.type === "connector",
+      );
+      assert.ok(connector && connector.type === "connector");
+      assert.equal(connector.content.to.kind, "node");
+      if (connector.content.to.kind === "node") {
+        assert.equal(connector.content.to.anchor, "right");
+      }
+    });
+  });
+
   test("supports keyboard rotation with shifted bracket shortcuts", () => {
     withMockHTMLElement(() => {
       const hookRenderer = createHookRenderer();
@@ -902,154 +2372,219 @@ describe("SlideEditorVNext failure-state coverage", () => {
     });
 
     test("clicking the already-selected text node enters edit mode at the click point", () => {
-      const hookRenderer = createHookRenderer();
-      const currentDeck = buildDeckV7([
-        buildSlideV7(
-          "content",
-          [
-            buildTextNode({
-              id: "selected-text",
-              layout: { frame: { x: 20, y: 24, w: 36, h: 12 }, zIndex: 1 },
-              content: {
-                paragraphs: [
-                  { id: "selected-text-p1", text: "Place the caret here" },
-                ],
-              },
-            }),
-          ],
-          { id: "slide-with-selected-text", name: "Slide 1" },
-        ),
-      ]);
+      withMockHTMLElement((createElement) =>
+        withPointerWindow((listeners) => {
+          const hookRenderer = createHookRenderer();
+          const currentDeck = buildDeckV7([
+            buildSlideV7(
+              "content",
+              [
+                buildTextNode({
+                  id: "selected-text",
+                  layout: {
+                    frame: { x: 20, y: 24, w: 36, h: 12 },
+                    zIndex: 1,
+                  },
+                  content: {
+                    paragraphs: [
+                      {
+                        id: "selected-text-p1",
+                        text: "Place the caret here",
+                      },
+                    ],
+                  },
+                }),
+              ],
+              { id: "slide-with-selected-text", name: "Slide 1" },
+            ),
+          ]);
 
-      const renderTree = () =>
-        hookRenderer.run(() =>
-          SlideEditorVNext({
-            documentId: "doc-selected-click",
-            deck: currentDeck,
-            onDeckChange: () => undefined,
-          }),
-        );
-      const nodeClickFrom = (root: ReactNode) => {
-        const stageCanvas = findRequiredElement(
-          root,
-          (element) => element.type === SlideCanvasVNext,
-          "Expected stage canvas to render.",
-        );
-        const onNodeClick = (
-          stageCanvas.props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
-        assert.ok(onNodeClick);
-        return onNodeClick;
-      };
+          const renderTree = () =>
+            hookRenderer.run(() =>
+              SlideEditorVNext({
+                documentId: "doc-selected-click",
+                deck: currentDeck,
+                onDeckChange: () => undefined,
+              }),
+            );
+          const stageCanvasFrom = (root: ReactNode) =>
+            findRequiredElement(
+              root,
+              (element) => element.type === SlideCanvasVNext,
+              "Expected stage canvas to render.",
+            );
 
-      let tree = renderTree();
-      nodeClickFrom(tree)("selected-text", {
-        clientX: 360,
-        clientY: 240,
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+          let tree = renderTree();
+          const initialStageCanvas = stageCanvasFrom(tree);
+          const onNodeClick = (
+            initialStageCanvas.props as {
+              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+            }
+          ).onNodeClick;
+          assert.ok(onNodeClick);
+          onNodeClick("selected-text", {
+            clientX: 360,
+            clientY: 240,
+            shiftKey: false,
+            metaKey: false,
+            ctrlKey: false,
+          } as MouseEvent);
 
-      tree = renderTree();
-      nodeClickFrom(tree)("selected-text", {
-        clientX: 372,
-        clientY: 246,
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+          tree = renderTree();
+          const selectedStageCanvas = stageCanvasFrom(tree);
+          const onNodePointerDown = (
+            selectedStageCanvas.props as {
+              onNodePointerDown?: (
+                nodeId: string,
+                event: React.PointerEvent,
+              ) => void;
+            }
+          ).onNodePointerDown;
+          assert.ok(onNodePointerDown);
+          const canvasElement = createElement({
+            rect: { left: 0, top: 0, width: 1000, height: 1000 },
+          });
+          const currentTarget = createElement({
+            closestMap: {
+              '[data-slide-canvas-vnext="true"]': canvasElement,
+            },
+          });
+          onNodePointerDown("selected-text", {
+            button: 0,
+            pointerId: 1,
+            clientX: 372,
+            clientY: 246,
+            shiftKey: false,
+            metaKey: false,
+            ctrlKey: false,
+            altKey: false,
+            target: currentTarget,
+            currentTarget,
+            preventDefault: () => undefined,
+            stopPropagation: () => undefined,
+          } as unknown as React.PointerEvent);
+          listeners.get("pointerup")?.({
+            clientX: 372,
+            clientY: 246,
+          } as PointerEvent);
 
-      tree = renderTree();
-      const updatedStageCanvas = findRequiredElement(
-        tree,
-        (element) => element.type === SlideCanvasVNext,
-        "Expected stage canvas after selected text click.",
-      );
-      const hiddenNodeIds = (
-        updatedStageCanvas.props as {
-          hiddenNodeIds?: ReadonlySet<string>;
-        }
-      ).hiddenNodeIds;
-      assert.ok(
-        hiddenNodeIds?.has("selected-text"),
-        "Expected selected text click to enter inline edit mode.",
+          tree = renderTree();
+          const updatedStageCanvas = stageCanvasFrom(tree);
+          const hiddenNodeIds = (
+            updatedStageCanvas.props as {
+              hiddenNodeIds?: ReadonlySet<string>;
+            }
+          ).hiddenNodeIds;
+          assert.ok(
+            hiddenNodeIds?.has("selected-text"),
+            "Expected selected text click to enter inline edit mode.",
+          );
+        }),
       );
     });
 
     test("clicking an already-selected empty shape enters edit mode at the beginning", () => {
-      const hookRenderer = createHookRenderer();
-      const currentDeck = buildDeckV7([
-        buildSlideV7(
-          "content",
-          [
-            buildShapeNode({
-              id: "empty-shape",
-              layout: { frame: { x: 20, y: 24, w: 36, h: 12 }, zIndex: 1 },
-              content: { shape: "rect" },
-            }),
-          ],
-          { id: "slide-with-empty-shape", name: "Slide 1" },
-        ),
-      ]);
+      withMockHTMLElement((createElement) =>
+        withPointerWindow((listeners) => {
+          const hookRenderer = createHookRenderer();
+          const currentDeck = buildDeckV7([
+            buildSlideV7(
+              "content",
+              [
+                buildShapeNode({
+                  id: "empty-shape",
+                  layout: {
+                    frame: { x: 20, y: 24, w: 36, h: 12 },
+                    zIndex: 1,
+                  },
+                  content: { shape: "rect" },
+                }),
+              ],
+              { id: "slide-with-empty-shape", name: "Slide 1" },
+            ),
+          ]);
 
-      const renderTree = () =>
-        hookRenderer.run(() =>
-          SlideEditorVNext({
-            documentId: "doc-selected-empty-shape-click",
-            deck: currentDeck,
-            onDeckChange: () => undefined,
-          }),
-        );
-      const nodeClickFrom = (root: ReactNode) => {
-        const stageCanvas = findRequiredElement(
-          root,
-          (element) => element.type === SlideCanvasVNext,
-          "Expected stage canvas to render.",
-        );
-        const onNodeClick = (
-          stageCanvas.props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
-        assert.ok(onNodeClick);
-        return onNodeClick;
-      };
+          const renderTree = () =>
+            hookRenderer.run(() =>
+              SlideEditorVNext({
+                documentId: "doc-selected-empty-shape-click",
+                deck: currentDeck,
+                onDeckChange: () => undefined,
+              }),
+            );
+          const stageCanvasFrom = (root: ReactNode) =>
+            findRequiredElement(
+              root,
+              (element) => element.type === SlideCanvasVNext,
+              "Expected stage canvas to render.",
+            );
 
-      let tree = renderTree();
-      nodeClickFrom(tree)("empty-shape", {
-        clientX: 360,
-        clientY: 240,
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+          let tree = renderTree();
+          const initialStageCanvas = stageCanvasFrom(tree);
+          const onNodeClick = (
+            initialStageCanvas.props as {
+              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+            }
+          ).onNodeClick;
+          assert.ok(onNodeClick);
+          onNodeClick("empty-shape", {
+            clientX: 360,
+            clientY: 240,
+            shiftKey: false,
+            metaKey: false,
+            ctrlKey: false,
+          } as MouseEvent);
 
-      tree = renderTree();
-      nodeClickFrom(tree)("empty-shape", {
-        clientX: 372,
-        clientY: 246,
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+          tree = renderTree();
+          const selectedStageCanvas = stageCanvasFrom(tree);
+          const onNodePointerDown = (
+            selectedStageCanvas.props as {
+              onNodePointerDown?: (
+                nodeId: string,
+                event: React.PointerEvent,
+              ) => void;
+            }
+          ).onNodePointerDown;
+          assert.ok(onNodePointerDown);
+          const canvasElement = createElement({
+            rect: { left: 0, top: 0, width: 1000, height: 1000 },
+          });
+          const currentTarget = createElement({
+            closestMap: {
+              '[data-slide-canvas-vnext="true"]': canvasElement,
+            },
+          });
+          onNodePointerDown("empty-shape", {
+            button: 0,
+            pointerId: 1,
+            clientX: 372,
+            clientY: 246,
+            shiftKey: false,
+            metaKey: false,
+            ctrlKey: false,
+            altKey: false,
+            target: currentTarget,
+            currentTarget,
+            preventDefault: () => undefined,
+            stopPropagation: () => undefined,
+          } as unknown as React.PointerEvent);
+          listeners.get("pointerup")?.({
+            clientX: 372,
+            clientY: 246,
+          } as PointerEvent);
 
-      tree = renderTree();
-      const updatedStageCanvas = findRequiredElement(
-        tree,
-        (element) => element.type === SlideCanvasVNext,
-        "Expected stage canvas after selected empty shape click.",
-      );
-      const hiddenNodeIds = (
-        updatedStageCanvas.props as {
-          hiddenNodeIds?: ReadonlySet<string>;
-        }
-      ).hiddenNodeIds;
-      assert.ok(
-        hiddenNodeIds?.has("empty-shape"),
-        "Expected selected empty shape click to enter inline edit mode.",
+          tree = renderTree();
+          const updatedStageCanvas = stageCanvasFrom(tree);
+          const hiddenNodeIds = (
+            updatedStageCanvas.props as {
+              hiddenNodeIds?: ReadonlySet<string>;
+            }
+          ).hiddenNodeIds;
+          assert.ok(
+            hiddenNodeIds?.has("empty-shape"),
+            "Expected selected empty shape click to enter inline edit mode.",
+          );
+        }),
       );
     });
   });

@@ -6,7 +6,7 @@ import {
   createNodeMovePreview,
   nodeMovePreviewsEqual,
   type NodeMovePreview,
-} from "./slide-editor-vnext";
+} from "./stage-gesture-feedback";
 
 describe("createNodeMovePreview", () => {
   test("keeps node drag press-pending under the click-move threshold", () => {
@@ -64,6 +64,72 @@ describe("createNodeMovePreview", () => {
     assert.ok(frame);
     assert.equal(Math.round(frame.x * 10), 101);
     assert.equal(Math.round(frame.y * 10), 899);
+  });
+
+  test("locks movement to the horizontal axis under Shift when x dominates", () => {
+    const originalFrame = { x: 20, y: 30, w: 20, h: 10 };
+    const preview = createNodeMovePreview({
+      startClientX: 100,
+      startClientY: 100,
+      nextClientX: 200,
+      nextClientY: 130,
+      rectWidth: 1000,
+      rectHeight: 1000,
+      originalFrames: new Map([["node-a", originalFrame]]),
+      alignmentGuides: [],
+      snapToGuides: false,
+      lockAxis: true,
+    });
+
+    assert.ok(preview);
+    const frame = preview.patches.get("node-a")?.frame;
+    assert.ok(frame);
+    assert.equal(frame.y, originalFrame.y);
+    assert.equal(Math.round(frame.x), 30);
+  });
+
+  test("locks movement to the vertical axis under Shift when y dominates", () => {
+    const originalFrame = { x: 20, y: 30, w: 20, h: 10 };
+    const preview = createNodeMovePreview({
+      startClientX: 100,
+      startClientY: 100,
+      nextClientX: 120,
+      nextClientY: 250,
+      rectWidth: 1000,
+      rectHeight: 1000,
+      originalFrames: new Map([["node-a", originalFrame]]),
+      alignmentGuides: [],
+      snapToGuides: false,
+      lockAxis: true,
+    });
+
+    assert.ok(preview);
+    const frame = preview.patches.get("node-a")?.frame;
+    assert.ok(frame);
+    assert.equal(frame.x, originalFrame.x);
+    assert.equal(Math.round(frame.y), 45);
+  });
+
+  test("keeps the locked axis fixed even when a guide would snap it", () => {
+    const originalFrame = { x: 20, y: 41, w: 20, h: 10 };
+    const preview = createNodeMovePreview({
+      startClientX: 100,
+      startClientY: 100,
+      nextClientX: 200,
+      nextClientY: 190,
+      rectWidth: 1000,
+      rectHeight: 1000,
+      originalFrames: new Map([["node-a", originalFrame]]),
+      // A y-guide at 50 sits within snap range of the moved y; axis lock must win.
+      alignmentGuides: [{ axis: "y", positionPct: 50 }],
+      snapToGuides: true,
+      lockAxis: true,
+    });
+
+    assert.ok(preview);
+    const frame = preview.patches.get("node-a")?.frame;
+    assert.ok(frame);
+    assert.equal(frame.y, originalFrame.y);
   });
 
   test("commits one final layout patch after multiple drag previews", () => {
