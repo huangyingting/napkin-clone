@@ -16,6 +16,7 @@ import {
   emptyTableRow,
   insertTableColumn,
   insertTableRow,
+  nextImageCrop,
   textContentFromValue,
   textValue,
   updateConnectorPoint,
@@ -28,6 +29,10 @@ import {
   strokeColor,
   tableFillColor,
 } from "./local-style-panel";
+import {
+  parseFiniteNumberInput,
+  sanitizeBoundedNumber,
+} from "./numeric-sanitization";
 import {
   slideAccentColor,
   slideBackgroundAssetId,
@@ -122,6 +127,18 @@ describe("inspector panel pure helpers", () => {
       kind: "point",
       point: { x: 42, y: 20 },
     });
+    assert.deepEqual(updateConnectorPoint(connector, "from", "x", 120).from, {
+      kind: "point",
+      point: { x: 100, y: 20 },
+    });
+    assert.deepEqual(updateConnectorPoint(connector, "from", "y", -5).from, {
+      kind: "point",
+      point: { x: 10, y: 0 },
+    });
+    assert.equal(
+      updateConnectorPoint(connector, "from", "x", Number.POSITIVE_INFINITY),
+      connector,
+    );
     assert.equal(updateConnectorPoint(connector, "to", "y", 99), connector);
   });
 
@@ -157,8 +174,42 @@ describe("inspector panel pure helpers", () => {
         },
         { w: 10 },
       ),
-      { x: 0, y: 0, w: 10, h: 0 },
+      { x: 0, y: 0, w: 10, h: 0.5 },
     );
+    assert.deepEqual(nextFrameForPatch(layout, { w: 180, x: 120, y: -20 }), {
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 90,
+    });
+    assert.deepEqual(
+      nextFrameForPatch(layout, { x: Number.NaN, h: Number.POSITIVE_INFINITY }),
+      {
+        x: 10,
+        y: 20,
+        w: 40,
+        h: 20,
+      },
+    );
+  });
+
+  test("clamps crop edits and rejects invalid crop values", () => {
+    assert.deepEqual(nextImageCrop(undefined, "left", 20), {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 20,
+    });
+    assert.deepEqual(
+      nextImageCrop({ top: 5, right: 4, bottom: 3, left: 2 }, "top", 120),
+      {
+        top: 95,
+        right: 4,
+        bottom: 3,
+        left: 2,
+      },
+    );
+    assert.equal(nextImageCrop(undefined, "right", Number.NaN), undefined);
   });
 
   test("reads local style color fallbacks for style panels", () => {
@@ -178,6 +229,16 @@ describe("inspector panel pure helpers", () => {
     assert.equal(tableFillColor(style.table?.headerFill, "#000000"), "#f8fafc");
     assert.equal(tableFillColor({ type: "pattern" }, "#000000"), "#000000");
     assert.equal(tableFillColor(undefined, "#000000"), "#000000");
+  });
+
+  test("parses finite numeric input and clamps bounded style values", () => {
+    assert.equal(parseFiniteNumberInput(""), undefined);
+    assert.equal(parseFiniteNumberInput("Infinity"), undefined);
+    assert.equal(parseFiniteNumberInput("14.5"), 14.5);
+    assert.equal(sanitizeBoundedNumber(Number.NaN, 0, 1), undefined);
+    assert.equal(sanitizeBoundedNumber(-2, 0, 1), 0);
+    assert.equal(sanitizeBoundedNumber(2, 0, 1), 1);
+    assert.equal(sanitizeBoundedNumber(0.6, 0, 1), 0.6);
   });
 
   test("builds slide settings source and background patches", () => {

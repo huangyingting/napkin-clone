@@ -651,11 +651,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function clampFrame(frame: LayoutBox["frame"]): LayoutBox["frame"] {
-  const w = Math.max(0.5, Math.min(100, frame.w));
-  const h = Math.max(0.5, Math.min(100, frame.h));
+  const w = Math.max(
+    0.5,
+    Math.min(100, Number.isFinite(frame.w) ? frame.w : 0.5),
+  );
+  const h = Math.max(
+    0.5,
+    Math.min(100, Number.isFinite(frame.h) ? frame.h : 0.5),
+  );
   return {
-    x: Math.max(0, Math.min(100 - w, frame.x)),
-    y: Math.max(0, Math.min(100 - h, frame.y)),
+    x: Math.max(0, Math.min(100 - w, Number.isFinite(frame.x) ? frame.x : 0)),
+    y: Math.max(0, Math.min(100 - h, Number.isFinite(frame.y) ? frame.y : 0)),
     w,
     h,
   };
@@ -2712,14 +2718,22 @@ export function SlideEditorVNext({
 
   function handleUpdateSelectedLayout(patch: Partial<LayoutBox>) {
     if (!activeSlide || !firstSelectedId) return;
+    const frame =
+      patch.frame !== undefined ? clampFrame(patch.frame) : undefined;
     const rotation =
       patch.rotation !== undefined
         ? normalizeRotationDegrees(patch.rotation)
         : undefined;
+    const zIndex =
+      patch.zIndex !== undefined && Number.isFinite(patch.zIndex)
+        ? Math.trunc(patch.zIndex)
+        : undefined;
     onDeckChange(
       updateNodeLayout(deck, activeSlide.id, firstSelectedId, {
         ...patch,
+        ...(frame !== undefined ? { frame } : {}),
         ...(rotation !== undefined ? { rotation } : {}),
+        ...(zIndex !== undefined ? { zIndex } : {}),
       }),
     );
   }
