@@ -248,14 +248,701 @@ const DECK_CHROME_KINDS = [
   "safeArea",
 ] as const;
 
+const STYLE_PATCH_TOP_LEVEL_KEYS = new Set([
+  "text",
+  "fill",
+  "stroke",
+  "radius",
+  "opacity",
+  "shadow",
+  "effect",
+  "image",
+  "connector",
+  "table",
+  "slide",
+  "visual",
+  "clip",
+  "blendMode",
+]);
+const TEXT_STYLE_ALIGNMENTS = ["left", "center", "right"] as const;
+const TEXT_STYLE_VERTICAL_ALIGNMENTS = ["top", "middle", "bottom"] as const;
+const TEXT_STYLE_TRANSFORMS = ["none", "uppercase"] as const;
+const FILL_TYPES = [
+  "solid",
+  "linearGradient",
+  "radialGradient",
+  "conicGradient",
+  "repeatingLinearGradient",
+  "pattern",
+  "image",
+] as const;
+const PATTERN_FILL_KINDS = ["grid", "dots", "stripes", "scanlines"] as const;
+const STROKE_DASHES = ["solid", "dashed", "dotted"] as const;
+const EFFECT_KINDS = ["none", "glass", "blur", "glow"] as const;
+const EFFECT_GLASS_INTENSITIES = ["light", "medium", "strong"] as const;
+const STYLE_IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
+const IMAGE_MASK_SHAPES = [
+  "none",
+  "rect",
+  "circle",
+  "ellipse",
+  "rounded",
+  "diamond",
+  "triangle",
+] as const;
+const CONNECTOR_ARROW_KINDS = ["none", "arrow", "filled"] as const;
+const CONNECTOR_ROUTING_KINDS = ["straight", "elbow", "curved"] as const;
+const SLIDE_SURFACE_CHROME = ["default", "minimal", "none"] as const;
+const SLIDE_SURFACE_DECORATION = ["none", "subtle", "default", "expressive"];
+const BLEND_MODES = [
+  "normal",
+  "multiply",
+  "screen",
+  "overlay",
+  "darken",
+  "lighten",
+] as const;
+
+function validateKnownObjectKeys(
+  input: Record<string, unknown>,
+  ctx: string,
+  allowed: Set<string>,
+  fieldDescription: string,
+  errors: string[],
+): void {
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known ${fieldDescription}`);
+    }
+  }
+}
+
+function validateTokenRef(input: unknown, ctx: string, errors: string[]): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be a token reference object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["token"]),
+    "token ref field",
+    errors,
+  );
+  if (typeof input.token !== "string" || input.token.length === 0) {
+    fail(errors, `${ctx}.token must be a non-empty string`);
+  }
+}
+
+function validateColorValue(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (typeof input === "string") return;
+  if (isPlainObject(input)) {
+    validateTokenRef(input, ctx, errors);
+    return;
+  }
+  fail(errors, `${ctx} must be a string or token reference`);
+}
+
+function validateColorOrTokenString(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (typeof input === "string") return;
+  if (isPlainObject(input)) {
+    validateTokenRef(input, ctx, errors);
+    return;
+  }
+  fail(errors, `${ctx} must be a string or token reference`);
+}
+
+function validateInsetsPatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  validateKnownObjectKeys(input, ctx, allowed, "inset field", errors);
+  for (const key of ["top", "right", "bottom", "left"] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
+function validateTextStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set([
+    "fontFamily",
+    "fontSizePt",
+    "weight",
+    "italic",
+    "underline",
+    "color",
+    "lineHeight",
+    "paragraphSpacingPt",
+    "align",
+    "verticalAlign",
+    "letterSpacingEm",
+    "textTransform",
+  ]);
+  validateKnownObjectKeys(input, ctx, allowed, "text style field", errors);
+  if (input.fontFamily !== undefined) {
+    validateColorOrTokenString(input.fontFamily, `${ctx}.fontFamily`, errors);
+  }
+  validateOptionalFiniteNumber(input.fontSizePt, `${ctx}.fontSizePt`, errors);
+  validateOptionalFiniteNumber(input.weight, `${ctx}.weight`, errors);
+  if (input.italic !== undefined && typeof input.italic !== "boolean") {
+    fail(errors, `${ctx}.italic must be a boolean`);
+  }
+  if (input.underline !== undefined && typeof input.underline !== "boolean") {
+    fail(errors, `${ctx}.underline must be a boolean`);
+  }
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+  validateOptionalFiniteNumber(input.lineHeight, `${ctx}.lineHeight`, errors);
+  validateOptionalFiniteNumber(
+    input.paragraphSpacingPt,
+    `${ctx}.paragraphSpacingPt`,
+    errors,
+  );
+  validateEnumValue(input.align, TEXT_STYLE_ALIGNMENTS, `${ctx}.align`, errors);
+  validateEnumValue(
+    input.verticalAlign,
+    TEXT_STYLE_VERTICAL_ALIGNMENTS,
+    `${ctx}.verticalAlign`,
+    errors,
+  );
+  validateOptionalFiniteNumber(
+    input.letterSpacingEm,
+    `${ctx}.letterSpacingEm`,
+    errors,
+  );
+  validateEnumValue(
+    input.textTransform,
+    TEXT_STYLE_TRANSFORMS,
+    `${ctx}.textTransform`,
+    errors,
+  );
+}
+
+function validateGradientStopsPatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(input)) {
+    fail(errors, `${ctx} must be an array`);
+    return;
+  }
+  for (let i = 0; i < input.length; i++) {
+    const stop = input[i];
+    const stopCtx = `${ctx}[${i}]`;
+    if (!isPlainObject(stop)) {
+      fail(errors, `${stopCtx} must be an object`);
+      continue;
+    }
+    validateKnownObjectKeys(
+      stop,
+      stopCtx,
+      new Set(["color", "offsetPct"]),
+      "gradient stop field",
+      errors,
+    );
+    if (stop.color !== undefined) {
+      validateColorValue(stop.color, `${stopCtx}.color`, errors);
+    }
+    if (stop.offsetPct !== undefined && !isFiniteNumber(stop.offsetPct)) {
+      fail(errors, `${stopCtx}.offsetPct must be a finite number`);
+    }
+  }
+}
+
+function validateFillStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set([
+    "type",
+    "color",
+    "from",
+    "to",
+    "angle",
+    "stops",
+    "inner",
+    "outer",
+    "cx",
+    "cy",
+    "r",
+    "rx",
+    "ry",
+    "fromAngle",
+    "kind",
+    "background",
+    "spacingPct",
+    "strokeWidthPct",
+    "assetId",
+    "opacity",
+    "sizePct",
+  ]);
+  validateKnownObjectKeys(input, ctx, allowed, "fill style field", errors);
+  validateEnumValue(input.type, FILL_TYPES, `${ctx}.type`, errors);
+  for (const key of [
+    "color",
+    "from",
+    "to",
+    "inner",
+    "outer",
+    "background",
+  ] as const) {
+    if (input[key] !== undefined) {
+      validateColorValue(input[key], `${ctx}.${key}`, errors);
+    }
+  }
+  for (const key of [
+    "angle",
+    "cx",
+    "cy",
+    "r",
+    "rx",
+    "ry",
+    "fromAngle",
+    "spacingPct",
+    "strokeWidthPct",
+    "sizePct",
+    "opacity",
+  ] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+  if (input.stops !== undefined) {
+    validateGradientStopsPatch(input.stops, `${ctx}.stops`, errors);
+  }
+  validateEnumValue(input.kind, PATTERN_FILL_KINDS, `${ctx}.kind`, errors);
+  if (
+    input.assetId !== undefined &&
+    (typeof input.assetId !== "string" || input.assetId.length === 0)
+  ) {
+    fail(errors, `${ctx}.assetId must be a non-empty string`);
+  }
+}
+
+function validateStrokeStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["color", "widthPt", "dash"]),
+    "stroke style field",
+    errors,
+  );
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+  validateOptionalFiniteNumber(input.widthPt, `${ctx}.widthPt`, errors);
+  validateEnumValue(input.dash, STROKE_DASHES, `${ctx}.dash`, errors);
+}
+
+function validateRadiusStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set([
+      "allPt",
+      "topLeftPt",
+      "topRightPt",
+      "bottomRightPt",
+      "bottomLeftPt",
+    ]),
+    "radius style field",
+    errors,
+  );
+  for (const key of [
+    "allPt",
+    "topLeftPt",
+    "topRightPt",
+    "bottomRightPt",
+    "bottomLeftPt",
+  ] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
+function validateShadowStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["xPt", "yPt", "blurPt", "color", "opacity"]),
+    "shadow style field",
+    errors,
+  );
+  for (const key of ["xPt", "yPt", "blurPt", "opacity"] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+}
+
+function validateEffectStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["kind", "intensity", "radiusPt", "color", "blurPt", "opacity"]),
+    "effect style field",
+    errors,
+  );
+  validateEnumValue(input.kind, EFFECT_KINDS, `${ctx}.kind`, errors);
+  validateEnumValue(
+    input.intensity,
+    EFFECT_GLASS_INTENSITIES,
+    `${ctx}.intensity`,
+    errors,
+  );
+  validateOptionalFiniteNumber(input.radiusPt, `${ctx}.radiusPt`, errors);
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+  validateOptionalFiniteNumber(input.blurPt, `${ctx}.blurPt`, errors);
+  validateOptionalFiniteNumber(input.opacity, `${ctx}.opacity`, errors);
+}
+
+function validateImageStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set([
+      "fit",
+      "brightness",
+      "contrast",
+      "saturation",
+      "maskShape",
+      "radiusPct",
+      "shadow",
+    ]),
+    "image style field",
+    errors,
+  );
+  validateEnumValue(input.fit, STYLE_IMAGE_FIT_MODES, `${ctx}.fit`, errors);
+  validateOptionalFiniteNumber(input.brightness, `${ctx}.brightness`, errors);
+  validateOptionalFiniteNumber(input.contrast, `${ctx}.contrast`, errors);
+  validateOptionalFiniteNumber(input.saturation, `${ctx}.saturation`, errors);
+  validateEnumValue(
+    input.maskShape,
+    IMAGE_MASK_SHAPES,
+    `${ctx}.maskShape`,
+    errors,
+  );
+  validateOptionalFiniteNumber(input.radiusPct, `${ctx}.radiusPct`, errors);
+  if (input.shadow !== undefined && typeof input.shadow !== "boolean") {
+    fail(errors, `${ctx}.shadow must be a boolean`);
+  }
+}
+
+function validateConnectorStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["stroke", "startArrow", "endArrow", "routing"]),
+    "connector style field",
+    errors,
+  );
+  if (input.stroke !== undefined) {
+    validateStrokeStylePatch(input.stroke, `${ctx}.stroke`, errors);
+  }
+  validateEnumValue(
+    input.startArrow,
+    CONNECTOR_ARROW_KINDS,
+    `${ctx}.startArrow`,
+    errors,
+  );
+  validateEnumValue(
+    input.endArrow,
+    CONNECTOR_ARROW_KINDS,
+    `${ctx}.endArrow`,
+    errors,
+  );
+  validateEnumValue(
+    input.routing,
+    CONNECTOR_ROUTING_KINDS,
+    `${ctx}.routing`,
+    errors,
+  );
+}
+
+function validateTableStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set([
+      "headerFill",
+      "rowFill",
+      "alternateRowFill",
+      "border",
+      "cellPaddingPt",
+      "text",
+      "headerText",
+    ]),
+    "table style field",
+    errors,
+  );
+  if (input.headerFill !== undefined) {
+    validateFillStylePatch(input.headerFill, `${ctx}.headerFill`, errors);
+  }
+  if (input.rowFill !== undefined) {
+    validateFillStylePatch(input.rowFill, `${ctx}.rowFill`, errors);
+  }
+  if (input.alternateRowFill !== undefined) {
+    validateFillStylePatch(
+      input.alternateRowFill,
+      `${ctx}.alternateRowFill`,
+      errors,
+    );
+  }
+  if (input.border !== undefined) {
+    validateStrokeStylePatch(input.border, `${ctx}.border`, errors);
+  }
+  if (input.cellPaddingPt !== undefined) {
+    validateInsetsPatch(input.cellPaddingPt, `${ctx}.cellPaddingPt`, errors);
+  }
+  if (input.text !== undefined) {
+    validateTextStylePatch(input.text, `${ctx}.text`, errors);
+  }
+  if (input.headerText !== undefined) {
+    validateTextStylePatch(input.headerText, `${ctx}.headerText`, errors);
+  }
+}
+
+function validateSlideSurfaceStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["background", "accent", "paddingPct", "chrome", "decoration"]),
+    "slide style field",
+    errors,
+  );
+  if (input.background !== undefined) {
+    validateFillStylePatch(input.background, `${ctx}.background`, errors);
+  }
+  if (input.accent !== undefined) {
+    validateColorValue(input.accent, `${ctx}.accent`, errors);
+  }
+  if (input.paddingPct !== undefined) {
+    validateInsetsPatch(input.paddingPct, `${ctx}.paddingPct`, errors);
+  }
+  validateEnumValue(
+    input.chrome,
+    SLIDE_SURFACE_CHROME,
+    `${ctx}.chrome`,
+    errors,
+  );
+  validateEnumValue(
+    input.decoration,
+    SLIDE_SURFACE_DECORATION,
+    `${ctx}.decoration`,
+    errors,
+  );
+}
+
+function validateVisualStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["styleThemeId", "transparentBackground", "channelColors"]),
+    "visual style field",
+    errors,
+  );
+  validateOptionalString(input.styleThemeId, `${ctx}.styleThemeId`, errors);
+  if (
+    input.transparentBackground !== undefined &&
+    typeof input.transparentBackground !== "boolean"
+  ) {
+    fail(errors, `${ctx}.transparentBackground must be a boolean`);
+  }
+  if (input.channelColors !== undefined) {
+    if (!isPlainObject(input.channelColors)) {
+      fail(errors, `${ctx}.channelColors must be an object`);
+    } else {
+      for (const [channel, value] of Object.entries(input.channelColors)) {
+        validateColorValue(value, `${ctx}.channelColors.${channel}`, errors);
+      }
+    }
+  }
+}
+
+function validateClipStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["enabled"]),
+    "clip style field",
+    errors,
+  );
+  if (input.enabled !== undefined && typeof input.enabled !== "boolean") {
+    fail(errors, `${ctx}.enabled must be a boolean`);
+  }
+}
+
 function validateStylePatch(
   input: unknown,
   ctx: string,
   errors: string[],
 ): void {
-  if (input !== undefined && !isPlainObject(input)) {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
+    return;
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    STYLE_PATCH_TOP_LEVEL_KEYS,
+    "style field",
+    errors,
+  );
+  if (input.text !== undefined) {
+    validateTextStylePatch(input.text, `${ctx}.text`, errors);
+  }
+  if (input.fill !== undefined) {
+    validateFillStylePatch(input.fill, `${ctx}.fill`, errors);
+  }
+  if (input.stroke !== undefined) {
+    validateStrokeStylePatch(input.stroke, `${ctx}.stroke`, errors);
+  }
+  if (input.radius !== undefined) {
+    validateRadiusStylePatch(input.radius, `${ctx}.radius`, errors);
+  }
+  validateOptionalFiniteNumber(input.opacity, `${ctx}.opacity`, errors);
+  if (input.shadow !== undefined) {
+    validateShadowStylePatch(input.shadow, `${ctx}.shadow`, errors);
+  }
+  if (input.effect !== undefined) {
+    validateEffectStylePatch(input.effect, `${ctx}.effect`, errors);
+  }
+  if (input.image !== undefined) {
+    validateImageStylePatch(input.image, `${ctx}.image`, errors);
+  }
+  if (input.connector !== undefined) {
+    validateConnectorStylePatch(input.connector, `${ctx}.connector`, errors);
+  }
+  if (input.table !== undefined) {
+    validateTableStylePatch(input.table, `${ctx}.table`, errors);
+  }
+  if (input.slide !== undefined) {
+    validateSlideSurfaceStylePatch(input.slide, `${ctx}.slide`, errors);
+  }
+  if (input.visual !== undefined) {
+    validateVisualStylePatch(input.visual, `${ctx}.visual`, errors);
+  }
+  if (input.clip !== undefined) {
+    validateClipStylePatch(input.clip, `${ctx}.clip`, errors);
+  }
+  validateEnumValue(input.blendMode, BLEND_MODES, `${ctx}.blendMode`, errors);
 }
 
 function validateInsetsPct(
@@ -944,6 +1631,7 @@ function validateBaseNodeMetadata(
     `${ctx}.accessibility`,
     errors,
   );
+  validateStylePatch(input.localStyle, `${ctx}.localStyle`, errors);
 }
 
 function validateSourceMetadata(
@@ -1563,6 +2251,8 @@ function validateThemeStylesOverrides(
     for (const [variant, patch] of Object.entries(variants)) {
       if (!isPlainObject(patch)) {
         fail(errors, `${ctx}.${styleRef}.${variant} must be an object`);
+      } else {
+        validateStylePatch(patch, `${ctx}.${styleRef}.${variant}`, errors);
       }
     }
   }
