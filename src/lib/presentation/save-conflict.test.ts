@@ -370,10 +370,10 @@ describe("DocumentVersion snapshot semantics (#405)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #508 — command-envelope save path (saveDeckCommand) boundaries
+// #508 — command-envelope validation and CAS semantics
 // ---------------------------------------------------------------------------
 
-describe("saveDeckCommand validation + CAS semantics (#508)", () => {
+describe("command-envelope validation + CAS semantics (#508)", () => {
   const DOC_ID = "doc-cmd-1";
 
   function deckCommandEnvelope(
@@ -394,8 +394,8 @@ describe("saveDeckCommand validation + CAS semantics (#508)", () => {
   }
 
   test("stale expected revision → CAS conflict before write", () => {
-    // The envelope carries target.expectedRevision; saveDeckCommand forwards it
-    // to persistDeck as the CAS clientToken. A stale token conflicts.
+    // The envelope carries target.expectedRevision; persistence uses that
+    // expected revision as the CAS client token. A stale token conflicts.
     const serverToken = generateRevisionToken();
     const envelope = deckCommandEnvelope(
       {
