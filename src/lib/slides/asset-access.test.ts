@@ -232,6 +232,26 @@ test("#1254: slide asset access diagnoses denied public asset requests", () => {
   });
 });
 
+test("#1420: slide asset access denies anonymous requests when share-bound proof is stale", () => {
+  const document: SlideAssetDocument = {
+    ...makeDoc({ ownerId: "owner-1" }),
+    ...sharedDoc(),
+    deletedAt: null,
+  };
+
+  const decision = decideSlideAssetAccess({
+    asset: { id: "asset-1" },
+    document,
+    userId: null,
+    publicAssetAccess: { allow: false, status: 403, reason: "forbidden" },
+  });
+  assert.deepEqual(decision, {
+    allow: false,
+    status: 403,
+    reason: "forbidden",
+  });
+});
+
 test("#395: embed-disabled share denies embed access", () => {
   const doc = sharedDoc({ shareEmbedEnabled: false });
   const decision = evaluateShareAccess(

@@ -14,8 +14,8 @@
  *    identifiers (ids, counts, an opaque validator `reason` string).
  *  - The validator `reason` strings produced by `safeParseDeckV7` /
  *    `safeParseVisual` / `validateSourceRef` describe the schema violation
- *    (e.g. "Deck.slides[0].id must be a non-empty string"); they never echo
- *    document text, so they are safe to record.
+ *    (e.g. "Deck.slides[0].id must be a non-empty string"), and this module
+ *    still sanitizes `reason` defensively in case a future validator regresses.
  *  - Anything that looks like raw content (keys such as `text`, `input`,
  *    `deckJson`, `contentJson`, `data`) is stripped before logging as a
  *    belt-and-suspenders guard on top of {@link logError}'s own redaction.
@@ -83,6 +83,40 @@ export interface SchemaDiagnosticRecord {
   [key: string]: string | number | boolean | undefined;
 }
 
+const MAX_REASON_LENGTH = 240;
+const REASON_SEGMENT_PATTERN = /(["'`])((?:\\.|(?!\1).)*)\1/g;
+const REASON_TOKEN_PATTERN = /^[a-z0-9._-]{1,32}$/i;
+const FALLBACK_REASON = "schema validation failed";
+
+/**
+ * Keep validator reasons useful for debugging while stripping likely
+ * content-bearing quoted segments and overlong payloads.
+ */
+export function sanitizeSchemaReason(reason: string): string {
+  const compact = reason.replace(/\s+/g, " ").trim();
+  if (compact.length === 0) return FALLBACK_REASON;
+
+  const redacted = String(redaction.REDACTED ?? "[redacted]");
+  let sanitized = compact.replace(
+    REASON_SEGMENT_PATTERN,
+    (match: string, quote: string, segment: string) => {
+      const token = segment.trim();
+      if (token.length === 0 || REASON_TOKEN_PATTERN.test(token)) {
+        return match;
+      }
+      return `${quote}${redacted}${quote}`;
+    },
+  );
+
+  if (redaction.isUnsafeLogString(sanitized)) {
+    return FALLBACK_REASON;
+  }
+  if (sanitized.length > MAX_REASON_LENGTH) {
+    sanitized = `${sanitized.slice(0, MAX_REASON_LENGTH)}…`;
+  }
+  return sanitized;
+}
+
 /**
  * Builds the safe diagnostic context for a persisted-schema parse failure
  * WITHOUT writing anything. Drops any content-bearing keys and any non-scalar
@@ -94,9 +128,13 @@ export function buildSchemaDiagnostic(
   category: SchemaFailureCategory,
   context: SchemaFailureContext = {},
 ): SchemaDiagnosticRecord {
+  const safeContext: SchemaFailureContext = { ...context };
+  if (typeof safeContext.reason === "string") {
+    safeContext.reason = sanitizeSchemaReason(safeContext.reason);
+  }
   return {
     category,
-    ...redaction.buildSafeTelemetryContext(context),
+    ...redaction.buildSafeTelemetryContext(safeContext),
   };
 }
 

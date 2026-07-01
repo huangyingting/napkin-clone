@@ -19,8 +19,7 @@ import { SEMANTIC_TEMPLATE_KINDS } from "./template-registry";
 // ---------------------------------------------------------------------------
 
 export type DeckV7ParseResult =
-  | { success: true; data: DeckV7 }
-  | { success: false; errors: string[] };
+  { success: true; data: DeckV7 } | { success: false; errors: string[] };
 
 /** Validates and parses an unknown value as a v7 deck. Does not mutate input. */
 export function safeParseDeckV7(input: unknown): DeckV7ParseResult {
@@ -95,6 +94,9 @@ function validateCanvas(
   }
   if (input.unit !== "percent") {
     fail(errors, `${ctx}.unit must be "percent"`);
+  }
+  if (input.safeArea !== undefined) {
+    validateInsetsPct(input.safeArea, `${ctx}.safeArea`, errors);
   }
   return input;
 }
@@ -264,6 +266,12 @@ function validateInsetsPct(
   if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
     return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known inset field`);
+    }
   }
   for (const key of ["top", "right", "bottom", "left"] as const) {
     if (!isFiniteNumber(input[key])) {
@@ -513,6 +521,8 @@ function validateStyleBinding(
 // Text content
 // ---------------------------------------------------------------------------
 
+const TEXT_FIT_MODES = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
+
 function validateTextContent(
   input: unknown,
   ctx: string,
@@ -526,6 +536,8 @@ function validateTextContent(
     fail(errors, `${ctx}.paragraphs must be an array`);
     return;
   }
+  validateEnumValue(input.fit, TEXT_FIT_MODES, `${ctx}.fit`, errors);
+  validateOptionalString(input.language, `${ctx}.language`, errors);
   for (let i = 0; i < input.paragraphs.length; i++) {
     const para = input.paragraphs[i];
     const pCtx = `${ctx}.paragraphs[${i}]`;
@@ -547,7 +559,7 @@ function validateTextContent(
       if (joined !== para.text) {
         fail(
           errors,
-          `${pCtx}: runs text "${joined}" does not equal paragraph text "${para.text}"`,
+          `${pCtx}: runs text must concatenate to paragraph text (runLength=${joined.length}, paragraphLength=${para.text.length})`,
         );
       }
     }
@@ -637,6 +649,7 @@ const SHAPE_KINDS = [
   "square",
   "path",
 ] as const;
+const IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
 const GROUP_COMPONENT_KINDS = [
   "metricCard",
   "quoteBlock",
@@ -666,6 +679,30 @@ const SEMANTIC_ROLES = [
   "background",
   "themeDecoration",
 ] as const;
+const SLOT_KEYS = [
+  "kicker",
+  "title",
+  "subtitle",
+  "body",
+  "bullets",
+  "leftTitle",
+  "leftBody",
+  "leftBullets",
+  "rightTitle",
+  "rightBody",
+  "rightBullets",
+  "cards",
+  "steps",
+  "quote",
+  "attribution",
+  "stat",
+  "statLabel",
+  "metrics",
+  "table",
+  "visualId",
+  "imagePrompt",
+  "caption",
+] as const;
 
 const SOURCE_BLOCK_KINDS = ["text", "visual", "table", "image"] as const;
 const SOURCE_REFRESH_STATES = [
@@ -676,6 +713,47 @@ const SOURCE_REFRESH_STATES = [
   "unknown",
 ] as const;
 
+function validatePointPct(input: unknown, ctx: string, errors: string[]): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["x", "y"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known point field`);
+    }
+  }
+  if (!isFiniteNumber(input.x)) {
+    fail(errors, `${ctx}.x must be a finite number`);
+  }
+  if (!isFiniteNumber(input.y)) {
+    fail(errors, `${ctx}.y must be a finite number`);
+  }
+}
+
+function validateImageCrop(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known crop field`);
+    }
+  }
+  for (const key of ["top", "right", "bottom", "left"] as const) {
+    if (!isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
 function validateStringField(
   value: unknown,
   ctx: string,
@@ -684,6 +762,71 @@ function validateStringField(
   if (value !== undefined && typeof value !== "string") {
     fail(errors, `${ctx} must be a string`);
   }
+}
+
+function validateAccessibilityMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+
+  const allowed = new Set(["label", "alt", "decorative", "readingOrder"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known accessibility field`);
+    }
+  }
+
+  validateOptionalString(input.label, `${ctx}.label`, errors);
+  validateOptionalString(input.alt, `${ctx}.alt`, errors);
+  if (input.decorative !== undefined && typeof input.decorative !== "boolean") {
+    fail(errors, `${ctx}.decorative must be a boolean`);
+  }
+  validateOptionalFiniteNumber(
+    input.readingOrder,
+    `${ctx}.readingOrder`,
+    errors,
+  );
+}
+
+function validateBaseNodeMetadata(
+  input: Record<string, unknown>,
+  ctx: string,
+  errors: string[],
+): void {
+  validateOptionalString(input.name, `${ctx}.name`, errors);
+
+  if (
+    input.role !== undefined &&
+    !SEMANTIC_ROLES.includes(input.role as (typeof SEMANTIC_ROLES)[number])
+  ) {
+    fail(errors, `${ctx}.role is not a known semantic role`);
+  }
+
+  if (
+    input.slot !== undefined &&
+    !SLOT_KEYS.includes(input.slot as (typeof SLOT_KEYS)[number])
+  ) {
+    fail(errors, `${ctx}.slot is not a known slot key`);
+  }
+
+  if (input.locked !== undefined && typeof input.locked !== "boolean") {
+    fail(errors, `${ctx}.locked must be a boolean`);
+  }
+  if (input.hidden !== undefined && typeof input.hidden !== "boolean") {
+    fail(errors, `${ctx}.hidden must be a boolean`);
+  }
+
+  validateAccessibilityMetadata(
+    input.accessibility,
+    `${ctx}.accessibility`,
+    errors,
+  );
 }
 
 function validateSourceMetadata(
@@ -840,13 +983,7 @@ function validateChildNode(
       nodeIds.add(id);
     }
   }
-
-  if (
-    input.role !== undefined &&
-    !SEMANTIC_ROLES.includes(input.role as (typeof SEMANTIC_ROLES)[number])
-  ) {
-    fail(errors, `${ctx}.role is not a known semantic role`);
-  }
+  validateBaseNodeMetadata(input, ctx, errors);
 
   if (input.layout !== undefined) {
     validateLayoutBox(input.layout, `${ctx}.layout`, errors);
@@ -873,11 +1010,30 @@ function validateChildNode(
     case "image":
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
-      } else if (
-        typeof input.content.assetId !== "string" ||
-        input.content.assetId.length === 0
-      ) {
-        fail(errors, `${ctx}.content.assetId must be a non-empty string`);
+      } else {
+        if (
+          typeof input.content.assetId !== "string" ||
+          input.content.assetId.length === 0
+        ) {
+          fail(errors, `${ctx}.content.assetId must be a non-empty string`);
+        }
+        if (input.content.crop !== undefined) {
+          validateImageCrop(input.content.crop, `${ctx}.content.crop`, errors);
+        }
+        validateEnumValue(
+          input.content.fit,
+          IMAGE_FIT_MODES,
+          `${ctx}.content.fit`,
+          errors,
+        );
+        if (input.content.focalPoint !== undefined) {
+          validatePointPct(
+            input.content.focalPoint,
+            `${ctx}.content.focalPoint`,
+            errors,
+          );
+        }
+        validateOptionalString(input.content.alt, `${ctx}.content.alt`, errors);
       }
       break;
     case "shape": {
@@ -1112,6 +1268,7 @@ function validateSlideNode(
       nodeIds.add(id);
     }
   }
+  validateBaseNodeMetadata(input, ctx, errors);
 
   // Template binding
   if (!isPlainObject(input.template)) {
@@ -1162,6 +1319,8 @@ function validateSlideNode(
     validateSourceMetadata(input.source, `${ctx}.source`, errors);
   }
 
+  validateOptionalString(input.notes, `${ctx}.notes`, errors);
+
   if (!Array.isArray(input.children)) {
     fail(errors, `${ctx}.children must be an array`);
   } else {
@@ -1173,6 +1332,180 @@ function validateSlideNode(
         nodeIds,
       );
     }
+  }
+}
+
+const DECK_METADATA_KEYS = new Set([
+  "createdAt",
+  "updatedAt",
+  "sourceDocumentId",
+  "contentHash",
+  "locale",
+  "extra",
+]);
+
+function validateJsonValue(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (
+    input === null ||
+    typeof input === "string" ||
+    typeof input === "boolean"
+  ) {
+    return;
+  }
+  if (typeof input === "number") {
+    if (!Number.isFinite(input)) {
+      fail(errors, `${ctx} must be a finite number`);
+    }
+    return;
+  }
+  if (Array.isArray(input)) {
+    for (let i = 0; i < input.length; i++) {
+      validateJsonValue(input[i], `${ctx}[${i}]`, errors);
+    }
+    return;
+  }
+  if (isPlainObject(input)) {
+    for (const [key, value] of Object.entries(input)) {
+      validateJsonValue(value, `${ctx}.${key}`, errors);
+    }
+    return;
+  }
+  fail(errors, `${ctx} must be a JSON-serializable value`);
+}
+
+function validateDeckMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!DECK_METADATA_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known metadata field`);
+    }
+  }
+  validateStringField(input.createdAt, `${ctx}.createdAt`, errors);
+  validateStringField(input.updatedAt, `${ctx}.updatedAt`, errors);
+  validateStringField(
+    input.sourceDocumentId,
+    `${ctx}.sourceDocumentId`,
+    errors,
+  );
+  validateStringField(input.contentHash, `${ctx}.contentHash`, errors);
+  validateStringField(input.locale, `${ctx}.locale`, errors);
+  if (input.extra !== undefined) {
+    if (!isPlainObject(input.extra)) {
+      fail(errors, `${ctx}.extra must be an object`);
+    } else {
+      for (const [key, value] of Object.entries(input.extra)) {
+        validateJsonValue(value, `${ctx}.extra.${key}`, errors);
+      }
+    }
+  }
+}
+
+const DECK_THEME_KEYS = new Set([
+  "packageId",
+  "packageVersion",
+  "brandKitId",
+  "overrides",
+]);
+
+const THEME_OVERRIDE_KEYS = new Set([
+  "tokens",
+  "styles",
+  "disabledDecorations",
+  "chrome",
+]);
+
+function validateThemeStylesOverrides(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const [styleRef, variants] of Object.entries(input)) {
+    if (!isStyleRef(styleRef)) {
+      fail(errors, `${ctx}.${styleRef} must be a registered StyleRef`);
+    }
+    if (!isPlainObject(variants)) {
+      fail(errors, `${ctx}.${styleRef} must be an object`);
+      continue;
+    }
+    for (const [variant, patch] of Object.entries(variants)) {
+      if (!isPlainObject(patch)) {
+        fail(errors, `${ctx}.${styleRef}.${variant} must be an object`);
+      }
+    }
+  }
+}
+
+function validateThemeOverridePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!THEME_OVERRIDE_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known theme override field`);
+    }
+  }
+  if (input.tokens !== undefined && !isPlainObject(input.tokens)) {
+    fail(errors, `${ctx}.tokens must be an object`);
+  }
+  if (input.styles !== undefined) {
+    validateThemeStylesOverrides(input.styles, `${ctx}.styles`, errors);
+  }
+  if (input.disabledDecorations !== undefined) {
+    if (!Array.isArray(input.disabledDecorations)) {
+      fail(errors, `${ctx}.disabledDecorations must be an array`);
+    } else {
+      for (let i = 0; i < input.disabledDecorations.length; i++) {
+        if (typeof input.disabledDecorations[i] !== "string") {
+          fail(errors, `${ctx}.disabledDecorations[${i}] must be a string`);
+        }
+      }
+    }
+  }
+  validateDeckChromeConfig(input.chrome, `${ctx}.chrome`, errors);
+}
+
+function validateDeckThemeBinding(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!DECK_THEME_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known theme field`);
+    }
+  }
+  if (typeof input.packageId !== "string" || input.packageId.length === 0) {
+    fail(errors, `${ctx}.packageId must be a non-empty string`);
+  }
+  validateStringField(input.packageVersion, `${ctx}.packageVersion`, errors);
+  validateStringField(input.brandKitId, `${ctx}.brandKitId`, errors);
+  if (input.overrides !== undefined) {
+    validateThemeOverridePatch(input.overrides, `${ctx}.overrides`, errors);
   }
 }
 
@@ -1224,21 +1557,8 @@ function validateDeckV7(input: unknown, errors: string[]): Partial<DeckV7> {
 
   validateCanvas(input.canvas, "Deck.canvas", errors);
   validateAssetRegistry(input.assets, "Deck.assets", errors);
-
-  if (!isPlainObject(input.theme)) {
-    fail(errors, "Deck.theme must be an object");
-  } else if (
-    typeof input.theme.packageId !== "string" ||
-    input.theme.packageId.length === 0
-  ) {
-    fail(errors, "Deck.theme.packageId must be a non-empty string");
-  } else if (isPlainObject(input.theme.overrides)) {
-    validateDeckChromeConfig(
-      input.theme.overrides.chrome,
-      "Deck.theme.overrides.chrome",
-      errors,
-    );
-  }
+  validateDeckThemeBinding(input.theme, "Deck.theme", errors);
+  validateDeckMetadata(input.metadata, "Deck.metadata", errors);
   validateDeckChromeConfig(input.chrome, "Deck.chrome", errors);
 
   if (!Array.isArray(input.slides)) {

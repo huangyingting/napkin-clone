@@ -28,6 +28,7 @@ import type {
   Paragraph,
   TextContent,
 } from "./schema";
+import { resolveDeckAssetSource } from "./deck-asset-source";
 import type { ThemePackageV1 } from "./theme-package-schema";
 import { resolveThemePackageForDeck } from "./theme-package-registry";
 import { resolveDeckRenderTree } from "./render-resolver";
@@ -51,18 +52,6 @@ const PPTX_MIME =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 type PptxCoord = number | `${number}%`;
 
-function deckAssetSource(deck: DeckV7, assetId: string): string | undefined {
-  const visualAssetId = deck.assets.visuals?.[assetId]?.id;
-  return (
-    deck.assets.images[assetId]?.src ??
-    deck.assets.files?.[assetId]?.src ??
-    (visualAssetId
-      ? (deck.assets.images[visualAssetId]?.src ??
-        deck.assets.files?.[visualAssetId]?.src)
-      : undefined)
-  );
-}
-
 export function resolveExportSpecAssetSources(
   deck: DeckV7,
   exportSpec: ExportDeckSpec,
@@ -76,11 +65,12 @@ export function resolveExportSpecAssetSources(
           return {
             ...operation,
             assetId:
-              deckAssetSource(deck, operation.assetId) ?? operation.assetId,
+              resolveDeckAssetSource(deck, operation.assetId) ??
+              operation.assetId,
           };
         }
         if (operation.type === "visual" && operation.assetId) {
-          const assetSource = deckAssetSource(deck, operation.assetId);
+          const assetSource = resolveDeckAssetSource(deck, operation.assetId);
           const visualAsset = deck.assets.visuals?.[operation.assetId];
           const { assetId: originalAssetId, ...rest } = operation;
           void originalAssetId;

@@ -108,4 +108,18 @@ describe("AddSlideTemplatePicker", () => {
       );
     }
   });
+
+  test("routes the close button to the onClose callback", () => {
+    const registry = createDefaultTemplateRegistry();
+    const calls: string[] = [];
+    const tree = AddSlideTemplatePicker({
+      templates: [registry.get("content")!],
+      onChoose: () => undefined,
+      onClose: () => calls.push("close"),
+    });
+    const closeButton = findButtonByText(tree, "Close");
+    assert.ok(closeButton);
+    closeButton.props.onClick();
+    assert.deepEqual(calls, ["close"]);
+  });
 });
