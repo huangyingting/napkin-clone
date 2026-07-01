@@ -65,6 +65,7 @@ import {
 } from "lucide-react";
 
 import type { ActionResult } from "@/lib/action-result";
+import type { DocumentBlock } from "@/lib/content/document-blocks";
 import type { SaveStatus } from "@/lib/presentation/save-status";
 import type {
   ConnectorAnchor,
@@ -97,6 +98,7 @@ import type {
   SourceBlockIndex,
   SourceBlockIndexEntry,
 } from "@/lib/presentation-vnext/block-index";
+import { buildSourceBlockIndex } from "@/lib/presentation-vnext/block-index";
 import {
   diagnosticTargetKey,
   getDiagnosticNodeId,
@@ -115,6 +117,11 @@ import {
   type SourceLinkHostRefreshResult,
   type SourceLinkOrchestrationResult,
 } from "@/lib/presentation-vnext/source-link-orchestration";
+import {
+  createDocumentSourceNode,
+  documentSourceInsertBlocks,
+  sourceBlockKindLabel,
+} from "@/lib/presentation-vnext/document-source-commands";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
@@ -464,6 +471,7 @@ export interface SlideEditorVNextProps {
   undoRedoFocus?: { nodeId: string; token: number } | null;
   onUploadImage?: (file: File) => Promise<SlideEditorVNextImageUploadResult>;
   onPickVisual?: () => Promise<SlideEditorVNextVisualPickResult | undefined>;
+  documentBlocks?: readonly DocumentBlock[];
   sourceBlockIndex?: SourceBlockIndex;
   onRefreshSource?: (
     args: SourceLinkHostRefreshArgs,
@@ -1240,6 +1248,7 @@ export function SlideEditorVNext({
   undoRedoFocus = null,
   onUploadImage,
   onPickVisual,
+  documentBlocks = [],
   sourceBlockIndex,
   onRefreshSource,
   onDeckChange,
@@ -1272,6 +1281,11 @@ export function SlideEditorVNext({
       navigator.userAgent;
     return /mac|iphone|ipad|ipod/i.test(platform);
   }, []);
+  const documentSourceIndex = useMemo(() => {
+    if (sourceBlockIndex) return sourceBlockIndex;
+    if (documentBlocks.length === 0) return undefined;
+    return buildSourceBlockIndex(documentId, documentBlocks);
+  }, [documentBlocks, documentId, sourceBlockIndex]);
 
   // Recoverable export/media errors surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
@@ -1398,12 +1412,16 @@ export function SlideEditorVNext({
   );
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [footerStatusMenuOpen, setFooterStatusMenuOpen] = useState(false);
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
   const zoomMenuId = useId();
   const zoomMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const zoomMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const footerStatusMenuId = useId();
   const footerStatusMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const footerStatusMenuPanelRef = useRef<HTMLDivElement | null>(null);
+  const sourceMenuId = useId();
+  const sourceMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const sourceMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const [deckChromeToolbarOpen, setDeckChromeToolbarOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
@@ -1475,6 +1493,11 @@ export function SlideEditorVNext({
     if (!footerStatusMenuOpen) return;
     focusFirstMenuCommand(footerStatusMenuPanelRef.current);
   }, [footerStatusMenuOpen]);
+
+  useEffect(() => {
+    if (!sourceMenuOpen) return;
+    focusFirstMenuCommand(sourceMenuPanelRef.current);
+  }, [sourceMenuOpen]);
 
   useEffect(() => {
     if (isDesktopInspectorViewport && inspectorSheetOpen) {
@@ -1621,6 +1644,11 @@ export function SlideEditorVNext({
     footerStatusMenuTriggerRef.current?.focus();
   }
 
+  function closeSourceMenuAndRestoreFocus() {
+    setSourceMenuOpen(false);
+    sourceMenuTriggerRef.current?.focus();
+  }
+
   function handleZoomMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -1652,6 +1680,26 @@ export function SlideEditorVNext({
     if (
       moveMenuCommandFocus({
         container: footerStatusMenuPanelRef.current,
+        key: event.key,
+        currentTarget: event.target,
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  function handleSourceMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSourceMenuAndRestoreFocus();
+      return;
+    }
+    if (!isMenuCommandNavigationKey(event.key)) return;
+    if (
+      moveMenuCommandFocus({
+        container: sourceMenuPanelRef.current,
         key: event.key,
         currentTarget: event.target,
       })
@@ -1909,6 +1957,29 @@ export function SlideEditorVNext({
 
   function handleInsertConnector() {
     handleInsertNode(defaultConnectorNode(nextZIndex(activeSlide)));
+  }
+
+  function handleInsertDocumentSourceBlock(
+    block: Parameters<typeof createDocumentSourceNode>[0]["block"],
+  ) {
+    if (!activeSlide) return;
+    const result = insertNode(
+      deck,
+      activeSlide.id,
+      createDocumentSourceNode({
+        block,
+        nodeId: nodeFactoryId(block.kind),
+        zIndex: nextZIndex(activeSlide),
+        linkedAt: new Date().toISOString(),
+      }),
+    );
+    onDeckChange(result.deck);
+    setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+    focusSelectedNodeSoon(result.nodeId);
+    setSourceMenuOpen(false);
+    setStageAnnouncement(
+      `Inserted ${sourceBlockKindLabel(block.kind)} from document.`,
+    );
   }
 
   function focusSelectedNodeSoon(nodeId: string | undefined) {
@@ -2340,8 +2411,8 @@ export function SlideEditorVNext({
       )
     : [];
   const sourceDerivations = useMemo(
-    () => deriveSourceReviewDerivations(deck, sourceBlockIndex),
-    [deck, sourceBlockIndex],
+    () => deriveSourceReviewDerivations(deck, documentSourceIndex),
+    [deck, documentSourceIndex],
   );
   const sourceClassifications = sourceDerivations.classifications;
   const diagnostics = dedupeDiagnostics([
@@ -2351,6 +2422,13 @@ export function SlideEditorVNext({
     ...sourceDerivations.diagnostics,
   ]);
   const sourceReview = sourceDerivations.reviewItems;
+  const documentInsertBlocks = documentSourceInsertBlocks(documentSourceIndex);
+  const sourceStatusLabel =
+    documentSourceIndex === undefined
+      ? "No live document source"
+      : sourceReview.length > 0
+        ? `${sourceReview.length} source issue${sourceReview.length === 1 ? "" : "s"}`
+        : "Up to date";
 
   // ---------------------------------------------------------------------------
   // Selected node data (from the persisted deck, not the resolved tree)
@@ -2370,6 +2448,7 @@ export function SlideEditorVNext({
             item.slideId === activeSlide.id && item.nodeId === firstSelectedId,
         )
       : undefined;
+  const selectedSource = selectedNode?.source;
   const {
     tableEditingNodeId,
     activeTableCell,
@@ -3103,7 +3182,7 @@ export function SlideEditorVNext({
       slide: activeSlide,
       node: selectedNode,
       now: new Date().toISOString(),
-      sourceBlockIndex,
+      sourceBlockIndex: documentSourceIndex,
       onRefreshSource,
     });
     if (!result) return;
@@ -3136,11 +3215,11 @@ export function SlideEditorVNext({
   }
 
   function handleRefreshSourceAt(slideId: string, nodeId: string) {
-    if (!sourceBlockIndex) return;
+    if (!documentSourceIndex) return;
     applySourceLinkOrchestration(
       refreshSourceReviewItem({
         deck,
-        sourceBlockIndex,
+        sourceBlockIndex: documentSourceIndex,
         slideId,
         nodeId,
         now: new Date().toISOString(),
@@ -3176,11 +3255,11 @@ export function SlideEditorVNext({
   }
 
   function handleDismissSourceAt(slideId: string, nodeId: string) {
-    if (!sourceBlockIndex) return;
+    if (!documentSourceIndex) return;
     applySourceLinkOrchestration(
       dismissSourceReviewItem({
         deck,
-        sourceBlockIndex,
+        sourceBlockIndex: documentSourceIndex,
         slideId,
         nodeId,
         now: new Date().toISOString(),
@@ -3189,14 +3268,28 @@ export function SlideEditorVNext({
   }
 
   function handleRefreshAllSources() {
-    if (!sourceBlockIndex) return;
+    if (!documentSourceIndex) return;
     applySourceLinkOrchestration(
       refreshAllSourceReviewItems({
         deck,
-        sourceBlockIndex,
+        sourceBlockIndex: documentSourceIndex,
         now: new Date().toISOString(),
       }),
     );
+  }
+
+  function handleSyncFromDocument() {
+    handleRefreshAllSources();
+    setSourceMenuOpen(false);
+  }
+
+  function handleReviewSourceLinks() {
+    const [first] = sourceReview;
+    if (!first) return;
+    handleSelectSourceItem(first.slideId, first.nodeId);
+    requestInspectorPanel("source");
+    if (isMobileInspectorViewport()) setInspectorSheetOpen(true);
+    setSourceMenuOpen(false);
   }
 
   function handleSelectLayer(nodeId: string) {
@@ -3593,7 +3686,7 @@ export function SlideEditorVNext({
           : undefined
       }
       selectedSourceClassification={selectedSourceClassification}
-      sourceBlocks={sourceBlockIndex?.blocks}
+      sourceBlocks={documentSourceIndex?.blocks}
       onChangeStyleBinding={handleChangeStyleBinding}
       onAlignSelection={handleAlignSelection}
       onDistributeSelection={handleDistributeSelection}
@@ -3762,6 +3855,141 @@ export function SlideEditorVNext({
               <option value="square">1:1</option>
             </select>
           </label>
+
+          <Popover
+            open={sourceMenuOpen}
+            onClose={() => setSourceMenuOpen(false)}
+            role="menu"
+            aria-label="Document source commands"
+            className="w-72 p-2"
+            trigger={
+              <button
+                ref={sourceMenuTriggerRef}
+                type="button"
+                aria-label="Document source"
+                aria-haspopup="menu"
+                aria-expanded={sourceMenuOpen}
+                aria-controls={sourceMenuOpen ? sourceMenuId : undefined}
+                onClick={() => setSourceMenuOpen((open) => !open)}
+                className={cx(
+                  "relative flex h-8 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover",
+                  FOCUS_RING,
+                )}
+              >
+                Source
+                <ChevronDown size={12} aria-hidden="true" />
+                {sourceReview.length > 0 ? (
+                  <span className="absolute -right-1 -top-1 rounded-full bg-ds-warning-surface px-1 text-[10px] font-bold text-ds-warning-text">
+                    {sourceReview.length}
+                  </span>
+                ) : null}
+              </button>
+            }
+          >
+            <div
+              ref={sourceMenuPanelRef}
+              id={sourceMenuId}
+              className="space-y-1"
+              onKeyDown={handleSourceMenuKeyDown}
+            >
+              <div className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary">
+                {sourceStatusLabel}
+              </div>
+              {documentSourceIndex ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleSyncFromDocument}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                    FOCUS_RING,
+                  )}
+                >
+                  Sync from document
+                </button>
+              ) : null}
+              {sourceReview.length > 0 ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleReviewSourceLinks}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                    FOCUS_RING,
+                  )}
+                >
+                  Review source links
+                </button>
+              ) : null}
+              {selectedSource && selectedNode && activeSlide ? (
+                <>
+                  <div className="my-1 border-t border-ds-border-subtle" />
+                  <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                    Selected source
+                  </p>
+                  <p className="truncate px-2 py-1 text-[11px] text-ds-text-secondary">
+                    {(selectedSource.blockKind ?? "source").toString()} ·{" "}
+                    {selectedSource.blockId ?? "linked"}
+                  </p>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      void handleRefreshSelectedSource();
+                      closeSourceMenuAndRestoreFocus();
+                    }}
+                    className={cx(
+                      "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    Refresh selected source
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleUnlinkSourceAt(activeSlide.id, selectedNode.id);
+                      closeSourceMenuAndRestoreFocus();
+                    }}
+                    className={cx(
+                      "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    Mark selected as unlinked
+                  </button>
+                </>
+              ) : null}
+              {documentInsertBlocks.length > 0 ? (
+                <>
+                  <div className="my-1 border-t border-ds-border-subtle" />
+                  <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                    From document
+                  </p>
+                  {documentInsertBlocks.map((block) => (
+                    <button
+                      key={`${block.kind}:${block.id}`}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleInsertDocumentSourceBlock(block)}
+                      className={cx(
+                        "flex w-full min-w-0 flex-col items-start rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <span className="w-full truncate font-medium text-ds-text-primary">
+                        {block.displayLabel}
+                      </span>
+                      <span className="w-full truncate text-[10px] text-ds-text-muted">
+                        {sourceBlockKindLabel(block.kind)} · {block.id}
+                      </span>
+                    </button>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          </Popover>
 
           <Popover
             open={deckChromeToolbarOpen}
@@ -4014,10 +4242,10 @@ export function SlideEditorVNext({
         </div>
       ) : null}
 
-      {sourceBlockIndex ? (
+      {documentSourceIndex ? (
         <SourceReviewPanel
           items={sourceReview}
-          sourceBlocks={sourceBlockIndex.blocks}
+          sourceBlocks={documentSourceIndex.blocks}
           onSelect={handleSelectSourceItem}
           onRefresh={handleRefreshSourceAt}
           onUnlink={handleUnlinkSourceAt}

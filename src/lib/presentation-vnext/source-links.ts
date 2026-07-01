@@ -491,7 +491,7 @@ function paragraphFromEntry(
   };
 }
 
-function refreshedSource(
+export function buildFreshNodeSourceMetadata(
   entry: SourceBlockIndexEntry,
   now: string,
   existing?: NodeSourceMetadata,
@@ -533,7 +533,7 @@ function refreshNodeFromEntry(
         node: {
           ...node,
           content: { ...node.content, paragraphs: [paragraph] },
-          source: refreshedSource(entry, now, node.source),
+          source: buildFreshNodeSourceMetadata(entry, now, node.source),
         },
       };
     }
@@ -543,7 +543,7 @@ function refreshNodeFromEntry(
         node: {
           ...node,
           content: { ...node.content, text },
-          source: refreshedSource(entry, now, node.source),
+          source: buildFreshNodeSourceMetadata(entry, now, node.source),
         },
       };
     }
@@ -567,7 +567,7 @@ function refreshNodeFromEntry(
       node: {
         ...node,
         content,
-        source: refreshedSource(entry, now, node.source),
+        source: buildFreshNodeSourceMetadata(entry, now, node.source),
       },
     };
   }
@@ -584,7 +584,7 @@ function refreshNodeFromEntry(
           visualId: entry.refresh.visualId,
           ...(entry.refresh.alt ? { alt: entry.refresh.alt } : {}),
         },
-        source: refreshedSource(entry, now, node.source),
+        source: buildFreshNodeSourceMetadata(entry, now, node.source),
       },
     };
   }
@@ -600,7 +600,7 @@ function refreshNodeFromEntry(
         ...(entry.refresh.assetId ? { assetId: entry.refresh.assetId } : {}),
         ...(entry.refresh.alt ? { alt: entry.refresh.alt } : {}),
       },
-      source: refreshedSource(entry, now, node.source),
+      source: buildFreshNodeSourceMetadata(entry, now, node.source),
     },
   };
 }
@@ -776,7 +776,7 @@ export function relinkNodeSource(
             ? target
             : {
                 ...refreshed.node,
-                source: refreshedSource(entry, now, target.source),
+                source: buildFreshNodeSourceMetadata(entry, now, target.source),
               };
         }),
       ),

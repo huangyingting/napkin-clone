@@ -481,6 +481,7 @@ export function SlideEditorButton({
             onDeckChange={handleDeckV7Change}
             onUploadImage={slideAssetPort ? handleUploadV7Image : undefined}
             onPickVisual={handlePickV7Visual}
+            documentBlocks={documentBlocks}
             sourceBlockIndex={sourceBlockIndex}
             onRefreshSource={handleRefreshV7Source}
             onSave={handleSaveV7}
