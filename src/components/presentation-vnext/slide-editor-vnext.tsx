@@ -190,6 +190,10 @@ import {
   connectorEndpointFromSlidePoint,
 } from "@/lib/presentation-vnext/connector-geometry";
 import {
+  hitTestSlideNodes,
+  type StageHitCandidate,
+} from "@/lib/presentation-vnext/stage-hit-test";
+import {
   assetFactoryId,
   deckWithPickedVisualAsset,
   deckWithUploadedImageAsset as createDeckWithUploadedImageAsset,
@@ -694,13 +698,59 @@ function dedupeDiagnostics(
   return result;
 }
 
+function isHTMLElementTarget(
+  target: EventTarget | null,
+): target is HTMLElement {
+  return typeof HTMLElement !== "undefined" && target instanceof HTMLElement;
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
+  if (!isHTMLElementTarget(target)) return false;
   return Boolean(
     target.closest(
       'input, textarea, select, button, [contenteditable="true"], [role="textbox"]',
     ),
   );
+}
+
+function isStageHandleTarget(target: EventTarget | null): boolean {
+  if (!isHTMLElementTarget(target)) return false;
+  return Boolean(
+    target.closest(
+      "[data-node-id],[data-resize-handle],[data-crop-handle],[data-rotation-handle],[data-connector-endpoint]",
+    ),
+  );
+}
+
+function isStageEditingHandleTarget(target: EventTarget | null): boolean {
+  if (!isHTMLElementTarget(target)) return false;
+  return Boolean(
+    target.closest(
+      "[data-resize-handle],[data-crop-handle],[data-rotation-handle],[data-connector-endpoint]",
+    ),
+  );
+}
+
+function semanticCandidateNodeIds(
+  hits: readonly StageHitCandidate[],
+): readonly string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const hit of hits) {
+    if (seen.has(hit.node.id)) continue;
+    seen.add(hit.node.id);
+    ids.push(hit.node.id);
+  }
+  return ids;
+}
+
+function nextSemanticSelectUnderNodeId(
+  candidateIds: readonly string[],
+  selectedIds: ReadonlySet<string>,
+): string | null {
+  if (candidateIds.length === 0) return null;
+  const selectedIndex = candidateIds.findIndex((id) => selectedIds.has(id));
+  return candidateIds[(selectedIndex + 1) % candidateIds.length] ?? null;
 }
 
 function clampFrame(frame: LayoutBox["frame"]): LayoutBox["frame"] {
@@ -791,7 +841,7 @@ function applyAspectLock(
 
 function canvasRectFromEvent(event: ReactPointerEvent): DOMRect | undefined {
   const target = event.currentTarget;
-  if (!(target instanceof HTMLElement)) return undefined;
+  if (!isHTMLElementTarget(target)) return undefined;
   return target
     .closest('[data-slide-canvas-vnext="true"]')
     ?.getBoundingClientRect();
@@ -800,12 +850,12 @@ function canvasRectFromEvent(event: ReactPointerEvent): DOMRect | undefined {
 function canvasElementFromTarget(
   target: EventTarget | null,
 ): HTMLElement | null {
-  if (!(target instanceof HTMLElement)) return null;
+  if (!isHTMLElementTarget(target)) return null;
   return target.closest('[data-slide-canvas-vnext="true"]');
 }
 
 function pointPctFromEvent(
-  event: PointerEvent | ReactPointerEvent | MouseEvent,
+  event: { clientX: number; clientY: number },
   rect: DOMRect,
 ): { x: number; y: number } {
   return {
@@ -1343,6 +1393,7 @@ export function SlideEditorVNext({
   } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const semanticCandidateStackRef = useRef<readonly string[]>([]);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
   const [draggingStage, setDraggingStage] = useState(false);
   const [moveGestureDraft, setMoveGestureDraft] = useState<ReadonlyMap<
@@ -2013,24 +2064,78 @@ export function SlideEditorVNext({
     }
   }
 
+  function semanticHitsAtPoint(
+    point: { x: number; y: number },
+    options: { selectedNodeBonus?: boolean } = {},
+  ): StageHitCandidate[] {
+    if (!activeSlide) return [];
+    const hits = hitTestSlideNodes(point, activeSlide.children, {
+      includeLocked: true,
+      stageAspect: canvasAspectRatio(deck),
+      selectedNodeBonus: options.selectedNodeBonus,
+      selectedNodeIds: new Set(selectedIds),
+    });
+    semanticCandidateStackRef.current = semanticCandidateNodeIds(hits);
+    return hits;
+  }
+
+  function semanticHitsFromEvent(
+    event: Pick<
+      MouseEvent<HTMLElement> | ReactPointerEvent<HTMLElement>,
+      "clientX" | "clientY" | "target"
+    >,
+    options: { selectedNodeBonus?: boolean } = {},
+  ): StageHitCandidate[] {
+    const canvasElement = canvasElementFromTarget(event.target);
+    if (
+      !canvasElement ||
+      !Number.isFinite(event.clientX) ||
+      !Number.isFinite(event.clientY)
+    ) {
+      return [];
+    }
+    const rect = canvasElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return [];
+    return semanticHitsAtPoint(pointPctFromEvent(event, rect), options);
+  }
+
+  function semanticNodeIdFromEvent(
+    fallbackNodeId: string,
+    event: Pick<
+      MouseEvent<HTMLElement> | ReactPointerEvent<HTMLElement>,
+      "clientX" | "clientY" | "target"
+    >,
+    options: { selectedNodeBonus?: boolean } = {},
+  ): string {
+    return semanticHitsFromEvent(event, options)[0]?.node.id ?? fallbackNodeId;
+  }
+
+  function applyActiveGroupContext(nodeId: string) {
+    if (!activeSlide) return;
+    const parentGroupId = parentGroupIdForNode(activeSlide.children, nodeId);
+    if (parentGroupId) {
+      setActiveGroupId(parentGroupId);
+    } else if (activeGroupId && nodeId !== activeGroupId) {
+      setActiveGroupId(null);
+    }
+  }
+
   function handleNodeClick(nodeId: string, event: MouseEvent) {
+    const targetNodeId = semanticNodeIdFromEvent(nodeId, event, {
+      selectedNodeBonus: true,
+    });
     // Commit any active inline edit when clicking a different node
-    if (inlineEditNodeId && inlineEditNodeId !== nodeId) {
+    if (inlineEditNodeId && inlineEditNodeId !== targetNodeId) {
       setInlineEditNodeId(null);
     }
-    if (tableEditingNodeId && tableEditingNodeId !== nodeId) {
+    if (tableEditingNodeId && tableEditingNodeId !== targetNodeId) {
       clearTableEditing();
     }
-    if (activeSlide) {
-      const parentGroupId = parentGroupIdForNode(activeSlide.children, nodeId);
-      if (parentGroupId) {
-        setActiveGroupId(parentGroupId);
-      } else if (activeGroupId && nodeId !== activeGroupId) {
-        setActiveGroupId(null);
-      }
-    }
-    setFocusedNodeId(nodeId);
-    setSelection((s) => selectNode(s, nodeId, event.shiftKey || event.metaKey));
+    applyActiveGroupContext(targetNodeId);
+    setFocusedNodeId(targetNodeId);
+    setSelection((s) =>
+      selectNode(s, targetNodeId, event.shiftKey || event.metaKey),
+    );
   }
 
   function handleNodeFocus(nodeId: string) {
@@ -2042,13 +2147,6 @@ export function SlideEditorVNext({
     if (!selectedIds.includes(nodeId)) {
       setSelection((s) => setSelectedNodeIds(s, [nodeId]));
     }
-  }
-
-  function handleNodeHoverChange(nodeId: string, hovering: boolean) {
-    setHoveredNodeId((current) => {
-      if (hovering) return nodeId;
-      return current === nodeId ? null : current;
-    });
   }
 
   function replacementNodeAfterDelete(
@@ -2073,9 +2171,12 @@ export function SlideEditorVNext({
     );
   }
 
-  function handleNodeDoubleClick(nodeId: string, _event: MouseEvent) {
+  function handleNodeDoubleClick(nodeId: string, event: MouseEvent) {
     if (!activeSlide) return;
-    const node = findNodeById(activeSlide.children, nodeId);
+    const targetNodeId = semanticNodeIdFromEvent(nodeId, event, {
+      selectedNodeBonus: true,
+    });
+    const node = findNodeById(activeSlide.children, targetNodeId);
     if (!node) return;
     if (node.type === "group") {
       setActiveGroupId(node.id);
@@ -2088,14 +2189,18 @@ export function SlideEditorVNext({
       return;
     }
     if (node.type === "table") {
-      handleEnterTableEdit(nodeId, { announcement: "Editing table cells" });
+      handleEnterTableEdit(targetNodeId, {
+        announcement: "Editing table cells",
+      });
       return;
     }
     // Only text and shape (with text) nodes are inline-editable
     if (node.type === "text" || node.type === "shape") {
-      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
-      setActiveGroupId(parentGroupIdForNode(activeSlide.children, nodeId));
-      setInlineEditNodeId(nodeId);
+      setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
+      setActiveGroupId(
+        parentGroupIdForNode(activeSlide.children, targetNodeId),
+      );
+      setInlineEditNodeId(targetNodeId);
     }
   }
 
@@ -2157,18 +2262,7 @@ export function SlideEditorVNext({
     ) {
       return;
     }
-    const target = event.target;
-    if (target instanceof HTMLElement) {
-      if (
-        target.closest("[data-node-id]") ||
-        target.closest("[data-resize-handle]") ||
-        target.closest("[data-crop-handle]") ||
-        target.closest("[data-rotation-handle]") ||
-        target.closest("[data-connector-endpoint]")
-      ) {
-        return;
-      }
-    }
+    if (isStageHandleTarget(event.target)) return;
     const canvasElement = canvasElementFromTarget(event.target);
     if (!canvasElement) return;
     const rect = canvasElement.getBoundingClientRect();
@@ -2193,18 +2287,7 @@ export function SlideEditorVNext({
     if (!activeSlide || event.button !== 0 || isEditableTarget(event.target)) {
       return;
     }
-    const target = event.target;
-    if (target instanceof HTMLElement) {
-      if (
-        target.closest("[data-node-id]") ||
-        target.closest("[data-resize-handle]") ||
-        target.closest("[data-crop-handle]") ||
-        target.closest("[data-rotation-handle]") ||
-        target.closest("[data-connector-endpoint]")
-      ) {
-        return;
-      }
-    }
+    if (isStageHandleTarget(event.target)) return;
     const canvasElement = canvasElementFromTarget(event.target);
     if (!canvasElement) return;
     const rect = canvasElement.getBoundingClientRect();
@@ -2238,6 +2321,36 @@ export function SlideEditorVNext({
         });
       },
     });
+  }
+
+  function handleStagePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      !activeSlide ||
+      inlineEditNodeId ||
+      tableEditingNodeId ||
+      marqueeFrame ||
+      draggingStage ||
+      activeResizeHandle ||
+      activeCropHandle ||
+      activeRotationNodeId ||
+      activeConnectorEndpoint ||
+      isEditableTarget(event.target) ||
+      isStageEditingHandleTarget(event.target)
+    ) {
+      setHoveredNodeId((current) => (current === null ? current : null));
+      return;
+    }
+    const hoveredId = semanticHitsFromEvent(event, {
+      selectedNodeBonus: false,
+    })[0]?.node.id;
+    setHoveredNodeId((current) =>
+      current === (hoveredId ?? null) ? current : (hoveredId ?? null),
+    );
+  }
+
+  function handleStagePointerLeave() {
+    semanticCandidateStackRef.current = [];
+    setHoveredNodeId((current) => (current === null ? current : null));
   }
 
   function handleCropHandlePointerDown(
@@ -2493,14 +2606,32 @@ export function SlideEditorVNext({
     if (!activeSlide || event.button !== 0 || isEditableTarget(event.target)) {
       return;
     }
-    const nextSelection = selectedIds.includes(nodeId)
+    const hits = semanticHitsFromEvent(event, { selectedNodeBonus: true });
+    if (event.altKey) {
+      const nextId = nextSemanticSelectUnderNodeId(
+        semanticCandidateNodeIds(hits),
+        new Set(selectedIds),
+      );
+      if (nextId) {
+        setSelection((s) => setSelectedNodeIds(s, [nextId]));
+        setFocusedNodeId(nextId);
+        applyActiveGroupContext(nextId);
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    const targetNodeId = hits[0]?.node.id ?? nodeId;
+    const nextSelection = selectedIds.includes(targetNodeId)
       ? selection
-      : selectNode(selection, nodeId, event.shiftKey || event.metaKey);
+      : selectNode(selection, targetNodeId, event.shiftKey || event.metaKey);
     const dragIds = topLevelSelectedNodeIds(
       activeSlide.children,
       new Set(selectedNodeIds(nextSelection)),
     );
     setSelection(nextSelection);
+    setFocusedNodeId(targetNodeId);
 
     const rect = canvasRectFromEvent(event);
     if (!rect || rect.width <= 0 || rect.height <= 0) return;
@@ -2827,6 +2958,36 @@ export function SlideEditorVNext({
 
     if (event.key === "?") {
       setShortcutHelpOpen((open) => !open);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.altKey && event.key === "]") {
+      const anchorId = focusedNodeId ?? firstSelectedId;
+      let candidateIds = semanticCandidateStackRef.current;
+      if (anchorId) {
+        const anchorNode = findNodeById(activeSlide.children, anchorId);
+        if (anchorNode?.layout) {
+          candidateIds = semanticCandidateNodeIds(
+            semanticHitsAtPoint(
+              {
+                x: anchorNode.layout.frame.x + anchorNode.layout.frame.w / 2,
+                y: anchorNode.layout.frame.y + anchorNode.layout.frame.h / 2,
+              },
+              { selectedNodeBonus: true },
+            ),
+          );
+        }
+      }
+      const nextId = nextSemanticSelectUnderNodeId(
+        candidateIds,
+        new Set(selectedIds),
+      );
+      if (nextId) {
+        setSelection((s) => setSelectedNodeIds(s, [nextId]));
+        focusSelectedNodeSoon(nextId);
+        applyActiveGroupContext(nextId);
+      }
       event.preventDefault();
       return;
     }
@@ -4573,6 +4734,8 @@ export function SlideEditorVNext({
           onClick={handleStageClick}
           onDoubleClick={handleStageDoubleClick}
           onPointerDown={handleStagePointerDown}
+          onPointerMove={handleStagePointerMove}
+          onPointerLeave={handleStagePointerLeave}
         >
           <div className="sr-only" aria-live="polite" aria-atomic="true">
             {stageAnnouncement}
@@ -4683,7 +4846,6 @@ export function SlideEditorVNext({
                     onNodeDoubleClick={handleNodeDoubleClick}
                     onNodePointerDown={handleNodePointerDown}
                     onNodeFocus={handleNodeFocus}
-                    onNodeHoverChange={handleNodeHoverChange}
                     onResizeHandlePointerDown={handleResizeHandlePointerDown}
                     onCropHandlePointerDown={handleCropHandlePointerDown}
                     onRotationHandlePointerDown={
