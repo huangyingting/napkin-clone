@@ -113,15 +113,20 @@ import {
 import { applyDiagnosticRepairAction } from "@/lib/presentation-vnext/diagnostic-repairs";
 import {
   classifyDeckSourceLinks,
-  dismissNodeSourceIssue,
-  refreshAllSafeSourceLinks,
-  refreshNodeSource,
-  relinkNodeSource,
   sourceLinkDiagnostics,
   sourceReviewItems,
-  unlinkNodeSource,
-  updateNodeSourceState,
 } from "@/lib/presentation-vnext/source-links";
+import {
+  dismissSourceReviewItem,
+  refreshAllSourceReviewItems,
+  refreshSelectedSourceLink,
+  refreshSourceReviewItem,
+  relinkSourceReviewItem,
+  unlinkSourceReviewItem,
+  type SourceLinkHostRefreshArgs,
+  type SourceLinkHostRefreshResult,
+  type SourceLinkOrchestrationResult,
+} from "@/lib/presentation-vnext/source-link-orchestration";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
@@ -282,10 +287,7 @@ export type SlideEditorVNextVisualPickResult = {
   alt?: string;
 };
 
-export type SlideEditorVNextSourceRefreshResult = {
-  contentPatch?: Record<string, unknown>;
-  source?: NodeSourceMetadata;
-};
+export type SlideEditorVNextSourceRefreshResult = SourceLinkHostRefreshResult;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -316,12 +318,9 @@ export interface SlideEditorVNextProps {
   onUploadImage?: (file: File) => Promise<SlideEditorVNextImageUploadResult>;
   onPickVisual?: () => Promise<SlideEditorVNextVisualPickResult | undefined>;
   sourceBlockIndex?: SourceBlockIndex;
-  onRefreshSource?: (args: {
-    deck: DeckV7;
-    slide: SlideNode;
-    node: SlideChildNode;
-    source: NodeSourceMetadata;
-  }) => Promise<SlideEditorVNextSourceRefreshResult | undefined>;
+  onRefreshSource?: (
+    args: SourceLinkHostRefreshArgs,
+  ) => Promise<SlideEditorVNextSourceRefreshResult | undefined>;
   /**
    * Called on every structural change. Receives the updated deck with the
    * command result applied. The parent is responsible for persistence.
@@ -2789,38 +2788,16 @@ export function SlideEditorVNext({
 
   async function handleRefreshSelectedSource() {
     if (!activeSlide || !selectedNode?.source) return;
-    if (sourceBlockIndex) {
-      handleRefreshSourceAt(activeSlide.id, selectedNode.id);
-      return;
-    }
-    if (!onRefreshSource) return;
-    const refreshed = await onRefreshSource({
+    const result = await refreshSelectedSourceLink({
       deck,
       slide: activeSlide,
       node: selectedNode,
-      source: selectedNode.source,
+      now: new Date().toISOString(),
+      sourceBlockIndex,
+      onRefreshSource,
     });
-    if (!refreshed) return;
-    let updated = deck;
-    if (refreshed.contentPatch) {
-      updated = updateNodeContent(
-        updated,
-        activeSlide.id,
-        selectedNode.id,
-        refreshed.contentPatch,
-      );
-    }
-    if (refreshed.source) {
-      updated = updateNodeSourceMetadata(
-        updated,
-        activeSlide.id,
-        selectedNode.id,
-        refreshed.source,
-      );
-    }
-    onDeckChange(updated);
-    setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
-    focusSelectedNodeSoon(selectedNode.id);
+    if (!result) return;
+    applySourceLinkOrchestration(result);
   }
 
   function handleSelectSourceItem(slideId: string, nodeId: string) {
@@ -2831,48 +2808,45 @@ export function SlideEditorVNext({
     focusSelectedNodeSoon(nodeId);
   }
 
+  function applySourceLinkOrchestration(
+    result: SourceLinkOrchestrationResult,
+  ): void {
+    if (result.deck) {
+      onDeckChange(result.deck);
+    }
+    if (result.selection) {
+      handleSelectSourceItem(result.selection.slideId, result.selection.nodeId);
+    }
+    if (result.statusMessage) {
+      setSourceReviewStatus(result.statusMessage);
+    }
+    if (result.announcement) {
+      setStageAnnouncement(result.announcement);
+    }
+  }
+
   function handleRefreshSourceAt(slideId: string, nodeId: string) {
     if (!sourceBlockIndex) return;
-    const now = new Date().toISOString();
-    const result = refreshNodeSource(
-      deck,
-      slideId,
-      nodeId,
-      sourceBlockIndex,
-      now,
+    applySourceLinkOrchestration(
+      refreshSourceReviewItem({
+        deck,
+        sourceBlockIndex,
+        slideId,
+        nodeId,
+        now: new Date().toISOString(),
+      }),
     );
-    if (result.status === "refreshed") {
-      onDeckChange(result.deck);
-      handleSelectSourceItem(slideId, nodeId);
-      setSourceReviewStatus("Refreshed source-linked node.");
-      setStageAnnouncement("Refreshed source-linked node.");
-      return;
-    }
-    const checked = updateNodeSourceState(
-      result.deck,
-      slideId,
-      nodeId,
-      "unknown",
-      now,
-      result.reason,
-    );
-    onDeckChange(checked);
-    handleSelectSourceItem(slideId, nodeId);
-    setSourceReviewStatus(`Skipped source refresh: ${result.reason}`);
-    setStageAnnouncement(`Skipped source refresh: ${result.reason}`);
   }
 
   function handleUnlinkSourceAt(slideId: string, nodeId: string) {
-    const updated = unlinkNodeSource(
-      deck,
-      slideId,
-      nodeId,
-      new Date().toISOString(),
+    applySourceLinkOrchestration(
+      unlinkSourceReviewItem({
+        deck,
+        slideId,
+        nodeId,
+        now: new Date().toISOString(),
+      }),
     );
-    onDeckChange(updated);
-    handleSelectSourceItem(slideId, nodeId);
-    setSourceReviewStatus("Marked source link as unlinked.");
-    setStageAnnouncement("Marked source link as unlinked.");
   }
 
   function handleRelinkSourceAt(
@@ -2880,60 +2854,39 @@ export function SlideEditorVNext({
     nodeId: string,
     block: SourceBlockIndexEntry,
   ) {
-    const result = relinkNodeSource(
-      deck,
-      slideId,
-      nodeId,
-      block,
-      new Date().toISOString(),
-      { allowDocumentChange: true },
+    applySourceLinkOrchestration(
+      relinkSourceReviewItem({
+        deck,
+        slideId,
+        nodeId,
+        block,
+        now: new Date().toISOString(),
+      }),
     );
-    if (result.status === "refreshed") {
-      onDeckChange(result.deck);
-      handleSelectSourceItem(slideId, nodeId);
-      setSourceReviewStatus(`Relinked node to ${block.displayLabel}.`);
-      setStageAnnouncement(`Relinked node to ${block.displayLabel}.`);
-      return;
-    }
-    setSourceReviewStatus(`Skipped relink: ${result.reason}`);
-    setStageAnnouncement(`Skipped relink: ${result.reason}`);
   }
 
   function handleDismissSourceAt(slideId: string, nodeId: string) {
     if (!sourceBlockIndex) return;
-    const updated = dismissNodeSourceIssue(
-      deck,
-      slideId,
-      nodeId,
-      sourceBlockIndex,
-      new Date().toISOString(),
+    applySourceLinkOrchestration(
+      dismissSourceReviewItem({
+        deck,
+        sourceBlockIndex,
+        slideId,
+        nodeId,
+        now: new Date().toISOString(),
+      }),
     );
-    onDeckChange(updated);
-    handleSelectSourceItem(slideId, nodeId);
-    setSourceReviewStatus("Dismissed source review item.");
-    setStageAnnouncement("Dismissed source review item.");
   }
 
   function handleRefreshAllSources() {
     if (!sourceBlockIndex) return;
-    const result = refreshAllSafeSourceLinks(
-      deck,
-      sourceBlockIndex,
-      new Date().toISOString(),
+    applySourceLinkOrchestration(
+      refreshAllSourceReviewItems({
+        deck,
+        sourceBlockIndex,
+        now: new Date().toISOString(),
+      }),
     );
-    onDeckChange(result.deck);
-    const skippedDetails =
-      result.skipped.length > 0
-        ? ` Skipped: ${result.skipped
-            .map(
-              ({ item, reason }) =>
-                `${item.nodeName ?? item.nodeId} — ${reason}`,
-            )
-            .join("; ")}`
-        : "";
-    const message = `Refreshed ${result.refreshed.length} source links; skipped ${result.skipped.length}.${skippedDetails}`;
-    setSourceReviewStatus(message);
-    setStageAnnouncement(message);
   }
 
   function handleSelectLayer(nodeId: string) {
