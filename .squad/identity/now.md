@@ -1,9 +1,9 @@
 ---
-updated_at: 2026-06-19T09:44:56Z
-focus_area: 5-phase editor redesign complete and verified — typecheck clean, 181/181 tests pass, build green
+updated_at: 2026-07-01T17:51:56+08:00
+focus_area: Team setup complete
 active_issues: []
 ---
 
 # What We're Focused On
 
-The 5-phase TextIQ editor redesign (Phases 0–5) is complete and verified: typecheck clean, 181/181 tests pass, build green, and the dev server boots/serves 200s. Only the pre-existing `.squad/templates/ralph-triage.js` lint errors remain; Mouse has one token follow-up for selected insert-menu on-accent states.
+TextIQ's Squad roster is initialized. The team is ready to route work across editor, presentation, backend/AI, collaboration, testing, logging, work monitoring, and RAI review.

@@ -6,13 +6,13 @@ How to decide who handles what.
 
 | Work Type | Route To | Examples |
 |-----------|----------|----------|
-| Architecture & scope | Trinity | System design, editor/toolbar architecture, technical direction, trade-offs |
-| Design & UX | Mouse | Design system, visual language, toolbar/toolbox UX, motion, style options for visuals |
-| Frontend / editor UI | Switch | React/Lexical components, context-aware toolbars, visual blocks, Yjs collab UI |
-| Backend / services | Tank | APIs, Prisma schema, auth, visual generation & export (PDF/PPTX), collab server |
-| Code review | Trinity | Review PRs, check quality, suggest improvements |
-| Testing | Ghost | Write tests, find edge cases, verify fixes |
-| Scope & priorities | Trinity | What to build next, trade-offs, decisions |
+| Scope, priorities, architecture | Morpheus | System boundaries, cross-module contracts, trade-offs, reviewer gates |
+| Lexical editor and React UI | Trinity | Document editing, toolbar UX, editable block interactions, client boundaries |
+| Slides, visuals, and presentation flows | Switch | Slide editor, visual blocks, themes, sharing/export behavior, public render parity |
+| Backend, data, AI, and collaboration services | Tank | Prisma schema, APIs, AI generation flows, workspaces, brand kits, collaboration backend |
+| Testing and quality | Mouse | Focused tests, Playwright coverage, import/export edge cases, regression checks |
+| Code review | Morpheus | Review PRs, check quality, enforce architecture and handoffs |
+| Work queue monitoring | Ralph | Backlog scans, idle-watch, keep-alive loops |
 | Session logging | Scribe | Automatic — never needs routing |
 | RAI review | Rai | Content safety, bias checks, credential detection, ethical review |
 
@@ -20,12 +20,12 @@ How to decide who handles what.
 
 | Label | Action | Who |
 |-------|--------|-----|
-| `squad` | Triage: analyze issue, assign `squad:{member}` label | Lead |
+| `squad` | Triage: analyze issue, assign `squad:{member}` label | Morpheus |
 | `squad:{name}` | Pick up issue and complete the work | Named member |
 
 ### How Issue Assignment Works
 
-1. When a GitHub issue gets the `squad` label, the **Lead** triages it — analyzing content, assigning the right `squad:{member}` label, and commenting with triage notes.
+1. When a GitHub issue gets the `squad` label, **Morpheus** triages it — analyzing content, assigning the right `squad:{member}` label, and commenting with triage notes.
 2. When a `squad:{member}` label is applied, that member picks up the issue in their next session.
 3. Members can reassign by removing their label and adding another member's label.
 4. The `squad` label is the "inbox" — untriaged issues waiting for Lead review.
