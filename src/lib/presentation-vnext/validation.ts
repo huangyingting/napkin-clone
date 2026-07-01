@@ -1331,6 +1331,180 @@ function validateSlideNode(
   }
 }
 
+const DECK_METADATA_KEYS = new Set([
+  "createdAt",
+  "updatedAt",
+  "sourceDocumentId",
+  "contentHash",
+  "locale",
+  "extra",
+]);
+
+function validateJsonValue(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (
+    input === null ||
+    typeof input === "string" ||
+    typeof input === "boolean"
+  ) {
+    return;
+  }
+  if (typeof input === "number") {
+    if (!Number.isFinite(input)) {
+      fail(errors, `${ctx} must be a finite number`);
+    }
+    return;
+  }
+  if (Array.isArray(input)) {
+    for (let i = 0; i < input.length; i++) {
+      validateJsonValue(input[i], `${ctx}[${i}]`, errors);
+    }
+    return;
+  }
+  if (isPlainObject(input)) {
+    for (const [key, value] of Object.entries(input)) {
+      validateJsonValue(value, `${ctx}.${key}`, errors);
+    }
+    return;
+  }
+  fail(errors, `${ctx} must be a JSON-serializable value`);
+}
+
+function validateDeckMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!DECK_METADATA_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known metadata field`);
+    }
+  }
+  validateStringField(input.createdAt, `${ctx}.createdAt`, errors);
+  validateStringField(input.updatedAt, `${ctx}.updatedAt`, errors);
+  validateStringField(
+    input.sourceDocumentId,
+    `${ctx}.sourceDocumentId`,
+    errors,
+  );
+  validateStringField(input.contentHash, `${ctx}.contentHash`, errors);
+  validateStringField(input.locale, `${ctx}.locale`, errors);
+  if (input.extra !== undefined) {
+    if (!isPlainObject(input.extra)) {
+      fail(errors, `${ctx}.extra must be an object`);
+    } else {
+      for (const [key, value] of Object.entries(input.extra)) {
+        validateJsonValue(value, `${ctx}.extra.${key}`, errors);
+      }
+    }
+  }
+}
+
+const DECK_THEME_KEYS = new Set([
+  "packageId",
+  "packageVersion",
+  "brandKitId",
+  "overrides",
+]);
+
+const THEME_OVERRIDE_KEYS = new Set([
+  "tokens",
+  "styles",
+  "disabledDecorations",
+  "chrome",
+]);
+
+function validateThemeStylesOverrides(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const [styleRef, variants] of Object.entries(input)) {
+    if (!isStyleRef(styleRef)) {
+      fail(errors, `${ctx}.${styleRef} must be a registered StyleRef`);
+    }
+    if (!isPlainObject(variants)) {
+      fail(errors, `${ctx}.${styleRef} must be an object`);
+      continue;
+    }
+    for (const [variant, patch] of Object.entries(variants)) {
+      if (!isPlainObject(patch)) {
+        fail(errors, `${ctx}.${styleRef}.${variant} must be an object`);
+      }
+    }
+  }
+}
+
+function validateThemeOverridePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!THEME_OVERRIDE_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known theme override field`);
+    }
+  }
+  if (input.tokens !== undefined && !isPlainObject(input.tokens)) {
+    fail(errors, `${ctx}.tokens must be an object`);
+  }
+  if (input.styles !== undefined) {
+    validateThemeStylesOverrides(input.styles, `${ctx}.styles`, errors);
+  }
+  if (input.disabledDecorations !== undefined) {
+    if (!Array.isArray(input.disabledDecorations)) {
+      fail(errors, `${ctx}.disabledDecorations must be an array`);
+    } else {
+      for (let i = 0; i < input.disabledDecorations.length; i++) {
+        if (typeof input.disabledDecorations[i] !== "string") {
+          fail(errors, `${ctx}.disabledDecorations[${i}] must be a string`);
+        }
+      }
+    }
+  }
+  validateDeckChromeConfig(input.chrome, `${ctx}.chrome`, errors);
+}
+
+function validateDeckThemeBinding(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!DECK_THEME_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known theme field`);
+    }
+  }
+  if (typeof input.packageId !== "string" || input.packageId.length === 0) {
+    fail(errors, `${ctx}.packageId must be a non-empty string`);
+  }
+  validateStringField(input.packageVersion, `${ctx}.packageVersion`, errors);
+  validateStringField(input.brandKitId, `${ctx}.brandKitId`, errors);
+  if (input.overrides !== undefined) {
+    validateThemeOverridePatch(input.overrides, `${ctx}.overrides`, errors);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Deck
 // ---------------------------------------------------------------------------
@@ -1379,21 +1553,8 @@ function validateDeckV7(input: unknown, errors: string[]): Partial<DeckV7> {
 
   validateCanvas(input.canvas, "Deck.canvas", errors);
   validateAssetRegistry(input.assets, "Deck.assets", errors);
-
-  if (!isPlainObject(input.theme)) {
-    fail(errors, "Deck.theme must be an object");
-  } else if (
-    typeof input.theme.packageId !== "string" ||
-    input.theme.packageId.length === 0
-  ) {
-    fail(errors, "Deck.theme.packageId must be a non-empty string");
-  } else if (isPlainObject(input.theme.overrides)) {
-    validateDeckChromeConfig(
-      input.theme.overrides.chrome,
-      "Deck.theme.overrides.chrome",
-      errors,
-    );
-  }
+  validateDeckThemeBinding(input.theme, "Deck.theme", errors);
+  validateDeckMetadata(input.metadata, "Deck.metadata", errors);
   validateDeckChromeConfig(input.chrome, "Deck.chrome", errors);
 
   if (!Array.isArray(input.slides)) {

@@ -83,6 +83,144 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts valid deck metadata and theme binding fields", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildCoverSlide()], {
+      metadata: {
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-02T00:00:00Z",
+        sourceDocumentId: "doc-123",
+        contentHash: "hash-123",
+        locale: "en-US",
+        extra: {
+          review: { by: "qa", approved: true },
+          tags: ["deck", "theme"],
+        },
+      },
+      theme: {
+        packageId: "neutral",
+        packageVersion: "1.2.3",
+        brandKitId: "brand-123",
+        overrides: {
+          disabledDecorations: ["logo", "footer"],
+          chrome: {
+            footer: { enabled: true, text: "Footer" },
+          },
+          styles: {
+            "text.body": {
+              default: { text: { color: "#111111" } },
+            },
+          },
+        },
+      },
+    });
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
+  test("rejects malformed and unknown metadata fields", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      metadata: {
+        createdAt: 123,
+        unknownField: "kept",
+        extra: "not-object",
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((error) => /Deck\.metadata\.createdAt/.test(error)),
+      );
+      assert.ok(
+        result.errors.some((error) =>
+          /Deck\.metadata\.unknownField/.test(error),
+        ),
+      );
+      assert.ok(
+        result.errors.some((error) => /Deck\.metadata\.extra/.test(error)),
+      );
+    }
+  });
+
+  test("rejects unknown deck theme and override fields", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      theme: {
+        packageId: "neutral",
+        unexpected: true,
+        overrides: {
+          extraUnknown: true,
+        },
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((error) => /Deck\.theme\.unexpected/.test(error)),
+      );
+      assert.ok(
+        result.errors.some((error) =>
+          /Deck\.theme\.overrides\.extraUnknown/.test(error),
+        ),
+      );
+    }
+  });
+
+  test("rejects malformed theme scalar fields", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      theme: {
+        packageId: "neutral",
+        packageVersion: 123,
+        brandKitId: false,
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((error) =>
+          /Deck\.theme\.packageVersion/.test(error),
+        ),
+      );
+      assert.ok(
+        result.errors.some((error) => /Deck\.theme\.brandKitId/.test(error)),
+      );
+    }
+  });
+
+  test("rejects invalid disabledDecorations payloads", () => {
+    const badOverrides: unknown[] = [
+      { disabledDecorations: "all" },
+      { disabledDecorations: ["logo", 42] },
+    ];
+
+    for (const overrides of badOverrides) {
+      const deck = {
+        ...buildMinimalDeckV7(),
+        theme: {
+          packageId: "neutral",
+          overrides,
+        },
+      };
+      const result = safeParseDeckV7(deck);
+      assert.ok(!result.success);
+      if (!result.success) {
+        assert.ok(
+          result.errors.some((error) =>
+            /Deck\.theme\.overrides\.disabledDecorations/.test(error),
+          ),
+        );
+      }
+    }
+  });
+
   test("rejects non-object input", () => {
     const result = safeParseDeckV7("not-an-object");
     assert.ok(!result.success);
