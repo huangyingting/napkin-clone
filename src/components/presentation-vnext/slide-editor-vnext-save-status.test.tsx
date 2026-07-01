@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { SlideEditorVNext } from "./slide-editor-vnext";
+import {
+  buildMinimalDeckV7,
+  buildMinimalThemePackage,
+} from "@/test/builders/deck-v7";
+
+function renderEditor(
+  overrides: Partial<Parameters<typeof SlideEditorVNext>[0]> = {},
+): string {
+  return renderToStaticMarkup(
+    createElement(SlideEditorVNext, {
+      documentId: "doc-save-status",
+      deck: buildMinimalDeckV7(),
+      themePackage: buildMinimalThemePackage(),
+      onDeckChange: () => undefined,
+      ...overrides,
+    }),
+  );
+}
+
+describe("SlideEditorVNext save status announcements", () => {
+  test("announces non-error save states via polite status region", () => {
+    const html = renderEditor({
+      saveStatus: "saving",
+      saveStatusLabel: "Saving…",
+    });
+
+    assert.match(
+      html,
+      /<span role="status" aria-live="polite" aria-atomic="true">Saving…<\/span>/,
+    );
+  });
+
+  test("announces save failures with assertive messaging in editor chrome", () => {
+    const html = renderEditor({
+      saveStatus: "error",
+      saveStatusLabel: "Save failed — Retry",
+      saveErrorMessage: "Network timeout",
+      onSave: async () => ({ ok: true }),
+    });
+
+    assert.match(
+      html,
+      /<span role="alert" class="sr-only">Save failed — Retry\. Network timeout<\/span>/,
+    );
+    assert.match(
+      html,
+      /<span role="status" aria-live="assertive" aria-atomic="true" class="max-w-\[260px\] truncate text-ds-danger-text">Network timeout<\/span>/,
+    );
+    assert.match(html, />Save failed — Retry<\/button>/);
+  });
+});
