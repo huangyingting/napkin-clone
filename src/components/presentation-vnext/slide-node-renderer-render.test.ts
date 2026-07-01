@@ -60,8 +60,6 @@ describe("styleObjectToContainerCss", () => {
         color: "#334155",
         background: "#ffffff",
       },
-      { type: "image", assetId: "bg", opacity: 0.4 },
-      { type: "image", assetId: "missing", opacity: 0.4 },
     ];
 
     for (const fill of fills) {
@@ -108,7 +106,7 @@ describe("styleObjectToContainerCss", () => {
     assert.equal(css.mixBlendMode, "multiply");
   });
 
-  test("resolves image fills through the provided asset resolver", () => {
+  test("keeps image fill paint off the container style", () => {
     const css = styleObjectToContainerCss(
       {
         fill: { type: "image", assetId: "img-1", opacity: 0.4 },
@@ -116,12 +114,7 @@ describe("styleObjectToContainerCss", () => {
       (id) => `https://assets.example/${id}.png`,
     );
 
-    assert.equal(
-      css.backgroundImage,
-      'url("https://assets.example/img-1.png")',
-    );
-    assert.equal(css.backgroundSize, "cover");
-    assert.equal(css.opacity, 0.4);
+    assert.deepEqual(css, {});
   });
 
   test("converts every fill and effect variant without requiring DOM APIs", () => {
@@ -243,6 +236,35 @@ describe("styleObjectToContainerCss", () => {
 });
 
 describe("SlideNodeRenderer media rendering", () => {
+  test("renders image fill opacity on a dedicated layer", () => {
+    const html = renderNode(
+      node(
+        {
+          type: "text",
+          content: { paragraphs: [{ id: "p-1", text: "Foreground text" }] },
+        },
+        {
+          style: {
+            fill: { type: "image", assetId: "img-1", opacity: 0.4 },
+            opacity: 0.8,
+          },
+        },
+      ),
+      {
+        assetResolver: (id) => `https://assets.example/${id}.png`,
+      },
+    );
+
+    assert.match(
+      html,
+      /data-node-fill-layer="image"[^>]*background-image:url\(&quot;https:\/\/assets\.example\/img-1\.png&quot;\)/,
+    );
+    assert.match(html, /data-node-fill-layer="image"[^>]*opacity:0.4/);
+    assert.match(html, /data-node-id="node-1"[^>]*opacity:0.8/);
+    assert.doesNotMatch(html, /data-node-id="node-1"[^>]*background-image:/);
+    assert.match(html, /Foreground text/);
+  });
+
   test("renders visual placeholders with channel colors and transparent backgrounds", () => {
     const html = renderNode(
       node(

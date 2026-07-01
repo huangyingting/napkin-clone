@@ -1030,6 +1030,35 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.equal(missingDeckHtml, "");
   });
 
+  test("applies image background fill opacity on a dedicated layer", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: {
+          ...slide([
+            textNode("foreground-node", { x: 10, y: 10, w: 20, h: 10 }),
+          ]),
+          background: {
+            fill: { type: "image", assetId: "bg", opacity: 0.4 },
+            decorationLevel: "none",
+          },
+        },
+        assetResolver: (assetId) => `https://example.com/${assetId}.png`,
+      }),
+    );
+
+    assert.match(html, /data-slide-background-fill-layer="image"/);
+    assert.match(
+      html,
+      /data-slide-background-fill-layer="image"[^>]*background-image:url\(&quot;https:\/\/example\.com\/bg\.png&quot;\)/,
+    );
+    assert.match(
+      html,
+      /data-slide-background-fill-layer="image"[^>]*opacity:0.4/,
+    );
+    assert.doesNotMatch(html, /data-slide-canvas-vnext="true"[^>]*opacity:0.4/);
+    assert.match(html, /foreground-node/);
+  });
+
   test("renders deterministic filmstrip thumbnail coverage for editor layout regressions", () => {
     const renderTree: ResolvedDeckRenderTree = {
       canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
@@ -1223,7 +1252,7 @@ describe("SlideNodeRenderer resolved node content branches", () => {
       String(styles[7].backgroundImage),
       /repeating-linear-gradient/,
     );
-    assert.match(String(styles[8].backgroundImage), /bg.png/);
+    assert.deepEqual(styles[8], {});
   });
 
   test("applies text vertical alignment and paragraph spacing in text and shape content", () => {
@@ -1650,7 +1679,7 @@ describe("SlideCanvasVNext E01 rendering coverage", () => {
     assert.match(String(css[6].backgroundImage), /radial-gradient/);
     assert.match(String(css[7].backgroundImage), /repeating-linear-gradient/);
     assert.match(String(css[8].backgroundImage), /0deg/);
-    assert.match(String(css[9].backgroundImage), /hero.png/);
+    assert.equal(css[9].backgroundImage, undefined);
     assert.equal(css[9].filter, "blur(4pt)");
     assert.equal(css[10].backgroundImage, undefined);
     assert.equal(css[10].filter, "drop-shadow(0 0 10pt #4f46e5)");
