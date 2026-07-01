@@ -1,11 +1,11 @@
-/** Core persisted deck and slide schema types. */
+/** Core legacy v6 deck and slide schema types. */
 
 import type { SlideFormat } from "@/lib/presentation/slide-format";
 import type { SlideElement } from "./deck-elements";
 import { STYLE_THEME_IDS } from "./presentation-theme-ids";
 
-/** Increment this for future structural deck schema changes. */
-export const CURRENT_DECK_SCHEMA_VERSION = 6;
+/** Explicit schema version for legacy v6 deck payloads. */
+export const LEGACY_DECK_SCHEMA_VERSION = 6;
 
 /**
  * Canonical presentation theme names — identical to the visual style theme
@@ -168,7 +168,7 @@ export interface Deck {
   [key: string]: unknown;
 
   /** Monotonically-increasing deck schema version. */
-  schemaVersion?: typeof CURRENT_DECK_SCHEMA_VERSION;
+  schemaVersion?: typeof LEGACY_DECK_SCHEMA_VERSION;
 
   /** Deck-wide canvas settings. */
   canvas?: { format: SlideFormat };

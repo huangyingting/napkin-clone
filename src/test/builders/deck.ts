@@ -1,5 +1,5 @@
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
+  LEGACY_DECK_SCHEMA_VERSION,
   type ConnectorElement,
   type Deck,
   type ElementBox,
@@ -438,7 +438,7 @@ export function buildDeck(overrides: DeckBuilderOverrides = {}): Deck {
   const slides = overrideSlides ?? [buildSlide()];
   return {
     ...deckOverrides,
-    schemaVersion: schemaVersion ?? CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: schemaVersion ?? LEGACY_DECK_SCHEMA_VERSION,
     canvas: {
       format: canvas?.format ?? "16:9",
     },

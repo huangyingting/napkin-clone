@@ -9,7 +9,7 @@
 
 import type { PresentationDiagnostic } from "./diagnostics";
 import { safeParseDeckV7 } from "./validation";
-import type { DeckV7 } from "./schema";
+import { DECK_SCHEMA_VERSION_V7, type DeckV7 } from "./schema";
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -59,7 +59,7 @@ export function openDeckFromJson(raw: unknown): OpenDeckResult {
 
   const version = raw.schemaVersion;
 
-  if (version === 7) {
+  if (version === DECK_SCHEMA_VERSION_V7) {
     const result = safeParseDeckV7(raw);
     if (result.success) {
       return { ok: true, deck: result.data, source: "v7", diagnostics: [] };
@@ -74,7 +74,7 @@ export function openDeckFromJson(raw: unknown): OpenDeckResult {
 
   return {
     ok: false,
-    error: `Unrecognised deck schema (version=${String(version)}). Expected schemaVersion 7.`,
+    error: `Unrecognised deck schema (version=${String(version)}). Expected schemaVersion ${DECK_SCHEMA_VERSION_V7}.`,
     diagnostics: [],
   };
 }
@@ -86,7 +86,7 @@ export function openDeckFromJson(raw: unknown): OpenDeckResult {
  * deck is structurally valid.
  */
 export function looksLikeDeckV7(raw: unknown): boolean {
-  return isPlainObject(raw) && raw.schemaVersion === 7;
+  return isPlainObject(raw) && raw.schemaVersion === DECK_SCHEMA_VERSION_V7;
 }
 
 /**

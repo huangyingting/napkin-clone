@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide, SlideElement } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 import {
   applyPatch,
   coalesceCommands,
@@ -516,8 +516,8 @@ test("Successful commands always emit patches; failures emit empty patches", () 
   assert.equal(fail.patches.length, 0, "failed command should emit no patches");
 });
 
-test("Patches carry schemaVersion matching CURRENT_DECK_SCHEMA_VERSION", () => {
-  const version = CURRENT_DECK_SCHEMA_VERSION;
+test("Patches carry schemaVersion matching LEGACY_DECK_SCHEMA_VERSION", () => {
+  const version = LEGACY_DECK_SCHEMA_VERSION;
   const deck = buildCommandDeck(["s1"]);
   const result = executeCommand(deck, {
     type: "SET_PRESENTATION_THEME",

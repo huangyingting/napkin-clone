@@ -10,7 +10,7 @@ import type {
   TextRun,
   VisualElement,
 } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 import {
   activeSourceRef,
   durableBlockIdFromSourceRef,
@@ -149,7 +149,7 @@ test("UPDATE_ELEMENT_SOURCE updates text + source and preserves geometry/style/z
   assert.equal(result.patches.length, 1);
   const patch = result.patches[0]!;
   assert.equal(patch.op, "element.update");
-  assert.equal(patch.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
+  assert.equal(patch.schemaVersion, LEGACY_DECK_SCHEMA_VERSION);
   assert.deepEqual(patch.slideIds, ["s1"]);
   assert.deepEqual(patch.elementIds, ["el-text"]);
   const replayed = applyPatch(deck, patch);

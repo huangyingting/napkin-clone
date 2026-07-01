@@ -7,7 +7,7 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import {
   computeDeckMetrics,
   countWords,
@@ -92,7 +92,7 @@ function slide(index: number, title: string, elements: SlideElement[]): Slide {
 
 function deck(slides: Slide[]): Deck {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

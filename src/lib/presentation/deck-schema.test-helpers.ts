@@ -1,10 +1,10 @@
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-core";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck-core";
 
 type RawObject = Record<string, unknown>;
 
 export function currentDeck(): unknown {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -53,7 +53,7 @@ export function slideFixture(overrides: RawObject = {}): RawObject {
 
 export function elementDeck(elements: unknown[]): unknown {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

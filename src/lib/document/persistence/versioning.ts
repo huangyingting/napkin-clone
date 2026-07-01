@@ -9,7 +9,11 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import type { DeckV7, SlideChildNode } from "@/lib/presentation-vnext/schema";
+import {
+  DECK_SCHEMA_VERSION_V7,
+  type DeckV7,
+  type SlideChildNode,
+} from "@/lib/presentation-vnext/schema";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
@@ -79,7 +83,7 @@ function looksLikeDeckV7(rawDeckJson: Prisma.JsonValue): boolean {
     typeof rawDeckJson === "object" &&
     rawDeckJson !== null &&
     !Array.isArray(rawDeckJson) &&
-    rawDeckJson.schemaVersion === 7
+    rawDeckJson.schemaVersion === DECK_SCHEMA_VERSION_V7
   );
 }
 

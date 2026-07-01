@@ -29,7 +29,7 @@ import {
 } from "@/lib/presentation/deck-revision-token";
 
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 import {
   diffVisualMirror,
@@ -402,7 +402,7 @@ describe("autosave: dirty state survives failed save / reopen (#459)", () => {
 describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
   test("safeParseDeck: valid minimal deck passes", () => {
     const result = safeParseDeck({
-      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
       canvas: { format: "16:9" },
       design: { themeId: "default" },
       masters: [{ id: "master-default", name: "Default", elements: [] }],

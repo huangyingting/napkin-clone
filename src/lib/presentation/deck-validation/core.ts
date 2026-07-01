@@ -1,5 +1,5 @@
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
+  LEGACY_DECK_SCHEMA_VERSION,
   type Deck,
   type Slide,
 } from "../deck-core";
@@ -430,9 +430,9 @@ export function validateDeck(input: unknown): Deck {
   ) {
     throw new DeckValidationError("Deck.schemaVersion must be an integer");
   }
-  if (input.schemaVersion !== CURRENT_DECK_SCHEMA_VERSION) {
+  if (input.schemaVersion !== LEGACY_DECK_SCHEMA_VERSION) {
     throw new DeckValidationError(
-      `Deck.schemaVersion ${input.schemaVersion} is not supported (current: ${CURRENT_DECK_SCHEMA_VERSION})`,
+      `Deck.schemaVersion ${input.schemaVersion} is not supported (legacy v6: ${LEGACY_DECK_SCHEMA_VERSION})`,
     );
   }
 

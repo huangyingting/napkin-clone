@@ -8,7 +8,7 @@ import {
 import { fnv1aHash32 } from "@/lib/presentation/fnv-hash";
 import { DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
+  LEGACY_DECK_SCHEMA_VERSION,
   type Deck,
   type PresentationThemeId,
   type Slide,
@@ -484,7 +484,7 @@ export function buildDeckFromBlocks(
   }
 
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: DEFAULT_DECK_SLIDE_FORMAT },
     design: { themeId: options.themeId },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
