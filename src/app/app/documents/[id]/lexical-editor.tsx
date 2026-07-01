@@ -210,11 +210,9 @@ function RoutedSlideEditorButton({
 
 function RoutedPresentButton({
   documentId,
-  initialDeckJson,
   documentTitle,
 }: {
   documentId: string;
-  initialDeckJson: unknown;
   documentTitle: string;
 }) {
   const deckPort = useMemo(() => ({ fetchDeckJson }), []);
@@ -222,7 +220,6 @@ function RoutedPresentButton({
     <PresentButton
       documentId={documentId}
       deckPort={deckPort}
-      initialDeckJson={initialDeckJson}
       documentTitle={documentTitle}
     />
   );
@@ -590,7 +587,6 @@ export function LexicalEditor({
                       )}
                       <RoutedPresentButton
                         documentId={documentId}
-                        initialDeckJson={initialDeckJson}
                         documentTitle={title.value}
                       />
                       <RoutedDocumentExportButton
