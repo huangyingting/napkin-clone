@@ -455,6 +455,7 @@ export interface ContextToolbarProps {
   onInsertTable?: () => void;
   onDuplicateSlide?: () => void;
   onDeleteSlide?: () => void;
+  canDeleteSlide?: boolean;
   onDetachDecoration?: () => void;
   onRequestStageFocus?: () => void;
 }
@@ -507,6 +508,7 @@ export function ContextToolbar({
   onInsertTable,
   onDuplicateSlide,
   onDeleteSlide,
+  canDeleteSlide = true,
   onDetachDecoration,
   onRequestStageFocus,
 }: ContextToolbarProps): JSX.Element | null {
@@ -737,7 +739,11 @@ export function ContextToolbar({
             <TBtn label="Duplicate slide" onClick={() => onDuplicateSlide?.()}>
               <Copy size={13} aria-hidden />
             </TBtn>
-            <TBtn label="Delete slide" onClick={() => onDeleteSlide?.()}>
+            <TBtn
+              label="Delete slide"
+              disabled={!canDeleteSlide || !onDeleteSlide}
+              onClick={() => onDeleteSlide?.()}
+            >
               <Trash2 size={13} aria-hidden />
             </TBtn>
           </>

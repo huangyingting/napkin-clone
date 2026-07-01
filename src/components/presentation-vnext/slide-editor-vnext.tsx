@@ -115,6 +115,7 @@ import {
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
+  MIN_DECK_SLIDES_MESSAGE,
   emptySlideSpecFromLayout,
   slideSpecFromSlide,
   updateSlideControls,
@@ -1199,6 +1200,34 @@ export function handleCloseConfirmAction(
   if (action === "discard") {
     handlers.closeEditor();
   }
+}
+
+export function deleteActiveSlideFromToolbar(
+  deck: DeckV7,
+  activeSlideId: string | undefined,
+): {
+  deleted: boolean;
+  nextDeck: DeckV7;
+  nextIndex: number;
+  statusMessage?: string;
+} {
+  if (!activeSlideId) {
+    return { deleted: false, nextDeck: deck, nextIndex: 0 };
+  }
+  if (deck.slides.length <= 1) {
+    return {
+      deleted: false,
+      nextDeck: deck,
+      nextIndex: 0,
+      statusMessage: MIN_DECK_SLIDES_MESSAGE,
+    };
+  }
+  const result = deleteSlide(deck, activeSlideId);
+  return {
+    deleted: result.deck !== deck,
+    nextDeck: result.deck,
+    nextIndex: result.index,
+  };
 }
 
 export function SlideEditorCloseConfirmDialog({
@@ -3362,10 +3391,15 @@ export function SlideEditorVNext({
   }
 
   function handleDeleteActiveSlide() {
-    if (!activeSlide) return;
-    const result = deleteSlide(deck, activeSlide.id);
-    onDeckChange(result.deck);
-    setActiveSlideIndex(result.index);
+    const result = deleteActiveSlideFromToolbar(deck, activeSlide?.id);
+    if (!result.deleted) {
+      if (result.statusMessage) {
+        setStageAnnouncement(result.statusMessage);
+      }
+      return;
+    }
+    onDeckChange(result.nextDeck);
+    setActiveSlideIndex(result.nextIndex);
     setSelection(createSelectionState(selection.mode));
   }
 
@@ -4177,6 +4211,7 @@ export function SlideEditorVNext({
             onInsertTable={handleInsertTable}
             onDuplicateSlide={handleDuplicateActiveSlide}
             onDeleteSlide={handleDeleteActiveSlide}
+            canDeleteSlide={deck.slides.length > 1}
             onDetachDecoration={handleDetachDecoration}
             onRequestStageFocus={handleContextToolbarEscape}
           />

@@ -209,3 +209,17 @@ describe("inline align persistence wiring", () => {
     );
   });
 });
+
+describe("slide delete affordance wiring", () => {
+  test("threads canDeleteSlide into the context-toolbar contract", () => {
+    assert.equal(source.includes("canDeleteSlide?: boolean;"), true);
+    assert.equal(source.includes("canDeleteSlide = true,"), true);
+  });
+
+  test("disables Delete slide when deletion is unavailable", () => {
+    assert.equal(
+      source.includes("disabled={!canDeleteSlide || !onDeleteSlide}"),
+      true,
+    );
+  });
+});

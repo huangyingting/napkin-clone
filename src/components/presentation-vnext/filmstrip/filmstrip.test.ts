@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { Filmstrip, type FilmstripProps } from "./filmstrip";
 import { FilmstripSlide } from "./filmstrip-slide";
+import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
 import type {
   ResolvedDeckRenderTree,
   ResolvedRenderNode,
@@ -311,6 +312,45 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
       .map((update) => update.value);
     assert.ok(statusUpdates.includes("Moved slide 2 to 3."));
     assert.ok(statusUpdates.includes("Deleted slide 2."));
+  });
+
+  test("announces the minimum-slide invariant and blocks deletion in one-slide decks", () => {
+    const deleted: string[] = [];
+    const props = filmstripProps({
+      renderTree: renderTree(1),
+      activeSlideIndex: 0,
+      onDeleteSlide: (slideId) => deleted.push(slideId),
+    });
+    const {
+      value: element,
+      refs,
+      updates,
+    } = withMockHooks(() => Filmstrip(props));
+    const list = findElement(element, (candidate) => candidate.type === "ol");
+    assert.ok(list, "expected filmstrip list");
+
+    const onKeyDown = (
+      list.props as {
+        onKeyDown?: (event: KeyboardEvent<HTMLOListElement>) => void;
+      }
+    ).onKeyDown;
+    assert.equal(typeof onKeyDown, "function");
+
+    refs[0]!.current = { querySelector: () => null };
+
+    withFilmstripGlobals((targetForIndex) => {
+      onKeyDown!({
+        key: "Delete",
+        target: targetForIndex(0),
+        preventDefault: () => undefined,
+      } as unknown as KeyboardEvent<HTMLOListElement>);
+    });
+
+    assert.deepEqual(deleted, []);
+    const statusUpdates = updates
+      .filter((update) => update.index === 0)
+      .map((update) => update.value);
+    assert.ok(statusUpdates.includes(MIN_DECK_SLIDES_MESSAGE));
   });
 });
 
