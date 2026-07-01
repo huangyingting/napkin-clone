@@ -123,6 +123,12 @@ derived from the node's slot or semantic role (`Title`, `Body text`, `Metric
 label`, and similar) so generated preview decks remain inspectable before AI or
 document content is applied.
 
+Template materialization also maps local blueprint `zIndex` values into
+type-based layer bands. By default, shape nodes render below media/table nodes,
+connectors render above content objects, and text nodes render in the highest
+content band so labels and copy remain visible over shapes and media unless a
+user later changes z-order explicitly.
+
 ## UI Flow
 
 The slide editor open button controls deck generation UI:

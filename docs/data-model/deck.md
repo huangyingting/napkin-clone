@@ -215,6 +215,13 @@ Key content rules:
 - `localStyle`, slide style, chrome style, and theme override style patches only
   accept known style fields; unknown keys are rejected at validation time.
 
+Default materialization uses type-based layer bands for `layout.zIndex` so
+unarranged objects render predictably: shapes sit in the lowest content band,
+image/visual/table nodes sit above shapes, connectors sit above content objects,
+and text sits in the highest default band. Template-local `zIndex` values are
+preserved inside each band, while user arrange actions may still explicitly
+change z-order later.
+
 ## Source Metadata
 
 Slides and child nodes may carry `source` metadata that links deck content back

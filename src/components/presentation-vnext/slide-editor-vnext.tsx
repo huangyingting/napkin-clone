@@ -198,13 +198,13 @@ import {
   defaultTableNode,
   defaultTextNode,
   defaultVisualNode,
-  nextZIndex,
   nodeFactoryId,
   textNodeAtPoint,
   visualContentPatchFromPick,
   type V7ImageUploadResult,
   type V7VisualPickResult,
 } from "@/lib/presentation-vnext/node-asset-factories";
+import { nextLayeredZIndex } from "@/lib/presentation-vnext/layer-bands";
 import {
   buildAlignSelectionPatches,
   buildDistributeSelectionPatches,
@@ -1612,15 +1612,15 @@ export function SlideEditorVNext({
   }
 
   function handleInsertText() {
-    handleInsertNode(defaultTextNode(nextZIndex(activeSlide)));
+    handleInsertNode(defaultTextNode(nextLayeredZIndex(activeSlide, "text")));
   }
 
   function handleInsertShape() {
-    handleInsertNode(defaultShapeNode(nextZIndex(activeSlide)));
+    handleInsertNode(defaultShapeNode(nextLayeredZIndex(activeSlide, "shape")));
   }
 
   function handleInsertTable() {
-    handleInsertNode(defaultTableNode(nextZIndex(activeSlide)));
+    handleInsertNode(defaultTableNode(nextLayeredZIndex(activeSlide, "table")));
   }
 
   function handleInsertImage() {
@@ -1672,7 +1672,7 @@ export function SlideEditorVNext({
       if (!uploadedImage) return;
       const { deckWithAsset, assetId, alt } = uploadedImage;
       if (inserting) {
-        const node = defaultImageNode(nextZIndex(activeSlide));
+        const node = defaultImageNode(nextLayeredZIndex(activeSlide, "image"));
         if (node.type !== "image") return;
         const result = insertNode(deckWithAsset, activeSlide.id, {
           ...node,
@@ -1734,7 +1734,9 @@ export function SlideEditorVNext({
   async function handleInsertVisual() {
     if (!activeSlide) return;
     if (!onPickVisual) {
-      handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
+      handleInsertNode(
+        defaultVisualNode(nextLayeredZIndex(activeSlide, "visual")),
+      );
       setToolbarError(null);
       return;
     }
@@ -1742,7 +1744,9 @@ export function SlideEditorVNext({
       onPickVisual,
       onPicked: (picked) => {
         const deckWithAsset = deckWithPickedVisualAsset(deck, picked);
-        const node = defaultVisualNode(nextZIndex(activeSlide));
+        const node = defaultVisualNode(
+          nextLayeredZIndex(activeSlide, "visual"),
+        );
         if (node.type !== "visual") return;
         const result = insertNode(deckWithAsset, activeSlide.id, {
           ...node,
@@ -1792,7 +1796,9 @@ export function SlideEditorVNext({
   }
 
   function handleInsertConnector() {
-    handleInsertNode(defaultConnectorNode(nextZIndex(activeSlide)));
+    handleInsertNode(
+      defaultConnectorNode(nextLayeredZIndex(activeSlide, "connector")),
+    );
   }
 
   function handleInsertDocumentSourceBlock(
@@ -1805,7 +1811,7 @@ export function SlideEditorVNext({
       createDocumentSourceNode({
         block,
         nodeId: nodeFactoryId(block.kind),
-        zIndex: nextZIndex(activeSlide),
+        zIndex: nextLayeredZIndex(activeSlide, block.kind),
         linkedAt: new Date().toISOString(),
       }),
     );
@@ -1939,7 +1945,7 @@ export function SlideEditorVNext({
       buildKeyboardConnectorNodeVNext({
         from,
         to,
-        zIndex: nextZIndex(activeSlide),
+        zIndex: nextLayeredZIndex(activeSlide, "connector"),
       }),
     );
     onDeckChange(result.deck);
@@ -2376,7 +2382,7 @@ export function SlideEditorVNext({
     const result = insertNode(
       deck,
       activeSlide.id,
-      textNodeAtPoint(point, nextZIndex(activeSlide)),
+      textNodeAtPoint(point, nextLayeredZIndex(activeSlide, "text")),
     );
     onDeckChange(result.deck);
     setSelection((selectionState) =>

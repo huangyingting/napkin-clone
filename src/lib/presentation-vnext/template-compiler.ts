@@ -37,6 +37,7 @@ import type {
   TemplateNodeBlueprint,
 } from "./template-registry";
 import { selectLayout } from "./template-registry";
+import { layeredZIndexForNodeType } from "./layer-bands";
 import type { PresentationDiagnostic } from "./diagnostics";
 import { DiagnosticCollector } from "./diagnostics";
 
@@ -212,19 +213,24 @@ function materialiseBlueprintNode(
   dc: DiagnosticCollector,
   slideIndex: number,
 ): SlideChildNode | null {
+  const nodeType = blueprint.type;
   const nodeId = generateNodeId(blueprint.role ?? blueprint.type ?? "node");
   const slotKey = blueprint.slot;
   const slotValue = slotKey ? slots[slotKey] : undefined;
+  const layout = blueprint.layout
+    ? {
+        ...blueprint.layout,
+        zIndex: layeredZIndexForNodeType(nodeType, blueprint.layout.zIndex),
+      }
+    : undefined;
 
   const baseNode = {
     id: nodeId,
     ...(blueprint.role !== undefined ? { role: blueprint.role } : {}),
     ...(slotKey !== undefined ? { slot: slotKey } : {}),
-    layout: blueprint.layout,
+    ...(layout !== undefined ? { layout } : {}),
     style: blueprint.style,
   };
-
-  const nodeType = blueprint.type;
 
   if (nodeType === "text") {
     let content: TextContent | null = null;

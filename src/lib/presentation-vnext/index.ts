@@ -278,6 +278,15 @@ export { repairAiDeckPlan } from "./ai-plan-repair";
 export type { TemplateCompileResult } from "./template-compiler";
 export { compileSlide, resetIdCounter } from "./template-compiler";
 
+// Default node layer bands
+export type { LayeredNodeType } from "./layer-bands";
+export {
+  NODE_LAYER_BANDS,
+  layerBandForNodeType,
+  layeredZIndexForNodeType,
+  nextLayeredZIndex,
+} from "./layer-bands";
+
 // Slide spec projection
 export { slideSpecFromSlide, emptySlideSpecFromLayout } from "./slide-spec";
 

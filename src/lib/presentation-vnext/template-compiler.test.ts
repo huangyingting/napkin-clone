@@ -184,6 +184,57 @@ describe("compileSlide", () => {
     }
   });
 
+  test("maps template local zIndex into type layer bands", () => {
+    resetIdCounter();
+    const template: SemanticTemplateV1 = {
+      schemaVersion: 1,
+      kind: "content",
+      label: "Layer Bands",
+      version: "1.0.0",
+      group: "explain",
+      intent: "Verify type layer bands.",
+      slots: {} as SemanticTemplateV1["slots"],
+      supports: {
+        tone: ["technical"],
+        density: ["normal"],
+        emphasis: ["balanced"],
+      },
+      layouts: [
+        {
+          id: "layer-bands-layout",
+          density: ["normal"],
+          emphasis: ["balanced"],
+          root: {
+            type: "slide",
+            style: { ref: "slide.content" },
+            children: [
+              {
+                type: "shape",
+                role: "card",
+                layout: { frame: { x: 10, y: 10, w: 30, h: 20 }, zIndex: 900 },
+                style: { ref: "surface.card" },
+              },
+              {
+                type: "text",
+                role: "label",
+                layout: { frame: { x: 12, y: 12, w: 26, h: 8 }, zIndex: 1 },
+                style: { ref: "text.caption" },
+              },
+            ],
+          },
+        },
+      ],
+      selection: { priority: 1, bestFor: "layering", signals: [] },
+    };
+
+    const { slide } = compileSlide({ kind: "content", slots: {} }, template);
+    const shape = slide.children.find((node) => node.type === "shape");
+    const text = slide.children.find((node) => node.type === "text");
+    assert.equal(shape?.layout?.zIndex, 1900);
+    assert.equal(text?.layout?.zIndex, 4001);
+    assert.ok((text?.layout?.zIndex ?? 0) > (shape?.layout?.zIndex ?? 0));
+  });
+
   test("compiles a table slide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();
