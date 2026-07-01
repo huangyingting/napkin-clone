@@ -49,6 +49,10 @@ function jsonEqual(a: unknown, b: unknown): boolean {
  * state into `DocumentVersion`, then prunes to the most recent
  * `MAX_DOCUMENT_VERSIONS` entries. Snapshots are throttled by
  * `shouldSnapshot`; failures are swallowed so they never break the caller.
+ *
+ * When `options.tx` is supplied, all reads/writes execute against that
+ * transaction client so callers can make snapshotting part of a larger atomic
+ * unit.
  */
 export async function snapshotDocumentVersion(
   documentId: string,
@@ -56,12 +60,14 @@ export async function snapshotDocumentVersion(
     userId?: string | null;
     force?: boolean;
     label?: string | null;
+    tx?: Prisma.TransactionClient;
   } = {},
 ): Promise<void> {
   try {
+    const db = options.tx ?? prisma;
     const now = new Date();
 
-    const last = await prisma.documentVersion.findFirst({
+    const last = await db.documentVersion.findFirst({
       where: { documentId },
       orderBy: { createdAt: "desc" },
       /* node:coverage ignore next 3 -- Version select fields are asserted through snapshot tests; tsx maps this literal tail as uncovered. */
@@ -81,7 +87,7 @@ export async function snapshotDocumentVersion(
       return;
     }
 
-    const doc = await prisma.document.findUnique({
+    const doc = await db.document.findUnique({
       where: { id: documentId },
       select: { contentJson: true, deckJson: true },
     });
@@ -98,7 +104,7 @@ export async function snapshotDocumentVersion(
     }
 
     /* node:coverage ignore next -- Prisma create payload shape is asserted through persistence tests; tsx maps the literal head as uncovered. */
-    await prisma.documentVersion.create({
+    await db.documentVersion.create({
       data: {
         documentId,
         contentJson: (doc.contentJson ??
@@ -112,7 +118,7 @@ export async function snapshotDocumentVersion(
       },
     });
 
-    const existing = await prisma.documentVersion.findMany({
+    const existing = await db.documentVersion.findMany({
       where: { documentId },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { id: true },
@@ -122,7 +128,7 @@ export async function snapshotDocumentVersion(
       MAX_DOCUMENT_VERSIONS,
     );
     if (stale.length > 0) {
-      await prisma.documentVersion.deleteMany({
+      await db.documentVersion.deleteMany({
         where: { id: { in: stale } },
       });
     }

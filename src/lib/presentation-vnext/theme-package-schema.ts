@@ -82,22 +82,38 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function resolveTokenInValue(
   value: unknown,
   tokens: ThemeTokens,
-): { resolved: boolean; missing?: string } {
+  ctx: string,
+): { resolved: true } | { resolved: false; missing: string; path: string } {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const r = resolveTokenInValue(item, tokens, `${ctx}.${index}`);
+      if (!r.resolved) return r;
+    }
+    return { resolved: true };
+  }
   if (!isPlainObject(value)) return { resolved: true };
   if (typeof value.token === "string") {
     const parts = (value.token as string).split(".");
     let cursor: any = tokens;
     for (const part of parts) {
       if (!isPlainObject(cursor))
-        return { resolved: false, missing: value.token as string };
+        return {
+          resolved: false,
+          missing: value.token as string,
+          path: ctx,
+        };
       cursor = cursor[part];
     }
     return cursor !== undefined
       ? { resolved: true }
-      : { resolved: false, missing: value.token as string };
+      : {
+          resolved: false,
+          missing: value.token as string,
+          path: ctx,
+        };
   }
-  for (const v of Object.values(value)) {
-    const r = resolveTokenInValue(v, tokens);
+  for (const [key, child] of Object.entries(value)) {
+    const r = resolveTokenInValue(child, tokens, `${ctx}.${key}`);
     if (!r.resolved) return r;
   }
   return { resolved: true };
@@ -431,12 +447,13 @@ export function validateThemePackage(
       }
       // Validate token refs within styles
       for (const [variantId, styleObj] of Object.entries(variants)) {
-        const r = resolveTokenInValue(styleObj, tokens);
+        const variantPath = `styles.${ref}.${variantId}`;
+        const r = resolveTokenInValue(styleObj, tokens, variantPath);
         if (!r.resolved) {
           dc.error(
             "missing-token",
             `Style "${ref}/${variantId}" references unknown token "${r.missing}"`,
-            { path: `styles.${ref}.${variantId}` },
+            { path: r.path },
           );
         }
       }

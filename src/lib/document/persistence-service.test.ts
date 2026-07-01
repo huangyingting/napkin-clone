@@ -37,6 +37,7 @@ import type {
   SlideCommand,
 } from "@/lib/presentation/slide-commands";
 import type { CommandEnvelope } from "@/lib/commands/command-envelope";
+import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 import { snapshotDocumentVersion } from "./persistence/helpers";
 
 // ---------------------------------------------------------------------------
@@ -403,6 +404,71 @@ const VALID_DECK_V7 = {
   ],
 };
 
+const VALID_RESTORE_DECK_V7 = {
+  schemaVersion: 7,
+  canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+  theme: { packageId: "neutral" },
+  assets: {
+    images: {},
+    visuals: {
+      "visual-asset-1": {
+        id: "visual-asset-1",
+        visualId: "asset-visual-id",
+      },
+    },
+  },
+  slides: [
+    {
+      id: "slide-restore-v7",
+      type: "slide",
+      template: { kind: "cover" },
+      style: { ref: "slide.cover" },
+      children: [
+        {
+          id: "visual-keep",
+          type: "visual",
+          layout: { frame: { x: 5, y: 8, w: 35, h: 28 }, zIndex: 1 },
+          style: { ref: "chart.primary" },
+          content: { visualId: "vis-keep" },
+        },
+        {
+          id: "visual-drop",
+          type: "visual",
+          layout: { frame: { x: 42, y: 8, w: 35, h: 28 }, zIndex: 2 },
+          style: { ref: "chart.primary" },
+          content: { visualId: "vis-drop" },
+        },
+        {
+          id: "group-1",
+          type: "group",
+          component: "custom",
+          layout: { frame: { x: 8, y: 40, w: 84, h: 50 }, zIndex: 3 },
+          style: { ref: "surface.card" },
+          children: [
+            {
+              id: "group-visual-drop",
+              type: "visual",
+              layout: { frame: { x: 0, y: 0, w: 30, h: 30 }, zIndex: 1 },
+              style: { ref: "chart.primary" },
+              content: { visualId: "vis-group-drop" },
+            },
+            {
+              id: "group-visual-asset",
+              type: "visual",
+              layout: { frame: { x: 35, y: 0, w: 30, h: 30 }, zIndex: 2 },
+              style: { ref: "chart.primary" },
+              content: {
+                assetId: "visual-asset-1",
+                visualId: "vis-asset-drop",
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 /** Minimal Lexical state carrying a single visual node with the given visualId. */
 function lexicalStateWithVisual(visualId: string): unknown {
   return {
@@ -428,6 +494,28 @@ function lexicalStateWithVisual(visualId: string): unknown {
       version: 1,
     },
   };
+}
+
+function collectDeckV7VisualIds(deck: any): string[] {
+  const visualIds: string[] = [];
+  const visit = (nodes: any[]) => {
+    for (const node of nodes) {
+      if (node.type === "group") {
+        visit(node.children ?? []);
+        continue;
+      }
+      if (
+        node.type === "visual" &&
+        typeof node.content?.visualId === "string"
+      ) {
+        visualIds.push(node.content.visualId);
+      }
+    }
+  };
+  for (const slide of deck.slides ?? []) {
+    visit(slide.children ?? []);
+  }
+  return visualIds;
 }
 
 describe("sanitizeRestoredDeck", () => {
@@ -504,6 +592,33 @@ describe("sanitizeRestoredDeck", () => {
       visualElements.length,
       2,
       "both visual elements should remain",
+    );
+  });
+
+  test("reconciles DeckV7 child visual references during restore", () => {
+    const restoredContent = lexicalStateWithVisual("vis-keep");
+    const result = sanitizeRestoredDeck(
+      VALID_RESTORE_DECK_V7 as unknown as Prisma.JsonValue,
+      restoredContent,
+    );
+
+    assert.notEqual(result, Prisma.DbNull);
+    const deck = result as any;
+    const visualIds = collectDeckV7VisualIds(deck);
+    assert.deepEqual(visualIds, ["vis-keep"]);
+
+    const group = deck.slides[0].children.find(
+      (node: any) => node.id === "group-1",
+    );
+    assert.ok(group, "group should remain");
+    const assetNode = group.children.find(
+      (node: any) => node.id === "group-visual-asset",
+    );
+    assert.ok(assetNode, "asset-backed visual node should remain");
+    assert.equal(
+      assetNode.content.visualId,
+      undefined,
+      "stale visualId should be stripped from asset-backed visual nodes",
     );
   });
 
@@ -600,7 +715,11 @@ describe("deck persistence operations", () => {
 
     const result = await patchDeck("doc-missing", [], null);
 
-    assert.deepEqual(result, { ok: false, error: "Document not found." });
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Document not found.",
+      failure: { code: "document_not_found", retryable: false },
+    });
   });
 
   test("patchDeck returns fallback for existing documents", async (t) => {
@@ -1142,6 +1261,77 @@ describe("document snapshot and restore operations", () => {
 
     assert.equal(result.documentId, "doc-restore");
   });
+
+  test("restoreVersion rotates deck tokens so pre-restore CAS writes conflict", async (t) => {
+    const preRestoreToken = "pre-restore-token";
+    let currentRevisionToken = preRestoreToken;
+
+    stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "findUniqueOrThrow",
+      async () => ({
+        documentId: "doc-restore",
+        contentJson: lexicalStateWithVisual("vis-keep"),
+        deckJson: VALID_DECK,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    );
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.contentJson) {
+        return { contentJson: EMPTY_LEXICAL_STATE, deckJson: VALID_DECK };
+      }
+      if (args.select?.deckJson) {
+        return { deckJson: null };
+      }
+      return { shareId: null, slug: null, isShared: false };
+    });
+    const tx = {
+      ...makeStubTx(),
+      document: {
+        updateMany: async (args: any) => {
+          currentRevisionToken = args.data.deckRevisionToken;
+          return { count: 1 };
+        },
+      },
+    } as unknown as Prisma.TransactionClient;
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    await restoreVersion("doc-restore", "version-restore", "user-editor");
+
+    assert.notEqual(currentRevisionToken, preRestoreToken);
+
+    const casDb = {
+      document: {
+        updateMany: async (args: any) => {
+          const whereToken = args.where.deckRevisionToken;
+          if (whereToken !== currentRevisionToken) {
+            return { count: 0 };
+          }
+          currentRevisionToken = args.data.deckRevisionToken;
+          return { count: 1 };
+        },
+        findUnique: async () => ({ deckRevisionToken: currentRevisionToken }),
+      },
+    } satisfies DeckCasDb;
+
+    const staleWriteResult = await writeDeckWithCas({
+      documentId: "doc-restore",
+      deckJson: VALID_DECK_V7,
+      clientToken: preRestoreToken,
+      telemetryArea: "test",
+      db: casDb,
+    });
+
+    assert.deepEqual(staleWriteResult, {
+      ok: "conflict",
+      serverRevisionToken: currentRevisionToken,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1150,18 +1340,23 @@ describe("document snapshot and restore operations", () => {
 
 describe("visual persistence exported flows", () => {
   test("atomicSaveDocumentLexical snapshots, writes content, mirrors visuals, and logs outcome", async (t) => {
-    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
-    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
-      contentJson: EMPTY_LEXICAL_STATE,
-      deckJson: null,
-    }));
-    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
-    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
-    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
-
+    const txBase = makeStubTx();
     const tx = {
-      ...makeStubTx(),
+      ...txBase,
+      documentVersion: {
+        findFirst: async () => null,
+        create: async () => {
+          txBase._calls.push("documentVersion.create");
+          return {};
+        },
+        findMany: async () => [],
+        deleteMany: async () => ({}),
+      },
       document: {
+        findUnique: async () => ({
+          contentJson: EMPTY_LEXICAL_STATE,
+          deckJson: null,
+        }),
         updateMany: async () => ({ count: 1 }),
       },
     } as unknown as Prisma.TransactionClient & {
@@ -1176,7 +1371,71 @@ describe("visual persistence exported flows", () => {
     );
 
     assert.equal(outcome.created, 0);
+    assert.ok(tx._calls.includes("documentVersion.create"));
     assert.ok(tx._calls.includes("visual.findMany"));
+  });
+
+  test("atomicSaveDocumentLexical rolls back snapshot version writes when mirror rebuild fails", async (t) => {
+    const attempts = { created: 0, deleted: 0 };
+    const committed = { created: 0, deleted: 0 };
+
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => {
+      const pending = { created: 0, deleted: 0 };
+      const txBase = makeStubTx();
+      const tx = {
+        ...txBase,
+        visual: {
+          ...(txBase as any).visual,
+          findMany: async () => {
+            txBase._calls.push("visual.findMany");
+            throw new Error("mirror rebuild failed");
+          },
+        },
+        documentVersion: {
+          findFirst: async () => null,
+          create: async () => {
+            attempts.created += 1;
+            pending.created += 1;
+            return {};
+          },
+          findMany: async () =>
+            Array.from({ length: 55 }, (_, index) => ({
+              id: `version-${index}`,
+            })),
+          deleteMany: async () => {
+            attempts.deleted += 1;
+            pending.deleted += 1;
+            return {};
+          },
+        },
+        document: {
+          findUnique: async () => ({
+            contentJson: EMPTY_LEXICAL_STATE,
+            deckJson: null,
+          }),
+          updateMany: async () => ({ count: 1 }),
+        },
+      } as unknown as Prisma.TransactionClient;
+
+      try {
+        const result = await fn(tx);
+        committed.created += pending.created;
+        committed.deleted += pending.deleted;
+        return result;
+      } catch (error) {
+        throw error;
+      }
+    });
+
+    await assert.rejects(
+      () => atomicSaveDocumentLexical("doc-atomic-fail", EMPTY_LEXICAL_STATE),
+      /mirror rebuild failed/,
+    );
+
+    assert.equal(attempts.created, 1);
+    assert.equal(attempts.deleted, 1);
+    assert.equal(committed.created, 0);
+    assert.equal(committed.deleted, 0);
   });
 
   test("rebuildMirror wraps mirror rebuilds in a transaction", async (t) => {
