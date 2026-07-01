@@ -666,4 +666,103 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(html, /aria-disabled="true"/);
     assert.doesNotMatch(html, /<svg/);
   });
+
+  test("prefers authored accessibility labels and alt text for interactive names", () => {
+    const shapeWithLabel = renderNode(
+      node(
+        {
+          type: "shape",
+          content: {
+            shape: "diamond",
+            text: { paragraphs: [{ id: "p1", text: "Fallback shape text" }] },
+          },
+        },
+        {
+          accessibility: {
+            label: "Revenue decision diamond",
+            alt: "Ignored fallback alt",
+          },
+        },
+      ),
+      { interactive: true },
+    );
+
+    const imageWithAlt = renderNode(
+      node(
+        {
+          type: "image",
+          content: { assetId: "missing", fit: "cover" },
+        },
+        {
+          accessibility: {
+            alt: "Decorative branch icon",
+            decorative: true,
+          },
+        },
+      ),
+      { interactive: true },
+    );
+
+    assert.match(shapeWithLabel, /aria-label="Revenue decision diamond"/);
+    assert.match(imageWithAlt, /aria-label="Decorative branch icon"/);
+  });
+
+  test("falls back through node name, shape text, and table caption for labels", () => {
+    const namedGroup = renderNode(
+      node(
+        { type: "group" },
+        {
+          id: "group-named",
+          type: "group",
+          children: [],
+          name: "KPI cluster",
+        },
+      ),
+      { interactive: true },
+    );
+    const shapeWithText = renderNode(
+      node({
+        type: "shape",
+        content: {
+          shape: "rect",
+          text: { paragraphs: [{ id: "shape-p1", text: "Decision path" }] },
+        },
+      }),
+      { interactive: true },
+    );
+    const tableWithCaption = renderNode(
+      node({
+        type: "table",
+        content: {
+          columns: [{ id: "metric", label: "Metric" }],
+          rows: [{ id: "row-1", cells: [{ text: "72" }] }],
+          caption: "Quarterly metrics",
+        },
+      }),
+      { interactive: true },
+    );
+
+    assert.match(namedGroup, /aria-label="KPI cluster"/);
+    assert.match(shapeWithText, /aria-label="Shape: Decision path"/);
+    assert.match(tableWithCaption, /aria-label="Table: Quarterly metrics"/);
+  });
+
+  test("names decorative visuals when no authored label is provided", () => {
+    const html = renderNode(
+      node(
+        {
+          type: "visual",
+          content: {
+            visualId: "visual-2",
+          },
+        },
+        {
+          accessibility: { decorative: true },
+        },
+      ),
+      { interactive: true },
+    );
+
+    assert.match(html, /aria-label="Decorative visual"/);
+  });
 });
