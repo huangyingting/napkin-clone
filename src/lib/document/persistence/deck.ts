@@ -1,8 +1,8 @@
 /**
  * Deck persistence operations.
  *
- * Owns full-deck save (`persistDeck`), patch-based save (`patchDeck`), and
- * command-based save (`persistDeckCommand`) with optimistic revision tokens.
+ * Owns full-deck save (`persistDeck`) and compatibility shims for patch-based
+ * (`patchDeck`) and command-based (`persistDeckCommand`) entry points.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -58,8 +58,11 @@ export async function persistDeck(
 }
 
 /**
- * Applies a list of `DeckPatch` records to the stored deck, guarded by the
- * optimistic revision token. Falls back when any patch is un-replayable.
+ * Compatibility patch entry point for non-v7 clients.
+ *
+ * Patch replay is currently disabled for the v7 runtime, so this operation does
+ * not attempt to apply any `DeckPatch` records and always returns
+ * `{ ok: "fallback" }` after confirming the target document exists.
  */
 export async function patchDeck(
   documentId: string,

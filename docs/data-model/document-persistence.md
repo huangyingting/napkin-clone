@@ -2,7 +2,7 @@
 
 **Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-26
+**Last updated:** 2026-07-01
 
 This document describes the service boundary that persists editable document
 state, rebuilds visual projections, writes decks, snapshots versions, restores
@@ -69,10 +69,10 @@ Deck writes go through `writeDeckWithCas`:
 4. Update `Document.deckJson` only when the caller's expected token matches.
 5. Snapshot document state on successful writes.
 
-`persistDeck` writes a full deck. `patchDeck` replays `DeckPatch[]` against the
-stored deck and returns `fallback` when a patch cannot replay. `persistDeckCommand`
-loads the stored deck, executes a command envelope, and persists with the
-envelope's expected revision.
+`persistDeck` writes a full deck. `patchDeck` is currently a compatibility
+shim: it checks document existence and returns `{ ok: "fallback" }` without
+replaying `DeckPatch[]`. `persistDeckCommand` is currently disabled for v7-only
+slide editing.
 
 Conflict results return the latest server revision token so clients can recover
 without overwriting concurrent edits.
