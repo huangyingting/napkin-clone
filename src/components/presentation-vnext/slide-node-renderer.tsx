@@ -124,11 +124,13 @@ function textVerticalAlignToJustifyContent(
 export function styleObjectToContainerCss(
   style: StyleObject,
   assetResolver?: (id: string) => string | undefined,
+  options: { includeShapePaint?: boolean } = {},
 ): React.CSSProperties {
+  const includeShapePaint = options.includeShapePaint ?? true;
   return {
-    ...fillStyleToCss(style.fill, assetResolver),
-    ...strokeToCss(style.stroke),
-    ...radiusToCss(style.radius),
+    ...(includeShapePaint ? fillStyleToCss(style.fill, assetResolver) : {}),
+    ...(includeShapePaint ? strokeToCss(style.stroke) : {}),
+    ...(includeShapePaint ? radiusToCss(style.radius) : {}),
     ...shadowToCss(style.shadow),
     ...effectToCss(style.effect),
     ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
@@ -371,9 +373,20 @@ function shapePathD(kind: ShapeKind): string | undefined {
       return "M 50 0 L 100 100 L 0 100 Z";
     case "diamond":
       return "M 50 0 L 100 50 L 50 100 L 0 50 Z";
+    case "square":
+      return "M 0 0 L 100 0 L 100 100 L 0 100 Z";
     default:
       return undefined;
   }
+}
+
+function shapeUsesSvgGeometry(shape: ShapeKind): boolean {
+  return shape !== "rect";
+}
+
+function shapeSvgPreserveAspectRatio(shape: ShapeKind): string | undefined {
+  if (shape === "circle" || shape === "square") return "xMidYMid meet";
+  return "none";
 }
 
 function ShapeNodeContent({
@@ -387,8 +400,7 @@ function ShapeNodeContent({
   path?: string;
   style: StyleObject;
 }): JSX.Element {
-  const hasSvgPath =
-    shape === "triangle" || shape === "diamond" || shape === "path";
+  const hasSvgGeometry = shapeUsesSvgGeometry(shape);
   const fillColor =
     style.fill?.type === "solid"
       ? colorValueToCss(style.fill.color)
@@ -396,22 +408,60 @@ function ShapeNodeContent({
   const strokeColor = style.stroke
     ? colorValueToCss(style.stroke.color)
     : undefined;
+  const lineStrokeColor = strokeColor ?? fillColor ?? "currentColor";
 
   return (
     <div className="relative h-full w-full">
-      {hasSvgPath && (
+      {hasSvgGeometry && (
         <svg
           className="absolute inset-0 h-full w-full"
           viewBox="0 0 100 100"
-          preserveAspectRatio="none"
+          preserveAspectRatio={shapeSvgPreserveAspectRatio(shape)}
           aria-hidden="true"
         >
-          <path
-            d={path ?? shapePathD(shape) ?? "M0 0 L100 0 L100 100 L0 100 Z"}
-            fill={fillColor ?? "currentColor"}
-            stroke={strokeColor}
-            strokeWidth={style.stroke?.widthPt}
-          />
+          {shape === "ellipse" && (
+            <ellipse
+              cx="50"
+              cy="50"
+              rx="50"
+              ry="50"
+              fill={fillColor ?? "currentColor"}
+              stroke={strokeColor}
+              strokeWidth={style.stroke?.widthPt}
+            />
+          )}
+          {shape === "circle" && (
+            <circle
+              cx="50"
+              cy="50"
+              r="50"
+              fill={fillColor ?? "currentColor"}
+              stroke={strokeColor}
+              strokeWidth={style.stroke?.widthPt}
+            />
+          )}
+          {shape === "line" && (
+            <line
+              x1="0"
+              y1="50"
+              x2="100"
+              y2="50"
+              fill="none"
+              stroke={lineStrokeColor}
+              strokeWidth={style.stroke?.widthPt ?? 1}
+            />
+          )}
+          {(shape === "triangle" ||
+            shape === "diamond" ||
+            shape === "square" ||
+            shape === "path") && (
+            <path
+              d={path ?? shapePathD(shape) ?? "M0 0 L100 0 L100 100 L0 100 Z"}
+              fill={fillColor ?? "currentColor"}
+              stroke={strokeColor}
+              strokeWidth={style.stroke?.widthPt}
+            />
+          )}
         </svg>
       )}
       {text && (
@@ -930,6 +980,8 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   hidden = false,
 }: SlideNodeRendererProps): JSX.Element | null {
   const { layout, style, content } = node;
+  const shouldIncludeShapePaint =
+    content.type !== "shape" || !shapeUsesSvgGeometry(content.content.shape);
   const transforms = [
     layout.rotation !== undefined ? `rotate(${layout.rotation}deg)` : undefined,
     layout.flipX ? "scaleX(-1)" : undefined,
@@ -946,7 +998,9 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
           transformOrigin: "center",
         }
       : {}),
-    ...styleObjectToContainerCss(style, assetResolver),
+    ...styleObjectToContainerCss(style, assetResolver, {
+      includeShapePaint: shouldIncludeShapePaint,
+    }),
     boxSizing: "border-box",
     cursor: onClick ? (isLocked ? "not-allowed" : "pointer") : "default",
     ...(node.source === "themeDecoration" || node.source === "deckChrome"
