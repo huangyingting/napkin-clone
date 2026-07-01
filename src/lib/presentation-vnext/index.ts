@@ -278,6 +278,9 @@ export { repairAiDeckPlan } from "./ai-plan-repair";
 export type { TemplateCompileResult } from "./template-compiler";
 export { compileSlide, resetIdCounter } from "./template-compiler";
 
+// Slide spec projection
+export { slideSpecFromSlide, emptySlideSpecFromLayout } from "./slide-spec";
+
 // Render tree
 export type {
   ResolvedLayoutBox,
