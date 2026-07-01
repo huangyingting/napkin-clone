@@ -46,7 +46,6 @@ export async function loadAccountExport(
       select: {
         id: true,
         title: true,
-        content: true,
         contentJson: true,
         deckJson: true,
         workspaceId: true,
