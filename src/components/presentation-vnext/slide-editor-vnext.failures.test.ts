@@ -302,11 +302,20 @@ describe("SlideEditorVNext failure-state coverage", () => {
     let tree = hookRenderer.run(() => SlideEditorVNext(props));
     const exportButton = findRequiredElement(
       tree,
-      (element) =>
-        element.type === "button" &&
-        (element.props as { "aria-label"?: string })["aria-label"] ===
-          "Export as PPTX",
-      "Expected export button to render.",
+      (element) => {
+        if (element.type !== "button") return false;
+        const buttonProps = element.props as {
+          "aria-label"?: string;
+          role?: string;
+          children?: ReactNode;
+        };
+        return (
+          buttonProps["aria-label"] === "Export as PPTX" ||
+          (buttonProps.role === "menuitem" &&
+            flattenText(buttonProps.children).includes("Export PPTX"))
+        );
+      },
+      "Expected export command to render.",
     );
 
     const clickExport = (exportButton.props as { onClick?: () => void })
@@ -343,6 +352,81 @@ describe("SlideEditorVNext failure-state coverage", () => {
       0,
       "Expected export retry to clear the alert banner.",
     );
+  });
+
+  test("gates present/share roundtrip callbacks behind save success", async () => {
+    const hookRenderer = createHookRenderer();
+    let saveAttempts = 0;
+    let presentAttempts = 0;
+    let shareAttempts = 0;
+
+    const props: SlideEditorVNextProps = {
+      documentId: "doc-1",
+      deck: buildEditorDeck(),
+      onDeckChange: () => undefined,
+      onSave: async () => {
+        saveAttempts += 1;
+        if (saveAttempts === 1) {
+          return { ok: false, error: "Save failed before routing." };
+        }
+        return { ok: true, data: undefined };
+      },
+      onPresent: async () => {
+        presentAttempts += 1;
+        return { ok: true, data: undefined };
+      },
+      onShare: async () => {
+        shareAttempts += 1;
+        return { ok: true, data: undefined };
+      },
+    };
+
+    let tree = hookRenderer.run(() => SlideEditorVNext(props));
+    const presentButton = findRequiredElement(
+      tree,
+      (element) =>
+        element.type === "button" &&
+        (element.props as { "aria-label"?: string })["aria-label"] ===
+          "Present slides",
+      "Expected present roundtrip button.",
+    );
+    const shareButton = findRequiredElement(
+      tree,
+      (element) =>
+        element.type === "button" &&
+        (element.props as { "aria-label"?: string })["aria-label"] ===
+          "Share slides",
+      "Expected share roundtrip button.",
+    );
+
+    const clickPresent = (presentButton.props as { onClick?: () => void })
+      .onClick;
+    const clickShare = (shareButton.props as { onClick?: () => void }).onClick;
+    assert.equal(typeof clickPresent, "function");
+    assert.equal(typeof clickShare, "function");
+
+    clickPresent?.();
+    await flushAsyncWork();
+    assert.equal(
+      presentAttempts,
+      0,
+      "Present callback should not run when save fails.",
+    );
+
+    tree = hookRenderer.run(() => SlideEditorVNext(props));
+    const firstAlert = findRequiredElement(
+      tree,
+      (element) =>
+        element.type === "div" &&
+        (element.props as { role?: string }).role === "alert",
+      "Expected toolbar failure alert after failed save.",
+    );
+    assert.match(flattenText(firstAlert), /Save failed before routing\./);
+
+    clickShare?.();
+    await flushAsyncWork();
+    assert.equal(shareAttempts, 1);
+    assert.equal(presentAttempts, 0);
   });
 
   test("covers image replacement invalid file, upload failure, and successful retry", async () => {

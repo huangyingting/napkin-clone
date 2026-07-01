@@ -6,8 +6,12 @@ import { useState } from "react";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { Popover } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { buildShareSegment } from "@/lib/slug";
 import { SocialShareMenu } from "@/components/share/social-share-menu";
+import {
+  buildDocumentShareUrl,
+  toEmbedShareUrl,
+  toPresentShareUrl,
+} from "@/lib/document/share-routes";
 
 import {
   regenerateShareLink,
@@ -37,7 +41,7 @@ function shareUrlFor(
     return null;
   }
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/share/${buildShareSegment(slug, shareId)}`;
+  return buildDocumentShareUrl(origin, shareId, slug);
 }
 
 /** Maps the server {@link ShareSettings} into the client-rendered state. */
@@ -117,7 +121,7 @@ export function ShareButton({
   // The embed URL points at the chrome-free /embed/[shareId] route. Derive it
   // from shareUrl so it shares the same origin as the displayed share link.
   const embedUrl = shareState.shareUrl
-    ? shareState.shareUrl.replace("/share/", "/embed/")
+    ? toEmbedShareUrl(shareState.shareUrl)
     : null;
   const embedSnippet = embedUrl
     ? `<iframe src="${embedUrl}" width="800" height="600" style="border:0" title="TextIQ embed" loading="lazy"></iframe>`
@@ -125,7 +129,7 @@ export function ShareButton({
 
   // The presentation URL points at the /present/[shareId] route.
   const presentUrl = shareState.shareUrl
-    ? shareState.shareUrl.replace("/share/", "/present/")
+    ? toPresentShareUrl(shareState.shareUrl)
     : null;
 
   const handleToggle = async (enable: boolean) => {
