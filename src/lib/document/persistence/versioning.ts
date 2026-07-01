@@ -11,6 +11,7 @@ import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
+import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
 import type { RestoredDocumentVersion } from "@/lib/document/persistence-types";
 import { snapshotDocumentVersion } from "./helpers";
 import { mirrorVisualNodesInTx, reconcileDeckAfterMirror } from "./visual";
@@ -94,6 +95,7 @@ export async function restoreVersion(
 
   const restoredContent = version.contentJson;
   const restoredDeck = sanitizeRestoredDeck(version.deckJson, restoredContent);
+  const restoredDeckRevisionToken = generateRevisionToken();
 
   // Write the restored document state + atomically rebuild the Visual mirror.
   // Document.content (the plaintext mirror) is deprecated — no longer written
@@ -104,6 +106,7 @@ export async function restoreVersion(
       data: {
         contentJson: restoredContent as Prisma.InputJsonValue,
         deckJson: restoredDeck,
+        deckRevisionToken: restoredDeckRevisionToken,
       },
     });
 
