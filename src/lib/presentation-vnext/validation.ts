@@ -19,8 +19,7 @@ import { SEMANTIC_TEMPLATE_KINDS } from "./template-registry";
 // ---------------------------------------------------------------------------
 
 export type DeckV7ParseResult =
-  | { success: true; data: DeckV7 }
-  | { success: false; errors: string[] };
+  { success: true; data: DeckV7 } | { success: false; errors: string[] };
 
 /** Validates and parses an unknown value as a v7 deck. Does not mutate input. */
 export function safeParseDeckV7(input: unknown): DeckV7ParseResult {
@@ -59,6 +58,58 @@ function validateId(
     return undefined;
   }
   return value as string;
+}
+
+const SAFE_ASSET_URL_SCHEMES = ["http:", "https:", "data:"] as const;
+const SAFE_TEXT_LINK_URL_SCHEMES = [
+  "http:",
+  "https:",
+  "mailto:",
+  "tel:",
+] as const;
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
+
+function validateSafeUrlString(
+  value: unknown,
+  ctx: string,
+  errors: string[],
+  allowedSchemes: readonly string[],
+): void {
+  if (typeof value !== "string") {
+    fail(errors, `${ctx} must be a string`);
+    return;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    fail(errors, `${ctx} must be a non-empty string`);
+    return;
+  }
+  if (CONTROL_CHAR_PATTERN.test(trimmed)) {
+    fail(errors, `${ctx} must not contain control characters`);
+    return;
+  }
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("\\\\") ||
+    trimmed.startsWith("/\\")
+  ) {
+    fail(
+      errors,
+      `${ctx} must not be a protocol-relative URL and must use one of: ${allowedSchemes.join(", ")}`,
+    );
+    return;
+  }
+  const schemeMatch = /^([a-zA-Z][a-zA-Z\d+\-.]*):/.exec(trimmed);
+  if (!schemeMatch) {
+    return;
+  }
+  const scheme = `${schemeMatch[1].toLowerCase()}:`;
+  if (!allowedSchemes.includes(scheme)) {
+    fail(
+      errors,
+      `${ctx} must use one of the allowed URL schemes: ${allowedSchemes.join(", ")}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +165,58 @@ function validateAssetRegistry(
   }
   if (!isPlainObject(input.images)) {
     fail(errors, `${ctx}.images must be an object`);
+  } else {
+    for (const [assetId, asset] of Object.entries(input.images)) {
+      const assetCtx = `${ctx}.images.${assetId}`;
+      if (!isPlainObject(asset)) {
+        fail(errors, `${assetCtx} must be an object`);
+        continue;
+      }
+      validateSafeUrlString(
+        asset.src,
+        `${assetCtx}.src`,
+        errors,
+        SAFE_ASSET_URL_SCHEMES,
+      );
+    }
+  }
+  if (input.fonts !== undefined) {
+    if (!isPlainObject(input.fonts)) {
+      fail(errors, `${ctx}.fonts must be an object`);
+    } else {
+      for (const [assetId, asset] of Object.entries(input.fonts)) {
+        const assetCtx = `${ctx}.fonts.${assetId}`;
+        if (!isPlainObject(asset)) {
+          fail(errors, `${assetCtx} must be an object`);
+          continue;
+        }
+        validateSafeUrlString(
+          asset.src,
+          `${assetCtx}.src`,
+          errors,
+          SAFE_ASSET_URL_SCHEMES,
+        );
+      }
+    }
+  }
+  if (input.files !== undefined) {
+    if (!isPlainObject(input.files)) {
+      fail(errors, `${ctx}.files must be an object`);
+    } else {
+      for (const [assetId, asset] of Object.entries(input.files)) {
+        const assetCtx = `${ctx}.files.${assetId}`;
+        if (!isPlainObject(asset)) {
+          fail(errors, `${assetCtx} must be an object`);
+          continue;
+        }
+        validateSafeUrlString(
+          asset.src,
+          `${assetCtx}.src`,
+          errors,
+          SAFE_ASSET_URL_SCHEMES,
+        );
+      }
+    }
   }
   return input;
 }
@@ -513,6 +616,24 @@ function validateStyleBinding(
 // Text content
 // ---------------------------------------------------------------------------
 
+function validateTextRun(input: unknown, ctx: string, errors: string[]): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  if (typeof input.text !== "string") {
+    fail(errors, `${ctx}.text must be a string`);
+  }
+  if (input.link !== undefined) {
+    validateSafeUrlString(
+      input.link,
+      `${ctx}.link`,
+      errors,
+      SAFE_TEXT_LINK_URL_SCHEMES,
+    );
+  }
+}
+
 function validateTextContent(
   input: unknown,
   ctx: string,
@@ -538,6 +659,19 @@ function validateTextContent(
     }
     if (typeof para.text !== "string") {
       fail(errors, `${pCtx}.text must be a string`);
+    }
+    if (para.runs !== undefined && !Array.isArray(para.runs)) {
+      fail(errors, `${pCtx}.runs must be an array`);
+      continue;
+    }
+    if (Array.isArray(para.runs)) {
+      for (let runIndex = 0; runIndex < para.runs.length; runIndex++) {
+        validateTextRun(
+          para.runs[runIndex],
+          `${pCtx}.runs[${runIndex}]`,
+          errors,
+        );
+      }
     }
     // Validate runs concatenate to paragraph text
     if (Array.isArray(para.runs) && typeof para.text === "string") {
@@ -601,6 +735,31 @@ function validateTableContent(
     rowIds.add(row.id as string);
     if (!Array.isArray(row.cells) || row.cells.length !== colCount) {
       fail(errors, `${ctx}.rows[${ri}]: must have exactly ${colCount} cells`);
+      continue;
+    }
+    for (let ci = 0; ci < row.cells.length; ci++) {
+      const cell = row.cells[ci];
+      const cellCtx = `${ctx}.rows[${ri}].cells[${ci}]`;
+      if (!isPlainObject(cell)) {
+        fail(errors, `${cellCtx} must be an object`);
+        continue;
+      }
+      if (typeof cell.text !== "string") {
+        fail(errors, `${cellCtx}.text must be a string`);
+      }
+      if (cell.runs !== undefined && !Array.isArray(cell.runs)) {
+        fail(errors, `${cellCtx}.runs must be an array`);
+        continue;
+      }
+      if (Array.isArray(cell.runs)) {
+        for (let runIndex = 0; runIndex < cell.runs.length; runIndex++) {
+          validateTextRun(
+            cell.runs[runIndex],
+            `${cellCtx}.runs[${runIndex}]`,
+            errors,
+          );
+        }
+      }
     }
   }
 }
