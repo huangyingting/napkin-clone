@@ -60,9 +60,6 @@ export function FilmstripSlide({
 
   return (
     <li
-      role="option"
-      aria-selected={isActive}
-      aria-label={`Slide ${index + 1}`}
       data-slide-index={index}
       onPointerDown={(e) => onPointerDown(e, slideId, index)}
       className={cx(
@@ -82,6 +79,7 @@ export function FilmstripSlide({
         <button
           type="button"
           aria-label={`Go to slide ${index + 1}`}
+          aria-current={isActive ? "true" : undefined}
           aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Delete Backspace"
           disabled={!isInteractive}
           tabIndex={isInteractive ? 0 : -1}
