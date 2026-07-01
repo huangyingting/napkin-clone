@@ -14,8 +14,7 @@
  * It reads the current Lexical editor state to traverse the document blocks
  * and resolves each visual's live SVG element via the `VisualSvgRegistry`. The
  * PPTX path additionally prefers the freshest saved `deckJson` (re-fetched on
- * export, then the page-load prop) so it reflects slide-editor changes, falling
- * back to a deck derived from the live editor blocks.
+ * export, then the page-load prop) so it reflects slide-editor changes.
  */
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
@@ -255,19 +254,44 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart("pptx");
     try {
-      const { exportDeckAsPPTX } =
-        await import("@/lib/presentation/export/deck-export");
       const blocks = await getBlocks();
-      const { deck, visuals } = resolveDeckExportContext(
+      const context = resolveDeckExportContext(
         blocks,
         await fetchDeckJson(),
         initialDeckJson,
       );
-      if (!preflightDeckExport(deck, "pptx")) {
+      if (context.kind === "error") {
+        trackExportFailure("pptx", startedAt, "deck_context_error");
+        setErrorMsg(context.message);
+        setStatus("error");
+        return;
+      }
+      if (context.kind === "v7") {
+        const { exportDeckV7AsPPTX } =
+          await import("@/lib/presentation-vnext/pptx-vnext-apply");
+        const blob = await exportDeckV7AsPPTX(context.deck);
+        if (!blob) {
+          trackExportFailure("pptx", startedAt, "empty_blob");
+          setErrorMsg("PPTX export failed");
+          setStatus("error");
+          return;
+        }
+        trackExportSuccess("pptx", startedAt, blob);
+        downloadBlob(blob, safeFilename("pptx"));
+        setStatus("idle");
+        return;
+      }
+      const { exportDeckAsPPTX } =
+        await import("@/lib/presentation/export/deck-export");
+      if (!preflightDeckExport(context.deck, "pptx")) {
         trackExportFailure("pptx", startedAt, "preflight_fatal");
         return;
       }
-      const blob = await exportDeckAsPPTX(deck, visuals, getSvg);
+      const blob = await exportDeckAsPPTX(
+        context.deck,
+        context.visuals,
+        getSvg,
+      );
       if (!blob) {
         trackExportFailure("pptx", startedAt, "empty_blob");
         setErrorMsg("PPTX export failed");
@@ -295,12 +319,26 @@ export function DocumentExportButton({
       const { exportDeckAsSlideImages } =
         await import("@/lib/presentation/export/deck-export");
       const blocks = await getBlocks();
-      const { deck, visuals } = resolveDeckExportContext(
+      const context = resolveDeckExportContext(
         blocks,
         await fetchDeckJson(),
         initialDeckJson,
       );
-      if (!preflightDeckExport(deck, "image")) {
+      if (context.kind === "error") {
+        trackExportFailure(outputFormat, startedAt, "deck_context_error");
+        setErrorMsg(context.message);
+        setStatus("error");
+        return;
+      }
+      if (context.kind === "v7") {
+        trackExportFailure(outputFormat, startedAt, "unsupported_deck_v7");
+        setErrorMsg(
+          "Slide image export is not available for DeckV7 yet. Export PPTX instead.",
+        );
+        setStatus("error");
+        return;
+      }
+      if (!preflightDeckExport(context.deck, "image")) {
         trackExportFailure(outputFormat, startedAt, "preflight_fatal");
         return;
       }
@@ -308,9 +346,14 @@ export function DocumentExportButton({
       // Ensure self-hosted slide fonts are loaded before rasterizing so the
       // exported pixels use the real fonts, not a fallback.
       await loadSlideFonts();
-      const blob = await exportDeckAsSlideImages(deck, visuals, getSvg, {
-        format,
-      });
+      const blob = await exportDeckAsSlideImages(
+        context.deck,
+        context.visuals,
+        getSvg,
+        {
+          format,
+        },
+      );
       if (!blob) {
         trackExportFailure(outputFormat, startedAt, "empty_blob");
         setErrorMsg("Slide image export failed");
