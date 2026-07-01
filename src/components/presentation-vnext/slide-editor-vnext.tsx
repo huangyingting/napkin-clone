@@ -3497,16 +3497,6 @@ export function SlideEditorVNext({
     }
   }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.defaultPrevented) return;
-      handleEditorKeyDown(event as unknown as KeyboardEvent<HTMLDivElement>);
-    }
-    window.addEventListener("keydown", handleWindowKeyDown);
-    return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  });
-
   // ---------------------------------------------------------------------------
   // Slide root controls
   // ---------------------------------------------------------------------------
@@ -4221,6 +4211,16 @@ export function SlideEditorVNext({
       onToggleSelectionMode={toggleSelectionMode}
     />
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      handleEditorKeyDown(event as unknown as KeyboardEvent<HTMLDivElement>);
+    }
+    window.addEventListener("keydown", handleWindowKeyDown);
+    return () => window.removeEventListener("keydown", handleWindowKeyDown);
+  });
 
   return (
     <div
