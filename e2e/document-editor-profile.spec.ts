@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { login } from "./helpers/auth";
@@ -665,6 +667,205 @@ test.describe("deterministic profile document editor smoke", () => {
     await expect(
       reopenedTitleNode(E2E_PROFILE_FIXTURE.slideTitleText),
     ).toBeVisible();
+  });
+
+  test("deckv7 create-edit-save-reopen-export-share roundtrip stays deterministic", async ({
+    page,
+    browser,
+  }) => {
+    const closeEditor = async (target: Locator) => {
+      await target.getByRole("button", { name: "Close slide editor" }).click();
+      const discardDialog = page.getByRole("dialog", {
+        name: /close and discard changes/i,
+      });
+      if (await discardDialog.isVisible().catch(() => false)) {
+        await discardDialog
+          .getByRole("button", { name: /discard changes/i })
+          .click();
+      }
+      await expect(target).toHaveCount(0, { timeout: 10_000 });
+    };
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await login(page, profileOwnerCredentials(), profileDocPath());
+    await expect(
+      page.getByRole("button", { name: "Open slide editor" }),
+    ).toBeVisible({ timeout: 60_000 });
+    const editor = await openProfileSlideEditor(page);
+    const filmstrip = editor.getByRole("list", { name: "Slides" });
+    const slideButtons = filmstrip.getByRole("button", {
+      name: /^Go to slide \d+$/,
+    });
+    const goToSlide = (index: number) =>
+      filmstrip.getByRole("button", { name: `Go to slide ${index}` });
+    const duplicateSlide = (index: number) =>
+      filmstrip.getByRole("button", { name: `Duplicate slide ${index}` });
+
+    const originalSlideCount = await slideButtons.count();
+    expect(originalSlideCount).toBeGreaterThanOrEqual(2);
+    await activate(goToSlide(1));
+
+    const titleNode = editor.locator('[data-node-id="fixture-title"]').first();
+    await expect(titleNode).toBeVisible();
+    const originalLabel =
+      (await titleNode.getAttribute("aria-label")) ??
+      `Text: ${E2E_PROFILE_FIXTURE.slideTitleText}`;
+    const originalTitle = originalLabel.replace(/^Text:\s*/i, "").trim();
+    const roundtripSuffix = "[DeckV7 roundtrip]";
+    const editedTitle = originalTitle.endsWith(roundtripSuffix)
+      ? originalTitle.slice(0, -roundtripSuffix.length).trim()
+      : `${originalTitle} ${roundtripSuffix}`;
+
+    await filmstrip.locator('[data-slide-index="0"]').hover();
+    await duplicateSlide(1).click();
+    await expect(slideButtons).toHaveCount(originalSlideCount + 1);
+
+    await activate(goToSlide(1));
+    await titleNode.dblclick();
+    const inlineEditor = page.getByRole("textbox", { name: "Edit text" });
+    await expect(inlineEditor).toBeVisible();
+    await inlineEditor.fill(editedTitle);
+    await page.keyboard.press("Escape");
+    await expect(inlineEditor).toHaveCount(0);
+
+    const editedTitleNode = editor
+      .getByRole("button", {
+        name: new RegExp(`Text:\\s*${escapeRegExp(editedTitle)}`, "i"),
+      })
+      .first();
+    await expect(editedTitleNode).toBeVisible();
+    await activate(editor.getByRole("button", { name: /save slide deck/i }));
+    await waitForSlideAutosave(page);
+    await closeEditor(editor);
+
+    let cleanupApplied = false;
+    try {
+      await page.reload();
+      const reopenedEditor = await openProfileSlideEditor(page);
+      const reopenedFilmstrip = reopenedEditor.getByRole("list", {
+        name: "Slides",
+      });
+      const reopenedSlideButtons = reopenedFilmstrip.getByRole("button", {
+        name: /^Go to slide \d+$/,
+      });
+      const reopenedGoToSlide = (index: number) =>
+        reopenedFilmstrip.getByRole("button", { name: `Go to slide ${index}` });
+      await expect(reopenedSlideButtons).toHaveCount(originalSlideCount + 1);
+      await activate(reopenedGoToSlide(1));
+      await expect(
+        reopenedEditor
+          .getByRole("button", {
+            name: new RegExp(`Text:\\s*${escapeRegExp(editedTitle)}`, "i"),
+          })
+          .first(),
+      ).toBeVisible();
+
+      const downloadPromise = page.waitForEvent("download", {
+        timeout: 30_000,
+      });
+      await reopenedEditor
+        .getByRole("button", { name: /export as pptx/i })
+        .click();
+      const download = await downloadPromise;
+      expect(download.suggestedFilename()).toMatch(/\.pptx$/i);
+      const filePath = await download.path();
+      expect(filePath, "export: download produced no file path").toBeTruthy();
+      const stat = await fs.stat(filePath!);
+      expect(
+        stat.size,
+        "export: downloaded PPTX should have nonzero bytes",
+      ).toBeGreaterThan(0);
+
+      await closeEditor(reopenedEditor);
+
+      await activate(page.getByRole("button", { name: /^share$/i }));
+      const shareDialog = page.getByRole("dialog", {
+        name: /share this document/i,
+      });
+      await expect(shareDialog).toBeVisible();
+      await expect(
+        shareDialog.getByRole("switch", { name: /public link enabled/i }),
+      ).toHaveAttribute("aria-checked", "true");
+      const presentationLink = (
+        await shareDialog.getByLabel("Presentation link").inputValue()
+      ).trim();
+      expect(presentationLink).toContain("/present/");
+      await page.keyboard.press("Escape");
+      await expect(shareDialog).toHaveCount(0);
+
+      const presentPage = await browser.newPage();
+      try {
+        const response = await presentPage.goto(presentationLink);
+        expect(
+          response?.status(),
+          "present: public presentation link should resolve (200)",
+        ).toBe(200);
+        const presentRegion = presentPage.getByRole("region", {
+          name: /^Presentation/,
+        });
+        await expect(presentRegion).toBeVisible({ timeout: 20_000 });
+        await expect(
+          presentPage.getByText(editedTitle, { exact: false }).first(),
+          "present: edited deck text should render on public present route",
+        ).toBeVisible({ timeout: 20_000 });
+      } finally {
+        await presentPage.close();
+      }
+    } finally {
+      const inlineEditor = page
+        .getByRole("dialog", { name: "Slide editor" })
+        .first();
+      const cleanupEditor =
+        (await inlineEditor.count()) > 0
+          ? inlineEditor
+          : await openProfileSlideEditor(page);
+      const cleanupFilmstrip = cleanupEditor.getByRole("list", {
+        name: "Slides",
+      });
+      const cleanupSlideButtons = cleanupFilmstrip.getByRole("button", {
+        name: /^Go to slide \d+$/,
+      });
+      const cleanupGoToSlide = (index: number) =>
+        cleanupFilmstrip.getByRole("button", { name: `Go to slide ${index}` });
+
+      await activate(cleanupGoToSlide(1));
+      const cleanupTitleNode = cleanupEditor
+        .getByRole("button", {
+          name: new RegExp(`Text:\\s*${escapeRegExp(editedTitle)}`, "i"),
+        })
+        .first();
+      if ((await cleanupTitleNode.count()) > 0) {
+        await cleanupTitleNode.dblclick();
+        const cleanupInlineEditor = page.getByRole("textbox", {
+          name: "Edit text",
+        });
+        await expect(cleanupInlineEditor).toBeVisible();
+        await cleanupInlineEditor.fill(originalTitle);
+        await page.keyboard.press("Escape");
+        await expect(cleanupInlineEditor).toHaveCount(0);
+        cleanupApplied = true;
+      }
+
+      if ((await cleanupSlideButtons.count()) > originalSlideCount) {
+        await cleanupFilmstrip.locator('[data-slide-index="1"]').hover();
+        const cleanupDeleteSlide = cleanupFilmstrip.getByRole("button", {
+          name: "Delete slide 2",
+        });
+        if ((await cleanupDeleteSlide.count()) > 0) {
+          await cleanupDeleteSlide.click();
+          await expect(cleanupSlideButtons).toHaveCount(originalSlideCount);
+          cleanupApplied = true;
+        }
+      }
+
+      if (cleanupApplied) {
+        await activate(
+          cleanupEditor.getByRole("button", { name: /save slide deck/i }),
+        );
+        await waitForSlideAutosave(page);
+      }
+      await closeEditor(cleanupEditor);
+    }
   });
 
   test("slide editor undo and redo keep deck state, autosave status, and focus coherent", async ({
