@@ -139,6 +139,51 @@ describe("compileSlide", () => {
     assert.ok(!diagnostics.some((d) => d.severity === "error"));
   });
 
+  test("uses readable fallback text when a text blueprint has no slot or static content", () => {
+    resetIdCounter();
+    const template: SemanticTemplateV1 = {
+      schemaVersion: 1,
+      kind: "content",
+      label: "Fallback Text",
+      version: "1.0.0",
+      group: "explain",
+      intent: "Verify fallback text.",
+      slots: {} as SemanticTemplateV1["slots"],
+      supports: {
+        tone: ["technical"],
+        density: ["normal"],
+        emphasis: ["balanced"],
+      },
+      layouts: [
+        {
+          id: "fallback-text-layout",
+          density: ["normal"],
+          emphasis: ["balanced"],
+          root: {
+            type: "slide",
+            style: { ref: "slide.content" },
+            children: [
+              {
+                type: "text",
+                role: "label",
+                layout: { frame: { x: 10, y: 10, w: 20, h: 8 }, zIndex: 1 },
+                style: { ref: "text.caption" },
+              },
+            ],
+          },
+        },
+      ],
+      selection: { priority: 1, bestFor: "fallback", signals: [] },
+    };
+
+    const { slide } = compileSlide({ kind: "content", slots: {} }, template);
+    const label = slide.children[0];
+    assert.equal(label?.type, "text");
+    if (label?.type === "text") {
+      assert.equal(label.content.paragraphs[0]?.text, "Label");
+    }
+  });
+
   test("compiles a table slide", () => {
     resetIdCounter();
     const registry = createDefaultTemplateRegistry();

@@ -23,6 +23,7 @@ import type {
   Paragraph,
   TableContent,
   SlotKey,
+  SemanticRole,
   SlideControls,
 } from "./schema";
 import type {
@@ -138,6 +139,69 @@ function buildTimelineRoleContent(
   };
 }
 
+const SLOT_FALLBACK_TEXT: Partial<Record<SlotKey, string>> = {
+  kicker: "Kicker",
+  title: "Title",
+  subtitle: "Subtitle",
+  body: "Body text",
+  bullets: "Bullet item",
+  leftTitle: "Left title",
+  leftBody: "Left body",
+  leftBullets: "Left bullet item",
+  rightTitle: "Right title",
+  rightBody: "Right body",
+  rightBullets: "Right bullet item",
+  cards: "Card text",
+  steps: "Step text",
+  quote: "Quote",
+  attribution: "Attribution",
+  stat: "Metric value",
+  statLabel: "Metric label",
+  metrics: "Metric",
+  caption: "Caption",
+  table: "Table label",
+  visualId: "Visual label",
+  imagePrompt: "Image caption",
+};
+
+const ROLE_FALLBACK_TEXT: Partial<Record<SemanticRole, string>> = {
+  title: "Title",
+  subtitle: "Subtitle",
+  kicker: "Kicker",
+  body: "Body text",
+  bullet: "Bullet item",
+  caption: "Caption",
+  quote: "Quote",
+  attribution: "Attribution",
+  metric: "Metric value",
+  label: "Label",
+  card: "Card text",
+  callout: "Callout",
+};
+
+function humanizeIdentifier(value: string): string {
+  const spaced = value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .trim();
+  if (!spaced) return "Text";
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
+function fallbackTextForBlueprint(blueprint: TemplateNodeBlueprint): string {
+  if (blueprint.slot) {
+    return (
+      SLOT_FALLBACK_TEXT[blueprint.slot] ?? humanizeIdentifier(blueprint.slot)
+    );
+  }
+  if (blueprint.role) {
+    return (
+      ROLE_FALLBACK_TEXT[blueprint.role] ?? humanizeIdentifier(blueprint.role)
+    );
+  }
+  return "Text";
+}
+
 // ---------------------------------------------------------------------------
 // Blueprint materialisation
 // ---------------------------------------------------------------------------
@@ -168,11 +232,17 @@ function materialiseBlueprintNode(
       content = buildTextContent(slotValue);
     }
     if (!content) {
-      // Use static content or empty paragraph
       const staticText =
         blueprint.content?.type === "text" ? blueprint.content.text : "";
       content = {
-        paragraphs: [{ id: generateParagraphId(), text: staticText }],
+        paragraphs: [
+          {
+            id: generateParagraphId(),
+            text: staticText.trim()
+              ? staticText
+              : fallbackTextForBlueprint(blueprint),
+          },
+        ],
       };
     }
     return { ...baseNode, type: "text", content } as TextNode;
