@@ -202,9 +202,7 @@ function nodeContentHtml(node: ResolvedRenderNode): string {
   if (node.content.type === "image" || node.content.type === "visual") {
     return '<div class="placeholder">visual</div>';
   }
-  if (node.content.type === "shape") {
-    return node.content.content.text ? textHtml(node.content.content.text) : "";
-  }
+  if (node.content.type === "shape") return "";
   return "";
 }
 

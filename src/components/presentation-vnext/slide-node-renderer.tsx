@@ -430,16 +430,12 @@ function shapeSvgPreserveAspectRatio(shape: ShapeKind): string | undefined {
 
 function ShapeNodeContent({
   shape,
-  text,
   path,
   style,
-  hideText = false,
 }: {
   shape: ShapeKind;
-  text?: TextContent;
   path?: string;
   style: StyleObject;
-  hideText?: boolean;
 }): JSX.Element {
   const hasSvgGeometry = shapeUsesSvgGeometry(shape);
   const fillColor =
@@ -504,15 +500,6 @@ function ShapeNodeContent({
             />
           )}
         </svg>
-      )}
-      {text && !hideText && (
-        <div className="absolute inset-0">
-          <TextNodeContent
-            content={text}
-            paragraphSpacingPt={style.text?.paragraphSpacingPt}
-            verticalAlign={style.text?.verticalAlign}
-          />
-        </div>
       )}
     </div>
   );
@@ -1020,10 +1007,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   hidden = false,
 }: SlideNodeRendererProps): JSX.Element | null {
   const { layout, style, content } = node;
-  const isShapeNode = content.type === "shape";
-  // While inline editing a shape, keep its paint/geometry rendered and hide
-  // only the shape's text (the inline editor overlays the text).
-  const hideShapeText = hidden && isShapeNode;
   const shouldIncludeShapePaint =
     content.type !== "shape" || !shapeUsesSvgGeometry(content.content.shape);
 
@@ -1040,9 +1023,8 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     ...(node.source === "themeDecoration" || node.source === "deckChrome"
       ? { pointerEvents: "none" }
       : {}),
-    // Hide when inline editor is active for this node. Shapes stay visible so
-    // their paint/geometry keeps rendering; only their text is hidden below.
-    ...(hidden && !isShapeNode ? { visibility: "hidden" } : {}),
+    ...(hidden ? { pointerEvents: "none" } : {}),
+    ...(hidden ? { visibility: "hidden" } : {}),
   };
   const fillLayerStyle = shouldIncludeShapePaint
     ? imageFillLayerCss(style.fill, assetResolver)
@@ -1072,7 +1054,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
 
   const inner = renderContent(node.id, content, style, assetResolver, preview, {
     tableEditing,
-    hideShapeText,
     activeTableCell,
     onTableCellFocus: (rowIndex, colIndex) =>
       onTableCellFocus?.(node.id, rowIndex, colIndex),
@@ -1154,10 +1135,6 @@ function accessibleNodeName(node: ResolvedRenderNode): string {
     return text ? `Text: ${text}` : "Text node";
   }
   if (node.content.type === "shape") {
-    const shapeText = node.content.content.text
-      ? textContentSummary(node.content.content.text)
-      : undefined;
-    if (shapeText) return `Shape: ${shapeText}`;
     return `${node.content.content.shape} shape`;
   }
   if (node.content.type === "image") {
@@ -1205,7 +1182,6 @@ function renderContent(
   _preview?: boolean,
   editing?: {
     tableEditing?: boolean;
-    hideShapeText?: boolean;
     activeTableCell?: { rowIndex: number; colIndex: number } | null;
     onTableCellFocus?: (rowIndex: number, colIndex: number) => void;
     onTableCellCommit?: (
@@ -1234,10 +1210,8 @@ function renderContent(
       return (
         <ShapeNodeContent
           shape={content.content.shape}
-          text={content.content.text}
           path={content.content.path}
           style={style}
-          hideText={editing?.hideShapeText}
         />
       );
 

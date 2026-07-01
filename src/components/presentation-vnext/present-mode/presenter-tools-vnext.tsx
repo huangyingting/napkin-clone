@@ -49,13 +49,6 @@ function extractNodeLabel(node: SlideChildNode): string | null {
         .find((paragraph) => paragraph.length > 0) ?? null
     );
   }
-  if (node.type === "shape") {
-    return (
-      node.content.text?.paragraphs
-        .map((paragraph) => paragraph.text.trim())
-        .find((paragraph) => paragraph.length > 0) ?? null
-    );
-  }
   if (node.type === "group") {
     for (const child of node.children) {
       const label = extractNodeLabel(child);

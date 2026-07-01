@@ -201,18 +201,7 @@ function materialiseBlueprintNode(
     return {
       ...baseNode,
       type: "shape",
-      content: {
-        shape: "rect",
-        ...(blueprint.content?.type === "text"
-          ? {
-              text: {
-                paragraphs: [
-                  { id: generateParagraphId(), text: blueprint.content.text },
-                ],
-              },
-            }
-          : {}),
-      },
+      content: { shape: "rect" },
     } as ShapeNode;
   }
 

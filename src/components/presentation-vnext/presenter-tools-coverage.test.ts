@@ -311,10 +311,7 @@ function deckWithLabels() {
       [
         buildShapeNode({
           id: "shape-two",
-          content: {
-            shape: "rect",
-            text: buildTextContent(["Fallback label"]),
-          },
+          content: { shape: "rect" },
         }),
       ],
       { id: "slide-two", notes: "Second notes" },
@@ -486,12 +483,9 @@ test("Presenter tools resolve fallback labels and safe overview handlers", () =>
     buildSlideV7(
       "content",
       [
-        buildShapeNode({
-          id: "group-label-shape",
-          content: {
-            shape: "rect",
-            text: buildTextContent(["Nested shape label"]),
-          },
+        buildTextNode({
+          id: "group-label-text",
+          content: buildTextContent(["Nested shape label"]),
         }),
       ],
       { id: "unnamed", name: "\n", notes: "Notes fallback" },

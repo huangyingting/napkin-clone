@@ -4,7 +4,6 @@ import { describe, test } from "node:test";
 import {
   buildDeckV7,
   buildImageNode,
-  buildShapeNode,
   buildSlideV7,
   buildTableNode,
   buildTextContent,
@@ -328,17 +327,17 @@ describe("v7 source link commands", () => {
     }
   });
 
-  test("refreshes compatible table, visual, image, and shape source payloads", () => {
+  test("refreshes compatible text, table, visual, and image source payloads", () => {
     const richIndex: SourceBlockIndex = {
       documentId: "doc-1",
       blocks: [
         {
           documentId: "doc-1",
-          id: "shape-text",
+          id: "text-block",
           kind: "text",
-          hash: "shape-hash",
+          hash: "text-hash",
           revision: "rev-1",
-          displayLabel: "Shape text",
+          displayLabel: "Callout text",
           refresh: { kind: "text", text: "Updated callout" },
         },
         {
@@ -372,14 +371,14 @@ describe("v7 source link commands", () => {
         },
       ],
     };
-    const shape = buildShapeNode({
-      id: "shape-node",
-      content: { shape: "rect", text: buildTextContent(["Old callout"]) },
+    const text = buildTextNode({
+      id: "text-node",
+      content: buildTextContent(["Old callout"]),
       source: {
         documentId: "doc-1",
-        blockId: "shape-text",
+        blockId: "text-block",
         blockKind: "text",
-        contentHash: "old-shape",
+        contentHash: "old-text",
       },
     });
     const table = buildTableNode({
@@ -410,13 +409,13 @@ describe("v7 source link commands", () => {
       },
     });
     let deck = buildDeckV7([
-      buildSlideV7("content", [shape, table, visual, image], {
+      buildSlideV7("content", [text, table, visual, image], {
         id: "slide-rich",
       }),
     ]);
 
     for (const nodeId of [
-      "shape-node",
+      "text-node",
       "table-node",
       "visual-node",
       "image-node",
@@ -435,14 +434,14 @@ describe("v7 source link commands", () => {
     const byId = Object.fromEntries(
       deck.slides[0].children.map((node) => [node.id, node]),
     );
-    const refreshedShape = byId["shape-node"];
+    const refreshedText = byId["text-node"];
     assert.equal(
-      refreshedShape?.type === "shape"
-        ? refreshedShape.content.text?.paragraphs[0]?.text
+      refreshedText?.type === "text"
+        ? refreshedText.content.paragraphs[0]?.text
         : "",
       "Updated callout",
     );
-    assert.equal(refreshedShape?.source?.blockRevision, "rev-1");
+    assert.equal(refreshedText?.source?.blockRevision, "rev-1");
     const refreshedTable = byId["table-node"];
     assert.equal(
       refreshedTable?.type === "table"

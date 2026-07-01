@@ -96,7 +96,6 @@ function shapeNode(): SlideChildNode {
     },
     content: {
       shape: "diamond",
-      text: { paragraphs: [{ id: "shape-p-1", text: "Approve" }] },
     },
   });
 }

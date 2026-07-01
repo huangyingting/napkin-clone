@@ -460,15 +460,12 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(html, />iii\.<\/span><span>Lower roman continuation<\/span>/);
   });
 
-  test("renders styled shape labels and SVG geometry", () => {
+  test("renders styled SVG shape geometry", () => {
     const html = renderNode(
       node(
         {
           type: "shape",
-          content: {
-            shape: "diamond",
-            text: { paragraphs: [{ id: "p1", text: "Decision" }] },
-          },
+          content: { shape: "diamond" },
         },
         {
           style: {
@@ -481,7 +478,6 @@ describe("SlideNodeRenderer content variants", () => {
     );
 
     assert.match(html, /<svg/);
-    assert.match(html, /Decision/);
     assert.match(html, /fill="#ffeeaa"/);
     assert.doesNotMatch(html, /background-color:#ffeeaa/);
   });
@@ -701,10 +697,7 @@ describe("SlideNodeRenderer content variants", () => {
       node(
         {
           type: "shape",
-          content: {
-            shape: "diamond",
-            text: { paragraphs: [{ id: "p1", text: "Fallback shape text" }] },
-          },
+          content: { shape: "diamond" },
         },
         {
           accessibility: {
@@ -736,7 +729,7 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(imageWithAlt, /aria-label="Decorative branch icon"/);
   });
 
-  test("falls back through node name, shape text, and table caption for labels", () => {
+  test("falls back through node name, shape kind, and table caption for labels", () => {
     const namedGroup = renderNode(
       node(
         { type: "group" },
@@ -749,13 +742,10 @@ describe("SlideNodeRenderer content variants", () => {
       ),
       { interactive: true },
     );
-    const shapeWithText = renderNode(
+    const unnamedShape = renderNode(
       node({
         type: "shape",
-        content: {
-          shape: "rect",
-          text: { paragraphs: [{ id: "shape-p1", text: "Decision path" }] },
-        },
+        content: { shape: "rect" },
       }),
       { interactive: true },
     );
@@ -772,7 +762,7 @@ describe("SlideNodeRenderer content variants", () => {
     );
 
     assert.match(namedGroup, /aria-label="KPI cluster"/);
-    assert.match(shapeWithText, /aria-label="Shape: Decision path"/);
+    assert.match(unnamedShape, /aria-label="rect shape"/);
     assert.match(tableWithCaption, /aria-label="Table: Quarterly metrics"/);
   });
 

@@ -569,23 +569,16 @@ describe("applyVnextShapeOp", () => {
     assert.deepEqual(opts.line, { color: "000000", width: 1 });
   });
 
-  test("shape with text label adds a second addText call", () => {
+  test("shape op only calls addShape", () => {
     const { slide, calls } = makeMockSlide();
-    applyVnextShapeOp(
-      slide as never,
-      makeShapeOp({
-        text: { paragraphs: [{ id: "p1", text: "Label" }] },
-        textStyle: { fontSize: 14 },
-      }),
-    );
+    applyVnextShapeOp(slide as never, makeShapeOp());
     const textCalls = calls.filter((c) => c.kind === "addText");
-    assert.equal(textCalls.length, 1);
-    assert.equal(textCalls[0].args[0], "Label");
+    assert.equal(textCalls.length, 0);
   });
 
   test("shape without text only calls addShape", () => {
     const { slide, calls } = makeMockSlide();
-    applyVnextShapeOp(slide as never, makeShapeOp({ text: undefined }));
+    applyVnextShapeOp(slide as never, makeShapeOp());
     assert.ok(calls.every((c) => c.kind === "addShape"));
   });
 });

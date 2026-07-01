@@ -66,14 +66,14 @@ group, or a multiset is selected, those surfaces target that selection.
 
 The desktop editor is a current-object workflow:
 
-| Surface        | Responsibility                                                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Top toolbar    | Deck/session controls: theme, deck chrome, add slide, ratio, source, snap, shortcuts, undo/redo, save, and close.            |
-| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.                             |
-| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                                              |
-| Inspector      | One active task panel (Slide/Text/Label/Shape/Image/Adjust/Line/Arrange/Effects/Source/Notes/Layers) for the current object. |
-| Bottom dock    | Zoom, notes, rail toggle, and status.                                                                                        |
-| Slide rail     | Select, duplicate, remove, and reorder slides.                                                                               |
+| Surface        | Responsibility                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Top toolbar    | Deck/session controls: theme, deck chrome, add slide, ratio, source, snap, shortcuts, undo/redo, save, and close.      |
+| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.                       |
+| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                                        |
+| Inspector      | One active task panel (Slide/Text/Shape/Image/Adjust/Line/Arrange/Effects/Source/Notes/Layers) for the current object. |
+| Bottom dock    | Zoom, notes, rail toggle, and status.                                                                                  |
+| Slide rail     | Select, duplicate, remove, and reorder slides.                                                                         |
 
 On smaller surfaces, the inspector can render as a sheet while the stage remains
 the same controlled editor surface. The bottom dock also compacts for narrow
@@ -200,7 +200,7 @@ only; it does not make `SlideCanvasVNext` mutate state.
 
 `InspectorShell` owns editing controls, not deck state. It is a task-panel
 router that renders exactly one active panel at a time —
-`Slide / Text / Label / Shape / Image / Adjust / Line / Arrange / Effects / Source / Notes / Layers` — with
+`Slide / Text / Shape / Image / Adjust / Line / Arrange / Effects / Source / Notes / Layers` — with
 a compact in-panel switcher for moving between the panels available to the
 current selection. The panel open state is persisted in local storage; wide
 screens default open when no preference exists, while narrow screens use a
@@ -210,7 +210,7 @@ The available panel set is computed from the selection by `availablePanels`
 (`slide-panel-ui.ts`), which also powers the canvas toolbar `...` menu so the two
 never drift. With no element selected the current object is the slide
 (`Slide / Notes / Layers`); a single element exposes its kind-specific panels
-(`Text`, `Label` + `Shape`, `Image` + `Adjust`, or `Line`) plus `Arrange`,
+(`Text`, `Shape`, `Image` + `Adjust`, or `Line`) plus `Arrange`,
 `Effects`, and `Layers`, with `Source` only when the element has a `source`; a
 multi-selection exposes `Arrange / Effects / Layers`. There is no fallback
 routing: when the selection changes so the active panel no longer applies,
@@ -314,7 +314,7 @@ links.
 
 Node-level source operations are explicit and type-aware:
 
-- `refreshNodeSource` / `refreshAllSafeSourceLinks` refresh text, shape, table,
+- `refreshNodeSource` / `refreshAllSafeSourceLinks` refresh text, table,
   visual, or image node content in place when compatible;
 - `unlinkNodeSource` marks dependencies as unlinked without deleting content;
 - `relinkNodeSource` rewires a node to a chosen source block;

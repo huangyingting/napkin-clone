@@ -2172,24 +2172,21 @@ export function SlideEditorVNext({
 
   function isInlineEditableNode(
     node: SlideChildNode,
-  ): node is Extract<SlideChildNode, { type: "text" | "shape" }> {
-    return node.type === "text" || node.type === "shape";
+  ): node is Extract<SlideChildNode, { type: "text" }> {
+    return node.type === "text";
   }
 
   function inlineEditableNodeHasText(
-    node: Extract<SlideChildNode, { type: "text" | "shape" }>,
+    node: Extract<SlideChildNode, { type: "text" }>,
   ): boolean {
-    const paragraphs =
-      node.type === "text"
-        ? node.content.paragraphs
-        : node.content.text?.paragraphs;
+    const paragraphs = node.content.paragraphs;
     return (
       paragraphs?.some((paragraph) => paragraph.text.trim().length > 0) === true
     );
   }
 
   function initialCaretFromNodeClick(
-    node: Extract<SlideChildNode, { type: "text" | "shape" }>,
+    node: Extract<SlideChildNode, { type: "text" }>,
     event: Pick<MouseEvent | ReactPointerEvent, "clientX" | "clientY">,
   ): InlineTextInitialCaret {
     return inlineEditableNodeHasText(node) &&
@@ -2305,8 +2302,7 @@ export function SlideEditorVNext({
       });
       return;
     }
-    // Only text and shape (with text) nodes are inline-editable
-    if (node.type === "text" || node.type === "shape") {
+    if (node.type === "text") {
       setSelection((s) => setSelectedNodeIds(s, [targetNodeId]));
       applyStageTargetContext(target);
       enterInlineEdit(targetNodeId);
@@ -2321,7 +2317,7 @@ export function SlideEditorVNext({
   ) {
     if (!activeSlide) return;
     const node = findNodeById(activeSlide.children, nodeId);
-    if (!node || (node.type !== "text" && node.type !== "shape")) return;
+    if (!node || node.type !== "text") return;
     const updated = applyInlineTextCommit({
       deck,
       slideId: activeSlide.id,
@@ -2871,7 +2867,7 @@ export function SlideEditorVNext({
     if (!activeSlide || event.button !== 0 || isEditableTarget(event.target)) {
       return;
     }
-    const hits = semanticHitsFromEvent(event, { selectedNodeBonus: true });
+    const hits = semanticHitsFromEvent(event, { selectedNodeBonus: false });
     if (event.altKey) {
       handleAltNodePointerDown(nodeId, event, hits);
       return;
@@ -3272,7 +3268,7 @@ export function SlideEditorVNext({
         event.preventDefault();
         return;
       }
-      if (selectedNode.type === "text" || selectedNode.type === "shape") {
+      if (selectedNode.type === "text") {
         enterInlineEdit(selectedNode.id);
         event.preventDefault();
         return;
@@ -5420,9 +5416,7 @@ export function SlideEditorVNext({
                       const paragraphs =
                         editNode.type === "text"
                           ? editNode.content.paragraphs
-                          : editNode.type === "shape" && editNode.content.text
-                            ? editNode.content.text.paragraphs
-                            : [{ id: `${inlineEditNodeId}-p-1`, text: "" }];
+                          : [{ id: `${inlineEditNodeId}-p-1`, text: "" }];
                       const resolvedEditNode = activeSlideTree.nodes.find(
                         (node) => node.id === inlineEditNodeId,
                       );

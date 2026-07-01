@@ -90,8 +90,6 @@ export type VnextPptxShapeOp = {
   h: number;
   fill?: string;
   stroke?: { color: string; widthPt: number };
-  text?: TextContent;
-  textStyle?: VnextPptxTextStyle;
   rotation?: number;
   zIndex: number;
 };
@@ -449,10 +447,6 @@ function convertShape(
     ...frame,
     ...(fill !== undefined ? { fill } : {}),
     ...(stroke !== undefined ? { stroke } : {}),
-    ...(op.text !== undefined ? { text: op.text } : {}),
-    ...(op.text !== undefined
-      ? { textStyle: styleToTextOptions(op.style) }
-      : {}),
     ...(op.rotation !== undefined ? { rotation: op.rotation } : {}),
     zIndex: op.zIndex,
   };

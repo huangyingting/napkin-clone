@@ -562,7 +562,7 @@ function coverageDeck() {
           frame: { x: 42, y: 20, w: 20, h: 16 },
           zIndex: 3,
         }),
-        content: { shape: "rect", text: buildTextContent(["Shape text"]) },
+        content: { shape: "rect" },
         localStyle: { fill: { type: "solid", color: "#abcdef" } },
       }),
       buildImageNode("img-001", {

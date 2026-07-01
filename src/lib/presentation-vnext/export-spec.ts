@@ -54,7 +54,6 @@ export type ExportShapeOperation = {
   shape: string;
   frame: { x: number; y: number; w: number; h: number };
   style: StyleObject;
-  text?: TextContent;
   rotation?: number;
   zIndex: number;
 };
@@ -237,9 +236,6 @@ function nodeToOperations(
           shape: node.content.content.shape,
           frame,
           style,
-          ...(node.content.content.text
-            ? { text: node.content.content.text }
-            : {}),
           ...(rotation !== undefined ? { rotation } : {}),
           zIndex,
         },

@@ -216,10 +216,7 @@ const imageNode = buildImageNode("asset-1", {
 });
 const glowShape = buildShapeNode({
   id: "shape-1",
-  content: {
-    shape: "rect",
-    text: { paragraphs: [{ id: "p1", text: "Shape" }] },
-  },
+  content: { shape: "rect" },
   localStyle: {
     effect: { kind: "glow", color: "#4f46e5", blurPt: 14, opacity: 0.35 },
     shadow: { xPt: 2, yPt: 4, blurPt: 10, color: "#111111", opacity: 0.2 },

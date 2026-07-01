@@ -137,9 +137,6 @@ function nodeTextParagraphs(node: SlideChildNode): readonly { text: string }[] {
   if (node.type === "text") {
     return node.content.paragraphs;
   }
-  if (node.type === "shape" && node.content.text) {
-    return node.content.text.paragraphs;
-  }
   return [];
 }
 

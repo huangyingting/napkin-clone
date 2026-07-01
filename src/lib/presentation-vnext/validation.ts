@@ -2010,7 +2010,7 @@ const IMAGE_CONTENT_KEYS = new Set([
   "focalPoint",
   "alt",
 ]);
-const SHAPE_CONTENT_KEYS = new Set(["shape", "text", "path"]);
+const SHAPE_CONTENT_KEYS = new Set(["shape", "path"]);
 const CONNECTOR_CONTENT_KEYS = new Set(["from", "to", "routing"]);
 const VISUAL_CONTENT_KEYS = new Set([
   "assetId",
@@ -2420,13 +2420,6 @@ function validateChildNode(
             input.content.path.length === 0)
         ) {
           fail(errors, `${ctx}.content.path is required when shape is "path"`);
-        }
-        if (input.content.text !== undefined) {
-          validateTextContent(
-            input.content.text,
-            `${ctx}.content.text`,
-            errors,
-          );
         }
       }
       break;

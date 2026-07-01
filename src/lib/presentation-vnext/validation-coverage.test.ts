@@ -8,7 +8,6 @@ import {
   buildLayoutBox,
   buildMinimalDeckV7,
   buildSlideV7,
-  buildTextContent,
   buildTextNode,
 } from "@/test/builders/deck-v7";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
@@ -168,7 +167,6 @@ describe("safeParseDeckV7 coverage branches", () => {
       content: {
         shape: "path",
         path: "M 0 0 L 10 10",
-        text: buildTextContent(["Inside shape"]),
       },
     };
     const connectorNode: SlideChildNode = {

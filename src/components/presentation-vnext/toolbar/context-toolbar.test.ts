@@ -175,10 +175,7 @@ describe("seedContextToolbarStyles", () => {
       type: "shape",
       role: "card",
       layout: { frame: { x: 0, y: 0, w: 40, h: 20 }, zIndex: 1 },
-      content: {
-        shape: "rect",
-        text: { paragraphs: [{ id: "p-1", text: "Label" }] },
-      },
+      content: { shape: "rect" },
       localStyle: {},
     };
     const resolvedStyle: StyleObject = {
@@ -693,10 +690,7 @@ describe("context toolbar routing helpers", () => {
         type: "shape",
         role: "card",
         layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
-        content: {
-          shape: "rect",
-          text: { paragraphs: [{ id: "p1", text: "Card" }] },
-        },
+        content: { shape: "rect" },
         localStyle: {},
       },
       onUpdateSelectedAttributes: (patch) => attributePatches.push(patch),

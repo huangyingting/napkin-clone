@@ -47,10 +47,7 @@ const shapeNode: SlideChildNode = {
     fill: { type: "solid", color: "#fff7ed" },
     stroke: { color: "#fb923c", widthPt: 2 },
   },
-  content: {
-    shape: "rect",
-    text: { paragraphs: [{ id: "shape-p1", text: "Shape label" }] },
-  },
+  content: { shape: "rect" },
 };
 
 const imageNode: SlideChildNode = {

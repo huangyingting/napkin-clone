@@ -114,26 +114,7 @@ export function availablePanels(
         panels.push("text", "arrange", "style", "effects", "source", "layers");
         break;
       case "shape":
-        if (node.content.text) {
-          panels.push(
-            "shape",
-            "text",
-            "arrange",
-            "style",
-            "effects",
-            "source",
-            "layers",
-          );
-        } else {
-          panels.push(
-            "shape",
-            "arrange",
-            "style",
-            "effects",
-            "source",
-            "layers",
-          );
-        }
+        panels.push("shape", "arrange", "style", "effects", "source", "layers");
         break;
       case "image":
         panels.push(

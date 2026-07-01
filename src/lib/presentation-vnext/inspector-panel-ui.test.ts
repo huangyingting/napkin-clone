@@ -66,12 +66,12 @@ describe("availablePanels — text node", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Shape node — no inline text
+// Shape node
 // ---------------------------------------------------------------------------
 
-describe("availablePanels — shape node (no text)", () => {
+describe("availablePanels — shape node", () => {
   test("includes shape, arrange, layers", () => {
-    const ids = panelIds(buildShapeNode()); // buildShapeNode has no content.text
+    const ids = panelIds(buildShapeNode());
     assert.ok(ids.includes("shape"), "should include shape");
     assert.ok(ids.includes("arrange"), "should include arrange");
     assert.ok(ids.includes("layers"), "should include layers");
@@ -84,25 +84,6 @@ describe("availablePanels — shape node (no text)", () => {
       false,
       "text panel should not appear for shape without text",
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Shape node — with inline text
-// ---------------------------------------------------------------------------
-
-describe("availablePanels — shape node (with text)", () => {
-  test("includes text panel when content.text is present", () => {
-    const shapeWithText = buildShapeNode({
-      content: {
-        shape: "rect",
-        text: { paragraphs: [{ id: "p1", text: "Label" }] },
-      },
-    });
-    const ids = panelIds(shapeWithText);
-    assert.ok(ids.includes("shape"), "should include shape");
-    assert.ok(ids.includes("text"), "should include text");
-    assert.ok(ids.includes("arrange"), "should include arrange");
   });
 });
 

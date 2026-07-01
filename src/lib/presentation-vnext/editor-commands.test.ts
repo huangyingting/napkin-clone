@@ -1719,17 +1719,6 @@ describe("updateNodeContent — inline text editor commit", () => {
     assert.deepEqual(node.content.paragraphs, paragraphs);
   });
 
-  test("commits shape inline text (content.text)", () => {
-    const deck = makeTestDeck();
-    const slide = deck.slides[0];
-    const nodeId = slide.children[0].id;
-    const updated = updateNodeContent(deck, slide.id, nodeId, {
-      text: { paragraphs: [{ id: "p1", text: "Shape label" }] },
-    });
-    const node = updated.slides[0].children.find((n) => n.id === nodeId) as any;
-    assert.equal(node.content.text?.paragraphs[0].text, "Shape label");
-  });
-
   test("preserves other content fields when patching paragraphs", () => {
     const deck = makeTestDeck();
     const slide = deck.slides[0];

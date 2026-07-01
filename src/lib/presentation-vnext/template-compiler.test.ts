@@ -423,7 +423,7 @@ describe("compileSlide", () => {
     }
     assert.equal(shape?.type, "shape");
     if (shape?.type === "shape") {
-      assert.equal(shape.content.text?.paragraphs[0]?.text, "Static shape");
+      assert.deepEqual(shape.content, { shape: "rect" });
     }
     assert.equal(group?.type, "group");
     if (group?.type === "group") {

@@ -730,9 +730,6 @@ describe("buildVnextPptxSpec — direct operation conversion", () => {
                 },
                 effect: { kind: "glow", color: "#ffffff", blurPt: 6 },
               },
-              text: {
-                paragraphs: [{ id: "direct-shape-label", text: "Fallback" }],
-              },
               rotation: -12,
               zIndex: 2,
             },
@@ -817,7 +814,6 @@ describe("buildVnextPptxSpec — direct operation conversion", () => {
     assert.ok(shapeOp);
     assert.equal(shapeOp.fill, "CCCCCC");
     assert.deepEqual(shapeOp.stroke, { color: "000000", widthPt: 2 });
-    assert.equal(shapeOp.textStyle?.align, "right");
     assert.equal(shapeOp.rotation, -12);
 
     const connectorOp = pptx.slides[0].ops.find(
@@ -916,7 +912,6 @@ describe("buildVnextPptxSpec — direct operation conversion edge cases", () => 
                 stroke: { color: tokenColor, widthPt: 2 },
                 text: { color: "#112233", fontSizePt: 12, align: "right" },
               },
-              text: { paragraphs: [{ id: "p2", text: "Token fallback" }] },
               rotation: 15,
               zIndex: 2,
             },
@@ -1036,7 +1031,6 @@ describe("buildVnextPptxSpec — direct operation conversion edge cases", () => 
       assert.equal(shapeOp.fill, "CCCCCC");
       assert.deepEqual(shapeOp.stroke, { color: "000000", widthPt: 2 });
       assert.equal(shapeOp.rotation, 15);
-      assert.equal(shapeOp.textStyle?.align, "right");
     }
 
     const visualOp = pptx.slides[0].ops.find(

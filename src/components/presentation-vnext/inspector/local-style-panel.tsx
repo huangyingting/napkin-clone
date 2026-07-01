@@ -154,7 +154,7 @@ export function LocalStylePanel({
     resolvedStyle?.text?.italic ?? node.localStyle?.text?.italic;
   const textUnderline =
     resolvedStyle?.text?.underline ?? node.localStyle?.text?.underline;
-  const canEditText = node.type === "text" || node.type === "shape";
+  const canEditText = node.type === "text";
   const canEditFill = node.type === "shape" || node.type === "text";
   const canEditStroke = node.type === "shape";
   const canEditConnector = node.type === "connector";

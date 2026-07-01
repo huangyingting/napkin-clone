@@ -206,7 +206,7 @@ test("text, shape, visual, connector, and accessibility variants render meaningf
           `shape-${shape}`,
           {
             type: "shape",
-            content: { shape: shape as never, text: buildTextContent([shape]) },
+            content: { shape: shape as never },
           },
           { fill: { type: "solid", color: "#22c55e" } },
         ),

@@ -687,12 +687,7 @@ describe("safeParseDeckV7", () => {
     });
     const shapeNode = buildShapeNode({
       id: "shape-valid-nested",
-      content: {
-        shape: "rect",
-        text: {
-          paragraphs: [{ id: "shape-para-valid", text: "Shape callout" }],
-        },
-      },
+      content: { shape: "rect" },
     });
     const connectorNode: SlideChildNode = {
       id: "connector-valid-nested",
@@ -2254,7 +2249,7 @@ describe("safeParseDeckV7", () => {
         /must have exactly 2 cells/,
         /content\.from must be an object/,
         /content\.to must be an object/,
-        /content\.text\.paragraphs/,
+        /content\.text is not a known shape content field/,
       ]) {
         assert.ok(
           result.errors.some((error) => pattern.test(error)),

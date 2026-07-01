@@ -51,9 +51,7 @@ export function nodesInReadingOrder(
 export function inlineEditableNodes(
   nodes: readonly SlideChildNode[],
 ): SlideChildNode[] {
-  return nodesInReadingOrder(nodes).filter(
-    (node) => node.type === "text" || node.type === "shape",
-  );
+  return nodesInReadingOrder(nodes).filter((node) => node.type === "text");
 }
 
 export function adjacentNodeId(

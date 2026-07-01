@@ -582,7 +582,7 @@ function finalDeck(): DeckV7 {
           buildShapeNode({
             id: "shape-a",
             layout: buildLayoutBox({ frame: { x: 50, y: 20, w: 24, h: 16 } }),
-            content: { shape: "rect", text: buildTextContent(["Shape"]) },
+            content: { shape: "rect" },
           }),
           buildImageNode("img-001", {
             id: "image-a",

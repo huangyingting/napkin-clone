@@ -211,7 +211,6 @@ describe("presentation-vnext final library coverage", () => {
             content: {
               shape: "path",
               path: "M 0 0 L 10 0 L 10 10 Z",
-              text: { paragraphs: [{ id: "p-shape", text: "Path label" }] },
             },
           }),
         ]),

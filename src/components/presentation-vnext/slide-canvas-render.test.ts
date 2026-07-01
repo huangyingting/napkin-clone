@@ -347,7 +347,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /border:2px solid var\(--ds-accent-fill, #6366f1\)/);
   });
 
-  test("does not render chrome borders for slide preselection or selection", () => {
+  test("renders slide preselection and selection frames", () => {
     const preselectedHtml = renderToStaticMarkup(
       createElement(SlideCanvasVNext, {
         slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
@@ -363,8 +363,16 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
 
     assert.match(preselectedHtml, /data-slide-hovered="true"/);
     assert.match(selectedHtml, /data-slide-selected="true"/);
-    assert.doesNotMatch(preselectedHtml, /data-slide-chrome-frame/);
-    assert.doesNotMatch(selectedHtml, /data-slide-chrome-frame/);
+    assert.match(preselectedHtml, /data-slide-chrome-frame="preselected"/);
+    assert.match(selectedHtml, /data-slide-chrome-frame="selected"/);
+    assert.match(
+      preselectedHtml,
+      /border:2px solid var\(--ds-accent-fill, #6366f1\)/,
+    );
+    assert.match(
+      selectedHtml,
+      /border:2px solid var\(--ds-accent-fill, #6366f1\)/,
+    );
   });
 
   test("renders a multi-selection bounding box", () => {
@@ -1401,103 +1409,31 @@ describe("SlideNodeRenderer resolved node content branches", () => {
         { text: { paragraphSpacingPt: 6 } },
       ),
     );
-    const topShape = renderResolvedNodeMarkup(
-      renderNode(
-        "shape-top",
-        {
-          type: "shape",
-          content: {
-            shape: "rect",
-            text: { paragraphs: [{ id: "shape-top-p1", text: "Top shape" }] },
-          },
-        },
-        { text: { verticalAlign: "top" } },
-      ),
-    );
-    const middleShape = renderResolvedNodeMarkup(
-      renderNode(
-        "shape-middle",
-        {
-          type: "shape",
-          content: {
-            shape: "rect",
-            text: {
-              paragraphs: [{ id: "shape-middle-p1", text: "Middle shape" }],
-            },
-          },
-        },
-        { text: { verticalAlign: "middle" } },
-      ),
-    );
-    const bottomShape = renderResolvedNodeMarkup(
-      renderNode(
-        "shape-bottom",
-        {
-          type: "shape",
-          content: {
-            shape: "rect",
-            text: {
-              paragraphs: [{ id: "shape-bottom-p1", text: "Bottom shape" }],
-            },
-          },
-        },
-        { text: { verticalAlign: "bottom" } },
-      ),
-    );
-    const spacedShape = renderResolvedNodeMarkup(
-      renderNode(
-        "shape-spacing",
-        {
-          type: "shape",
-          content: {
-            shape: "rect",
-            text: {
-              paragraphs: [
-                { id: "shape-spacing-p1", text: "Shape paragraph one" },
-                { id: "shape-spacing-p2", text: "Shape paragraph two" },
-              ],
-            },
-          },
-        },
-        { text: { paragraphSpacingPt: 4 } },
-      ),
-    );
-
     assert.match(topText, /justify-content:flex-start/);
     assert.match(middleText, /justify-content:center/);
     assert.match(bottomText, /justify-content:flex-end/);
     assert.equal((spacedText.match(/margin-bottom:6pt/g) ?? []).length, 1);
-
-    assert.match(topShape, /justify-content:flex-start/);
-    assert.match(middleShape, /justify-content:center/);
-    assert.match(bottomShape, /justify-content:flex-end/);
-    assert.equal((spacedShape.match(/margin-bottom:4pt/g) ?? []).length, 1);
   });
 
-  test("keeps shape paint visible while inline editing and hides only its text", () => {
-    const editingShape = renderToStaticMarkup(
+  test("hides shape nodes when they are marked hidden", () => {
+    const hiddenShape = renderToStaticMarkup(
       createElement(SlideNodeRenderer, {
-        node: renderNode("shape-editing", {
+        node: renderNode("shape-hidden", {
           type: "shape",
-          content: {
-            shape: "rect",
-            text: {
-              paragraphs: [{ id: "shape-editing-p1", text: "Editing me" }],
-            },
-          },
+          content: { shape: "rect" },
         }),
         hidden: true,
       }),
     );
 
-    // Shape container must not be hidden, so its fill/border keep rendering.
-    assert.doesNotMatch(
-      editingShape,
-      /data-node-id="shape-editing"[^>]*visibility:hidden/,
+    assert.match(
+      hiddenShape,
+      /data-node-id="shape-hidden"[^>]*visibility:hidden/,
     );
-    // The shape's own text is hidden so it does not double-render with the
-    // inline editor overlay.
-    assert.doesNotMatch(editingShape, /Editing me/);
+    assert.match(
+      hiddenShape,
+      /data-node-id="shape-hidden"[^>]*pointer-events:none/,
+    );
   });
 
   test("renders text, shape, media, table, connector, visual, and group node content", () => {
@@ -1553,7 +1489,6 @@ describe("SlideNodeRenderer resolved node content branches", () => {
         content: {
           shape: "path",
           path: "M 0 0 L 100 0 L 50 100 Z",
-          text: { paragraphs: [{ id: "shape-label", text: "Shape label" }] },
         },
       },
       {
@@ -1676,7 +1611,7 @@ describe("SlideNodeRenderer resolved node content branches", () => {
       .join("\n");
 
     assert.match(html, /href="https:\/\/example.com"/);
-    assert.match(html, /Shape label/);
+    assert.doesNotMatch(html, /Shape label/);
     assert.match(html, /Revenue/);
     assert.match(html, /connector-start-arrow-v7-render-connector/);
     assert.match(html, /Resolved image/);
@@ -1895,7 +1830,6 @@ describe("SlideCanvasVNext E01 rendering coverage", () => {
         content: {
           shape: "path" as const,
           path: "M 0 0 L 100 0 L 50 100 Z",
-          text: { paragraphs: [{ id: "shape-label", text: "Label" }] },
         },
       },
     };

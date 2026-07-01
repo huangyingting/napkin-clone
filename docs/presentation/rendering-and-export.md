@@ -56,7 +56,7 @@ Supported element rendering:
 | `text`      | Paragraph content, rich text runs, fit mode, role/style binding, local style, and rotation.                                   |
 | `visual`    | Renders visual placeholders or resolved visual image assets with channel-color defaults.                                      |
 | `image`     | Renders deck image assets with fit/crop/alt metadata and missing-asset diagnostics.                                           |
-| `shape`     | Renders shape geometry, optional text content, fill/stroke/effect style, opacity, and rotation.                               |
+| `shape`     | Renders shape geometry, fill/stroke/effect style, opacity, and rotation; labels are separate `text` nodes.                    |
 | `connector` | Resolves point/node endpoints and renders straight/elbow/curved connector intent with per-node SVG marker ids for arrowheads. |
 | `table`     | Renders a clipped grid with optional header, caption, alternating rows, borders, and cell runs.                               |
 | `group`     | Renders nested child nodes in group-local order while preserving group lock/selection metadata.                               |

@@ -215,42 +215,24 @@ export function NodeContentPanel({
         </label>
       ) : null}
       {node.type === "shape" ? (
-        <>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Shape
-            <select
-              value={node.content.shape}
-              onChange={(event) =>
-                onUpdateContent({
-                  shape: event.currentTarget.value as ShapeKind,
-                })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            >
-              {SHAPE_OPTIONS.map((shape) => (
-                <option key={shape} value={shape}>
-                  {shape}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Label
-            <textarea
-              value={node.content.text ? textValue(node.content.text) : ""}
-              rows={3}
-              onChange={(event) =>
-                onUpdateContent({
-                  text: textContentFromValue(
-                    event.currentTarget.value,
-                    `${node.id}-label`,
-                  ),
-                })
-              }
-              className={`w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
-          </label>
-        </>
+        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+          Shape
+          <select
+            value={node.content.shape}
+            onChange={(event) =>
+              onUpdateContent({
+                shape: event.currentTarget.value as ShapeKind,
+              })
+            }
+            className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+          >
+            {SHAPE_OPTIONS.map((shape) => (
+              <option key={shape} value={shape}>
+                {shape}
+              </option>
+            ))}
+          </select>
+        </label>
       ) : null}
       {node.type === "image" ? (
         <>

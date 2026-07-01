@@ -1471,6 +1471,85 @@ describe("SlideEditorVNext failure-state coverage", () => {
     );
   });
 
+  test("dragging a preselected overlapping node moves it instead of the selected node", () => {
+    withMockHTMLElement((createElement) =>
+      withPointerWindow((listeners) => {
+        const hookRenderer = createHookRenderer();
+        let currentDeck = buildDeckV7([
+          buildSlideV7(
+            "content",
+            [
+              buildTextNode({
+                id: "selected-under",
+                layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+              }),
+              buildTextNode({
+                id: "preselected-over",
+                layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 2 },
+              }),
+            ],
+            { id: "slide-overlap-drag", name: "Slide 1" },
+          ),
+        ]);
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-overlap-drag",
+              deck: currentDeck,
+              onDeckChange: (nextDeck) => {
+                currentDeck = nextDeck;
+              },
+            }),
+          );
+
+        let tree = renderTree();
+        focusNode(tree, "selected-under");
+
+        tree = renderTree();
+        const canvasElement = createElement({
+          rect: { left: 0, top: 0, width: 1000, height: 1000 },
+        });
+        const currentTarget = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+        nodePointerDownFrom(tree)("preselected-over", {
+          button: 0,
+          pointerId: 1,
+          clientX: 250,
+          clientY: 250,
+          shiftKey: false,
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          target: currentTarget,
+          currentTarget,
+          preventDefault: () => undefined,
+          stopPropagation: () => undefined,
+        } as unknown as React.PointerEvent);
+        listeners.get("pointermove")?.({
+          clientX: 350,
+          clientY: 250,
+          altKey: false,
+          shiftKey: false,
+        } as PointerEvent);
+        listeners.get("pointerup")?.({
+          clientX: 350,
+          clientY: 250,
+        } as PointerEvent);
+
+        const [selectedUnder, preselectedOver] =
+          currentDeck.slides[0]?.children ?? [];
+        assert.equal(selectedUnder?.id, "selected-under");
+        assert.equal(preselectedOver?.id, "preselected-over");
+        assert.equal(selectedUnder?.layout?.frame.x, 20);
+        assert.equal(preselectedOver?.layout?.frame.x, 30);
+      }),
+    );
+  });
+
   test("pressing another node exits the first node's inline edit", () => {
     withMockHTMLElement((createElement) =>
       withPointerWindow((listeners) => {
@@ -2415,7 +2494,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
       );
     });
 
-    test("clicking an already-selected empty shape enters edit mode at the beginning", () => {
+    test("clicking an already-selected shape does not enter inline edit", () => {
       withMockHTMLElement((createElement) =>
         withPointerWindow((listeners) => {
           const hookRenderer = createHookRenderer();
@@ -2499,9 +2578,10 @@ describe("SlideEditorVNext failure-state coverage", () => {
               hiddenNodeIds?: ReadonlySet<string>;
             }
           ).hiddenNodeIds;
-          assert.ok(
+          assert.notEqual(
             hiddenNodeIds?.has("empty-shape"),
-            "Expected selected empty shape click to enter inline edit mode.",
+            true,
+            "Expected selected shape click to stay out of inline edit mode.",
           );
         }),
       );

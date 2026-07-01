@@ -295,7 +295,6 @@ export type SvgPathData = string;
 
 export type ShapeContent = {
   shape: ShapeKind;
-  text?: TextContent;
   path?: SvgPathData;
 };
 

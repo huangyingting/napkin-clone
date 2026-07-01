@@ -8,7 +8,6 @@ import type {
   SlideNode,
   SourceRefreshState,
   TableContent,
-  TextContent,
 } from "./schema";
 import {
   type SourceBlockIndex,
@@ -537,19 +536,9 @@ function refreshNodeFromEntry(
         },
       };
     }
-    if (node.type === "shape") {
-      const text: TextContent = { paragraphs: [paragraph] };
-      return {
-        node: {
-          ...node,
-          content: { ...node.content, text },
-          source: buildFreshNodeSourceMetadata(entry, now, node.source),
-        },
-      };
-    }
     return {
       node,
-      reason: "Text source can refresh only text or shape nodes.",
+      reason: "Text source can refresh only text nodes.",
     };
   }
 

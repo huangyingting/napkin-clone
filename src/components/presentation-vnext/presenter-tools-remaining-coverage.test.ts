@@ -39,15 +39,9 @@ function textNode(text: string, role: SlideChildNode["role"] = "body") {
   return buildTextNode({ role, content: buildTextContent([text]) });
 }
 
-function shapeWithText(text: string) {
-  return buildShapeNode({
-    content: { shape: "rect", text: buildTextContent([text]) },
-  });
-}
-
-test("presenter tools vNext labels fall back through shape, group, notes, and untitled slide paths", () => {
+test("presenter tools vNext labels fall back through text, group, notes, and untitled slide paths", () => {
   resetBuilderCounter();
-  const shapeSlide = buildSlideV7("content", [shapeWithText(" Shape label ")], {
+  const shapeSlide = buildSlideV7("content", [textNode(" Shape label ")], {
     name: " \n ",
     notes: "",
   });

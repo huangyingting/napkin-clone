@@ -84,10 +84,7 @@ function buildParityDeck(): DeckV7 {
           fill: { type: "solid", color: "#dbeafe" },
           stroke: { color: "#2563eb", widthPt: 1 },
         },
-        content: {
-          shape: "rect",
-          text: { paragraphs: [{ id: "shape-label", text: "Core node" }] },
-        },
+        content: { shape: "rect" },
       }),
       buildImageNode("img-parity", {
         id: "parity-image",

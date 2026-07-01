@@ -427,6 +427,14 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           />
         ))}
 
+        {!preview && slideHovered && !slideSelected ? (
+          <SlideChromeFrame variant="preselected" />
+        ) : null}
+
+        {!preview && slideSelected ? (
+          <SlideChromeFrame variant="selected" />
+        ) : null}
+
         {!preview
           ? preselectedUserNodes.map((node) => (
               <NodeChromeFrame
@@ -652,6 +660,27 @@ function NodeChromeFrame({
         ...nodeChromeOverlayFrameStyle(node, chrome.zIndex),
         border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
         opacity: chrome.opacity,
+      }}
+    />
+  );
+}
+
+function SlideChromeFrame({
+  variant,
+}: {
+  variant: "selected" | "preselected";
+}) {
+  const chrome = selectionFrameChrome(variant);
+  const color = "var(--ds-accent-fill, #6366f1)";
+  return (
+    <div
+      aria-hidden="true"
+      data-slide-chrome-frame={variant}
+      className="pointer-events-none absolute inset-0 box-border"
+      style={{
+        border: `${chrome.borderWidthPx}px solid ${color}`,
+        opacity: chrome.opacity,
+        zIndex: chrome.zIndex,
       }}
     />
   );

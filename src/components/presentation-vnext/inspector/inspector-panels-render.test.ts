@@ -146,10 +146,7 @@ describe("inspector panels render and wire controls", () => {
     const element = LocalStylePanel({
       node: childNode({
         type: "shape",
-        content: {
-          shape: "rect",
-          text: { paragraphs: [{ id: "label", text: "Label" }] },
-        },
+        content: { shape: "rect" },
         localStyle: {
           text: {
             color: "#222222",
@@ -259,10 +256,7 @@ describe("inspector panels render and wire controls", () => {
     const element = LocalStylePanel({
       node: childNode({
         type: "shape",
-        content: {
-          shape: "rect",
-          text: { paragraphs: [{ id: "label", text: "Label" }] },
-        },
+        content: { shape: "rect" },
         localStyle: {},
       }),
       resolvedStyle,

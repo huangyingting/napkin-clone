@@ -129,16 +129,16 @@ test("adjacentNodeId wraps based on reading-order traversal", () => {
   assert.equal(adjacentNodeId(nodes, undefined, -1), "n3");
 });
 
-test("adjacentInlineEditableNodeId only traverses text and shape nodes", () => {
+test("adjacentInlineEditableNodeId only traverses text nodes", () => {
   const nodes: SlideChildNode[] = [
     textNode("text", { x: 0, y: 0, w: 10, h: 10 }),
     imageNode("image", { x: 10, y: 0, w: 10, h: 10 }),
     shapeNode("shape", { x: 20, y: 0, w: 10, h: 10 }),
   ];
 
-  assert.equal(adjacentInlineEditableNodeId(nodes, "text", 1), "shape");
+  assert.equal(adjacentInlineEditableNodeId(nodes, "text", 1), "text");
   assert.equal(adjacentInlineEditableNodeId(nodes, "image", 1), "text");
-  assert.equal(adjacentInlineEditableNodeId(nodes, "image", -1), "shape");
+  assert.equal(adjacentInlineEditableNodeId(nodes, "image", -1), "text");
 });
 
 test("parentGroupIdForNode returns direct parent group id", () => {

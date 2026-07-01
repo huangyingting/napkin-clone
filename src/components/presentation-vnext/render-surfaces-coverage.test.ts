@@ -234,7 +234,7 @@ function richRenderTree(): ResolvedDeckRenderTree {
           }),
           buildShapeNode({
             id: "shape-node",
-            content: { shape: "diamond", text: buildTextContent(["Decision"]) },
+            content: { shape: "diamond" },
             localStyle: { fill: { type: "solid", color: "#fde68a" } },
           }),
           buildImageNode("hero", {
@@ -331,7 +331,6 @@ describe("presentation render element surfaces", () => {
           content: {
             shape: "path",
             path: "M 0 0 L 100 20 L 80 100 Z",
-            text: buildTextContent(["Hidden label"]),
           },
         },
         {
@@ -572,10 +571,8 @@ describe("present and public viewer render states", () => {
         "content",
         [
           buildShapeNode({
-            content: {
-              shape: "rect",
-              text: buildTextContent(["Second shape"]),
-            },
+            content: { shape: "rect" },
+            name: "Second shape",
           }),
         ],
         {

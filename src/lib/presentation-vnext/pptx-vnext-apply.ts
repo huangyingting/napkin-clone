@@ -210,7 +210,7 @@ export function applyVnextShapeOp(
   slide: PptxSlide,
   op: VnextPptxShapeOp,
 ): void {
-  const { x, y, w, h, shape, fill, stroke, text, textStyle, rotation } = op;
+  const { x, y, w, h, shape, fill, stroke, rotation } = op;
   const shapeName = vnextShapeToName(shape) as Parameters<
     PptxSlide["addShape"]
   >[0];
@@ -225,31 +225,6 @@ export function applyVnextShapeOp(
       : {}),
     ...(rotation !== undefined ? { rotate: rotation } : {}),
   });
-
-  // Overlay shape label text if present
-  if (text && text.paragraphs.length > 0) {
-    const label = text.paragraphs
-      .map((p) => p.text)
-      .join(" ")
-      .trim();
-    if (label) {
-      slide.addText(label, {
-        x: x + w * 0.05,
-        y: y + h * 0.1,
-        w: w * 0.9,
-        h: h * 0.8,
-        ...(textStyle?.color !== undefined ? { color: textStyle.color } : {}),
-        ...(textStyle?.fontSize !== undefined
-          ? { fontSize: textStyle.fontSize }
-          : {}),
-        ...(textStyle?.align
-          ? { align: textStyle.align as "left" | "center" | "right" }
-          : {}),
-        valign: "middle",
-        wrap: true,
-      });
-    }
-  }
 }
 
 export async function applyVnextImageOp(

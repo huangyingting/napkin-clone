@@ -7,12 +7,11 @@ import type {
   DeckV7,
   LayoutBox,
   Paragraph,
-  ShapeNode,
   TextNode,
 } from "@/lib/presentation-vnext/schema";
 
 export type InlineTextAlign = "left" | "center" | "right";
-export type InlineEditableNode = TextNode | ShapeNode;
+export type InlineEditableNode = TextNode;
 
 export type InlineTextCommit = {
   deck: DeckV7;
@@ -32,15 +31,7 @@ export function applyInlineTextCommit({
   textAlign,
 }: InlineTextCommit): DeckV7 {
   let updated = deck;
-  if (node.type === "text") {
-    updated = updateNodeContent(updated, slideId, node.id, {
-      paragraphs,
-    });
-  } else {
-    updated = updateNodeContent(updated, slideId, node.id, {
-      text: { paragraphs },
-    });
-  }
+  updated = updateNodeContent(updated, slideId, node.id, { paragraphs });
   if (nextFrame) {
     updated = updateNodeLayout(updated, slideId, node.id, {
       frame: nextFrame,
