@@ -128,12 +128,16 @@ test("createSerializedDeckPersistor serializes overlapping saves and uses refres
   const firstDeck = createBlankDeckV7({ documentId: "doc-1408" });
   const secondDeck = createBlankDeckV7({ documentId: "doc-1408" });
   const revisionTokenRef = { current: "rev-1" as string | null };
+  const latestRequestIdRef = { current: 0 };
   const gate = createDeferred<void>();
   const saveCalls: Array<{ token: string | null | undefined; deck: unknown }> =
     [];
+  const dirtyStates: boolean[] = [];
 
-  const persistDeckV7 = createSerializedDeckPersistor<DeckV7>({
-    persistDeck: (updatedDeck) =>
+  type QueuedDeckSave = { deck: DeckV7; requestId: number };
+
+  const persistDeckV7 = createSerializedDeckPersistor<QueuedDeckSave>({
+    persistDeck: ({ deck: updatedDeck, requestId }) =>
       persistDeckV7WithRecovery({
         updatedDeck,
         documentId: "doc-1408",
@@ -150,16 +154,26 @@ test("createSerializedDeckPersistor serializes overlapping saves and uses refres
         revisionTokenRef,
         lastSavedRef: { current: null },
         aiAppliedDeckRef: { current: null },
-        setV7Dirty: () => undefined,
+        setV7Dirty: (dirty) => dirtyStates.push(dirty),
         setV7Saving: () => undefined,
         setV7SaveError: () => undefined,
         setConflictStateV7: () => undefined,
         onAiDeckSaved: () => undefined,
+        shouldApplyCompletionState: () =>
+          latestRequestIdRef.current === requestId,
       }),
   });
 
-  const firstSave = persistDeckV7(firstDeck);
-  const secondSave = persistDeckV7(secondDeck);
+  latestRequestIdRef.current += 1;
+  const firstSave = persistDeckV7({
+    deck: firstDeck,
+    requestId: latestRequestIdRef.current,
+  });
+  latestRequestIdRef.current += 1;
+  const secondSave = persistDeckV7({
+    deck: secondDeck,
+    requestId: latestRequestIdRef.current,
+  });
 
   await waitForAsyncDrain();
   assert.equal(saveCalls.length, 1);
@@ -176,5 +190,73 @@ test("createSerializedDeckPersistor serializes overlapping saves and uses refres
   assert.equal(saveCalls.length, 2);
   assert.equal(saveCalls[1]?.token, "rev-2");
   assert.equal(saveCalls[1]?.deck, secondDeck);
+  assert.deepEqual(dirtyStates, [false]);
   assert.equal(revisionTokenRef.current, "rev-3");
+});
+
+test("createSerializedDeckPersistor ignores stale conflict outcomes once newer deck save is queued", async () => {
+  const firstDeck = createBlankDeckV7({ documentId: "doc-1404" });
+  const secondDeck = createBlankDeckV7({ documentId: "doc-1404" });
+  const revisionTokenRef = { current: "rev-1" as string | null };
+  const latestRequestIdRef = { current: 0 };
+  const gate = createDeferred<void>();
+  const saveErrors: Array<string | null> = [];
+  const conflicts: unknown[] = [];
+
+  type QueuedDeckSave = { deck: DeckV7; requestId: number };
+
+  const persistDeckV7 = createSerializedDeckPersistor<QueuedDeckSave>({
+    persistDeck: ({ deck: updatedDeck, requestId }) =>
+      persistDeckV7WithRecovery({
+        updatedDeck,
+        documentId: "doc-1404",
+        deckPort: {
+          saveDeckJson: async (_documentId, _deckJson, revisionToken) => {
+            if (revisionToken === "rev-1") {
+              await gate.promise;
+              return { ok: "conflict", serverRevisionToken: "server-rev-2" };
+            }
+            return { ok: true, revisionToken: "rev-3" };
+          },
+        },
+        revisionTokenRef,
+        lastSavedRef: { current: null },
+        aiAppliedDeckRef: { current: null },
+        setV7Dirty: () => undefined,
+        setV7Saving: () => undefined,
+        setV7SaveError: (error) => saveErrors.push(error),
+        setConflictStateV7: (state) => conflicts.push(state),
+        onAiDeckSaved: () => undefined,
+        shouldApplyCompletionState: () =>
+          latestRequestIdRef.current === requestId,
+      }),
+  });
+
+  latestRequestIdRef.current += 1;
+  const firstSave = persistDeckV7({
+    deck: firstDeck,
+    requestId: latestRequestIdRef.current,
+  });
+  latestRequestIdRef.current += 1;
+  const secondSave = persistDeckV7({
+    deck: secondDeck,
+    requestId: latestRequestIdRef.current,
+  });
+
+  await waitForAsyncDrain();
+  gate.resolve(undefined);
+  const [firstResult, secondResult] = await Promise.all([
+    firstSave,
+    secondSave,
+  ]);
+
+  assert.equal(firstResult.ok, false);
+  assert.equal(secondResult.ok, false);
+  assert.equal(revisionTokenRef.current, "rev-1");
+  assert.equal(conflicts.length, 1);
+  assert.deepEqual(conflicts[0], {
+    localDeck: secondDeck,
+    serverRevisionToken: "server-rev-2",
+  });
+  assert.match(saveErrors.at(-1) ?? "", /Save conflict/);
 });

@@ -129,6 +129,7 @@ interface PersistDeckV7WithRecoveryParams {
   setV7SaveError: (error: string | null) => void;
   setConflictStateV7: (state: SlideEditorConflictStateV7 | null) => void;
   onAiDeckSaved: (savedDeck: DeckV7) => void;
+  shouldApplyCompletionState?: () => boolean;
 }
 
 export async function persistDeckV7WithRecovery({
@@ -143,6 +144,7 @@ export async function persistDeckV7WithRecovery({
   setV7SaveError,
   setConflictStateV7,
   onAiDeckSaved,
+  shouldApplyCompletionState = () => true,
 }: PersistDeckV7WithRecoveryParams): Promise<ActionResult> {
   setV7Saving(true);
   setV7SaveError(null);
@@ -152,31 +154,40 @@ export async function persistDeckV7WithRecovery({
       updatedDeck,
       revisionTokenRef.current,
     );
+    const shouldApplyCompletion = shouldApplyCompletionState();
     if (saveResult.ok === true) {
       lastSavedRef.current = updatedDeck;
       revisionTokenRef.current = saveResult.revisionToken;
-      setV7Dirty(false);
-      setV7SaveError(null);
-      setConflictStateV7(null);
-      if (aiAppliedDeckRef.current) {
-        aiAppliedDeckRef.current = null;
-        onAiDeckSaved(updatedDeck);
+      if (shouldApplyCompletion) {
+        setV7Dirty(false);
+        setV7SaveError(null);
+        setConflictStateV7(null);
+        if (aiAppliedDeckRef.current) {
+          aiAppliedDeckRef.current = null;
+          onAiDeckSaved(updatedDeck);
+        }
       }
       return { ok: true, data: undefined };
     }
     if (saveResult.ok === "conflict") {
-      setV7SaveError(SAVE_CONFLICT_ERROR_MESSAGE);
-      setConflictStateV7({
-        localDeck: updatedDeck,
-        serverRevisionToken: saveResult.serverRevisionToken,
-      });
+      if (shouldApplyCompletion) {
+        setV7SaveError(SAVE_CONFLICT_ERROR_MESSAGE);
+        setConflictStateV7({
+          localDeck: updatedDeck,
+          serverRevisionToken: saveResult.serverRevisionToken,
+        });
+      }
       return { ok: false, error: SAVE_CONFLICT_ERROR_MESSAGE };
     }
-    setV7SaveError(saveResult.error);
+    if (shouldApplyCompletion) {
+      setV7SaveError(saveResult.error);
+    }
     return { ok: false, error: saveResult.error };
   } catch (error) {
     const rejectionError = resolveDeckSaveRejectionError(error);
-    setV7SaveError(rejectionError);
+    if (shouldApplyCompletionState()) {
+      setV7SaveError(rejectionError);
+    }
     return { ok: false, error: rejectionError };
   } finally {
     setV7Saving(false);
@@ -236,6 +247,11 @@ export function createSerializedDeckPersistor<TDeck>({
 interface CreateDeckAutosaveOnDueParams {
   persistDeckV7: (deck: DeckV7) => Promise<ActionResult>;
   log: typeof logInfo;
+}
+
+interface QueuedPersistDeckV7 {
+  deck: DeckV7;
+  requestId: number;
 }
 
 export function createDeckAutosaveOnDue({
@@ -301,11 +317,12 @@ export function useSlideEditorOpen({
     null,
   );
   const inFlightPersistV7Ref = useRef<Promise<ActionResult> | null>(null);
-  const latestPersistDeckV7Ref = useRef<DeckV7 | null>(null);
+  const latestPersistDeckV7Ref = useRef<QueuedPersistDeckV7 | null>(null);
+  const latestPersistRequestIdRef = useRef(0);
   const saveAgainPersistV7Ref = useRef(false);
 
   const persistDeckV7WithSingleWrite = useCallback(
-    async (updatedDeck: DeckV7): Promise<ActionResult> => {
+    async (updatedDeck: DeckV7, requestId: number): Promise<ActionResult> => {
       return persistDeckV7WithRecovery({
         updatedDeck,
         documentId,
@@ -323,13 +340,17 @@ export function useSlideEditorOpen({
             slideCount: savedDeck.slides.length,
           });
         },
+        shouldApplyCompletionState: () =>
+          latestPersistRequestIdRef.current === requestId,
       });
     },
     [deckPort, documentId],
   );
   const persistDeckV7 = useCallback(
     (updatedDeck: DeckV7): Promise<ActionResult> => {
-      latestPersistDeckV7Ref.current = updatedDeck;
+      latestPersistRequestIdRef.current += 1;
+      const requestId = latestPersistRequestIdRef.current;
+      latestPersistDeckV7Ref.current = { deck: updatedDeck, requestId };
       if (inFlightPersistV7Ref.current) {
         saveAgainPersistV7Ref.current = true;
         return inFlightPersistV7Ref.current;
@@ -339,12 +360,17 @@ export function useSlideEditorOpen({
         try {
           do {
             saveAgainPersistV7Ref.current = false;
-            const deckToSave = latestPersistDeckV7Ref.current;
-            if (deckToSave === null) {
+            const queuedDeck = latestPersistDeckV7Ref.current;
+            if (queuedDeck === null) {
               return lastResult;
             }
-            lastResult = await persistDeckV7WithSingleWrite(deckToSave);
-            if (latestPersistDeckV7Ref.current !== deckToSave) {
+            lastResult = await persistDeckV7WithSingleWrite(
+              queuedDeck.deck,
+              queuedDeck.requestId,
+            );
+            if (
+              latestPersistDeckV7Ref.current?.requestId !== queuedDeck.requestId
+            ) {
               saveAgainPersistV7Ref.current = true;
             }
           } while (saveAgainPersistV7Ref.current);
@@ -623,9 +649,13 @@ export function useSlideEditorOpen({
       setDeckV7(updatedDeck);
       setV7Dirty(true);
       setV7SaveError(null);
-      scheduleAutosaveV7(updatedDeck);
+      if (inFlightPersistV7Ref.current) {
+        void persistDeckV7(updatedDeck);
+      } else {
+        scheduleAutosaveV7(updatedDeck);
+      }
     },
-    [conflictStateV7, deckV7, scheduleAutosaveV7],
+    [conflictStateV7, deckV7, persistDeckV7, scheduleAutosaveV7],
   );
 
   const handleUndoV7 = useCallback(() => {
@@ -638,10 +668,20 @@ export function useSlideEditorOpen({
       setDeckV7(previous);
       setV7Dirty(true);
       setV7SaveError(null);
-      scheduleAutosaveV7(previous);
+      if (inFlightPersistV7Ref.current) {
+        void persistDeckV7(previous);
+      } else {
+        scheduleAutosaveV7(previous);
+      }
       return stack.slice(0, -1);
     });
-  }, [conflictStateV7, deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
+  }, [
+    conflictStateV7,
+    deckV7,
+    focusAfterHistoryV7,
+    persistDeckV7,
+    scheduleAutosaveV7,
+  ]);
 
   const handleRedoV7 = useCallback(() => {
     if (hasUnresolvedDeckSaveConflict(conflictStateV7)) return;
@@ -653,10 +693,20 @@ export function useSlideEditorOpen({
       setDeckV7(next);
       setV7Dirty(true);
       setV7SaveError(null);
-      scheduleAutosaveV7(next);
+      if (inFlightPersistV7Ref.current) {
+        void persistDeckV7(next);
+      } else {
+        scheduleAutosaveV7(next);
+      }
       return stack.slice(0, -1);
     });
-  }, [conflictStateV7, deckV7, focusAfterHistoryV7, scheduleAutosaveV7]);
+  }, [
+    conflictStateV7,
+    deckV7,
+    focusAfterHistoryV7,
+    persistDeckV7,
+    scheduleAutosaveV7,
+  ]);
 
   const handleOpenDialogApply = useCallback(
     ({
