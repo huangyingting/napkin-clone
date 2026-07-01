@@ -2,6 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
 import type { SaveDeckResult } from "@/lib/document/persistence-types";
 import { MAX_DECK_JSON_BYTES, formatDeckTooLargeError } from "@/lib/limits";
+import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
@@ -25,6 +26,18 @@ export type DeckCasWriteOptions = {
   onSuccess?: () => Promise<void>;
 };
 
+function fail(
+  error: string,
+  code:
+    | "invalid_deck"
+    | "deck_too_large"
+    | "document_not_found"
+    | "storage_unavailable",
+  retryable: boolean,
+): SaveDeckResult {
+  return { ok: false, error, failure: { code, retryable } };
+}
+
 export async function writeDeckWithCas({
   documentId,
   deckJson,
@@ -41,42 +54,82 @@ export async function writeDeckWithCas({
       documentId,
       reason,
     });
-    return { ok: false, error: `Invalid deck: ${reason}` };
+    return fail(`Invalid deck: ${reason}`, "invalid_deck", false);
   }
 
   const parsedData = v7Result.data;
   const serialized = JSON.stringify(parsedData);
   if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: formatDeckTooLargeError() };
+    return fail(formatDeckTooLargeError(), "deck_too_large", false);
   }
 
   const newToken = generateRevisionToken();
-  const { count } = await db.document.updateMany({
-    where:
-      /* Coverage rationale: CAS/no-CAS update predicates are asserted; tsx maps ternary rows as uncovered. */
-      /* node:coverage ignore next 3 */
-      clientToken != null
-        ? { id: documentId, deckRevisionToken: clientToken }
-        : { id: documentId },
-    data: {
-      deckJson: parsedData as unknown as Prisma.InputJsonValue,
-      deckRevisionToken: newToken,
-    },
-  });
+  let count: number;
+  try {
+    const update = await db.document.updateMany({
+      where:
+        /* Coverage rationale: CAS/no-CAS update predicates are asserted; tsx maps ternary rows as uncovered. */
+        /* node:coverage ignore next 3 */
+        clientToken != null
+          ? { id: documentId, deckRevisionToken: clientToken }
+          : { id: documentId },
+      data: {
+        deckJson: parsedData as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    count = update.count;
+  } catch (error) {
+    logError("deck.cas", error, {
+      documentId,
+      operation: "updateMany",
+      telemetryArea,
+    });
+    return fail(
+      "Failed to save deck. Please try again.",
+      "storage_unavailable",
+      true,
+    );
+  }
 
   if (count === 0) {
-    const latest = await db.document.findUnique({
-      where: { id: documentId },
-      select: { deckRevisionToken: true },
-    });
-    if (!latest) return { ok: false, error: "Document not found." };
+    let latest: { deckRevisionToken: string | null } | null;
+    try {
+      latest = await db.document.findUnique({
+        where: { id: documentId },
+        select: { deckRevisionToken: true },
+      });
+    } catch (error) {
+      logError("deck.cas", error, {
+        documentId,
+        operation: "findUnique",
+        telemetryArea,
+      });
+      return fail(
+        "Failed to verify deck conflict. Please try again.",
+        "storage_unavailable",
+        true,
+      );
+    }
+    if (!latest)
+      return fail("Document not found.", "document_not_found", false);
     return {
       ok: "conflict",
       serverRevisionToken: latest.deckRevisionToken,
     };
   }
 
-  await onSuccess?.();
+  if (onSuccess) {
+    try {
+      await onSuccess();
+    } catch (error) {
+      logError("deck.cas", error, {
+        documentId,
+        operation: "onSuccess",
+        telemetryArea,
+      });
+    }
+  }
 
   /* node:coverage ignore next -- CAS success return is asserted; tsx maps the tail as uncovered. */
   return { ok: true, revisionToken: newToken };

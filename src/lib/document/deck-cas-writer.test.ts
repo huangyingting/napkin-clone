@@ -40,19 +40,25 @@ function makeDb({
   updateCount,
   serverToken = "server-token",
   exists = true,
+  updateError,
+  findError,
 }: {
   updateCount: number;
   serverToken?: string | null;
   exists?: boolean;
+  updateError?: Error;
+  findError?: Error;
 }) {
   const calls: unknown[] = [];
   const db = {
     document: {
       async updateMany(args: unknown) {
         calls.push(args);
+        if (updateError) throw updateError;
         return { count: updateCount };
       },
       async findUnique() {
+        if (findError) throw findError;
         return exists ? { deckRevisionToken: serverToken } : null;
       },
     },
@@ -128,7 +134,51 @@ describe("writeDeckWithCas", () => {
       db,
     });
 
-    assert.deepEqual(result, { ok: false, error: "Document not found." });
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Document not found.",
+      failure: { code: "document_not_found", retryable: false },
+    });
+  });
+
+  test("returns a structured failure when updateMany throws", async () => {
+    const { db } = makeDb({
+      updateCount: 1,
+      updateError: new Error("db unavailable"),
+    });
+    const result = await writeDeckWithCas({
+      documentId: "doc-1",
+      deckJson: VALID_DECK_V7,
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Failed to save deck. Please try again.",
+      failure: { code: "storage_unavailable", retryable: true },
+    });
+  });
+
+  test("returns a structured failure when conflict reread throws", async () => {
+    const { db } = makeDb({
+      updateCount: 0,
+      findError: new Error("read failed"),
+    });
+    const result = await writeDeckWithCas({
+      documentId: "doc-1",
+      deckJson: VALID_DECK_V7,
+      clientToken: "stale-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Failed to verify deck conflict. Please try again.",
+      failure: { code: "storage_unavailable", retryable: true },
+    });
   });
 
   test("rejects invalid decks before writing", async () => {
@@ -167,6 +217,22 @@ describe("writeDeckWithCas", () => {
       id: "doc-v7",
       deckRevisionToken: "client-token",
     });
+  });
+
+  test("keeps success when onSuccess side effects throw", async () => {
+    const { db } = makeDb({ updateCount: 1 });
+    const result = await writeDeckWithCas({
+      documentId: "doc-v7",
+      deckJson: VALID_DECK_V7,
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+      onSuccess: async () => {
+        throw new Error("snapshot failed");
+      },
+    });
+
+    assert.equal(result.ok, true);
   });
 
   test("rejects legacy v6 decks before writing", async () => {

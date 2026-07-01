@@ -179,7 +179,8 @@ export function DocumentExportButton({
 
   const fetchDeckJson = async (): Promise<unknown> => {
     try {
-      return (await deckPort.fetchDeckJson(documentId)).deckJson;
+      const fetched = await deckPort.fetchDeckJson(documentId);
+      return fetched.ok ? fetched.deckJson : null;
     } catch {
       return null;
     }

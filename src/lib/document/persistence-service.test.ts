@@ -600,7 +600,11 @@ describe("deck persistence operations", () => {
 
     const result = await patchDeck("doc-missing", [], null);
 
-    assert.deepEqual(result, { ok: false, error: "Document not found." });
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Document not found.",
+      failure: { code: "document_not_found", retryable: false },
+    });
   });
 
   test("patchDeck returns fallback for existing documents", async (t) => {
