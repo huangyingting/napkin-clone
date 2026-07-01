@@ -7,19 +7,20 @@ them locally or in a dedicated E2E job.
 
 ## What's covered
 
-| Spec                            | Coverage                                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `public-pages.spec.ts`          | Home / login / signup render (smoke)                                                             |
-| `auth-redirect.spec.ts`         | Protected `/app*` → `/login?callbackUrl=...` (preserves path)                                    |
-| `oauth-disabled.spec.ts`        | Google CTA hidden when the provider is unconfigured                                              |
-| `workspace.spec.ts`             | Create / import, empty state, viewer restriction (auth-gated)                                    |
-| `share-fallback.spec.ts`        | Unknown share/present/embed links → not-found fallback                                           |
-| `billing-brand.spec.ts`         | Billing unlimited-credit UI + Brand Studio font persistence                                      |
-| `slides-smoke.spec.ts`          | Slides edit/save/present/export smoke (auth-gated, skips cleanly without creds)                  |
-| `screenshot-regression.spec.ts` | Slide screenshot regression with deterministic fixtures (opt-in via env var)                     |
-| `import-roundtrip.spec.ts`      | Markdown import → editor render → edit/save/reload; unsupported-type error (profile-gated, #519) |
-| `present-export.spec.ts`        | Authenticated + public present render; real PDF export download (profile-gated, #520)            |
-| `slide-asset-upload.spec.ts`    | Inspector image upload + protected slide-asset access control (profile-gated, #521)              |
+| Spec                                | Coverage                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `public-pages.spec.ts`              | Home / login / signup render (smoke)                                                             |
+| `auth-redirect.spec.ts`             | Protected `/app*` → `/login?callbackUrl=...` (preserves path)                                    |
+| `oauth-disabled.spec.ts`            | Google CTA hidden when the provider is unconfigured                                              |
+| `workspace.spec.ts`                 | Create / import, empty state, viewer restriction (auth-gated)                                    |
+| `share-fallback.spec.ts`            | Unknown share/present/embed links → not-found fallback                                           |
+| `billing-brand.spec.ts`             | Billing unlimited-credit UI + Brand Studio font persistence                                      |
+| `slides-smoke.spec.ts`              | Slides edit/save/present/export smoke (auth-gated, skips cleanly without creds)                  |
+| `slides-layout-screenshots.spec.ts` | Deterministic v7 layout snapshots (desktop/tablet/mobile + rail/notes/panel states)              |
+| `screenshot-regression.spec.ts`     | Slide screenshot regression with deterministic fixtures (opt-in via env var)                     |
+| `import-roundtrip.spec.ts`          | Markdown import → editor render → edit/save/reload; unsupported-type error (profile-gated, #519) |
+| `present-export.spec.ts`            | Authenticated + public present render; real PDF export download (profile-gated, #520)            |
+| `slide-asset-upload.spec.ts`        | Inspector image upload + protected slide-asset access control (profile-gated, #521)              |
 
 ## Prerequisites
 
@@ -62,20 +63,22 @@ Public-page, auth-redirect, OAuth-disabled, and share-fallback specs run with no
 extra configuration. Authenticated flows skip cleanly unless you provide seeded
 credentials:
 
-| Variable                    | Used by                           | Purpose                                                       |
-| --------------------------- | --------------------------------- | ------------------------------------------------------------- |
-| `E2E_BASE_URL` / `BASE_URL` | all                               | App base URL (default `http://localhost:3000`)                |
-| `E2E_WEB_SERVER`            | config                            | `1` to let Playwright run `npm run dev`                       |
-| `E2E_USER_EMAIL/PASSWORD`   | workspace, billing, brand, slides | A seeded owner/editor login                                   |
-| `E2E_VIEWER_EMAIL/PASSWORD` | workspace                         | A seeded viewer-only login                                    |
-| `E2E_VIEWER_DOC_URL`        | workspace                         | A document URL the viewer can open read-only                  |
-| `E2E_BRAND_FONT_URL`        | brand                             | Path to a `.woff2`/`.ttf` font to upload                      |
-| `BILLING_UNLIMITED_CREDITS` | billing                           | Match the server's unlimited-credit gate                      |
-| `GOOGLE_CLIENT_ID/SECRET`   | oauth-disabled                    | Match the server's Google provider configuration              |
-| `E2E_SLIDES_DOC_URL`        | slides-smoke                      | Full URL to a seeded document with a Slides presentation      |
-| `E2E_SCREENSHOT_REGRESSION` | screenshot-regression             | Set to `1` to enable screenshot comparison tests              |
-| `E2E_REGRESSION_SHARE_ID`   | screenshot-regression             | A share id for the public present/embed regression slides     |
-| `E2E_PROFILE`               | import / present / slide-asset    | Set to `1` to run the deterministic profile specs (see below) |
+| Variable                        | Used by                            | Purpose                                                                      |
+| ------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| `E2E_BASE_URL` / `BASE_URL`     | all                                | App base URL (default `http://localhost:3000`)                               |
+| `E2E_WEB_SERVER`                | config                             | `1` to let Playwright run `npm run dev`                                      |
+| `E2E_USER_EMAIL/PASSWORD`       | workspace, billing, brand, slides  | A seeded owner/editor login                                                  |
+| `E2E_VIEWER_EMAIL/PASSWORD`     | workspace                          | A seeded viewer-only login                                                   |
+| `E2E_VIEWER_DOC_URL`            | workspace                          | A document URL the viewer can open read-only                                 |
+| `E2E_BRAND_FONT_URL`            | brand                              | Path to a `.woff2`/`.ttf` font to upload                                     |
+| `BILLING_UNLIMITED_CREDITS`     | billing                            | Match the server's unlimited-credit gate                                     |
+| `GOOGLE_CLIENT_ID/SECRET`       | oauth-disabled                     | Match the server's Google provider configuration                             |
+| `E2E_SLIDES_DOC_URL`            | slides-smoke                       | Full URL to a seeded document with a Slides presentation                     |
+| `E2E_SLIDES_LAYOUT_SCREENSHOTS` | slides-layout-screenshots          | Set to `1` to run layout screenshots outside the deterministic profile       |
+| `E2E_SLIDES_EDITOR_PATH`        | slides-layout-screenshots          | Override the seeded editor document path used by layout screenshots          |
+| `E2E_SCREENSHOT_REGRESSION`     | screenshot-regression              | Set to `1` to enable screenshot comparison tests                             |
+| `E2E_REGRESSION_SHARE_ID`       | screenshot-regression              | A share id for the public present/embed regression slides                    |
+| `E2E_PROFILE`                   | profile specs + layout screenshots | Set to `1` to run deterministic profile specs (including layout screenshots) |
 
 ## Deterministic E2E profile (Epic #517)
 
@@ -83,8 +86,9 @@ The fast unit gate is intentionally credential-less, so the authenticated specs
 above skip without env credentials. The **deterministic E2E profile** removes
 that ambiguity for the critical-flow specs (`document-editor-profile.spec.ts`,
 `import-roundtrip.spec.ts`, `present-export.spec.ts`,
-`slide-asset-upload.spec.ts`): a fixed seed produces known users and a known
-document, and the specs run for real against it.
+`slide-asset-upload.spec.ts`, `slides-layout-screenshots.spec.ts`): a fixed
+seed produces known users and a known document, and the specs run for real
+against it.
 
 ### What the profile seeds
 
@@ -107,6 +111,7 @@ All identifiers and payload builders live in `src/test/builders/e2e-profile.ts`
 deterministic**:
 
 - Document editor: `/app/documents/e2efixturedocument0000001`
+- Layout screenshot editor: `/app/documents/e2efixturelayoutdoc000001`
 - Public present: `/present/e2e-fixture-deck-e2efixtureshare01`
 - Public embed: `/embed/e2e-fixture-deck-e2efixtureshare01`
 
@@ -194,3 +199,26 @@ Screenshot comparisons use a 2% max-diff pixel ratio and a 0.2 per-pixel
 threshold to absorb minor sub-pixel rendering differences across OS/GPU. These
 values are defined in the spec and can be tightened once a stable baseline is
 established.
+
+## Layout screenshots (`slides-layout-screenshots.spec.ts`)
+
+This suite snapshots the v7 slide-editor shell (desktop/tablet/mobile) for
+base, rail-hidden, notes-expanded, and panel-open states using the
+deterministic profile fixture.
+
+- Under `E2E_PROFILE=1`, the suite is part of the deterministic profile run and
+  fails loudly if fixtures are unavailable.
+- Outside the profile, set `E2E_SLIDES_LAYOUT_SCREENSHOTS=1` for explicit
+  screenshot runs.
+
+### Generate baselines
+
+```bash
+E2E_PROFILE=1 npx playwright test slides-layout-screenshots.spec.ts --update-snapshots
+```
+
+### Run comparison
+
+```bash
+E2E_PROFILE=1 npx playwright test slides-layout-screenshots.spec.ts
+```
