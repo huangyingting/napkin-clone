@@ -13,10 +13,12 @@ import {
   buildDeckV7,
   buildImageNode,
   buildSlideV7,
+  buildTextNode,
 } from "@/test/builders/deck-v7";
 import { InspectorShell } from "./inspector";
 import { SlideCanvasVNext } from "./slide-canvas";
 import {
+  SlideEditorInspectorRegion,
   SlideEditorVNext,
   type SlideEditorVNextImageUploadResult,
   type SlideEditorVNextProps,
@@ -211,6 +213,77 @@ async function withWindow<T>(run: () => Promise<T> | T): Promise<T> {
   }
 }
 
+function withMockHTMLElement<T>(
+  run: (
+    createElement: (args?: {
+      closestMap?: Record<string, unknown>;
+      queryMap?: Record<string, unknown>;
+      rect?: { left: number; top: number; width: number; height: number };
+    }) => HTMLElement,
+  ) => T,
+): T {
+  const globalWithHTMLElement = globalThis as typeof globalThis & {
+    HTMLElement?: typeof HTMLElement;
+  };
+  const previousHTMLElement = globalWithHTMLElement.HTMLElement;
+
+  class MockHTMLElement {
+    private readonly closestMap: Record<string, unknown>;
+    private readonly queryMap: Record<string, unknown>;
+    private readonly rect: {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+    };
+
+    constructor(args?: {
+      closestMap?: Record<string, unknown>;
+      queryMap?: Record<string, unknown>;
+      rect?: { left: number; top: number; width: number; height: number };
+    }) {
+      this.closestMap = args?.closestMap ?? {};
+      this.queryMap = args?.queryMap ?? {};
+      this.rect = args?.rect ?? { left: 0, top: 0, width: 1000, height: 500 };
+    }
+
+    closest(selector: string): Element | null {
+      return (this.closestMap[selector] ?? null) as Element | null;
+    }
+
+    querySelector(selector: string): Element | null {
+      return (this.queryMap[selector] ?? null) as Element | null;
+    }
+
+    getBoundingClientRect(): DOMRect {
+      const { left, top, width, height } = this.rect;
+      return {
+        x: left,
+        y: top,
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        toJSON: () => ({}),
+      } as DOMRect;
+    }
+  }
+
+  globalWithHTMLElement.HTMLElement =
+    MockHTMLElement as unknown as typeof HTMLElement;
+  try {
+    return run((args) => new MockHTMLElement(args) as unknown as HTMLElement);
+  } finally {
+    if (previousHTMLElement === undefined) {
+      Reflect.deleteProperty(globalWithHTMLElement, "HTMLElement");
+    } else {
+      globalWithHTMLElement.HTMLElement = previousHTMLElement;
+    }
+  }
+}
+
 describe("SlideEditorVNext failure-state coverage", () => {
   test("shows role=alert export failures and clears the banner on retry", async () => {
     const hookRenderer = createHookRenderer();
@@ -330,12 +403,30 @@ describe("SlideEditorVNext failure-state coverage", () => {
 
       tree = renderTree();
 
+      const hasReplaceImageAction = (element: ReactElement): boolean =>
+        element.type === InspectorShell &&
+        typeof (element.props as { onReplaceImage?: () => void })
+          .onReplaceImage === "function";
+      const resolveInspectorSurface = (root: ReactNode): ReactNode => {
+        if (collectElements(root, hasReplaceImageAction).length > 0)
+          return root;
+        const inspectorRegion = findRequiredElement(
+          root,
+          (element) =>
+            element.type === SlideEditorInspectorRegion &&
+            typeof (element.props as { renderInspectorShell?: () => ReactNode })
+              .renderInspectorShell === "function",
+          "Expected inspector region shell renderer.",
+        );
+        return (
+          inspectorRegion.props as { renderInspectorShell: () => ReactNode }
+        ).renderInspectorShell();
+      };
+      const inspectorSurface = resolveInspectorSurface(tree);
+
       const inspectorShell = findRequiredElement(
-        tree,
-        (element) =>
-          element.type === InspectorShell &&
-          typeof (element.props as { onReplaceImage?: () => void })
-            .onReplaceImage === "function",
+        inspectorSurface,
+        hasReplaceImageAction,
         "Expected inspector shell replace-image action.",
       );
 
@@ -439,7 +530,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
       assert.equal(replacedNode.content.assetId, "img-replaced");
 
       const selectedInspectorShell = findRequiredElement(
-        tree,
+        resolveInspectorSurface(tree),
         (element) => element.type === InspectorShell,
         "Expected inspector shell to remain rendered.",
       );
@@ -449,6 +540,172 @@ describe("SlideEditorVNext failure-state coverage", () => {
         ["image-primary"],
         "Expected image replacement retry to preserve selected image node.",
       );
+    });
+  });
+
+  describe("SlideEditorVNext empty-canvas double-click behavior", () => {
+    test("inserts a text node at the canvas point and enters inline edit mode", () => {
+      withMockHTMLElement((createElement) => {
+        const hookRenderer = createHookRenderer();
+        let deckChangeCount = 0;
+        let currentDeck = buildDeckV7(
+          [buildSlideV7("content", [], { id: "slide-empty", name: "Slide 1" })],
+          { title: "Double-click insertion deck" },
+        );
+
+        const renderTree = () =>
+          hookRenderer.run(() =>
+            SlideEditorVNext({
+              documentId: "doc-double-click",
+              deck: currentDeck,
+              onDeckChange: (nextDeck) => {
+                deckChangeCount += 1;
+                currentDeck = nextDeck;
+              },
+            }),
+          );
+
+        let tree = renderTree();
+        const stageShell = findRequiredElement(
+          tree,
+          (element) =>
+            element.type === "div" &&
+            (element.props as { "data-slide-stage-shell"?: string })[
+              "data-slide-stage-shell"
+            ] === "true" &&
+            typeof (element.props as { onDoubleClick?: unknown })
+              .onDoubleClick === "function",
+          "Expected stage shell with double-click handler.",
+        );
+        const onStageDoubleClick = (
+          stageShell.props as {
+            onDoubleClick?: (event: MouseEvent<HTMLDivElement>) => void;
+          }
+        ).onDoubleClick;
+        assert.ok(onStageDoubleClick);
+
+        const canvasElement = createElement({
+          rect: { left: 100, top: 200, width: 1000, height: 500 },
+        });
+        const target = createElement({
+          closestMap: {
+            '[data-slide-canvas-vnext="true"]': canvasElement,
+          },
+        });
+
+        onStageDoubleClick?.({
+          clientX: 850,
+          clientY: 450,
+          target,
+        } as unknown as MouseEvent<HTMLDivElement>);
+
+        assert.equal(deckChangeCount, 1, "Expected one deck update.");
+        const inserted = currentDeck.slides[0]?.children.at(-1);
+        assert.ok(inserted && inserted.type === "text");
+        assert.equal(currentDeck.slides[0]?.children.length, 1);
+        assert.deepEqual(inserted.layout?.frame, {
+          x: 54,
+          y: 44,
+          w: 42,
+          h: 12,
+        });
+
+        tree = renderTree();
+        const stageCanvas = findRequiredElement(
+          tree,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+        const hiddenNodeIds = (
+          stageCanvas.props as {
+            hiddenNodeIds?: ReadonlySet<string>;
+          }
+        ).hiddenNodeIds;
+        assert.ok(hiddenNodeIds?.has(inserted.id));
+
+        const selection = (
+          stageCanvas.props as {
+            selection?: { nodeIds?: ReadonlySet<string> };
+          }
+        ).selection;
+        assert.ok(
+          selection?.nodeIds?.has(inserted.id),
+          "Expected inserted node to be selected.",
+        );
+      });
+    });
+
+    test("double-clicking an existing text node enters edit mode without inserting", () => {
+      const hookRenderer = createHookRenderer();
+      let deckChangeCount = 0;
+      let currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "existing-text",
+              layout: { frame: { x: 20, y: 24, w: 36, h: 12 }, zIndex: 1 },
+            }),
+          ],
+          { id: "slide-with-text", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-node-double-click",
+            deck: currentDeck,
+            onDeckChange: (nextDeck) => {
+              deckChangeCount += 1;
+              currentDeck = nextDeck;
+            },
+          }),
+        );
+
+      let tree = renderTree();
+      const stageCanvas = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === SlideCanvasVNext &&
+          typeof (
+            element.props as {
+              onNodeDoubleClick?: (nodeId: string, event: MouseEvent) => void;
+            }
+          ).onNodeDoubleClick === "function",
+        "Expected stage canvas with node double-click handler.",
+      );
+      const onNodeDoubleClick = (
+        stageCanvas.props as {
+          onNodeDoubleClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeDoubleClick;
+      assert.ok(onNodeDoubleClick);
+      onNodeDoubleClick?.("existing-text", {} as MouseEvent);
+
+      tree = renderTree();
+      assert.equal(
+        deckChangeCount,
+        0,
+        "Expected no deck mutation on node edit.",
+      );
+      assert.equal(
+        currentDeck.slides[0]?.children.length,
+        1,
+        "Expected existing node count to remain unchanged.",
+      );
+
+      const updatedStageCanvas = findRequiredElement(
+        tree,
+        (element) => element.type === SlideCanvasVNext,
+        "Expected stage canvas after node double-click.",
+      );
+      const hiddenNodeIds = (
+        updatedStageCanvas.props as {
+          hiddenNodeIds?: ReadonlySet<string>;
+        }
+      ).hiddenNodeIds;
+      assert.ok(hiddenNodeIds?.has("existing-text"));
     });
   });
 });
