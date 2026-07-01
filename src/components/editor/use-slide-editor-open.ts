@@ -36,9 +36,12 @@ import { bucketCount, emitProductTelemetry } from "@/lib/telemetry/product";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
 import {
+  CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE,
+  reloadConflictServerDeckV7,
+} from "@/lib/presentation-vnext/conflict-recovery-reload-v7";
+import {
   decideDeckOpen,
   openAiGeneratedDeck,
-  openDeckFromJson,
 } from "@/lib/presentation-vnext/open-deck";
 import { deriveDeckV7FromDocumentContent } from "@/lib/presentation-vnext/deck-derivation";
 import { pickUndoFocusTarget } from "@/lib/presentation-vnext/deck-diff";
@@ -818,39 +821,31 @@ export function useSlideEditorOpen({
     [deckPort, documentId],
   );
 
-  const handleConflictUseTheirsV7 = useCallback(() => {
+  const handleConflictUseTheirsV7 = useCallback(async () => {
+    const reloadResult = await reloadConflictServerDeckV7({
+      deckPort,
+      documentId,
+    });
+    if (!reloadResult.ok) {
+      logInfo("editor.slide-editor", "v7-conflict-use-server-reload-failed", {
+        reason: reloadResult.reason,
+      });
+      setV7SaveError(CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE);
+      throw new Error(CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE);
+    }
+    revisionTokenRef.current = reloadResult.revisionToken;
+    lastSavedRef.current = reloadResult.deckJson;
+    setDeckV7(reloadResult.deck);
+    setDeckOpenDiagnosticsV7(reloadResult.diagnostics);
+    setDeckOpenErrorV7(null);
+    setV7Dirty(false);
+    setV7Saving(false);
+    setV7SaveError(null);
+    setUndoStackV7([]);
+    setRedoStackV7([]);
+    setUndoRedoFocusV7(null);
     setConflictStateV7(null);
-    void (async () => {
-      try {
-        const fetched = await deckPort.fetchDeckJson(documentId);
-        if (!fetched.ok) {
-          setV7SaveError(fetched.error);
-          return;
-        }
-        revisionTokenRef.current = fetched.revisionToken;
-        lastSavedRef.current = fetched.deckJson;
-        const openResult = openDeckFromJson(fetched.deckJson);
-        if (openResult.ok) {
-          setDeckV7(openResult.deck);
-          setDeckOpenDiagnosticsV7(openResult.diagnostics);
-          setDeckOpenErrorV7(null);
-          setV7Dirty(false);
-          setV7Saving(false);
-          setV7SaveError(null);
-          setUndoStackV7([]);
-          setRedoStackV7([]);
-        } else {
-          enterRecoveryV7({
-            error: openResult.error,
-            diagnostics: openResult.diagnostics,
-            validationErrors: openResult.errors,
-          });
-        }
-      } catch {
-        // Best-effort: keep the user's local deck if fetch fails.
-      }
-    })();
-  }, [deckPort, documentId, enterRecoveryV7]);
+  }, [deckPort, documentId]);
 
   const handleConflictDismissV7 = useCallback(() => {
     setConflictStateV7(null);
