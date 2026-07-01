@@ -7,9 +7,37 @@ import {
   contextToolbarTextRoleFontSizePt,
   isContextToolbarInlineTextCommandEnabled,
   isContextToolbarTextRole,
+  routeContextToolbarAlign,
+  routeContextToolbarConnectorArrow,
+  routeContextToolbarConnectorRouting,
+  routeContextToolbarConnectorStrokeColor,
+  routeContextToolbarConnectorStrokeWidth,
+  routeContextToolbarDeleteSlide,
+  routeContextToolbarDetachDecoration,
+  routeContextToolbarDistribute,
+  routeContextToolbarFontSize,
+  routeContextToolbarHideSelection,
+  routeContextToolbarImageCropToggle,
+  routeContextToolbarImageFit,
+  routeContextToolbarLockToggle,
+  routeContextToolbarMatchSize,
+  routeContextToolbarOpacity,
+  routeContextToolbarRotation,
+  routeContextToolbarSlideBackground,
+  routeContextToolbarTableHeaderToggle,
+  routeContextToolbarTextAlign,
+  routeContextToolbarTextColor,
+  routeContextToolbarTextCommand,
+  routeContextToolbarTextRoleChange,
+  routeContextToolbarVisualBackgroundToggle,
+  routeContextToolbarVisualThemeChange,
   resolveContextToolbarTextRole,
   restoreFocusAfterContextToolbarEscape,
   seedContextToolbarStyles,
+  tableWithAddedColumn,
+  tableWithAddedRow,
+  tableWithDeletedLastColumn,
+  tableWithDeletedLastRow,
 } from "./context-toolbar";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
@@ -241,12 +269,7 @@ describe("inline align persistence wiring", () => {
 
 describe("strikethrough toolbar persistence wiring", () => {
   test("routes strikethrough through runTextCommand and local style updates", () => {
-    assert.equal(
-      source.includes(
-        'command: "bold" | "italic" | "underline" | "strikethrough"',
-      ),
-      true,
-    );
+    assert.equal(source.includes("command: ContextToolbarTextCommand"), true);
     assert.equal(
       source.includes("text: { strikethrough: !textStyle?.strikethrough }"),
       true,
@@ -399,5 +422,322 @@ describe("isContextToolbarInlineTextCommandEnabled", () => {
       isContextToolbarInlineTextCommandEnabled("font-size", false),
       true,
     );
+  });
+});
+
+describe("context toolbar routing helpers", () => {
+  test("routes text formatting commands through inline command dispatch and persisted style patches", () => {
+    const dispatched: unknown[] = [];
+    const patches: unknown[] = [];
+
+    routeContextToolbarTextCommand({
+      command: "strikethrough",
+      isInlineEditing: false,
+      textStyle: { strikethrough: false },
+      onUpdateSelectedLocalStyle: (patch) => patches.push(patch),
+      dispatchCommand: (payload) => dispatched.push(payload),
+    });
+
+    assert.deepEqual(dispatched, [{ command: "strikethrough" }]);
+    assert.deepEqual(patches, [{ text: { strikethrough: true } }]);
+  });
+
+  test("skips persisted text style patches while inline editing", () => {
+    const dispatched: unknown[] = [];
+    const patches: unknown[] = [];
+
+    routeContextToolbarTextCommand({
+      command: "bold",
+      isInlineEditing: true,
+      textStyle: { weight: 400 },
+      onUpdateSelectedLocalStyle: (patch) => patches.push(patch),
+      dispatchCommand: (payload) => dispatched.push(payload),
+    });
+
+    assert.deepEqual(dispatched, [{ command: "bold" }]);
+    assert.deepEqual(patches, []);
+  });
+
+  test("routes text color, alignment, and font-size updates with the expected payloads", () => {
+    const dispatched: unknown[] = [];
+    const patches: unknown[] = [];
+
+    routeContextToolbarTextColor({
+      color: "#2563eb",
+      isInlineEditing: false,
+      onUpdateSelectedLocalStyle: (patch) => patches.push(patch),
+      dispatchCommand: (payload) => dispatched.push(payload),
+    });
+    routeContextToolbarTextAlign({
+      align: "center",
+      onUpdateSelectedLocalStyle: (patch) => patches.push(patch),
+      dispatchCommand: (payload) => dispatched.push(payload),
+    });
+    routeContextToolbarFontSize({
+      value: 28,
+      isInlineEditing: false,
+      onUpdateSelectedLocalStyle: (patch) => patches.push(patch),
+      dispatchCommand: (payload) => dispatched.push(payload),
+    });
+
+    assert.deepEqual(dispatched, [
+      { command: "color", value: "#2563eb" },
+      { command: "align-center" },
+      { command: "font-size", value: "28pt" },
+    ]);
+    assert.deepEqual(patches, [
+      { text: { color: "#2563eb" } },
+      { text: { align: "center" } },
+      { text: { fontSizePt: 28 } },
+    ]);
+  });
+
+  test("routes text role updates through attributes plus semantic font-size defaults", () => {
+    const attributes: unknown[] = [];
+    const stylePatches: unknown[] = [];
+
+    routeContextToolbarTextRoleChange({
+      role: "title",
+      onUpdateSelectedAttributes: (patch) => attributes.push(patch),
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+    routeContextToolbarTextRoleChange({
+      role: "not-a-role",
+      onUpdateSelectedAttributes: (patch) => attributes.push(patch),
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+
+    assert.deepEqual(attributes, [{ role: "title" }]);
+    assert.deepEqual(stylePatches, [{ text: { fontSizePt: 34 } }]);
+  });
+
+  test("routes image crop and fit commands through selected-content patches", () => {
+    const imageNodeNoCrop: SlideChildNode = {
+      id: "image-1",
+      type: "image",
+      role: "image",
+      layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
+      content: { assetId: "asset-1", fit: "cover" },
+      localStyle: {},
+    };
+    const imageNodeCropped: SlideChildNode = {
+      ...imageNodeNoCrop,
+      content: {
+        ...imageNodeNoCrop.content,
+        crop: { top: 4, right: 4, bottom: 4, left: 4 },
+      },
+    };
+    const contentPatches: unknown[] = [];
+    let resetCalls = 0;
+
+    routeContextToolbarImageCropToggle({
+      selectedNode: imageNodeNoCrop,
+      onUpdateSelectedContent: (patch) => contentPatches.push(patch),
+      onResetImageCrop: () => {
+        resetCalls += 1;
+      },
+    });
+    routeContextToolbarImageCropToggle({
+      selectedNode: imageNodeCropped,
+      onUpdateSelectedContent: (patch) => contentPatches.push(patch),
+      onResetImageCrop: () => {
+        resetCalls += 1;
+      },
+    });
+    routeContextToolbarImageFit({
+      fit: "contain",
+      onUpdateSelectedContent: (patch) => contentPatches.push(patch),
+    });
+
+    assert.deepEqual(contentPatches, [
+      { crop: { top: 8, right: 8, bottom: 8, left: 8 } },
+      { fit: "contain" },
+    ]);
+    assert.equal(resetCalls, 1);
+  });
+
+  test("routes visual, connector, and table controls with expected callback payloads", () => {
+    const visualNode: SlideChildNode = {
+      id: "visual-1",
+      type: "visual",
+      role: "visual",
+      layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
+      content: { visualId: "v1", transparentBackground: false },
+      localStyle: { visual: { styleThemeId: "default" } },
+    };
+    const connectorNode: SlideChildNode = {
+      id: "connector-1",
+      type: "connector",
+      role: "connector",
+      layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
+      content: {
+        from: { kind: "point", point: { x: 0, y: 0 } },
+        to: { kind: "point", point: { x: 10, y: 10 } },
+        routing: "straight",
+      },
+      localStyle: { connector: { endArrow: "arrow" } },
+    };
+    const tableNode: SlideChildNode = {
+      id: "table-1",
+      type: "table",
+      role: "table",
+      layout: { frame: { x: 0, y: 0, w: 20, h: 10 }, zIndex: 1 },
+      content: {
+        columns: [
+          { id: "c1", label: "A" },
+          { id: "c2", label: "B" },
+        ],
+        rows: [
+          { id: "r1", cells: [{ text: "1" }, { text: "2" }] },
+          { id: "r2", cells: [{ text: "3" }, { text: "4" }] },
+        ],
+        header: true,
+      },
+      localStyle: {},
+    };
+
+    const contentPatches: unknown[] = [];
+    const stylePatches: unknown[] = [];
+
+    routeContextToolbarVisualBackgroundToggle({
+      selectedNode: visualNode,
+      onUpdateSelectedContent: (patch) => contentPatches.push(patch),
+    });
+    routeContextToolbarVisualThemeChange({
+      selectedNode: visualNode,
+      styleThemeId: "accent",
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+    routeContextToolbarConnectorRouting({
+      routing: "elbow",
+      onUpdateSelectedContent: (patch) => contentPatches.push(patch),
+    });
+    routeContextToolbarConnectorStrokeColor({
+      color: "#0f172a",
+      connectorStrokeWidth: 2.5,
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+    routeContextToolbarConnectorStrokeWidth({
+      widthPt: 3,
+      connectorStrokeColor: "#334155",
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+    routeContextToolbarConnectorArrow({
+      selectedNode: connectorNode,
+      edge: "startArrow",
+      value: "filled",
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+    routeContextToolbarTableHeaderToggle({
+      selectedNode: tableNode,
+      onUpdateSelectedContent: (patch) => contentPatches.push(patch),
+    });
+    routeContextToolbarOpacity({
+      value: 75,
+      onUpdateSelectedLocalStyle: (patch) => stylePatches.push(patch),
+    });
+
+    assert.deepEqual(contentPatches, [
+      { transparentBackground: true },
+      { routing: "elbow" },
+      { header: false },
+    ]);
+    assert.deepEqual(stylePatches, [
+      { visual: { styleThemeId: "accent" } },
+      { connector: { stroke: { color: "#0f172a", widthPt: 2.5 } } },
+      { connector: { stroke: { color: "#334155", widthPt: 3 } } },
+      { connector: { endArrow: "arrow", startArrow: "filled" } },
+      { opacity: 0.75 },
+    ]);
+
+    const withAddedRow = tableWithAddedRow(tableNode);
+    const withAddedColumn = tableWithAddedColumn(tableNode);
+    const withDeletedRow = tableWithDeletedLastRow(tableNode);
+    const withDeletedColumn = tableWithDeletedLastColumn(tableNode);
+    assert.equal(withAddedRow.rows.length, 3);
+    assert.equal(withAddedColumn.columns.length, 3);
+    assert.equal(withDeletedRow.rows.length, 1);
+    assert.equal(withDeletedColumn.columns.length, 1);
+  });
+
+  test("routes arrange, lock/hide, decoration, and slide-level actions", () => {
+    const alignCalls: string[] = [];
+    const distributeCalls: string[] = [];
+    const matchCalls: string[] = [];
+    const layoutPatches: unknown[] = [];
+    const attributePatches: unknown[] = [];
+    const slideStylePatches: unknown[] = [];
+    let deleteCalls = 0;
+    let detachCalls = 0;
+
+    routeContextToolbarRotation({
+      rotation: 30,
+      delta: -15,
+      onUpdateSelectedLayout: (patch) => layoutPatches.push(patch),
+    });
+    routeContextToolbarAlign({
+      mode: "left",
+      onAlignSelection: (mode) => alignCalls.push(mode),
+    });
+    routeContextToolbarDistribute({
+      mode: "horizontal",
+      onDistributeSelection: (mode) => distributeCalls.push(mode),
+    });
+    routeContextToolbarMatchSize({
+      mode: "both",
+      onMatchSize: (mode) => matchCalls.push(mode),
+    });
+    routeContextToolbarLockToggle({
+      selectedNode: {
+        id: "shape-1",
+        type: "shape",
+        role: "card",
+        layout: { frame: { x: 0, y: 0, w: 10, h: 10 }, zIndex: 1 },
+        content: {
+          shape: "rect",
+          text: { paragraphs: [{ id: "p1", text: "Card" }] },
+        },
+        localStyle: {},
+      },
+      onUpdateSelectedAttributes: (patch) => attributePatches.push(patch),
+    });
+    routeContextToolbarHideSelection({
+      onUpdateSelectedAttributes: (patch) => attributePatches.push(patch),
+    });
+    routeContextToolbarSlideBackground({
+      color: "#111827",
+      onUpdateSlideLocalStyle: (patch) => slideStylePatches.push(patch),
+    });
+
+    const deleted = routeContextToolbarDeleteSlide({
+      canDeleteSlide: true,
+      onDeleteSlide: () => {
+        deleteCalls += 1;
+      },
+    });
+    const skippedDelete = routeContextToolbarDeleteSlide({
+      canDeleteSlide: false,
+      onDeleteSlide: () => {
+        deleteCalls += 1;
+      },
+    });
+    routeContextToolbarDetachDecoration({
+      onDetachDecoration: () => {
+        detachCalls += 1;
+      },
+    });
+
+    assert.deepEqual(layoutPatches, [{ rotation: 15 }]);
+    assert.deepEqual(alignCalls, ["left"]);
+    assert.deepEqual(distributeCalls, ["horizontal"]);
+    assert.deepEqual(matchCalls, ["both"]);
+    assert.deepEqual(attributePatches, [{ locked: true }, { hidden: true }]);
+    assert.deepEqual(slideStylePatches, [
+      { slide: { background: { type: "solid", color: "#111827" } } },
+    ]);
+    assert.equal(deleted, true);
+    assert.equal(skippedDelete, false);
+    assert.equal(deleteCalls, 1);
+    assert.equal(detachCalls, 1);
   });
 });

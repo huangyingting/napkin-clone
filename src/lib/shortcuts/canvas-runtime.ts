@@ -15,6 +15,7 @@ export const V7_CANVAS_RUNTIME_SHORTCUT_IDS = [
   "canvas.edit.redo",
   "canvas.arrange.forward-backward",
   "canvas.arrange.front-back",
+  "canvas.rotate.step",
   "canvas.arrange.group",
   "canvas.arrange.ungroup",
   "canvas.help",

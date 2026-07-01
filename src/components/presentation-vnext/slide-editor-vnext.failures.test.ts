@@ -5,7 +5,7 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type KeyboardEvent,
   type MouseEvent,
 } from "react";
 
@@ -304,11 +304,20 @@ describe("SlideEditorVNext failure-state coverage", () => {
     let tree = hookRenderer.run(() => SlideEditorVNext(props));
     const exportButton = findRequiredElement(
       tree,
-      (element) =>
-        element.type === "button" &&
-        (element.props as { "aria-label"?: string })["aria-label"] ===
-          "Export as PPTX",
-      "Expected export button to render.",
+      (element) => {
+        if (element.type !== "button") return false;
+        const buttonProps = element.props as {
+          "aria-label"?: string;
+          role?: string;
+          children?: ReactNode;
+        };
+        return (
+          buttonProps["aria-label"] === "Export as PPTX" ||
+          (buttonProps.role === "menuitem" &&
+            flattenText(buttonProps.children).includes("Export PPTX"))
+        );
+      },
+      "Expected export command to render.",
     );
 
     const clickExport = (exportButton.props as { onClick?: () => void })
@@ -345,6 +354,81 @@ describe("SlideEditorVNext failure-state coverage", () => {
       0,
       "Expected export retry to clear the alert banner.",
     );
+  });
+
+  test("gates present/share roundtrip callbacks behind save success", async () => {
+    const hookRenderer = createHookRenderer();
+    let saveAttempts = 0;
+    let presentAttempts = 0;
+    let shareAttempts = 0;
+
+    const props: SlideEditorVNextProps = {
+      documentId: "doc-1",
+      deck: buildEditorDeck(),
+      onDeckChange: () => undefined,
+      onSave: async () => {
+        saveAttempts += 1;
+        if (saveAttempts === 1) {
+          return { ok: false, error: "Save failed before routing." };
+        }
+        return { ok: true, data: undefined };
+      },
+      onPresent: async () => {
+        presentAttempts += 1;
+        return { ok: true, data: undefined };
+      },
+      onShare: async () => {
+        shareAttempts += 1;
+        return { ok: true, data: undefined };
+      },
+    };
+
+    let tree = hookRenderer.run(() => SlideEditorVNext(props));
+    const presentButton = findRequiredElement(
+      tree,
+      (element) =>
+        element.type === "button" &&
+        (element.props as { "aria-label"?: string })["aria-label"] ===
+          "Present slides",
+      "Expected present roundtrip button.",
+    );
+    const shareButton = findRequiredElement(
+      tree,
+      (element) =>
+        element.type === "button" &&
+        (element.props as { "aria-label"?: string })["aria-label"] ===
+          "Share slides",
+      "Expected share roundtrip button.",
+    );
+
+    const clickPresent = (presentButton.props as { onClick?: () => void })
+      .onClick;
+    const clickShare = (shareButton.props as { onClick?: () => void }).onClick;
+    assert.equal(typeof clickPresent, "function");
+    assert.equal(typeof clickShare, "function");
+
+    clickPresent?.();
+    await flushAsyncWork();
+    assert.equal(
+      presentAttempts,
+      0,
+      "Present callback should not run when save fails.",
+    );
+
+    tree = hookRenderer.run(() => SlideEditorVNext(props));
+    const firstAlert = findRequiredElement(
+      tree,
+      (element) =>
+        element.type === "div" &&
+        (element.props as { role?: string }).role === "alert",
+      "Expected toolbar failure alert after failed save.",
+    );
+    assert.match(flattenText(firstAlert), /Save failed before routing\./);
+
+    clickShare?.();
+    await flushAsyncWork();
+    assert.equal(shareAttempts, 1);
+    assert.equal(presentAttempts, 0);
   });
 
   test("covers image replacement invalid file, upload failure, and successful retry", async () => {
@@ -541,6 +625,113 @@ describe("SlideEditorVNext failure-state coverage", () => {
           .selectedIds,
         ["image-primary"],
         "Expected image replacement retry to preserve selected image node.",
+      );
+    });
+  });
+
+  test("supports keyboard rotation with shifted bracket shortcuts", () => {
+    withMockHTMLElement(() => {
+      const hookRenderer = createHookRenderer();
+      let currentDeck = buildDeckV7(
+        [
+          buildSlideV7(
+            "content",
+            [
+              buildImageNode("img-001", {
+                id: "image-primary",
+                name: "Primary image",
+                layout: { frame: { x: 12, y: 16, w: 36, h: 48 }, zIndex: 1 },
+              }),
+            ],
+            { id: "slide-rotation", name: "Slide 1" },
+          ),
+        ],
+        { title: "Keyboard rotation deck" },
+      );
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-rotation",
+            deck: currentDeck,
+            onDeckChange: (nextDeck) => {
+              currentDeck = nextDeck;
+            },
+          }),
+        );
+
+      let tree = renderTree();
+      const stageCanvas = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === SlideCanvasVNext &&
+          typeof (
+            element.props as {
+              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+            }
+          ).onNodeClick === "function",
+        "Expected stage canvas with node click handler.",
+      );
+      const onNodeClick = (
+        stageCanvas.props as {
+          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeClick;
+      assert.ok(onNodeClick);
+      onNodeClick?.("image-primary", {
+        shiftKey: false,
+        metaKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const editorRoot = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "data-slide-editor-vnext"?: string })[
+            "data-slide-editor-vnext"
+          ] === "true" &&
+          typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+            "function",
+        "Expected editor root with keydown handler.",
+      );
+      const onKeyDown = (
+        editorRoot.props as {
+          onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+        }
+      ).onKeyDown;
+      assert.ok(onKeyDown);
+      let prevented = false;
+      onKeyDown?.({
+        key: "{",
+        shiftKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        target: null,
+        preventDefault: () => {
+          prevented = true;
+        },
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      assert.equal(prevented, true);
+      const rotatedNode = currentDeck.slides[0]?.children[0];
+      assert.ok(rotatedNode?.layout);
+      assert.equal(rotatedNode.layout.rotation, -1);
+
+      tree = renderTree();
+      const stageLiveRegion = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "aria-live"?: string })["aria-live"] ===
+            "polite" &&
+          flattenText(element).includes("Rotated Primary image to 359°"),
+        "Expected keyboard rotation announcement in the stage live region.",
+      );
+      assert.match(
+        flattenText(stageLiveRegion),
+        /Rotated Primary image to 359°/,
       );
     });
   });
@@ -891,7 +1082,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
           );
           const onEditorKeyDown = (
             editorRoot.props as {
-              onKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+              onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
             }
           ).onKeyDown;
           assert.ok(onEditorKeyDown, "Expected editor keydown handler.");
@@ -903,7 +1094,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
             preventDefault: () => {
               prevented = true;
             },
-          } as unknown as ReactKeyboardEvent<HTMLDivElement>);
+          } as unknown as KeyboardEvent<HTMLDivElement>);
 
           tree = renderTree();
           const updatedCanvas = findRequiredElement(

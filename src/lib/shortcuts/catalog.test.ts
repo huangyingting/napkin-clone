@@ -162,6 +162,14 @@ describe("shortcut catalog registry (#737, #751)", () => {
     );
   });
 
+  test("canvas rotation shortcut uses shifted brackets", () => {
+    assert.equal(
+      matchesShortcut("canvas.rotate.step", key("{", { shiftKey: true })),
+      true,
+    );
+    assert.equal(matchesShortcut("canvas.rotate.step", key("}")), false);
+  });
+
   test("v7 canvas catalog ids stay aligned with runtime handler ids", () => {
     const canvasIds = SHORTCUT_REGISTRY.filter(
       (shortcut) => shortcut.surface === "slide-canvas",

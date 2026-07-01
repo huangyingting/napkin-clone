@@ -23,10 +23,9 @@
  * The component never mutates the deck prop. All changes are reported via
  * `onDeckChange`.
  *
- * Close / export: pass `onClose` to render a close button in the top toolbar
- * and `onExportPptx` to render an Export PPTX button. Export errors are caught
- * and surfaced inline via `exportDeckV7AsPPTX` (barrel-exported from
- * `@/lib/presentation-vnext`).
+ * Close / present / share / export: pass `onClose` for close, `onPresent` /
+ * `onShare` for public roundtrip routes, and `onExportPptx` for PPTX export.
+ * Toolbar action errors are caught and surfaced inline.
  */
 
 import {
@@ -54,9 +53,11 @@ import {
   Group,
   Keyboard,
   LayoutPanelLeft,
+  MonitorPlay,
   Redo2,
   Scissors,
   Save,
+  Share2,
   StickyNote,
   Ungroup,
   Undo2,
@@ -74,7 +75,6 @@ import type {
   DeckChromeConfig,
   DeckChromeKind,
   ImageCrop,
-  ImageAsset,
   LayoutBox,
   NodeSourceMetadata,
   SemanticTemplateKind,
@@ -166,7 +166,6 @@ import {
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
 import { listThemePackagesV7 } from "@/lib/presentation-vnext/theme-package-registry";
-import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
 import { resolveNodeFontCss } from "@/lib/presentation-vnext/node-font-css";
 import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import {
@@ -195,6 +194,23 @@ import {
   type StageHitCandidate,
 } from "@/lib/presentation-vnext/stage-hit-test";
 import {
+  assetFactoryId,
+  deckWithPickedVisualAsset,
+  deckWithUploadedImageAsset as createDeckWithUploadedImageAsset,
+  defaultConnectorNode,
+  defaultImageNode,
+  defaultShapeNode,
+  defaultTableNode,
+  defaultTextNode,
+  defaultVisualNode,
+  nextZIndex,
+  nodeFactoryId,
+  textNodeAtPoint,
+  visualContentPatchFromPick,
+  type V7ImageUploadResult,
+  type V7VisualPickResult,
+} from "@/lib/presentation-vnext/node-asset-factories";
+import {
   buildAlignSelectionPatches,
   buildDistributeSelectionPatches,
   buildLayerReorderPatches,
@@ -210,9 +226,11 @@ import {
   type CropHandlePosition,
   type ResizeHandlePosition,
 } from "./slide-canvas";
+import { startPointerDragLifecycle } from "./pointer-drag-lifecycle";
 import { createSingleCommitGesture } from "./single-commit-gesture";
 import {
   createSelectionState,
+  getSelectableNodes,
   selectNode,
   clearSelection,
   setSelection as setSelectedNodeIds,
@@ -249,6 +267,7 @@ import {
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { applyInlineTextCommit } from "./inline-text-commit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { useExportDiagnostics } from "./use-export-diagnostics";
 import { useTableCellEditing } from "./use-table-cell-editing";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
@@ -276,6 +295,11 @@ import {
   type SlidePresencePeer,
 } from "@/lib/presentation/use-slide-presence";
 import { canvasArrangeShortcutKind } from "@/lib/shortcuts/canvas-runtime";
+import {
+  announceRotation,
+  applyKeyboardRotation,
+  keyboardRotationDelta,
+} from "@/lib/presentation/canvas-keyboard-rotate";
 
 const DECK_CHROME_KINDS: DeckChromeKind[] = [
   "logo",
@@ -429,21 +453,9 @@ export function SlideEditorInspectorRegion({
   );
 }
 
-export type SlideEditorVNextImageUploadResult = {
-  src: string;
-  assetId?: string;
-  alt?: string;
-  widthPx?: number;
-  heightPx?: number;
-  mimeType?: ImageAsset["mimeType"];
-  contentHash?: string;
-};
+export type SlideEditorVNextImageUploadResult = V7ImageUploadResult;
 
-export type SlideEditorVNextVisualPickResult = {
-  visualId?: string;
-  assetId?: string;
-  alt?: string;
-};
+export type SlideEditorVNextVisualPickResult = V7VisualPickResult;
 
 export type SlideEditorVNextSourceRefreshResult = SourceLinkHostRefreshResult;
 
@@ -506,6 +518,16 @@ export interface SlideEditorVNextProps {
    * Thrown errors are caught and displayed inline.
    */
   onExportPptx?: () => Promise<void>;
+  /**
+   * Called when the user requests the public presentation route from the
+   * editor chrome. The callback should route to/open the present target.
+   */
+  onPresent?: () => Promise<ActionResult>;
+  /**
+   * Called when the user requests the public share route from the editor
+   * chrome. The callback should route to/open/copy the share target.
+   */
+  onShare?: () => Promise<ActionResult>;
   presenceAwareness?: SlidePresenceAwareness | null;
   presenceUserId?: string;
   presenceUserName?: string;
@@ -988,27 +1010,6 @@ function nearestConnectorAnchor(
   return best && best.distance <= thresholdPct ? best.endpoint : null;
 }
 
-function nodeFactoryId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}`;
-}
-
-function assetFactoryId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-}
-
-function imageMimeType(
-  type: string,
-): "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml" | undefined {
-  return type === "image/png" ||
-    type === "image/jpeg" ||
-    type === "image/webp" ||
-    type === "image/svg+xml"
-    ? type
-    : undefined;
-}
-
 function readImageFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1025,152 +1026,6 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
     };
     reader.readAsDataURL(file);
   });
-}
-
-function nextZIndex(slide: SlideNode | undefined): number {
-  if (!slide || slide.children.length === 0) return 1;
-  return (
-    Math.max(...slide.children.map((node) => node.layout?.zIndex ?? 0)) + 1
-  );
-}
-
-function defaultTextNode(zIndex: number): SlideChildNode {
-  const id = nodeFactoryId("text");
-  const frame = { x: 12, y: 16, w: 42, h: 12 } satisfies LayoutBox["frame"];
-  return {
-    id,
-    type: "text",
-    role: "body",
-    layout: { frame, zIndex },
-    style: { ref: "text.body" },
-    content: { paragraphs: [{ id: `${id}-p-1`, text: "Text" }] },
-  };
-}
-
-function textFrameAtPoint(point: { x: number; y: number }): LayoutBox["frame"] {
-  const frame = { x: 12, y: 16, w: 42, h: 12 } satisfies LayoutBox["frame"];
-  return clampFrame({
-    x: point.x - frame.w / 2,
-    y: point.y - frame.h / 2,
-    w: frame.w,
-    h: frame.h,
-  });
-}
-
-function textNodeAtPoint(
-  point: { x: number; y: number },
-  zIndex: number,
-): SlideChildNode {
-  const id = nodeFactoryId("text");
-  const frame = textFrameAtPoint(point);
-  return {
-    id,
-    type: "text",
-    role: "body",
-    layout: { frame, zIndex },
-    style: { ref: "text.body" },
-    content: { paragraphs: [{ id: `${id}-p-1`, text: "Text" }] },
-  };
-}
-
-function defaultShapeNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("shape"),
-    type: "shape",
-    role: "card",
-    layout: { frame: { x: 16, y: 20, w: 28, h: 18 }, zIndex },
-    style: { ref: "surface.card" },
-    content: { shape: "rect" },
-  };
-}
-
-function defaultTableNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("table"),
-    type: "table",
-    role: "table",
-    layout: { frame: { x: 12, y: 18, w: 56, h: 24 }, zIndex },
-    style: { ref: "surface.table" },
-    content: {
-      columns: [
-        { id: "col-1", label: "Column 1" },
-        { id: "col-2", label: "Column 2" },
-      ],
-      rows: [
-        { id: "row-1", cells: [{ text: "" }, { text: "" }] },
-        { id: "row-2", cells: [{ text: "" }, { text: "" }] },
-      ],
-    },
-  };
-}
-
-function defaultImageNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("image"),
-    type: "image",
-    role: "image",
-    layout: { frame: { x: 18, y: 18, w: 40, h: 28 }, zIndex },
-    style: { ref: "media.inline" },
-    content: { assetId: "placeholder", alt: "Image" },
-  };
-}
-
-function defaultVisualNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("visual"),
-    type: "visual",
-    role: "visual",
-    layout: { frame: { x: 18, y: 18, w: 46, h: 30 }, zIndex },
-    style: { ref: "chart.primary" },
-    content: { visualId: "visual-placeholder" },
-  };
-}
-
-function deckWithPickedVisualAsset(
-  deck: DeckV7,
-  picked: SlideEditorVNextVisualPickResult,
-): DeckV7 {
-  if (!picked.assetId) return deck;
-  const visualId = picked.visualId ?? picked.assetId;
-  return {
-    ...deck,
-    assets: {
-      ...deck.assets,
-      visuals: {
-        ...deck.assets.visuals,
-        [picked.assetId]: {
-          id: picked.assetId,
-          visualId,
-          ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
-        },
-      },
-    },
-  };
-}
-
-function visualContentPatchFromPick(
-  picked: SlideEditorVNextVisualPickResult,
-): Record<string, unknown> {
-  return {
-    ...(picked.visualId !== undefined ? { visualId: picked.visualId } : {}),
-    ...(picked.assetId !== undefined ? { assetId: picked.assetId } : {}),
-    ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
-  };
-}
-
-function defaultConnectorNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("connector"),
-    type: "connector",
-    role: "connector",
-    layout: { frame: { x: 20, y: 45, w: 32, h: 10 }, zIndex },
-    style: { ref: "connector.primary" },
-    content: {
-      from: { kind: "point", point: { x: 0, y: 50 } },
-      to: { kind: "point", point: { x: 100, y: 50 } },
-      routing: "straight",
-    },
-  };
 }
 
 interface CloseRequestHandlers {
@@ -1332,6 +1187,8 @@ export function SlideEditorVNext({
   onSave,
   onClose,
   onExportPptx,
+  onPresent,
+  onShare,
   presenceAwareness = null,
   presenceUserId = "",
   presenceUserName = "Anonymous",
@@ -1364,8 +1221,8 @@ export function SlideEditorVNext({
     return buildSourceBlockIndex(documentId, documentBlocks);
   }, [documentBlocks, documentId, sourceBlockIndex]);
 
-  // Recoverable export/media errors surfaced below the toolbar banner
-  const [exportError, setExportError] = useState<string | null>(null);
+  // Recoverable toolbar action errors surfaced below the toolbar banner
+  const [toolbarError, setToolbarError] = useState<string | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
@@ -1387,11 +1244,34 @@ export function SlideEditorVNext({
 
   async function handleExportPptx() {
     if (!onExportPptx) return;
-    setExportError(null);
+    setToolbarError(null);
     try {
       await onExportPptx();
     } catch {
-      setExportError("PPTX export failed. Please try again.");
+      setToolbarError("PPTX export failed. Please try again.");
+    }
+  }
+
+  async function handleRoundtripAction(
+    action: (() => Promise<ActionResult>) | undefined,
+    fallbackError: string,
+  ) {
+    if (!action) return;
+    setToolbarError(null);
+    try {
+      if (onSave) {
+        const saveResult = await onSave(deck);
+        if (!saveResult.ok) {
+          setToolbarError(saveResult.error);
+          return;
+        }
+      }
+      const result = await action();
+      if (!result.ok) {
+        setToolbarError(result.error);
+      }
+    } catch {
+      setToolbarError(fallbackError);
     }
   }
 
@@ -1490,6 +1370,7 @@ export function SlideEditorVNext({
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [footerStatusMenuOpen, setFooterStatusMenuOpen] = useState(false);
   const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
+  const [compactToolbarMenuOpen, setCompactToolbarMenuOpen] = useState(false);
   const zoomMenuId = useId();
   const zoomMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const zoomMenuPanelRef = useRef<HTMLDivElement | null>(null);
@@ -1499,6 +1380,9 @@ export function SlideEditorVNext({
   const sourceMenuId = useId();
   const sourceMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sourceMenuPanelRef = useRef<HTMLDivElement | null>(null);
+  const compactToolbarMenuId = useId();
+  const compactToolbarMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const compactToolbarMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const [deckChromeToolbarOpen, setDeckChromeToolbarOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
@@ -1576,6 +1460,11 @@ export function SlideEditorVNext({
     if (!sourceMenuOpen) return;
     focusFirstMenuCommand(sourceMenuPanelRef.current);
   }, [sourceMenuOpen]);
+
+  useEffect(() => {
+    if (!compactToolbarMenuOpen) return;
+    focusFirstMenuCommand(compactToolbarMenuPanelRef.current);
+  }, [compactToolbarMenuOpen]);
 
   useEffect(() => {
     if (isDesktopInspectorViewport && inspectorSheetOpen) {
@@ -1727,6 +1616,11 @@ export function SlideEditorVNext({
     sourceMenuTriggerRef.current?.focus();
   }
 
+  function closeCompactToolbarMenuAndRestoreFocus() {
+    setCompactToolbarMenuOpen(false);
+    compactToolbarMenuTriggerRef.current?.focus();
+  }
+
   function handleZoomMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -1778,6 +1672,28 @@ export function SlideEditorVNext({
     if (
       moveMenuCommandFocus({
         container: sourceMenuPanelRef.current,
+        key: event.key,
+        currentTarget: event.target,
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  function handleCompactToolbarMenuKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeCompactToolbarMenuAndRestoreFocus();
+      return;
+    }
+    if (!isMenuCommandNavigationKey(event.key)) return;
+    if (
+      moveMenuCommandFocus({
+        container: compactToolbarMenuPanelRef.current,
         key: event.key,
         currentTarget: event.target,
       })
@@ -1868,35 +1784,13 @@ export function SlideEditorVNext({
     const upload = onUploadImage
       ? await onUploadImage(file)
       : { src: await readImageFileAsDataUrl(file) };
-    if (!upload.src) return undefined;
-    const assetId = upload.assetId ?? assetFactoryId("image");
-    const alt = upload.alt ?? file.name;
-    const mimeType = upload.mimeType ?? imageMimeType(file.type);
-    return {
-      deckWithAsset: {
-        ...deck,
-        assets: {
-          ...deck.assets,
-          images: {
-            ...deck.assets.images,
-            [assetId]: {
-              id: assetId,
-              src: upload.src,
-              alt,
-              ...(upload.widthPx ? { widthPx: upload.widthPx } : {}),
-              ...(upload.heightPx ? { heightPx: upload.heightPx } : {}),
-              ...(mimeType ? { mimeType } : {}),
-              ...(upload.contentHash
-                ? { contentHash: upload.contentHash }
-                : {}),
-              origin: { kind: "upload", importedAt: new Date().toISOString() },
-            },
-          },
-        },
-      },
-      assetId,
-      alt,
-    };
+    return createDeckWithUploadedImageAsset({
+      deck,
+      upload,
+      fileName: file.name,
+      fileType: file.type,
+      createAssetId: assetFactoryId,
+    });
   }
 
   async function handleReplaceImageFile(file: File | undefined) {
@@ -1906,7 +1800,7 @@ export function SlideEditorVNext({
     insertImagePendingRef.current = false;
     if (!file || !activeSlide || (!targetId && !inserting)) return;
     if (!file.type.startsWith("image/")) {
-      setExportError("Choose an image file to replace the selected image.");
+      setToolbarError("Choose an image file to replace the selected image.");
       return;
     }
     try {
@@ -1933,9 +1827,9 @@ export function SlideEditorVNext({
         setSelection((s) => setSelectedNodeIds(s, [targetId]));
         focusSelectedNodeSoon(targetId);
       }
-      setExportError(null);
+      setToolbarError(null);
     } catch {
-      setExportError("Image replacement failed. Please try another file.");
+      setToolbarError("Image replacement failed. Please try another file.");
     }
   }
 
@@ -1947,7 +1841,7 @@ export function SlideEditorVNext({
   async function handleReplaceSlideBackgroundImageFile(file: File | undefined) {
     if (!file || !activeSlide) return;
     if (!file.type.startsWith("image/")) {
-      setExportError("Choose an image file to set the slide background.");
+      setToolbarError("Choose an image file to set the slide background.");
       return;
     }
     const slideId = activeSlide.id;
@@ -1965,9 +1859,9 @@ export function SlideEditorVNext({
           },
         }),
       );
-      setExportError(null);
+      setToolbarError(null);
     } catch {
-      setExportError(
+      setToolbarError(
         "Background image upload failed. Please try another file.",
       );
     }
@@ -1977,7 +1871,7 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     if (!onPickVisual) {
       handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
-      setExportError(null);
+      setToolbarError(null);
       return;
     }
     const pickResult = await runVisualPickerMutation({
@@ -1999,10 +1893,10 @@ export function SlideEditorVNext({
       },
     });
     if (pickResult === "failed") {
-      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      setToolbarError(VISUAL_PICKER_FAILURE_MESSAGE);
       return;
     }
-    setExportError(null);
+    setToolbarError(null);
   }
 
   async function handleReplaceSelectedVisual() {
@@ -2027,10 +1921,10 @@ export function SlideEditorVNext({
       },
     });
     if (pickResult === "failed") {
-      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      setToolbarError(VISUAL_PICKER_FAILURE_MESSAGE);
       return;
     }
-    setExportError(null);
+    setToolbarError(null);
   }
 
   function handleInsertConnector() {
@@ -2403,32 +2297,30 @@ export function SlideEditorVNext({
     const start = pointPctFromEvent(event, rect);
     setMarqueeFrame({ ...start, w: 0, h: 0 });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const frame = normalizeSelectionFrame(
-        start,
-        pointPctFromEvent(moveEvent, rect),
-      );
-      setMarqueeFrame(frame);
-      const ids = selectNodesInFrame(activeSlide.children, frame);
-      setSelection((selectionState) => setSelectedNodeIds(selectionState, ids));
-    };
-
-    const handlePointerUp = () => {
-      setMarqueeFrame((frame) => {
-        if (frame && (frame.w > 0.5 || frame.h > 0.5)) {
-          suppressStageClickRef.current = true;
-          window.setTimeout(() => {
-            suppressStageClickRef.current = false;
-          }, 0);
-        }
-        return null;
-      });
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const frame = normalizeSelectionFrame(
+          start,
+          pointPctFromEvent(moveEvent, rect),
+        );
+        setMarqueeFrame(frame);
+        const ids = selectNodesInFrame(activeSlide.children, frame);
+        setSelection((selectionState) =>
+          setSelectedNodeIds(selectionState, ids),
+        );
+      },
+      onEnd: (_endEvent, reason) => {
+        setMarqueeFrame((frame) => {
+          if (reason === "up" && frame && (frame.w > 0.5 || frame.h > 0.5)) {
+            suppressStageClickRef.current = true;
+            window.setTimeout(() => {
+              suppressStageClickRef.current = false;
+            }, 0);
+          }
+          return null;
+        });
+      },
+    });
   }
 
   function handleStagePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2492,34 +2384,29 @@ export function SlideEditorVNext({
         onDeckChange(updateNodeContent(deck, activeSlide.id, nodeId, { crop })),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const point = pointPctFromEvent(moveEvent, rect);
-      const deltaX = ((point.x - start.x) / frame.w) * 100;
-      const deltaY = ((point.y - start.y) / frame.h) * 100;
-      const nextCrop: ImageCrop = { ...startCrop };
-      if (handle === "left") nextCrop.left = clampCrop(startCrop.left + deltaX);
-      if (handle === "right") {
-        nextCrop.right = clampCrop(startCrop.right - deltaX);
-      }
-      if (handle === "top") nextCrop.top = clampCrop(startCrop.top + deltaY);
-      if (handle === "bottom") {
-        nextCrop.bottom = clampCrop(startCrop.bottom - deltaY);
-      }
-      gesture.update(nextCrop);
-      setStageAnnouncement(`Cropping image ${handle}`);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveCropHandle(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const point = pointPctFromEvent(moveEvent, rect);
+        const deltaX = ((point.x - start.x) / frame.w) * 100;
+        const deltaY = ((point.y - start.y) / frame.h) * 100;
+        const nextCrop: ImageCrop = { ...startCrop };
+        if (handle === "left")
+          nextCrop.left = clampCrop(startCrop.left + deltaX);
+        if (handle === "right") {
+          nextCrop.right = clampCrop(startCrop.right - deltaX);
+        }
+        if (handle === "top") nextCrop.top = clampCrop(startCrop.top + deltaY);
+        if (handle === "bottom") {
+          nextCrop.bottom = clampCrop(startCrop.bottom - deltaY);
+        }
+        gesture.update(nextCrop);
+        setStageAnnouncement(`Cropping image ${handle}`);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveCropHandle(null);
+      },
+    });
   }
 
   function handleResetSelectedImageCrop() {
@@ -2531,8 +2418,18 @@ export function SlideEditorVNext({
   }
 
   function toggleSelectionMode() {
+    const normalSelectableIds =
+      activeSlideTree !== null
+        ? getSelectableNodes(activeSlideTree, "normal").map((node) => node.id)
+        : activeSlide
+          ? flattenEditorNodes(activeSlide.children).map((node) => node.id)
+          : [];
     setSelection((s) =>
-      setSelectionMode(s, s.mode === "normal" ? "layers" : "normal"),
+      setSelectionMode(
+        s,
+        s.mode === "normal" ? "layers" : "normal",
+        s.mode === "layers" ? normalSelectableIds : undefined,
+      ),
     );
   }
 
@@ -2584,13 +2481,7 @@ export function SlideEditorVNext({
     return drafts.size > 0 ? drafts : undefined;
   })();
 
-  const exportDiagnostics = renderTree
-    ? buildExportSpec(renderTree).diagnostics.filter(
-        (diagnostic) =>
-          diagnostic.code === "unsupported-export-feature" ||
-          diagnostic.code === "theme-decoration-export-fallback",
-      )
-    : [];
+  const exportDiagnostics = useExportDiagnostics(renderTree);
   const sourceDerivations = useMemo(
     () => deriveSourceReviewDerivations(deck, documentSourceIndex),
     [deck, documentSourceIndex],
@@ -2775,37 +2666,31 @@ export function SlideEditorVNext({
         onDeckChange(updateNodeLayouts(deck, activeSlide.id, preview.patches)),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const preview = createNodeMovePreview({
-        startClientX: startX,
-        startClientY: startY,
-        nextClientX: moveEvent.clientX,
-        nextClientY: moveEvent.clientY,
-        rectWidth: rect.width,
-        rectHeight: rect.height,
-        originalFrames,
-        alignmentGuides,
-        snapToGuides: snapToGuides && !moveEvent.altKey,
-      });
-      if (!preview) return;
-      if (!dragThresholdPassed) {
-        dragThresholdPassed = true;
-        setDraggingStage(true);
-      }
-      gesture.update(preview);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setDraggingStage(false);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const preview = createNodeMovePreview({
+          startClientX: startX,
+          startClientY: startY,
+          nextClientX: moveEvent.clientX,
+          nextClientY: moveEvent.clientY,
+          rectWidth: rect.width,
+          rectHeight: rect.height,
+          originalFrames,
+          alignmentGuides,
+          snapToGuides: snapToGuides && !moveEvent.altKey,
+        });
+        if (!preview) return;
+        if (!dragThresholdPassed) {
+          dragThresholdPassed = true;
+          setDraggingStage(true);
+        }
+        gesture.update(preview);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setDraggingStage(false);
+      },
+    });
   }
 
   function handleResizeHandlePointerDown(
@@ -2841,35 +2726,29 @@ export function SlideEditorVNext({
         ),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
-      const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
-      const nextFrame = node.layout?.constraints?.preserveAspectRatio
-        ? applyAspectLock(
-            originalFrame,
-            resizeFrame(originalFrame, handle, deltaX, deltaY),
-          )
-        : resizeFrame(originalFrame, handle, deltaX, deltaY);
-      const snapped =
-        snapToGuides && !moveEvent.altKey
-          ? snapFrameToStageGuides(nextFrame, 0.75, alignmentGuides)
-          : { frame: nextFrame, guides: [] as StageGuide[] };
-      setStageGuides(snapped.guides);
-      gesture.update(snapped.frame);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveResizeHandle(null);
-      setStageGuides([]);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
+        const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
+        const nextFrame = node.layout?.constraints?.preserveAspectRatio
+          ? applyAspectLock(
+              originalFrame,
+              resizeFrame(originalFrame, handle, deltaX, deltaY),
+            )
+          : resizeFrame(originalFrame, handle, deltaX, deltaY);
+        const snapped =
+          snapToGuides && !moveEvent.altKey
+            ? snapFrameToStageGuides(nextFrame, 0.75, alignmentGuides)
+            : { frame: nextFrame, guides: [] as StageGuide[] };
+        setStageGuides(snapped.guides);
+        gesture.update(snapped.frame);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveResizeHandle(null);
+        setStageGuides([]);
+      },
+    });
   }
 
   function handleRotationHandlePointerDown(
@@ -2907,33 +2786,27 @@ export function SlideEditorVNext({
         ),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const angle =
-        (Math.atan2(
-          moveEvent.clientY - center.y,
-          moveEvent.clientX - center.x,
-        ) *
-          180) /
-        Math.PI;
-      const rotation = snapRotationDegrees(
-        startRotation + angle - startAngle,
-        !moveEvent.altKey,
-      );
-      gesture.update(rotation);
-      setStageAnnouncement(`Rotated to ${Math.round(rotation)} degrees`);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveRotationNodeId(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const angle =
+          (Math.atan2(
+            moveEvent.clientY - center.y,
+            moveEvent.clientX - center.x,
+          ) *
+            180) /
+          Math.PI;
+        const rotation = snapRotationDegrees(
+          startRotation + angle - startAngle,
+          !moveEvent.altKey,
+        );
+        gesture.update(rotation);
+        setStageAnnouncement(`Rotated to ${Math.round(rotation)} degrees`);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveRotationNodeId(null);
+      },
+    });
   }
 
   function handleConnectorEndpointPointerDown(
@@ -2966,30 +2839,24 @@ export function SlideEditorVNext({
         ),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const slidePoint = pointPctFromEvent(moveEvent, rect);
-      const snapped =
-        nearestConnectorAnchor(activeSlide.children, slidePoint, nodeId) ??
-        connectorEndpointFromSlidePoint(slidePoint, connectorFrame);
-      gesture.update(snapped);
-      setStageAnnouncement(
-        snapped.kind === "node"
-          ? `Connector ${endpoint} bound to ${snapped.anchor} anchor`
-          : `Connector ${endpoint} moved`,
-      );
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveConnectorEndpoint(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const slidePoint = pointPctFromEvent(moveEvent, rect);
+        const snapped =
+          nearestConnectorAnchor(activeSlide.children, slidePoint, nodeId) ??
+          connectorEndpointFromSlidePoint(slidePoint, connectorFrame);
+        gesture.update(snapped);
+        setStageAnnouncement(
+          snapped.kind === "node"
+            ? `Connector ${endpoint} bound to ${snapped.anchor} anchor`
+            : `Connector ${endpoint} moved`,
+        );
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveConnectorEndpoint(null);
+      },
+    });
   }
 
   function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -3220,6 +3087,39 @@ export function SlideEditorVNext({
     const arrangeKind = canvasArrangeShortcutKind(event);
     if (arrangeKind) {
       handleReorderSelection(arrangeKind);
+      event.preventDefault();
+      return;
+    }
+
+    const rotationDelta = keyboardRotationDelta(event);
+    if (rotationDelta !== null) {
+      const patches = new Map<string, Partial<LayoutBox>>();
+      let rotationAnnouncement: string | null = null;
+      for (const entry of collectSelectedLayoutEntries(
+        activeSlide.children,
+        selectedIds,
+      )) {
+        if (entry.node.locked || entry.node.type === "connector") continue;
+        const nextRotation = applyKeyboardRotation(
+          entry.node.layout?.rotation,
+          rotationDelta,
+        );
+        patches.set(entry.id, { rotation: nextRotation.rotation });
+        if (!rotationAnnouncement) {
+          rotationAnnouncement = announceRotation(
+            entry.node.name ?? entry.node.type,
+            nextRotation.angle,
+          );
+        }
+      }
+      if (patches.size > 0) {
+        onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+        setStageAnnouncement(
+          patches.size === 1 && rotationAnnouncement
+            ? rotationAnnouncement
+            : `Rotated ${patches.size} ${patches.size === 1 ? "node" : "nodes"} by ${Math.abs(rotationDelta)}°`,
+        );
+      }
       event.preventDefault();
       return;
     }
@@ -3836,6 +3736,9 @@ export function SlideEditorVNext({
   const activeSlideName = slideDisplayName(activeSlide, activeSlideIndex);
   const selectedNodeSummary = selectedSummary(selectedIds.length);
   const diagnosticSummary = diagnosticsSummary(diagnostics.length);
+  const isCompactToolbar = !isDesktopInspectorViewport;
+  const currentCanvasFormat: "16:9" | "4:3" | "square" =
+    deck.canvas.format === "custom" ? "16:9" : deck.canvas.format;
   const saveErrorAnnouncement =
     saveStatus === "error"
       ? saveErrorMessage
@@ -4044,46 +3947,47 @@ export function SlideEditorVNext({
             </span>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* Theme picker */}
-          <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
-            Theme
-            <select
-              value={deck.theme.packageId}
-              onChange={(event) =>
-                handleThemePackageChange(event.currentTarget.value)
-              }
-              className="h-8 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs font-medium text-ds-text-primary"
-            >
-              {themePackages.map((themePackageOption) => (
-                <option
-                  key={themePackageOption.id}
-                  value={themePackageOption.id}
+        <div className="flex min-w-0 items-center justify-end gap-1.5">
+          {!isCompactToolbar ? (
+            <>
+              <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
+                Theme
+                <select
+                  value={deck.theme.packageId}
+                  onChange={(event) =>
+                    handleThemePackageChange(event.currentTarget.value)
+                  }
+                  className="h-8 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs font-medium text-ds-text-primary"
                 >
-                  {themePackageOption.name}
-                </option>
-              ))}
-            </select>
-          </label>
+                  {themePackages.map((themePackageOption) => (
+                    <option
+                      key={themePackageOption.id}
+                      value={themePackageOption.id}
+                    >
+                      {themePackageOption.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
-            Ratio
-            <select
-              value={
-                deck.canvas.format === "custom" ? "16:9" : deck.canvas.format
-              }
-              onChange={(event) =>
-                handleCanvasRatioChange(
-                  event.currentTarget.value as "16:9" | "4:3" | "square",
-                )
-              }
-              className="h-8 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs font-medium text-ds-text-primary"
-            >
-              <option value="16:9">16:9</option>
-              <option value="4:3">4:3</option>
-              <option value="square">1:1</option>
-            </select>
-          </label>
+              <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
+                Ratio
+                <select
+                  value={currentCanvasFormat}
+                  onChange={(event) =>
+                    handleCanvasRatioChange(
+                      event.currentTarget.value as "16:9" | "4:3" | "square",
+                    )
+                  }
+                  className="h-8 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs font-medium text-ds-text-primary"
+                >
+                  <option value="16:9">16:9</option>
+                  <option value="4:3">4:3</option>
+                  <option value="square">1:1</option>
+                </select>
+              </label>
+            </>
+          ) : null}
 
           <Popover
             open={sourceMenuOpen}
@@ -4254,177 +4158,475 @@ export function SlideEditorVNext({
               />
             </div>
           </Popover>
-          <Tooltip
-            label={snapToGuides ? "Snap to guides: on" : "Snap to guides: off"}
-            side="bottom"
-          >
+
+          {!isCompactToolbar ? (
+            <>
+              <Tooltip
+                label={
+                  snapToGuides ? "Snap to guides: on" : "Snap to guides: off"
+                }
+                side="bottom"
+              >
+                <button
+                  type="button"
+                  aria-label="Toggle snap to guides"
+                  aria-pressed={snapToGuides}
+                  onClick={toggleSnapToGuides}
+                  className={cx(
+                    "flex h-8 items-center gap-1.5 rounded-ds-sm border px-2.5 text-xs font-medium transition-colors",
+                    snapToGuides
+                      ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+                      : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover",
+                    FOCUS_RING,
+                  )}
+                >
+                  <Grid3x3 size={14} aria-hidden="true" />
+                  Snap
+                </button>
+              </Tooltip>
+
+              <div
+                className="mx-1 h-5 w-px bg-ds-border-subtle"
+                aria-hidden="true"
+              />
+
+              <button
+                type="button"
+                onClick={handleCopyNodes}
+                aria-label="Copy selected nodes"
+                disabled={selectedIds.length === 0}
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+              >
+                <Copy size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={handleCutNodes}
+                aria-label="Cut selected nodes"
+                disabled={selectedIds.length === 0}
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+              >
+                <Scissors size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={handlePasteNodes}
+                aria-label="Paste nodes"
+                disabled={clipboardNodes.length === 0 || !activeSlide}
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+              >
+                <ClipboardPaste size={14} aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  selectedNode?.type === "group"
+                    ? handleUngroupSelection
+                    : handleGroupSelection
+                }
+                aria-label={
+                  selectedNode?.type === "group"
+                    ? "Ungroup selected nodes"
+                    : "Group selected nodes"
+                }
+                disabled={
+                  selectedNode?.type === "group"
+                    ? false
+                    : selectedIds.length < 2
+                }
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+              >
+                {selectedNode?.type === "group" ? (
+                  <Ungroup size={14} aria-hidden="true" />
+                ) : (
+                  <Group size={14} aria-hidden="true" />
+                )}
+              </button>
+
+              <div
+                className="mx-1 h-5 w-px bg-ds-border-subtle"
+                aria-hidden="true"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShortcutHelpOpen(true)}
+                aria-label="Keyboard shortcuts"
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+              >
+                <Keyboard size={14} aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                onClick={onUndo}
+                aria-label="Undo"
+                disabled={!canUndo}
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+              >
+                <Undo2 size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={onRedo}
+                aria-label="Redo"
+                disabled={!canRedo}
+                className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+              >
+                <Redo2 size={14} aria-hidden="true" />
+              </button>
+
+              <div
+                className="mx-1 h-5 w-px bg-ds-border-subtle"
+                aria-hidden="true"
+              />
+
+              <div
+                className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-secondary"
+                aria-label={
+                  hasRemotePeers(slidePresence.peers)
+                    ? `Slide collaborators: ${remotePresencePeers
+                        .map((peer) =>
+                          presencePeerSummary(peer, deck, activeSlide?.id),
+                        )
+                        .join("; ")}`
+                    : "No other slide collaborators"
+                }
+              >
+                <Users size={13} aria-hidden="true" />
+                <span className="font-medium">
+                  {remotePresencePeers.length > 0
+                    ? `${remotePresencePeers.length} present`
+                    : "Solo"}
+                </span>
+              </div>
+
+              <div
+                className="mx-1 h-5 w-px bg-ds-border-subtle"
+                aria-hidden="true"
+              />
+
+              <button
+                type="button"
+                onClick={() => setDeckDiagnosticsReviewOpen(true)}
+                aria-label={`Open deck diagnostics review (${diagnosticsSummary(
+                  diagnostics.length,
+                )})`}
+                className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover"
+              >
+                Diagnostics
+                {diagnostics.length > 0 ? (
+                  <span className="rounded-full bg-ds-danger-surface px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-ds-danger-text">
+                    {diagnostics.length}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-ds-text-muted">0</span>
+                )}
+              </button>
+            </>
+          ) : (
+            <Popover
+              open={compactToolbarMenuOpen}
+              onClose={() => setCompactToolbarMenuOpen(false)}
+              role="menu"
+              aria-label="More toolbar commands"
+              className="w-72 p-2"
+              trigger={
+                <button
+                  ref={compactToolbarMenuTriggerRef}
+                  type="button"
+                  aria-label="Open additional toolbar commands"
+                  aria-haspopup="menu"
+                  aria-expanded={compactToolbarMenuOpen}
+                  aria-controls={
+                    compactToolbarMenuOpen ? compactToolbarMenuId : undefined
+                  }
+                  onClick={() => setCompactToolbarMenuOpen((open) => !open)}
+                  className={cx(
+                    "flex h-8 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover",
+                    FOCUS_RING,
+                  )}
+                >
+                  More
+                  <ChevronDown size={12} aria-hidden="true" />
+                </button>
+              }
+            >
+              <div
+                ref={compactToolbarMenuPanelRef}
+                id={compactToolbarMenuId}
+                className="space-y-1"
+                onKeyDown={handleCompactToolbarMenuKeyDown}
+              >
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                  Theme
+                </p>
+                {themePackages.map((themePackageOption) => (
+                  <button
+                    key={themePackageOption.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={
+                      deck.theme.packageId === themePackageOption.id
+                    }
+                    onClick={() => {
+                      handleThemePackageChange(themePackageOption.id);
+                      closeCompactToolbarMenuAndRestoreFocus();
+                    }}
+                    className={cx(
+                      "flex w-full items-center justify-between rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    <span className="truncate">{themePackageOption.name}</span>
+                    {deck.theme.packageId === themePackageOption.id ? (
+                      <span className="text-[10px] text-ds-text-muted">
+                        Current
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+
+                <div className="my-1 border-t border-ds-border-subtle" />
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                  Ratio
+                </p>
+                {[
+                  { value: "16:9" as const, label: "16:9" },
+                  { value: "4:3" as const, label: "4:3" },
+                  { value: "square" as const, label: "1:1" },
+                ].map((ratioOption) => (
+                  <button
+                    key={ratioOption.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={currentCanvasFormat === ratioOption.value}
+                    onClick={() => {
+                      handleCanvasRatioChange(ratioOption.value);
+                      closeCompactToolbarMenuAndRestoreFocus();
+                    }}
+                    className={cx(
+                      "flex w-full items-center justify-between rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    <span>{ratioOption.label}</span>
+                    {currentCanvasFormat === ratioOption.value ? (
+                      <span className="text-[10px] text-ds-text-muted">
+                        Current
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+
+                <div className="my-1 border-t border-ds-border-subtle" />
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={snapToGuides}
+                  onClick={() => {
+                    toggleSnapToGuides();
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center justify-between rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                    FOCUS_RING,
+                  )}
+                >
+                  <span>Snap to guides</span>
+                  <span className="text-[10px] text-ds-text-muted">
+                    {snapToGuides ? "On" : "Off"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => {
+                    handleCopyNodes();
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40",
+                    FOCUS_RING,
+                  )}
+                >
+                  Copy selected nodes
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => {
+                    handleCutNodes();
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40",
+                    FOCUS_RING,
+                  )}
+                >
+                  Cut selected nodes
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={clipboardNodes.length === 0 || !activeSlide}
+                  onClick={() => {
+                    handlePasteNodes();
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40",
+                    FOCUS_RING,
+                  )}
+                >
+                  Paste nodes
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={
+                    selectedNode?.type === "group"
+                      ? false
+                      : selectedIds.length < 2
+                  }
+                  onClick={() => {
+                    if (selectedNode?.type === "group") {
+                      handleUngroupSelection();
+                    } else {
+                      handleGroupSelection();
+                    }
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40",
+                    FOCUS_RING,
+                  )}
+                >
+                  {selectedNode?.type === "group"
+                    ? "Ungroup selected nodes"
+                    : "Group selected nodes"}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShortcutHelpOpen(true);
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                    FOCUS_RING,
+                  )}
+                >
+                  Keyboard shortcuts
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!canUndo}
+                  onClick={() => {
+                    onUndo?.();
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40",
+                    FOCUS_RING,
+                  )}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!canRedo}
+                  onClick={() => {
+                    onRedo?.();
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40",
+                    FOCUS_RING,
+                  )}
+                >
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setDeckDiagnosticsReviewOpen(true);
+                    closeCompactToolbarMenuAndRestoreFocus();
+                  }}
+                  className={cx(
+                    "flex w-full items-center justify-between rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                    FOCUS_RING,
+                  )}
+                >
+                  <span>Diagnostics</span>
+                  <span className="text-[10px] text-ds-text-muted">
+                    {diagnostics.length}
+                  </span>
+                </button>
+                {onExportPptx ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      void handleExportPptx();
+                      closeCompactToolbarMenuAndRestoreFocus();
+                    }}
+                    className={cx(
+                      "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    Export PPTX
+                  </button>
+                ) : null}
+                <div className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary">
+                  {remotePresencePeers.length > 0
+                    ? `${remotePresencePeers.length} collaborator${remotePresencePeers.length === 1 ? "" : "s"} present`
+                    : "No other slide collaborators"}
+                </div>
+              </div>
+            </Popover>
+          )}
+
+          {onPresent ? (
             <button
               type="button"
-              aria-label="Toggle snap to guides"
-              aria-pressed={snapToGuides}
-              onClick={toggleSnapToGuides}
-              className={cx(
-                "flex h-8 items-center gap-1.5 rounded-ds-sm border px-2.5 text-xs font-medium transition-colors",
-                snapToGuides
-                  ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-                  : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover",
-                FOCUS_RING,
-              )}
+              onClick={() =>
+                void handleRoundtripAction(
+                  onPresent,
+                  "Presentation route failed. Please try again.",
+                )
+              }
+              aria-label="Present slides"
+              disabled={saveStatus === "saving"}
+              className="flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
             >
-              <Grid3x3 size={14} aria-hidden="true" />
-              Snap
+              <MonitorPlay size={14} aria-hidden="true" />
             </button>
-          </Tooltip>
-
-          <div
-            className="mx-1 h-5 w-px bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-
-          {/* Clipboard */}
-          <button
-            type="button"
-            onClick={handleCopyNodes}
-            aria-label="Copy selected nodes"
-            disabled={selectedIds.length === 0}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Copy size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCutNodes}
-            aria-label="Cut selected nodes"
-            disabled={selectedIds.length === 0}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Scissors size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handlePasteNodes}
-            aria-label="Paste nodes"
-            disabled={clipboardNodes.length === 0 || !activeSlide}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <ClipboardPaste size={14} aria-hidden="true" />
-          </button>
-
-          {/* Group/Ungroup */}
-          <button
-            type="button"
-            onClick={
-              selectedNode?.type === "group"
-                ? handleUngroupSelection
-                : handleGroupSelection
-            }
-            aria-label={
-              selectedNode?.type === "group"
-                ? "Ungroup selected nodes"
-                : "Group selected nodes"
-            }
-            disabled={
-              selectedNode?.type === "group" ? false : selectedIds.length < 2
-            }
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            {selectedNode?.type === "group" ? (
-              <Ungroup size={14} aria-hidden="true" />
-            ) : (
-              <Group size={14} aria-hidden="true" />
-            )}
-          </button>
-
-          <div
-            className="mx-1 h-5 w-px bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-
-          {/* Keyboard shortcuts */}
-          <button
-            type="button"
-            onClick={() => setShortcutHelpOpen(true)}
-            aria-label="Keyboard shortcuts"
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
-          >
-            <Keyboard size={14} aria-hidden="true" />
-          </button>
-
-          {/* Undo / Redo */}
-          <button
-            type="button"
-            onClick={onUndo}
-            aria-label="Undo"
-            disabled={!canUndo}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Undo2 size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onRedo}
-            aria-label="Redo"
-            disabled={!canRedo}
-            className="flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
-          >
-            <Redo2 size={14} aria-hidden="true" />
-          </button>
-
-          <div
-            className="mx-1 h-5 w-px bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-
-          <div
-            className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-secondary"
-            aria-label={
-              hasRemotePeers(slidePresence.peers)
-                ? `Slide collaborators: ${remotePresencePeers
-                    .map((peer) =>
-                      presencePeerSummary(peer, deck, activeSlide?.id),
-                    )
-                    .join("; ")}`
-                : "No other slide collaborators"
-            }
-          >
-            <Users size={13} aria-hidden="true" />
-            <span className="font-medium">
-              {remotePresencePeers.length > 0
-                ? `${remotePresencePeers.length} present`
-                : "Solo"}
-            </span>
-          </div>
-
-          <div
-            className="mx-1 h-5 w-px bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-
-          {/* Deck diagnostics review */}
-          <button
-            type="button"
-            onClick={() => setDeckDiagnosticsReviewOpen(true)}
-            aria-label={`Open deck diagnostics review (${diagnosticsSummary(
-              diagnostics.length,
-            )})`}
-            className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover"
-          >
-            Diagnostics
-            {diagnostics.length > 0 ? (
-              <span className="rounded-full bg-ds-danger-surface px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-ds-danger-text">
-                {diagnostics.length}
-              </span>
-            ) : (
-              <span className="text-[11px] text-ds-text-muted">0</span>
-            )}
-          </button>
-
-          <div
-            className="mx-1 h-5 w-px bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-
-          {/* Save / Export / Close */}
+          ) : null}
+          {onShare ? (
+            <button
+              type="button"
+              onClick={() =>
+                void handleRoundtripAction(
+                  onShare,
+                  "Share route failed. Please try again.",
+                )
+              }
+              aria-label="Share slides"
+              disabled={saveStatus === "saving"}
+              className="flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+            >
+              <Share2 size={14} aria-hidden="true" />
+            </button>
+          ) : null}
           {onSave ? (
             <button
               type="button"
@@ -4437,7 +4639,7 @@ export function SlideEditorVNext({
               {saveStatus === "saving" ? "Saving" : "Save"}
             </button>
           ) : null}
-          {onExportPptx ? (
+          {!isCompactToolbar && onExportPptx ? (
             <button
               type="button"
               onClick={() => void handleExportPptx()}
@@ -4461,13 +4663,13 @@ export function SlideEditorVNext({
         </div>
       </header>
 
-      {/* Export error banner */}
-      {exportError ? (
+      {/* Toolbar action error banner */}
+      {toolbarError ? (
         <div
           role="alert"
           className="shrink-0 border-b border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
         >
-          {exportError}
+          {toolbarError}
         </div>
       ) : null}
 

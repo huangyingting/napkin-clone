@@ -34,6 +34,46 @@ describe("SlideEditorVNext toolbar command ownership", () => {
     );
   });
 
+  test("compacts secondary toolbar commands behind a More menu on narrow viewports", () => {
+    assert.equal(
+      source.includes("const isCompactToolbar = !isDesktopInspectorViewport;"),
+      true,
+    );
+    assert.equal(
+      source.includes('aria-label="Open additional toolbar commands"'),
+      true,
+    );
+    assert.equal(source.includes('aria-label="More toolbar commands"'), true);
+  });
+
+  test("keeps compact toolbar menu keyboard navigable", () => {
+    assert.equal(
+      source.includes(
+        "focusFirstMenuCommand(compactToolbarMenuPanelRef.current)",
+      ),
+      true,
+    );
+    assert.equal(
+      source.includes("onKeyDown={handleCompactToolbarMenuKeyDown}"),
+      true,
+    );
+    assert.equal(
+      source.includes("closeCompactToolbarMenuAndRestoreFocus();"),
+      true,
+    );
+  });
+
+  test("preserves compact access to theme, ratio, diagnostics, and export actions", () => {
+    assert.match(
+      source,
+      /aria-label="More toolbar commands"[\s\S]*Theme[\s\S]*Ratio[\s\S]*Diagnostics[\s\S]*Export PPTX/,
+    );
+    assert.match(
+      source,
+      /aria-label="Document source"[\s\S]*aria-label="Save slide deck"[\s\S]*aria-label="Close slide editor"/,
+    );
+  });
+
   test("exposes a pressed-state snap toggle in the top toolbar", () => {
     assert.equal(source.includes('aria-label="Toggle snap to guides"'), true);
     assert.equal(source.includes("aria-pressed={snapToGuides}"), true);
@@ -141,6 +181,27 @@ describe("SlideEditorVNext toolbar command ownership", () => {
   test("marks zoom and status commands with menu item roles", () => {
     assert.equal(source.includes('role="menuitemradio"'), true);
     assert.equal(source.includes('role="menuitem"'), true);
+  });
+
+  test("exposes present/share roundtrip commands in the top toolbar", () => {
+    assert.equal(source.includes('aria-label="Present slides"'), true);
+    assert.equal(source.includes('aria-label="Share slides"'), true);
+    assert.equal(
+      source.includes("void handleRoundtripAction(") &&
+        source.includes("onPresent") &&
+        source.includes("onShare"),
+      true,
+    );
+  });
+
+  test("routes present/share actions through explicit save-first handling", () => {
+    assert.equal(
+      source.includes("async function handleRoundtripAction(") &&
+        source.includes("if (onSave)") &&
+        source.includes("const saveResult = await onSave(deck);") &&
+        source.includes("if (!saveResult.ok)"),
+      true,
+    );
   });
 });
 

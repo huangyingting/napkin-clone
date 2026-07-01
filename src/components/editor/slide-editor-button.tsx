@@ -19,6 +19,7 @@ import { DeckGenerationPreviewVNext } from "@/components/presentation-vnext/deck
 import { collectDocumentBlocks } from "@/lib/content/document-blocks";
 import type { DocumentBlock } from "@/lib/content/document-blocks";
 import type { DeckActionPort, SlideAssetActionPort } from "@/lib/action-ports";
+import type { ActionResult } from "@/lib/action-result";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useSlideEditorOpen } from "@/components/editor/use-slide-editor-open";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
@@ -212,6 +213,8 @@ interface SlideEditorButtonProps {
   presenceUserName?: string;
   onOpenRightSurface?: () => void;
   onCloseRightSurface?: () => void;
+  onPresentRoundtrip?: () => Promise<ActionResult>;
+  onShareRoundtrip?: () => Promise<ActionResult>;
   iconOnly?: boolean;
 }
 
@@ -226,6 +229,8 @@ export function SlideEditorButton({
   presenceUserName = "Anonymous",
   onOpenRightSurface,
   onCloseRightSurface,
+  onPresentRoundtrip,
+  onShareRoundtrip,
   iconOnly = false,
 }: SlideEditorButtonProps) {
   const {
@@ -487,6 +492,8 @@ export function SlideEditorButton({
             onSave={handleSaveV7}
             onClose={handleClose}
             onExportPptx={handleExportV7Pptx}
+            onPresent={onPresentRoundtrip}
+            onShare={onShareRoundtrip}
             presenceAwareness={presenceAwareness}
             presenceUserId={presenceUserId}
             presenceUserName={presenceUserName}

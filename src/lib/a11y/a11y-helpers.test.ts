@@ -552,12 +552,18 @@ describe("a11y: known canvas keyboard limitations", () => {
    *  - Connector create (between two selected elements) + endpoint reattach
    *
    * Tracked backlog (accepted limitations, ADR 0002 A1/A2):
-   *  - Free-draw connector authoring via keyboard (default-endpoint
+   *  - Free-draw connector authoring via keyboard (#1574; default-endpoint
    *    insertion + reattach ships; free arbitrary routing remains pointer-only)
-   *  - Keyboard rotation (decorative, pointer-only)
+   *  - Keyboard rotation (#1575; decorative, pointer-only)
    */
   test("limitation documentation: deferred canvas keyboard coverage is linked", () => {
-    const backlogIssues = [930, 931];
-    assert.deepEqual(backlogIssues, [930, 931]);
+    const backlogIssues = {
+      connectorFreeDraw: 1574,
+      keyboardRotation: 1575,
+    };
+    assert.deepEqual(backlogIssues, {
+      connectorFreeDraw: 1574,
+      keyboardRotation: 1575,
+    });
   });
 });

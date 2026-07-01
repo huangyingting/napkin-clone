@@ -478,7 +478,244 @@ function getSelectionElements(selectedIds: string[]): HTMLElement[] {
   return nodes;
 }
 
-function tableWithAddedRow(node: TableNode) {
+export type ContextToolbarTextCommand =
+  | "bold"
+  | "italic"
+  | "underline"
+  | "strikethrough";
+
+export function routeContextToolbarTextCommand({
+  command,
+  isInlineEditing,
+  textStyle,
+  onUpdateSelectedLocalStyle,
+  dispatchCommand = dispatchInlineTextCommand,
+}: {
+  command: ContextToolbarTextCommand;
+  isInlineEditing: boolean;
+  textStyle: ContextToolbarStyleSeed["textStyle"];
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+  dispatchCommand?: typeof dispatchInlineTextCommand;
+}): void {
+  dispatchCommand({ command });
+  if (isInlineEditing) return;
+  if (command === "bold") {
+    onUpdateSelectedLocalStyle?.({
+      text: { weight: textStyle?.weight === 700 ? 400 : 700 },
+    });
+  } else if (command === "italic") {
+    onUpdateSelectedLocalStyle?.({ text: { italic: !textStyle?.italic } });
+  } else if (command === "underline") {
+    onUpdateSelectedLocalStyle?.({
+      text: { underline: !textStyle?.underline },
+    });
+  } else {
+    onUpdateSelectedLocalStyle?.({
+      text: { strikethrough: !textStyle?.strikethrough },
+    });
+  }
+}
+
+export function routeContextToolbarTextColor({
+  color,
+  isInlineEditing,
+  onUpdateSelectedLocalStyle,
+  dispatchCommand = dispatchInlineTextCommand,
+}: {
+  color: string;
+  isInlineEditing: boolean;
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+  dispatchCommand?: typeof dispatchInlineTextCommand;
+}): void {
+  dispatchCommand({ command: "color", value: color });
+  if (!isInlineEditing)
+    onUpdateSelectedLocalStyle?.({ text: { color: color } });
+}
+
+export function routeContextToolbarTextAlign({
+  align,
+  onUpdateSelectedLocalStyle,
+  dispatchCommand = dispatchInlineTextCommand,
+}: {
+  align: "left" | "center" | "right";
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+  dispatchCommand?: typeof dispatchInlineTextCommand;
+}): void {
+  dispatchCommand({ command: `align-${align}` });
+  onUpdateSelectedLocalStyle?.({ text: { align } });
+}
+
+export function routeContextToolbarFontSize({
+  value,
+  isInlineEditing,
+  onUpdateSelectedLocalStyle,
+  dispatchCommand = dispatchInlineTextCommand,
+}: {
+  value: number;
+  isInlineEditing: boolean;
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+  dispatchCommand?: typeof dispatchInlineTextCommand;
+}): void {
+  dispatchCommand({
+    command: "font-size",
+    value: `${value}pt`,
+  });
+  if (!isInlineEditing) {
+    onUpdateSelectedLocalStyle?.({ text: { fontSizePt: value } });
+  }
+}
+
+export function routeContextToolbarOpacity({
+  value,
+  onUpdateSelectedLocalStyle,
+}: {
+  value: number;
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+}): void {
+  onUpdateSelectedLocalStyle?.({ opacity: value / 100 });
+}
+
+export function routeContextToolbarTextRoleChange({
+  role,
+  onUpdateSelectedAttributes,
+  onUpdateSelectedLocalStyle,
+}: {
+  role: string;
+  onUpdateSelectedAttributes: ContextToolbarProps["onUpdateSelectedAttributes"];
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+}): void {
+  if (!isContextToolbarTextRole(role)) return;
+  onUpdateSelectedAttributes?.({ role });
+  const fontSizePt = contextToolbarTextRoleFontSizePt(role);
+  onUpdateSelectedLocalStyle?.({ text: { fontSizePt } });
+}
+
+export function routeContextToolbarImageCropToggle({
+  selectedNode,
+  onUpdateSelectedContent,
+  onResetImageCrop,
+}: {
+  selectedNode: SlideChildNode | undefined;
+  onUpdateSelectedContent: ContextToolbarProps["onUpdateSelectedContent"];
+  onResetImageCrop: ContextToolbarProps["onResetImageCrop"];
+}): void {
+  if (selectedNode?.type !== "image") return;
+  if (selectedNode.content.crop) {
+    onResetImageCrop?.();
+    return;
+  }
+  onUpdateSelectedContent?.({
+    crop: { top: 8, right: 8, bottom: 8, left: 8 },
+  });
+}
+
+export function routeContextToolbarImageFit({
+  fit,
+  onUpdateSelectedContent,
+}: {
+  fit: ImageFitMode;
+  onUpdateSelectedContent: ContextToolbarProps["onUpdateSelectedContent"];
+}): void {
+  onUpdateSelectedContent?.({ fit });
+}
+
+export function routeContextToolbarVisualBackgroundToggle({
+  selectedNode,
+  onUpdateSelectedContent,
+}: {
+  selectedNode: SlideChildNode | undefined;
+  onUpdateSelectedContent: ContextToolbarProps["onUpdateSelectedContent"];
+}): void {
+  if (selectedNode?.type !== "visual") return;
+  onUpdateSelectedContent?.({
+    transparentBackground: selectedNode.content.transparentBackground !== true,
+  });
+}
+
+export function routeContextToolbarVisualThemeChange({
+  selectedNode,
+  styleThemeId,
+  onUpdateSelectedLocalStyle,
+}: {
+  selectedNode: SlideChildNode | undefined;
+  styleThemeId: string;
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+}): void {
+  if (selectedNode?.type !== "visual") return;
+  onUpdateSelectedLocalStyle?.({
+    visual: {
+      ...selectedNode.localStyle?.visual,
+      styleThemeId,
+    },
+  });
+}
+
+export function routeContextToolbarConnectorRouting({
+  routing,
+  onUpdateSelectedContent,
+}: {
+  routing: "straight" | "elbow" | "curved";
+  onUpdateSelectedContent: ContextToolbarProps["onUpdateSelectedContent"];
+}): void {
+  onUpdateSelectedContent?.({ routing });
+}
+
+export function routeContextToolbarConnectorStrokeColor({
+  color,
+  connectorStrokeWidth,
+  onUpdateSelectedLocalStyle,
+}: {
+  color: string;
+  connectorStrokeWidth: number;
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+}): void {
+  onUpdateSelectedLocalStyle?.({
+    connector: {
+      stroke: {
+        color,
+        widthPt: connectorStrokeWidth,
+      },
+    },
+  });
+}
+
+export function routeContextToolbarConnectorStrokeWidth({
+  widthPt,
+  connectorStrokeColor,
+  onUpdateSelectedLocalStyle,
+}: {
+  widthPt: number;
+  connectorStrokeColor: string;
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+}): void {
+  onUpdateSelectedLocalStyle?.({
+    connector: {
+      stroke: { color: connectorStrokeColor, widthPt },
+    },
+  });
+}
+
+export function routeContextToolbarConnectorArrow({
+  selectedNode,
+  edge,
+  value,
+  onUpdateSelectedLocalStyle,
+}: {
+  selectedNode: SlideChildNode | undefined;
+  edge: "startArrow" | "endArrow";
+  value: "none" | "arrow" | "filled";
+  onUpdateSelectedLocalStyle: ContextToolbarProps["onUpdateSelectedLocalStyle"];
+}): void {
+  if (selectedNode?.type !== "connector") return;
+  onUpdateSelectedLocalStyle?.({
+    connector: {
+      ...selectedNode.localStyle?.connector,
+      [edge]: value,
+    },
+  });
+}
+
+export function tableWithAddedRow(node: TableNode) {
   return {
     rows: [
       ...node.content.rows,
@@ -490,7 +727,7 @@ function tableWithAddedRow(node: TableNode) {
   };
 }
 
-function tableWithAddedColumn(node: TableNode) {
+export function tableWithAddedColumn(node: TableNode) {
   const nextIndex = node.content.columns.length + 1;
   return {
     columns: [
@@ -504,7 +741,7 @@ function tableWithAddedColumn(node: TableNode) {
   };
 }
 
-function tableWithDeletedLastRow(node: TableNode) {
+export function tableWithDeletedLastRow(node: TableNode) {
   return {
     rows:
       node.content.rows.length > 1
@@ -513,7 +750,7 @@ function tableWithDeletedLastRow(node: TableNode) {
   };
 }
 
-function tableWithDeletedLastColumn(node: TableNode) {
+export function tableWithDeletedLastColumn(node: TableNode) {
   return node.content.columns.length > 1
     ? {
         columns: node.content.columns.slice(0, -1),
@@ -523,6 +760,113 @@ function tableWithDeletedLastColumn(node: TableNode) {
         })),
       }
     : { columns: node.content.columns, rows: node.content.rows };
+}
+
+export function routeContextToolbarTableHeaderToggle({
+  selectedNode,
+  onUpdateSelectedContent,
+}: {
+  selectedNode: SlideChildNode | undefined;
+  onUpdateSelectedContent: ContextToolbarProps["onUpdateSelectedContent"];
+}): void {
+  if (selectedNode?.type !== "table") return;
+  onUpdateSelectedContent?.({
+    header: selectedNode.content.header !== true,
+  });
+}
+
+export function routeContextToolbarRotation({
+  rotation,
+  delta,
+  onUpdateSelectedLayout,
+}: {
+  rotation: number;
+  delta: number;
+  onUpdateSelectedLayout: ContextToolbarProps["onUpdateSelectedLayout"];
+}): void {
+  onUpdateSelectedLayout?.({ rotation: rotation + delta });
+}
+
+export function routeContextToolbarAlign({
+  mode,
+  onAlignSelection,
+}: {
+  mode: SelectionAlignMode;
+  onAlignSelection: ContextToolbarProps["onAlignSelection"];
+}): void {
+  onAlignSelection?.(mode);
+}
+
+export function routeContextToolbarDistribute({
+  mode,
+  onDistributeSelection,
+}: {
+  mode: SelectionDistributeMode;
+  onDistributeSelection: ContextToolbarProps["onDistributeSelection"];
+}): void {
+  onDistributeSelection?.(mode);
+}
+
+export function routeContextToolbarMatchSize({
+  mode,
+  onMatchSize,
+}: {
+  mode: SelectionMatchSizeMode;
+  onMatchSize: ContextToolbarProps["onMatchSize"];
+}): void {
+  onMatchSize?.(mode);
+}
+
+export function routeContextToolbarLockToggle({
+  selectedNode,
+  onUpdateSelectedAttributes,
+}: {
+  selectedNode: SlideChildNode | undefined;
+  onUpdateSelectedAttributes: ContextToolbarProps["onUpdateSelectedAttributes"];
+}): void {
+  onUpdateSelectedAttributes?.({
+    locked: selectedNode?.locked !== true,
+  });
+}
+
+export function routeContextToolbarHideSelection({
+  onUpdateSelectedAttributes,
+}: {
+  onUpdateSelectedAttributes: ContextToolbarProps["onUpdateSelectedAttributes"];
+}): void {
+  onUpdateSelectedAttributes?.({ hidden: true });
+}
+
+export function routeContextToolbarSlideBackground({
+  color,
+  onUpdateSlideLocalStyle,
+}: {
+  color: string;
+  onUpdateSlideLocalStyle: ContextToolbarProps["onUpdateSlideLocalStyle"];
+}): void {
+  onUpdateSlideLocalStyle?.({
+    slide: { background: { type: "solid", color } },
+  });
+}
+
+export function routeContextToolbarDeleteSlide({
+  canDeleteSlide,
+  onDeleteSlide,
+}: {
+  canDeleteSlide: boolean;
+  onDeleteSlide: ContextToolbarProps["onDeleteSlide"];
+}): boolean {
+  if (!canDeleteSlide || !onDeleteSlide) return false;
+  onDeleteSlide();
+  return true;
+}
+
+export function routeContextToolbarDetachDecoration({
+  onDetachDecoration,
+}: {
+  onDetachDecoration: ContextToolbarProps["onDetachDecoration"];
+}): void {
+  onDetachDecoration?.();
 }
 
 export interface ContextToolbarProps {
@@ -763,47 +1107,33 @@ export function ContextToolbar({
   const rotation = selectedNode?.layout?.rotation ?? 0;
   const selectedTextRole = resolveContextToolbarTextRole(selectedNode?.role);
 
-  function runTextCommand(
-    command: "bold" | "italic" | "underline" | "strikethrough",
-  ) {
-    dispatchInlineTextCommand({ command });
-    if (isInlineEditing) return;
-    if (command === "bold") {
-      onUpdateSelectedLocalStyle?.({
-        text: { weight: textStyle?.weight === 700 ? 400 : 700 },
-      });
-    } else if (command === "italic") {
-      onUpdateSelectedLocalStyle?.({ text: { italic: !textStyle?.italic } });
-    } else if (command === "underline") {
-      onUpdateSelectedLocalStyle?.({
-        text: { underline: !textStyle?.underline },
-      });
-    } else {
-      onUpdateSelectedLocalStyle?.({
-        text: { strikethrough: !textStyle?.strikethrough },
-      });
-    }
+  function runTextCommand(command: ContextToolbarTextCommand) {
+    routeContextToolbarTextCommand({
+      command,
+      isInlineEditing,
+      textStyle,
+      onUpdateSelectedLocalStyle,
+    });
   }
 
   function updateTextColor(value: string) {
-    dispatchInlineTextCommand({ command: "color", value });
-    if (!isInlineEditing)
-      onUpdateSelectedLocalStyle?.({ text: { color: value } });
+    routeContextToolbarTextColor({
+      color: value,
+      isInlineEditing,
+      onUpdateSelectedLocalStyle,
+    });
   }
 
   function updateTextAlign(align: "left" | "center" | "right") {
-    dispatchInlineTextCommand({ command: `align-${align}` });
-    onUpdateSelectedLocalStyle?.({ text: { align } });
+    routeContextToolbarTextAlign({ align, onUpdateSelectedLocalStyle });
   }
 
   function updateFontSize(value: number) {
-    dispatchInlineTextCommand({
-      command: "font-size",
-      value: `${value}pt`,
+    routeContextToolbarFontSize({
+      value,
+      isInlineEditing,
+      onUpdateSelectedLocalStyle,
     });
-    if (!isInlineEditing) {
-      onUpdateSelectedLocalStyle?.({ text: { fontSizePt: value } });
-    }
   }
 
   function closeMoreMenuAndRestoreFocus() {
@@ -896,8 +1226,9 @@ export function ContextToolbar({
               label="Slide background"
               value={slideBackgroundColor}
               onChange={(color) =>
-                onUpdateSlideLocalStyle?.({
-                  slide: { background: { type: "solid", color } },
+                routeContextToolbarSlideBackground({
+                  color,
+                  onUpdateSlideLocalStyle,
                 })
               }
             />
@@ -921,7 +1252,12 @@ export function ContextToolbar({
             <TBtn
               label="Delete slide"
               disabled={!canDeleteSlide || !onDeleteSlide}
-              onClick={() => onDeleteSlide?.()}
+              onClick={() =>
+                routeContextToolbarDeleteSlide({
+                  canDeleteSlide,
+                  onDeleteSlide,
+                })
+              }
             >
               <Trash2 size={13} aria-hidden />
             </TBtn>
@@ -963,12 +1299,13 @@ export function ContextToolbar({
               label="Text role"
               value={selectedTextRole}
               disabled={!selectedNode || !onUpdateSelectedAttributes}
-              onChange={(role) => {
-                if (!isContextToolbarTextRole(role)) return;
-                onUpdateSelectedAttributes?.({ role });
-                const fontSizePt = contextToolbarTextRoleFontSizePt(role);
-                onUpdateSelectedLocalStyle?.({ text: { fontSizePt } });
-              }}
+              onChange={(role) =>
+                routeContextToolbarTextRoleChange({
+                  role,
+                  onUpdateSelectedAttributes,
+                  onUpdateSelectedLocalStyle,
+                })
+              }
             >
               <option value="title">H1</option>
               <option value="subtitle">H2</option>
@@ -1150,7 +1487,10 @@ export function ContextToolbar({
               min={0}
               max={100}
               onChange={(value) =>
-                onUpdateSelectedLocalStyle?.({ opacity: value / 100 })
+                routeContextToolbarOpacity({
+                  value,
+                  onUpdateSelectedLocalStyle,
+                })
               }
             />
           </>
@@ -1168,15 +1508,13 @@ export function ContextToolbar({
             <TBtn
               label="Crop image"
               active={selectedNode.content.crop !== undefined}
-              onClick={() => {
-                if (selectedNode.content.crop) {
-                  onResetImageCrop?.();
-                  return;
-                }
-                onUpdateSelectedContent?.({
-                  crop: { top: 8, right: 8, bottom: 8, left: 8 },
-                });
-              }}
+              onClick={() =>
+                routeContextToolbarImageCropToggle({
+                  selectedNode,
+                  onUpdateSelectedContent,
+                  onResetImageCrop,
+                })
+              }
             >
               <Crop size={13} aria-hidden />
             </TBtn>
@@ -1193,7 +1531,10 @@ export function ContextToolbar({
               label="Image fit"
               value={selectedNode.content.fit ?? "cover"}
               onChange={(fit) =>
-                onUpdateSelectedContent?.({ fit: fit as ImageFitMode })
+                routeContextToolbarImageFit({
+                  fit: fit as ImageFitMode,
+                  onUpdateSelectedContent,
+                })
               }
             >
               <option value="contain">Contain</option>
@@ -1207,7 +1548,10 @@ export function ContextToolbar({
               min={0}
               max={100}
               onChange={(value) =>
-                onUpdateSelectedLocalStyle?.({ opacity: value / 100 })
+                routeContextToolbarOpacity({
+                  value,
+                  onUpdateSelectedLocalStyle,
+                })
               }
             />
           </>
@@ -1226,9 +1570,9 @@ export function ContextToolbar({
               label="Transparent background"
               active={selectedNode.content.transparentBackground === true}
               onClick={() =>
-                onUpdateSelectedContent?.({
-                  transparentBackground:
-                    selectedNode.content.transparentBackground !== true,
+                routeContextToolbarVisualBackgroundToggle({
+                  selectedNode,
+                  onUpdateSelectedContent,
                 })
               }
             >
@@ -1238,11 +1582,10 @@ export function ContextToolbar({
               label="Visual theme"
               value={selectedNode.localStyle?.visual?.styleThemeId ?? "default"}
               onChange={(styleThemeId) =>
-                onUpdateSelectedLocalStyle?.({
-                  visual: {
-                    ...selectedNode.localStyle?.visual,
-                    styleThemeId,
-                  },
+                routeContextToolbarVisualThemeChange({
+                  selectedNode,
+                  styleThemeId,
+                  onUpdateSelectedLocalStyle,
                 })
               }
               width="w-24"
@@ -1261,8 +1604,9 @@ export function ContextToolbar({
               label="Connector routing"
               value={selectedNode.content.routing ?? "straight"}
               onChange={(routing) =>
-                onUpdateSelectedContent?.({
+                routeContextToolbarConnectorRouting({
                   routing: routing as "straight" | "elbow" | "curved",
+                  onUpdateSelectedContent,
                 })
               }
             >
@@ -1274,13 +1618,10 @@ export function ContextToolbar({
               label="Line color"
               value={connectorStrokeColor}
               onChange={(color) =>
-                onUpdateSelectedLocalStyle?.({
-                  connector: {
-                    stroke: {
-                      color,
-                      widthPt: connectorStrokeWidth,
-                    },
-                  },
+                routeContextToolbarConnectorStrokeColor({
+                  color,
+                  connectorStrokeWidth,
+                  onUpdateSelectedLocalStyle,
                 })
               }
             />
@@ -1291,10 +1632,10 @@ export function ContextToolbar({
               max={12}
               step={0.5}
               onChange={(widthPt) =>
-                onUpdateSelectedLocalStyle?.({
-                  connector: {
-                    stroke: { color: connectorStrokeColor, widthPt },
-                  },
+                routeContextToolbarConnectorStrokeWidth({
+                  widthPt,
+                  connectorStrokeColor,
+                  onUpdateSelectedLocalStyle,
                 })
               }
             />
@@ -1302,11 +1643,11 @@ export function ContextToolbar({
               label="Start arrow"
               value={styleSeed.connectorStartArrow}
               onChange={(startArrow) =>
-                onUpdateSelectedLocalStyle?.({
-                  connector: {
-                    ...selectedNode.localStyle?.connector,
-                    startArrow: startArrow as "none" | "arrow" | "filled",
-                  },
+                routeContextToolbarConnectorArrow({
+                  selectedNode,
+                  edge: "startArrow",
+                  value: startArrow as "none" | "arrow" | "filled",
+                  onUpdateSelectedLocalStyle,
                 })
               }
               width="w-24"
@@ -1319,11 +1660,11 @@ export function ContextToolbar({
               label="End arrow"
               value={styleSeed.connectorEndArrow}
               onChange={(endArrow) =>
-                onUpdateSelectedLocalStyle?.({
-                  connector: {
-                    ...selectedNode.localStyle?.connector,
-                    endArrow: endArrow as "none" | "arrow" | "filled",
-                  },
+                routeContextToolbarConnectorArrow({
+                  selectedNode,
+                  edge: "endArrow",
+                  value: endArrow as "none" | "arrow" | "filled",
+                  onUpdateSelectedLocalStyle,
                 })
               }
               width="w-24"
@@ -1384,8 +1725,9 @@ export function ContextToolbar({
               label="Toggle header row"
               active={selectedNode.content.header === true}
               onClick={() =>
-                onUpdateSelectedContent?.({
-                  header: selectedNode.content.header !== true,
+                routeContextToolbarTableHeaderToggle({
+                  selectedNode,
+                  onUpdateSelectedContent,
                 })
               }
             >
@@ -1402,7 +1744,11 @@ export function ContextToolbar({
                 <TBtn
                   label="Rotate left 15°"
                   onClick={() =>
-                    onUpdateSelectedLayout?.({ rotation: rotation - 15 })
+                    routeContextToolbarRotation({
+                      rotation,
+                      delta: -15,
+                      onUpdateSelectedLayout,
+                    })
                   }
                 >
                   <RotateCcw size={13} aria-hidden />
@@ -1410,7 +1756,11 @@ export function ContextToolbar({
                 <TBtn
                   label="Rotate right 15°"
                   onClick={() =>
-                    onUpdateSelectedLayout?.({ rotation: rotation + 15 })
+                    routeContextToolbarRotation({
+                      rotation,
+                      delta: 15,
+                      onUpdateSelectedLayout,
+                    })
                   }
                 >
                   <RotateCw size={13} aria-hidden />
@@ -1421,45 +1771,80 @@ export function ContextToolbar({
               <>
                 <TBtn
                   label="Align left"
-                  onClick={() => onAlignSelection?.("left")}
+                  onClick={() =>
+                    routeContextToolbarAlign({
+                      mode: "left",
+                      onAlignSelection,
+                    })
+                  }
                 >
                   <AlignLeft size={13} aria-hidden />
                 </TBtn>
                 <TBtn
                   label="Align center"
-                  onClick={() => onAlignSelection?.("center")}
+                  onClick={() =>
+                    routeContextToolbarAlign({
+                      mode: "center",
+                      onAlignSelection,
+                    })
+                  }
                 >
                   <AlignCenter size={13} aria-hidden />
                 </TBtn>
                 <TBtn
                   label="Align right"
-                  onClick={() => onAlignSelection?.("right")}
+                  onClick={() =>
+                    routeContextToolbarAlign({
+                      mode: "right",
+                      onAlignSelection,
+                    })
+                  }
                 >
                   <AlignRight size={13} aria-hidden />
                 </TBtn>
                 <TBtn
                   label="Distribute horizontally"
                   disabled={selectedIds.length < 3}
-                  onClick={() => onDistributeSelection?.("horizontal")}
+                  onClick={() =>
+                    routeContextToolbarDistribute({
+                      mode: "horizontal",
+                      onDistributeSelection,
+                    })
+                  }
                 >
                   DH
                 </TBtn>
                 <TBtn
                   label="Distribute vertically"
                   disabled={selectedIds.length < 3}
-                  onClick={() => onDistributeSelection?.("vertical")}
+                  onClick={() =>
+                    routeContextToolbarDistribute({
+                      mode: "vertical",
+                      onDistributeSelection,
+                    })
+                  }
                 >
                   DV
                 </TBtn>
                 <TBtn
                   label="Match width"
-                  onClick={() => onMatchSize?.("width")}
+                  onClick={() =>
+                    routeContextToolbarMatchSize({
+                      mode: "width",
+                      onMatchSize,
+                    })
+                  }
                 >
                   MW
                 </TBtn>
                 <TBtn
                   label="Match height"
-                  onClick={() => onMatchSize?.("height")}
+                  onClick={() =>
+                    routeContextToolbarMatchSize({
+                      mode: "height",
+                      onMatchSize,
+                    })
+                  }
                 >
                   MH
                 </TBtn>
@@ -1549,8 +1934,9 @@ export function ContextToolbar({
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    onUpdateSelectedAttributes?.({
-                      locked: selectedNode?.locked !== true,
+                    routeContextToolbarLockToggle({
+                      selectedNode,
+                      onUpdateSelectedAttributes,
                     });
                     closeMoreMenuAndRestoreFocus();
                   }}
@@ -1567,7 +1953,9 @@ export function ContextToolbar({
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    onUpdateSelectedAttributes?.({ hidden: true });
+                    routeContextToolbarHideSelection({
+                      onUpdateSelectedAttributes,
+                    });
                     closeMoreMenuAndRestoreFocus();
                   }}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
@@ -1592,7 +1980,9 @@ export function ContextToolbar({
                 "h-6 rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle px-2 text-[11px] font-medium text-ds-text-secondary hover:bg-ds-state-hover",
                 FOCUS_RING,
               )}
-              onClick={onDetachDecoration}
+              onClick={() =>
+                routeContextToolbarDetachDecoration({ onDetachDecoration })
+              }
               aria-label="Detach from theme"
             >
               Detach

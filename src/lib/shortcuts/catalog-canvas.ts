@@ -8,6 +8,7 @@ import {
   altArrowKey,
   altShiftArrowKey,
   bracketKey,
+  shiftBracketKey,
 } from "./catalog-keys";
 
 function canvasShortcut(args: {
@@ -105,6 +106,14 @@ export const CANVAS_SHORTCUTS: readonly ShortcutEntry[] = [
       shiftKey: "forbidden",
     },
     description: "Send to back / bring to front",
+  }),
+  canvasShortcut({
+    id: "canvas.rotate.step",
+    group: "Arrange",
+    displayLabel: "Shift + [ / ]",
+    tokens: ["Shift", "["],
+    match: shiftBracketKey(),
+    description: "Rotate selection by 1°",
   }),
   canvasShortcut({
     id: "canvas.edit.inline",

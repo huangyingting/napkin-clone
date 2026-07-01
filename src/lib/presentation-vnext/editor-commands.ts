@@ -161,6 +161,91 @@ function topLevelSelectedNodeIds(
   return result;
 }
 
+function findParentPathById(
+  nodes: readonly SlideChildNode[],
+  id: string,
+  parentPath: string[] = [],
+): string[] | null {
+  for (const node of nodes) {
+    if (node.id === id) return parentPath;
+    if (node.type === "group") {
+      const found = findParentPathById(node.children, id, [
+        ...parentPath,
+        node.id,
+      ]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function commonAncestorPath(paths: readonly string[][]): string[] {
+  if (paths.length === 0) return [];
+  let length = paths[0]!.length;
+  for (const path of paths.slice(1)) {
+    let nextLength = 0;
+    while (
+      nextLength < length &&
+      nextLength < path.length &&
+      paths[0]![nextLength] === path[nextLength]
+    ) {
+      nextLength += 1;
+    }
+    length = nextLength;
+    if (length === 0) break;
+  }
+  return paths[0]!.slice(0, length);
+}
+
+function extractSelectedNodesForGrouping(
+  nodes: readonly SlideChildNode[],
+  selectedIds: ReadonlySet<string>,
+  keepGroupIds: ReadonlySet<string>,
+): { nodes: SlideChildNode[]; selected: SlideChildNode[] } {
+  const remaining: SlideChildNode[] = [];
+  const selected: SlideChildNode[] = [];
+  for (const node of nodes) {
+    if (selectedIds.has(node.id)) {
+      selected.push(node);
+      continue;
+    }
+    if (node.type === "group") {
+      const extracted = extractSelectedNodesForGrouping(
+        node.children,
+        selectedIds,
+        keepGroupIds,
+      );
+      selected.push(...extracted.selected);
+      if (extracted.nodes.length > 0 || keepGroupIds.has(node.id)) {
+        remaining.push({
+          ...node,
+          children: extracted.nodes,
+        });
+      }
+      continue;
+    }
+    remaining.push(node);
+  }
+  return { nodes: remaining, selected };
+}
+
+function appendNodeAtPath(
+  nodes: readonly SlideChildNode[],
+  parentPath: readonly string[],
+  node: SlideChildNode,
+): SlideChildNode[] {
+  if (parentPath.length === 0) return [...nodes, node];
+  const [head, ...tail] = parentPath;
+  return nodes.map((candidate) =>
+    candidate.type === "group" && candidate.id === head
+      ? {
+          ...candidate,
+          children: appendNodeAtPath(candidate.children, tail, node),
+        }
+      : candidate,
+  );
+}
+
 function translateNodeTree(
   node: SlideChildNode,
   delta: { x: number; y: number },
@@ -1374,16 +1459,24 @@ export function groupNodes(
   groupId: string,
   style: StyleBinding,
 ): DeckV7 {
-  const idSet = new Set(nodeIds);
+  const selectedIds = new Set(nodeIds);
   return mapSlides(deck, (slide) => {
     if (slide.id !== slideId) return slide;
-
-    const grouped: SlideChildNode[] = [];
-    const remaining: SlideChildNode[] = [];
-    for (const child of slide.children) {
-      if (idSet.has(child.id)) grouped.push(child);
-      else remaining.push(child);
-    }
+    const groupedIds = topLevelSelectedNodeIds(slide.children, selectedIds);
+    if (groupedIds.length === 0) return slide;
+    const groupedIdSet = new Set(groupedIds);
+    const parentPaths = groupedIds
+      .map((id) => findParentPathById(slide.children, id))
+      .filter((path): path is string[] => path !== null);
+    const insertionPath = commonAncestorPath(parentPaths);
+    const keepGroupIds = new Set(insertionPath);
+    const extracted = extractSelectedNodesForGrouping(
+      slide.children,
+      groupedIdSet,
+      keepGroupIds,
+    );
+    const grouped = extracted.selected;
+    const remaining = extracted.nodes;
 
     if (grouped.length === 0) return slide;
 
@@ -1409,7 +1502,10 @@ export function groupNodes(
       children: grouped,
     };
 
-    return { ...slide, children: [...remaining, groupNode] };
+    return {
+      ...slide,
+      children: appendNodeAtPath(remaining, insertionPath, groupNode),
+    };
   });
 }
 
