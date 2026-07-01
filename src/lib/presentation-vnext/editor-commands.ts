@@ -138,6 +138,52 @@ function expandNodeIds(
   return expanded;
 }
 
+function topLevelSelectedNodeIds(
+  nodes: readonly SlideChildNode[],
+  selectedIds: ReadonlySet<string>,
+  insideSelectedGroup = false,
+  result: string[] = [],
+): string[] {
+  for (const node of nodes) {
+    const selected = selectedIds.has(node.id);
+    if (selected && !insideSelectedGroup) result.push(node.id);
+    if (node.type === "group") {
+      topLevelSelectedNodeIds(
+        node.children,
+        selectedIds,
+        insideSelectedGroup || selected,
+        result,
+      );
+    }
+  }
+  return result;
+}
+
+function translateNodeTree(
+  node: SlideChildNode,
+  delta: { x: number; y: number },
+): SlideChildNode {
+  const layout = node.layout
+    ? {
+        ...node.layout,
+        frame: {
+          ...node.layout.frame,
+          x: node.layout.frame.x + delta.x,
+          y: node.layout.frame.y + delta.y,
+        },
+      }
+    : node.layout;
+  if (node.type === "group") {
+    return {
+      ...node,
+      ...(layout ? { layout } : {}),
+      children: node.children.map((child) => translateNodeTree(child, delta)),
+    };
+  }
+  if (!layout) return node;
+  return { ...node, layout } as SlideChildNode;
+}
+
 function duplicateNodeWithIds(
   node: SlideChildNode,
   nextId: (sourceId: string) => string,
@@ -878,17 +924,27 @@ export function updateNodeLayout(
 ): DeckV7 {
   return mapSlides(deck, (slide) => {
     if (slide.id !== slideId) return slide;
-    return mapChildren(
-      slide,
-      nodeId,
-      (node) =>
-        ({
-          ...node,
-          layout: node.layout
-            ? { ...node.layout, ...layoutPatch }
-            : (layoutPatch as LayoutBox),
-        }) as SlideChildNode,
-    );
+    return mapChildren(slide, nodeId, (node) => {
+      const nextLayout = node.layout
+        ? { ...node.layout, ...layoutPatch }
+        : (layoutPatch as LayoutBox);
+      if (node.type === "group" && node.layout?.frame && layoutPatch.frame) {
+        const delta = {
+          x: layoutPatch.frame.x - node.layout.frame.x,
+          y: layoutPatch.frame.y - node.layout.frame.y,
+        };
+        if (delta.x !== 0 || delta.y !== 0) {
+          return {
+            ...node,
+            layout: nextLayout,
+            children: node.children.map((child) =>
+              translateNodeTree(child, delta),
+            ),
+          };
+        }
+      }
+      return { ...node, layout: nextLayout } as SlideChildNode;
+    });
   });
 }
 
@@ -967,7 +1023,12 @@ export function moveNodesBy(
   const patches = new Map<string, Partial<LayoutBox>>();
   const slide = deck.slides.find((candidate) => candidate.id === slideId);
   if (!slide) return deck;
-  const nodes = collectNodesById(slide.children, new Set(nodeIds));
+  const selectedIds = new Set(nodeIds);
+  const topLevelSelectedIds = topLevelSelectedNodeIds(
+    slide.children,
+    selectedIds,
+  );
+  const nodes = collectNodesById(slide.children, new Set(topLevelSelectedIds));
   for (const node of nodes) {
     if (!node.layout || node.locked) continue;
     patches.set(node.id, {
