@@ -77,6 +77,20 @@ describe("SlideEditorVNext toolbar command ownership", () => {
     );
   });
 
+  test("wires keyboard shortcut help button to the shared dialog surface", () => {
+    assert.equal(
+      source.includes("onClick={() => setShortcutHelpOpen(true)}"),
+      true,
+    );
+    assert.equal(source.includes('aria-label="Keyboard shortcuts"'), true);
+    assert.equal(
+      source.includes(
+        "<KeyboardShortcutHelpDialog\n        open={shortcutHelpOpen}",
+      ),
+      true,
+    );
+  });
+
   test("gives zoom and status popovers menu trigger semantics", () => {
     assert.equal(
       source.includes("aria-label={`Set slide zoom (${stageZoomPercent}%)`}"),
