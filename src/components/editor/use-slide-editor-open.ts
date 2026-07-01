@@ -43,6 +43,10 @@ import {
 import { pickUndoFocusTarget } from "@/lib/presentation-vnext/deck-diff";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import {
+  dedupePresentationDiagnostics,
+  mergePresentationDiagnostics,
+} from "@/lib/presentation-vnext/diagnostic-handoff";
+import {
   SAVE_CONFLICT_AUTOSAVE_BLOCKED_MESSAGE,
   hasUnresolvedDeckSaveConflict,
   updateConflictLocalDeck,
@@ -57,6 +61,8 @@ export interface AiPreviewStateV7 {
   baselineDeck: DeckV7;
   /** Whether the source outline was trimmed to fit the input budget. */
   truncated: boolean;
+  /** AI repair/compile diagnostics from generation and preview regenerate. */
+  generationDiagnostics: PresentationDiagnostic[];
   /** Generation options, re-sent verbatim on Regenerate. */
   options: DeckGenerationOptions;
   /** The document snapshot, re-sent verbatim on Regenerate / used on apply. */
@@ -292,24 +298,31 @@ export function useSlideEditorOpen({
   }, [enterRecoveryV7, finishOpenV7, prepareOpenV7]);
 
   const openWithAiDeckV7 = useCallback(
-    (aiDeck: DeckV7) => {
+    (aiDeck: DeckV7, generationDiagnostics: PresentationDiagnostic[] = []) => {
       // Route AI proposals through the same open boundary so a malformed deck
       // surfaces recovery diagnostics instead of silently blanking the editor.
       const opened = openAiGeneratedDeck(aiDeck);
       if (!opened.ok) {
         enterRecoveryV7({
           error: opened.error,
-          diagnostics: opened.diagnostics,
+          diagnostics: mergePresentationDiagnostics(
+            generationDiagnostics,
+            opened.diagnostics,
+          ),
           validationErrors: opened.errors,
         });
         return;
       }
+      const mergedDiagnostics = mergePresentationDiagnostics(
+        generationDiagnostics,
+        opened.diagnostics,
+      );
       aiAppliedDeckRef.current = opened.deck;
       emitProductTelemetry("product.ai.deck.applied", {
         editDistanceBucket: bucketCount(opened.deck.slides.length),
         slideCount: opened.deck.slides.length,
       });
-      finishOpenV7(opened.deck, opened.diagnostics);
+      finishOpenV7(opened.deck, mergedDiagnostics);
     },
     [enterRecoveryV7, finishOpenV7],
   );
@@ -318,6 +331,7 @@ export function useSlideEditorOpen({
     async (
       proposedDeck: DeckV7,
       truncated: boolean,
+      generationDiagnostics: PresentationDiagnostic[],
       options: DeckGenerationOptions,
       json: string,
     ) => {
@@ -330,6 +344,9 @@ export function useSlideEditorOpen({
         proposedDeck,
         baselineDeck,
         truncated,
+        generationDiagnostics: dedupePresentationDiagnostics(
+          generationDiagnostics,
+        ),
         options,
         contentJson: json,
       });
@@ -468,14 +485,22 @@ export function useSlideEditorOpen({
     ({
       deckV7: generatedV7,
       truncated,
+      diagnostics,
       options,
     }: {
       deckV7: DeckV7;
       truncated: boolean;
+      diagnostics: PresentationDiagnostic[];
       options: DeckGenerationOptions;
     }) => {
       if (!pendingJson) return;
-      void showAiPreviewV7(generatedV7, truncated, options, pendingJson);
+      void showAiPreviewV7(
+        generatedV7,
+        truncated,
+        diagnostics,
+        options,
+        pendingJson,
+      );
     },
     [pendingJson, showAiPreviewV7],
   );
@@ -492,9 +517,9 @@ export function useSlideEditorOpen({
   }, []);
 
   const handleAiPreviewV7Apply = useCallback(
-    (applied: DeckV7) => {
+    (applied: DeckV7, generationDiagnostics: PresentationDiagnostic[]) => {
       if (aiPreviewV7) {
-        openWithAiDeckV7(applied);
+        openWithAiDeckV7(applied, generationDiagnostics);
       }
     },
     [aiPreviewV7, openWithAiDeckV7],
