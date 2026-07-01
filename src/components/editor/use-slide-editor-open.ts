@@ -39,12 +39,13 @@ import {
   CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE,
   reloadConflictServerDeckV7,
 } from "@/lib/presentation-vnext/conflict-recovery-reload-v7";
-import {
-  decideDeckOpen,
-  openAiGeneratedDeck,
-} from "@/lib/presentation-vnext/open-deck";
+import { openAiGeneratedDeck } from "@/lib/presentation-vnext/open-deck";
 import { deriveDeckV7FromDocumentContent } from "@/lib/presentation-vnext/deck-derivation";
 import { pickUndoFocusTarget } from "@/lib/presentation-vnext/deck-diff";
+import {
+  prepareDeckForOpenV7,
+  type PreparedDeckForOpenV7,
+} from "@/lib/presentation-vnext/deck-open-preparation-v7";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import {
   dedupePresentationDiagnostics,
@@ -87,15 +88,6 @@ const SAVE_CONFLICT_ERROR_MESSAGE =
   "Save conflict: another session modified this deck.";
 const SAVE_DECK_REJECTED_FALLBACK_MESSAGE =
   "Couldn't save your deck. Check your connection and retry.";
-
-type PreparedDeckV7 =
-  | { ok: true; deck: DeckV7; diagnostics: PresentationDiagnostic[] }
-  | {
-      ok: false;
-      error: string;
-      diagnostics: PresentationDiagnostic[];
-      validationErrors?: string[];
-    };
 
 export type SlideEditorOpenErrorV7 = {
   error: string;
@@ -510,47 +502,27 @@ export function useSlideEditorOpen({
     [cancelAutosaveV7, onOpenRightSurface],
   );
 
-  const prepareOpenV7 = useCallback(async (): Promise<PreparedDeckV7> => {
-    let fetchedRaw: unknown = null;
-    try {
-      const fetched = await deckPort.fetchDeckJson(documentId);
-      if (!fetched.ok) {
-        return {
-          ok: false,
-          error: fetched.error,
-          diagnostics: [],
-        };
-      }
-      fetchedRaw = fetched.deckJson;
-      revisionTokenRef.current = fetched.revisionToken;
-    } catch {
-      // Network/auth error: fall back to the last in-memory deck, then blank v7.
-    }
-
-    const rawCandidate = fetchedRaw ?? lastSavedRef.current ?? null;
-    const decision = decideDeckOpen(rawCandidate);
-    if (decision.mode === "blank") {
-      return { ok: true, deck: fallbackDeck(), diagnostics: [] };
-    }
-    if (decision.mode === "open") {
-      return {
-        ok: true,
-        deck: decision.deck,
-        diagnostics: decision.diagnostics,
-      };
-    }
-    return {
-      ok: false,
-      error: decision.error,
-      diagnostics: decision.diagnostics,
-      validationErrors: decision.errors,
-    };
-  }, [deckPort, documentId, fallbackDeck]);
+  const prepareOpenV7 =
+    useCallback(async (): Promise<PreparedDeckForOpenV7> => {
+      return await prepareDeckForOpenV7({
+        documentId,
+        deckPort,
+        fallbackDeck,
+        onFetchFailure: ({ reason, error }) => {
+          logInfo("editor.slide-editor", "v7-open-fetch-failed", {
+            documentId,
+            reason,
+            error,
+          });
+        },
+      });
+    }, [deckPort, documentId, fallbackDeck]);
 
   const openSavedV7 = useCallback(async () => {
     aiAppliedDeckRef.current = null;
     const prepared = await prepareOpenV7();
     if (prepared.ok) {
+      revisionTokenRef.current = prepared.revisionToken;
       finishOpenV7(prepared.deck, prepared.diagnostics);
       return;
     }
@@ -613,13 +585,18 @@ export function useSlideEditorOpen({
       json: string,
     ) => {
       const preparedBaseline = await prepareOpenV7();
-      const baselineDeck = preparedBaseline.ok
-        ? preparedBaseline.deck
-        : fallbackDeck();
+      if (!preparedBaseline.ok) {
+        enterRecoveryV7({
+          error: preparedBaseline.error,
+          diagnostics: preparedBaseline.diagnostics,
+          validationErrors: preparedBaseline.validationErrors,
+        });
+        return;
+      }
       setPendingJson(null);
       setAiPreviewV7({
         proposedDeck,
-        baselineDeck,
+        baselineDeck: preparedBaseline.deck,
         truncated,
         generationDiagnostics: dedupePresentationDiagnostics(
           generationDiagnostics,
@@ -628,7 +605,7 @@ export function useSlideEditorOpen({
         contentJson: json,
       });
     },
-    [fallbackDeck, prepareOpenV7],
+    [enterRecoveryV7, prepareOpenV7],
   );
 
   const effectiveContentJson = useCallback(

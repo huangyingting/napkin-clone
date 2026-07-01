@@ -16,9 +16,10 @@ import { useCallback, useState } from "react";
 import { PresentModeVNext } from "@/components/presentation-vnext/present-mode-vnext";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import type { DeckFetchPort } from "@/lib/action-ports";
+import { logInfo } from "@/lib/log";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
-import { decideDeckOpen } from "@/lib/presentation-vnext/open-deck";
+import { prepareDeckForOpenV7 } from "@/lib/presentation-vnext/deck-open-preparation-v7";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
@@ -26,7 +27,6 @@ import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-packa
 interface PresentButtonProps {
   documentId: string;
   deckPort: DeckFetchPort;
-  initialDeckJson: unknown;
   documentTitle?: string;
   iconOnly?: boolean;
 }
@@ -100,7 +100,6 @@ function PresentOpenRecovery({
 export function PresentButton({
   documentId,
   deckPort,
-  initialDeckJson,
   documentTitle,
   iconOnly = false,
 }: PresentButtonProps) {
@@ -108,41 +107,39 @@ export function PresentButton({
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePresent = useCallback(async () => {
-    let fetchedRaw: unknown = null;
     setIsLoading(true);
-    try {
-      const fetched = await deckPort.fetchDeckJson(documentId);
-      if (fetched.ok) {
-        fetchedRaw = fetched.deckJson;
-      }
-    } catch {
-      // Network/auth error: fall back to page-load deckJson, then blank v7.
-    } finally {
-      setIsLoading(false);
-    }
+    const prepared = await prepareDeckForOpenV7({
+      documentId,
+      deckPort,
+      fallbackDeck: () =>
+        createBlankDeckV7({ documentId, title: documentTitle }),
+      onFetchFailure: ({ reason, error }) => {
+        logInfo("editor.present", "v7-open-fetch-failed", {
+          documentId,
+          reason,
+          error,
+        });
+      },
+    });
+    setIsLoading(false);
 
-    const candidate = fetchedRaw ?? initialDeckJson ?? null;
-    const decision = decideDeckOpen(candidate);
-    if (decision.mode === "recovery") {
+    if (!prepared.ok) {
       setPresentData({
         mode: "recovery",
-        error: decision.error,
-        diagnostics: decision.diagnostics,
-        validationErrors: decision.errors,
+        error: prepared.error,
+        diagnostics: prepared.diagnostics,
+        validationErrors: prepared.validationErrors,
       });
       return;
     }
-    const deck =
-      decision.mode === "open"
-        ? decision.deck
-        : createBlankDeckV7({ documentId, title: documentTitle });
-    const themeResolution = resolveThemePackageForDeck(deck);
+
+    const themeResolution = resolveThemePackageForDeck(prepared.deck);
     setPresentData({
       mode: "deck",
-      deck,
+      deck: prepared.deck,
       themePackage: themeResolution.package,
     });
-  }, [deckPort, documentId, documentTitle, initialDeckJson]);
+  }, [deckPort, documentId, documentTitle]);
 
   const handleClose = useCallback(() => {
     setPresentData(null);
