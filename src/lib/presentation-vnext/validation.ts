@@ -645,6 +645,7 @@ const SHAPE_KINDS = [
   "square",
   "path",
 ] as const;
+const IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
 const GROUP_COMPONENT_KINDS = [
   "metricCard",
   "quoteBlock",
@@ -683,6 +684,47 @@ const SOURCE_REFRESH_STATES = [
   "unlinked",
   "unknown",
 ] as const;
+
+function validatePointPct(input: unknown, ctx: string, errors: string[]): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["x", "y"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known point field`);
+    }
+  }
+  if (!isFiniteNumber(input.x)) {
+    fail(errors, `${ctx}.x must be a finite number`);
+  }
+  if (!isFiniteNumber(input.y)) {
+    fail(errors, `${ctx}.y must be a finite number`);
+  }
+}
+
+function validateImageCrop(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known crop field`);
+    }
+  }
+  for (const key of ["top", "right", "bottom", "left"] as const) {
+    if (!isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
 
 function validateStringField(
   value: unknown,
@@ -881,11 +923,30 @@ function validateChildNode(
     case "image":
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
-      } else if (
-        typeof input.content.assetId !== "string" ||
-        input.content.assetId.length === 0
-      ) {
-        fail(errors, `${ctx}.content.assetId must be a non-empty string`);
+      } else {
+        if (
+          typeof input.content.assetId !== "string" ||
+          input.content.assetId.length === 0
+        ) {
+          fail(errors, `${ctx}.content.assetId must be a non-empty string`);
+        }
+        if (input.content.crop !== undefined) {
+          validateImageCrop(input.content.crop, `${ctx}.content.crop`, errors);
+        }
+        validateEnumValue(
+          input.content.fit,
+          IMAGE_FIT_MODES,
+          `${ctx}.content.fit`,
+          errors,
+        );
+        if (input.content.focalPoint !== undefined) {
+          validatePointPct(
+            input.content.focalPoint,
+            `${ctx}.content.focalPoint`,
+            errors,
+          );
+        }
+        validateOptionalString(input.content.alt, `${ctx}.content.alt`, errors);
       }
       break;
     case "shape": {
