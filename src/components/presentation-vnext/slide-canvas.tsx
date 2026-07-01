@@ -44,7 +44,14 @@ import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
 
 export type ResizeHandlePosition =
-  "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+  | "nw"
+  | "n"
+  | "ne"
+  | "e"
+  | "se"
+  | "s"
+  | "sw"
+  | "w";
 
 export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
@@ -259,8 +266,12 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const userNodes = flattenNodes(slide.nodes).map((node) =>
     applyNodeGestureDraft(node, nodeGestureDrafts),
   );
+  const isHiddenNode = (nodeId: string) => hiddenNodeIds?.has(nodeId) === true;
+  const stageChromeUserNodes = userNodes.filter(
+    (node) => !isHiddenNode(node.id),
+  );
   const selectedUserNodes = selection
-    ? userNodes.filter((node) => isSelected(selection, node.id))
+    ? stageChromeUserNodes.filter((node) => isSelected(selection, node.id))
     : [];
   const selectedResizableNodes = selectedUserNodes.filter(
     (node) => node.locked !== true,
@@ -276,12 +287,12 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   );
   const activeGroupNode =
     activeGroupId && !preview
-      ? userNodes.find(
+      ? stageChromeUserNodes.find(
           (node) => node.id === activeGroupId && node.type === "group",
         )
       : undefined;
   const preselectedUserNodes = !preview
-    ? userNodes.filter(
+    ? stageChromeUserNodes.filter(
         (node) =>
           !selectedUserNodes.some(
             (selectedNode) => selectedNode.id === node.id,
@@ -321,7 +332,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           assetResolver={assetResolver}
           preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
+          hidden={isHiddenNode(node.id)}
           // Decorations are never interactive in the normal canvas
         />
       ))}
@@ -333,7 +344,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           assetResolver={assetResolver}
           preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
+          hidden={isHiddenNode(node.id)}
         />
       ))}
 
@@ -372,7 +383,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
               onTableCellKeyDown={onTableCellKeyDown}
               assetResolver={assetResolver}
               preview={preview}
-              hidden={hiddenNodeIds?.has(node.id)}
+              hidden={isHiddenNode(node.id)}
             />
           );
         })(),
@@ -385,7 +396,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           assetResolver={assetResolver}
           preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
+          hidden={isHiddenNode(node.id)}
         />
       ))}
 
@@ -630,7 +641,8 @@ function nodeChromeOverlayFrameStyle(
 function applyNodeGestureDraft(
   node: ResolvedRenderNode,
   nodeGestureDrafts:
-    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined,
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined,
 ): ResolvedRenderNode {
   const draft = nodeGestureDrafts?.get(node.id);
   if (!draft) return node;
