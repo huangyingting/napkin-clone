@@ -205,6 +205,10 @@ import {
 } from "./toolbar/context-toolbar";
 import { Filmstrip } from "./filmstrip/filmstrip";
 import {
+  readFilmstripCollapsed,
+  writeFilmstripCollapsed,
+} from "./filmstrip/filmstrip-collapse-storage";
+import {
   AddSlideTemplatePicker,
   type AddSlideTemplateChoice,
 } from "./add-slide-template-picker";
@@ -250,7 +254,6 @@ const TEXT_SLOT_KEYS = new Set<SlotKey>([
   "statLabel",
   "caption",
 ]);
-const FILMSTRIP_COLLAPSED_KEY = "slide-filmstrip-collapsed";
 const ZOOM_PERCENT_PRESETS = [200, 150, 125, 100, 75, 50, 25] as const;
 
 function isMobileInspectorViewport(): boolean {
@@ -1266,10 +1269,9 @@ export function SlideEditorVNext({
   const [stageZoomPercent, setStageZoomPercent] = useState(100);
   const [stageViewportSize, setStageViewportSize] =
     useState<StageFitSize | null>(null);
-  const [filmstripCollapsed, setFilmstripCollapsed] = useState(() => {
-    if (typeof localStorage === "undefined") return false;
-    return localStorage.getItem(FILMSTRIP_COLLAPSED_KEY) === "true";
-  });
+  const [filmstripCollapsed, setFilmstripCollapsed] = useState(() =>
+    readFilmstripCollapsed(documentId),
+  );
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
@@ -1403,12 +1405,14 @@ export function SlideEditorVNext({
     };
   }, []);
 
+  useEffect(() => {
+    setFilmstripCollapsed(readFilmstripCollapsed(documentId));
+  }, [documentId]);
+
   function toggleFilmstripCollapsed() {
     setFilmstripCollapsed((prev) => {
       const next = !prev;
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(FILMSTRIP_COLLAPSED_KEY, String(next));
-      }
+      writeFilmstripCollapsed(documentId, next);
       return next;
     });
   }
