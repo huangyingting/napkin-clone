@@ -13,6 +13,7 @@ import {
   shortcutDisplayTokens,
   shortcutsForScope,
 } from "./catalog";
+import { V7_CANVAS_RUNTIME_SHORTCUT_IDS } from "./canvas-runtime";
 
 describe("shortcut catalog registry (#737, #751)", () => {
   test("has unique ids and complete executable metadata", () => {
@@ -116,9 +117,9 @@ describe("shortcut catalog registry (#737, #751)", () => {
       "P",
     ]);
 
-    const newSlide = shortcutById("canvas.slides.new");
-    assert.equal(shortcutDisplayLabel(newSlide, { isMac: true }), "⌘ + N");
-    assert.equal(shortcutDisplayLabel(newSlide, { isMac: false }), "Ctrl + N");
+    const group = shortcutById("canvas.arrange.group");
+    assert.equal(shortcutDisplayLabel(group, { isMac: true }), "⌘ + G");
+    assert.equal(shortcutDisplayLabel(group, { isMac: false }), "Ctrl + G");
   });
 
   test("presentation shortcuts expose runtime navigation and in-app-only tools", () => {
@@ -139,19 +140,36 @@ describe("shortcut catalog registry (#737, #751)", () => {
     assert.equal(shortcutById("presentation.laser").showInGlobalHelp, false);
   });
 
-  test("canvas rotation shortcuts use bracket keys without colliding with arrows", () => {
-    assert.equal(matchesShortcut("canvas.rotate.step", key("]")), true);
+  test("canvas arrange shortcuts use bracket keys and modifier variants", () => {
     assert.equal(
-      matchesShortcut("canvas.rotate.step", key("ArrowRight")),
-      false,
-    );
-    assert.equal(
-      matchesShortcut("canvas.rotate.fine-step", key("{", { shiftKey: true })),
+      matchesShortcut("canvas.arrange.forward-backward", key("]")),
       true,
     );
     assert.equal(
-      matchesShortcut("canvas.rotate.fine-step", key("[", { ctrlKey: true })),
+      matchesShortcut("canvas.arrange.forward-backward", key("ArrowRight")),
       false,
+    );
+    assert.equal(
+      matchesShortcut("canvas.arrange.front-back", key("]", { ctrlKey: true })),
+      true,
+    );
+    assert.equal(
+      matchesShortcut(
+        "canvas.arrange.front-back",
+        key("[", { shiftKey: true }),
+      ),
+      false,
+    );
+  });
+
+  test("v7 canvas catalog ids stay aligned with runtime handler ids", () => {
+    const canvasIds = SHORTCUT_REGISTRY.filter(
+      (shortcut) => shortcut.surface === "slide-canvas",
+    ).map((shortcut) => shortcut.id);
+    assert.equal(canvasIds.length, V7_CANVAS_RUNTIME_SHORTCUT_IDS.length);
+    assert.deepEqual(
+      canvasIds.slice().sort(),
+      Array.from(V7_CANVAS_RUNTIME_SHORTCUT_IDS).sort(),
     );
   });
 });

@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache";
 
 import { requireDocumentActionContext } from "./document-context";
 import { prisma } from "@/lib/prisma";
-import { logInfo } from "@/lib/log";
+import { logError, logInfo } from "@/lib/log";
 import {
   persistDeck,
   patchDeck,
   persistDeckCommand,
 } from "@/lib/document/persistence-service";
 import type {
+  FetchDeckResult,
+  SaveDeckFailureResult,
   SaveDeckPatchResult,
   SaveDeckResult,
 } from "@/lib/document/persistence-types";
@@ -21,27 +23,55 @@ import {
   type CommandEnvelope,
 } from "@/lib/commands/command-envelope";
 
+function fail(
+  error: string,
+  code: SaveDeckFailureResult["failure"]["code"],
+  retryable: boolean,
+): SaveDeckFailureResult {
+  return { ok: false, error, failure: { code, retryable } };
+}
+
 /**
  * Returns `{ deckJson, revisionToken }` for a document so the slide editor can
  * seed itself from the freshest server state rather than the stale page-load
  * prop (issue #155). `deckJson` is `null` when no deck has been saved yet;
  * `revisionToken` is `null` for documents that have not yet received a token
- * (first save). Requires at least view access.
+ * (first save). Returns a structured `{ ok: false, failure }` result for
+ * missing documents and storage faults instead of throwing.
  */
-export async function fetchDeckJson(
-  id: string,
-): Promise<{ deckJson: unknown; revisionToken: string | null }> {
+export async function fetchDeckJson(id: string): Promise<FetchDeckResult> {
   await requireDocumentActionContext(id, "view");
 
-  const document = await prisma.document.findUniqueOrThrow({
-    where: { id },
-    select: { deckJson: true, deckRevisionToken: true },
-  });
+  try {
+    const document = await prisma.document.findUnique({
+      where: { id },
+      select: { deckJson: true, deckRevisionToken: true },
+    });
+    if (!document) {
+      return {
+        ok: false,
+        deckJson: null,
+        revisionToken: null,
+        error: "Document not found.",
+        failure: { code: "document_not_found", retryable: false },
+      };
+    }
 
-  return {
-    deckJson: document.deckJson,
-    revisionToken: document.deckRevisionToken,
-  };
+    return {
+      ok: true,
+      deckJson: document.deckJson,
+      revisionToken: document.deckRevisionToken,
+    };
+  } catch (error) {
+    logError("deck.fetch", error, { documentId: id });
+    return {
+      ok: false,
+      deckJson: null,
+      revisionToken: null,
+      error: "Failed to load deck. Please try again.",
+      failure: { code: "storage_unavailable", retryable: true },
+    };
+  }
 }
 
 /**
@@ -75,9 +105,19 @@ export async function saveDeckJson(
 ): Promise<SaveDeckResult> {
   const { user } = await requireDocumentActionContext(id, "edit");
 
-  const result = await persistDeck(id, deckJson, clientToken, {
-    userId: user.id,
-  });
+  let result: SaveDeckResult;
+  try {
+    result = await persistDeck(id, deckJson, clientToken, {
+      userId: user.id,
+    });
+  } catch (error) {
+    logError("deck.save", error, { documentId: id });
+    return fail(
+      "Failed to save deck. Please try again.",
+      "storage_unavailable",
+      true,
+    );
+  }
 
   if (result.ok === true) {
     revalidatePath(`/app/documents/${id}`);
@@ -101,7 +141,17 @@ export async function saveDeckPatch(
 ): Promise<SaveDeckPatchResult> {
   const { user } = await requireDocumentActionContext(id, "edit");
 
-  const result = await patchDeck(id, patches, clientToken, { userId: user.id });
+  let result: SaveDeckPatchResult;
+  try {
+    result = await patchDeck(id, patches, clientToken, { userId: user.id });
+  } catch (error) {
+    logError("deck.patch", error, { documentId: id });
+    return fail(
+      "Failed to save deck patches. Please try again.",
+      "storage_unavailable",
+      true,
+    );
+  }
 
   if (result.ok === true) {
     revalidatePath(`/app/documents/${id}`);
@@ -144,10 +194,21 @@ export async function saveDeckCommand(
     return {
       ok: false,
       error: `Rejected command (${acceptance.code}): ${acceptance.errors.join("; ")}`,
+      failure: { code: "command_rejected", retryable: false },
     };
   }
 
-  const persisted = await persistDeckCommand(id, envelope, { userId: user.id });
+  let persisted: SaveDeckResult;
+  try {
+    persisted = await persistDeckCommand(id, envelope, { userId: user.id });
+  } catch (error) {
+    logError("deck.command", error, { documentId: id });
+    return fail(
+      "Failed to save deck command. Please try again.",
+      "storage_unavailable",
+      true,
+    );
+  }
 
   if (persisted.ok === true) {
     revalidatePath(`/app/documents/${id}`);

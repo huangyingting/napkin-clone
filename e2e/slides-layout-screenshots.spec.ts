@@ -1,51 +1,34 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { login } from "./helpers/auth";
+import {
+  e2eProfileEnabled,
+  profileLayoutDocPath,
+  profileOwnerCredentials,
+} from "./helpers/profile";
+
 /**
- * Playwright layout-screenshot spec for the Concept B slide editor
- * (Epic #576, issue #590).
+ * Playwright layout screenshots for the v7 slide editor.
  *
- * Captures the editor shell across desktop, tablet, and mobile viewports and
- * across the key layout states the redesign introduced:
+ * Coverage:
+ *  - desktop / tablet / mobile
  *  - rail visible / hidden
- *  - right supplemental panel closed / open
- *  - speaker notes collapsed / expanded
- *  - selected-object context toolbar visible
+ *  - notes collapsed / expanded
+ *  - right panel open with a selected node
  *
- * The goal is to assert that the canvas, rail, dock, panel, and toolbar lay out
- * coherently (no overlap) at each breakpoint. Comparisons use
- * `toHaveScreenshot()` with a stable pixel tolerance: the first opt-in run
- * generates baselines, subsequent runs compare.
- *
- * These tests require a running application and a seeded editor document. They
- * are NOT part of the unit gate (`npm test`) and are skipped cleanly when:
- *  - The `E2E_SLIDES_LAYOUT_SCREENSHOTS` env var is not set to `1`.
- *  - The app is unreachable or the editor route 404s.
- *
- * To generate / refresh baselines:
- *   E2E_SLIDES_LAYOUT_SCREENSHOTS=1 npx playwright test \
- *     slides-layout-screenshots.spec.ts --update-snapshots
- *
- * To run comparisons:
- *   E2E_SLIDES_LAYOUT_SCREENSHOTS=1 npx playwright test \
- *     slides-layout-screenshots.spec.ts
+ * The deterministic profile fixture is the default source of truth. Under
+ * `E2E_PROFILE=1` this suite is a hard gate: unavailable fixtures fail the run
+ * instead of skipping silently.
  */
 
-// ---------------------------------------------------------------------------
-// Guard — skip unless explicitly opted in via env var.
-// ---------------------------------------------------------------------------
-
+const PROFILE_LAYOUT_GATE = e2eProfileEnabled();
 const LAYOUT_SCREENSHOTS_ENABLED =
-  process.env.E2E_SLIDES_LAYOUT_SCREENSHOTS === "1";
+  PROFILE_LAYOUT_GATE || process.env.E2E_SLIDES_LAYOUT_SCREENSHOTS === "1";
+const USE_PROFILE_LAYOUT_FIXTURE =
+  PROFILE_LAYOUT_GATE || process.env.E2E_SLIDES_EDITOR_PATH === undefined;
 
-// The editor route to capture. Override with E2E_SLIDES_EDITOR_PATH to point at
-// a deterministic seeded document in your environment.
 const EDITOR_PATH =
-  process.env.E2E_SLIDES_EDITOR_PATH ??
-  "/app/documents/regression-test-doc/slides";
-
-// ---------------------------------------------------------------------------
-// Viewports — desktop, tablet, mobile.
-// ---------------------------------------------------------------------------
+  process.env.E2E_SLIDES_EDITOR_PATH ?? profileLayoutDocPath();
 
 const VIEWPORTS = [
   { name: "desktop", width: 1280, height: 800 },
@@ -56,11 +39,9 @@ const VIEWPORTS = [
 const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.02,
   threshold: 0.2,
+  animations: "disabled",
+  caret: "hide",
 } as const;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 async function settleLayout(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -79,46 +60,79 @@ async function locatorExists(locator: Locator): Promise<boolean> {
   }
 }
 
-function skipUnavailableLayoutFixture(): never {
-  // e2e-governance-allow test-skip: opt-in layout screenshots depend on a seeded editor fixture.
-  test.skip(true, "Slide layout screenshot fixture unavailable");
-  throw new Error("Slide layout screenshot fixture unavailable");
+async function activate(locator: Locator): Promise<void> {
+  await locator.focus();
+  await locator.press("Enter");
 }
 
-/**
- * Navigate to the editor and wait for the stage. Returns `true` when the editor
- * is reachable and rendered, `false` when the test should skip.
- */
-async function openEditor(page: Page): Promise<boolean> {
-  let response;
-  try {
-    response = await page.goto(EDITOR_PATH);
-  } catch {
-    return false;
+function throwFixtureUnavailable(reason: string): never {
+  throw new Error(
+    `${reason}. Seed the deterministic profile fixture with \`npm run db:seed:e2e\` and run with E2E_PROFILE=1 (or set E2E_SLIDES_LAYOUT_SCREENSHOTS=1 for explicit screenshot runs).`,
+  );
+}
+
+async function openEditor(page: Page): Promise<Locator> {
+  if (USE_PROFILE_LAYOUT_FIXTURE) {
+    await login(page, profileOwnerCredentials());
+    await page.goto(EDITOR_PATH, { waitUntil: "domcontentloaded" });
+  } else {
+    let response;
+    try {
+      response = await page.goto(EDITOR_PATH);
+    } catch {
+      throwFixtureUnavailable(
+        `Slide editor path ${EDITOR_PATH} is unreachable`,
+      );
+    }
+    if (!response || response.status() === 404) {
+      throwFixtureUnavailable(`Slide editor path ${EDITOR_PATH} returned 404`);
+    }
   }
 
-  if (!response || response.status() === 404) {
-    return false;
+  const editor = page.getByRole("dialog", { name: "Slide editor" }).first();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await editor.waitFor({ state: "visible", timeout: 4_000 });
+      break;
+    } catch {
+      const openEditorButton = page.getByRole("button", {
+        name: "Open slide editor",
+      });
+      try {
+        await openEditorButton.waitFor({ state: "visible", timeout: 15_000 });
+      } catch {
+        throwFixtureUnavailable(
+          `Slide editor did not open at ${EDITOR_PATH} and no "Open slide editor" button was found`,
+        );
+      }
+      await activate(openEditorButton);
+      try {
+        await editor.waitFor({ state: "visible", timeout: 10_000 });
+        break;
+      } catch {
+        if (attempt === 2) {
+          throwFixtureUnavailable("Slide editor dialog did not render");
+        }
+        await page.goto(EDITOR_PATH, { waitUntil: "domcontentloaded" });
+      }
+    }
   }
 
-  const stage = page
-    .locator('[data-testid="slide-canvas"], .slide-canvas, [role="main"]')
+  const stage = editor
+    .locator(
+      '[data-slide-stage], [data-slide-stage-shell="true"], [data-slide-canvas-vnext="true"], [data-testid="slide-canvas"], .slide-canvas',
+    )
     .first();
   try {
-    await stage.waitFor({ state: "visible", timeout: 10_000 });
+    await stage.waitFor({ state: "visible", timeout: 20_000 });
   } catch {
-    return false;
+    throwFixtureUnavailable("Slide stage shell did not render");
   }
 
   await settleLayout(page);
-  return true;
+  return editor;
 }
 
-/**
- * Click a control by accessible name if present. Best-effort: missing controls
- * (e.g. a state already toggled at a given breakpoint) are ignored so the spec
- * stays resilient across breakpoints.
- */
 async function clickByName(page: Page, name: string | RegExp): Promise<void> {
   const control = page.getByRole("button", { name }).first();
   if (!(await locatorExists(control))) {
@@ -133,47 +147,39 @@ async function clickByName(page: Page, name: string | RegExp): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 for (const viewport of VIEWPORTS) {
   test.describe(`slides layout screenshots — ${viewport.name}`, () => {
+    test.describe.configure({ timeout: 90_000 });
+
     test.beforeEach(({ page }) => {
       test.skip(
         !LAYOUT_SCREENSHOTS_ENABLED,
-        "Set E2E_SLIDES_LAYOUT_SCREENSHOTS=1 to run slide layout screenshots",
+        "Set E2E_PROFILE=1 (deterministic gate) or E2E_SLIDES_LAYOUT_SCREENSHOTS=1 to run slide layout screenshots",
       );
       page.setViewportSize({ width: viewport.width, height: viewport.height });
     });
 
     test(`base editor layout (${viewport.name})`, async ({ page }) => {
-      if (!(await openEditor(page))) {
-        skipUnavailableLayoutFixture();
-      }
-      await expect(page).toHaveScreenshot(
+      const screenshotRoot = await openEditor(page);
+      await expect(screenshotRoot).toHaveScreenshot(
         `editor-${viewport.name}-base.png`,
         SCREENSHOT_OPTIONS,
       );
     });
 
     test(`rail hidden (${viewport.name})`, async ({ page }) => {
-      if (!(await openEditor(page))) {
-        skipUnavailableLayoutFixture();
-      }
+      const screenshotRoot = await openEditor(page);
       await clickByName(page, /hide slide thumbnails/i);
-      await expect(page).toHaveScreenshot(
+      await expect(screenshotRoot).toHaveScreenshot(
         `editor-${viewport.name}-rail-hidden.png`,
         SCREENSHOT_OPTIONS,
       );
     });
 
     test(`notes expanded (${viewport.name})`, async ({ page }) => {
-      if (!(await openEditor(page))) {
-        skipUnavailableLayoutFixture();
-      }
+      const screenshotRoot = await openEditor(page);
       await clickByName(page, /^notes$/i);
-      await expect(page).toHaveScreenshot(
+      await expect(screenshotRoot).toHaveScreenshot(
         `editor-${viewport.name}-notes-expanded.png`,
         SCREENSHOT_OPTIONS,
       );
@@ -182,26 +188,20 @@ for (const viewport of VIEWPORTS) {
     test(`right panel open with selection (${viewport.name})`, async ({
       page,
     }) => {
-      if (!(await openEditor(page))) {
-        skipUnavailableLayoutFixture();
-      }
+      const screenshotRoot = await openEditor(page);
 
-      // Select the first stage element so the context toolbar appears and the
-      // supplemental panel has element content to show.
-      const element = page.locator("[data-element-id]").first();
-      if (await locatorExists(element)) {
-        try {
-          await element.click({ timeout: 2_000 });
-          await settleLayout(page);
-        } catch {
-          return;
-        }
-      }
+      const stage = screenshotRoot
+        .locator('[data-slide-stage], [data-slide-stage-shell="true"]')
+        .first();
+      await stage.click({ position: { x: 5, y: 5 } });
+      await settleLayout(page);
 
-      // Open the supplemental panel via its toggle if it is not already open.
-      await clickByName(page, /(arrange|details|layers|properties|panel)/i);
+      await clickByName(
+        page,
+        /(arrange|details|layers|properties|panel|edit slide)/i,
+      );
 
-      await expect(page).toHaveScreenshot(
+      await expect(screenshotRoot).toHaveScreenshot(
         `editor-${viewport.name}-panel-open.png`,
         SCREENSHOT_OPTIONS,
       );

@@ -17,6 +17,11 @@ export interface PublicPresentationDocument {
   };
 }
 
+export interface PublicPresentationAssetBinding {
+  shareId: string;
+  mode: "present" | "embed";
+}
+
 export interface PublicPresentationModel {
   title: string;
   deckV7: DeckV7;
@@ -28,7 +33,7 @@ export interface PublicPresentationModel {
 
 export interface PublicPresentationRecovery {
   error: string;
-  validationErrors?: string[];
+  validationErrors: string[];
   diagnostics: PresentationDiagnostic[];
 }
 
@@ -38,19 +43,89 @@ export function buildPublicPresentationModelAny(
   return buildPublicPresentationModel(document);
 }
 
+const PUBLIC_ASSET_ROUTE_PREFIX = "/api/slide-assets/";
+const URL_PARSE_BASE = "https://textiq.local";
+
+function bindSlideAssetUrlToShare(
+  src: string,
+  binding: PublicPresentationAssetBinding,
+): string {
+  if (!binding.shareId) {
+    return src;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(src, URL_PARSE_BASE);
+  } catch {
+    return src;
+  }
+
+  if (!parsed.pathname.startsWith(PUBLIC_ASSET_ROUTE_PREFIX)) {
+    return src;
+  }
+
+  parsed.searchParams.set("shareId", binding.shareId);
+  parsed.searchParams.set("shareMode", binding.mode);
+
+  if (src.startsWith("/")) {
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  }
+  return parsed.toString();
+}
+
+function bindDeckAssetUrlsToShare(
+  deck: DeckV7,
+  binding?: PublicPresentationAssetBinding,
+): DeckV7 {
+  if (!binding?.shareId) {
+    return deck;
+  }
+
+  const images = Object.fromEntries(
+    Object.entries(deck.assets.images).map(([assetId, asset]) => [
+      assetId,
+      { ...asset, src: bindSlideAssetUrlToShare(asset.src, binding) },
+    ]),
+  );
+
+  const files = deck.assets.files
+    ? Object.fromEntries(
+        Object.entries(deck.assets.files).map(([assetId, asset]) => [
+          assetId,
+          { ...asset, src: bindSlideAssetUrlToShare(asset.src, binding) },
+        ]),
+      )
+    : undefined;
+
+  return {
+    ...deck,
+    assets: {
+      ...deck.assets,
+      images,
+      ...(files ? { files } : {}),
+    },
+  };
+}
+
 export function buildPublicPresentationModel(
   document: PublicPresentationDocument,
+  assetBinding?: PublicPresentationAssetBinding,
 ): PublicPresentationModel {
   const opened = openDeckFromJson(document.deckJson);
-  const deckV7 = opened.ok
+  const rawDeckV7 = opened.ok
     ? opened.deck
     : createBlankDeckV7({ title: document.title });
+  const deckV7 = bindDeckAssetUrlsToShare(rawDeckV7, assetBinding);
   const themeResolution = resolveThemePackageForDeck(deckV7);
   const recovery = opened.ok
     ? undefined
     : {
         error: opened.error,
-        validationErrors: opened.errors,
+        validationErrors:
+          opened.errors && opened.errors.length > 0
+            ? opened.errors
+            : [opened.error],
         diagnostics: opened.diagnostics,
       };
 

@@ -1,6 +1,10 @@
 "use client";
 
-import type { JSX } from "react";
+import type {
+  JSX,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 
 import type {
   DiagnosticAction,
@@ -52,6 +56,19 @@ function canNavigate(diagnostic: PresentationDiagnostic): boolean {
   );
 }
 
+function diagnosticReviewContextLabel(
+  diagnostic: PresentationDiagnostic,
+): string {
+  return `${diagnostic.code}: ${diagnostic.message} (${diagnosticTargetLabel(diagnostic.target)}${diagnostic.path ? `, ${diagnostic.path}` : ""})`;
+}
+
+export function diagnosticReviewActionAriaLabel(
+  actionLabel: string,
+  diagnostic: PresentationDiagnostic,
+): string {
+  return `${actionLabel} for ${diagnosticReviewContextLabel(diagnostic)}`;
+}
+
 export function DeckDiagnosticsReview({
   diagnostics,
   onClose,
@@ -60,14 +77,31 @@ export function DeckDiagnosticsReview({
 }: DeckDiagnosticsReviewProps): JSX.Element {
   const groups = groupDiagnostics(diagnostics);
   const count = diagnostics.length;
+  const handleBackdropClick = (
+    event: ReactMouseEvent<HTMLDivElement>,
+  ): void => {
+    if (event.target !== event.currentTarget) return;
+    onClose();
+  };
+  const handleDialogKeyDown = (
+    event: ReactKeyboardEvent<HTMLElement>,
+  ): void => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    onClose();
+  };
 
   return (
-    <div className="absolute inset-0 z-modal flex items-center justify-center bg-black/30 p-4">
+    <div
+      className="absolute inset-0 z-modal flex items-center justify-center bg-black/30 p-4"
+      onClick={handleBackdropClick}
+    >
       <section
         role="dialog"
         aria-modal="true"
         aria-label="Deck diagnostics review"
         data-deck-diagnostics-review="true"
+        onKeyDown={handleDialogKeyDown}
         className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface shadow-ds-overlay"
       >
         <header className="flex items-center justify-between gap-3 border-b border-ds-border-subtle px-4 py-3">
@@ -96,8 +130,8 @@ export function DeckDiagnosticsReview({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {groups.length === 0 ? (
             <p className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 py-4 text-sm text-ds-text-secondary">
-              This deck has no validation, render, asset, theme, migration,
-              source, or export diagnostics to review.
+              This deck has no validation, render, asset, theme, source, or
+              export diagnostics to review.
             </p>
           ) : (
             <div className="flex flex-col gap-3">
@@ -158,6 +192,10 @@ export function DeckDiagnosticsReview({
                           {canNavigate(diagnostic) ? (
                             <button
                               type="button"
+                              aria-label={diagnosticReviewActionAriaLabel(
+                                "Go to target",
+                                diagnostic,
+                              )}
                               onClick={() => onNavigate(diagnostic)}
                               className={cx(
                                 "rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-[11px] font-medium text-ds-text-secondary hover:bg-ds-state-hover",
@@ -170,6 +208,10 @@ export function DeckDiagnosticsReview({
                           {diagnostic.action ? (
                             <button
                               type="button"
+                              aria-label={diagnosticReviewActionAriaLabel(
+                                ACTION_LABELS[diagnostic.action.type],
+                                diagnostic,
+                              )}
                               onClick={() =>
                                 onAction(diagnostic.action!, diagnostic)
                               }

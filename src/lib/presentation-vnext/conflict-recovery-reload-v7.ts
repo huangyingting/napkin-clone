@@ -7,7 +7,8 @@ export const CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE =
   "Couldn't load the server version. Check your connection and retry.";
 
 export type ConflictReloadFailureReasonV7 =
-  "fetch_failed" | "invalid_server_deck";
+  | "fetch_failed"
+  | "invalid_server_deck";
 
 export type ConflictReloadServerResultV7 =
   | {

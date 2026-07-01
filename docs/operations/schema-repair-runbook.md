@@ -8,7 +8,7 @@
 
 This playbook is the operator's guide for diagnosing and repairing persisted
 payloads that fail their schema validators (`Document.deckJson`, embedded
-`Document.contentJson` visuals, `Visual.data`, active `SourceRef`).
+`Document.contentJson` visuals, `Visual.data`, active DeckV7 source metadata).
 
 ---
 
@@ -57,7 +57,8 @@ npm run audit:schema -- --json # machine-readable
 The report lists `area`, `documentId`, `rowId`, `anchorId`, and `reason` only.
 For `Document.deckJson`, serialized JSON strings are reported as
 persisted-schema drift; runtime readers expect Prisma JSON values to be parsed
-objects and do not parse string decks.
+objects and do not parse string decks. Current deck rows are validated with
+`safeParseDeckV7`.
 
 ---
 
@@ -95,9 +96,10 @@ caches.
 
 ### 3d. Stale source links
 
-Stale `SourceRef` links (content hash mismatch) are **surfaced, not
-auto-deleted** — `reconcileDocumentDeckDependencies` counts them as `stale` and
-leaves them in the deck so the author can re-link or unlink intentionally.
+Stale source links (`slides[].source`, `slides[].children[].source`) are
+**surfaced, not auto-deleted** — `reconcileDocumentDeckDependencies` counts them
+as `stale` and leaves them in the deck so the author can re-link or unlink
+intentionally.
 
 ---
 

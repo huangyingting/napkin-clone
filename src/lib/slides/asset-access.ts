@@ -110,9 +110,28 @@ export function decideSlideAssetAccess(
 
   // Anonymous (or no-capability): allow only via a valid public render resolver
   // asset decision (present first, then embed), preserving the route semantics.
-  const publicAccess =
-    input.publicAssetAccess ??
-    resolvePublicAssetAccessForDocument(doc, input.now);
+  const publicAccess = (() => {
+    if (input.publicAssetAccess) {
+      return input.publicAssetAccess;
+    }
+
+    const requestedShareId = doc.shareId ?? "";
+    const present = resolvePublicAssetAccessForDocument(
+      doc,
+      requestedShareId,
+      "present",
+      input.now,
+    );
+    if (present.allow) {
+      return present;
+    }
+    return resolvePublicAssetAccessForDocument(
+      doc,
+      requestedShareId,
+      "embed",
+      input.now,
+    );
+  })();
   if (publicAccess.allow) {
     return { allow: true, via: publicAccess.via };
   }
