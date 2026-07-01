@@ -5,9 +5,11 @@ import type { TableContent } from "@/lib/presentation-vnext/schema";
 import {
   applyPlainTextEditToTableCell,
   applyPlainTextEditToTableContent,
+  clampTableCellNavigation,
   normalizeTableCellText,
   tableCellEditableText,
   updateTableCellContent,
+  wrapTableCellNavigation,
 } from "./table-cell-editing";
 
 describe("table cell editing", () => {
@@ -88,5 +90,74 @@ describe("table cell editing", () => {
     ]);
     assert.equal(updated.rows[1], table.rows[1]);
     assert.equal(updated.columns, table.columns);
+  });
+
+  test("clamps row and column movement within table bounds", () => {
+    assert.deepEqual(
+      clampTableCellNavigation({
+        rowCount: 3,
+        colCount: 2,
+        rowIndex: 1,
+        colIndex: 1,
+        rowDelta: 5,
+        colDelta: 5,
+      }),
+      { rowIndex: 2, colIndex: 1 },
+    );
+    assert.deepEqual(
+      clampTableCellNavigation({
+        rowCount: 3,
+        colCount: 2,
+        rowIndex: 1,
+        colIndex: 0,
+        rowDelta: -5,
+        colDelta: -5,
+      }),
+      { rowIndex: 0, colIndex: 0 },
+    );
+    assert.equal(
+      clampTableCellNavigation({
+        rowCount: 0,
+        colCount: 2,
+        rowIndex: 0,
+        colIndex: 0,
+        rowDelta: 1,
+        colDelta: 0,
+      }),
+      null,
+    );
+  });
+
+  test("wraps linear table movement for Tab and Shift+Tab navigation", () => {
+    assert.deepEqual(
+      wrapTableCellNavigation({
+        rowCount: 2,
+        colCount: 2,
+        rowIndex: 0,
+        colIndex: 1,
+        direction: 1,
+      }),
+      { rowIndex: 1, colIndex: 0 },
+    );
+    assert.deepEqual(
+      wrapTableCellNavigation({
+        rowCount: 2,
+        colCount: 2,
+        rowIndex: 0,
+        colIndex: 0,
+        direction: -1,
+      }),
+      { rowIndex: 1, colIndex: 1 },
+    );
+    assert.equal(
+      wrapTableCellNavigation({
+        rowCount: 2,
+        colCount: 0,
+        rowIndex: 0,
+        colIndex: 0,
+        direction: 1,
+      }),
+      null,
+    );
   });
 });
