@@ -107,7 +107,11 @@ test("deriveDeckV7FromDocumentContent builds populated DeckV7 with source metada
     collectNodes(slide.children),
   );
   assert.ok(allNodes.some((node) => node.type === "table"));
-  assert.ok(allNodes.some((node) => node.type === "visual"));
+  const visualNode = allNodes.find((node) => node.type === "visual");
+  assert.equal(visualNode?.type, "visual");
+  if (visualNode?.type === "visual") {
+    assert.equal(visualNode.content.visualId, "visual-1");
+  }
   assert.ok(
     allNodes.some(
       (node) =>

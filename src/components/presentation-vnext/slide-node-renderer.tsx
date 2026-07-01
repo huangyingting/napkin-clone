@@ -12,6 +12,8 @@
 
 import { type JSX, memo } from "react";
 
+import { VisualRenderer } from "@/components/visual/visual-renderer";
+import type { Visual } from "@/lib/visual/schema";
 import type {
   ResolvedRenderNode,
   ResolvedNodeContent,
@@ -724,6 +726,7 @@ function VisualNodeContent({
   transparentBackground,
   style,
   assetResolver,
+  visualResolver,
 }: {
   assetId?: string;
   visualId?: string;
@@ -731,8 +734,22 @@ function VisualNodeContent({
   transparentBackground?: boolean;
   style: StyleObject;
   assetResolver?: (id: string) => string | undefined;
+  visualResolver?: (id: string) => Visual | undefined;
 }): JSX.Element {
   const src = assetId ? assetResolver?.(assetId) : undefined;
+  const visual = visualId ? visualResolver?.(visualId) : undefined;
+  if (!src && visual) {
+    return (
+      <VisualRenderer
+        visual={visual}
+        title={alt ?? visual.title}
+        transparentBackground={
+          transparentBackground ?? style.visual?.transparentBackground ?? true
+        }
+        className="h-full w-full"
+      />
+    );
+  }
   if (!src) {
     const colors = visualChannelColorWithDefaults(style.visual?.channelColors);
     const isTransparent =
@@ -967,6 +984,8 @@ export interface SlideNodeRendererProps {
    * Not required for nodes with no media.
    */
   assetResolver?: (id: string) => string | undefined;
+  /** Resolves a visual id to a live document visual payload. */
+  visualResolver?: (id: string) => Visual | undefined;
   /** When true, renders this node at reduced visual fidelity (e.g. thumbnail). */
   preview?: boolean;
   /**
@@ -1000,6 +1019,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   onTableCellCommit,
   onTableCellKeyDown,
   assetResolver,
+  visualResolver,
   preview = false,
   hidden = false,
 }: SlideNodeRendererProps): JSX.Element | null {
@@ -1041,16 +1061,24 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     onFocus?.(node.id, e);
   }
 
-  const inner = renderContent(node.id, content, style, assetResolver, preview, {
-    tableEditing,
-    activeTableCell,
-    onTableCellFocus: (rowIndex, colIndex) =>
-      onTableCellFocus?.(node.id, rowIndex, colIndex),
-    onTableCellCommit: (rowIndex, colIndex, text) =>
-      onTableCellCommit?.(node.id, rowIndex, colIndex, text),
-    onTableCellKeyDown: (rowIndex, colIndex, event) =>
-      onTableCellKeyDown?.(node.id, rowIndex, colIndex, event),
-  });
+  const inner = renderContent(
+    node.id,
+    content,
+    style,
+    assetResolver,
+    visualResolver,
+    preview,
+    {
+      tableEditing,
+      activeTableCell,
+      onTableCellFocus: (rowIndex, colIndex) =>
+        onTableCellFocus?.(node.id, rowIndex, colIndex),
+      onTableCellCommit: (rowIndex, colIndex, text) =>
+        onTableCellCommit?.(node.id, rowIndex, colIndex, text),
+      onTableCellKeyDown: (rowIndex, colIndex, event) =>
+        onTableCellKeyDown?.(node.id, rowIndex, colIndex, event),
+    },
+  );
 
   return (
     <div
@@ -1166,6 +1194,7 @@ function renderContent(
   content: ResolvedNodeContent,
   style: StyleObject,
   assetResolver?: (id: string) => string | undefined,
+  visualResolver?: (id: string) => Visual | undefined,
   _preview?: boolean,
   editing?: {
     tableEditing?: boolean;
@@ -1236,6 +1265,7 @@ function renderContent(
           transparentBackground={content.content.transparentBackground}
           style={style}
           assetResolver={assetResolver}
+          visualResolver={visualResolver}
         />
       );
 

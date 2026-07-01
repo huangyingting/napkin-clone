@@ -223,6 +223,12 @@ const VISUAL_DERIVE_TEMPLATE: SemanticTemplateV1 = {
   },
 };
 
+function createDocumentSlidePlanTemplateRegistry() {
+  const registry = createDefaultTemplateRegistry();
+  registry.register(VISUAL_DERIVE_TEMPLATE);
+  return registry;
+}
+
 function trimText(block: DocumentTextBlock): string {
   return block.text.trim();
 }
@@ -848,7 +854,7 @@ export function repairDocumentSlidePlan({
 
   const semanticRepair = repairSemanticDeckPlan(
     semanticCandidateFromDocumentPlan(input),
-    createDefaultTemplateRegistry(),
+    createDocumentSlidePlanTemplateRegistry(),
   );
   const diagnostics = [...semanticRepair.diagnostics];
   const rawSlides = Array.isArray(input.slides) ? input.slides : [];
@@ -1058,16 +1064,13 @@ export function compileDocumentSlidePlanToDeckV7({
     const diagnostics: PresentationDiagnostic[] = [];
     const slides: SlideNode[] = [];
     const semanticPlan = documentSlidePlanToSemanticDeckPlan(plan);
-    const templateRegistry = createDefaultTemplateRegistry();
+    const templateRegistry = createDocumentSlidePlanTemplateRegistry();
 
     for (let i = 0; i < semanticPlan.slides.length; i++) {
       const spec = semanticPlan.slides[i];
       const slidePlan = plan.slides[i];
       if (!spec || !slidePlan) continue;
-      const template =
-        spec.kind === "visual-focus"
-          ? VISUAL_DERIVE_TEMPLATE
-          : templateRegistry.get(spec.kind);
+      const template = templateRegistry.get(spec.kind);
       if (!template) continue;
       const compiled = compileSlide(spec, template, slides.length);
       diagnostics.push(...compiled.diagnostics);

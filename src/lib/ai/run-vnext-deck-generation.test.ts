@@ -15,7 +15,12 @@ import {
   type RunVnextDeckGenerationInput,
 } from "@/lib/ai/run-vnext-deck-generation";
 import type { CompleteFn } from "@/lib/ai/generate";
-import { DECK_SCHEMA_VERSION_V7 } from "@/lib/presentation-vnext/schema";
+import type { Visual } from "@/lib/visual/schema";
+import { DEFAULT_STYLE, VISUAL_SCHEMA_VERSION } from "@/lib/visual/schema";
+import {
+  DECK_SCHEMA_VERSION_V7,
+  type SlideChildNode,
+} from "@/lib/presentation-vnext/schema";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,6 +64,18 @@ function makeStubComplete(response: string): CompleteFn {
   return async () => response;
 }
 
+function collectNodes(nodes: ReadonlyArray<SlideChildNode>): SlideChildNode[] {
+  const flattened: SlideChildNode[] = [];
+  const walk = (list: ReadonlyArray<SlideChildNode>) => {
+    for (const node of list) {
+      flattened.push(node);
+      if (node.type === "group") walk(node.children);
+    }
+  };
+  walk(nodes);
+  return flattened;
+}
+
 function makeSequenceComplete(responses: string[]): {
   complete: CompleteFn;
   getCallCount: () => number;
@@ -100,6 +117,43 @@ function makeInput(
     themePackageId: "clarity",
     complete,
     ...overrides,
+  };
+}
+
+function makeInputWithVisual(
+  complete: CompleteFn,
+): RunVnextDeckGenerationInput {
+  const visual: Visual = {
+    version: VISUAL_SCHEMA_VERSION,
+    type: "flowchart",
+    title: "Journey map",
+    width: 960,
+    height: 540,
+    nodes: [{ id: "n1", label: "Start" }],
+    edges: [],
+    style: { ...DEFAULT_STYLE },
+  };
+  return {
+    contentJson: {
+      root: {
+        children: [
+          {
+            type: "heading",
+            tag: "h1",
+            bid: "heading-1",
+            children: [{ text: "My Presentation" }],
+          },
+          {
+            type: "visual",
+            visualId: "visual-1",
+            visual,
+          },
+        ],
+      },
+    },
+    visuals: new Map([["visual-1", visual]]),
+    themePackageId: "clarity",
+    complete,
   };
 }
 
@@ -320,5 +374,38 @@ describe("runVnextDeckGeneration", () => {
       makeInput(makeStubComplete(frPlan)),
     );
     assert.equal(result.deck.metadata?.locale, "fr");
+  });
+
+  test("visual source plans compile visualId slots into visual nodes", async () => {
+    const visualPlan = JSON.stringify({
+      planVersion: 1,
+      planner: "ai",
+      mode: "faithful",
+      source: { contentHash: "ignored-by-repair", truncated: false },
+      slides: [
+        {
+          id: "plan-slide-1",
+          kind: "visual-focus",
+          sourceBlockIds: ["visual-1"],
+          slotSources: {
+            title: ["visual-1"],
+            visualId: ["visual-1"],
+          },
+          slots: {
+            title: { type: "shortText", text: "Journey map" },
+            visualId: { type: "visual", visualId: "visual-1" },
+          },
+        },
+      ],
+    });
+    const result = await runVnextDeckGeneration(
+      makeInputWithVisual(makeStubComplete(visualPlan)),
+    );
+    const visualNode = result.deck.slides
+      .flatMap((slide) => collectNodes(slide.children))
+      .find((node) => node.type === "visual");
+    assert.equal(visualNode?.type, "visual");
+    if (visualNode?.type !== "visual") return;
+    assert.equal(visualNode.content.visualId, "visual-1");
   });
 });

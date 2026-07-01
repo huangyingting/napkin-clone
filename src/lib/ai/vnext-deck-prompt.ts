@@ -127,7 +127,7 @@ const SYSTEM_PROMPT = [
   '        "attribution": { "type": "shortText",  "text": "..." },',
   '        "metrics":     { "type": "metrics",    "items": [{ "value": "42%", "label": "Growth", "detail": "optional" }] },',
   '        "table":       { "type": "table",      "columns": ["Col"], "rows": [["cell"]] },',
-  '        "visual":      { "type": "visual",     "visualId": "<exact-id>" },',
+  '        "visualId":    { "type": "visual",     "visualId": "<exact-id>" },',
   '        "image":       { "type": "image",      "prompt": "describe image", "alt": "alt text" }',
   "      },",
   '      "speakerNotes": "<optional overflow or speaker notes>"',
@@ -143,7 +143,7 @@ const SYSTEM_PROMPT = [
   "- Fill only slots declared for each template. Omit all others.",
   "- Use the exact slot value type shown in the catalog for each slot.",
   "- Keep visible slot text concise. Put overflow and context in speakerNotes.",
-  "- Use 'visual' slot type only when the visualId exactly matches the visual inventory.",
+  "- Use the visualId slot key with slot type 'visual' only when the visualId exactly matches the visual inventory.",
   "- Write all content (slots, speakerNotes) in the same language as the source.",
   "- Choose density and emphasis to match content richness, not theme style.",
 ].join("\n");

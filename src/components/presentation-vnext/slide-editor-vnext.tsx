@@ -1061,6 +1061,22 @@ export function SlideEditorVNext({
     if (documentBlocks.length === 0) return undefined;
     return buildSourceBlockIndex(documentId, documentBlocks);
   }, [documentBlocks, documentId, sourceBlockIndex]);
+  const documentVisualsById = useMemo(() => {
+    const visuals = new Map<
+      string,
+      Extract<DocumentBlock, { kind: "visual" }>["visual"]
+    >();
+    for (const block of documentBlocks) {
+      if (block.kind === "visual") {
+        visuals.set(block.visualId, block.visual);
+      }
+    }
+    return visuals;
+  }, [documentBlocks]);
+  const resolveDocumentVisual = useCallback(
+    (visualId: string) => documentVisualsById.get(visualId),
+    [documentVisualsById],
+  );
 
   // Recoverable toolbar action errors surfaced below the toolbar banner
   const [toolbarError, setToolbarError] = useState<string | null>(null);
@@ -5340,6 +5356,7 @@ export function SlideEditorVNext({
                     slide={activeSlideTree}
                     canvas={renderTree?.canvas}
                     assetResolver={resolveDeckAsset}
+                    visualResolver={resolveDocumentVisual}
                     selection={selection}
                     onNodeDoubleClick={handleNodeDoubleClick}
                     onNodePointerDown={handleNodePointerDown}
@@ -5497,6 +5514,7 @@ export function SlideEditorVNext({
           activeSlideIndex={activeSlideIndex}
           collapsed={filmstripCollapsed}
           assetResolver={resolveDeckAsset}
+          visualResolver={resolveDocumentVisual}
           onSelectSlide={(index) => {
             setActiveSlideIndex(index);
             setSelection(createSelectionState(selection.mode));

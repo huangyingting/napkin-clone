@@ -84,6 +84,22 @@ describe("buildVnextDeckMessages", () => {
     );
   });
 
+  test("system prompt uses the v7 visualId slot key", () => {
+    const messages = buildVnextDeckMessages({
+      outline: "outline",
+      sourcePlan: SOURCE_PLAN,
+      themePackageId: "clarity",
+    });
+    assert.ok(
+      messages[0].content.includes('"visualId"'),
+      "System prompt must show visual slots under the visualId slot key",
+    );
+    assert.ok(
+      !messages[0].content.includes('"visual":      { "type": "visual"'),
+      "System prompt must not show the obsolete visual slot key",
+    );
+  });
+
   test("user message includes all semantic template kinds", () => {
     const messages = buildVnextDeckMessages({
       outline: "some outline",

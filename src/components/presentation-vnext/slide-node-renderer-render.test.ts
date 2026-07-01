@@ -10,6 +10,7 @@ import {
 import { fillStyleToCss } from "./fill-style-css";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
+import { DEFAULT_STYLE, VISUAL_SCHEMA_VERSION } from "@/lib/visual/schema";
 
 function node(
   content: ResolvedRenderNode["content"],
@@ -297,6 +298,39 @@ describe("SlideNodeRenderer media rendering", () => {
     assert.match(html, /fill="#111111"/);
     assert.match(html, /fill="#222222"/);
     assert.match(html, /fill="#333333"/);
+  });
+
+  test("renders live document visuals when a visual resolver is available", () => {
+    const html = renderNode(
+      node({
+        type: "visual",
+        content: {
+          visualId: "visual-1",
+          alt: "Journey map",
+          transparentBackground: true,
+        },
+      }),
+      {
+        visualResolver: (id) =>
+          id === "visual-1"
+            ? {
+                version: VISUAL_SCHEMA_VERSION,
+                type: "flowchart",
+                title: "Journey map",
+                width: 960,
+                height: 540,
+                nodes: [{ id: "n1", label: "Start" }],
+                edges: [],
+                style: { ...DEFAULT_STYLE },
+              }
+            : undefined,
+      },
+    );
+
+    assert.match(html, /<svg/);
+    assert.match(html, /aria-label="Journey map"/);
+    assert.match(html, /Start/);
+    assert.doesNotMatch(html, /Visual placeholder/);
   });
 
   test("renders visual assets as accessible images when an asset source is available", () => {

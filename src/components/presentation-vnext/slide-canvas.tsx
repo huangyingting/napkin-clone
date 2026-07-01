@@ -30,6 +30,7 @@ import type {
   ImageCrop,
   LayoutBox,
 } from "@/lib/presentation-vnext/schema";
+import type { Visual } from "@/lib/visual/schema";
 import {
   STAGE_CHROME_Z_INDEX,
   selectionFrameChrome,
@@ -125,6 +126,8 @@ export interface SlideCanvasVNextProps {
    * image-fill backgrounds.  Safe to omit when no media nodes are present.
    */
   assetResolver?: (id: string) => string | undefined;
+  /** Resolves a document visual id to its live visual payload. */
+  visualResolver?: (id: string) => Visual | undefined;
   /**
    * Current selection state. When provided, selected nodes display a focus
    * ring; pointer-down on nodes starts selection/drag handling.
@@ -226,6 +229,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   slide,
   canvas,
   assetResolver,
+  visualResolver,
   selection,
   onNodeDoubleClick,
   onNodePointerDown,
@@ -356,6 +360,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             key={node.id}
             node={node}
             assetResolver={assetResolver}
+            visualResolver={visualResolver}
             preview={preview}
             hidden={isHiddenNode(node.id)}
             // Decorations are never interactive in the normal canvas
@@ -368,6 +373,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             key={node.id}
             node={node}
             assetResolver={assetResolver}
+            visualResolver={visualResolver}
             preview={preview}
             hidden={isHiddenNode(node.id)}
           />
@@ -405,6 +411,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                 onTableCellCommit={onTableCellCommit}
                 onTableCellKeyDown={onTableCellKeyDown}
                 assetResolver={assetResolver}
+                visualResolver={visualResolver}
                 preview={preview}
                 hidden={isHiddenNode(node.id)}
               />
@@ -418,6 +425,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             key={node.id}
             node={node}
             assetResolver={assetResolver}
+            visualResolver={visualResolver}
             preview={preview}
             hidden={isHiddenNode(node.id)}
           />
@@ -868,6 +876,8 @@ export interface DeckCanvasVNextProps {
   activeSlideIndex?: number;
   /** Same semantics as `SlideCanvasVNextProps.assetResolver`. */
   assetResolver?: (id: string) => string | undefined;
+  /** Same semantics as `SlideCanvasVNextProps.visualResolver`. */
+  visualResolver?: (id: string) => Visual | undefined;
   /** Same semantics as `SlideCanvasVNextProps.selection`. */
   selection?: SelectionState;
   /** Called when the user starts dragging a node on the active slide. */
@@ -893,6 +903,7 @@ export function DeckCanvasVNext({
   deck,
   activeSlideIndex = 0,
   assetResolver,
+  visualResolver,
   selection,
   onNodePointerDown,
   onResizeHandlePointerDown,
@@ -907,6 +918,7 @@ export function DeckCanvasVNext({
       slide={slide}
       canvas={deck.canvas}
       assetResolver={assetResolver}
+      visualResolver={visualResolver}
       selection={selection}
       onNodePointerDown={onNodePointerDown}
       onResizeHandlePointerDown={onResizeHandlePointerDown}

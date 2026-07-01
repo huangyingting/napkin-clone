@@ -16,6 +16,7 @@ import { Plus } from "lucide-react";
 
 import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
+import type { Visual } from "@/lib/visual/schema";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { SlideCanvasVNext } from "../slide-canvas";
 import { FilmstripSlide } from "./filmstrip-slide";
@@ -26,6 +27,7 @@ export interface FilmstripProps {
   activeSlideIndex: number;
   collapsed: boolean;
   assetResolver?: (id: string) => string | undefined;
+  visualResolver?: (id: string) => Visual | undefined;
   onSelectSlide: (index: number) => void;
   onInsertSlide: () => void;
   onDuplicateSlide: (slideId: string) => void;
@@ -38,6 +40,7 @@ export function Filmstrip({
   activeSlideIndex,
   collapsed,
   assetResolver,
+  visualResolver,
   onSelectSlide,
   onInsertSlide,
   onDuplicateSlide,
@@ -154,6 +157,7 @@ export function Filmstrip({
                 slide={renderTree.slides[dragState.dragPreview.index]!}
                 canvas={renderTree.canvas}
                 assetResolver={assetResolver}
+                visualResolver={visualResolver}
                 preview
               />
               <span className="absolute bottom-1.5 left-1/2 flex h-7 min-w-7 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-2 text-sm font-bold tabular-nums text-ds-text-on-accent shadow-sm">
@@ -207,6 +211,7 @@ export function Filmstrip({
                     isDragging={dragState.dragSourceIndex === index}
                     isInteractive={!collapsed}
                     assetResolver={assetResolver}
+                    visualResolver={visualResolver}
                     onSelect={onSelectSlide}
                     onDuplicate={() => onDuplicateSlide(slideId)}
                     onDelete={() => onDeleteSlide(slideId)}
