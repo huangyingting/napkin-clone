@@ -23,108 +23,18 @@ import type {
   TextRun,
   TableContent,
   ShapeKind,
+  ListMarker,
   ConnectorContent,
   ImageCrop,
   ConnectorEndpoint,
+  LayoutBox,
 } from "@/lib/presentation-vnext/schema";
+import { tableCellEditableText } from "@/lib/presentation-vnext/table-cell-editing";
+import { colorValueToCss, fillStyleToCss } from "./fill-style-css";
 
 // ---------------------------------------------------------------------------
 // CSS conversion helpers
 // ---------------------------------------------------------------------------
-
-function colorValueToCss(v: unknown): string | undefined {
-  if (typeof v === "string") return v;
-  return undefined;
-}
-
-function gradientStopsToCss(
-  stops: readonly { color: unknown; offsetPct: number }[] | undefined,
-): string | undefined {
-  return stops
-    ?.map((stop) => {
-      const color = colorValueToCss(stop.color) ?? "transparent";
-      return `${color} ${stop.offsetPct}%`;
-    })
-    .join(", ");
-}
-
-function fillToCss(
-  fill: StyleObject["fill"],
-  assetResolver?: (id: string) => string | undefined,
-): React.CSSProperties {
-  if (!fill) return {};
-  switch (fill.type) {
-    case "solid":
-      return { backgroundColor: colorValueToCss(fill.color) };
-    case "linearGradient": {
-      const from = colorValueToCss(fill.from) ?? "transparent";
-      const to = colorValueToCss(fill.to) ?? "transparent";
-      const angle = fill.angle ?? 90;
-      const stops = gradientStopsToCss(fill.stops);
-      return {
-        background: `linear-gradient(${angle}deg, ${stops ?? `${from}, ${to}`})`,
-      };
-    }
-    case "radialGradient": {
-      const inner = colorValueToCss(fill.inner) ?? "transparent";
-      const outer = colorValueToCss(fill.outer) ?? "transparent";
-      const stops = gradientStopsToCss(fill.stops);
-      return {
-        background: `radial-gradient(${fill.rx ?? fill.r ?? 70}% ${fill.ry ?? fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${inner}, ${outer}`})`,
-      };
-    }
-    case "conicGradient": {
-      const stops =
-        gradientStopsToCss(fill.stops) ?? "transparent, transparent";
-      return {
-        background: `conic-gradient(from ${fill.fromAngle ?? 0}deg at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`,
-      };
-    }
-    case "repeatingLinearGradient": {
-      const angle = fill.angle ?? 90;
-      const stops =
-        gradientStopsToCss(fill.stops) ?? "transparent 0%, transparent 100%";
-      return {
-        background: `repeating-linear-gradient(${angle}deg, ${stops})`,
-      };
-    }
-    case "pattern": {
-      const color = colorValueToCss(fill.color) ?? "currentColor";
-      const background = colorValueToCss(fill.background);
-      const spacing = fill.spacingPct ?? 8;
-      const width = fill.strokeWidthPct ?? 0.25;
-      if (fill.kind === "grid") {
-        return {
-          ...(background ? { backgroundColor: background } : {}),
-          backgroundImage: `linear-gradient(${color} ${width}%, transparent ${width}%), linear-gradient(90deg, ${color} ${width}%, transparent ${width}%)`,
-          backgroundSize: `${spacing}% ${spacing}%`,
-        };
-      }
-      if (fill.kind === "dots") {
-        return {
-          ...(background ? { backgroundColor: background } : {}),
-          backgroundImage: `radial-gradient(circle, ${color} ${width}%, transparent ${width}%)`,
-          backgroundSize: `${spacing}% ${spacing}%`,
-        };
-      }
-      const angle = fill.kind === "scanlines" ? 0 : (fill.angle ?? 135);
-      return {
-        ...(background ? { backgroundColor: background } : {}),
-        backgroundImage: `repeating-linear-gradient(${angle}deg, ${color} 0%, ${color} ${width}%, transparent ${width}%, transparent ${spacing}%)`,
-      };
-    }
-    case "image": {
-      const src = assetResolver?.(fill.assetId);
-      if (!src) return {};
-      return {
-        backgroundImage: `url(${JSON.stringify(src)})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        opacity: fill.opacity,
-      };
-    }
-  }
-}
 
 function effectToCss(effect: StyleObject["effect"]): React.CSSProperties {
   if (!effect || effect.kind === "none") return {};
@@ -201,6 +111,14 @@ function textStyleToCss(text: StyleObject["text"]): React.CSSProperties {
   };
 }
 
+function textVerticalAlignToJustifyContent(
+  verticalAlign: "top" | "middle" | "bottom" | undefined,
+): React.CSSProperties["justifyContent"] {
+  if (verticalAlign === "middle") return "center";
+  if (verticalAlign === "bottom") return "flex-end";
+  return "flex-start";
+}
+
 /**
  * Converts a resolved `StyleObject` to inline CSS properties for a container.
  * Text style is applied separately on the inner text container.
@@ -208,11 +126,13 @@ function textStyleToCss(text: StyleObject["text"]): React.CSSProperties {
 export function styleObjectToContainerCss(
   style: StyleObject,
   assetResolver?: (id: string) => string | undefined,
+  options: { includeShapePaint?: boolean } = {},
 ): React.CSSProperties {
+  const includeShapePaint = options.includeShapePaint ?? true;
   return {
-    ...fillToCss(style.fill, assetResolver),
-    ...strokeToCss(style.stroke),
-    ...radiusToCss(style.radius),
+    ...(includeShapePaint ? fillStyleToCss(style.fill, assetResolver) : {}),
+    ...(includeShapePaint ? strokeToCss(style.stroke) : {}),
+    ...(includeShapePaint ? radiusToCss(style.radius) : {}),
     ...shadowToCss(style.shadow),
     ...effectToCss(style.effect),
     ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
@@ -231,18 +151,28 @@ export function styleObjectToContainerCss(
  * Converts a percent-based frame into absolute-position CSS.
  * The parent canvas container must be `position: relative`.
  */
-function frameToCss(frame: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}): React.CSSProperties {
+export function frameToCss(frame: LayoutBox["frame"]): React.CSSProperties {
   return {
     position: "absolute",
     left: `${frame.x}%`,
     top: `${frame.y}%`,
     width: `${frame.w}%`,
     height: `${frame.h}%`,
+  };
+}
+
+export function nodeLayoutTransformToCss(
+  layout: Pick<LayoutBox, "rotation" | "flipX" | "flipY">,
+): React.CSSProperties {
+  const transforms = [
+    layout.rotation !== undefined ? `rotate(${layout.rotation}deg)` : undefined,
+    layout.flipX ? "scaleX(-1)" : undefined,
+    layout.flipY ? "scaleY(-1)" : undefined,
+  ].filter(Boolean);
+  if (transforms.length === 0) return {};
+  return {
+    transform: transforms.join(" "),
+    transformOrigin: "center",
   };
 }
 
@@ -296,9 +226,112 @@ function renderTextRuns(runs: readonly TextRun[]): JSX.Element[] {
   });
 }
 
-function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
+type OrderedListNumberStyle = NonNullable<ListMarker["numberStyle"]>;
+
+function toAlphabeticMarker(value: number, uppercase: boolean): string {
+  if (value <= 0) return "0";
+  let remaining = Math.floor(value);
+  let marker = "";
+  while (remaining > 0) {
+    remaining -= 1;
+    marker = String.fromCharCode(97 + (remaining % 26)) + marker;
+    remaining = Math.floor(remaining / 26);
+  }
+  return uppercase ? marker.toUpperCase() : marker;
+}
+
+function toLowerRomanMarker(value: number): string {
+  if (value <= 0) return "0";
+  const numerals: Array<[number, string]> = [
+    [1000, "m"],
+    [900, "cm"],
+    [500, "d"],
+    [400, "cd"],
+    [100, "c"],
+    [90, "xc"],
+    [50, "l"],
+    [40, "xl"],
+    [10, "x"],
+    [9, "ix"],
+    [5, "v"],
+    [4, "iv"],
+    [1, "i"],
+  ];
+  let remaining = Math.floor(value);
+  let marker = "";
+  for (const [amount, symbol] of numerals) {
+    while (remaining >= amount) {
+      marker += symbol;
+      remaining -= amount;
+    }
+  }
+  return marker;
+}
+
+function formatOrderedListMarker(
+  value: number,
+  style: OrderedListNumberStyle | undefined,
+): string {
+  switch (style) {
+    case "lower-alpha":
+      return `${toAlphabeticMarker(value, false)}.`;
+    case "upper-alpha":
+      return `${toAlphabeticMarker(value, true)}.`;
+    case "lower-roman":
+      return `${toLowerRomanMarker(value)}.`;
+    default:
+      return `${value}.`;
+  }
+}
+
+function resolveOrderedListMarkers(
+  paragraphs: readonly TextContent["paragraphs"][number][],
+): (string | undefined)[] {
+  const counters = new Array(6).fill(0) as number[];
+  return paragraphs.map((paragraph) => {
+    if (paragraph.list?.kind !== "number") {
+      counters.fill(0);
+      return undefined;
+    }
+    const indent = Math.max(
+      0,
+      Math.min(counters.length - 1, paragraph.list.indent ?? 0),
+    );
+    for (let depth = indent + 1; depth < counters.length; depth += 1) {
+      counters[depth] = 0;
+    }
+    counters[indent] += 1;
+    return formatOrderedListMarker(
+      counters[indent],
+      paragraph.list.numberStyle,
+    );
+  });
+}
+
+function TextNodeContent({
+  content,
+  paragraphSpacingPt,
+  verticalAlign,
+}: {
+  content: TextContent;
+  paragraphSpacingPt?: number;
+  verticalAlign?: "top" | "middle" | "bottom";
+}): JSX.Element {
+  const paragraphSpacing =
+    paragraphSpacingPt !== undefined && paragraphSpacingPt > 0
+      ? `${paragraphSpacingPt}pt`
+      : undefined;
+  const orderedListMarkers = resolveOrderedListMarkers(content.paragraphs);
+
   return (
-    <div className="h-full w-full overflow-hidden">
+    <div
+      className="h-full w-full overflow-hidden"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: textVerticalAlignToJustifyContent(verticalAlign),
+      }}
+    >
       {content.paragraphs.map((para, index) => (
         <p
           key={para.id}
@@ -306,6 +339,10 @@ function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
             display: para.list ? "flex" : undefined,
             gap: para.list ? "0.4em" : undefined,
             margin: 0,
+            marginBottom:
+              paragraphSpacing && index < content.paragraphs.length - 1
+                ? paragraphSpacing
+                : undefined,
             paddingLeft: para.list?.indent
               ? `${para.list.indent * 1.5}em`
               : undefined,
@@ -313,7 +350,9 @@ function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
         >
           {para.list ? (
             <span aria-hidden="true" style={{ flex: "0 0 auto" }}>
-              {para.list.kind === "number" ? `${index + 1}.` : "•"}
+              {para.list.kind === "number"
+                ? (orderedListMarkers[index] ?? "1.")
+                : "•"}
             </span>
           ) : null}
           <span>
@@ -327,15 +366,6 @@ function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
   );
 }
 
-function textRunsToPlainText(
-  runs: readonly TextRun[] | undefined,
-  fallback: string,
-): string {
-  return runs && runs.length > 0
-    ? runs.map((run) => run.text).join("")
-    : fallback;
-}
-
 // ---------------------------------------------------------------------------
 // Shape node content
 // ---------------------------------------------------------------------------
@@ -346,9 +376,20 @@ function shapePathD(kind: ShapeKind): string | undefined {
       return "M 50 0 L 100 100 L 0 100 Z";
     case "diamond":
       return "M 50 0 L 100 50 L 50 100 L 0 50 Z";
+    case "square":
+      return "M 0 0 L 100 0 L 100 100 L 0 100 Z";
     default:
       return undefined;
   }
+}
+
+function shapeUsesSvgGeometry(shape: ShapeKind): boolean {
+  return shape !== "rect";
+}
+
+function shapeSvgPreserveAspectRatio(shape: ShapeKind): string | undefined {
+  if (shape === "circle" || shape === "square") return "xMidYMid meet";
+  return "none";
 }
 
 function ShapeNodeContent({
@@ -362,8 +403,7 @@ function ShapeNodeContent({
   path?: string;
   style: StyleObject;
 }): JSX.Element {
-  const hasSvgPath =
-    shape === "triangle" || shape === "diamond" || shape === "path";
+  const hasSvgGeometry = shapeUsesSvgGeometry(shape);
   const fillColor =
     style.fill?.type === "solid"
       ? colorValueToCss(style.fill.color)
@@ -371,27 +411,69 @@ function ShapeNodeContent({
   const strokeColor = style.stroke
     ? colorValueToCss(style.stroke.color)
     : undefined;
+  const lineStrokeColor = strokeColor ?? fillColor ?? "currentColor";
 
   return (
     <div className="relative h-full w-full">
-      {hasSvgPath && (
+      {hasSvgGeometry && (
         <svg
           className="absolute inset-0 h-full w-full"
           viewBox="0 0 100 100"
-          preserveAspectRatio="none"
+          preserveAspectRatio={shapeSvgPreserveAspectRatio(shape)}
           aria-hidden="true"
         >
-          <path
-            d={path ?? shapePathD(shape) ?? "M0 0 L100 0 L100 100 L0 100 Z"}
-            fill={fillColor ?? "currentColor"}
-            stroke={strokeColor}
-            strokeWidth={style.stroke?.widthPt}
-          />
+          {shape === "ellipse" && (
+            <ellipse
+              cx="50"
+              cy="50"
+              rx="50"
+              ry="50"
+              fill={fillColor ?? "currentColor"}
+              stroke={strokeColor}
+              strokeWidth={style.stroke?.widthPt}
+            />
+          )}
+          {shape === "circle" && (
+            <circle
+              cx="50"
+              cy="50"
+              r="50"
+              fill={fillColor ?? "currentColor"}
+              stroke={strokeColor}
+              strokeWidth={style.stroke?.widthPt}
+            />
+          )}
+          {shape === "line" && (
+            <line
+              x1="0"
+              y1="50"
+              x2="100"
+              y2="50"
+              fill="none"
+              stroke={lineStrokeColor}
+              strokeWidth={style.stroke?.widthPt ?? 1}
+            />
+          )}
+          {(shape === "triangle" ||
+            shape === "diamond" ||
+            shape === "square" ||
+            shape === "path") && (
+            <path
+              d={path ?? shapePathD(shape) ?? "M0 0 L100 0 L100 100 L0 100 Z"}
+              fill={fillColor ?? "currentColor"}
+              stroke={strokeColor}
+              strokeWidth={style.stroke?.widthPt}
+            />
+          )}
         </svg>
       )}
       {text && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <TextNodeContent content={text} />
+        <div className="absolute inset-0">
+          <TextNodeContent
+            content={text}
+            paragraphSpacingPt={style.text?.paragraphSpacingPt}
+            verticalAlign={style.text?.verticalAlign}
+          />
         </div>
       )}
     </div>
@@ -593,7 +675,7 @@ function TableNodeContent({
                 }
               >
                 {editable
-                  ? textRunsToPlainText(cell.runs, cell.text)
+                  ? tableCellEditableText(cell)
                   : cell.runs && cell.runs.length > 0
                     ? renderTextRuns(cell.runs)
                     : cell.text}
@@ -901,23 +983,17 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   hidden = false,
 }: SlideNodeRendererProps): JSX.Element | null {
   const { layout, style, content } = node;
-  const transforms = [
-    layout.rotation !== undefined ? `rotate(${layout.rotation}deg)` : undefined,
-    layout.flipX ? "scaleX(-1)" : undefined,
-    layout.flipY ? "scaleY(-1)" : undefined,
-  ].filter(Boolean);
+  const shouldIncludeShapePaint =
+    content.type !== "shape" || !shapeUsesSvgGeometry(content.content.shape);
 
   const isLocked = node.locked === true;
 
   const containerStyle: React.CSSProperties = {
     ...frameToCss(layout.frame),
-    ...(transforms.length > 0
-      ? {
-          transform: transforms.join(" "),
-          transformOrigin: "center",
-        }
-      : {}),
-    ...styleObjectToContainerCss(style, assetResolver),
+    ...nodeLayoutTransformToCss(layout),
+    ...styleObjectToContainerCss(style, assetResolver, {
+      includeShapePaint: shouldIncludeShapePaint,
+    }),
     boxSizing: "border-box",
     cursor: onClick ? (isLocked ? "not-allowed" : "pointer") : "default",
     ...(node.source === "themeDecoration" || node.source === "deckChrome"
@@ -983,6 +1059,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
           : undefined
       }
       aria-disabled={interactive && isLocked ? true : undefined}
+      aria-pressed={interactive && !tableEditing ? selected : undefined}
       onClick={onClick ? handleClick : undefined}
       onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
       onPointerDown={onPointerDown ? handlePointerDown : undefined}
@@ -1001,27 +1078,62 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
 });
 
 function accessibleNodeName(node: ResolvedRenderNode): string {
+  const explicitAccessibilityName = firstNonEmptyText(
+    node.accessibility?.label,
+    node.accessibility?.alt,
+  );
+  if (explicitAccessibilityName) return explicitAccessibilityName;
+  const nodeName = firstNonEmptyText(node.name);
+  if (nodeName) return nodeName;
+  if (node.accessibility?.decorative) {
+    return `Decorative ${node.content.type}`;
+  }
   if (node.content.type === "text") {
-    const text = node.content.content.paragraphs
-      .map((paragraph) => paragraph.text.trim())
-      .filter(Boolean)
-      .join(" ");
+    const text = textContentSummary(node.content.content);
     return text ? `Text: ${text}` : "Text node";
   }
   if (node.content.type === "shape") {
+    const shapeText = node.content.content.text
+      ? textContentSummary(node.content.content.text)
+      : undefined;
+    if (shapeText) return `Shape: ${shapeText}`;
     return `${node.content.content.shape} shape`;
   }
   if (node.content.type === "image") {
-    return node.content.content.alt ?? "Image node";
+    return firstNonEmptyText(node.content.content.alt) ?? "Image node";
   }
   if (node.content.type === "visual") {
     return (
-      node.content.content.alt ?? node.content.content.visualId ?? "Visual node"
+      firstNonEmptyText(
+        node.content.content.alt,
+        node.content.content.visualId,
+      ) ?? "Visual node"
     );
   }
-  if (node.content.type === "table") return "Table node";
+  if (node.content.type === "table") {
+    const caption = firstNonEmptyText(node.content.content.caption);
+    return caption ? `Table: ${caption}` : "Table node";
+  }
   if (node.content.type === "connector") return "Connector node";
   return "Group node";
+}
+
+function textContentSummary(content: TextContent): string {
+  return content.paragraphs
+    .map((paragraph) => paragraph.text.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function firstNonEmptyText(
+  ...values: Array<string | null | undefined>
+): string | undefined {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return undefined;
 }
 
 function renderContent(
@@ -1047,7 +1159,13 @@ function renderContent(
 ): JSX.Element | null {
   switch (content.type) {
     case "text":
-      return <TextNodeContent content={content.content} />;
+      return (
+        <TextNodeContent
+          content={content.content}
+          paragraphSpacingPt={style.text?.paragraphSpacingPt}
+          verticalAlign={style.text?.verticalAlign}
+        />
+      );
 
     case "shape":
       return (

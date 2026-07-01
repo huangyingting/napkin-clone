@@ -7,6 +7,10 @@ import type {
   SlideChildNode,
 } from "@/lib/presentation-vnext/schema";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  clampLayoutFrame,
+  parseFiniteNumberInput,
+} from "./numeric-sanitization";
 
 export interface NodeGeometryPanelProps {
   node: SlideChildNode;
@@ -19,18 +23,23 @@ export function nextFrameForPatch(
   patch: Partial<LayoutBox["frame"]>,
 ): LayoutBox["frame"] {
   const frame = layout.frame;
-  const nextFrame = { ...frame, ...patch };
+  const nextPatch: Partial<LayoutBox["frame"]> = {};
+  if (Number.isFinite(patch.x)) nextPatch.x = patch.x;
+  if (Number.isFinite(patch.y)) nextPatch.y = patch.y;
+  if (Number.isFinite(patch.w)) nextPatch.w = patch.w;
+  if (Number.isFinite(patch.h)) nextPatch.h = patch.h;
+  const nextFrame = { ...frame, ...nextPatch };
   if (layout.constraints?.preserveAspectRatio) {
     const aspect = frame.w / frame.h;
     if (Number.isFinite(aspect) && aspect > 0) {
-      if (patch.w !== undefined && patch.h === undefined) {
-        nextFrame.h = patch.w / aspect;
-      } else if (patch.h !== undefined && patch.w === undefined) {
-        nextFrame.w = patch.h * aspect;
+      if (nextPatch.w !== undefined && nextPatch.h === undefined) {
+        nextFrame.h = nextPatch.w / aspect;
+      } else if (nextPatch.h !== undefined && nextPatch.w === undefined) {
+        nextFrame.w = nextPatch.h * aspect;
       }
     }
   }
-  return nextFrame;
+  return clampLayoutFrame(nextFrame);
 }
 
 function NumberField({
@@ -63,7 +72,11 @@ function NumberField({
         min={min}
         max={max}
         step={step}
-        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        onChange={(event) => {
+          const next = parseFiniteNumberInput(event.currentTarget.value);
+          if (next === undefined) return;
+          onChange(next);
+        }}
         className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-[12px] text-ds-text-primary outline-none ${FOCUS_RING}`}
       />
     </label>

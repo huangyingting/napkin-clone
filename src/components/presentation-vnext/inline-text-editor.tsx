@@ -4,7 +4,7 @@
  * InlineTextEditorVNext — contenteditable overlay for v7 text/shape nodes.
  *
  * Positioned absolutely over the node's layout frame (in canvas-percent
- * coordinates). Commits via `onCommit(paragraphs)` on Escape or blur.
+ * coordinates). Commits via `onCommit(paragraphs, frame?, textAlign?)`.
  *
  * Font resolution: uses basic CSS inherited from the slide canvas so the
  * visual experience is seamless during the enter/exit transition. A future
@@ -33,6 +33,8 @@ import {
   shouldStoreRunsV7,
 } from "@/lib/presentation-vnext/rich-text";
 
+export type InlineTextAlign = "left" | "center" | "right";
+
 export interface InlineTextEditorVNextProps {
   /** Stable id of the node being edited. */
   nodeId: string;
@@ -51,6 +53,7 @@ export interface InlineTextEditorVNextProps {
     nodeId: string,
     paragraphs: Paragraph[],
     nextFrame?: { x: number; y: number; w: number; h: number },
+    textAlign?: InlineTextAlign,
   ) => void;
   /** Called when the user cancels (Escape with empty input). */
   onCancel: () => void;
@@ -359,13 +362,25 @@ function blockForRange(container: HTMLElement, range: Range): HTMLElement {
   return node?.closest("p,div,li") ?? container;
 }
 
-function applyBlockAlign(
-  container: HTMLElement,
-  align: "left" | "center" | "right",
-) {
+function applyBlockAlign(container: HTMLElement, align: InlineTextAlign) {
   const range = rangeInside(container);
   if (!range) return;
   blockForRange(container, range).style.textAlign = align;
+}
+
+export function inlineTextAlignForCommand(
+  command: InlineTextCommandPayload["command"],
+): InlineTextAlign | undefined {
+  switch (command) {
+    case "align-left":
+      return "left";
+    case "align-center":
+      return "center";
+    case "align-right":
+      return "right";
+    default:
+      return undefined;
+  }
 }
 
 function toggleList(container: HTMLElement, kind: "bullet" | "number") {
@@ -442,6 +457,7 @@ export function InlineTextEditorVNext({
 }: InlineTextEditorVNextProps): JSX.Element {
   const editableRef = useRef<HTMLDivElement | null>(null);
   const committedRef = useRef(false);
+  const committedTextAlignRef = useRef<InlineTextAlign | undefined>(undefined);
 
   // Position in viewport-px derived from canvas-percent frame
   const style: CSSProperties = {
@@ -466,8 +482,7 @@ export function InlineTextEditorVNext({
   };
 
   function autoHeightFrame():
-    | { x: number; y: number; w: number; h: number }
-    | undefined {
+    { x: number; y: number; w: number; h: number } | undefined {
     const el = editableRef.current;
     if (!autoHeight || !el || !canvasRect || canvasRect.height <= 0) {
       return undefined;
@@ -516,7 +531,12 @@ export function InlineTextEditorVNext({
       return;
     }
     const paragraphs = domToParagraphs(el, nodeId, initialParagraphs);
-    onCommit(nodeId, paragraphs, autoHeightFrame());
+    onCommit(
+      nodeId,
+      paragraphs,
+      autoHeightFrame(),
+      committedTextAlignRef.current,
+    );
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -559,6 +579,12 @@ export function InlineTextEditorVNext({
       )
         return;
       el.focus();
+      const textAlign = inlineTextAlignForCommand(command);
+      if (textAlign) {
+        committedTextAlignRef.current = textAlign;
+        applyBlockAlign(el, textAlign);
+        return;
+      }
       switch (command) {
         case "bold":
           wrapRange(el, (span) => {
@@ -605,15 +631,6 @@ export function InlineTextEditorVNext({
           break;
         case "unlink":
           unlinkRange(el);
-          break;
-        case "align-left":
-          applyBlockAlign(el, "left");
-          break;
-        case "align-center":
-          applyBlockAlign(el, "center");
-          break;
-        case "align-right":
-          applyBlockAlign(el, "right");
           break;
         case "color":
           if (value) {

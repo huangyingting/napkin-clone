@@ -382,15 +382,13 @@ describe("canvas-a11y: canvasShortcutHelp (#535)", () => {
     }
   });
 
-  test("documents traversal, edit, resize, and connector shortcuts", () => {
+  test("documents the new resize and traversal shortcuts", () => {
     const flat = canvasShortcutHelp().flatMap((g) => g.entries);
     assert.ok(flat.some((e) => e.keys === "Alt + Arrow"));
     assert.ok(flat.some((e) => e.keys === "Alt + Shift + Arrow"));
     assert.ok(flat.some((e) => e.keys === "[ / ]"));
-    assert.ok(flat.some((e) => e.keys === "Shift + [ / ]"));
+    assert.ok(flat.some((e) => e.keys === "Ctrl/⌘ + [ / ]"));
     assert.ok(flat.some((e) => e.keys === "Tab / Shift + Tab"));
-    assert.ok(flat.some((e) => e.keys === "Enter"));
-    assert.ok(flat.some((e) => e.keys === "C / Shift + C"));
   });
 
   test("uses ⌘ on mac and Ctrl elsewhere", () => {

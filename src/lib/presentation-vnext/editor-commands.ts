@@ -28,6 +28,10 @@ import type { ResolvedRenderNode } from "./render-tree";
 import type { AiSlideSpec } from "./ai-plan-schema";
 import type { SemanticTemplateV1 } from "./template-registry";
 import { compileSlide } from "./template-compiler";
+import { connectorEndpointToPointFallback } from "./connector-geometry";
+import { mergeStylePatchDeep } from "./style-patch-merge";
+
+export const MIN_DECK_SLIDES_MESSAGE = "A deck must keep at least one slide.";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -134,6 +138,52 @@ function expandNodeIds(
     if (node) collectDescendantIds(node, expanded);
   }
   return expanded;
+}
+
+function topLevelSelectedNodeIds(
+  nodes: readonly SlideChildNode[],
+  selectedIds: ReadonlySet<string>,
+  insideSelectedGroup = false,
+  result: string[] = [],
+): string[] {
+  for (const node of nodes) {
+    const selected = selectedIds.has(node.id);
+    if (selected && !insideSelectedGroup) result.push(node.id);
+    if (node.type === "group") {
+      topLevelSelectedNodeIds(
+        node.children,
+        selectedIds,
+        insideSelectedGroup || selected,
+        result,
+      );
+    }
+  }
+  return result;
+}
+
+function translateNodeTree(
+  node: SlideChildNode,
+  delta: { x: number; y: number },
+): SlideChildNode {
+  const layout = node.layout
+    ? {
+        ...node.layout,
+        frame: {
+          ...node.layout.frame,
+          x: node.layout.frame.x + delta.x,
+          y: node.layout.frame.y + delta.y,
+        },
+      }
+    : node.layout;
+  if (node.type === "group") {
+    return {
+      ...node,
+      ...(layout ? { layout } : {}),
+      children: node.children.map((child) => translateNodeTree(child, delta)),
+    };
+  }
+  if (!layout) return node;
+  return { ...node, layout } as SlideChildNode;
 }
 
 function duplicateNodeWithIds(
@@ -373,50 +423,16 @@ function duplicateSelectedInChildren(
   return result;
 }
 
-function anchorPoint(
-  frame: LayoutBox["frame"],
-  anchor: Extract<ConnectorEndpoint, { kind: "node" }>["anchor"],
-): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: frame.x + frame.w / 2, y: frame.y };
-    case "right":
-      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
-    case "bottom":
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
-    case "left":
-      return { x: frame.x, y: frame.y + frame.h / 2 };
-    case "center":
-    default:
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
-  }
-}
-
 function connectorEndpointToPoint(
   endpoint: ConnectorEndpoint,
   connector: SlideChildNode,
   slide: SlideNode,
 ): ConnectorEndpoint {
-  if (endpoint.kind === "point") return endpoint;
-  if (!connector.layout) return endpoint;
-  const target = findNodeById(slide.children, endpoint.nodeId);
-  if (!target?.layout) return endpoint;
-  const targetPoint = anchorPoint(target.layout.frame, endpoint.anchor);
-  const frame = connector.layout.frame;
-  if (frame.w <= 0 || frame.h <= 0) return endpoint;
-  return {
-    kind: "point",
-    point: {
-      x: Math.max(
-        0,
-        Math.min(100, ((targetPoint.x - frame.x) / frame.w) * 100),
-      ),
-      y: Math.max(
-        0,
-        Math.min(100, ((targetPoint.y - frame.y) / frame.h) * 100),
-      ),
-    },
-  };
+  return connectorEndpointToPointFallback(
+    endpoint,
+    connector.layout?.frame,
+    (nodeId) => findNodeById(slide.children, nodeId)?.layout?.frame,
+  );
 }
 
 function repairConnectorBindingsBeforeDelete(
@@ -726,7 +742,13 @@ export function updateSlideLocalStyle(
 ): DeckV7 {
   return mapSlides(deck, (slide) =>
     slide.id === slideId
-      ? { ...slide, localStyle: mergeStylePatch(slide.localStyle, patch) }
+      ? {
+          ...slide,
+          localStyle: mergeStylePatchDeep(
+            slide.localStyle,
+            patch,
+          ) as StylePatch,
+        }
       : slide,
   );
 }
@@ -904,17 +926,27 @@ export function updateNodeLayout(
 ): DeckV7 {
   return mapSlides(deck, (slide) => {
     if (slide.id !== slideId) return slide;
-    return mapChildren(
-      slide,
-      nodeId,
-      (node) =>
-        ({
-          ...node,
-          layout: node.layout
-            ? { ...node.layout, ...layoutPatch }
-            : (layoutPatch as LayoutBox),
-        }) as SlideChildNode,
-    );
+    return mapChildren(slide, nodeId, (node) => {
+      const nextLayout = node.layout
+        ? { ...node.layout, ...layoutPatch }
+        : (layoutPatch as LayoutBox);
+      if (node.type === "group" && node.layout?.frame && layoutPatch.frame) {
+        const delta = {
+          x: layoutPatch.frame.x - node.layout.frame.x,
+          y: layoutPatch.frame.y - node.layout.frame.y,
+        };
+        if (delta.x !== 0 || delta.y !== 0) {
+          return {
+            ...node,
+            layout: nextLayout,
+            children: node.children.map((child) =>
+              translateNodeTree(child, delta),
+            ),
+          };
+        }
+      }
+      return { ...node, layout: nextLayout } as SlideChildNode;
+    });
   });
 }
 
@@ -993,7 +1025,12 @@ export function moveNodesBy(
   const patches = new Map<string, Partial<LayoutBox>>();
   const slide = deck.slides.find((candidate) => candidate.id === slideId);
   if (!slide) return deck;
-  const nodes = collectNodesById(slide.children, new Set(nodeIds));
+  const selectedIds = new Set(nodeIds);
+  const topLevelSelectedIds = topLevelSelectedNodeIds(
+    slide.children,
+    selectedIds,
+  );
+  const nodes = collectNodesById(slide.children, new Set(topLevelSelectedIds));
   for (const node of nodes) {
     if (!node.layout || node.locked) continue;
     patches.set(node.id, {
@@ -1107,38 +1144,10 @@ export function updateLocalStyle(
       (node) =>
         ({
           ...node,
-          localStyle: mergeStylePatch(node.localStyle, patch),
+          localStyle: mergeStylePatchDeep(node.localStyle, patch) as StylePatch,
         }) as SlideChildNode,
     );
   });
-}
-
-function mergeStylePatch(
-  base: StylePatch | undefined,
-  patch: StylePatch,
-): StylePatch {
-  if (!base) return patch;
-  const result: StylePatch = { ...base };
-  for (const key of Object.keys(patch) as (keyof StylePatch)[]) {
-    const pv = patch[key];
-    const bv = base[key];
-    if (
-      pv !== undefined &&
-      typeof pv === "object" &&
-      !Array.isArray(pv) &&
-      typeof bv === "object" &&
-      bv !== null &&
-      !Array.isArray(bv)
-    ) {
-      (result as Record<string, unknown>)[key] = {
-        ...(bv as object),
-        ...(pv as object),
-      };
-    } else {
-      (result as Record<string, unknown>)[key] = pv;
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------

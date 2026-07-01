@@ -88,6 +88,10 @@ export function normalizeAnchorText(value: string, maxLength: number): string {
 const COORD_MIN = 0;
 const COORD_MAX = 100;
 
+function isFiniteCoordinate(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 export function validateAnchorGeometry(
   raw: { x: unknown; y: unknown } | null | undefined,
 ): AnchorPoint | null {
@@ -95,7 +99,7 @@ export function validateAnchorGeometry(
     return null;
   }
 
-  if (typeof raw.x !== "number" || typeof raw.y !== "number") {
+  if (!isFiniteCoordinate(raw.x) || !isFiniteCoordinate(raw.y)) {
     throw new Error("Anchor geometry must have numeric x and y coordinates.");
   }
 
@@ -118,7 +122,7 @@ export function sanitizeAnchorGeometry(raw: unknown): AnchorPoint | null {
     return null;
   }
   const geometry = raw as { x?: unknown; y?: unknown };
-  if (typeof geometry.x !== "number" || typeof geometry.y !== "number") {
+  if (!isFiniteCoordinate(geometry.x) || !isFiniteCoordinate(geometry.y)) {
     return null;
   }
   if (
