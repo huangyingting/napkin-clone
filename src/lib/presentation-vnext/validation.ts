@@ -19,8 +19,7 @@ import { SEMANTIC_TEMPLATE_KINDS } from "./template-registry";
 // ---------------------------------------------------------------------------
 
 export type DeckV7ParseResult =
-  | { success: true; data: DeckV7 }
-  | { success: false; errors: string[] };
+  { success: true; data: DeckV7 } | { success: false; errors: string[] };
 
 /** Validates and parses an unknown value as a v7 deck. Does not mutate input. */
 export function safeParseDeckV7(input: unknown): DeckV7ParseResult {
@@ -1314,6 +1313,20 @@ function validateStyleBinding(
 // ---------------------------------------------------------------------------
 
 const TEXT_FIT_MODES = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
+const TEXT_CONTENT_KEYS = new Set(["paragraphs", "fit", "language"]);
+const PARAGRAPH_KEYS = new Set(["id", "text", "runs", "list"]);
+const TEXT_RUN_KEYS = new Set([
+  "text",
+  "bold",
+  "italic",
+  "underline",
+  "strikethrough",
+  "code",
+  "link",
+  "localStyle",
+]);
+const RUN_LOCAL_STYLE_KEYS = new Set(["color", "fontSizePt", "fontFamily"]);
+const LIST_MARKER_KEYS = new Set(["kind", "indent", "numberStyle"]);
 
 function validateTextContent(
   input: unknown,
@@ -1324,6 +1337,13 @@ function validateTextContent(
     fail(errors, `${ctx} must be an object`);
     return;
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    TEXT_CONTENT_KEYS,
+    "text content field",
+    errors,
+  );
   if (!Array.isArray(input.paragraphs)) {
     fail(errors, `${ctx}.paragraphs must be an array`);
     return;
@@ -1337,6 +1357,13 @@ function validateTextContent(
       fail(errors, `${pCtx} must be an object`);
       continue;
     }
+    validateKnownObjectKeys(
+      para,
+      pCtx,
+      PARAGRAPH_KEYS,
+      "paragraph field",
+      errors,
+    );
     if (typeof para.id !== "string" || para.id.length === 0) {
       fail(errors, `${pCtx}.id must be a non-empty string`);
     }
@@ -1390,6 +1417,7 @@ function validateTextRun(
     fail(errors, `${ctx} must be an object`);
     return "";
   }
+  validateKnownObjectKeys(input, ctx, TEXT_RUN_KEYS, "text run field", errors);
   if (typeof input.text !== "string") {
     fail(errors, `${ctx}.text must be a string`);
   }
@@ -1422,6 +1450,13 @@ function validateRunLocalStyle(
     fail(errors, `${ctx} must be an object`);
     return;
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    RUN_LOCAL_STYLE_KEYS,
+    "run style field",
+    errors,
+  );
   validateOptionalString(input.color, `${ctx}.color`, errors);
   validateOptionalFiniteNumber(input.fontSizePt, `${ctx}.fontSizePt`, errors);
   validateOptionalString(input.fontFamily, `${ctx}.fontFamily`, errors);
@@ -1436,6 +1471,13 @@ function validateListMarker(
     fail(errors, `${ctx} must be an object`);
     return;
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    LIST_MARKER_KEYS,
+    "list marker field",
+    errors,
+  );
   if (
     !LIST_MARKER_KINDS.includes(
       input.kind as (typeof LIST_MARKER_KINDS)[number],
@@ -1465,6 +1507,11 @@ function validateListMarker(
 // Table content
 // ---------------------------------------------------------------------------
 
+const TABLE_CONTENT_KEYS = new Set(["columns", "rows", "header", "caption"]);
+const TABLE_COLUMN_KEYS = new Set(["id", "label", "width"]);
+const TABLE_ROW_KEYS = new Set(["id", "cells"]);
+const TABLE_CELL_KEYS = new Set(["text", "runs"]);
+
 function validateTableContent(
   input: unknown,
   ctx: string,
@@ -1474,6 +1521,13 @@ function validateTableContent(
     fail(errors, `${ctx} must be an object`);
     return;
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    TABLE_CONTENT_KEYS,
+    "table content field",
+    errors,
+  );
   if (!Array.isArray(input.columns)) {
     fail(errors, `${ctx}.columns must be an array`);
     return;
@@ -1492,7 +1546,18 @@ function validateTableContent(
   const colIds = new Set<string>();
   for (let ci = 0; ci < input.columns.length; ci++) {
     const col = input.columns[ci];
-    if (!isPlainObject(col)) continue;
+    const colCtx = `${ctx}.columns[${ci}]`;
+    if (!isPlainObject(col)) {
+      fail(errors, `${colCtx} must be an object`);
+      continue;
+    }
+    validateKnownObjectKeys(
+      col,
+      colCtx,
+      TABLE_COLUMN_KEYS,
+      "column field",
+      errors,
+    );
     if (typeof col.id !== "string" || colIds.has(col.id)) {
       fail(errors, `${ctx}.columns[${ci}].id must be unique and non-empty`);
     }
@@ -1501,7 +1566,12 @@ function validateTableContent(
   const rowIds = new Set<string>();
   for (let ri = 0; ri < input.rows.length; ri++) {
     const row = input.rows[ri];
-    if (!isPlainObject(row)) continue;
+    const rowCtx = `${ctx}.rows[${ri}]`;
+    if (!isPlainObject(row)) {
+      fail(errors, `${rowCtx} must be an object`);
+      continue;
+    }
+    validateKnownObjectKeys(row, rowCtx, TABLE_ROW_KEYS, "row field", errors);
     if (typeof row.id !== "string" || rowIds.has(row.id)) {
       fail(errors, `${ctx}.rows[${ri}].id must be unique and non-empty`);
     }
@@ -1517,6 +1587,13 @@ function validateTableContent(
         fail(errors, `${cellCtx} must be an object`);
         continue;
       }
+      validateKnownObjectKeys(
+        cell,
+        cellCtx,
+        TABLE_CELL_KEYS,
+        "cell field",
+        errors,
+      );
       if (typeof cell.text !== "string") {
         fail(errors, `${cellCtx}.text must be a string`);
       }
@@ -1632,6 +1709,89 @@ const SOURCE_REFRESH_STATES = [
   "unlinked",
   "unknown",
 ] as const;
+const BASE_CHILD_NODE_KEYS = [
+  "id",
+  "name",
+  "role",
+  "slot",
+  "layout",
+  "style",
+  "localStyle",
+  "locked",
+  "hidden",
+  "accessibility",
+  "source",
+  "type",
+] as const;
+const CHILD_NODE_CONTENT_KEYS = new Set([...BASE_CHILD_NODE_KEYS, "content"]);
+const CHILD_NODE_GROUP_KEYS = new Set([
+  ...BASE_CHILD_NODE_KEYS,
+  "component",
+  "children",
+]);
+const CHILD_NODE_ALL_KEYS = new Set([
+  ...BASE_CHILD_NODE_KEYS,
+  "content",
+  "component",
+  "children",
+]);
+const IMAGE_CONTENT_KEYS = new Set([
+  "assetId",
+  "crop",
+  "fit",
+  "focalPoint",
+  "alt",
+]);
+const SHAPE_CONTENT_KEYS = new Set(["shape", "text", "path"]);
+const CONNECTOR_CONTENT_KEYS = new Set(["from", "to", "routing"]);
+const VISUAL_CONTENT_KEYS = new Set([
+  "assetId",
+  "visualId",
+  "transparentBackground",
+  "alt",
+]);
+
+function validateChildNodeKeys(
+  input: Record<string, unknown>,
+  ctx: string,
+  type: string,
+  errors: string[],
+): void {
+  switch (type) {
+    case "text":
+    case "image":
+    case "shape":
+    case "connector":
+    case "table":
+    case "visual":
+      validateKnownObjectKeys(
+        input,
+        ctx,
+        CHILD_NODE_CONTENT_KEYS,
+        "node field",
+        errors,
+      );
+      break;
+    case "group":
+      validateKnownObjectKeys(
+        input,
+        ctx,
+        CHILD_NODE_GROUP_KEYS,
+        "node field",
+        errors,
+      );
+      break;
+    default:
+      validateKnownObjectKeys(
+        input,
+        ctx,
+        CHILD_NODE_ALL_KEYS,
+        "node field",
+        errors,
+      );
+      break;
+  }
+}
 
 function validatePointPct(input: unknown, ctx: string, errors: string[]): void {
   if (!isPlainObject(input)) {
@@ -1923,6 +2083,7 @@ function validateChildNode(
     fail(errors, `${ctx}.type must be a string`);
     return;
   }
+  validateChildNodeKeys(input, ctx, type, errors);
 
   switch (type) {
     case "text":
@@ -1932,6 +2093,13 @@ function validateChildNode(
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
       } else {
+        validateKnownObjectKeys(
+          input.content,
+          `${ctx}.content`,
+          IMAGE_CONTENT_KEYS,
+          "image content field",
+          errors,
+        );
         if (
           typeof input.content.assetId !== "string" ||
           input.content.assetId.length === 0
@@ -1961,6 +2129,13 @@ function validateChildNode(
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
       } else {
+        validateKnownObjectKeys(
+          input.content,
+          `${ctx}.content`,
+          SHAPE_CONTENT_KEYS,
+          "shape content field",
+          errors,
+        );
         if (
           !SHAPE_KINDS.includes(
             input.content.shape as (typeof SHAPE_KINDS)[number],
@@ -1992,6 +2167,13 @@ function validateChildNode(
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
       } else {
+        validateKnownObjectKeys(
+          input.content,
+          `${ctx}.content`,
+          CONNECTOR_CONTENT_KEYS,
+          "connector content field",
+          errors,
+        );
         validateConnectorEndpoint(
           input.content.from,
           `${ctx}.content.from`,
@@ -2011,11 +2193,20 @@ function validateChildNode(
     case "visual":
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
-      } else if (
-        input.content.assetId === undefined &&
-        input.content.visualId === undefined
-      ) {
-        fail(errors, `${ctx}.content must provide assetId or visualId`);
+      } else {
+        validateKnownObjectKeys(
+          input.content,
+          `${ctx}.content`,
+          VISUAL_CONTENT_KEYS,
+          "visual content field",
+          errors,
+        );
+        if (
+          input.content.assetId === undefined &&
+          input.content.visualId === undefined
+        ) {
+          fail(errors, `${ctx}.content must provide assetId or visualId`);
+        }
       }
       break;
     case "group": {

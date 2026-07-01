@@ -197,6 +197,44 @@ describe("writeDeckWithCas", () => {
     assert.equal(calls.length, 0);
   });
 
+  test("rejects nested unknown child-node/content fields before writing", async () => {
+    const { db, calls } = makeDb({ updateCount: 1 });
+    const result = await writeDeckWithCas({
+      documentId: "doc-v7-nested-unknown",
+      deckJson: {
+        ...VALID_DECK_V7,
+        slides: [
+          {
+            ...VALID_DECK_V7.slides[0],
+            children: [
+              {
+                id: "text-node-unknown",
+                type: "text",
+                content: {
+                  paragraphs: [
+                    { id: "p-1", text: "Hello", rogueParagraph: true },
+                  ],
+                  rogueContentField: true,
+                },
+                rogueNodeField: true,
+              },
+            ],
+          },
+        ],
+      },
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.equal(result.ok, false);
+    assert.match(
+      result.ok === false ? result.error : "",
+      /rogueNodeField|rogueContentField|rogueParagraph/,
+    );
+    assert.equal(calls.length, 0);
+  });
+
   test("rejects decks whose UTF-8 payload exceeds the save limit", async () => {
     const multibyteText = "漢🙂".repeat(80_000);
     const oversizedDeck = {
