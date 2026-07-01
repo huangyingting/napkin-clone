@@ -48,19 +48,12 @@ import {
   Copy,
   Edit3,
   FileDown,
-  FileText,
   Group,
   Keyboard,
-  Image as ImageIcon,
   LayoutPanelLeft,
-  Plus,
   Redo2,
   Save,
-  Spline,
-  Square,
   StickyNote,
-  Table2,
-  Type,
   Ungroup,
   Undo2,
   Users,
@@ -1114,9 +1107,6 @@ export function SlideEditorVNext({
   // Recoverable export/media errors surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
 
-  // Insert dropdown open state
-  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
-  const insertMenuRef = useRef<HTMLDivElement | null>(null);
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
   const replaceSlideBackgroundFileInputRef = useRef<HTMLInputElement | null>(
@@ -1124,28 +1114,6 @@ export function SlideEditorVNext({
   );
   const replaceImageTargetIdRef = useRef<string | null>(null);
   const insertImagePendingRef = useRef(false);
-
-  // Close insert dropdown on click-outside or Escape
-  useEffect(() => {
-    if (!insertMenuOpen) return;
-    function handlePointerDown(e: PointerEvent) {
-      if (
-        insertMenuRef.current &&
-        !insertMenuRef.current.contains(e.target as Node)
-      ) {
-        setInsertMenuOpen(false);
-      }
-    }
-    function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") setInsertMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [insertMenuOpen]);
 
   // Inline text editing state
   const [inlineEditNodeId, setInlineEditNodeId] = useState<string | null>(null);
@@ -1420,7 +1388,6 @@ export function SlideEditorVNext({
   }
 
   function handleInsertSlide() {
-    setInsertMenuOpen(false);
     setAddSlidePickerOpen(true);
   }
 
@@ -3588,99 +3555,6 @@ export function SlideEditorVNext({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {/* Insert dropdown */}
-          <div ref={insertMenuRef} className="relative">
-            <button
-              type="button"
-              aria-label="Insert element"
-              aria-haspopup="true"
-              aria-expanded={insertMenuOpen}
-              disabled={!activeSlide}
-              onClick={() => setInsertMenuOpen((o) => !o)}
-              className="flex h-8 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover disabled:opacity-40"
-            >
-              <Plus size={13} aria-hidden="true" />
-              Insert
-              <ChevronDown size={12} aria-hidden="true" />
-            </button>
-            {insertMenuOpen && (
-              <div
-                className="absolute left-0 top-full z-dropdown mt-1 min-w-[140px] overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface-overlay py-1 shadow-ds-popover"
-                role="menu"
-              >
-                {[
-                  {
-                    label: "Slide",
-                    icon: <LayoutPanelLeft size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertSlide();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                  {
-                    label: "Text",
-                    icon: <Type size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertText();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                  {
-                    label: "Shape",
-                    icon: <Square size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertShape();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                  {
-                    label: "Image",
-                    icon: <ImageIcon size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertImage();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                  {
-                    label: "Visual",
-                    icon: <FileText size={13} aria-hidden />,
-                    action: () => {
-                      void handleInsertVisual();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                  {
-                    label: "Connector",
-                    icon: <Spline size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertConnector();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                  {
-                    label: "Table",
-                    icon: <Table2 size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertTable();
-                      setInsertMenuOpen(false);
-                    },
-                  },
-                ].map(({ label, icon, action }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    role="menuitem"
-                    onClick={action}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
-                  >
-                    {icon}
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Theme picker */}
           <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
             Theme
@@ -4056,6 +3930,12 @@ export function SlideEditorVNext({
             slideBackgroundColor={activeSlideBackgroundColor}
             onUpdateSlideLocalStyle={handleUpdateSlideLocalStyle}
             onInsertSlide={handleInsertSlide}
+            onInsertText={handleInsertText}
+            onInsertShape={handleInsertShape}
+            onInsertImage={handleInsertImage}
+            onInsertVisual={() => void handleInsertVisual()}
+            onInsertConnector={handleInsertConnector}
+            onInsertTable={handleInsertTable}
             onDuplicateSlide={handleDuplicateActiveSlide}
             onDeleteSlide={handleDeleteActiveSlide}
             onDetachDecoration={handleDetachDecoration}

@@ -28,6 +28,8 @@ import {
   Ellipsis,
   Group,
   EyeOff,
+  FileText,
+  Image as ImageIcon,
   IndentDecrease,
   IndentIncrease,
   Italic,
@@ -40,8 +42,12 @@ import {
   RotateCcw,
   RotateCw,
   SendToBack,
+  Spline,
+  Square,
   Strikethrough,
+  Table2,
   Trash2,
+  Type as TypeIcon,
   Underline,
   Ungroup,
   Unlock,
@@ -63,16 +69,79 @@ const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
 
 export type SelectionAlignMode =
-  | "left"
-  | "center"
-  | "right"
-  | "top"
-  | "middle"
-  | "bottom";
+  "left" | "center" | "right" | "top" | "middle" | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
+type SlideToolInsertActionKey =
+  "text" | "shape" | "image" | "visual" | "connector" | "table";
+
+const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
+  text: "Insert text",
+  shape: "Insert shape",
+  image: "Insert image",
+  visual: "Insert visual",
+  connector: "Insert connector",
+  table: "Insert table",
+};
+
+interface SlideToolInsertCallbacks {
+  onInsertText?: () => void;
+  onInsertShape?: () => void;
+  onInsertImage?: () => void;
+  onInsertVisual?: () => void;
+  onInsertConnector?: () => void;
+  onInsertTable?: () => void;
+}
+
+interface SlideToolInsertAction {
+  key: SlideToolInsertActionKey;
+  label: string;
+  onClick: () => void;
+}
+
+export function buildSlideToolInsertActions({
+  onInsertText,
+  onInsertShape,
+  onInsertImage,
+  onInsertVisual,
+  onInsertConnector,
+  onInsertTable,
+}: SlideToolInsertCallbacks): SlideToolInsertAction[] {
+  const handlers: Partial<Record<SlideToolInsertActionKey, () => void>> = {
+    text: onInsertText,
+    shape: onInsertShape,
+    image: onInsertImage,
+    visual: onInsertVisual,
+    connector: onInsertConnector,
+    table: onInsertTable,
+  };
+  return (["text", "shape", "image", "visual", "connector", "table"] as const)
+    .map((key) => {
+      const onClick = handlers[key];
+      if (!onClick) return null;
+      return { key, label: SLIDE_TOOL_INSERT_LABELS[key], onClick };
+    })
+    .filter((action): action is SlideToolInsertAction => action !== null);
+}
+
+function renderSlideToolInsertIcon(key: SlideToolInsertActionKey) {
+  switch (key) {
+    case "text":
+      return <TypeIcon size={13} aria-hidden />;
+    case "shape":
+      return <Square size={13} aria-hidden />;
+    case "image":
+      return <ImageIcon size={13} aria-hidden />;
+    case "visual":
+      return <FileText size={13} aria-hidden />;
+    case "connector":
+      return <Spline size={13} aria-hidden />;
+    case "table":
+      return <Table2 size={13} aria-hidden />;
+  }
+}
 
 interface TBtnProps {
   label: string;
@@ -309,6 +378,12 @@ export interface ContextToolbarProps {
   slideBackgroundColor?: string;
   onUpdateSlideLocalStyle?: (patch: StylePatch) => void;
   onInsertSlide?: () => void;
+  onInsertText?: () => void;
+  onInsertShape?: () => void;
+  onInsertImage?: () => void;
+  onInsertVisual?: () => void;
+  onInsertConnector?: () => void;
+  onInsertTable?: () => void;
   onDuplicateSlide?: () => void;
   onDeleteSlide?: () => void;
   onDetachDecoration?: () => void;
@@ -342,6 +417,12 @@ export function ContextToolbar({
   slideBackgroundColor = "#ffffff",
   onUpdateSlideLocalStyle,
   onInsertSlide,
+  onInsertText,
+  onInsertShape,
+  onInsertImage,
+  onInsertVisual,
+  onInsertConnector,
+  onInsertTable,
   onDuplicateSlide,
   onDeleteSlide,
   onDetachDecoration,
@@ -353,10 +434,20 @@ export function ContextToolbar({
   const [moreOpen, setMoreOpen] = useState(false);
   const prevPositionRef = useRef({ top: -1000, left: -1000 });
   const isMultiSelect = selectedIds.length > 1;
+  const slideToolInsertActions = buildSlideToolInsertActions({
+    onInsertText,
+    onInsertShape,
+    onInsertImage,
+    onInsertVisual,
+    onInsertConnector,
+    onInsertTable,
+  });
   const showSlideTools =
     selectedIds.length === 0 &&
     !isInlineEditing &&
-    Boolean(onUpdateSlideLocalStyle || onInsertSlide);
+    Boolean(
+      onUpdateSlideLocalStyle || onInsertSlide || slideToolInsertActions.length,
+    );
   const visible = !isDragging && (selectedIds.length > 0 || showSlideTools);
 
   function updateToolbarPosition() {
@@ -545,6 +636,16 @@ export function ContextToolbar({
             <TBtn label="Add slide" onClick={() => onInsertSlide?.()}>
               <Plus size={13} aria-hidden />
             </TBtn>
+            {slideToolInsertActions.length > 0 ? <Divider /> : null}
+            {slideToolInsertActions.map((action) => (
+              <TBtn
+                key={action.key}
+                label={action.label}
+                onClick={() => action.onClick()}
+              >
+                {renderSlideToolInsertIcon(action.key)}
+              </TBtn>
+            ))}
             <TBtn label="Duplicate slide" onClick={() => onDuplicateSlide?.()}>
               <Copy size={13} aria-hidden />
             </TBtn>
