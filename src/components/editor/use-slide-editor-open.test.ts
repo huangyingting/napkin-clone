@@ -6,6 +6,7 @@ import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 import {
+  applyAiDeckProposalV7,
   createSerializedDeckPersistor,
   createDeckAutosaveOnDue,
   persistDeckV7WithRecovery,
@@ -259,4 +260,81 @@ test("createSerializedDeckPersistor ignores stale conflict outcomes once newer d
     serverRevisionToken: "server-rev-2",
   });
   assert.match(saveErrors.at(-1) ?? "", /Save conflict/);
+});
+
+test("applyAiDeckProposalV7 opens AI deck as dirty and persists immediately", async () => {
+  const aiDeck = createBlankDeckV7({ documentId: "doc-1341" });
+  const aiAppliedDeckRef = { current: null as DeckV7 | null };
+  const persistedDecks: DeckV7[] = [];
+  const dirtyStates: boolean[] = [];
+  const finished: Array<{ deck: DeckV7; diagnostics: unknown[] | undefined }> =
+    [];
+  let canceledAutosave = 0;
+
+  applyAiDeckProposalV7({
+    aiDeck,
+    aiAppliedDeckRef,
+    generationDiagnostics: [],
+    enterRecoveryV7: () => {
+      throw new Error("unexpected recovery path");
+    },
+    finishOpenV7: (deck, diagnostics) => {
+      finished.push({ deck, diagnostics });
+    },
+    cancelAutosaveV7: () => {
+      canceledAutosave += 1;
+    },
+    setV7Dirty: (dirty) => dirtyStates.push(dirty),
+    persistDeckV7: async (deck) => {
+      persistedDecks.push(deck);
+      return { ok: true, data: undefined };
+    },
+  });
+
+  await waitForAsyncDrain();
+
+  assert.equal(canceledAutosave, 1);
+  assert.deepEqual(dirtyStates, [true]);
+  assert.equal(finished.length, 1);
+  assert.equal(persistedDecks.length, 1);
+  assert.equal(aiAppliedDeckRef.current, persistedDecks[0]);
+  assert.equal(finished[0]?.deck, persistedDecks[0]);
+});
+
+test("applyAiDeckProposalV7 keeps malformed AI decks in recovery path", () => {
+  let recoveryCalls = 0;
+  let persistCalls = 0;
+  let finishCalls = 0;
+  let dirtyCalls = 0;
+  let cancelCalls = 0;
+  const aiAppliedDeckRef = { current: null as DeckV7 | null };
+
+  applyAiDeckProposalV7({
+    aiDeck: { invalid: true } as unknown as DeckV7,
+    aiAppliedDeckRef,
+    generationDiagnostics: [],
+    enterRecoveryV7: () => {
+      recoveryCalls += 1;
+    },
+    finishOpenV7: () => {
+      finishCalls += 1;
+    },
+    cancelAutosaveV7: () => {
+      cancelCalls += 1;
+    },
+    setV7Dirty: () => {
+      dirtyCalls += 1;
+    },
+    persistDeckV7: async () => {
+      persistCalls += 1;
+      return { ok: true, data: undefined };
+    },
+  });
+
+  assert.equal(recoveryCalls, 1);
+  assert.equal(finishCalls, 0);
+  assert.equal(cancelCalls, 0);
+  assert.equal(dirtyCalls, 0);
+  assert.equal(persistCalls, 0);
+  assert.equal(aiAppliedDeckRef.current, null);
 });
