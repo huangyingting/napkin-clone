@@ -315,7 +315,7 @@ export function PresentModeVNext({
       {/* Top HUD */}
       <div
         aria-label="Presentation controls"
-        className={`pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`tiq-safe-present-top pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 pb-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex flex-wrap items-center gap-3">
           <span
@@ -485,7 +485,7 @@ export function PresentModeVNext({
 
       {/* Bottom nav bar */}
       <div
-        className={`pointer-events-none absolute bottom-4 left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`tiq-safe-present-bottom pointer-events-none absolute left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
