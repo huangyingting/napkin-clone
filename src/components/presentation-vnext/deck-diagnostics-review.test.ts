@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
+import {
+  DeckDiagnosticsReview,
+  diagnosticReviewActionAriaLabel,
+} from "./deck-diagnostics-review";
 import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 
@@ -80,6 +83,16 @@ describe("DeckDiagnosticsReview", () => {
     assert.match(html, /Deck/);
     assert.match(html, /Go to target/);
     assert.match(html, /Open asset panel/);
+    assert.ok(
+      html.includes(
+        `aria-label="${diagnosticReviewActionAriaLabel("Go to target", diagnostics[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${diagnosticReviewActionAriaLabel("Open asset panel", diagnostics[0])}"`,
+      ),
+    );
   });
 
   test("renders validation, source, asset, theme, render, and export diagnostics in one surface", () => {
