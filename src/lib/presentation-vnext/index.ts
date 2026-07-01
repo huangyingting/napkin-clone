@@ -312,6 +312,7 @@ export { buildExportSpec } from "./export-spec";
 
 // Editor commands
 export {
+  MIN_DECK_SLIDES_MESSAGE,
   insertSlide,
   insertTemplateSlide,
   insertBlankSlide,

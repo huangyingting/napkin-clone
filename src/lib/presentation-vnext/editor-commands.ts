@@ -31,6 +31,8 @@ import { compileSlide } from "./template-compiler";
 import { connectorEndpointToPointFallback } from "./connector-geometry";
 import { mergeStylePatchDeep } from "./style-patch-merge";
 
+export const MIN_DECK_SLIDES_MESSAGE = "A deck must keep at least one slide.";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

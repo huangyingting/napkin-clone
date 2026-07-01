@@ -14,6 +14,7 @@
 import { Fragment, useState, type JSX, type KeyboardEvent } from "react";
 import { Plus } from "lucide-react";
 
+import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { SlideCanvasVNext } from "../slide-canvas";
@@ -119,7 +120,7 @@ export function Filmstrip({
       if (!focusedSlide) return;
       event.preventDefault();
       if (renderTree.slides.length <= 1) {
-        setStatusMessage("A deck must keep at least one slide.");
+        setStatusMessage(MIN_DECK_SLIDES_MESSAGE);
         return;
       }
       const nextIndex = Math.min(focusedIndex, renderTree.slides.length - 2);
