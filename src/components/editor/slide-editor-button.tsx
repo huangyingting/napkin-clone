@@ -31,7 +31,7 @@ import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { downloadBlob } from "@/lib/visual/export";
 
-function SlideEditorOpenRecovery({
+export function SlideEditorOpenRecovery({
   error,
   diagnostics,
   validationErrors,
