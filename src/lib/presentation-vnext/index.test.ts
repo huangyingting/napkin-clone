@@ -24,6 +24,8 @@ test("presentation-vnext barrel exposes the stable runtime surface", () => {
     "repairAiDeckPlan",
     "compileSlide",
     "resetIdCounter",
+    "slideSpecFromSlide",
+    "emptySlideSpecFromLayout",
     "resolveDeckRenderTree",
     "buildExportSpec",
     "insertSlide",
