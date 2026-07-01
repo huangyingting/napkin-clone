@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PublicPresentViewerVNext } from "@/components/presentation-vnext/public-present-viewer-vnext";
 import { publicShareBudgetExceeded } from "@/app/public-abuse";
+import { buildPresentEmbedRenderInput } from "@/lib/public-render/present-embed-route";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 export const metadata: Metadata = {
@@ -29,11 +30,9 @@ export default async function PresentEmbedPage({
     notFound();
   }
 
-  const result = await resolvePublicRender({
-    params: { shareId },
-    mode: "present",
-    projection: "presentation",
-  });
+  const result = await resolvePublicRender(
+    buildPresentEmbedRenderInput(shareId),
+  );
 
   if (!result.ok || result.projection !== "presentation") {
     notFound();
