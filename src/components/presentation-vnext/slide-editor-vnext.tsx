@@ -1271,6 +1271,7 @@ export function SlideEditorVNext({
     return localStorage.getItem(FILMSTRIP_COLLAPSED_KEY) === "true";
   });
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
+  const [footerStatusMenuOpen, setFooterStatusMenuOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [deckDiagnosticsReviewOpen, setDeckDiagnosticsReviewOpen] =
     useState(false);
@@ -3326,6 +3327,8 @@ export function SlideEditorVNext({
   const activeSlideName = slideDisplayName(activeSlide, activeSlideIndex);
   const selectedNodeSummary = selectedSummary(selectedIds.length);
   const diagnosticSummary = diagnosticsSummary(diagnostics.length);
+  const selectionModeLabel =
+    selection.mode === "layers" ? "Layers mode" : "Normal mode";
   const activeTemplate = activeSlide
     ? TEMPLATE_REGISTRY.get(activeSlide.template.kind)
     : undefined;
@@ -4247,8 +4250,11 @@ export function SlideEditorVNext({
       )}
 
       {/* Footer status bar */}
-      <footer className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-transparent px-3 text-[11px] text-ds-text-muted">
-        <div className="flex min-w-0 items-center gap-3">
+      <footer
+        data-slide-bottom-dock="true"
+        className="tiq-safe-bottom-dock grid min-h-9 shrink-0 grid-cols-1 items-center gap-2 bg-transparent px-3 py-1 text-[11px] text-ds-text-muted sm:h-9 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-3 sm:py-0"
+      >
+        <div className="hidden min-w-0 items-center gap-3 sm:flex">
           <span className="truncate">{selectedNodeSummary}</span>
           {remotePresencePeers.length > 0 ? (
             <span className="truncate">
@@ -4258,7 +4264,7 @@ export function SlideEditorVNext({
             </span>
           ) : null}
         </div>
-        <div className="flex min-w-0 items-center justify-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-1.5 sm:flex-nowrap sm:justify-center">
           <Tooltip
             label={
               filmstripCollapsed
@@ -4277,7 +4283,7 @@ export function SlideEditorVNext({
               aria-pressed={!filmstripCollapsed}
               onClick={toggleFilmstripCollapsed}
               className={cx(
-                "flex h-7 items-center gap-1.5 rounded-ds-md px-2 text-[11px] font-semibold transition-colors",
+                "flex h-7 items-center gap-1 rounded-ds-md px-1.5 text-[11px] font-semibold transition-colors sm:px-2",
                 !filmstripCollapsed
                   ? "bg-ds-accent-surface text-ds-accent-text"
                   : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
@@ -4298,7 +4304,7 @@ export function SlideEditorVNext({
             aria-pressed={inspectorPanelRequest?.panel === "notes"}
             onClick={handleNotesControlClick}
             className={cx(
-              "flex h-7 items-center gap-1 rounded-ds-md px-2 text-[11px] font-semibold transition-colors",
+              "flex h-7 items-center gap-1 rounded-ds-md px-1.5 text-[11px] font-semibold transition-colors sm:px-2",
               inspectorPanelRequest?.panel === "notes"
                 ? "bg-ds-accent-surface text-ds-accent-text"
                 : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
@@ -4326,7 +4332,7 @@ export function SlideEditorVNext({
               setStageZoomPercent(Number(event.currentTarget.value))
             }
             aria-label="Slide zoom"
-            className="w-24 accent-ds-accent sm:w-32"
+            className="hidden w-24 accent-ds-accent sm:block sm:w-28 lg:w-32"
           />
           <Popover
             open={zoomMenuOpen}
@@ -4339,9 +4345,10 @@ export function SlideEditorVNext({
                 type="button"
                 aria-haspopup="dialog"
                 aria-expanded={zoomMenuOpen}
+                aria-label={`Set slide zoom (${stageZoomPercent}%)`}
                 onClick={() => setZoomMenuOpen((open) => !open)}
                 className={cx(
-                  "h-7 min-w-14 rounded-ds-md px-2 text-[11px] font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                  "h-7 min-w-12 rounded-ds-md px-1.5 text-[11px] font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary sm:min-w-14 sm:px-2",
                   FOCUS_RING,
                 )}
               >
@@ -4379,8 +4386,67 @@ export function SlideEditorVNext({
               </button>
             </div>
           </Popover>
+          <Popover
+            open={footerStatusMenuOpen}
+            onClose={() => setFooterStatusMenuOpen(false)}
+            aria-label="Footer status"
+            placement="top"
+            align="end"
+            className="w-56 p-2.5 sm:hidden"
+            trigger={
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={footerStatusMenuOpen}
+                aria-label={`Footer status: ${saveStatusLabel}. ${diagnosticSummary}.`}
+                onClick={() => setFooterStatusMenuOpen((open) => !open)}
+                className={cx(
+                  "h-7 rounded-ds-md px-2 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                  FOCUS_RING,
+                )}
+              >
+                Status
+              </button>
+            }
+          >
+            <div className="space-y-2 text-xs">
+              {saveStatus === "error" && onSave ? (
+                <button
+                  type="button"
+                  onClick={() => void onSave(deck)}
+                  className="text-ds-danger-text underline-offset-2 hover:underline"
+                >
+                  {saveStatusLabel}
+                </button>
+              ) : (
+                <p>{saveStatusLabel}</p>
+              )}
+              {saveStatus === "error" && saveErrorMessage ? (
+                <p className="max-w-[200px] text-ds-danger-text">
+                  {saveErrorMessage}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setDeckDiagnosticsReviewOpen(true);
+                  setFooterStatusMenuOpen(false);
+                }}
+                aria-label={`Open deck diagnostics review (${diagnosticSummary})`}
+                className={cx(
+                  "rounded-ds-sm px-1.5 py-1 text-left font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                  FOCUS_RING,
+                )}
+              >
+                {diagnosticSummary}
+              </button>
+              {activeGroupId ? <p>Group edit</p> : null}
+              {tableEditingNodeId ? <p>Table edit</p> : null}
+              <p>{selectionModeLabel}</p>
+            </div>
+          </Popover>
         </div>
-        <div className="flex min-w-0 shrink-0 items-center justify-end gap-3">
+        <div className="hidden min-w-0 shrink-0 items-center justify-end gap-3 sm:flex">
           {saveStatus === "error" && onSave ? (
             <button
               type="button"
@@ -4397,10 +4463,20 @@ export function SlideEditorVNext({
               {saveErrorMessage}
             </span>
           ) : null}
-          <span>{diagnosticSummary}</span>
+          <button
+            type="button"
+            onClick={() => setDeckDiagnosticsReviewOpen(true)}
+            aria-label={`Open deck diagnostics review (${diagnosticSummary})`}
+            className={cx(
+              "rounded-ds-sm px-1.5 py-1 text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+              FOCUS_RING,
+            )}
+          >
+            {diagnosticSummary}
+          </button>
           {activeGroupId ? <span>Group edit</span> : null}
           {tableEditingNodeId ? <span>Table edit</span> : null}
-          <span>{selection.mode === "layers" ? "Layers" : "Normal"} mode</span>
+          <span>{selectionModeLabel}</span>
         </div>
       </footer>
     </div>
