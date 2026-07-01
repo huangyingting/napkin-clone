@@ -403,6 +403,33 @@ test("comment service creates slide root comments with geometry", async () => {
   assert.deepEqual(db.comments[0].anchorGeometry, { x: 1, y: 2 });
 });
 
+test("comment service rejects slide root comments with non-finite geometry", async () => {
+  const db = new FakeDb();
+  const { service } = makeService(db, "author-1", async () =>
+    buildDeck([{ id: "slide-1", elementIds: ["element-1"] }]),
+  );
+
+  await assert.rejects(
+    () =>
+      service.createComment("doc-1", {
+        body: "Bad geometry x",
+        slideId: "slide-1",
+        anchorGeometry: { x: Number.NaN, y: 2 },
+      }),
+    /Anchor geometry must have numeric x and y coordinates/,
+  );
+  await assert.rejects(
+    () =>
+      service.createComment("doc-1", {
+        body: "Bad geometry y",
+        slideId: "slide-1",
+        anchorGeometry: { x: 2, y: Number.NaN },
+      }),
+    /Anchor geometry must have numeric x and y coordinates/,
+  );
+  assert.equal(db.comments.length, 0);
+});
+
 test("comment service rejects slide comments anchored to missing slides", async () => {
   const db = new FakeDb();
   const { service } = makeService(db, "author-1", async () =>
