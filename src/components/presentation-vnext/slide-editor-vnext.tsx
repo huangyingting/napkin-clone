@@ -220,6 +220,7 @@ import {
   runVisualPickerMutation,
   VISUAL_PICKER_FAILURE_MESSAGE,
 } from "./visual-picker-recovery";
+import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -1086,6 +1087,86 @@ function defaultConnectorNode(zIndex: number): SlideChildNode {
   };
 }
 
+interface CloseRequestHandlers {
+  openCloseConfirmDialog: () => void;
+  closeEditor: () => void;
+}
+
+export function routeCloseRequest(
+  hasUnsavedWork: boolean,
+  handlers: CloseRequestHandlers,
+): void {
+  if (hasUnsavedWork) {
+    handlers.openCloseConfirmDialog();
+    return;
+  }
+  handlers.closeEditor();
+}
+
+interface CloseConfirmActionHandlers {
+  closeCloseConfirmDialog: () => void;
+  closeEditor: () => void;
+}
+
+export function handleCloseConfirmAction(
+  action: "cancel" | "discard",
+  handlers: CloseConfirmActionHandlers,
+): void {
+  handlers.closeCloseConfirmDialog();
+  if (action === "discard") {
+    handlers.closeEditor();
+  }
+}
+
+export function SlideEditorCloseConfirmDialog({
+  onCancel,
+  onDiscard,
+}: {
+  onCancel: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <Dialog
+      open
+      onClose={onCancel}
+      aria-labelledby="slide-editor-vnext-close-confirm-title"
+      className="max-w-sm"
+    >
+      <h2
+        id="slide-editor-vnext-close-confirm-title"
+        className="text-base font-semibold text-ds-text-primary"
+      >
+        Close and discard changes?
+      </h2>
+      <p className="mt-2 text-sm text-ds-text-secondary">
+        You have unsaved slide changes. Close the editor and discard them?
+      </p>
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className={cx(
+            "flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary",
+            FOCUS_RING,
+          )}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onDiscard}
+          className={cx(
+            "flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90",
+            FOCUS_RING,
+          )}
+        >
+          Discard changes
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -1130,6 +1211,7 @@ export function SlideEditorVNext({
 
   // Recoverable export/media errors surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1159,14 +1241,10 @@ export function SlideEditorVNext({
   }
 
   function handleCloseRequest() {
-    if (
-      hasUnsavedWork &&
-      typeof window !== "undefined" &&
-      !window.confirm("You have unsaved slide changes. Close the editor?")
-    ) {
-      return;
-    }
-    onClose?.();
+    routeCloseRequest(hasUnsavedWork, {
+      openCloseConfirmDialog: () => setCloseConfirmOpen(true),
+      closeEditor: () => onClose?.(),
+    });
   }
 
   function handleThemePackageChange(packageId: string) {
@@ -2175,8 +2253,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (resizeGestureDraft) {
       drafts.set(resizeGestureDraft.nodeId, {
@@ -3916,6 +3993,22 @@ export function SlideEditorVNext({
             onAction={handleDiagnosticAction}
           />
         </FocusTrapped>
+      ) : null}
+      {closeConfirmOpen ? (
+        <SlideEditorCloseConfirmDialog
+          onCancel={() =>
+            handleCloseConfirmAction("cancel", {
+              closeCloseConfirmDialog: () => setCloseConfirmOpen(false),
+              closeEditor: () => onClose?.(),
+            })
+          }
+          onDiscard={() =>
+            handleCloseConfirmAction("discard", {
+              closeCloseConfirmDialog: () => setCloseConfirmOpen(false),
+              closeEditor: () => onClose?.(),
+            })
+          }
+        />
       ) : null}
 
       {/* ------------------------------------------------------------------ */}
