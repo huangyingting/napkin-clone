@@ -1,13 +1,42 @@
+export type DeckActionFailureCode =
+  | "document_not_found"
+  | "invalid_deck"
+  | "deck_too_large"
+  | "command_rejected"
+  | "command_disabled"
+  | "storage_unavailable";
+
+export type DeckActionFailure = {
+  code: DeckActionFailureCode;
+  retryable: boolean;
+};
+
+export type SaveDeckFailureResult = {
+  ok: false;
+  error: string;
+  failure: DeckActionFailure;
+};
+
 export type SaveDeckResult =
   | { ok: true; revisionToken: string }
   | { ok: "conflict"; serverRevisionToken: string | null }
-  | { ok: false; error: string };
+  | SaveDeckFailureResult;
 
 export type SaveDeckPatchResult =
   | { ok: true; revisionToken: string }
   | { ok: "conflict"; serverRevisionToken: string | null }
   | { ok: "fallback" }
-  | { ok: false; error: string };
+  | SaveDeckFailureResult;
+
+export type FetchDeckResult =
+  | { ok: true; deckJson: unknown; revisionToken: string | null }
+  | {
+      ok: false;
+      deckJson: null;
+      revisionToken: null;
+      error: string;
+      failure: DeckActionFailure;
+    };
 
 export type RestoredDocumentVersion = {
   documentId: string;

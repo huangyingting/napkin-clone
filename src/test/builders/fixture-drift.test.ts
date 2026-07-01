@@ -9,6 +9,8 @@ import {
 } from "@/lib/comments/anchors";
 import { buildDeckSource } from "@/lib/ai/deck-source";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import { createBlankVisual } from "@/lib/visual/blank";
 import { FIXTURE_LIST } from "@/lib/visual/fixtures";
 import {
@@ -32,6 +34,7 @@ import {
   buildE2EProfileVisual,
   e2eProfileAssetChecksum,
 } from "@/test/builders/e2e-profile";
+import type { TextNode } from "@/lib/presentation-vnext/schema";
 import {
   buildContentJson,
   buildHeadingNode,
@@ -478,10 +481,15 @@ test("E2E profile builders are the seed/spec single source of truth", () => {
     `/api/slide-assets/${storageKey}`,
     "asset-1",
   );
-  assert.equal(safeParseDeck(deck).success, true);
+  assert.equal(safeParseDeckV7(deck).success, true);
+  const opened = openDeckFromJson(deck);
+  assert.equal(opened.ok, true);
   assert.equal(deck.slides.length, 2);
-  assert.equal(
-    deck.slides[1].title,
-    e2eProfile.E2E_PROFILE_FIXTURE.slideTwoTitleText,
+
+  const slideTwoTitleNode = deck.slides[1].children.find(
+    (child): child is TextNode =>
+      child.type === "text" && child.role === "title",
   );
+  const slideTwoTitle = slideTwoTitleNode?.content.paragraphs[0]?.text ?? "";
+  assert.equal(slideTwoTitle, e2eProfile.E2E_PROFILE_FIXTURE.slideTwoTitleText);
 });

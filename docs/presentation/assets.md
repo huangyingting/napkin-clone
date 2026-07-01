@@ -86,7 +86,9 @@ The adapter interface supports future storage backends such as S3 or Azure Blob:
 
 1. the asset exists, belongs to the requested document, and is not soft-deleted;
 2. the authenticated user has `view` capability for that document; or
-3. the document has a valid public present/embed share policy.
+3. the anonymous request carries `shareId` + `shareMode` query parameters that
+   still match an active public share policy (`present` or `embed`) for the
+   document.
 
 Other requests return 403 or 404. This prevents private decks from leaking image
 bytes through predictable URLs.
@@ -133,8 +135,8 @@ producing a blank image.
 ## Invariants
 
 1. Upload requires document `edit` capability.
-2. Serving requires document `view` capability or valid public present/embed
-   access.
+2. Serving requires document `view` capability or a valid share-bound public
+   request (`shareId` + `shareMode`).
 3. Storage keys are derived from document id, checksum, and validated MIME type.
 4. Asset bytes are not served from public static storage.
 5. Version snapshots protect assets from immediate purge.

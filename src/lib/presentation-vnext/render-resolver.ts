@@ -222,6 +222,8 @@ function resolveChildNode(
       children,
       source: "user",
       locked: node.locked,
+      ...(node.name ? { name: node.name } : {}),
+      ...(node.accessibility ? { accessibility: node.accessibility } : {}),
     };
   }
 
@@ -291,6 +293,8 @@ function resolveChildNode(
     content,
     source: "user",
     locked: node.locked,
+    ...(node.name ? { name: node.name } : {}),
+    ...(node.accessibility ? { accessibility: node.accessibility } : {}),
   };
 }
 

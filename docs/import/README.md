@@ -45,13 +45,13 @@ is authoritative.
 
 ## Accepted Formats
 
-| Format         | Parser behavior                                  |
-| -------------- | ------------------------------------------------ |
-| Markdown/plain | Decode as UTF-8 text.                            |
-| HTML           | Convert HTML to Markdown-compatible text.        |
-| DOCX           | Parse server-side through the DOCX parser.       |
-| PPTX           | Read slides from the Office archive parser.      |
-| PDF            | Extract text server-side through the PDF parser. |
+| Format         | Parser behavior                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| Markdown/plain | Decode as UTF-8 text.                                                                           |
+| HTML           | Convert HTML to Markdown-compatible text.                                                       |
+| DOCX           | Parse server-side through the DOCX parser.                                                      |
+| PPTX           | Read slide shapes, native table cells, and linked speaker notes from the Office archive parser. |
+| PDF            | Extract text server-side through the PDF parser.                                                |
 
 MIME type is resolved first from the browser-provided MIME value. When browsers
 send a generic MIME type for office files, the validator falls back to the file

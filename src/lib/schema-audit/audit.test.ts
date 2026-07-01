@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { buildMinimalDeckV7 } from "@/test/builders/deck-v7";
 import {
   auditAssetScope,
   auditCommentAnchor,
@@ -32,8 +32,12 @@ import {
 const SECRET = "TopSecretConfidentialBodyText";
 
 function validDeck(): unknown {
+  return buildMinimalDeckV7();
+}
+
+function legacyV6Deck(): unknown {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: 6,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -90,10 +94,22 @@ describe("auditRows — valid rows", () => {
     const visuals: VisualAuditRow[] = [
       { id: "v-1", documentId: "doc-1", data: validVisual() },
     ];
-    const report = auditRows({ documents, visuals });
+    const report = auditRows({
+      documents,
+      visuals,
+      documentVersions: [
+        {
+          id: "version-1",
+          documentId: "doc-1",
+          deckJson: validDeck(),
+          contentJson: contentWithVisual(validVisual()),
+        },
+      ],
+    });
     assert.equal(report.summary.violations, 0);
     assert.equal(report.summary.scannedDocuments, 1);
     assert.equal(report.summary.scannedVisuals, 1);
+    assert.equal(report.summary.scannedDocumentVersions, 1);
   });
 
   test("null deckJson / contentJson are skipped, not flagged", () => {
@@ -122,6 +138,21 @@ describe("auditRows — invalid rows", () => {
     const v = report.violations.find((x) => x.area === "Document.deckJson");
     assert.ok(v);
     assert.equal(v?.documentId, "doc-bad");
+  });
+
+  test("flags a legacy v6-shaped Document.deckJson", () => {
+    const report = auditRows({
+      documents: [
+        {
+          id: "doc-v6",
+          deckJson: legacyV6Deck(),
+          contentJson: null,
+        },
+      ],
+    });
+    const v = report.violations.find((x) => x.area === "Document.deckJson");
+    assert.ok(v);
+    assert.equal(v?.documentId, "doc-v6");
   });
 
   test("flags a serialized-string Document.deckJson as a violation", () => {
@@ -172,39 +203,44 @@ describe("auditRows — invalid rows", () => {
     assert.equal(v?.documentId, "doc-1");
   });
 
-  test("flags an invalid active SourceRef inside a deck", () => {
-    const deck = validDeck() as { slides: { elements: unknown[] }[] };
-    deck.slides[0].elements = [
-      {
-        id: "e1",
-        kind: "text",
-        text: SECRET,
-        box: { x: 0, y: 0, w: 1, h: 1 },
-        zIndex: 0,
-        sourceRef: {
-          // missing documentId / linkedAt / blockKind → invalid
-          blockId: "block-1",
-        },
-      },
-    ];
+  test("flags invalid DeckV7 source metadata under slides[].children[].source", () => {
+    const deck = validDeck() as {
+      slides: { children: Array<Record<string, unknown>> }[];
+    };
+    deck.slides[0].children[0].source = {
+      refresh: { state: "not-a-real-state" },
+      blockId: SECRET,
+    };
     const violations = auditDocumentDeck({
       id: "doc-1",
       deckJson: deck,
       contentJson: null,
     });
-    assert.ok(violations.some((v) => v.area === "SourceRef"));
+    const sourceViolation = violations.find(
+      (v) => v.area === "NodeSourceMetadata",
+    );
+    assert.ok(sourceViolation);
+    assert.match(
+      sourceViolation?.reason ?? "",
+      /slides\[0\]\.children\[0\]\.source/,
+    );
+    assert.ok(!(sourceViolation?.reason ?? "").includes(SECRET));
   });
 
-  test("ignores malformed or unlinked raw source refs while scanning decks", () => {
+  test("audits active malformed source metadata and skips unlinked metadata", () => {
     const deck = {
       slides: [
         null,
-        { elements: null },
+        { children: null },
         {
-          elements: [
+          children: [
             null,
-            { sourceRef: "not-an-object" },
-            { sourceRef: { unlinked: true, blockId: SECRET } },
+            { source: "not-an-object" },
+            { source: { unlinked: true, blockId: SECRET } },
+            {
+              type: "group",
+              children: [{ source: { refresh: { state: "invalid-state" } } }],
+            },
           ],
         },
       ],
@@ -217,7 +253,21 @@ describe("auditRows — invalid rows", () => {
     });
 
     assert.ok(violations.some((v) => v.area === "Document.deckJson"));
-    assert.ok(!violations.some((v) => v.area === "SourceRef"));
+    const sourceViolations = violations.filter(
+      (v) => v.area === "NodeSourceMetadata",
+    );
+    assert.equal(sourceViolations.length, 2);
+    assert.ok(
+      sourceViolations.some((v) =>
+        v.reason.includes("slides[2].children[1].source"),
+      ),
+    );
+    assert.ok(
+      sourceViolations.some((v) =>
+        v.reason.includes("slides[2].children[3].children[0].source"),
+      ),
+    );
+    assert.ok(sourceViolations.every((v) => !v.reason.includes(SECRET)));
   });
 
   test("audits invalid document-version decks and embedded visuals", () => {

@@ -54,3 +54,57 @@ test("selectNodesInFrame includes nested group children", () => {
     "child",
   ]);
 });
+
+test("selectNodesInFrame skips hidden top-level nodes", () => {
+  const nodes: SlideChildNode[] = [
+    { ...textNode("hidden", { x: 10, y: 10, w: 10, h: 10 }), hidden: true },
+    textNode("visible", { x: 12, y: 12, w: 10, h: 10 }),
+  ];
+
+  assert.deepEqual(selectNodesInFrame(nodes, { x: 5, y: 5, w: 30, h: 30 }), [
+    "visible",
+  ]);
+});
+
+test("selectNodesInFrame skips hidden group descendants", () => {
+  const nodes: SlideChildNode[] = [
+    {
+      id: "visible-group",
+      type: "group",
+      component: "custom",
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 1 },
+      children: [
+        {
+          ...textNode("hidden-child", { x: 20, y: 20, w: 10, h: 10 }),
+          hidden: true,
+        },
+        textNode("visible-child", { x: 35, y: 35, w: 10, h: 10 }),
+        {
+          id: "hidden-nested-group",
+          type: "group",
+          component: "custom",
+          hidden: true,
+          layout: { frame: { x: 40, y: 40, w: 30, h: 30 }, zIndex: 2 },
+          children: [
+            textNode("hidden-nested-child", { x: 45, y: 45, w: 10, h: 10 }),
+          ],
+        },
+      ],
+    },
+    {
+      id: "hidden-top-group",
+      type: "group",
+      component: "custom",
+      hidden: true,
+      layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 2 },
+      children: [
+        textNode("hidden-top-group-child", { x: 30, y: 30, w: 10, h: 10 }),
+      ],
+    },
+  ];
+
+  assert.deepEqual(selectNodesInFrame(nodes, { x: 15, y: 15, w: 50, h: 50 }), [
+    "visible-group",
+    "visible-child",
+  ]);
+});

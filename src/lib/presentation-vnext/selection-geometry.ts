@@ -31,6 +31,9 @@ export function selectNodesInFrame(
 ): string[] {
   const ids: string[] = [];
   for (const node of nodes) {
+    if (node.hidden) {
+      continue;
+    }
     if (node.layout && intersects(node.layout.frame, frame)) {
       ids.push(node.id);
     }

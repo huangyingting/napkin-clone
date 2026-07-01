@@ -5,6 +5,7 @@ import {
   type RunVnextDeckGenerationInput,
   type RunVnextDeckGenerationResult,
 } from "@/lib/ai/run-vnext-deck-generation";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import type { ThemePackageId } from "@/lib/presentation/theme-packages";
@@ -19,6 +20,7 @@ export type GenerateDeckMode = "package-template" | "vnext";
 export interface GenerateDeckRouteResult {
   deck: DeckV7;
   truncated: boolean;
+  diagnostics: PresentationDiagnostic[];
   requestedGenerationMode: GenerateDeckMode;
   generationMode: GenerateDeckMode;
   themePackageId?: ThemePackageId;
@@ -71,6 +73,7 @@ export async function generateDeckForRoute(
   return {
     deck: result.deck,
     truncated: result.truncated,
+    diagnostics: result.diagnostics,
     requestedGenerationMode: payload.generationMode,
     generationMode: "vnext",
     themePackageId: payload.themePackageId,
@@ -171,12 +174,14 @@ export function buildGenerateDeckSuccessResponse(
 ): {
   deck: DeckV7;
   truncated: boolean;
+  diagnostics: PresentationDiagnostic[];
   metadata: GenerateDeckResponseMetadata;
 } {
   const metrics = computeV7RouteMetrics(result.deck);
   return {
     deck: result.deck,
     truncated: result.truncated,
+    diagnostics: result.diagnostics,
     metadata: buildGenerateDeckResponseMetadata(result, metrics.schemaValid),
   };
 }

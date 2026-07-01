@@ -47,6 +47,10 @@ function validatedPackages(): ThemePackageV1[] {
 export const THEME_PACKAGE_REGISTRY: readonly ThemePackageV1[] =
   validatedPackages();
 
+const THEME_PACKAGE_LIST: readonly ThemePackageV1[] = Object.freeze(
+  THEME_PACKAGE_REGISTRY.map((themePackage) => clone(themePackage)),
+);
+
 const PACKAGE_BY_ID = new Map(
   THEME_PACKAGE_REGISTRY.map((themePackage) => [themePackage.id, themePackage]),
 );
@@ -71,8 +75,8 @@ export function getThemePackageV7(
   return PACKAGE_BY_ID.get(resolveThemePackageIdV7(packageId));
 }
 
-export function listThemePackagesV7(): ThemePackageV1[] {
-  return THEME_PACKAGE_REGISTRY.map((themePackage) => clone(themePackage));
+export function listThemePackagesV7(): readonly ThemePackageV1[] {
+  return THEME_PACKAGE_LIST;
 }
 
 export function resolveThemePackageForDeck(
