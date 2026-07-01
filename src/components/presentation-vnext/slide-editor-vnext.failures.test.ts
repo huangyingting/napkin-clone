@@ -900,6 +900,158 @@ describe("SlideEditorVNext failure-state coverage", () => {
       ).hiddenNodeIds;
       assert.ok(hiddenNodeIds?.has("existing-text"));
     });
+
+    test("clicking the already-selected text node enters edit mode at the click point", () => {
+      const hookRenderer = createHookRenderer();
+      const currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildTextNode({
+              id: "selected-text",
+              layout: { frame: { x: 20, y: 24, w: 36, h: 12 }, zIndex: 1 },
+              content: {
+                paragraphs: [
+                  { id: "selected-text-p1", text: "Place the caret here" },
+                ],
+              },
+            }),
+          ],
+          { id: "slide-with-selected-text", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-selected-click",
+            deck: currentDeck,
+            onDeckChange: () => undefined,
+          }),
+        );
+      const nodeClickFrom = (root: ReactNode) => {
+        const stageCanvas = findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+        const onNodeClick = (
+          stageCanvas.props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        assert.ok(onNodeClick);
+        return onNodeClick;
+      };
+
+      let tree = renderTree();
+      nodeClickFrom(tree)("selected-text", {
+        clientX: 360,
+        clientY: 240,
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      nodeClickFrom(tree)("selected-text", {
+        clientX: 372,
+        clientY: 246,
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const updatedStageCanvas = findRequiredElement(
+        tree,
+        (element) => element.type === SlideCanvasVNext,
+        "Expected stage canvas after selected text click.",
+      );
+      const hiddenNodeIds = (
+        updatedStageCanvas.props as {
+          hiddenNodeIds?: ReadonlySet<string>;
+        }
+      ).hiddenNodeIds;
+      assert.ok(
+        hiddenNodeIds?.has("selected-text"),
+        "Expected selected text click to enter inline edit mode.",
+      );
+    });
+
+    test("clicking an already-selected empty shape enters edit mode at the beginning", () => {
+      const hookRenderer = createHookRenderer();
+      const currentDeck = buildDeckV7([
+        buildSlideV7(
+          "content",
+          [
+            buildShapeNode({
+              id: "empty-shape",
+              layout: { frame: { x: 20, y: 24, w: 36, h: 12 }, zIndex: 1 },
+              content: { shape: "rect" },
+            }),
+          ],
+          { id: "slide-with-empty-shape", name: "Slide 1" },
+        ),
+      ]);
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-selected-empty-shape-click",
+            deck: currentDeck,
+            onDeckChange: () => undefined,
+          }),
+        );
+      const nodeClickFrom = (root: ReactNode) => {
+        const stageCanvas = findRequiredElement(
+          root,
+          (element) => element.type === SlideCanvasVNext,
+          "Expected stage canvas to render.",
+        );
+        const onNodeClick = (
+          stageCanvas.props as {
+            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+          }
+        ).onNodeClick;
+        assert.ok(onNodeClick);
+        return onNodeClick;
+      };
+
+      let tree = renderTree();
+      nodeClickFrom(tree)("empty-shape", {
+        clientX: 360,
+        clientY: 240,
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      nodeClickFrom(tree)("empty-shape", {
+        clientX: 372,
+        clientY: 246,
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const updatedStageCanvas = findRequiredElement(
+        tree,
+        (element) => element.type === SlideCanvasVNext,
+        "Expected stage canvas after selected empty shape click.",
+      );
+      const hiddenNodeIds = (
+        updatedStageCanvas.props as {
+          hiddenNodeIds?: ReadonlySet<string>;
+        }
+      ).hiddenNodeIds;
+      assert.ok(
+        hiddenNodeIds?.has("empty-shape"),
+        "Expected selected empty shape click to enter inline edit mode.",
+      );
+    });
   });
 
   describe("SlideEditorVNext semantic hit testing parity", () => {

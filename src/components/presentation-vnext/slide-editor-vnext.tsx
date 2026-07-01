@@ -264,7 +264,10 @@ import {
   AddSlideTemplatePicker,
   type AddSlideTemplateChoice,
 } from "./add-slide-template-picker";
-import { InlineTextEditorVNext } from "./inline-text-editor";
+import {
+  InlineTextEditorVNext,
+  type InlineTextInitialCaret,
+} from "./inline-text-editor";
 import { applyInlineTextCommit } from "./inline-text-commit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { useExportDiagnostics } from "./use-export-diagnostics";
@@ -1235,8 +1238,23 @@ export function SlideEditorVNext({
 
   // Inline text editing state
   const [inlineEditNodeId, setInlineEditNodeId] = useState<string | null>(null);
+  const [inlineEditInitialCaret, setInlineEditInitialCaret] =
+    useState<InlineTextInitialCaret | null>(null);
   const [deckTitleEditing, setDeckTitleEditing] = useState(false);
   const [deckTitleDraft, setDeckTitleDraft] = useState(deck.title ?? "Slides");
+
+  function enterInlineEdit(
+    nodeId: string,
+    initialCaret: InlineTextInitialCaret | null = null,
+  ) {
+    setInlineEditInitialCaret(initialCaret);
+    setInlineEditNodeId(nodeId);
+  }
+
+  function exitInlineEdit() {
+    setInlineEditInitialCaret(null);
+    setInlineEditNodeId(null);
+  }
 
   useEffect(() => {
     if (!deckTitleEditing) setDeckTitleDraft(deck.title ?? "Slides");
@@ -1488,7 +1506,7 @@ export function SlideEditorVNext({
     if (nextSlideIndex < 0) {
       setSelection((s) => clearSelection(s));
       setFocusedNodeId(null);
-      setInlineEditNodeId(null);
+      exitInlineEdit();
       window.setTimeout(() => editorRootRef.current?.focus(), 0);
       return;
     }
@@ -1498,7 +1516,7 @@ export function SlideEditorVNext({
       ? findNodeById(targetSlide.children, undoRedoFocus.nodeId)
       : undefined;
     setActiveSlideIndex(nextSlideIndex);
-    setInlineEditNodeId(null);
+    exitInlineEdit();
     setHoveredNodeId(null);
     if (targetNode) {
       setSelection((s) => setSelectedNodeIds(s, [targetNode.id]));
@@ -1530,7 +1548,7 @@ export function SlideEditorVNext({
 
   function handleNotesControlClick() {
     setSelection(createSelectionState(selection.mode));
-    setInlineEditNodeId(null);
+    exitInlineEdit();
     requestInspectorPanel("notes");
     if (isMobileInspectorViewport()) {
       setInspectorSheetOpen(true);
@@ -2110,6 +2128,35 @@ export function SlideEditorVNext({
     return semanticHitsFromEvent(event, options)[0]?.node.id ?? fallbackNodeId;
   }
 
+  function isInlineEditableNode(
+    node: SlideChildNode,
+  ): node is Extract<SlideChildNode, { type: "text" | "shape" }> {
+    return node.type === "text" || node.type === "shape";
+  }
+
+  function inlineEditableNodeHasText(
+    node: Extract<SlideChildNode, { type: "text" | "shape" }>,
+  ): boolean {
+    const paragraphs =
+      node.type === "text"
+        ? node.content.paragraphs
+        : node.content.text?.paragraphs;
+    return (
+      paragraphs?.some((paragraph) => paragraph.text.trim().length > 0) === true
+    );
+  }
+
+  function initialCaretFromNodeClick(
+    node: Extract<SlideChildNode, { type: "text" | "shape" }>,
+    event: Pick<MouseEvent | ReactPointerEvent, "clientX" | "clientY">,
+  ): InlineTextInitialCaret {
+    return inlineEditableNodeHasText(node) &&
+      Number.isFinite(event.clientX) &&
+      Number.isFinite(event.clientY)
+      ? { kind: "client", x: event.clientX, y: event.clientY }
+      : { kind: "start" };
+  }
+
   function applyActiveGroupContext(nodeId: string) {
     if (!activeSlide) return;
     const parentGroupId = parentGroupIdForNode(activeSlide.children, nodeId);
@@ -2124,18 +2171,32 @@ export function SlideEditorVNext({
     const targetNodeId = semanticNodeIdFromEvent(nodeId, event, {
       selectedNodeBonus: true,
     });
+    const additive = event.shiftKey || event.metaKey || event.ctrlKey;
+    const wasOnlySelectedNode =
+      selectedIds.length === 1 && selectedIds[0] === targetNodeId;
     // Commit any active inline edit when clicking a different node
     if (inlineEditNodeId && inlineEditNodeId !== targetNodeId) {
-      setInlineEditNodeId(null);
+      exitInlineEdit();
     }
     if (tableEditingNodeId && tableEditingNodeId !== targetNodeId) {
       clearTableEditing();
     }
     applyActiveGroupContext(targetNodeId);
     setFocusedNodeId(targetNodeId);
-    setSelection((s) =>
-      selectNode(s, targetNodeId, event.shiftKey || event.metaKey),
-    );
+    setSelection((s) => selectNode(s, targetNodeId, additive));
+
+    const node = activeSlide
+      ? findNodeById(activeSlide.children, targetNodeId)
+      : undefined;
+    if (
+      !additive &&
+      wasOnlySelectedNode &&
+      node &&
+      isInlineEditableNode(node) &&
+      node.locked !== true
+    ) {
+      enterInlineEdit(targetNodeId, initialCaretFromNodeClick(node, event));
+    }
   }
 
   function handleNodeFocus(nodeId: string) {
@@ -2200,7 +2261,7 @@ export function SlideEditorVNext({
       setActiveGroupId(
         parentGroupIdForNode(activeSlide.children, targetNodeId),
       );
-      setInlineEditNodeId(targetNodeId);
+      enterInlineEdit(targetNodeId);
     }
   }
 
@@ -2222,11 +2283,11 @@ export function SlideEditorVNext({
       textAlign,
     });
     onDeckChange(updated);
-    setInlineEditNodeId(null);
+    exitInlineEdit();
   }
 
   function handleInlineEditCancel() {
-    setInlineEditNodeId(null);
+    exitInlineEdit();
   }
 
   function handleInlineEditTab(direction: 1 | -1) {
@@ -2238,7 +2299,7 @@ export function SlideEditorVNext({
     );
     if (!nextId || nextId === inlineEditNodeId) return;
     setSelection((s) => setSelectedNodeIds(s, [nextId]));
-    setInlineEditNodeId(nextId);
+    enterInlineEdit(nextId);
   }
 
   function handleStageClick(e: MouseEvent) {
@@ -2280,7 +2341,7 @@ export function SlideEditorVNext({
     setFocusedNodeId(result.nodeId);
     setActiveGroupId(null);
     clearTableEditing();
-    setInlineEditNodeId(result.nodeId);
+    enterInlineEdit(result.nodeId, { kind: "start" });
   }
 
   function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2351,6 +2412,26 @@ export function SlideEditorVNext({
   function handleStagePointerLeave() {
     semanticCandidateStackRef.current = [];
     setHoveredNodeId((current) => (current === null ? current : null));
+  }
+
+  function handleNodeHoverChange(nodeId: string, hovering: boolean) {
+    if (
+      !activeSlide ||
+      inlineEditNodeId ||
+      tableEditingNodeId ||
+      marqueeFrame ||
+      draggingStage ||
+      activeResizeHandle ||
+      activeCropHandle ||
+      activeRotationNodeId ||
+      activeConnectorEndpoint
+    ) {
+      return;
+    }
+    setHoveredNodeId((current) => {
+      if (hovering) return current === nodeId ? current : nodeId;
+      return current === nodeId ? null : current;
+    });
   }
 
   function handleCropHandlePointerDown(
@@ -2623,15 +2704,30 @@ export function SlideEditorVNext({
     }
 
     const targetNodeId = hits[0]?.node.id ?? nodeId;
+    const additive = event.shiftKey || event.metaKey || event.ctrlKey;
+    const wasOnlySelectedNode =
+      selectedIds.length === 1 && selectedIds[0] === targetNodeId;
+    const targetNode = findNodeById(activeSlide.children, targetNodeId);
+    const clickEditNode =
+      !additive &&
+      wasOnlySelectedNode &&
+      targetNode &&
+      isInlineEditableNode(targetNode) &&
+      targetNode.locked !== true
+        ? targetNode
+        : null;
     const nextSelection = selectedIds.includes(targetNodeId)
       ? selection
-      : selectNode(selection, targetNodeId, event.shiftKey || event.metaKey);
+      : selectNode(selection, targetNodeId, additive);
     const dragIds = topLevelSelectedNodeIds(
       activeSlide.children,
       new Set(selectedNodeIds(nextSelection)),
     );
     setSelection(nextSelection);
     setFocusedNodeId(targetNodeId);
+
+    event.preventDefault();
+    event.stopPropagation();
 
     const rect = canvasRectFromEvent(event);
     if (!rect || rect.width <= 0 || rect.height <= 0) return;
@@ -2647,8 +2743,6 @@ export function SlideEditorVNext({
       layoutFramesExcluding(activeSlide.children, new Set(dragIds)),
     );
 
-    event.preventDefault();
-    event.stopPropagation();
     const startX = event.clientX;
     const startY = event.clientY;
     let dragThresholdPassed = false;
@@ -2686,8 +2780,17 @@ export function SlideEditorVNext({
         }
         gesture.update(preview);
       },
-      onEnd: () => {
+      onEnd: (_endEvent, reason) => {
         gesture.finish();
+        if (reason === "up" && !dragThresholdPassed && clickEditNode) {
+          enterInlineEdit(
+            targetNodeId,
+            initialCaretFromNodeClick(clickEditNode, {
+              clientX: startX,
+              clientY: startY,
+            }),
+          );
+        }
         setDraggingStage(false);
       },
     });
@@ -2926,7 +3029,7 @@ export function SlideEditorVNext({
         return;
       }
       if (selectedNode.type === "text" || selectedNode.type === "shape") {
-        setInlineEditNodeId(selectedNode.id);
+        enterInlineEdit(selectedNode.id);
         event.preventDefault();
         return;
       }
@@ -3542,7 +3645,7 @@ export function SlideEditorVNext({
         ? findNodeById(targetSlide.children, focus.nodeId)
         : undefined;
     setActiveSlideIndex(slideIndex);
-    setInlineEditNodeId(null);
+    exitInlineEdit();
     setHoveredNodeId(null);
     if (node) {
       setSelection((s) => setSelectedNodeIds(s, [node.id]));
@@ -4846,6 +4949,7 @@ export function SlideEditorVNext({
                     onNodeDoubleClick={handleNodeDoubleClick}
                     onNodePointerDown={handleNodePointerDown}
                     onNodeFocus={handleNodeFocus}
+                    onNodeHoverChange={handleNodeHoverChange}
                     onResizeHandlePointerDown={handleResizeHandlePointerDown}
                     onCropHandlePointerDown={handleCropHandlePointerDown}
                     onRotationHandlePointerDown={
@@ -4908,6 +5012,7 @@ export function SlideEditorVNext({
                             resolvedEditNode?.style,
                           )}
                           autoHeight={editNode.layout.autoHeight === true}
+                          initialCaret={inlineEditInitialCaret}
                           onCommit={handleInlineEditCommit}
                           onCancel={handleInlineEditCancel}
                           onTabNext={() => handleInlineEditTab(1)}
@@ -4992,7 +5097,7 @@ export function SlideEditorVNext({
           onSelectSlide={(index) => {
             setActiveSlideIndex(index);
             setSelection(createSelectionState(selection.mode));
-            setInlineEditNodeId(null);
+            exitInlineEdit();
             setActiveGroupId(null);
             clearTableEditing();
           }}

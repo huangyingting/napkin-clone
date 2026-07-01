@@ -134,6 +134,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         selection,
         focusedNodeId: "node-1",
         onNodeClick: () => undefined,
+        onNodePointerDown: () => undefined,
       }),
     );
 
@@ -141,6 +142,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /tabindex="0"/);
     assert.match(html, /aria-label="Text: node-1"/);
     assert.match(html, /aria-pressed="true"/);
+    assert.match(html, /data-node-id="node-1"[^>]*style="[^"]*cursor:move/);
   });
 
   test("exposes selected and unselected state with aria-pressed", () => {
@@ -199,10 +201,15 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         selection,
         focusedNodeId: "locked",
         onNodeClick: () => undefined,
+        onNodePointerDown: () => undefined,
       }),
     );
 
     assert.match(html, /aria-disabled="true"/);
+    assert.match(
+      html,
+      /data-node-id="locked"[^>]*style="[^"]*cursor:not-allowed/,
+    );
     assert.match(html, /data-node-chrome-frame="selected"/);
     assert.match(html, /border:2px dashed var\(--ds-border, #9ca3af\)/);
   });
@@ -378,7 +385,15 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
 
     assert.match(html, /data-crop-handle="top"/);
+    assert.match(
+      html,
+      /data-crop-handle="top"[^>]*style="[^"]*cursor:ns-resize/,
+    );
     assert.match(html, /data-crop-handle="right"/);
+    assert.match(
+      html,
+      /data-crop-handle="right"[^>]*style="[^"]*cursor:ew-resize/,
+    );
     assert.match(html, /data-crop-handle="bottom"/);
     assert.match(html, /data-crop-handle="left"/);
   });
@@ -407,6 +422,10 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
 
     assert.match(html, /data-resize-handle="nw"/);
     assert.match(html, /data-resize-handle="se"/);
+    assert.match(
+      html,
+      /data-resize-handle="se"[^>]*style="[^"]*cursor:nwse-resize/,
+    );
     assert.doesNotMatch(html, /locked-resizable-resize-overlay/);
   });
 

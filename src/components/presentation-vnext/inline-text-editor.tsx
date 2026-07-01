@@ -35,6 +35,10 @@ import {
 
 export type InlineTextAlign = "left" | "center" | "right";
 
+export type InlineTextInitialCaret =
+  | { kind: "client"; x: number; y: number }
+  | { kind: "start" };
+
 export interface InlineTextEditorVNextProps {
   /** Stable id of the node being edited. */
   nodeId: string;
@@ -48,6 +52,8 @@ export interface InlineTextEditorVNextProps {
   textStyle?: CSSProperties;
   /** When true, grow the editor and returned frame to fit edited text. */
   autoHeight?: boolean;
+  /** Initial caret placement for click-to-edit. Defaults to the existing end position. */
+  initialCaret?: InlineTextInitialCaret | null;
   /** Called when the user commits the edit (Escape, blur, or Tab). */
   onCommit: (
     nodeId: string,
@@ -212,6 +218,49 @@ function editableParagraphNodes(
   return nodes;
 }
 
+function caretRangeFromPoint(x: number, y: number): Range | null {
+  if (typeof document.caretRangeFromPoint === "function") {
+    return document.caretRangeFromPoint(x, y);
+  }
+  const docWithCaret = document as Document & {
+    caretPositionFromPoint?: (
+      x: number,
+      y: number,
+    ) => { offsetNode: Node; offset: number } | null;
+  };
+  const position = docWithCaret.caretPositionFromPoint?.(x, y);
+  if (!position) return null;
+  const range = document.createRange();
+  range.setStart(position.offsetNode, position.offset);
+  range.collapse(true);
+  return range;
+}
+
+function placeInitialCaret(
+  container: HTMLElement,
+  initialCaret: InlineTextInitialCaret | null | undefined,
+): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  if (initialCaret?.kind === "client") {
+    const pointRange = caretRangeFromPoint(initialCaret.x, initialCaret.y);
+    if (pointRange && container.contains(pointRange.startContainer)) {
+      pointRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(pointRange);
+      return;
+    }
+  }
+
+  const range = document.createRange();
+  range.selectNodeContents(container);
+  range.collapse(
+    initialCaret?.kind === "start" || initialCaret?.kind === "client",
+  );
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
 function listIndentFromElement(element: HTMLElement): number | undefined {
   const raw = element.dataset.listIndent;
   const indent = raw ? Number.parseInt(raw, 10) : 0;
@@ -450,6 +499,7 @@ export function InlineTextEditorVNext({
   canvasRect,
   textStyle,
   autoHeight = false,
+  initialCaret,
   onCommit,
   onCancel,
   onTabNext,
@@ -482,7 +532,8 @@ export function InlineTextEditorVNext({
   };
 
   function autoHeightFrame():
-    { x: number; y: number; w: number; h: number } | undefined {
+    | { x: number; y: number; w: number; h: number }
+    | undefined {
     const el = editableRef.current;
     if (!autoHeight || !el || !canvasRect || canvasRect.height <= 0) {
       return undefined;
@@ -502,7 +553,7 @@ export function InlineTextEditorVNext({
     }
   }
 
-  // Focus and place caret at end on mount
+  // Focus and place caret on mount.
   useEffect(() => {
     const el = editableRef.current;
     if (!el) return;
@@ -512,13 +563,7 @@ export function InlineTextEditorVNext({
         : [{ id: `${nodeId}-p-1`, text: "" }],
     );
     el.focus();
-    // Place cursor at end
-    const range = document.createRange();
-    const sel = window.getSelection();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    sel?.removeAllRanges();
-    sel?.addRange(range);
+    placeInitialCaret(el, initialCaret);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

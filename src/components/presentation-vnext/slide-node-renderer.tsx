@@ -1033,7 +1033,15 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       includeShapePaint: shouldIncludeShapePaint,
     }),
     boxSizing: "border-box",
-    cursor: onClick ? (isLocked ? "not-allowed" : "pointer") : "default",
+    cursor: onPointerDown
+      ? isLocked
+        ? "not-allowed"
+        : "move"
+      : onClick
+        ? isLocked
+          ? "not-allowed"
+          : "pointer"
+        : "default",
     ...(node.source === "themeDecoration" || node.source === "deckChrome"
       ? { pointerEvents: "none" }
       : {}),

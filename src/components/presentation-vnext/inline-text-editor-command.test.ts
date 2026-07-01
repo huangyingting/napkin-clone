@@ -37,4 +37,11 @@ describe("inline text commit paths", () => {
     assert.equal(source.includes('if (event.key === "Tab")'), true);
     assert.equal(source.includes("doCommit();"), true);
   });
+
+  test("places click-to-edit caret from the client point and falls back to start", () => {
+    assert.match(source, /document\.caretRangeFromPoint\(x, y\)/);
+    assert.match(source, /caretPositionFromPoint\?\.\(x, y\)/);
+    assert.match(source, /initialCaret\?\.kind === "client"/);
+    assert.match(source, /initialCaret\?\.kind === "start"/);
+  });
 });

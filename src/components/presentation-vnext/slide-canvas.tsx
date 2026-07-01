@@ -83,6 +83,22 @@ const CROP_HANDLES: readonly CropHandlePosition[] = [
   "bottom",
   "left",
 ];
+const RESIZE_HANDLE_CURSORS: Record<ResizeHandlePosition, string> = {
+  nw: "nwse-resize",
+  n: "ns-resize",
+  ne: "nesw-resize",
+  e: "ew-resize",
+  se: "nwse-resize",
+  s: "ns-resize",
+  sw: "nesw-resize",
+  w: "ew-resize",
+};
+const CROP_HANDLE_CURSORS: Record<CropHandlePosition, string> = {
+  top: "ns-resize",
+  right: "ew-resize",
+  bottom: "ns-resize",
+  left: "ew-resize",
+};
 
 // ---------------------------------------------------------------------------
 // Canvas aspect ratio
@@ -331,7 +347,12 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
         />
       ) : null}
       <div
-        style={{ position: "relative", zIndex: 1, width: "100%", height: "100%" }}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          height: "100%",
+        }}
       >
         {/* Decorations — rendered behind user nodes, aria-hidden */}
         {decorationNodes.map((node) => (
@@ -356,201 +377,207 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           />
         ))}
 
-      {/* User nodes */}
-      {userNodes.map((node) =>
-        (() => {
-          const selected = selection ? isSelected(selection, node.id) : false;
-          const interactive = !preview && onNodeClick !== undefined;
-          return (
-            <SlideNodeRenderer
-              key={node.id}
-              node={node}
-              selected={selected}
-              hovered={hoveredNodeId === node.id}
-              focused={focusedNodeId === node.id}
-              interactive={interactive}
-              tabIndex={
-                interactive
-                  ? focusedNodeId === node.id ||
-                    (focusedNodeId === undefined && selected)
-                    ? 0
-                    : -1
-                  : undefined
-              }
-              onClick={handleNodeClick}
-              onDoubleClick={handleNodeDoubleClick}
-              onPointerDown={preview ? undefined : onNodePointerDown}
-              onFocus={preview ? undefined : onNodeFocus}
-              onHoverChange={preview ? undefined : onNodeHoverChange}
-              tableEditing={tableEditingNodeId === node.id}
-              activeTableCell={
-                tableEditingNodeId === node.id ? activeTableCell : null
-              }
-              onTableCellFocus={onTableCellFocus}
-              onTableCellCommit={onTableCellCommit}
-              onTableCellKeyDown={onTableCellKeyDown}
-              assetResolver={assetResolver}
-              preview={preview}
-              hidden={isHiddenNode(node.id)}
-            />
-          );
-        })(),
-      )}
-
-      {/* Foreground deck chrome — rendered above user nodes and aria-hidden */}
-      {foregroundChromeNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          assetResolver={assetResolver}
-          preview={preview}
-          hidden={isHiddenNode(node.id)}
-        />
-      ))}
-
-      {!preview
-        ? preselectedUserNodes.map((node) => (
-            <NodeChromeFrame
-              key={`${node.id}-preselected-frame`}
-              node={node}
-              variant="preselected"
-            />
-          ))
-        : null}
-
-      {!preview
-        ? selectedUserNodes.map((node) => (
-            <NodeChromeFrame
-              key={`${node.id}-selected-frame`}
-              node={node}
-              variant="selected"
-            />
-          ))
-        : null}
-
-      {!preview && activeGroupNode ? (
-        <NodeChromeFrame node={activeGroupNode} variant="activeGroup" />
-      ) : null}
-
-      {!preview && multiSelectionFrame ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute border border-dashed border-ds-accent-border bg-ds-accent-surface/10"
-          style={{
-            left: `${multiSelectionFrame.x}%`,
-            top: `${multiSelectionFrame.y}%`,
-            width: `${multiSelectionFrame.w}%`,
-            height: `${multiSelectionFrame.h}%`,
-            zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
-          }}
-        />
-      ) : null}
-
-      {!preview && onResizeHandlePointerDown
-        ? selectedResizableNodes.map((node) => (
-            <div
-              key={`${node.id}-resize-overlay`}
-              aria-hidden="true"
-              data-node-chrome-overlay="resize"
-              data-node-id={node.id}
-              className="pointer-events-none absolute"
-              style={nodeChromeOverlayFrameStyle(
-                node,
-                STAGE_CHROME_Z_INDEX.selectedFrame,
-              )}
-            >
-              {RESIZE_HANDLES.map((handle) => (
-                <span
-                  key={handle}
-                  data-resize-handle={handle}
-                  className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border shadow-ds-sm ${
-                    activeResizeHandle?.nodeId === node.id &&
-                    activeResizeHandle?.handle === handle
-                      ? "border-ds-accent-fill bg-ds-accent-fill"
-                      : "border-ds-accent-border bg-ds-surface"
-                  }`}
-                  style={resizeHandleStyle(handle)}
-                  onPointerDown={(event) =>
-                    onResizeHandlePointerDown(node.id, handle, event)
-                  }
-                />
-              ))}
-            </div>
-          ))
-        : null}
-
-      {!preview && onRotationHandlePointerDown
-        ? selectedRotatableNodes.map((node) => (
-            <div
-              key={`${node.id}-rotation-overlay`}
-              aria-hidden="true"
-              data-node-chrome-overlay="rotation"
-              data-node-id={node.id}
-              className="pointer-events-none absolute"
-              style={nodeChromeOverlayFrameStyle(
-                node,
-                STAGE_CHROME_Z_INDEX.selectedFrame + 1,
-              )}
-            >
-              <span
-                data-rotation-handle="true"
-                className={`pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border bg-ds-surface text-[10px] leading-none shadow-ds-sm ${
-                  activeRotationNodeId === node.id
-                    ? "border-ds-accent-fill text-ds-accent-text"
-                    : "border-ds-accent-border text-ds-text-secondary"
-                }`}
-                style={{
-                  left: "50%",
-                  top: -28,
-                  transform: "translate(-50%, -50%)",
-                  cursor: "grab",
-                }}
-                onPointerDown={(event) =>
-                  onRotationHandlePointerDown(node.id, event)
+        {/* User nodes */}
+        {userNodes.map((node) =>
+          (() => {
+            const selected = selection ? isSelected(selection, node.id) : false;
+            const interactive = !preview && onNodeClick !== undefined;
+            return (
+              <SlideNodeRenderer
+                key={node.id}
+                node={node}
+                selected={selected}
+                hovered={hoveredNodeId === node.id}
+                focused={focusedNodeId === node.id}
+                interactive={interactive}
+                tabIndex={
+                  interactive
+                    ? focusedNodeId === node.id ||
+                      (focusedNodeId === undefined && selected)
+                      ? 0
+                      : -1
+                    : undefined
                 }
-              >
-                ↻
-              </span>
-              <span
-                aria-hidden="true"
-                className="absolute left-1/2 top-0 h-7 w-px -translate-x-1/2 bg-ds-accent-border"
+                onClick={handleNodeClick}
+                onDoubleClick={handleNodeDoubleClick}
+                onPointerDown={preview ? undefined : onNodePointerDown}
+                onFocus={preview ? undefined : onNodeFocus}
+                onHoverChange={preview ? undefined : onNodeHoverChange}
+                tableEditing={tableEditingNodeId === node.id}
+                activeTableCell={
+                  tableEditingNodeId === node.id ? activeTableCell : null
+                }
+                onTableCellFocus={onTableCellFocus}
+                onTableCellCommit={onTableCellCommit}
+                onTableCellKeyDown={onTableCellKeyDown}
+                assetResolver={assetResolver}
+                preview={preview}
+                hidden={isHiddenNode(node.id)}
               />
-            </div>
-          ))
-        : null}
+            );
+          })(),
+        )}
 
-      {!preview && onCropHandlePointerDown
-        ? selectedCroppableNodes.map((node) => (
-            <div
-              key={`${node.id}-crop-overlay`}
-              aria-hidden="true"
-              data-node-chrome-overlay="crop"
-              data-node-id={node.id}
-              className="pointer-events-none absolute"
-              style={nodeChromeOverlayFrameStyle(
-                node,
-                STAGE_CHROME_Z_INDEX.cropHandle,
-              )}
-            >
-              {CROP_HANDLES.map((handle) => (
+        {/* Foreground deck chrome — rendered above user nodes and aria-hidden */}
+        {foregroundChromeNodes.map((node) => (
+          <SlideNodeRenderer
+            key={node.id}
+            node={node}
+            assetResolver={assetResolver}
+            preview={preview}
+            hidden={isHiddenNode(node.id)}
+          />
+        ))}
+
+        {!preview
+          ? preselectedUserNodes.map((node) => (
+              <NodeChromeFrame
+                key={`${node.id}-preselected-frame`}
+                node={node}
+                variant="preselected"
+              />
+            ))
+          : null}
+
+        {!preview
+          ? selectedUserNodes.map((node) => (
+              <NodeChromeFrame
+                key={`${node.id}-selected-frame`}
+                node={node}
+                variant="selected"
+              />
+            ))
+          : null}
+
+        {!preview && activeGroupNode ? (
+          <NodeChromeFrame node={activeGroupNode} variant="activeGroup" />
+        ) : null}
+
+        {!preview && multiSelectionFrame ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute border border-dashed border-ds-accent-border bg-ds-accent-surface/10"
+            style={{
+              left: `${multiSelectionFrame.x}%`,
+              top: `${multiSelectionFrame.y}%`,
+              width: `${multiSelectionFrame.w}%`,
+              height: `${multiSelectionFrame.h}%`,
+              zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
+            }}
+          />
+        ) : null}
+
+        {!preview && onResizeHandlePointerDown
+          ? selectedResizableNodes.map((node) => (
+              <div
+                key={`${node.id}-resize-overlay`}
+                aria-hidden="true"
+                data-node-chrome-overlay="resize"
+                data-node-id={node.id}
+                className="pointer-events-none absolute"
+                style={nodeChromeOverlayFrameStyle(
+                  node,
+                  STAGE_CHROME_Z_INDEX.selectedFrame,
+                )}
+              >
+                {RESIZE_HANDLES.map((handle) => (
+                  <span
+                    key={handle}
+                    data-resize-handle={handle}
+                    className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border shadow-ds-sm ${
+                      activeResizeHandle?.nodeId === node.id &&
+                      activeResizeHandle?.handle === handle
+                        ? "border-ds-accent-fill bg-ds-accent-fill"
+                        : "border-ds-accent-border bg-ds-surface"
+                    }`}
+                    style={{
+                      ...resizeHandleStyle(handle),
+                      cursor: RESIZE_HANDLE_CURSORS[handle],
+                    }}
+                    onPointerDown={(event) =>
+                      onResizeHandlePointerDown(node.id, handle, event)
+                    }
+                  />
+                ))}
+              </div>
+            ))
+          : null}
+
+        {!preview && onRotationHandlePointerDown
+          ? selectedRotatableNodes.map((node) => (
+              <div
+                key={`${node.id}-rotation-overlay`}
+                aria-hidden="true"
+                data-node-chrome-overlay="rotation"
+                data-node-id={node.id}
+                className="pointer-events-none absolute"
+                style={nodeChromeOverlayFrameStyle(
+                  node,
+                  STAGE_CHROME_Z_INDEX.selectedFrame + 1,
+                )}
+              >
                 <span
-                  key={handle}
-                  data-crop-handle={handle}
-                  className={`pointer-events-auto absolute rounded-full border shadow-ds-sm ${
-                    activeCropHandle?.nodeId === node.id &&
-                    activeCropHandle?.handle === handle
-                      ? "border-ds-accent-fill bg-ds-accent-fill"
-                      : "border-ds-accent-border bg-ds-surface"
+                  data-rotation-handle="true"
+                  className={`pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border bg-ds-surface text-[10px] leading-none shadow-ds-sm ${
+                    activeRotationNodeId === node.id
+                      ? "border-ds-accent-fill text-ds-accent-text"
+                      : "border-ds-accent-border text-ds-text-secondary"
                   }`}
-                  style={cropHandleStyle(handle)}
+                  style={{
+                    left: "50%",
+                    top: -28,
+                    transform: "translate(-50%, -50%)",
+                    cursor: "grab",
+                  }}
                   onPointerDown={(event) =>
-                    onCropHandlePointerDown(node.id, handle, event)
+                    onRotationHandlePointerDown(node.id, event)
                   }
+                >
+                  ↻
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-0 h-7 w-px -translate-x-1/2 bg-ds-accent-border"
                 />
-              ))}
-            </div>
-          ))
-        : null}
+              </div>
+            ))
+          : null}
+
+        {!preview && onCropHandlePointerDown
+          ? selectedCroppableNodes.map((node) => (
+              <div
+                key={`${node.id}-crop-overlay`}
+                aria-hidden="true"
+                data-node-chrome-overlay="crop"
+                data-node-id={node.id}
+                className="pointer-events-none absolute"
+                style={nodeChromeOverlayFrameStyle(
+                  node,
+                  STAGE_CHROME_Z_INDEX.cropHandle,
+                )}
+              >
+                {CROP_HANDLES.map((handle) => (
+                  <span
+                    key={handle}
+                    data-crop-handle={handle}
+                    className={`pointer-events-auto absolute rounded-full border shadow-ds-sm ${
+                      activeCropHandle?.nodeId === node.id &&
+                      activeCropHandle?.handle === handle
+                        ? "border-ds-accent-fill bg-ds-accent-fill"
+                        : "border-ds-accent-border bg-ds-surface"
+                    }`}
+                    style={{
+                      ...cropHandleStyle(handle),
+                      cursor: CROP_HANDLE_CURSORS[handle],
+                    }}
+                    onPointerDown={(event) =>
+                      onCropHandlePointerDown(node.id, handle, event)
+                    }
+                  />
+                ))}
+              </div>
+            ))
+          : null}
 
         {!preview && onConnectorEndpointPointerDown
           ? selectedConnectorNodes.map((node) => {
