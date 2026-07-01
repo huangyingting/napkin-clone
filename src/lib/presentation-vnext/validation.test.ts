@@ -503,46 +503,55 @@ describe("safeParseDeckV7", () => {
 
   test("rejects unknown nested child-node and content keys", () => {
     resetBuilderCounter();
-    const badTextNode = {
-      ...buildTextNode({
-        id: "text-bad-nested",
-        content: {
-          paragraphs: [
+    const badTextNode = buildTextNode({
+      id: "text-bad-nested",
+      content: {
+        paragraphs: [{ id: "para-bad-nested", text: "Body" }],
+      },
+    }) as unknown as Record<string, unknown>;
+    badTextNode.unexpectedNodeKey = true;
+    badTextNode.content = {
+      paragraphs: [
+        {
+          id: "para-bad-nested",
+          text: "Body",
+          unexpectedParagraphKey: true,
+          runs: [
             {
-              id: "para-bad-nested",
               text: "Body",
-              unexpectedParagraphKey: true,
-              runs: [
-                {
-                  text: "Body",
-                  unexpectedRunKey: true,
-                  localStyle: {
-                    fontSizePt: 14,
-                    unknownLocalStyleKey: true,
-                  },
-                },
-              ],
-              list: {
-                kind: "bullet",
-                unexpectedListKey: true,
+              unexpectedRunKey: true,
+              localStyle: {
+                fontSizePt: 14,
+                unknownLocalStyleKey: true,
               },
             },
           ],
-          unexpectedTextContentKey: true,
-        } as Record<string, unknown>,
-      }),
-      unexpectedNodeKey: true,
-    } as unknown as SlideChildNode;
-    const badImageNode = {
-      ...buildImageNode("img-001", { id: "image-bad-nested" }),
-      content: { assetId: "img-001", unexpectedImageContentKey: true },
-    } as unknown as SlideChildNode;
-    const badShapeNode = {
-      ...buildShapeNode({
-        id: "shape-bad-nested",
-        content: { shape: "rect", unexpectedShapeContentKey: true },
-      }),
-    } as unknown as SlideChildNode;
+          list: {
+            kind: "bullet",
+            unexpectedListKey: true,
+          },
+        },
+      ],
+      unexpectedTextContentKey: true,
+    };
+
+    const badImageNode = buildImageNode("img-001", {
+      id: "image-bad-nested",
+    }) as unknown as Record<string, unknown>;
+    badImageNode.content = {
+      assetId: "img-001",
+      unexpectedImageContentKey: true,
+    };
+
+    const badShapeNode = buildShapeNode({
+      id: "shape-bad-nested",
+      content: { shape: "rect" },
+    }) as unknown as Record<string, unknown>;
+    badShapeNode.content = {
+      shape: "rect",
+      unexpectedShapeContentKey: true,
+    };
+
     const badConnectorNode = {
       id: "connector-bad-nested",
       type: "connector",
@@ -553,53 +562,63 @@ describe("safeParseDeckV7", () => {
         to: { kind: "point", point: { x: 35, y: 15 } },
         unexpectedConnectorContentKey: true,
       },
-    } as unknown as SlideChildNode;
-    const badTableNode = {
-      ...buildTableNode({
-        id: "table-bad-nested",
-        content: {
-          columns: [{ id: "col-0", label: "Name", unexpectedColumnKey: true }],
-          rows: [
-            {
-              id: "row-0",
-              unexpectedRowKey: true,
-              cells: [{ text: "Value", unexpectedCellKey: true }],
-            },
-          ],
-          unexpectedTableContentKey: true,
-        } as Record<string, unknown>,
-      }),
-    } as unknown as SlideChildNode;
-    const badVisualNode = {
-      ...buildVisualNode({
-        id: "visual-bad-nested",
-        content: { visualId: "visual-001", unexpectedVisualContentKey: true },
-      }),
-    } as unknown as SlideChildNode;
+    };
+
+    const badTableNode = buildTableNode({
+      id: "table-bad-nested",
+      content: {
+        columns: [{ id: "col-0", label: "Name" }],
+        rows: [{ id: "row-0", cells: [{ text: "Value" }] }],
+      },
+    }) as unknown as Record<string, unknown>;
+    badTableNode.content = {
+      columns: [{ id: "col-0", label: "Name", unexpectedColumnKey: true }],
+      rows: [
+        {
+          id: "row-0",
+          unexpectedRowKey: true,
+          cells: [{ text: "Value", unexpectedCellKey: true }],
+        },
+      ],
+      unexpectedTableContentKey: true,
+    };
+
+    const badVisualNode = buildVisualNode({
+      id: "visual-bad-nested",
+      content: { visualId: "visual-001" },
+    }) as unknown as Record<string, unknown>;
+    badVisualNode.content = {
+      visualId: "visual-001",
+      unexpectedVisualContentKey: true,
+    };
+
+    const badGroupChildNode = buildTextNode({
+      id: "group-child-bad-nested",
+      content: {
+        paragraphs: [{ id: "group-para-1", text: "Nested" }],
+      },
+    }) as unknown as Record<string, unknown>;
+    badGroupChildNode.content = {
+      paragraphs: [{ id: "group-para-1", text: "Nested" }],
+      unexpectedNestedTextContentKey: true,
+    };
+
     const badGroupNode = {
       id: "group-bad-nested",
       type: "group",
       component: "custom",
       unexpectedGroupKey: true,
-      children: [
-        buildTextNode({
-          id: "group-child-bad-nested",
-          content: {
-            paragraphs: [{ id: "group-para-1", text: "Nested" }],
-            unexpectedNestedTextContentKey: true,
-          } as Record<string, unknown>,
-        }),
-      ],
-    } as unknown as SlideChildNode;
+      children: [badGroupChildNode],
+    };
 
     const slide = buildSlideV7("content", [
-      badTextNode,
-      badImageNode,
-      badShapeNode,
-      badConnectorNode,
-      badTableNode,
-      badVisualNode,
-      badGroupNode,
+      badTextNode as unknown as SlideChildNode,
+      badImageNode as unknown as SlideChildNode,
+      badShapeNode as unknown as SlideChildNode,
+      badConnectorNode as unknown as SlideChildNode,
+      badTableNode as unknown as SlideChildNode,
+      badVisualNode as unknown as SlideChildNode,
+      badGroupNode as unknown as SlideChildNode,
     ]);
     const result = safeParseDeckV7(buildDeckV7([slide]));
     assert.ok(!result.success);
