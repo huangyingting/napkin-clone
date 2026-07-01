@@ -432,6 +432,79 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
   });
 
+  test("suppresses stage chrome for hidden nodes during inline edit", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "visible-image",
+      "hidden-image",
+      "visible-connector",
+      "hidden-connector",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          imageNode("visible-image", { x: 10, y: 10, w: 20, h: 20 }),
+          imageNode("hidden-image", { x: 35, y: 10, w: 20, h: 20 }),
+          renderNode("visible-connector", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+          renderNode("hidden-connector", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+          textNode("hidden-hover", { x: 20, y: 45, w: 20, h: 10 }),
+        ]),
+        selection,
+        hoveredNodeId: "hidden-hover",
+        hiddenNodeIds: new Set([
+          "hidden-image",
+          "hidden-connector",
+          "hidden-hover",
+        ]),
+        onNodeClick: () => undefined,
+        onResizeHandlePointerDown: () => undefined,
+        onCropHandlePointerDown: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-node-id="hidden-image"[^>]*visibility:hidden/);
+    assert.equal(
+      (html.match(/data-node-chrome-frame="selected"/g) ?? []).length,
+      2,
+    );
+    assert.equal((html.match(/data-resize-handle="nw"/g) ?? []).length, 2);
+    assert.equal((html.match(/data-crop-handle="top"/g) ?? []).length, 1);
+    assert.equal((html.match(/data-rotation-handle="true"/g) ?? []).length, 1);
+    assert.equal(
+      (html.match(/data-connector-endpoint="from"/g) ?? []).length,
+      1,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-frame="selected"[^>]*data-node-id="visible-image"/,
+    );
+    assert.doesNotMatch(
+      html,
+      /data-node-chrome-frame="selected"[^>]*data-node-id="hidden-image"/,
+    );
+    assert.doesNotMatch(
+      html,
+      /data-node-chrome-frame="selected"[^>]*data-node-id="hidden-connector"/,
+    );
+    assert.doesNotMatch(
+      html,
+      /data-node-chrome-frame="preselected"[^>]*data-node-id="hidden-hover"/,
+    );
+  });
+
   test("places connector endpoint handles from node-anchor bindings", () => {
     const selection = setSelection(createSelectionState("normal"), [
       "connector-anchors",
