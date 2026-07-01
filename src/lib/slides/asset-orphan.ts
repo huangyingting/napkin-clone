@@ -56,12 +56,22 @@ export const ASSET_RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
  *  - `deck.slides[n].elements[m].assetId`  (ImageElement)
  *  - `deck.slides[n].children[*].content.assetId` (v7 image/visual nodes)
  *  - `deck.assets.visuals[*].id` and visual registry keys
+ *  - `deck.chrome.logo.assetId`
+ *  - `deck.theme.overrides.chrome.logo.assetId`
+ *  - `deck.slides[n].props.deckChrome.logo.value.assetId`
  */
 export function collectDeckAssetRefs(deckJson: unknown): Set<string> {
   const refs = new Set<string>();
   try {
     if (!isPlainObject(deckJson)) return refs;
     collectVisualRegistryAssetRefs(deckJson.assets, refs);
+    collectDeckChromeLogoAssetRefs(deckJson.chrome, refs);
+    if (
+      isPlainObject(deckJson.theme) &&
+      isPlainObject(deckJson.theme.overrides)
+    ) {
+      collectDeckChromeLogoAssetRefs(deckJson.theme.overrides.chrome, refs);
+    }
     const slides = deckJson.slides;
     if (!Array.isArray(slides)) return refs;
     for (const slide of slides) {
@@ -76,6 +86,7 @@ export function collectDeckAssetRefs(deckJson: unknown): Set<string> {
       collectAssetIdsFromNodeArray(elements, refs);
       const children = slide.children;
       collectAssetIdsFromNodeArray(children, refs);
+      collectSlideDeckChromeLogoAssetRefs(slide.props, refs);
     }
   } catch {
     // Safety net — must not throw.
@@ -111,6 +122,40 @@ export function collectDeckAssetRefs(deckJson: unknown): Set<string> {
         }
       }
       collectAssetIdsFromNodeArray(node.children, refs);
+    }
+  }
+
+  function collectDeckChromeLogoAssetRefs(
+    chromeConfig: unknown,
+    refs: Set<string>,
+  ): void {
+    if (!isPlainObject(chromeConfig)) return;
+    collectAssetId(chromeConfig.logo, refs);
+  }
+
+  function collectSlideDeckChromeLogoAssetRefs(
+    slideProps: unknown,
+    refs: Set<string>,
+  ): void {
+    if (!isPlainObject(slideProps) || !isPlainObject(slideProps.deckChrome)) {
+      return;
+    }
+    const logoOverride = slideProps.deckChrome.logo;
+    if (!isPlainObject(logoOverride) || logoOverride.mode !== "override") {
+      return;
+    }
+    collectAssetId(logoOverride.value, refs);
+  }
+
+  function collectAssetId(
+    value: unknown,
+    refs: Set<string>,
+    key: string = "assetId",
+  ): void {
+    if (!isPlainObject(value)) return;
+    const assetId = value[key];
+    if (typeof assetId === "string" && assetId) {
+      refs.add(assetId);
     }
   }
   return refs;
