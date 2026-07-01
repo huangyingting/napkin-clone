@@ -18,6 +18,7 @@ import { useState, useId } from "react";
 
 import { Button, Dialog } from "@/components/ui";
 import { cx } from "@/components/ui/tokens";
+import { CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE } from "@/lib/presentation-vnext/conflict-recovery-reload-v7";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
 export interface ConflictRecoveryDialogV7Props {
@@ -28,7 +29,7 @@ export interface ConflictRecoveryDialogV7Props {
     localDeck: DeckV7,
     serverRevisionToken: string | null,
   ) => Promise<void>;
-  onUseTheirs: () => void;
+  onUseTheirs: () => Promise<void>;
   onDismiss: () => void;
 }
 
@@ -42,7 +43,9 @@ export function ConflictRecoveryDialogV7({
 }: ConflictRecoveryDialogV7Props) {
   const headingId = useId();
   const [isSaving, setIsSaving] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const isWorking = isSaving || isReloading;
 
   async function handleKeepMine() {
     setIsSaving(true);
@@ -58,9 +61,16 @@ export function ConflictRecoveryDialogV7({
     }
   }
 
-  function handleUseTheirs() {
+  async function handleUseTheirs() {
+    setIsReloading(true);
     setSaveError(null);
-    onUseTheirs();
+    try {
+      await onUseTheirs();
+    } catch {
+      setSaveError(CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE);
+    } finally {
+      setIsReloading(false);
+    }
   }
 
   return (
@@ -68,7 +78,7 @@ export function ConflictRecoveryDialogV7({
       open={open}
       onClose={onDismiss}
       aria-labelledby={headingId}
-      aria-busy={isSaving}
+      aria-busy={isWorking}
       className="max-w-sm"
     >
       <div className="flex flex-col gap-4 p-5">
@@ -107,7 +117,7 @@ export function ConflictRecoveryDialogV7({
             size="sm"
             className="w-full justify-start gap-2"
             onClick={() => void handleKeepMine()}
-            disabled={isSaving}
+            disabled={isWorking}
           >
             <Save size={14} aria-hidden />
             {isSaving ? "Saving…" : "Keep my version"}
@@ -117,11 +127,11 @@ export function ConflictRecoveryDialogV7({
             variant="subtle"
             size="sm"
             className="w-full justify-start gap-2"
-            onClick={handleUseTheirs}
-            disabled={isSaving}
+            onClick={() => void handleUseTheirs()}
+            disabled={isWorking}
           >
             <RefreshCw size={14} aria-hidden />
-            Use server version
+            {isReloading ? "Reloading…" : "Use server version"}
           </Button>
 
           <button
@@ -131,7 +141,7 @@ export function ConflictRecoveryDialogV7({
               "text-[--ds-text-subtle] hover:text-[--ds-text] transition-colors",
             )}
             onClick={onDismiss}
-            disabled={isSaving}
+            disabled={isWorking}
           >
             <Trash2 size={12} aria-hidden className="shrink-0" />
             Dismiss — keep editing (conflict may recur)
