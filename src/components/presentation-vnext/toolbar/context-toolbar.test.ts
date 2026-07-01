@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, test } from "node:test";
 
 import {
@@ -12,6 +13,10 @@ import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
 const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
   "document",
+);
+const source = readFileSync(
+  new URL("./context-toolbar.tsx", import.meta.url),
+  "utf8",
 );
 
 describe("buildSlideToolInsertActions", () => {
@@ -187,5 +192,20 @@ describe("seedContextToolbarStyles", () => {
     assert.equal(seed.connectorStrokeWidth, 2.5);
     assert.equal(seed.connectorStartArrow, "filled");
     assert.equal(seed.connectorEndArrow, "none");
+  });
+});
+
+describe("inline align persistence wiring", () => {
+  test("always mirrors align commands to persistent local style patches", () => {
+    assert.equal(
+      source.includes("onUpdateSelectedLocalStyle?.({ text: { align } });"),
+      true,
+    );
+    assert.equal(
+      source.includes(
+        "if (!isInlineEditing) onUpdateSelectedLocalStyle?.({ text: { align } });",
+      ),
+      false,
+    );
   });
 });
