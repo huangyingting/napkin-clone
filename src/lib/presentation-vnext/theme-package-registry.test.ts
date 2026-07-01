@@ -47,3 +47,23 @@ test("listThemePackagesV7 returns a stable memoized list", () => {
 
   assert.equal(first, second);
 });
+
+test("listThemePackagesV7 keeps all generated packages after validation", () => {
+  const ids = new Set(
+    listThemePackagesV7().map((themePackage) => themePackage.id),
+  );
+
+  for (const id of [
+    "neutral",
+    "clarity",
+    "ocean",
+    "aurora",
+    "monolith",
+    "editorial",
+    "noir",
+    "terra",
+    "pulse",
+  ]) {
+    assert.ok(ids.has(id), `Expected theme package "${id}" in registry`);
+  }
+});
