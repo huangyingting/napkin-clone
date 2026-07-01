@@ -388,6 +388,56 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(html, /text-transform:uppercase/);
   });
 
+  test("renders ordered list markers from contiguous runs, indent, and numberStyle", () => {
+    const html = renderNode(
+      node({
+        type: "text",
+        content: {
+          paragraphs: [
+            { id: "p1", text: "Bullet lead", list: { kind: "bullet" } },
+            { id: "p2", text: "Decimal one", list: { kind: "number" } },
+            {
+              id: "p3",
+              text: "Nested one",
+              list: { kind: "number", indent: 1 },
+            },
+            {
+              id: "p4",
+              text: "Nested two",
+              list: { kind: "number", indent: 1 },
+            },
+            { id: "p5", text: "Decimal two", list: { kind: "number" } },
+            { id: "p6", text: "Break" },
+            {
+              id: "p7",
+              text: "Lower alpha restart",
+              list: { kind: "number", numberStyle: "lower-alpha" },
+            },
+            {
+              id: "p8",
+              text: "Upper alpha continuation",
+              list: { kind: "number", numberStyle: "upper-alpha" },
+            },
+            {
+              id: "p9",
+              text: "Lower roman continuation",
+              list: { kind: "number", numberStyle: "lower-roman" },
+            },
+          ],
+        },
+      }),
+    );
+
+    assert.match(html, />•<\/span><span>Bullet lead<\/span>/);
+    assert.match(html, />1\.<\/span><span>Decimal one<\/span>/);
+    assert.match(html, />1\.<\/span><span>Nested one<\/span>/);
+    assert.match(html, />2\.<\/span><span>Nested two<\/span>/);
+    assert.match(html, />2\.<\/span><span>Decimal two<\/span>/);
+    assert.match(html, />a\.<\/span><span>Lower alpha restart<\/span>/);
+    assert.match(html, />B\.<\/span><span>Upper alpha continuation<\/span>/);
+    assert.match(html, />iii\.<\/span><span>Lower roman continuation<\/span>/);
+  });
+
   test("renders styled shape labels and SVG path shapes", () => {
     const html = renderNode(
       node(
