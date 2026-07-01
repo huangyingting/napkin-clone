@@ -47,26 +47,49 @@ interface SlideDiffEntry {
   status: DiffStatus;
 }
 
-function diffDecksV7(
+type SlideFingerprint = string;
+
+function buildSlideFingerprintMap(
+  slides: DeckV7["slides"],
+  stringifySlide: (slide: DeckV7["slides"][number]) => SlideFingerprint,
+) {
+  const fingerprints = new Map<string, SlideFingerprint>();
+  for (const slide of slides) {
+    if (!fingerprints.has(slide.id)) {
+      fingerprints.set(slide.id, stringifySlide(slide));
+    }
+  }
+  return fingerprints;
+}
+
+export function diffDecksV7(
   baseline: DeckV7,
   proposal: DeckV7,
+  options: {
+    stringifySlide?: (slide: DeckV7["slides"][number]) => SlideFingerprint;
+  } = {},
 ): {
   entries: SlideDiffEntry[];
   summary: string;
   added: number;
   changed: number;
 } {
-  const baseIds = new Set(baseline.slides.map((s) => s.id));
+  const stringifySlide = options.stringifySlide ?? JSON.stringify;
+  const baselineFingerprints = buildSlideFingerprintMap(
+    baseline.slides,
+    stringifySlide,
+  );
   let added = 0;
   let changed = 0;
+
   const entries: SlideDiffEntry[] = proposal.slides.map((slide, index) => {
-    if (!baseIds.has(slide.id)) {
+    const baselineFingerprint = baselineFingerprints.get(slide.id);
+    if (baselineFingerprint === undefined) {
       added++;
       return { index, status: "added" };
     }
-    // Simple content-hash comparison via JSON stringify
-    const baseSlide = baseline.slides.find((s) => s.id === slide.id);
-    if (!baseSlide || JSON.stringify(baseSlide) !== JSON.stringify(slide)) {
+
+    if (baselineFingerprint !== stringifySlide(slide)) {
       changed++;
       return { index, status: "changed" };
     }
