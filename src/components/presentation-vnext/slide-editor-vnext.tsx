@@ -3379,6 +3379,7 @@ export function SlideEditorVNext({
       onUpdateSelectedLocalStyle={handleUpdateSelectedLocalStyle}
       assetResolver={resolveDeckAsset}
       onReplaceImage={handleReplaceSelectedImageRequest}
+      onReplaceVisual={handleReplaceSelectedVisual}
       onResetToTheme={handleResetToTheme}
       onUpdateSelectedSource={handleUpdateSelectedSource}
       onRefreshSelectedSource={handleRefreshSelectedSource}

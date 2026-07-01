@@ -147,7 +147,7 @@ describe("NodeContentPanel render coverage", () => {
     assert.match(shapeHtml, /Decision/);
   });
 
-  test("renders image asset metadata, fit, alt, and crop controls", () => {
+  test("renders image replace affordances with fit, alt, crop, and debug ids", () => {
     const html = renderPanel(
       baseNode({
         id: "image-1",
@@ -166,9 +166,11 @@ describe("NodeContentPanel render coverage", () => {
     assert.match(html, /Crop top/);
     assert.match(html, /Reset crop/);
     assert.match(html, /contain/);
+    assert.match(html, /Debug identifiers/);
+    assert.match(html, /Image snapshot is available/);
   });
 
-  test("renders visual id, asset id, alt, and transparency controls", () => {
+  test("renders visual replace affordances, status, and debug ids", () => {
     const html = renderPanel(
       baseNode({
         id: "visual-1",
@@ -182,9 +184,9 @@ describe("NodeContentPanel render coverage", () => {
       }),
     );
 
-    assert.match(html, /Visual id/);
-    assert.match(html, /doc-visual-1/);
-    assert.match(html, /visual-asset-1/);
+    assert.match(html, /Replace visual/);
+    assert.match(html, /Linked visual with snapshot asset/);
+    assert.match(html, /Debug identifiers/);
     assert.match(html, /Revenue chart/);
     assert.match(html, /Transparent background/);
   });
@@ -316,14 +318,15 @@ describe("NodeContentPanel render coverage", () => {
             transparentBackground: false,
           },
         }),
+        onReplaceVisual: () => updates.push("replace-visual"),
         onUpdateContent: (patch) => updates.push(patch),
       }),
     );
 
     assert.ok(invokeHandlers(text) >= 1);
     assert.ok(invokeHandlers(shape) >= 2);
-    assert.ok(invokeHandlers(image) >= 8);
-    assert.ok(invokeHandlers(visual) >= 4);
+    assert.ok(invokeHandlers(image) >= 7);
+    assert.ok(invokeHandlers(visual) >= 3);
     assert.ok(
       updates.some(
         (patch) =>
@@ -333,6 +336,7 @@ describe("NodeContentPanel render coverage", () => {
       ),
     );
     assert.ok(updates.includes("replace-image"));
+    assert.ok(updates.includes("replace-visual"));
   });
 
   test("wires table and connector structural handlers", () => {

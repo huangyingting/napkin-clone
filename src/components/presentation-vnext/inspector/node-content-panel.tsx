@@ -17,6 +17,7 @@ export interface NodeContentPanelProps {
   onUpdateContent: (patch: Record<string, unknown>) => void;
   assetResolver?: (assetId: string) => string | undefined;
   onReplaceImage?: () => void;
+  onReplaceVisual?: () => void;
 }
 
 const SHAPE_OPTIONS: ShapeKind[] = [
@@ -170,6 +171,7 @@ export function NodeContentPanel({
   onUpdateContent,
   assetResolver,
   onReplaceImage,
+  onReplaceVisual,
 }: NodeContentPanelProps): JSX.Element {
   const [targetRowIndex, setTargetRowIndex] = useState(0);
   const [targetColumnIndex, setTargetColumnIndex] = useState(0);
@@ -241,20 +243,32 @@ export function NodeContentPanel({
       ) : null}
       {node.type === "image" ? (
         <>
-          <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
-            {assetResolver?.(node.content.assetId) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={assetResolver(node.content.assetId)}
-                alt={node.content.alt ?? ""}
-                className="h-24 w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
-                No image preview
-              </div>
-            )}
-          </div>
+          {(() => {
+            const assetPreview = assetResolver?.(node.content.assetId);
+            return (
+              <>
+                <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
+                  {assetPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={assetPreview}
+                      alt={node.content.alt ?? ""}
+                      className="h-24 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
+                      No image preview
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-ds-text-muted">
+                  {assetPreview
+                    ? "Image snapshot is available."
+                    : "Image snapshot is unavailable."}
+                </p>
+              </>
+            );
+          })()}
           <button
             type="button"
             onClick={onReplaceImage}
@@ -277,16 +291,6 @@ export function NodeContentPanel({
               <option value="fill">fill</option>
               <option value="none">none</option>
             </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Asset id
-            <input
-              value={node.content.assetId}
-              onChange={(event) =>
-                onUpdateContent({ assetId: event.currentTarget.value })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
           </label>
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Alt text
@@ -335,30 +339,62 @@ export function NodeContentPanel({
           >
             Reset crop
           </button>
+          <details className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+            <summary className="cursor-pointer text-xs font-medium text-ds-text-secondary">
+              Debug identifiers
+            </summary>
+            <label className="mt-1.5 flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Image asset id
+              <input
+                value={node.content.assetId}
+                readOnly
+                className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 font-mono text-xs text-ds-text-primary"
+              />
+            </label>
+          </details>
         </>
       ) : null}
       {node.type === "visual" ? (
         <>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Visual id
-            <input
-              value={node.content.visualId ?? ""}
-              onChange={(event) =>
-                onUpdateContent({ visualId: event.currentTarget.value })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Asset id
-            <input
-              value={node.content.assetId ?? ""}
-              onChange={(event) =>
-                onUpdateContent({ assetId: event.currentTarget.value })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
-          </label>
+          {(() => {
+            const assetPreview = node.content.assetId
+              ? assetResolver?.(node.content.assetId)
+              : undefined;
+            const statusLabel = node.content.visualId
+              ? node.content.assetId
+                ? "Linked visual with snapshot asset."
+                : "Linked visual without snapshot asset."
+              : node.content.assetId
+                ? "Snapshot asset is linked."
+                : "Visual source is unavailable.";
+            return (
+              <>
+                <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
+                  {assetPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={assetPreview}
+                      alt={node.content.alt ?? ""}
+                      className="h-24 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
+                      No visual preview
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-ds-text-muted">{statusLabel}</p>
+              </>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={onReplaceVisual}
+            disabled={onReplaceVisual === undefined}
+            className="self-start rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+          >
+            Replace visual
+          </button>
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Alt text
             <input
@@ -381,6 +417,29 @@ export function NodeContentPanel({
             />
             Transparent background
           </label>
+          <details className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+            <summary className="cursor-pointer text-xs font-medium text-ds-text-secondary">
+              Debug identifiers
+            </summary>
+            <div className="mt-1.5 grid gap-1.5">
+              <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+                Visual id
+                <input
+                  value={node.content.visualId ?? ""}
+                  readOnly
+                  className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 font-mono text-xs text-ds-text-primary"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+                Visual asset id
+                <input
+                  value={node.content.assetId ?? ""}
+                  readOnly
+                  className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 font-mono text-xs text-ds-text-primary"
+                />
+              </label>
+            </div>
+          </details>
         </>
       ) : null}
       {node.type === "table" ? (
