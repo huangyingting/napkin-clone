@@ -69,7 +69,11 @@ for (const meta of files) {
       index++;
       break;
     }
-    if (line.startsWith("**Type:**") || line.startsWith("**Status:**") || line.startsWith("**Last updated:**")) {
+    if (
+      line.startsWith("**Type:**") ||
+      line.startsWith("**Status:**") ||
+      line.startsWith("**Last updated:**")
+    ) {
       index++;
       continue;
     }
@@ -80,5 +84,8 @@ for (const meta of files) {
     break;
   }
   const body = [title, "", ...lines.slice(index)].join("\n").trimStart();
-  writeFileSync(meta.path, `${frontmatter(meta)}${body}`.replace(/\s+$/u, "") + "\n");
+  writeFileSync(
+    meta.path,
+    `${frontmatter(meta)}${body}`.replace(/\s+$/u, "") + "\n",
+  );
 }

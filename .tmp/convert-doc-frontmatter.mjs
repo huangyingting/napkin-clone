@@ -100,7 +100,8 @@ function convert(path) {
     const oldHeader = original.match(
       /^#\s+(.+)\r?\n\r?\n\*\*Type:\*\*\s*([^\r\n]+?)\s*\r?\n\*\*Status:\*\*\s*([^\r\n]+?)\s*\r?\n\*\*Last updated:\*\*\s*([^\r\n]+?)\s*\r?\n\r?\n?([\s\S]*)$/,
     );
-    if (!oldHeader) return { path, changed: false, reason: "no recognized metadata" };
+    if (!oldHeader)
+      return { path, changed: false, reason: "no recognized metadata" };
     title = oldHeader[1].trim();
     type = oldHeader[2].trim();
     status = oldHeader[3].trim();
@@ -111,8 +112,16 @@ function convert(path) {
 
   const frontmatter = [
     "---",
-    `type: "${quote(String(type ?? "").trim().toLowerCase())}"`,
-    `status: "${quote(String(status ?? "").trim().toLowerCase())}"`,
+    `type: "${quote(
+      String(type ?? "")
+        .trim()
+        .toLowerCase(),
+    )}"`,
+    `status: "${quote(
+      String(status ?? "")
+        .trim()
+        .toLowerCase(),
+    )}"`,
     `last_updated: "${quote(String(lastUpdated ?? "").trim())}"`,
     `description: "${quote(description)}"`,
     "---",
@@ -129,7 +138,22 @@ function convert(path) {
 const results = walk(docsRoot).map(convert);
 const changed = results.filter((item) => item.changed);
 const skipped = results.filter((item) => !item.changed);
-console.log(JSON.stringify({ changed: changed.length, skipped: skipped.length, skippedReasons: skipped.reduce((acc, item) => { acc[item.reason] = (acc[item.reason] ?? 0) + 1; return acc; }, {}) }, null, 2));
-for (const item of results.filter((entry) => entry.reason === "no recognized metadata")) {
+console.log(
+  JSON.stringify(
+    {
+      changed: changed.length,
+      skipped: skipped.length,
+      skippedReasons: skipped.reduce((acc, item) => {
+        acc[item.reason] = (acc[item.reason] ?? 0) + 1;
+        return acc;
+      }, {}),
+    },
+    null,
+    2,
+  ),
+);
+for (const item of results.filter(
+  (entry) => entry.reason === "no recognized metadata",
+)) {
   console.error(`unrecognized: ${item.path}`);
 }
