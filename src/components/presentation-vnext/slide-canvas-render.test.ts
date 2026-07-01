@@ -993,6 +993,129 @@ describe("SlideNodeRenderer resolved node content branches", () => {
     assert.match(String(styles[8].backgroundImage), /bg.png/);
   });
 
+  test("applies text vertical alignment and paragraph spacing in text and shape content", () => {
+    const topText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-top",
+        {
+          type: "text",
+          content: { paragraphs: [{ id: "text-top-p1", text: "Top text" }] },
+        },
+        { text: { verticalAlign: "top" } },
+      ),
+    );
+    const middleText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-middle",
+        {
+          type: "text",
+          content: {
+            paragraphs: [{ id: "text-middle-p1", text: "Middle text" }],
+          },
+        },
+        { text: { verticalAlign: "middle" } },
+      ),
+    );
+    const bottomText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-bottom",
+        {
+          type: "text",
+          content: {
+            paragraphs: [{ id: "text-bottom-p1", text: "Bottom text" }],
+          },
+        },
+        { text: { verticalAlign: "bottom" } },
+      ),
+    );
+    const spacedText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-spacing",
+        {
+          type: "text",
+          content: {
+            paragraphs: [
+              { id: "text-spacing-p1", text: "Paragraph one" },
+              { id: "text-spacing-p2", text: "Paragraph two" },
+            ],
+          },
+        },
+        { text: { paragraphSpacingPt: 6 } },
+      ),
+    );
+    const topShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-top",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: { paragraphs: [{ id: "shape-top-p1", text: "Top shape" }] },
+          },
+        },
+        { text: { verticalAlign: "top" } },
+      ),
+    );
+    const middleShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-middle",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [{ id: "shape-middle-p1", text: "Middle shape" }],
+            },
+          },
+        },
+        { text: { verticalAlign: "middle" } },
+      ),
+    );
+    const bottomShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-bottom",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [{ id: "shape-bottom-p1", text: "Bottom shape" }],
+            },
+          },
+        },
+        { text: { verticalAlign: "bottom" } },
+      ),
+    );
+    const spacedShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-spacing",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [
+                { id: "shape-spacing-p1", text: "Shape paragraph one" },
+                { id: "shape-spacing-p2", text: "Shape paragraph two" },
+              ],
+            },
+          },
+        },
+        { text: { paragraphSpacingPt: 4 } },
+      ),
+    );
+
+    assert.match(topText, /justify-content:flex-start/);
+    assert.match(middleText, /justify-content:center/);
+    assert.match(bottomText, /justify-content:flex-end/);
+    assert.equal((spacedText.match(/margin-bottom:6pt/g) ?? []).length, 1);
+
+    assert.match(topShape, /justify-content:flex-start/);
+    assert.match(middleShape, /justify-content:center/);
+    assert.match(bottomShape, /justify-content:flex-end/);
+    assert.equal((spacedShape.match(/margin-bottom:4pt/g) ?? []).length, 1);
+  });
+
   test("renders text, shape, media, table, connector, visual, and group node content", () => {
     const richText = renderNode(
       "render-text",
