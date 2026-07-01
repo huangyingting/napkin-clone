@@ -41,6 +41,7 @@
  */
 
 import { PERSONAL_DATA_EXPORT_SECTIONS } from "@/lib/privacy/personal-data-inventory";
+import { lexicalStateToPlainText } from "@/lib/content/plain-text";
 
 export const ACCOUNT_EXPORT_VERSION = 3;
 
@@ -75,7 +76,7 @@ interface ExportDocumentVersionInput {
 export interface ExportDocumentInput {
   id: string;
   title: string;
-  content: string;
+  content?: string | null;
   contentJson: unknown;
   deckJson: unknown;
   workspaceId: string | null;
@@ -423,7 +424,7 @@ export function buildAccountExport(input: {
     documents: documents.map((doc) => ({
       id: doc.id,
       title: doc.title,
-      content: doc.content,
+      content: lexicalStateToPlainText(doc.contentJson),
       contentJson: doc.contentJson ?? null,
       deckJson: doc.deckJson ?? null,
       workspaceId: doc.workspaceId,
