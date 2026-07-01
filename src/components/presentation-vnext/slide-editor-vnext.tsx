@@ -32,6 +32,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -212,6 +213,7 @@ import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
+import { KeyboardShortcutHelpDialog } from "@/components/presentation/slide-editor/keyboard-shortcut-help-dialog";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -1137,6 +1139,17 @@ export function SlideEditorVNext({
   const suppressStageClickRef = useRef(false);
   const lastUndoRedoFocusTokenRef = useRef<number | null>(null);
   const themePackages = listThemePackagesV7();
+  const isMac = useMemo(() => {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+    const platform =
+      (navigator as Navigator & { userAgentData?: { platform?: string } })
+        .userAgentData?.platform ??
+      navigator.platform ??
+      navigator.userAgent;
+    return /mac|iphone|ipad|ipod/i.test(platform);
+  }, []);
 
   // Export error surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
@@ -3845,47 +3858,11 @@ export function SlideEditorVNext({
         />
       ) : null}
 
-      {shortcutHelpOpen ? (
-        <div className="absolute inset-0 z-modal flex items-center justify-center bg-black/30 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label="Slide editor keyboard shortcuts"
-            className="w-full max-w-lg rounded-ds-md border border-ds-border-subtle bg-ds-surface p-4 shadow-ds-overlay"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-ds-text-primary">
-                Keyboard shortcuts
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShortcutHelpOpen(false)}
-                aria-label="Close keyboard shortcuts"
-                className="flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-hover hover:text-ds-text-primary"
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </div>
-            <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-xs">
-              {[
-                ["Move selection", "Arrow keys"],
-                ["Large move", "Shift + Arrow"],
-                ["Duplicate nodes", "Cmd/Ctrl + D"],
-                ["Copy / Paste nodes", "Cmd/Ctrl + C / V"],
-                ["Group / Ungroup", "Cmd/Ctrl + G / Shift + Cmd/Ctrl + G"],
-                ["Layer forward / backward", "] / ["],
-                ["Undo / Redo", "Cmd/Ctrl + Z / Shift + Cmd/Ctrl + Z"],
-                ["Clear selection / close", "Esc"],
-              ].map(([label, shortcut]) => (
-                <div key={label} className="contents">
-                  <dt className="text-ds-text-secondary">{label}</dt>
-                  <dd className="font-mono text-ds-text-primary">{shortcut}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        </div>
-      ) : null}
+      <KeyboardShortcutHelpDialog
+        open={shortcutHelpOpen}
+        isMac={isMac}
+        onClose={() => setShortcutHelpOpen(false)}
+      />
 
       {deckDiagnosticsReviewOpen ? (
         <FocusTrapped>
