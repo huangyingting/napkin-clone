@@ -101,7 +101,8 @@ It runs:
 
 The automated gate above validates code. A second, data-facing gate validates
 the **persisted payloads** the runtime trusts — `Document.deckJson`, embedded
-`Document.contentJson` visuals, `Visual.data`, and active `SourceRef` fields.
+`Document.contentJson` visuals, `Visual.data`, and active DeckV7 source metadata
+(`slides[].source`, `slides[].children[].source`).
 Run it against a target database (staging or a production replica) before a
 release wave:
 
@@ -111,9 +112,11 @@ npm run audit:schema -- --ci
 
 The CLI (`src/scripts/audit-persisted-schema.ts`, core in
 `src/lib/schema-audit/audit.ts`) exits non-zero when any row fails its schema
-validator and reports only safe identifiers (document id / row id / schema area
-/ failure reason) — never document content. A clean run is a precondition for
-release; drift is remediated with the [repair playbook](./schema-repair-runbook.md).
+validator (`safeParseDeckV7` for `Document.deckJson` and
+`DocumentVersion.deckJson`) and reports only safe identifiers (document id / row
+id / schema area / failure reason) — never document content. A clean run is a
+precondition for release; drift is remediated with the
+[repair playbook](./schema-repair-runbook.md).
 
 ### Test coverage scope
 
