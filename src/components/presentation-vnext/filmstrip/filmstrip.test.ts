@@ -12,6 +12,7 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Filmstrip, type FilmstripProps } from "./filmstrip";
+import { FilmstripSlide } from "./filmstrip-slide";
 import type {
   ResolvedDeckRenderTree,
   ResolvedRenderNode,
@@ -116,7 +117,10 @@ function findElement(
   return found;
 }
 
-function withMockHooks<T>(callback: () => T): {
+function withMockHooks<T>(
+  callback: () => T,
+  options: { stateOverrides?: Map<number, unknown> } = {},
+): {
   value: T;
   refs: Array<{ current: unknown }>;
   updates: MockStateUpdate[];
@@ -137,9 +141,10 @@ function withMockHooks<T>(callback: () => T): {
       stateIndex += 1;
       if (stateValues.length <= index) {
         stateValues[index] =
-          typeof initial === "function"
+          options.stateOverrides?.get(index) ??
+          (typeof initial === "function"
             ? (initial as () => unknown)()
-            : initial;
+            : initial);
       }
       return [
         stateValues[index],
@@ -306,5 +311,78 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
       .map((update) => update.value);
     assert.ok(statusUpdates.includes("Moved slide 2 to 3."));
     assert.ok(statusUpdates.includes("Deleted slide 2."));
+  });
+});
+
+describe("Filmstrip reduced-motion class guards", () => {
+  test("adds reduced-motion guards for filmstrip preview and collapse chrome transitions", () => {
+    const html = renderToStaticMarkup(
+      withMockHooks(() => Filmstrip(filmstripProps()), {
+        stateOverrides: new Map([
+          [
+            1,
+            {
+              isDragging: true,
+              dragSourceIndex: 1,
+              dragTargetIndex: 2,
+              dragPreview: {
+                index: 1,
+                x: 16,
+                y: 24,
+                width: 96,
+                offsetX: 12,
+                offsetY: 8,
+              },
+            },
+          ],
+        ]),
+      }).value,
+    );
+
+    assert.match(
+      html,
+      /transition-transform duration-150 ease-out motion-reduce:rotate-0 motion-reduce:transition-none/,
+    );
+    assert.match(
+      html,
+      /transition-opacity duration-150 motion-reduce:transition-none/,
+    );
+  });
+
+  test("adds reduced-motion guards for drag-state and thumbnail/action transitions", () => {
+    const deck = renderTree();
+    const slideTree = deck.slides[0]!;
+    const html = renderToStaticMarkup(
+      createElement(FilmstripSlide, {
+        slideTree,
+        canvas: deck.canvas,
+        index: 0,
+        isActive: true,
+        slideId: slideTree.id,
+        totalSlides: deck.slides.length,
+        isDragging: true,
+        onSelect: () => undefined,
+        onDuplicate: () => undefined,
+        onDelete: () => undefined,
+        onPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(
+      html,
+      /transition-\[opacity,transform\] duration-150 ease-out motion-reduce:transition-none scale-\[0\.98\] opacity-40 motion-reduce:scale-100/,
+    );
+    assert.match(
+      html,
+      /transition-transform duration-150 ease-out motion-reduce:transition-none/,
+    );
+    assert.match(
+      html,
+      /transition-\[box-shadow\] duration-150 ease-out motion-reduce:transition-none/,
+    );
+    assert.match(
+      html,
+      /transition-opacity motion-reduce:transition-none focus-within:opacity-100 group-hover:opacity-100/,
+    );
   });
 });

@@ -137,7 +137,7 @@ export function Filmstrip({
       {dragState.dragPreview ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-dropdown rotate-1 opacity-95 transition-transform duration-150 ease-out"
+          className="pointer-events-none fixed z-dropdown rotate-1 opacity-95 transition-transform duration-150 ease-out motion-reduce:rotate-0 motion-reduce:transition-none"
           style={{
             left: dragState.dragPreview.x,
             top: dragState.dragPreview.y,
@@ -173,7 +173,7 @@ export function Filmstrip({
       >
         <div
           className={cx(
-            "relative flex h-[84px] items-center gap-0 transition-opacity duration-150",
+            "relative flex h-[84px] items-center gap-0 transition-opacity duration-150 motion-reduce:transition-none",
             collapsed && "pointer-events-none opacity-0",
           )}
         >
