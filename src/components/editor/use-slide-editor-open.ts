@@ -40,6 +40,7 @@ import {
   openAiGeneratedDeck,
   openDeckFromJson,
 } from "@/lib/presentation-vnext/open-deck";
+import { deriveDeckV7FromDocumentContent } from "@/lib/presentation-vnext/deck-derivation";
 import { pickUndoFocusTarget } from "@/lib/presentation-vnext/deck-diff";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import {
@@ -486,7 +487,7 @@ export function useSlideEditorOpen({
     };
   }, [deckPort, documentId, fallbackDeck]);
 
-  const openDerivedV7 = useCallback(async () => {
+  const openSavedV7 = useCallback(async () => {
     aiAppliedDeckRef.current = null;
     const prepared = await prepareOpenV7();
     if (prepared.ok) {
@@ -499,6 +500,27 @@ export function useSlideEditorOpen({
       validationErrors: prepared.validationErrors,
     });
   }, [enterRecoveryV7, finishOpenV7, prepareOpenV7]);
+
+  const openDerivedV7 = useCallback(
+    async (contentJson: string) => {
+      aiAppliedDeckRef.current = null;
+      const derived = deriveDeckV7FromDocumentContent({
+        contentJson,
+        documentId,
+        themePackageId: pendingThemePackageId,
+      });
+      if (derived.ok) {
+        finishOpenV7(derived.deck, derived.diagnostics);
+        return;
+      }
+      enterRecoveryV7({
+        error: derived.error,
+        diagnostics: derived.diagnostics,
+        validationErrors: derived.validationErrors,
+      });
+    },
+    [documentId, enterRecoveryV7, finishOpenV7, pendingThemePackageId],
+  );
 
   const openWithAiDeckV7 = useCallback(
     (aiDeck: DeckV7, generationDiagnostics: PresentationDiagnostic[] = []) => {
@@ -582,8 +604,8 @@ export function useSlideEditorOpen({
       return;
     }
 
-    await openDerivedV7();
-  }, [aiEnabled, editor, effectiveContentJson, openDerivedV7]);
+    await openSavedV7();
+  }, [aiEnabled, editor, effectiveContentJson, openSavedV7]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -734,7 +756,7 @@ export function useSlideEditorOpen({
 
   const handleOpenDialogDerive = useCallback(() => {
     if (!pendingJson) return;
-    void openDerivedV7();
+    void openDerivedV7(pendingJson);
   }, [openDerivedV7, pendingJson]);
 
   const handleOpenDialogClose = useCallback(() => {
@@ -754,7 +776,7 @@ export function useSlideEditorOpen({
 
   const handleAiPreviewV7Derive = useCallback(() => {
     if (aiPreviewV7) {
-      void openDerivedV7();
+      void openDerivedV7(aiPreviewV7.contentJson);
     }
   }, [aiPreviewV7, openDerivedV7]);
 
