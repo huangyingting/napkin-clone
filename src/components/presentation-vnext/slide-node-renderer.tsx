@@ -703,9 +703,11 @@ function VisualNodeContent({
 function ConnectorNodeContent({
   content,
   style,
+  nodeId,
 }: {
   content: ConnectorContent;
   style: StyleObject;
+  nodeId: string;
 }): JSX.Element {
   const stroke = style.connector?.stroke ?? style.stroke;
   const strokeColor = colorValueToCss(stroke?.color) ?? "currentColor";
@@ -721,6 +723,8 @@ function ConnectorNodeContent({
   const routing = content.routing ?? style.connector?.routing ?? "straight";
   const start = connectorEndpointPoint(content.from);
   const end = connectorEndpointPoint(content.to);
+  const startMarkerId = `connector-start-arrow-v7-${nodeId}`;
+  const endMarkerId = `connector-end-arrow-v7-${nodeId}`;
   const midX = start.x + (end.x - start.x) / 2;
   const path =
     routing === "curved"
@@ -740,7 +744,7 @@ function ConnectorNodeContent({
       <defs>
         {startArrow !== "none" ? (
           <marker
-            id="connector-start-arrow-v7"
+            id={startMarkerId}
             markerWidth="8"
             markerHeight="6"
             refX="1"
@@ -757,7 +761,7 @@ function ConnectorNodeContent({
         ) : null}
         {endArrow !== "none" ? (
           <marker
-            id="connector-end-arrow-v7"
+            id={endMarkerId}
             markerWidth="8"
             markerHeight="6"
             refX="7"
@@ -781,11 +785,9 @@ function ConnectorNodeContent({
         strokeDasharray={dashArray}
         vectorEffect="non-scaling-stroke"
         markerStart={
-          startArrow !== "none" ? "url(#connector-start-arrow-v7)" : undefined
+          startArrow !== "none" ? `url(#${startMarkerId})` : undefined
         }
-        markerEnd={
-          endArrow !== "none" ? "url(#connector-end-arrow-v7)" : undefined
-        }
+        markerEnd={endArrow !== "none" ? `url(#${endMarkerId})` : undefined}
       />
     </svg>
   );
@@ -953,7 +955,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     onHoverChange?.(node.id, false);
   }
 
-  const inner = renderContent(content, style, assetResolver, preview, {
+  const inner = renderContent(node.id, content, style, assetResolver, preview, {
     tableEditing,
     activeTableCell,
     onTableCellFocus: (rowIndex, colIndex) =>
@@ -1025,6 +1027,7 @@ function accessibleNodeName(node: ResolvedRenderNode): string {
 }
 
 function renderContent(
+  nodeId: string,
   content: ResolvedNodeContent,
   style: StyleObject,
   assetResolver?: (id: string) => string | undefined,
@@ -1097,7 +1100,13 @@ function renderContent(
       );
 
     case "connector":
-      return <ConnectorNodeContent content={content.content} style={style} />;
+      return (
+        <ConnectorNodeContent
+          content={content.content}
+          style={style}
+          nodeId={nodeId}
+        />
+      );
 
     case "group":
       // Group children are rendered by the parent SlideCanvas, not here.
