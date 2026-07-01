@@ -5,6 +5,7 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
+  type KeyboardEvent,
   type MouseEvent,
 } from "react";
 
@@ -539,6 +540,113 @@ describe("SlideEditorVNext failure-state coverage", () => {
           .selectedIds,
         ["image-primary"],
         "Expected image replacement retry to preserve selected image node.",
+      );
+    });
+  });
+
+  test("supports keyboard rotation with shifted bracket shortcuts", () => {
+    withMockHTMLElement(() => {
+      const hookRenderer = createHookRenderer();
+      let currentDeck = buildDeckV7(
+        [
+          buildSlideV7(
+            "content",
+            [
+              buildImageNode("img-001", {
+                id: "image-primary",
+                name: "Primary image",
+                layout: { frame: { x: 12, y: 16, w: 36, h: 48 }, zIndex: 1 },
+              }),
+            ],
+            { id: "slide-rotation", name: "Slide 1" },
+          ),
+        ],
+        { title: "Keyboard rotation deck" },
+      );
+
+      const renderTree = () =>
+        hookRenderer.run(() =>
+          SlideEditorVNext({
+            documentId: "doc-rotation",
+            deck: currentDeck,
+            onDeckChange: (nextDeck) => {
+              currentDeck = nextDeck;
+            },
+          }),
+        );
+
+      let tree = renderTree();
+      const stageCanvas = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === SlideCanvasVNext &&
+          typeof (
+            element.props as {
+              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+            }
+          ).onNodeClick === "function",
+        "Expected stage canvas with node click handler.",
+      );
+      const onNodeClick = (
+        stageCanvas.props as {
+          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
+        }
+      ).onNodeClick;
+      assert.ok(onNodeClick);
+      onNodeClick?.("image-primary", {
+        shiftKey: false,
+        metaKey: false,
+      } as MouseEvent);
+
+      tree = renderTree();
+      const editorRoot = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "data-slide-editor-vnext"?: string })[
+            "data-slide-editor-vnext"
+          ] === "true" &&
+          typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+            "function",
+        "Expected editor root with keydown handler.",
+      );
+      const onKeyDown = (
+        editorRoot.props as {
+          onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+        }
+      ).onKeyDown;
+      assert.ok(onKeyDown);
+      let prevented = false;
+      onKeyDown?.({
+        key: "{",
+        shiftKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        target: null,
+        preventDefault: () => {
+          prevented = true;
+        },
+      } as unknown as KeyboardEvent<HTMLDivElement>);
+
+      assert.equal(prevented, true);
+      const rotatedNode = currentDeck.slides[0]?.children[0];
+      assert.ok(rotatedNode?.layout);
+      assert.equal(rotatedNode.layout.rotation, -1);
+
+      tree = renderTree();
+      const stageLiveRegion = findRequiredElement(
+        tree,
+        (element) =>
+          element.type === "div" &&
+          (element.props as { "aria-live"?: string })["aria-live"] ===
+            "polite" &&
+          flattenText(element).includes("Rotated Primary image to 359°"),
+        "Expected keyboard rotation announcement in the stage live region.",
+      );
+      assert.match(
+        flattenText(stageLiveRegion),
+        /Rotated Primary image to 359°/,
       );
     });
   });
