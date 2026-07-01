@@ -109,13 +109,17 @@ operations, and carries diagnostics forward. `buildVnextPptxSpec` converts those
 operations into inch-based PPTX operations; `applyVnextPptxSpec` owns PptxGenJS
 side effects.
 
-Table export is deliberately compiled into deterministic shape and text
-operations for the first version. Each table cell emits a shape fill/border op
-and a text op; headers use the resolved header fill/text style, body rows use
-resolved row/alternate fills, and captions emit as text below the grid inside
-the table element box. Cell `runs` are passed through the same rich-text export
-path used by text elements. Native PPTX table output is a future optimization,
-not the current fidelity path.
+Table export currently stays as a native table operation end to end:
+`buildExportSpec` emits `tableShape`, `buildVnextPptxSpec` maps it to
+`VnextPptxTableOp`, and `applyVnextPptxSpec` calls `slide.addTable(...)`.
+Current adapter coverage maps column labels, row cell `text`, frame geometry,
+table text style, and resolved `headerFill`/`rowFill`. Unsupported table fill
+types (for example pattern or gradient) use deterministic solid fallbacks and
+emit `unsupported-export-feature` diagnostics.
+
+Known native-table fidelity gaps are tracked as current behavior (not a legacy
+fallback path): table caption text, per-cell rich `runs`, `alternateRowFill`,
+border, and cell padding are not yet mapped to PPTX table options.
 
 Visual operations use a rendered asset when one is available and otherwise emit
 a deterministic placeholder with channel colors and diagnostics.
@@ -204,18 +208,18 @@ Preflight warnings describe expected fidelity changes before the export starts.
 
 ## Support Matrix
 
-| Category               | Product render behavior                                      | PPTX export behavior                                                                            | Diagnostics                                           |
-| ---------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Slide backgrounds      | Solid, gradient, pattern, and image fills render.            | Solid supported; gradients/patterns use deterministic color fallback; image fill has no fill.   | Yes for PPTX fallbacks.                               |
-| Text                   | Paragraphs, runs, alignment, rotation, and local style.      | Text boxes/runs, font face, size, color, bold/italic/underline, alignment, rotation.            | Missing tokens diagnose.                              |
-| Images                 | Asset-resolved image render with fit/crop surface rules.     | URL/data/file source embeds as image with alt text and rotation.                                | Missing assets diagnose before export.                |
-| Visuals                | Asset-backed visuals render; unresolved visuals placeholder. | Rendered visual asset embeds as image; visual-id-only nodes use a labeled placeholder.          | Placeholder and unsupported visual channels diagnose. |
-| Shapes                 | Core shapes render; path fallback styling is deterministic.  | Core shapes map to PptxGenJS shapes; unknown/path shapes fall back to rect.                     | Unsupported fills/effects diagnose.                   |
-| Connectors             | Straight, elbow, and curved SVG paths with dash/arrows.      | Straight and elbow preserve endpoints, dash, stroke, and arrows; curved uses straight fallback. | Curved routing diagnoses.                             |
-| Tables                 | Header/body rows, fills, alternate rows, borders, text.      | Native PPTX table operation with header/row fill and text style.                                | Unsupported table fills diagnose.                     |
-| Decorations/chrome     | Theme decorations and chrome render outside user nodes.      | Decoration/chrome nodes export in render order; unsupported styles diagnose as style fallbacks. | Yes when fallback is lossy.                           |
-| Effects                | Blur, glass, glow render in CSS where supported.             | Effects are not native in PPTX and use deterministic style fallback.                            | Yes.                                                  |
-| Blend/clip/image masks | Product CSS behavior where implemented.                      | Not native in current PPTX adapter unless represented by image asset.                           | Diagnostic required when user-visible.                |
+| Category               | Product render behavior                                      | PPTX export behavior                                                                                                                                                                                                                 | Diagnostics                                                                          |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Slide backgrounds      | Solid, gradient, pattern, and image fills render.            | Solid supported; gradients/patterns use deterministic color fallback; image fill has no fill.                                                                                                                                        | Yes for PPTX fallbacks.                                                              |
+| Text                   | Paragraphs, runs, alignment, rotation, and local style.      | Text boxes/runs, font face, size, color, bold/italic/underline, alignment, rotation.                                                                                                                                                 | Missing tokens diagnose.                                                             |
+| Images                 | Asset-resolved image render with fit/crop surface rules.     | URL/data/file source embeds as image with alt text and rotation.                                                                                                                                                                     | Missing assets diagnose before export.                                               |
+| Visuals                | Asset-backed visuals render; unresolved visuals placeholder. | Rendered visual asset embeds as image; visual-id-only nodes use a labeled placeholder.                                                                                                                                               | Placeholder and unsupported visual channels diagnose.                                |
+| Shapes                 | Core shapes render; path fallback styling is deterministic.  | Core shapes map to PptxGenJS shapes; unknown/path shapes fall back to rect.                                                                                                                                                          | Unsupported fills/effects diagnose.                                                  |
+| Connectors             | Straight, elbow, and curved SVG paths with dash/arrows.      | Straight and elbow preserve endpoints, dash, stroke, and arrows; curved uses straight fallback.                                                                                                                                      | Curved routing diagnoses.                                                            |
+| Tables                 | Header/body rows, fills, alternate rows, borders, text.      | Native `tableShape` -> `VnextPptxTableOp` -> `slide.addTable(...)`; exports column labels, cell text, frame, table text style, and header/row fills. Caption, cell runs, alternate-row fill, border, and padding are not mapped yet. | Unsupported table fill types emit `unsupported-export-feature` fallback diagnostics. |
+| Decorations/chrome     | Theme decorations and chrome render outside user nodes.      | Decoration/chrome nodes export in render order; unsupported styles diagnose as style fallbacks.                                                                                                                                      | Yes when fallback is lossy.                                                          |
+| Effects                | Blur, glass, glow render in CSS where supported.             | Effects are not native in PPTX and use deterministic style fallback.                                                                                                                                                                 | Yes.                                                                                 |
+| Blend/clip/image masks | Product CSS behavior where implemented.                      | Not native in current PPTX adapter unless represented by image asset.                                                                                                                                                                | Diagnostic required when user-visible.                                               |
 
 Representative checks live in `src/lib/presentation-vnext/render-export-parity.test.ts`,
 `src/lib/presentation-vnext/pptx-export-adapter.test.ts`, and
