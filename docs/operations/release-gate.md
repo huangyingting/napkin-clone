@@ -225,16 +225,16 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Slide / deck flows
 
-| #   | Flow                                | Owner           | Notes                                                                                                 |
-| --- | ----------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
-| S-1 | Slide edit and autosave (deck JSON) | **A**           | `save-conflict.test.ts`, `autosave-hardening.test.ts`                                                 |
-| S-2 | Deck patch save (`saveDeckPatch`)   | **A**           | `save-conflict.test.ts`                                                                               |
-| S-3 | Stale revision conflict recovery    | **A**           | `deck-revision-token.test.ts`, `autosave-hardening.test.ts`                                           |
-| S-4 | Oversized deck rejection            | **A**           | `perf-budgets.test.ts`, `autosave-hardening.test.ts`                                                  |
-| S-5 | Present mode (read-only render)     | **M** + **E2E** | SlideCanvas rendering; authenticated + public present asserted in `e2e/present-export.spec.ts` (#520) |
-| S-6 | Deck PPTX / PDF export              | **A** + **E2E** | `export-preflight.test.ts`; real PDF download asserted in `e2e/present-export.spec.ts` (#520)         |
-| S-7 | Export preflight (fatal / warning)  | **A**           | `export-preflight.test.ts`                                                                            |
-| S-8 | Slide editor responsive layout      | **A** + **E2E** | Deterministic v7 layout screenshots in `e2e/slides-layout-screenshots.spec.ts` (#1449)                |
+| #   | Flow                                | Owner           | Notes                                                                                                                                                                       |
+| --- | ----------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S-1 | Slide edit and autosave (deck JSON) | **A**           | DeckV7 CAS + autosave path covered by `deck-cas-writer.test.ts` and `use-slide-editor-open.test.ts`                                                                         |
+| S-2 | Deck patch save (`saveDeckPatch`)   | **D**           | Current `patchDeck` implementation is fallback-only (`{ ok: "fallback" }`); fallback behavior covered by `persistence-service.test.ts` and `patch-autosave.test.ts` (#1336) |
+| S-3 | Stale revision conflict recovery    | **A**           | DeckV7 stale-token handling + conflict state covered by `deck-cas-writer.test.ts`, `use-slide-editor-open.test.ts`, and `slide-editor-collaboration-state.test.ts`          |
+| S-4 | Oversized deck rejection            | **A**           | `perf-budgets.test.ts`, `autosave-hardening.test.ts`                                                                                                                        |
+| S-5 | Present mode (read-only render)     | **M** + **E2E** | SlideCanvas rendering; authenticated + public present asserted in `e2e/present-export.spec.ts` (#520)                                                                       |
+| S-6 | Deck PPTX / PDF export              | **A** + **E2E** | `export-preflight.test.ts`; real PDF download asserted in `e2e/present-export.spec.ts` (#520)                                                                               |
+| S-7 | Export preflight (fatal / warning)  | **A**           | `export-preflight.test.ts`                                                                                                                                                  |
+| S-8 | Slide editor responsive layout      | **A** + **E2E** | Deterministic v7 layout screenshots in `e2e/slides-layout-screenshots.spec.ts` (#1449)                                                                                      |
 
 ### Visual projection flows
 
@@ -298,6 +298,9 @@ For each flow below, check the indicated owner: **A** = automated test,
   focus restoration, announcements) now ships (#530–#535, covered by
   `canvas-a11y.test.ts`); only the accepted A1 (connector free-draw) and A2
   (rotation) limitations remain as documented warnings tracked by #930 and #931.
+- Slide patch-save flow (**S-2 / D**) remains deferred while `patchDeck` is
+  fallback-only (`{ ok: "fallback" }`): keep #1336 open and do not sign off this
+  path as automated patch persistence until DeckV7 patch replay is implemented.
 - Performance budgets report `warned: true` (not `exceeded`) for any metric: log the
   finding and plan remediation within the next sprint.
 
@@ -332,4 +335,5 @@ Before each foundation release wave:
 | #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/schema-repair-runbook.md`                                                                                                                                                                      |
 | #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload,slides-layout-screenshots}.spec.ts`, [slide canvas keyboard accessibility decision](../system/slide-canvas-keyboard-accessibility.md) |
 | #1449         | Deterministic v7 layout screenshot gate — `e2e/slides-layout-screenshots.spec.ts`, `playwright.config.ts`, [E2E README](../../e2e/README.md)                                                                                                                              |
+| #1390         | DeckV7 release-gate slide blocker ownership reconciliation — this runbook's S-1/S-2/S-3 rows                                                                                                                                                                              |
 | #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../system/architecture-decisions.md), `npm run docs:check`                                            |
