@@ -13,6 +13,13 @@
  * @param fontFamily  - CSS font-family value, e.g. `'MyFont', sans-serif`
  * @param fontAssetUrl - Protected font asset URL
  */
+function escapeCssSingleQuotedString(value: string): string {
+  return value.replace(/[\\'\0-\x1f\x7f]/g, (char) => {
+    if (char === "\\" || char === "'") return `\\${char}`;
+    return `\\${char.charCodeAt(0).toString(16).toUpperCase()} `;
+  });
+}
+
 export function buildFontFaceCss(
   fontFamily: string | null | undefined,
   fontAssetUrl: string | null | undefined,
@@ -26,7 +33,8 @@ export function buildFontFaceCss(
     .replace(/^['"]|['"]$/g, "")
     .trim();
   if (!bare) return "";
-  return `@font-face { font-family: '${bare}'; src: url('${fontAssetUrl}'); font-display: swap; }`;
+  const escapedBare = escapeCssSingleQuotedString(bare);
+  return `@font-face { font-family: '${escapedBare}'; src: url('${fontAssetUrl}'); font-display: swap; }`;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import * as React from "react";
 import {
   Children,
   createElement,
@@ -23,6 +24,10 @@ import type {
   SlideChildNode,
   SlideNode,
 } from "@/lib/presentation-vnext/schema";
+import type {
+  StyleObject,
+  StylePatch,
+} from "@/lib/presentation-vnext/style-schema";
 
 type ElementWithProps = ReactElement<Record<string, unknown>>;
 
@@ -45,14 +50,21 @@ function invokeHandlers(root: ReactNode): number {
   for (const element of elements(root)) {
     const props = element.props as {
       disabled?: boolean;
+      type?: string;
       onChange?: (event: {
         currentTarget: { value: string; checked: boolean };
       }) => void;
       onClick?: () => void;
     };
     if (props.onChange) {
+      const value =
+        props.type === "number" || props.type === "range"
+          ? "12"
+          : props.type === "color"
+            ? "#123456"
+            : "sample";
       props.onChange({
-        currentTarget: { value: "#123456", checked: true },
+        currentTarget: { value, checked: true },
       });
       count += 1;
     }
@@ -62,6 +74,13 @@ function invokeHandlers(root: ReactNode): number {
     }
   }
   return count;
+}
+
+function findElement(
+  root: ReactNode,
+  predicate: (element: ElementWithProps) => boolean,
+): ElementWithProps | undefined {
+  return elements(root).find((element) => predicate(element));
 }
 
 function childNode(patch: Partial<SlideChildNode>): SlideChildNode {
@@ -77,6 +96,42 @@ function childNode(patch: Partial<SlideChildNode>): SlideChildNode {
 
 function render(element: ReactNode) {
   return element ? renderToStaticMarkup(element as ReactElement) : "";
+}
+
+function withFakeHooks<T>(renderComponent: () => T): T {
+  const internals = (
+    React as unknown as {
+      __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
+        H: unknown;
+      };
+    }
+  ).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  if (!internals) return renderComponent();
+
+  const previous = internals.H;
+  internals.H = {
+    useState: <S>(initial: S | (() => S)) => [
+      typeof initial === "function" ? (initial as () => S)() : initial,
+      () => undefined,
+    ],
+    useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
+    useRef: <T>(initial: T) => ({ current: initial }),
+    useMemo: <T>(factory: () => T) => factory(),
+    useCallback: <T>(callback: T) => callback,
+    useId: () => "fake-react-id",
+    useContext: () => undefined,
+    useEffect: () => undefined,
+    useLayoutEffect: () => undefined,
+    useInsertionEffect: () => undefined,
+    useSyncExternalStore: () => undefined,
+    useTransition: () => [false, () => undefined],
+    useDeferredValue: <T>(value: T) => value,
+  };
+  try {
+    return renderComponent();
+  } finally {
+    internals.H = previous;
+  }
 }
 
 describe("inspector panels render and wire controls", () => {
@@ -182,6 +237,99 @@ describe("inspector panels render and wire controls", () => {
     assert.ok(invokeHandlers(visual) >= 6);
     assert.ok(invokeHandlers(table) >= 6);
     assert.ok(updates.length >= 17);
+  });
+
+  test("LocalStylePanel seeds resolved values and preserves resolved stroke color on width edit", () => {
+    const updates: StylePatch[] = [];
+    const resolvedStyle: StyleObject = {
+      text: {
+        color: "#1d4ed8",
+        fontSizePt: 26,
+        lineHeight: 1.4,
+      },
+      fill: { type: "solid", color: "#dbeafe" },
+      stroke: { color: "#2563eb", widthPt: 3 },
+    };
+    const element = LocalStylePanel({
+      node: childNode({
+        type: "shape",
+        content: {
+          shape: "rect",
+          text: { paragraphs: [{ id: "label", text: "Label" }] },
+        },
+        localStyle: {},
+      }),
+      resolvedStyle,
+      onUpdateLocalStyle: (patch) => updates.push(patch),
+    });
+
+    const html = render(element);
+    assert.match(html, /value="#1d4ed8"/);
+    assert.match(html, /value="#dbeafe"/);
+    assert.match(html, /value="#2563eb"/);
+
+    const strokeWidthInput = findElement(
+      element,
+      (candidate) =>
+        candidate.type === "input" &&
+        candidate.props.type === "number" &&
+        candidate.props.min === 0 &&
+        candidate.props.max === 24 &&
+        candidate.props.step === 0.5,
+    );
+    assert.ok(strokeWidthInput);
+    const onChange = strokeWidthInput.props.onChange as
+      | ((event: { currentTarget: { value: string } }) => void)
+      | undefined;
+    assert.ok(onChange);
+    onChange?.({ currentTarget: { value: "6" } });
+
+    assert.deepEqual(updates.at(-1), {
+      stroke: { color: "#2563eb", widthPt: 6 },
+    });
+  });
+
+  test("LocalStylePanel preserves resolved connector color on line width edit", () => {
+    const updates: StylePatch[] = [];
+    const resolvedStyle: StyleObject = {
+      connector: {
+        stroke: { color: "#0f172a", widthPt: 2.5, dash: "dashed" },
+      },
+    };
+    const element = LocalStylePanel({
+      node: childNode({
+        type: "connector",
+        content: {
+          from: { kind: "point", point: { x: 0, y: 0 } },
+          to: { kind: "point", point: { x: 100, y: 100 } },
+        },
+        localStyle: {},
+      }),
+      resolvedStyle,
+      onUpdateLocalStyle: (patch) => updates.push(patch),
+    });
+
+    const lineWidthInput = findElement(
+      element,
+      (candidate) =>
+        candidate.type === "input" &&
+        candidate.props.type === "number" &&
+        candidate.props.min === 0.5 &&
+        candidate.props.max === 24 &&
+        candidate.props.step === 0.5,
+    );
+    assert.ok(lineWidthInput);
+    const onChange = lineWidthInput.props.onChange as
+      | ((event: { currentTarget: { value: string } }) => void)
+      | undefined;
+    assert.ok(onChange);
+    onChange?.({ currentTarget: { value: "4" } });
+
+    assert.deepEqual(updates.at(-1), {
+      connector: {
+        stroke: { color: "#0f172a", widthPt: 4 },
+      },
+    });
   });
 
   test("NodeSourcePanel renders linked, unlinked, and standalone source states", () => {
@@ -355,11 +503,70 @@ describe("inspector panels render and wire controls", () => {
         onUpdateSource: (source) => updates.push(source),
         onUpdateLocalStyle: (patch) => updates.push(patch),
         onResetLocalStyle: () => updates.push("reset"),
+        assetResolver: (assetId) =>
+          assetId === "asset-1" ? "https://example.com/asset-1.png" : undefined,
+        onUploadBackgroundImage: () => updates.push("upload"),
       });
       assert.match(render(element), /Slide/);
       assert.ok(invokeHandlers(element) >= 7);
     }
+    assert.ok(updates.includes("upload"));
     assert.ok(updates.length >= 28);
+  });
+
+  test("SlideSettingsPanel shows image preview and missing-state placeholders", () => {
+    const baseSlide: SlideNode = {
+      id: "slide-1",
+      type: "slide",
+      name: "Slide 1",
+      template: { kind: "cover", layoutId: "default" },
+      controls: {},
+      props: {},
+      children: [],
+    };
+
+    const previewElement = SlideSettingsPanel({
+      slide: {
+        ...baseSlide,
+        localStyle: {
+          slide: { background: { type: "image", assetId: "asset-1" } },
+        },
+      },
+      onUpdateSlide: () => undefined,
+      onUpdateSource: () => undefined,
+      onUpdateLocalStyle: () => undefined,
+      onResetLocalStyle: () => undefined,
+      assetResolver: () => "https://example.com/asset-1.png",
+      onUploadBackgroundImage: () => undefined,
+    });
+    const missingElement = SlideSettingsPanel({
+      slide: {
+        ...baseSlide,
+        localStyle: {
+          slide: { background: { type: "image", assetId: "asset-missing" } },
+        },
+      },
+      onUpdateSlide: () => undefined,
+      onUpdateSource: () => undefined,
+      onUpdateLocalStyle: () => undefined,
+      onResetLocalStyle: () => undefined,
+    });
+    const emptyElement = SlideSettingsPanel({
+      slide: {
+        ...baseSlide,
+        localStyle: { slide: { background: { type: "image", assetId: "" } } },
+      },
+      onUpdateSlide: () => undefined,
+      onUpdateSource: () => undefined,
+      onUpdateLocalStyle: () => undefined,
+      onResetLocalStyle: () => undefined,
+    });
+
+    assert.match(render(previewElement), /https:\/\/example.com\/asset-1\.png/);
+    assert.match(render(previewElement), /Replace image/);
+    assert.match(render(missingElement), /Missing image asset/);
+    assert.match(render(emptyElement), /No background image selected/);
+    assert.match(render(emptyElement), /Upload image/);
   });
 
   test("DiagnosticsPanel sorts severities, filters info, and invokes actions", () => {
@@ -399,7 +606,7 @@ describe("inspector panels render and wire controls", () => {
     ]);
   });
 
-  test("LayersPanel renders nested layer labels and empty state", () => {
+  test("LayersPanel renders nested layer labels, contextual toggle names, and empty state", () => {
     const updates: unknown[] = [];
     const group = childNode({
       id: "group-1",
@@ -423,14 +630,19 @@ describe("inspector panels render and wire controls", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      createElement(LayersPanel, {
+    const panel = withFakeHooks(() =>
+      LayersPanel({
         nodes: [group],
         selectedIds: ["child-text"],
         onSelectNode: (id) => updates.push(["select", id]),
         onUpdateNode: (id, patch) => updates.push(["update", id, patch]),
         onReorderNode: (id, index) => updates.push(["reorder", id, index]),
       }),
+    );
+    const html = render(panel);
+    const interactions = invokeHandlers(panel);
+    const reorderEvents = updates.filter(
+      (event) => Array.isArray(event) && event[0] === "reorder",
     );
     const empty = renderToStaticMarkup(
       createElement(LayersPanel, {
@@ -444,6 +656,27 @@ describe("inspector panels render and wire controls", () => {
     assert.match(html, /Group/);
     assert.match(html, /Nested text/);
     assert.match(html, /Nested image/);
+    assert.match(html, /Move layer forward/);
+    assert.match(html, /Move layer backward/);
+    assert.match(html, /aria-live="polite"/);
+    assert.ok(interactions >= 8);
+    assert.ok(reorderEvents.length >= 2);
+    assert.match(
+      html,
+      /aria-label="Hide layer &quot;Nested text&quot;" aria-pressed="false"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Lock layer &quot;Nested text&quot;" aria-pressed="false"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Show layer &quot;Nested image&quot;" aria-pressed="true"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Unlock layer &quot;Nested image&quot;" aria-pressed="true"/,
+    );
     assert.equal(empty, "");
   });
 });

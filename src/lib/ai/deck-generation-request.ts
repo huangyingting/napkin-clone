@@ -15,6 +15,15 @@ import {
   isThemePackageId,
   type ThemePackageId,
 } from "@/lib/presentation/theme-packages";
+import {
+  DIAGNOSTIC_CATEGORIES,
+  DIAGNOSTIC_TARGET_SCOPES,
+  type DiagnosticCategory,
+  type DiagnosticSeverity,
+  type DiagnosticTarget,
+  type DiagnosticTargetScope,
+  type PresentationDiagnostic,
+} from "@/lib/presentation-vnext/diagnostics";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 
@@ -33,12 +42,7 @@ export type { DeckGenerationOptions } from "@/lib/ai/deck-generation-options";
  * - `other`    — any other non-OK status or an unparseable response.
  */
 export type DeckGenerateErrorKind =
-  | "network"
-  | "timeout"
-  | "credit"
-  | "unavailable"
-  | "empty"
-  | "other";
+  "network" | "timeout" | "credit" | "unavailable" | "empty" | "other";
 
 /** A user-facing error plus its classification. */
 export interface DeckGenerateError {
@@ -62,6 +66,7 @@ export type DeckGenerateResult =
       ok: true;
       deckV7: DeckV7;
       truncated: boolean;
+      diagnostics: PresentationDiagnostic[];
       metadata?: DeckGenerationResponseMetadata;
     }
   | { ok: false; error: string; errorKind: DeckGenerateErrorKind };
@@ -85,6 +90,18 @@ export const EMPTY_CONTENT_ERROR =
  * 400s (issue #280).
  */
 const EMPTY_OUTLINE_MARKER = "does not contain any usable outline content";
+const DIAGNOSTIC_CATEGORIES_SET = new Set<DiagnosticCategory>(
+  DIAGNOSTIC_CATEGORIES,
+);
+const DIAGNOSTIC_TARGET_SCOPES_SET = new Set<DiagnosticTargetScope>(
+  DIAGNOSTIC_TARGET_SCOPES,
+);
+const DIAGNOSTIC_SEVERITY_SET = new Set<DiagnosticSeverity>([
+  "info",
+  "warning",
+  "error",
+  "fatal",
+]);
 
 /** True when a 400 payload is the route's empty-outline rejection. */
 function isEmptyOutline400(payload: unknown): boolean {
@@ -192,9 +209,201 @@ function parseDeckResponseMetadata(
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
+function getRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function getStringField(
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  return typeof record[key] === "string" ? (record[key] as string) : undefined;
+}
+
+function parseDiagnosticTarget(value: unknown): DiagnosticTarget | undefined {
+  const raw = getRecord(value);
+  if (!raw) return undefined;
+  const scope = getStringField(raw, "scope");
+  if (
+    !scope ||
+    !DIAGNOSTIC_TARGET_SCOPES_SET.has(scope as DiagnosticTargetScope)
+  )
+    return undefined;
+
+  const path = getStringField(raw, "path");
+  const label = getStringField(raw, "label");
+
+  switch (scope) {
+    case "deck":
+      return {
+        scope,
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    case "slide": {
+      const slideId = getStringField(raw, "slideId");
+      if (!slideId) return undefined;
+      return {
+        scope,
+        slideId,
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+    case "node": {
+      const nodeId = getStringField(raw, "nodeId");
+      if (!nodeId) return undefined;
+      const slideId = getStringField(raw, "slideId");
+      return {
+        scope,
+        nodeId,
+        ...(slideId ? { slideId } : {}),
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+    case "asset": {
+      const assetId = getStringField(raw, "assetId");
+      const slideId = getStringField(raw, "slideId");
+      const nodeId = getStringField(raw, "nodeId");
+      return {
+        scope,
+        ...(assetId ? { assetId } : {}),
+        ...(slideId ? { slideId } : {}),
+        ...(nodeId ? { nodeId } : {}),
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+    case "source": {
+      const documentId = getStringField(raw, "documentId");
+      const blockId = getStringField(raw, "blockId");
+      const slideId = getStringField(raw, "slideId");
+      const nodeId = getStringField(raw, "nodeId");
+      return {
+        scope,
+        ...(documentId ? { documentId } : {}),
+        ...(blockId ? { blockId } : {}),
+        ...(slideId ? { slideId } : {}),
+        ...(nodeId ? { nodeId } : {}),
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+    case "style": {
+      const styleRef = getStringField(raw, "styleRef");
+      const slideId = getStringField(raw, "slideId");
+      const nodeId = getStringField(raw, "nodeId");
+      return {
+        scope,
+        ...(styleRef ? { styleRef } : {}),
+        ...(slideId ? { slideId } : {}),
+        ...(nodeId ? { nodeId } : {}),
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+    case "theme": {
+      const themePackageId = getStringField(raw, "themePackageId");
+      const slideId = getStringField(raw, "slideId");
+      return {
+        scope,
+        ...(themePackageId ? { themePackageId } : {}),
+        ...(slideId ? { slideId } : {}),
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+    case "export": {
+      const exportFeature = getStringField(raw, "exportFeature");
+      const slideId = getStringField(raw, "slideId");
+      const nodeId = getStringField(raw, "nodeId");
+      return {
+        scope,
+        ...(exportFeature ? { exportFeature } : {}),
+        ...(slideId ? { slideId } : {}),
+        ...(nodeId ? { nodeId } : {}),
+        ...(path ? { path } : {}),
+        ...(label ? { label } : {}),
+      };
+    }
+  }
+}
+
+function parsePresentationDiagnostic(
+  value: unknown,
+): PresentationDiagnostic | null {
+  const raw = getRecord(value);
+  if (!raw) return null;
+
+  const code = getStringField(raw, "code");
+  const category = getStringField(raw, "category");
+  const severity = getStringField(raw, "severity");
+  const message = getStringField(raw, "message");
+  const target = parseDiagnosticTarget(raw.target);
+  if (
+    !code ||
+    !category ||
+    !DIAGNOSTIC_CATEGORIES_SET.has(category as DiagnosticCategory) ||
+    !severity ||
+    !DIAGNOSTIC_SEVERITY_SET.has(severity as DiagnosticSeverity) ||
+    !message ||
+    !target
+  ) {
+    return null;
+  }
+
+  const diagnostic: PresentationDiagnostic = {
+    code: code as PresentationDiagnostic["code"],
+    category: category as DiagnosticCategory,
+    severity: severity as DiagnosticSeverity,
+    target,
+    message,
+  };
+
+  const path = getStringField(raw, "path");
+  if (path) diagnostic.path = path;
+
+  const nodeId = getStringField(raw, "nodeId");
+  if (nodeId) diagnostic.nodeId = nodeId;
+
+  const slideId = getStringField(raw, "slideId");
+  if (slideId) diagnostic.slideId = slideId;
+
+  const action = getRecord(raw.action);
+  if (action && typeof action.type === "string") {
+    diagnostic.action = action as PresentationDiagnostic["action"];
+  }
+
+  const details = getRecord(raw.details);
+  if (details) {
+    diagnostic.details = details as PresentationDiagnostic["details"];
+  }
+
+  return diagnostic;
+}
+
+function parseDeckResponseDiagnostics(
+  value: unknown,
+): PresentationDiagnostic[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const diagnostics: PresentationDiagnostic[] = [];
+  for (const entry of value) {
+    const parsed = parsePresentationDiagnostic(entry);
+    if (parsed) diagnostics.push(parsed);
+  }
+  return diagnostics;
+}
+
 export function parseDeckResponse(payload: unknown): {
   deckV7: DeckV7;
   truncated: boolean;
+  diagnostics: PresentationDiagnostic[];
   metadata?: DeckGenerationResponseMetadata;
 } | null {
   if (!payload || typeof payload !== "object") {
@@ -202,6 +411,9 @@ export function parseDeckResponse(payload: unknown): {
   }
   const rawDeck = (payload as { deck?: unknown }).deck;
   const truncated = (payload as { truncated?: unknown }).truncated === true;
+  const diagnostics = parseDeckResponseDiagnostics(
+    (payload as { diagnostics?: unknown }).diagnostics,
+  );
   const metadata = parseDeckResponseMetadata(
     (payload as { metadata?: unknown }).metadata,
   );
@@ -215,7 +427,7 @@ export function parseDeckResponse(payload: unknown): {
   ) {
     const v7Result = safeParseDeckV7(rawDeck);
     if (!v7Result.success) return null;
-    return { deckV7: v7Result.data, truncated, ...metaField };
+    return { deckV7: v7Result.data, truncated, diagnostics, ...metaField };
   }
 
   return null;
@@ -307,6 +519,7 @@ export async function requestDeckGeneration(
     ok: true,
     deckV7: parsed.deckV7,
     truncated: parsed.truncated,
+    diagnostics: parsed.diagnostics,
     ...(parsed.metadata ? { metadata: parsed.metadata } : {}),
   };
 }

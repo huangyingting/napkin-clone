@@ -40,3 +40,10 @@ test("listThemePackagesV7 includes neutral and generated runtime packages", () =
   assert.ok(ids.includes("ocean"));
   assert.ok(ids.includes("pulse"));
 });
+
+test("listThemePackagesV7 returns a stable memoized list", () => {
+  const first = listThemePackagesV7();
+  const second = listThemePackagesV7();
+
+  assert.equal(first, second);
+});

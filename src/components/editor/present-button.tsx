@@ -111,7 +111,10 @@ export function PresentButton({
     let fetchedRaw: unknown = null;
     setIsLoading(true);
     try {
-      fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
+      const fetched = await deckPort.fetchDeckJson(documentId);
+      if (fetched.ok) {
+        fetchedRaw = fetched.deckJson;
+      }
     } catch {
       // Network/auth error: fall back to page-load deckJson, then blank v7.
     } finally {

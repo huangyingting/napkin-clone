@@ -37,6 +37,12 @@ export type SourceReviewItem = SourceLinkClassification & {
   sourceLabel: string;
 };
 
+export type SourceReviewDerivations = {
+  classifications: readonly SourceLinkClassification[];
+  diagnostics: readonly PresentationDiagnostic[];
+  reviewItems: readonly SourceReviewItem[];
+};
+
 export type SourceRefreshResult =
   | { status: "refreshed"; deck: DeckV7; nodeId: string; slideId: string }
   | {
@@ -66,6 +72,17 @@ type SourceReviewDismissal = {
   dismissedAt?: string;
   reason?: string;
 };
+
+const EMPTY_SOURCE_REVIEW_DERIVATIONS: SourceReviewDerivations = {
+  classifications: [],
+  diagnostics: [],
+  reviewItems: [],
+};
+
+const SOURCE_REVIEW_DERIVATIONS_CACHE = new WeakMap<
+  DeckV7,
+  WeakMap<SourceBlockIndex, SourceReviewDerivations>
+>();
 
 function mapSlides(deck: DeckV7, fn: (slide: SlideNode) => SlideNode): DeckV7 {
   return { ...deck, slides: deck.slides.map(fn) };
@@ -435,6 +452,29 @@ export function sourceLinkDiagnostics(
     }
     return [];
   });
+}
+
+export function deriveSourceReviewDerivations(
+  deck: DeckV7,
+  index: SourceBlockIndex | null | undefined,
+): SourceReviewDerivations {
+  if (!index) return EMPTY_SOURCE_REVIEW_DERIVATIONS;
+  let deckCache = SOURCE_REVIEW_DERIVATIONS_CACHE.get(deck);
+  if (!deckCache) {
+    deckCache = new WeakMap<SourceBlockIndex, SourceReviewDerivations>();
+    SOURCE_REVIEW_DERIVATIONS_CACHE.set(deck, deckCache);
+  }
+  const cached = deckCache.get(index);
+  if (cached) return cached;
+
+  const classifications = classifyDeckSourceLinks(deck, index);
+  const derivations: SourceReviewDerivations = {
+    classifications,
+    diagnostics: sourceLinkDiagnostics(classifications),
+    reviewItems: sourceReviewItems(deck, classifications),
+  };
+  deckCache.set(index, derivations);
+  return derivations;
 }
 
 function paragraphFromEntry(

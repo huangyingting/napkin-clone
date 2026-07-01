@@ -6,6 +6,7 @@ import type {
   ListCommentsOptions,
 } from "@/lib/comments";
 import type {
+  FetchDeckResult,
   SaveDeckPatchResult,
   SaveDeckResult,
 } from "@/lib/document/persistence-types";
@@ -16,9 +17,7 @@ import type { GenerateOptions, GenerateResult } from "@/lib/visual/generate";
 import type { Visual } from "@/lib/visual/schema";
 
 export interface DeckFetchPort {
-  fetchDeckJson: (
-    documentId: string,
-  ) => Promise<{ deckJson: unknown; revisionToken: string | null }>;
+  fetchDeckJson: (documentId: string) => Promise<FetchDeckResult>;
 }
 
 export interface DeckSavePort {

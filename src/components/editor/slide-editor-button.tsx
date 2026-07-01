@@ -27,6 +27,7 @@ import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
 import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { downloadBlob } from "@/lib/visual/export";
 
@@ -126,14 +127,31 @@ function SlideVisualPickerOverlay({
   onPick: (value: { visualId: string; alt?: string }) => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  useFocusTrap(dialogRef);
+
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/35 p-4">
+    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-black/35"
+        onClick={onCancel}
+      />
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Choose visual"
-        className="w-full max-w-md rounded-ds-md border border-ds-border-subtle bg-ds-surface p-4 shadow-ds-overlay"
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onCancel();
+          }
+        }}
+        className="relative w-full max-w-md rounded-ds-md border border-ds-border-subtle bg-ds-surface p-4 shadow-ds-overlay"
       >
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-ds-text-primary">
@@ -435,6 +453,7 @@ export function SlideEditorButton({
           proposedDeck={aiPreviewV7.proposedDeck}
           baselineDeck={aiPreviewV7.baselineDeck}
           truncated={aiPreviewV7.truncated}
+          generationDiagnostics={aiPreviewV7.generationDiagnostics}
           contentJson={aiPreviewV7.contentJson}
           options={aiPreviewV7.options}
           onApply={handleAiPreviewV7Apply}

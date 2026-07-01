@@ -487,7 +487,7 @@ describe("vNext inspector components", () => {
     assert.match(html, /Primary insight/);
     assert.match(html, /Product screenshot/);
     assert.match(html, /Routing/);
-    assert.match(html, /Visual id/);
+    assert.match(html, /Replace visual/);
     assert.match(html, /Header row/);
     assert.match(html, /Local Style/);
   });
@@ -611,6 +611,25 @@ describe("vNext inspector components", () => {
       html,
       /id="deck-chrome-footer-enabled" type="checkbox" checked=""/,
     );
+  });
+
+  test("supports custom deck chrome control ids for additional toolbar mounts", () => {
+    const html = render(
+      createElement(DeckChromePanel, {
+        idPrefix: "deck-chrome-toolbar",
+        chrome: {
+          footer: { text: "Configured footer" },
+        },
+        onUpdateChrome: noop,
+        onUpdateSlideProps: noop,
+      }),
+    );
+
+    assert.match(
+      html,
+      /id="deck-chrome-toolbar-footer-enabled" type="checkbox" checked=""/,
+    );
+    assert.match(html, /id="deck-chrome-toolbar-override-logo"/);
   });
 
   test("renders inspector shell route panels for slide, node, multi-select, decoration, and diagnostics contexts", () => {

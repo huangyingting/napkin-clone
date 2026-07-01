@@ -61,6 +61,58 @@ function validateId(
   return value as string;
 }
 
+const SAFE_ASSET_URL_SCHEMES = ["http:", "https:", "data:"] as const;
+const SAFE_TEXT_LINK_URL_SCHEMES = [
+  "http:",
+  "https:",
+  "mailto:",
+  "tel:",
+] as const;
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
+
+function validateSafeUrlString(
+  value: unknown,
+  ctx: string,
+  errors: string[],
+  allowedSchemes: readonly string[],
+): void {
+  if (typeof value !== "string") {
+    fail(errors, `${ctx} must be a string`);
+    return;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    fail(errors, `${ctx} must be a non-empty string`);
+    return;
+  }
+  if (CONTROL_CHAR_PATTERN.test(trimmed)) {
+    fail(errors, `${ctx} must not contain control characters`);
+    return;
+  }
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("\\\\") ||
+    trimmed.startsWith("/\\")
+  ) {
+    fail(
+      errors,
+      `${ctx} must not be a protocol-relative URL and must use one of: ${allowedSchemes.join(", ")}`,
+    );
+    return;
+  }
+  const schemeMatch = /^([a-zA-Z][a-zA-Z\d+\-.]*):/.exec(trimmed);
+  if (!schemeMatch) {
+    return;
+  }
+  const scheme = `${schemeMatch[1].toLowerCase()}:`;
+  if (!allowedSchemes.includes(scheme)) {
+    fail(
+      errors,
+      `${ctx} must use one of the allowed URL schemes: ${allowedSchemes.join(", ")}`,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Canvas
 // ---------------------------------------------------------------------------
@@ -96,6 +148,9 @@ function validateCanvas(
   if (input.unit !== "percent") {
     fail(errors, `${ctx}.unit must be "percent"`);
   }
+  if (input.safeArea !== undefined) {
+    validateInsetsPct(input.safeArea, `${ctx}.safeArea`, errors);
+  }
   return input;
 }
 
@@ -114,6 +169,58 @@ function validateAssetRegistry(
   }
   if (!isPlainObject(input.images)) {
     fail(errors, `${ctx}.images must be an object`);
+  } else {
+    for (const [assetId, asset] of Object.entries(input.images)) {
+      const assetCtx = `${ctx}.images.${assetId}`;
+      if (!isPlainObject(asset)) {
+        fail(errors, `${assetCtx} must be an object`);
+        continue;
+      }
+      validateSafeUrlString(
+        asset.src,
+        `${assetCtx}.src`,
+        errors,
+        SAFE_ASSET_URL_SCHEMES,
+      );
+    }
+  }
+  if (input.fonts !== undefined) {
+    if (!isPlainObject(input.fonts)) {
+      fail(errors, `${ctx}.fonts must be an object`);
+    } else {
+      for (const [assetId, asset] of Object.entries(input.fonts)) {
+        const assetCtx = `${ctx}.fonts.${assetId}`;
+        if (!isPlainObject(asset)) {
+          fail(errors, `${assetCtx} must be an object`);
+          continue;
+        }
+        validateSafeUrlString(
+          asset.src,
+          `${assetCtx}.src`,
+          errors,
+          SAFE_ASSET_URL_SCHEMES,
+        );
+      }
+    }
+  }
+  if (input.files !== undefined) {
+    if (!isPlainObject(input.files)) {
+      fail(errors, `${ctx}.files must be an object`);
+    } else {
+      for (const [assetId, asset] of Object.entries(input.files)) {
+        const assetCtx = `${ctx}.files.${assetId}`;
+        if (!isPlainObject(asset)) {
+          fail(errors, `${assetCtx} must be an object`);
+          continue;
+        }
+        validateSafeUrlString(
+          asset.src,
+          `${assetCtx}.src`,
+          errors,
+          SAFE_ASSET_URL_SCHEMES,
+        );
+      }
+    }
   }
   return input;
 }
@@ -246,14 +353,701 @@ const DECK_CHROME_KINDS = [
   "safeArea",
 ] as const;
 
+const STYLE_PATCH_TOP_LEVEL_KEYS = new Set([
+  "text",
+  "fill",
+  "stroke",
+  "radius",
+  "opacity",
+  "shadow",
+  "effect",
+  "image",
+  "connector",
+  "table",
+  "slide",
+  "visual",
+  "clip",
+  "blendMode",
+]);
+const TEXT_STYLE_ALIGNMENTS = ["left", "center", "right"] as const;
+const TEXT_STYLE_VERTICAL_ALIGNMENTS = ["top", "middle", "bottom"] as const;
+const TEXT_STYLE_TRANSFORMS = ["none", "uppercase"] as const;
+const FILL_TYPES = [
+  "solid",
+  "linearGradient",
+  "radialGradient",
+  "conicGradient",
+  "repeatingLinearGradient",
+  "pattern",
+  "image",
+] as const;
+const PATTERN_FILL_KINDS = ["grid", "dots", "stripes", "scanlines"] as const;
+const STROKE_DASHES = ["solid", "dashed", "dotted"] as const;
+const EFFECT_KINDS = ["none", "glass", "blur", "glow"] as const;
+const EFFECT_GLASS_INTENSITIES = ["light", "medium", "strong"] as const;
+const STYLE_IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
+const IMAGE_MASK_SHAPES = [
+  "none",
+  "rect",
+  "circle",
+  "ellipse",
+  "rounded",
+  "diamond",
+  "triangle",
+] as const;
+const CONNECTOR_ARROW_KINDS = ["none", "arrow", "filled"] as const;
+const CONNECTOR_ROUTING_KINDS = ["straight", "elbow", "curved"] as const;
+const SLIDE_SURFACE_CHROME = ["default", "minimal", "none"] as const;
+const SLIDE_SURFACE_DECORATION = ["none", "subtle", "default", "expressive"];
+const BLEND_MODES = [
+  "normal",
+  "multiply",
+  "screen",
+  "overlay",
+  "darken",
+  "lighten",
+] as const;
+
+function validateKnownObjectKeys(
+  input: Record<string, unknown>,
+  ctx: string,
+  allowed: Set<string>,
+  fieldDescription: string,
+  errors: string[],
+): void {
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known ${fieldDescription}`);
+    }
+  }
+}
+
+function validateTokenRef(input: unknown, ctx: string, errors: string[]): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be a token reference object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["token"]),
+    "token ref field",
+    errors,
+  );
+  if (typeof input.token !== "string" || input.token.length === 0) {
+    fail(errors, `${ctx}.token must be a non-empty string`);
+  }
+}
+
+function validateColorValue(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (typeof input === "string") return;
+  if (isPlainObject(input)) {
+    validateTokenRef(input, ctx, errors);
+    return;
+  }
+  fail(errors, `${ctx} must be a string or token reference`);
+}
+
+function validateColorOrTokenString(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (typeof input === "string") return;
+  if (isPlainObject(input)) {
+    validateTokenRef(input, ctx, errors);
+    return;
+  }
+  fail(errors, `${ctx} must be a string or token reference`);
+}
+
+function validateInsetsPatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  validateKnownObjectKeys(input, ctx, allowed, "inset field", errors);
+  for (const key of ["top", "right", "bottom", "left"] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
+function validateTextStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set([
+    "fontFamily",
+    "fontSizePt",
+    "weight",
+    "italic",
+    "underline",
+    "color",
+    "lineHeight",
+    "paragraphSpacingPt",
+    "align",
+    "verticalAlign",
+    "letterSpacingEm",
+    "textTransform",
+  ]);
+  validateKnownObjectKeys(input, ctx, allowed, "text style field", errors);
+  if (input.fontFamily !== undefined) {
+    validateColorOrTokenString(input.fontFamily, `${ctx}.fontFamily`, errors);
+  }
+  validateOptionalFiniteNumber(input.fontSizePt, `${ctx}.fontSizePt`, errors);
+  validateOptionalFiniteNumber(input.weight, `${ctx}.weight`, errors);
+  if (input.italic !== undefined && typeof input.italic !== "boolean") {
+    fail(errors, `${ctx}.italic must be a boolean`);
+  }
+  if (input.underline !== undefined && typeof input.underline !== "boolean") {
+    fail(errors, `${ctx}.underline must be a boolean`);
+  }
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+  validateOptionalFiniteNumber(input.lineHeight, `${ctx}.lineHeight`, errors);
+  validateOptionalFiniteNumber(
+    input.paragraphSpacingPt,
+    `${ctx}.paragraphSpacingPt`,
+    errors,
+  );
+  validateEnumValue(input.align, TEXT_STYLE_ALIGNMENTS, `${ctx}.align`, errors);
+  validateEnumValue(
+    input.verticalAlign,
+    TEXT_STYLE_VERTICAL_ALIGNMENTS,
+    `${ctx}.verticalAlign`,
+    errors,
+  );
+  validateOptionalFiniteNumber(
+    input.letterSpacingEm,
+    `${ctx}.letterSpacingEm`,
+    errors,
+  );
+  validateEnumValue(
+    input.textTransform,
+    TEXT_STYLE_TRANSFORMS,
+    `${ctx}.textTransform`,
+    errors,
+  );
+}
+
+function validateGradientStopsPatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(input)) {
+    fail(errors, `${ctx} must be an array`);
+    return;
+  }
+  for (let i = 0; i < input.length; i++) {
+    const stop = input[i];
+    const stopCtx = `${ctx}[${i}]`;
+    if (!isPlainObject(stop)) {
+      fail(errors, `${stopCtx} must be an object`);
+      continue;
+    }
+    validateKnownObjectKeys(
+      stop,
+      stopCtx,
+      new Set(["color", "offsetPct"]),
+      "gradient stop field",
+      errors,
+    );
+    if (stop.color !== undefined) {
+      validateColorValue(stop.color, `${stopCtx}.color`, errors);
+    }
+    if (stop.offsetPct !== undefined && !isFiniteNumber(stop.offsetPct)) {
+      fail(errors, `${stopCtx}.offsetPct must be a finite number`);
+    }
+  }
+}
+
+function validateFillStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set([
+    "type",
+    "color",
+    "from",
+    "to",
+    "angle",
+    "stops",
+    "inner",
+    "outer",
+    "cx",
+    "cy",
+    "r",
+    "rx",
+    "ry",
+    "fromAngle",
+    "kind",
+    "background",
+    "spacingPct",
+    "strokeWidthPct",
+    "assetId",
+    "opacity",
+    "sizePct",
+  ]);
+  validateKnownObjectKeys(input, ctx, allowed, "fill style field", errors);
+  validateEnumValue(input.type, FILL_TYPES, `${ctx}.type`, errors);
+  for (const key of [
+    "color",
+    "from",
+    "to",
+    "inner",
+    "outer",
+    "background",
+  ] as const) {
+    if (input[key] !== undefined) {
+      validateColorValue(input[key], `${ctx}.${key}`, errors);
+    }
+  }
+  for (const key of [
+    "angle",
+    "cx",
+    "cy",
+    "r",
+    "rx",
+    "ry",
+    "fromAngle",
+    "spacingPct",
+    "strokeWidthPct",
+    "sizePct",
+    "opacity",
+  ] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+  if (input.stops !== undefined) {
+    validateGradientStopsPatch(input.stops, `${ctx}.stops`, errors);
+  }
+  validateEnumValue(input.kind, PATTERN_FILL_KINDS, `${ctx}.kind`, errors);
+  if (
+    input.assetId !== undefined &&
+    (typeof input.assetId !== "string" || input.assetId.length === 0)
+  ) {
+    fail(errors, `${ctx}.assetId must be a non-empty string`);
+  }
+}
+
+function validateStrokeStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["color", "widthPt", "dash"]),
+    "stroke style field",
+    errors,
+  );
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+  validateOptionalFiniteNumber(input.widthPt, `${ctx}.widthPt`, errors);
+  validateEnumValue(input.dash, STROKE_DASHES, `${ctx}.dash`, errors);
+}
+
+function validateRadiusStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set([
+      "allPt",
+      "topLeftPt",
+      "topRightPt",
+      "bottomRightPt",
+      "bottomLeftPt",
+    ]),
+    "radius style field",
+    errors,
+  );
+  for (const key of [
+    "allPt",
+    "topLeftPt",
+    "topRightPt",
+    "bottomRightPt",
+    "bottomLeftPt",
+  ] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
+function validateShadowStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["xPt", "yPt", "blurPt", "color", "opacity"]),
+    "shadow style field",
+    errors,
+  );
+  for (const key of ["xPt", "yPt", "blurPt", "opacity"] as const) {
+    if (input[key] !== undefined && !isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+}
+
+function validateEffectStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["kind", "intensity", "radiusPt", "color", "blurPt", "opacity"]),
+    "effect style field",
+    errors,
+  );
+  validateEnumValue(input.kind, EFFECT_KINDS, `${ctx}.kind`, errors);
+  validateEnumValue(
+    input.intensity,
+    EFFECT_GLASS_INTENSITIES,
+    `${ctx}.intensity`,
+    errors,
+  );
+  validateOptionalFiniteNumber(input.radiusPt, `${ctx}.radiusPt`, errors);
+  if (input.color !== undefined) {
+    validateColorValue(input.color, `${ctx}.color`, errors);
+  }
+  validateOptionalFiniteNumber(input.blurPt, `${ctx}.blurPt`, errors);
+  validateOptionalFiniteNumber(input.opacity, `${ctx}.opacity`, errors);
+}
+
+function validateImageStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set([
+      "fit",
+      "brightness",
+      "contrast",
+      "saturation",
+      "maskShape",
+      "radiusPct",
+      "shadow",
+    ]),
+    "image style field",
+    errors,
+  );
+  validateEnumValue(input.fit, STYLE_IMAGE_FIT_MODES, `${ctx}.fit`, errors);
+  validateOptionalFiniteNumber(input.brightness, `${ctx}.brightness`, errors);
+  validateOptionalFiniteNumber(input.contrast, `${ctx}.contrast`, errors);
+  validateOptionalFiniteNumber(input.saturation, `${ctx}.saturation`, errors);
+  validateEnumValue(
+    input.maskShape,
+    IMAGE_MASK_SHAPES,
+    `${ctx}.maskShape`,
+    errors,
+  );
+  validateOptionalFiniteNumber(input.radiusPct, `${ctx}.radiusPct`, errors);
+  if (input.shadow !== undefined && typeof input.shadow !== "boolean") {
+    fail(errors, `${ctx}.shadow must be a boolean`);
+  }
+}
+
+function validateConnectorStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["stroke", "startArrow", "endArrow", "routing"]),
+    "connector style field",
+    errors,
+  );
+  if (input.stroke !== undefined) {
+    validateStrokeStylePatch(input.stroke, `${ctx}.stroke`, errors);
+  }
+  validateEnumValue(
+    input.startArrow,
+    CONNECTOR_ARROW_KINDS,
+    `${ctx}.startArrow`,
+    errors,
+  );
+  validateEnumValue(
+    input.endArrow,
+    CONNECTOR_ARROW_KINDS,
+    `${ctx}.endArrow`,
+    errors,
+  );
+  validateEnumValue(
+    input.routing,
+    CONNECTOR_ROUTING_KINDS,
+    `${ctx}.routing`,
+    errors,
+  );
+}
+
+function validateTableStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set([
+      "headerFill",
+      "rowFill",
+      "alternateRowFill",
+      "border",
+      "cellPaddingPt",
+      "text",
+      "headerText",
+    ]),
+    "table style field",
+    errors,
+  );
+  if (input.headerFill !== undefined) {
+    validateFillStylePatch(input.headerFill, `${ctx}.headerFill`, errors);
+  }
+  if (input.rowFill !== undefined) {
+    validateFillStylePatch(input.rowFill, `${ctx}.rowFill`, errors);
+  }
+  if (input.alternateRowFill !== undefined) {
+    validateFillStylePatch(
+      input.alternateRowFill,
+      `${ctx}.alternateRowFill`,
+      errors,
+    );
+  }
+  if (input.border !== undefined) {
+    validateStrokeStylePatch(input.border, `${ctx}.border`, errors);
+  }
+  if (input.cellPaddingPt !== undefined) {
+    validateInsetsPatch(input.cellPaddingPt, `${ctx}.cellPaddingPt`, errors);
+  }
+  if (input.text !== undefined) {
+    validateTextStylePatch(input.text, `${ctx}.text`, errors);
+  }
+  if (input.headerText !== undefined) {
+    validateTextStylePatch(input.headerText, `${ctx}.headerText`, errors);
+  }
+}
+
+function validateSlideSurfaceStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["background", "accent", "paddingPct", "chrome", "decoration"]),
+    "slide style field",
+    errors,
+  );
+  if (input.background !== undefined) {
+    validateFillStylePatch(input.background, `${ctx}.background`, errors);
+  }
+  if (input.accent !== undefined) {
+    validateColorValue(input.accent, `${ctx}.accent`, errors);
+  }
+  if (input.paddingPct !== undefined) {
+    validateInsetsPatch(input.paddingPct, `${ctx}.paddingPct`, errors);
+  }
+  validateEnumValue(
+    input.chrome,
+    SLIDE_SURFACE_CHROME,
+    `${ctx}.chrome`,
+    errors,
+  );
+  validateEnumValue(
+    input.decoration,
+    SLIDE_SURFACE_DECORATION,
+    `${ctx}.decoration`,
+    errors,
+  );
+}
+
+function validateVisualStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["styleThemeId", "transparentBackground", "channelColors"]),
+    "visual style field",
+    errors,
+  );
+  validateOptionalString(input.styleThemeId, `${ctx}.styleThemeId`, errors);
+  if (
+    input.transparentBackground !== undefined &&
+    typeof input.transparentBackground !== "boolean"
+  ) {
+    fail(errors, `${ctx}.transparentBackground must be a boolean`);
+  }
+  if (input.channelColors !== undefined) {
+    if (!isPlainObject(input.channelColors)) {
+      fail(errors, `${ctx}.channelColors must be an object`);
+    } else {
+      for (const [channel, value] of Object.entries(input.channelColors)) {
+        validateColorValue(value, `${ctx}.channelColors.${channel}`, errors);
+      }
+    }
+  }
+}
+
+function validateClipStylePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["enabled"]),
+    "clip style field",
+    errors,
+  );
+  if (input.enabled !== undefined && typeof input.enabled !== "boolean") {
+    fail(errors, `${ctx}.enabled must be a boolean`);
+  }
+}
+
 function validateStylePatch(
   input: unknown,
   ctx: string,
   errors: string[],
 ): void {
-  if (input !== undefined && !isPlainObject(input)) {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
+    return;
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    STYLE_PATCH_TOP_LEVEL_KEYS,
+    "style field",
+    errors,
+  );
+  if (input.text !== undefined) {
+    validateTextStylePatch(input.text, `${ctx}.text`, errors);
+  }
+  if (input.fill !== undefined) {
+    validateFillStylePatch(input.fill, `${ctx}.fill`, errors);
+  }
+  if (input.stroke !== undefined) {
+    validateStrokeStylePatch(input.stroke, `${ctx}.stroke`, errors);
+  }
+  if (input.radius !== undefined) {
+    validateRadiusStylePatch(input.radius, `${ctx}.radius`, errors);
+  }
+  validateOptionalFiniteNumber(input.opacity, `${ctx}.opacity`, errors);
+  if (input.shadow !== undefined) {
+    validateShadowStylePatch(input.shadow, `${ctx}.shadow`, errors);
+  }
+  if (input.effect !== undefined) {
+    validateEffectStylePatch(input.effect, `${ctx}.effect`, errors);
+  }
+  if (input.image !== undefined) {
+    validateImageStylePatch(input.image, `${ctx}.image`, errors);
+  }
+  if (input.connector !== undefined) {
+    validateConnectorStylePatch(input.connector, `${ctx}.connector`, errors);
+  }
+  if (input.table !== undefined) {
+    validateTableStylePatch(input.table, `${ctx}.table`, errors);
+  }
+  if (input.slide !== undefined) {
+    validateSlideSurfaceStylePatch(input.slide, `${ctx}.slide`, errors);
+  }
+  if (input.visual !== undefined) {
+    validateVisualStylePatch(input.visual, `${ctx}.visual`, errors);
+  }
+  if (input.clip !== undefined) {
+    validateClipStylePatch(input.clip, `${ctx}.clip`, errors);
+  }
+  validateEnumValue(input.blendMode, BLEND_MODES, `${ctx}.blendMode`, errors);
 }
 
 function validateInsetsPct(
@@ -264,6 +1058,12 @@ function validateInsetsPct(
   if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
     return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known inset field`);
+    }
   }
   for (const key of ["top", "right", "bottom", "left"] as const) {
     if (!isFiniteNumber(input[key])) {
@@ -513,6 +1313,8 @@ function validateStyleBinding(
 // Text content
 // ---------------------------------------------------------------------------
 
+const TEXT_FIT_MODES = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
+
 function validateTextContent(
   input: unknown,
   ctx: string,
@@ -526,6 +1328,8 @@ function validateTextContent(
     fail(errors, `${ctx}.paragraphs must be an array`);
     return;
   }
+  validateEnumValue(input.fit, TEXT_FIT_MODES, `${ctx}.fit`, errors);
+  validateOptionalString(input.language, `${ctx}.language`, errors);
   for (let i = 0; i < input.paragraphs.length; i++) {
     const para = input.paragraphs[i];
     const pCtx = `${ctx}.paragraphs[${i}]`;
@@ -539,18 +1343,121 @@ function validateTextContent(
     if (typeof para.text !== "string") {
       fail(errors, `${pCtx}.text must be a string`);
     }
-    // Validate runs concatenate to paragraph text
-    if (Array.isArray(para.runs) && typeof para.text === "string") {
-      const joined = (para.runs as unknown[])
-        .map((r) => (isPlainObject(r) ? (r.text ?? "") : ""))
+    if (para.runs !== undefined && !Array.isArray(para.runs)) {
+      fail(errors, `${pCtx}.runs must be an array`);
+    }
+    // Validate runs and enforce run text concatenation to paragraph text.
+    if (Array.isArray(para.runs)) {
+      const joined = para.runs
+        .map((run, runIndex) =>
+          validateTextRun(run, `${pCtx}.runs[${runIndex}]`, errors),
+        )
         .join("");
-      if (joined !== para.text) {
+      if (typeof para.text === "string" && joined !== para.text) {
         fail(
           errors,
-          `${pCtx}: runs text "${joined}" does not equal paragraph text "${para.text}"`,
+          `${pCtx}: runs text must concatenate to paragraph text (runLength=${joined.length}, paragraphLength=${para.text.length})`,
         );
       }
     }
+    if (para.list !== undefined) {
+      validateListMarker(para.list, `${pCtx}.list`, errors);
+    }
+  }
+}
+
+const LIST_MARKER_KINDS = ["bullet", "number"] as const;
+const LIST_MARKER_NUMBER_STYLES = [
+  "decimal",
+  "lower-alpha",
+  "upper-alpha",
+  "lower-roman",
+] as const;
+const TEXT_RUN_BOOLEAN_FIELDS = [
+  "bold",
+  "italic",
+  "underline",
+  "strikethrough",
+  "code",
+] as const;
+
+function validateTextRun(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): string {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return "";
+  }
+  if (typeof input.text !== "string") {
+    fail(errors, `${ctx}.text must be a string`);
+  }
+  for (const key of TEXT_RUN_BOOLEAN_FIELDS) {
+    const value = input[key];
+    if (value !== undefined && typeof value !== "boolean") {
+      fail(errors, `${ctx}.${key} must be a boolean`);
+    }
+  }
+  if (input.link !== undefined) {
+    validateSafeUrlString(
+      input.link,
+      `${ctx}.link`,
+      errors,
+      SAFE_TEXT_LINK_URL_SCHEMES,
+    );
+  }
+  if (input.localStyle !== undefined) {
+    validateRunLocalStyle(input.localStyle, `${ctx}.localStyle`, errors);
+  }
+  return typeof input.text === "string" ? input.text : "";
+}
+
+function validateRunLocalStyle(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateOptionalString(input.color, `${ctx}.color`, errors);
+  validateOptionalFiniteNumber(input.fontSizePt, `${ctx}.fontSizePt`, errors);
+  validateOptionalString(input.fontFamily, `${ctx}.fontFamily`, errors);
+}
+
+function validateListMarker(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  if (
+    !LIST_MARKER_KINDS.includes(
+      input.kind as (typeof LIST_MARKER_KINDS)[number],
+    )
+  ) {
+    fail(errors, `${ctx}.kind must be one of: ${LIST_MARKER_KINDS.join(", ")}`);
+  }
+  if (input.indent !== undefined) {
+    if (!Number.isInteger(input.indent) || (input.indent as number) < 0) {
+      fail(errors, `${ctx}.indent must be an integer >= 0`);
+    }
+  }
+  if (
+    input.numberStyle !== undefined &&
+    !LIST_MARKER_NUMBER_STYLES.includes(
+      input.numberStyle as (typeof LIST_MARKER_NUMBER_STYLES)[number],
+    )
+  ) {
+    fail(
+      errors,
+      `${ctx}.numberStyle must be one of: ${LIST_MARKER_NUMBER_STYLES.join(", ")}`,
+    );
   }
 }
 
@@ -601,6 +1508,31 @@ function validateTableContent(
     rowIds.add(row.id as string);
     if (!Array.isArray(row.cells) || row.cells.length !== colCount) {
       fail(errors, `${ctx}.rows[${ri}]: must have exactly ${colCount} cells`);
+      continue;
+    }
+    for (let ci = 0; ci < row.cells.length; ci++) {
+      const cell = row.cells[ci];
+      const cellCtx = `${ctx}.rows[${ri}].cells[${ci}]`;
+      if (!isPlainObject(cell)) {
+        fail(errors, `${cellCtx} must be an object`);
+        continue;
+      }
+      if (typeof cell.text !== "string") {
+        fail(errors, `${cellCtx}.text must be a string`);
+      }
+      if (cell.runs !== undefined && !Array.isArray(cell.runs)) {
+        fail(errors, `${cellCtx}.runs must be an array`);
+        continue;
+      }
+      if (Array.isArray(cell.runs)) {
+        for (let runIndex = 0; runIndex < cell.runs.length; runIndex++) {
+          validateTextRun(
+            cell.runs[runIndex],
+            `${cellCtx}.runs[${runIndex}]`,
+            errors,
+          );
+        }
+      }
     }
   }
 }
@@ -637,6 +1569,7 @@ const SHAPE_KINDS = [
   "square",
   "path",
 ] as const;
+const IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
 const GROUP_COMPONENT_KINDS = [
   "metricCard",
   "quoteBlock",
@@ -666,6 +1599,30 @@ const SEMANTIC_ROLES = [
   "background",
   "themeDecoration",
 ] as const;
+const SLOT_KEYS = [
+  "kicker",
+  "title",
+  "subtitle",
+  "body",
+  "bullets",
+  "leftTitle",
+  "leftBody",
+  "leftBullets",
+  "rightTitle",
+  "rightBody",
+  "rightBullets",
+  "cards",
+  "steps",
+  "quote",
+  "attribution",
+  "stat",
+  "statLabel",
+  "metrics",
+  "table",
+  "visualId",
+  "imagePrompt",
+  "caption",
+] as const;
 
 const SOURCE_BLOCK_KINDS = ["text", "visual", "table", "image"] as const;
 const SOURCE_REFRESH_STATES = [
@@ -676,6 +1633,47 @@ const SOURCE_REFRESH_STATES = [
   "unknown",
 ] as const;
 
+function validatePointPct(input: unknown, ctx: string, errors: string[]): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["x", "y"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known point field`);
+    }
+  }
+  if (!isFiniteNumber(input.x)) {
+    fail(errors, `${ctx}.x must be a finite number`);
+  }
+  if (!isFiniteNumber(input.y)) {
+    fail(errors, `${ctx}.y must be a finite number`);
+  }
+}
+
+function validateImageCrop(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known crop field`);
+    }
+  }
+  for (const key of ["top", "right", "bottom", "left"] as const) {
+    if (!isFiniteNumber(input[key])) {
+      fail(errors, `${ctx}.${key} must be a finite number`);
+    }
+  }
+}
+
 function validateStringField(
   value: unknown,
   ctx: string,
@@ -684,6 +1682,72 @@ function validateStringField(
   if (value !== undefined && typeof value !== "string") {
     fail(errors, `${ctx} must be a string`);
   }
+}
+
+function validateAccessibilityMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+
+  const allowed = new Set(["label", "alt", "decorative", "readingOrder"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known accessibility field`);
+    }
+  }
+
+  validateOptionalString(input.label, `${ctx}.label`, errors);
+  validateOptionalString(input.alt, `${ctx}.alt`, errors);
+  if (input.decorative !== undefined && typeof input.decorative !== "boolean") {
+    fail(errors, `${ctx}.decorative must be a boolean`);
+  }
+  validateOptionalFiniteNumber(
+    input.readingOrder,
+    `${ctx}.readingOrder`,
+    errors,
+  );
+}
+
+function validateBaseNodeMetadata(
+  input: Record<string, unknown>,
+  ctx: string,
+  errors: string[],
+): void {
+  validateOptionalString(input.name, `${ctx}.name`, errors);
+
+  if (
+    input.role !== undefined &&
+    !SEMANTIC_ROLES.includes(input.role as (typeof SEMANTIC_ROLES)[number])
+  ) {
+    fail(errors, `${ctx}.role is not a known semantic role`);
+  }
+
+  if (
+    input.slot !== undefined &&
+    !SLOT_KEYS.includes(input.slot as (typeof SLOT_KEYS)[number])
+  ) {
+    fail(errors, `${ctx}.slot is not a known slot key`);
+  }
+
+  if (input.locked !== undefined && typeof input.locked !== "boolean") {
+    fail(errors, `${ctx}.locked must be a boolean`);
+  }
+  if (input.hidden !== undefined && typeof input.hidden !== "boolean") {
+    fail(errors, `${ctx}.hidden must be a boolean`);
+  }
+
+  validateAccessibilityMetadata(
+    input.accessibility,
+    `${ctx}.accessibility`,
+    errors,
+  );
+  validateStylePatch(input.localStyle, `${ctx}.localStyle`, errors);
 }
 
 function validateSourceMetadata(
@@ -840,13 +1904,7 @@ function validateChildNode(
       nodeIds.add(id);
     }
   }
-
-  if (
-    input.role !== undefined &&
-    !SEMANTIC_ROLES.includes(input.role as (typeof SEMANTIC_ROLES)[number])
-  ) {
-    fail(errors, `${ctx}.role is not a known semantic role`);
-  }
+  validateBaseNodeMetadata(input, ctx, errors);
 
   if (input.layout !== undefined) {
     validateLayoutBox(input.layout, `${ctx}.layout`, errors);
@@ -873,11 +1931,30 @@ function validateChildNode(
     case "image":
       if (!isPlainObject(input.content)) {
         fail(errors, `${ctx}.content must be an object`);
-      } else if (
-        typeof input.content.assetId !== "string" ||
-        input.content.assetId.length === 0
-      ) {
-        fail(errors, `${ctx}.content.assetId must be a non-empty string`);
+      } else {
+        if (
+          typeof input.content.assetId !== "string" ||
+          input.content.assetId.length === 0
+        ) {
+          fail(errors, `${ctx}.content.assetId must be a non-empty string`);
+        }
+        if (input.content.crop !== undefined) {
+          validateImageCrop(input.content.crop, `${ctx}.content.crop`, errors);
+        }
+        validateEnumValue(
+          input.content.fit,
+          IMAGE_FIT_MODES,
+          `${ctx}.content.fit`,
+          errors,
+        );
+        if (input.content.focalPoint !== undefined) {
+          validatePointPct(
+            input.content.focalPoint,
+            `${ctx}.content.focalPoint`,
+            errors,
+          );
+        }
+        validateOptionalString(input.content.alt, `${ctx}.content.alt`, errors);
       }
       break;
     case "shape": {
@@ -1112,6 +2189,7 @@ function validateSlideNode(
       nodeIds.add(id);
     }
   }
+  validateBaseNodeMetadata(input, ctx, errors);
 
   // Template binding
   if (!isPlainObject(input.template)) {
@@ -1162,6 +2240,8 @@ function validateSlideNode(
     validateSourceMetadata(input.source, `${ctx}.source`, errors);
   }
 
+  validateOptionalString(input.notes, `${ctx}.notes`, errors);
+
   if (!Array.isArray(input.children)) {
     fail(errors, `${ctx}.children must be an array`);
   } else {
@@ -1173,6 +2253,182 @@ function validateSlideNode(
         nodeIds,
       );
     }
+  }
+}
+
+const DECK_METADATA_KEYS = new Set([
+  "createdAt",
+  "updatedAt",
+  "sourceDocumentId",
+  "contentHash",
+  "locale",
+  "extra",
+]);
+
+function validateJsonValue(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (
+    input === null ||
+    typeof input === "string" ||
+    typeof input === "boolean"
+  ) {
+    return;
+  }
+  if (typeof input === "number") {
+    if (!Number.isFinite(input)) {
+      fail(errors, `${ctx} must be a finite number`);
+    }
+    return;
+  }
+  if (Array.isArray(input)) {
+    for (let i = 0; i < input.length; i++) {
+      validateJsonValue(input[i], `${ctx}[${i}]`, errors);
+    }
+    return;
+  }
+  if (isPlainObject(input)) {
+    for (const [key, value] of Object.entries(input)) {
+      validateJsonValue(value, `${ctx}.${key}`, errors);
+    }
+    return;
+  }
+  fail(errors, `${ctx} must be a JSON-serializable value`);
+}
+
+function validateDeckMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!DECK_METADATA_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known metadata field`);
+    }
+  }
+  validateStringField(input.createdAt, `${ctx}.createdAt`, errors);
+  validateStringField(input.updatedAt, `${ctx}.updatedAt`, errors);
+  validateStringField(
+    input.sourceDocumentId,
+    `${ctx}.sourceDocumentId`,
+    errors,
+  );
+  validateStringField(input.contentHash, `${ctx}.contentHash`, errors);
+  validateStringField(input.locale, `${ctx}.locale`, errors);
+  if (input.extra !== undefined) {
+    if (!isPlainObject(input.extra)) {
+      fail(errors, `${ctx}.extra must be an object`);
+    } else {
+      for (const [key, value] of Object.entries(input.extra)) {
+        validateJsonValue(value, `${ctx}.extra.${key}`, errors);
+      }
+    }
+  }
+}
+
+const DECK_THEME_KEYS = new Set([
+  "packageId",
+  "packageVersion",
+  "brandKitId",
+  "overrides",
+]);
+
+const THEME_OVERRIDE_KEYS = new Set([
+  "tokens",
+  "styles",
+  "disabledDecorations",
+  "chrome",
+]);
+
+function validateThemeStylesOverrides(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const [styleRef, variants] of Object.entries(input)) {
+    if (!isStyleRef(styleRef)) {
+      fail(errors, `${ctx}.${styleRef} must be a registered StyleRef`);
+    }
+    if (!isPlainObject(variants)) {
+      fail(errors, `${ctx}.${styleRef} must be an object`);
+      continue;
+    }
+    for (const [variant, patch] of Object.entries(variants)) {
+      if (!isPlainObject(patch)) {
+        fail(errors, `${ctx}.${styleRef}.${variant} must be an object`);
+      } else {
+        validateStylePatch(patch, `${ctx}.${styleRef}.${variant}`, errors);
+      }
+    }
+  }
+}
+
+function validateThemeOverridePatch(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!THEME_OVERRIDE_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known theme override field`);
+    }
+  }
+  if (input.tokens !== undefined && !isPlainObject(input.tokens)) {
+    fail(errors, `${ctx}.tokens must be an object`);
+  }
+  if (input.styles !== undefined) {
+    validateThemeStylesOverrides(input.styles, `${ctx}.styles`, errors);
+  }
+  if (input.disabledDecorations !== undefined) {
+    if (!Array.isArray(input.disabledDecorations)) {
+      fail(errors, `${ctx}.disabledDecorations must be an array`);
+    } else {
+      for (let i = 0; i < input.disabledDecorations.length; i++) {
+        if (typeof input.disabledDecorations[i] !== "string") {
+          fail(errors, `${ctx}.disabledDecorations[${i}] must be a string`);
+        }
+      }
+    }
+  }
+  validateDeckChromeConfig(input.chrome, `${ctx}.chrome`, errors);
+}
+
+function validateDeckThemeBinding(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  for (const key of Object.keys(input)) {
+    if (!DECK_THEME_KEYS.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known theme field`);
+    }
+  }
+  if (typeof input.packageId !== "string" || input.packageId.length === 0) {
+    fail(errors, `${ctx}.packageId must be a non-empty string`);
+  }
+  validateStringField(input.packageVersion, `${ctx}.packageVersion`, errors);
+  validateStringField(input.brandKitId, `${ctx}.brandKitId`, errors);
+  if (input.overrides !== undefined) {
+    validateThemeOverridePatch(input.overrides, `${ctx}.overrides`, errors);
   }
 }
 
@@ -1224,21 +2480,8 @@ function validateDeckV7(input: unknown, errors: string[]): Partial<DeckV7> {
 
   validateCanvas(input.canvas, "Deck.canvas", errors);
   validateAssetRegistry(input.assets, "Deck.assets", errors);
-
-  if (!isPlainObject(input.theme)) {
-    fail(errors, "Deck.theme must be an object");
-  } else if (
-    typeof input.theme.packageId !== "string" ||
-    input.theme.packageId.length === 0
-  ) {
-    fail(errors, "Deck.theme.packageId must be a non-empty string");
-  } else if (isPlainObject(input.theme.overrides)) {
-    validateDeckChromeConfig(
-      input.theme.overrides.chrome,
-      "Deck.theme.overrides.chrome",
-      errors,
-    );
-  }
+  validateDeckThemeBinding(input.theme, "Deck.theme", errors);
+  validateDeckMetadata(input.metadata, "Deck.metadata", errors);
   validateDeckChromeConfig(input.chrome, "Deck.chrome", errors);
 
   if (!Array.isArray(input.slides)) {
