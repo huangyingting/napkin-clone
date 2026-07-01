@@ -9,6 +9,20 @@ import {
 const NOW = new Date("2026-06-21T09:00:00.000Z");
 const CREATED = new Date("2026-01-01T00:00:00.000Z");
 
+function lexicalState(text: string) {
+  return {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", text }],
+        },
+      ],
+    },
+  };
+}
+
 const baseUser = {
   id: "user_1",
   email: "a@example.com",
@@ -98,7 +112,7 @@ test("maps documents and their nested visuals and versions", () => {
         id: "doc_1",
         title: "Doc",
         content: "hello",
-        contentJson: { a: 1 },
+        contentJson: lexicalState("hello from lexical"),
         deckJson: null,
         workspaceId: null,
         isShared: false,
@@ -136,6 +150,7 @@ test("maps documents and their nested visuals and versions", () => {
 
   assert.equal(result.documents.length, 1);
   assert.equal(result.documents[0].id, "doc_1");
+  assert.equal(result.documents[0].content, "hello from lexical");
   assert.deepEqual(result.documents[0].sharePolicy, {
     expiresAt: null,
     embedEnabled: true,
@@ -143,7 +158,10 @@ test("maps documents and their nested visuals and versions", () => {
     metadataMode: "generic",
     discoverable: false,
   });
-  assert.deepEqual(result.documents[0].contentJson, { a: 1 });
+  assert.deepEqual(
+    result.documents[0].contentJson,
+    lexicalState("hello from lexical"),
+  );
   assert.equal(result.documents[0].deckJson, null);
   assert.equal(result.documents[0].visuals.length, 1);
   assert.deepEqual(result.documents[0].visuals[0].data, { kind: "bar" });
@@ -151,6 +169,35 @@ test("maps documents and their nested visuals and versions", () => {
   assert.equal(result.documents[0].versions.length, 1);
   assert.equal(result.documents[0].versions[0].id, "ver_1");
   assert.equal(result.documents[0].versions[0].label, "v1");
+});
+
+test("derives document content from contentJson when plaintext mirror is absent", () => {
+  const result = buildAccountExport({
+    ...minimalInput(),
+    documents: [
+      {
+        id: "doc_import_1",
+        title: "Imported doc",
+        contentJson: lexicalState("Imported markdown body"),
+        deckJson: null,
+        workspaceId: null,
+        isShared: false,
+        sharePolicy: {
+          expiresAt: null,
+          embedEnabled: true,
+          presentEnabled: true,
+          metadataMode: "generic",
+          discoverable: false,
+        },
+        createdAt: CREATED,
+        updatedAt: NOW,
+        visuals: [],
+        versions: [],
+      },
+    ],
+  });
+
+  assert.equal(result.documents[0].content, "Imported markdown body");
 });
 
 test("maps workspacesOwned", () => {
