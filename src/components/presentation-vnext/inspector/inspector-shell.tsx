@@ -796,6 +796,7 @@ export interface InspectorShellProps {
   onUpdateSlideLocalStyle: (patch: StylePatch) => void;
   onResetSlideLocalStyle: () => void;
   onUpdateSlideSource: (source: NodeSourceMetadata | undefined) => void;
+  onUploadSlideBackgroundImage?: () => void;
 
   // Node-level handlers
   onUpdateSelectedLayout: (patch: Record<string, unknown>) => void;
@@ -869,6 +870,7 @@ export function InspectorShell({
   onUpdateSlideLocalStyle,
   onResetSlideLocalStyle,
   onUpdateSlideSource,
+  onUploadSlideBackgroundImage,
   onUpdateSelectedLayout,
   onUpdateSelectedAttributes,
   onUpdateSelectedContent,
@@ -1067,6 +1069,8 @@ export function InspectorShell({
               onUpdateSource={onUpdateSlideSource}
               onUpdateLocalStyle={onUpdateSlideLocalStyle}
               onResetLocalStyle={onResetSlideLocalStyle}
+              assetResolver={assetResolver}
+              onUploadBackgroundImage={onUploadSlideBackgroundImage}
             />
           </PanelSection>
         )}
