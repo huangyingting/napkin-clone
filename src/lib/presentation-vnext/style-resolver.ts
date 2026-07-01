@@ -31,7 +31,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 // Token resolution
 // ---------------------------------------------------------------------------
 
-/** Resolves a token path against the package tokens, returning undefined if missing. */
+/** Resolves a token path against the provided tokens, returning undefined if missing. */
 function resolveTokenPath(
   tokens: ThemeTokens,
   path: string,
@@ -196,7 +196,7 @@ export function resolveNodeStyle(
   // 5. Resolve tokens
   const resolvedWithTokens = resolveTokensInStyle(
     resolved,
-    pkg.tokens,
+    resolveTheme(pkg, themeBinding).tokens,
     dc,
     ref,
   );

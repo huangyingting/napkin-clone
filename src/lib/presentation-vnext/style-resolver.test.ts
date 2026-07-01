@@ -419,6 +419,64 @@ describe("resolveNodeStyle", () => {
     assert.equal(style.text?.color, "#ff0000");
   });
 
+  test("resolves package style token refs using deck token overrides", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    pkg.styles["text.title"] = {
+      default: {
+        text: { fontSizePt: 36, color: { token: "colors.accent.fill" } },
+      },
+    };
+    const themeBinding = buildThemeBinding({
+      overrides: {
+        tokens: {
+          colors: {
+            accent: { fill: "#ff00ff" },
+          },
+        },
+      },
+    });
+
+    const { style, diagnostics } = resolveNodeStyle(
+      { ref: "text.title" },
+      themeBinding,
+      pkg,
+    );
+
+    assert.equal(style.text?.color, "#ff00ff");
+    assert.ok(!diagnostics.some((d) => d.code === "missing-token"));
+  });
+
+  test("resolves deck style override token refs using deck token overrides", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    const themeBinding = buildThemeBinding({
+      overrides: {
+        tokens: {
+          colors: {
+            accent: { fill: "#ff00ff" },
+          },
+        },
+        styles: {
+          "text.title": {
+            default: {
+              text: { color: { token: "colors.accent.fill" } },
+            },
+          },
+        },
+      },
+    });
+
+    const { style, diagnostics } = resolveNodeStyle(
+      { ref: "text.title" },
+      themeBinding,
+      pkg,
+    );
+
+    assert.equal(style.text?.color, "#ff00ff");
+    assert.ok(!diagnostics.some((d) => d.code === "missing-token"));
+  });
+
   test("applies deck-level variant override on top of default", () => {
     resetBuilderCounter();
     const pkg = buildMinimalThemePackage();
