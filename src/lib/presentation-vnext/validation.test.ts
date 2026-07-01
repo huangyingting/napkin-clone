@@ -596,20 +596,63 @@ describe("safeParseDeckV7", () => {
     }
   });
 
-  test("rejects slide deck chrome override without an object value", () => {
-    resetBuilderCounter();
-    const slide = {
-      ...buildCoverSlide(),
-      props: {
-        deckChrome: {
-          footer: { mode: "override" },
-        },
+  test("validates slide deck chrome override mode matrix", () => {
+    const cases: Array<{
+      name: string;
+      override: Record<string, unknown>;
+      success: boolean;
+      errorPattern?: RegExp;
+    }> = [
+      {
+        name: "accepts inherit mode without value",
+        override: { mode: "inherit" },
+        success: true,
       },
-    } as unknown as SlideNode;
-    const result = safeParseDeckV7(buildDeckV7([slide]));
-    assert.ok(!result.success);
-    if (!result.success) {
-      assert.ok(result.errors.some((e) => /footer\.value/.test(e)));
+      {
+        name: "accepts disabled mode without value",
+        override: { mode: "disabled" },
+        success: true,
+      },
+      {
+        name: "accepts detached mode without value",
+        override: { mode: "detached" },
+        success: true,
+      },
+      {
+        name: "rejects override mode without object value",
+        override: { mode: "override" },
+        success: false,
+        errorPattern: /footer\.value/,
+      },
+      {
+        name: "accepts override mode with valid footer value",
+        override: {
+          mode: "override",
+          value: { enabled: true, text: "Confidential", align: "right" },
+        },
+        success: true,
+      },
+    ];
+
+    for (const matrixCase of cases) {
+      resetBuilderCounter();
+      const slide = {
+        ...buildCoverSlide(),
+        props: {
+          deckChrome: {
+            footer: matrixCase.override,
+          },
+        },
+      } as unknown as SlideNode;
+      const result = safeParseDeckV7(buildDeckV7([slide]));
+      assert.equal(
+        result.success,
+        matrixCase.success,
+        `${matrixCase.name}\n${!result.success ? result.errors.join("\n") : ""}`,
+      );
+      if (!result.success && matrixCase.errorPattern) {
+        assert.ok(result.errors.some((e) => matrixCase.errorPattern?.test(e)));
+      }
     }
   });
 
