@@ -41,13 +41,10 @@ describe("presentation diagnostics model", () => {
     assert.equal(exportFallback.target.scope, "export");
   });
 
-  test("declares source and migration repair categories for shared diagnostics", () => {
+  test("declares source and validation categories for shared diagnostics", () => {
     assert.equal(categoryForDiagnosticCode("stale-source"), "source");
     assert.equal(categoryForDiagnosticCode("orphaned-source"), "source");
-    assert.equal(
-      categoryForDiagnosticCode("migration-repair-applied"),
-      "migration",
-    );
+    assert.equal(categoryForDiagnosticCode("duplicate-id"), "validation");
   });
 
   test("classifies theme decoration diagnostics and infers source targets", () => {
@@ -102,7 +99,7 @@ describe("presentation diagnostics model", () => {
         nodeId: "image-2",
         details: { assetId: "hero" },
       }),
-      makeDiagnostic("migration-repair-applied", "info", "Migrated"),
+      makeDiagnostic("duplicate-id", "info", "Duplicate id"),
     ];
 
     const groups = groupDiagnostics(diagnostics);
