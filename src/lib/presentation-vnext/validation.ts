@@ -67,6 +67,21 @@ const SAFE_TEXT_LINK_URL_SCHEMES = [
   "mailto:",
   "tel:",
 ] as const;
+const IMAGE_ASSET_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+] as const;
+const FONT_ASSET_STYLES = ["normal", "italic"] as const;
+const ASSET_ORIGIN_KINDS = [
+  "upload",
+  "document",
+  "ai",
+  "theme",
+  "remote",
+] as const;
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 
 function validateSafeUrlString(
@@ -157,6 +172,224 @@ function validateCanvas(
 // Asset registry
 // ---------------------------------------------------------------------------
 
+const ASSET_REGISTRY_KEYS = new Set(["images", "fonts", "visuals", "files"]);
+const IMAGE_ASSET_KEYS = new Set([
+  "id",
+  "src",
+  "alt",
+  "widthPx",
+  "heightPx",
+  "mimeType",
+  "contentHash",
+  "origin",
+]);
+const FONT_ASSET_KEYS = new Set([
+  "id",
+  "family",
+  "src",
+  "weight",
+  "style",
+  "contentHash",
+]);
+const VISUAL_ASSET_KEYS = new Set([
+  "id",
+  "visualId",
+  "documentId",
+  "title",
+  "alt",
+  "contentHash",
+]);
+const FILE_ASSET_KEYS = new Set([
+  "id",
+  "src",
+  "filename",
+  "mimeType",
+  "contentHash",
+]);
+const ASSET_ORIGIN_KEYS = new Set(["kind", "sourceId", "importedAt"]);
+
+function validateAssetIdField(
+  value: unknown,
+  assetId: string,
+  ctx: string,
+  errors: string[],
+): void {
+  const parsedId = validateId(value, `${ctx}.id`, errors);
+  if (parsedId !== undefined && parsedId !== assetId) {
+    fail(errors, `${ctx}.id must match asset key "${assetId}"`);
+  }
+}
+
+function validateAssetOrigin(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    ASSET_ORIGIN_KEYS,
+    "asset origin field",
+    errors,
+  );
+  if (
+    !ASSET_ORIGIN_KINDS.includes(
+      input.kind as (typeof ASSET_ORIGIN_KINDS)[number],
+    )
+  ) {
+    fail(
+      errors,
+      `${ctx}.kind must be one of: ${ASSET_ORIGIN_KINDS.join(", ")}`,
+    );
+  }
+  validateOptionalString(input.sourceId, `${ctx}.sourceId`, errors);
+  validateOptionalString(input.importedAt, `${ctx}.importedAt`, errors);
+}
+
+function validateImageAssetEntry(
+  input: unknown,
+  assetId: string,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    IMAGE_ASSET_KEYS,
+    "image asset field",
+    errors,
+  );
+  validateAssetIdField(input.id, assetId, ctx, errors);
+  validateSafeUrlString(
+    input.src,
+    `${ctx}.src`,
+    errors,
+    SAFE_ASSET_URL_SCHEMES,
+  );
+  validateOptionalString(input.alt, `${ctx}.alt`, errors);
+  validateOptionalFiniteNumber(input.widthPx, `${ctx}.widthPx`, errors);
+  validateOptionalFiniteNumber(input.heightPx, `${ctx}.heightPx`, errors);
+  validateEnumValue(
+    input.mimeType,
+    IMAGE_ASSET_MIME_TYPES,
+    `${ctx}.mimeType`,
+    errors,
+  );
+  validateOptionalString(input.contentHash, `${ctx}.contentHash`, errors);
+  if (input.origin !== undefined) {
+    validateAssetOrigin(input.origin, `${ctx}.origin`, errors);
+  }
+}
+
+function validateFontAssetEntry(
+  input: unknown,
+  assetId: string,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    FONT_ASSET_KEYS,
+    "font asset field",
+    errors,
+  );
+  validateAssetIdField(input.id, assetId, ctx, errors);
+  if (typeof input.family !== "string" || input.family.length === 0) {
+    fail(errors, `${ctx}.family must be a non-empty string`);
+  }
+  validateSafeUrlString(
+    input.src,
+    `${ctx}.src`,
+    errors,
+    SAFE_ASSET_URL_SCHEMES,
+  );
+  if (input.weight !== undefined) {
+    if (Array.isArray(input.weight)) {
+      for (let index = 0; index < input.weight.length; index++) {
+        if (!isFiniteNumber(input.weight[index])) {
+          fail(errors, `${ctx}.weight[${index}] must be a finite number`);
+        }
+      }
+    } else if (!isFiniteNumber(input.weight)) {
+      fail(
+        errors,
+        `${ctx}.weight must be a finite number or an array of finite numbers`,
+      );
+    }
+  }
+  validateEnumValue(input.style, FONT_ASSET_STYLES, `${ctx}.style`, errors);
+  validateOptionalString(input.contentHash, `${ctx}.contentHash`, errors);
+}
+
+function validateVisualAssetEntry(
+  input: unknown,
+  assetId: string,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    VISUAL_ASSET_KEYS,
+    "visual asset field",
+    errors,
+  );
+  validateAssetIdField(input.id, assetId, ctx, errors);
+  if (typeof input.visualId !== "string" || input.visualId.length === 0) {
+    fail(errors, `${ctx}.visualId must be a non-empty string`);
+  }
+  validateOptionalString(input.documentId, `${ctx}.documentId`, errors);
+  validateOptionalString(input.title, `${ctx}.title`, errors);
+  validateOptionalString(input.alt, `${ctx}.alt`, errors);
+  validateOptionalString(input.contentHash, `${ctx}.contentHash`, errors);
+}
+
+function validateFileAssetEntry(
+  input: unknown,
+  assetId: string,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    FILE_ASSET_KEYS,
+    "file asset field",
+    errors,
+  );
+  validateAssetIdField(input.id, assetId, ctx, errors);
+  validateSafeUrlString(
+    input.src,
+    `${ctx}.src`,
+    errors,
+    SAFE_ASSET_URL_SCHEMES,
+  );
+  validateOptionalString(input.filename, `${ctx}.filename`, errors);
+  validateOptionalString(input.mimeType, `${ctx}.mimeType`, errors);
+  validateOptionalString(input.contentHash, `${ctx}.contentHash`, errors);
+}
+
 function validateAssetRegistry(
   input: unknown,
   ctx: string,
@@ -166,21 +399,19 @@ function validateAssetRegistry(
     fail(errors, `${ctx} must be an object`);
     return { images: {} };
   }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    ASSET_REGISTRY_KEYS,
+    "asset registry field",
+    errors,
+  );
   if (!isPlainObject(input.images)) {
     fail(errors, `${ctx}.images must be an object`);
   } else {
     for (const [assetId, asset] of Object.entries(input.images)) {
       const assetCtx = `${ctx}.images.${assetId}`;
-      if (!isPlainObject(asset)) {
-        fail(errors, `${assetCtx} must be an object`);
-        continue;
-      }
-      validateSafeUrlString(
-        asset.src,
-        `${assetCtx}.src`,
-        errors,
-        SAFE_ASSET_URL_SCHEMES,
-      );
+      validateImageAssetEntry(asset, assetId, assetCtx, errors);
     }
   }
   if (input.fonts !== undefined) {
@@ -189,16 +420,17 @@ function validateAssetRegistry(
     } else {
       for (const [assetId, asset] of Object.entries(input.fonts)) {
         const assetCtx = `${ctx}.fonts.${assetId}`;
-        if (!isPlainObject(asset)) {
-          fail(errors, `${assetCtx} must be an object`);
-          continue;
-        }
-        validateSafeUrlString(
-          asset.src,
-          `${assetCtx}.src`,
-          errors,
-          SAFE_ASSET_URL_SCHEMES,
-        );
+        validateFontAssetEntry(asset, assetId, assetCtx, errors);
+      }
+    }
+  }
+  if (input.visuals !== undefined) {
+    if (!isPlainObject(input.visuals)) {
+      fail(errors, `${ctx}.visuals must be an object`);
+    } else {
+      for (const [assetId, asset] of Object.entries(input.visuals)) {
+        const assetCtx = `${ctx}.visuals.${assetId}`;
+        validateVisualAssetEntry(asset, assetId, assetCtx, errors);
       }
     }
   }
@@ -208,16 +440,7 @@ function validateAssetRegistry(
     } else {
       for (const [assetId, asset] of Object.entries(input.files)) {
         const assetCtx = `${ctx}.files.${assetId}`;
-        if (!isPlainObject(asset)) {
-          fail(errors, `${assetCtx} must be an object`);
-          continue;
-        }
-        validateSafeUrlString(
-          asset.src,
-          `${assetCtx}.src`,
-          errors,
-          SAFE_ASSET_URL_SCHEMES,
-        );
+        validateFileAssetEntry(asset, assetId, assetCtx, errors);
       }
     }
   }
@@ -393,6 +616,13 @@ const IMAGE_MASK_SHAPES = [
   "rounded",
   "diamond",
   "triangle",
+] as const;
+const CONNECTOR_ANCHOR_KINDS = [
+  "center",
+  "top",
+  "right",
+  "bottom",
+  "left",
 ] as const;
 const CONNECTOR_ARROW_KINDS = ["none", "arrow", "filled"] as const;
 const CONNECTOR_ROUTING_KINDS = ["straight", "elbow", "curved"] as const;
@@ -1636,6 +1866,36 @@ function validateConnectorEndpoint(
   }
   if (input.kind !== "point" && input.kind !== "node") {
     fail(errors, `${ctx}.kind must be "point" or "node"`);
+    return;
+  }
+  if (input.kind === "point") {
+    validateKnownObjectKeys(
+      input,
+      ctx,
+      new Set(["kind", "point"]),
+      "connector endpoint field",
+      errors,
+    );
+    validatePointPct(input.point, `${ctx}.point`, errors);
+    return;
+  }
+  validateKnownObjectKeys(
+    input,
+    ctx,
+    new Set(["kind", "nodeId", "anchor"]),
+    "connector endpoint field",
+    errors,
+  );
+  validateId(input.nodeId, `${ctx}.nodeId`, errors);
+  if (
+    !CONNECTOR_ANCHOR_KINDS.includes(
+      input.anchor as (typeof CONNECTOR_ANCHOR_KINDS)[number],
+    )
+  ) {
+    fail(
+      errors,
+      `${ctx}.anchor must be one of: ${CONNECTOR_ANCHOR_KINDS.join(", ")}`,
+    );
   }
 }
 
@@ -2189,6 +2449,12 @@ function validateChildNode(
         validateConnectorEndpoint(
           input.content.to,
           `${ctx}.content.to`,
+          errors,
+        );
+        validateEnumValue(
+          input.content.routing,
+          CONNECTOR_ROUTING_KINDS,
+          `${ctx}.content.routing`,
           errors,
         );
       }
