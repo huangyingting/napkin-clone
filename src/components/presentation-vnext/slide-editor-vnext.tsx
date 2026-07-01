@@ -588,6 +588,27 @@ function childIdsForGroup(
   return flattenEditorNodes(group.children).map((node) => node.id);
 }
 
+function topLevelSelectedNodeIds(
+  nodes: readonly SlideChildNode[],
+  selectedIds: ReadonlySet<string>,
+  insideSelectedGroup = false,
+  result: string[] = [],
+): string[] {
+  for (const node of nodes) {
+    const selected = selectedIds.has(node.id);
+    if (selected && !insideSelectedGroup) result.push(node.id);
+    if (node.type === "group") {
+      topLevelSelectedNodeIds(
+        node.children,
+        selectedIds,
+        insideSelectedGroup || selected,
+        result,
+      );
+    }
+  }
+  return result;
+}
+
 function layoutFramesExcluding(
   nodes: readonly SlideChildNode[],
   excludedIds: ReadonlySet<string>,
@@ -2392,7 +2413,10 @@ export function SlideEditorVNext({
     const nextSelection = selectedIds.includes(nodeId)
       ? selection
       : selectNode(selection, nodeId, event.shiftKey || event.metaKey);
-    const dragIds = selectedNodeIds(nextSelection);
+    const dragIds = topLevelSelectedNodeIds(
+      activeSlide.children,
+      new Set(selectedNodeIds(nextSelection)),
+    );
     setSelection(nextSelection);
 
     const rect = canvasRectFromEvent(event);
