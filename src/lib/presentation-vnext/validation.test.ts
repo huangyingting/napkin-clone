@@ -239,6 +239,95 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("rejects malformed text run and list marker fields", () => {
+    resetBuilderCounter();
+    const slide = buildContentSlide();
+    const badNode = {
+      ...slide.children[0],
+      type: "text",
+      content: {
+        paragraphs: [
+          {
+            id: "para-001",
+            text: "hello",
+            runs: [
+              {
+                text: "hello",
+                bold: "yes",
+                link: "javascript:alert(1)",
+                localStyle: { fontSizePt: "huge", color: 42 },
+              },
+            ],
+            list: { kind: "triangle", indent: "deep", numberStyle: "roman" },
+          },
+        ],
+      },
+    };
+    const badSlide = { ...slide, children: [badNode] };
+    const deck = buildDeckV7([badSlide as unknown as SlideNode]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /runs\[0\]\.bold/,
+        /runs\[0\]\.link/,
+        /runs\[0\]\.localStyle\.fontSizePt/,
+        /runs\[0\]\.localStyle\.color/,
+        /paragraphs\[0\]\.list\.kind/,
+        /paragraphs\[0\]\.list\.indent/,
+        /paragraphs\[0\]\.list\.numberStyle/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
+
+  test("accepts rich text runs and valid list markers", () => {
+    resetBuilderCounter();
+    const slide = buildContentSlide();
+    const validNode = {
+      ...slide.children[0],
+      type: "text",
+      content: {
+        paragraphs: [
+          {
+            id: "para-001",
+            text: "hello world",
+            runs: [
+              { text: "hello", bold: true, link: "https://example.com" },
+              {
+                text: " world",
+                italic: true,
+                localStyle: {
+                  color: "#111111",
+                  fontSizePt: 18,
+                  fontFamily: "Inter",
+                },
+              },
+            ],
+            list: { kind: "number", indent: 1, numberStyle: "decimal" },
+          },
+          {
+            id: "para-002",
+            text: "email",
+            runs: [{ text: "email", link: "mailto:hello@example.com" }],
+            list: { kind: "bullet", indent: 2 },
+          },
+        ],
+      },
+    };
+    const validSlide = { ...slide, children: [validNode] };
+    const deck = buildDeckV7([validSlide as unknown as SlideNode]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
   test("rejects table with too many columns (>8)", () => {
     resetBuilderCounter();
     const tableSlide = buildTableSlide();
