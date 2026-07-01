@@ -205,6 +205,7 @@ import {
   type CropHandlePosition,
   type ResizeHandlePosition,
 } from "./slide-canvas";
+import { startPointerDragLifecycle } from "./pointer-drag-lifecycle";
 import { createSingleCommitGesture } from "./single-commit-gesture";
 import {
   createSelectionState,
@@ -2321,32 +2322,30 @@ export function SlideEditorVNext({
     const start = pointPctFromEvent(event, rect);
     setMarqueeFrame({ ...start, w: 0, h: 0 });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const frame = normalizeSelectionFrame(
-        start,
-        pointPctFromEvent(moveEvent, rect),
-      );
-      setMarqueeFrame(frame);
-      const ids = selectNodesInFrame(activeSlide.children, frame);
-      setSelection((selectionState) => setSelectedNodeIds(selectionState, ids));
-    };
-
-    const handlePointerUp = () => {
-      setMarqueeFrame((frame) => {
-        if (frame && (frame.w > 0.5 || frame.h > 0.5)) {
-          suppressStageClickRef.current = true;
-          window.setTimeout(() => {
-            suppressStageClickRef.current = false;
-          }, 0);
-        }
-        return null;
-      });
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const frame = normalizeSelectionFrame(
+          start,
+          pointPctFromEvent(moveEvent, rect),
+        );
+        setMarqueeFrame(frame);
+        const ids = selectNodesInFrame(activeSlide.children, frame);
+        setSelection((selectionState) =>
+          setSelectedNodeIds(selectionState, ids),
+        );
+      },
+      onEnd: (_endEvent, reason) => {
+        setMarqueeFrame((frame) => {
+          if (reason === "up" && frame && (frame.w > 0.5 || frame.h > 0.5)) {
+            suppressStageClickRef.current = true;
+            window.setTimeout(() => {
+              suppressStageClickRef.current = false;
+            }, 0);
+          }
+          return null;
+        });
+      },
+    });
   }
 
   function handleCropHandlePointerDown(
@@ -2380,34 +2379,29 @@ export function SlideEditorVNext({
         onDeckChange(updateNodeContent(deck, activeSlide.id, nodeId, { crop })),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const point = pointPctFromEvent(moveEvent, rect);
-      const deltaX = ((point.x - start.x) / frame.w) * 100;
-      const deltaY = ((point.y - start.y) / frame.h) * 100;
-      const nextCrop: ImageCrop = { ...startCrop };
-      if (handle === "left") nextCrop.left = clampCrop(startCrop.left + deltaX);
-      if (handle === "right") {
-        nextCrop.right = clampCrop(startCrop.right - deltaX);
-      }
-      if (handle === "top") nextCrop.top = clampCrop(startCrop.top + deltaY);
-      if (handle === "bottom") {
-        nextCrop.bottom = clampCrop(startCrop.bottom - deltaY);
-      }
-      gesture.update(nextCrop);
-      setStageAnnouncement(`Cropping image ${handle}`);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveCropHandle(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const point = pointPctFromEvent(moveEvent, rect);
+        const deltaX = ((point.x - start.x) / frame.w) * 100;
+        const deltaY = ((point.y - start.y) / frame.h) * 100;
+        const nextCrop: ImageCrop = { ...startCrop };
+        if (handle === "left")
+          nextCrop.left = clampCrop(startCrop.left + deltaX);
+        if (handle === "right") {
+          nextCrop.right = clampCrop(startCrop.right - deltaX);
+        }
+        if (handle === "top") nextCrop.top = clampCrop(startCrop.top + deltaY);
+        if (handle === "bottom") {
+          nextCrop.bottom = clampCrop(startCrop.bottom - deltaY);
+        }
+        gesture.update(nextCrop);
+        setStageAnnouncement(`Cropping image ${handle}`);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveCropHandle(null);
+      },
+    });
   }
 
   function handleResetSelectedImageCrop() {
@@ -2648,37 +2642,31 @@ export function SlideEditorVNext({
         onDeckChange(updateNodeLayouts(deck, activeSlide.id, preview.patches)),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const preview = createNodeMovePreview({
-        startClientX: startX,
-        startClientY: startY,
-        nextClientX: moveEvent.clientX,
-        nextClientY: moveEvent.clientY,
-        rectWidth: rect.width,
-        rectHeight: rect.height,
-        originalFrames,
-        alignmentGuides,
-        snapToGuides: snapToGuides && !moveEvent.altKey,
-      });
-      if (!preview) return;
-      if (!dragThresholdPassed) {
-        dragThresholdPassed = true;
-        setDraggingStage(true);
-      }
-      gesture.update(preview);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setDraggingStage(false);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const preview = createNodeMovePreview({
+          startClientX: startX,
+          startClientY: startY,
+          nextClientX: moveEvent.clientX,
+          nextClientY: moveEvent.clientY,
+          rectWidth: rect.width,
+          rectHeight: rect.height,
+          originalFrames,
+          alignmentGuides,
+          snapToGuides: snapToGuides && !moveEvent.altKey,
+        });
+        if (!preview) return;
+        if (!dragThresholdPassed) {
+          dragThresholdPassed = true;
+          setDraggingStage(true);
+        }
+        gesture.update(preview);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setDraggingStage(false);
+      },
+    });
   }
 
   function handleResizeHandlePointerDown(
@@ -2714,35 +2702,29 @@ export function SlideEditorVNext({
         ),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
-      const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
-      const nextFrame = node.layout?.constraints?.preserveAspectRatio
-        ? applyAspectLock(
-            originalFrame,
-            resizeFrame(originalFrame, handle, deltaX, deltaY),
-          )
-        : resizeFrame(originalFrame, handle, deltaX, deltaY);
-      const snapped =
-        snapToGuides && !moveEvent.altKey
-          ? snapFrameToStageGuides(nextFrame, 0.75, alignmentGuides)
-          : { frame: nextFrame, guides: [] as StageGuide[] };
-      setStageGuides(snapped.guides);
-      gesture.update(snapped.frame);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveResizeHandle(null);
-      setStageGuides([]);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
+        const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
+        const nextFrame = node.layout?.constraints?.preserveAspectRatio
+          ? applyAspectLock(
+              originalFrame,
+              resizeFrame(originalFrame, handle, deltaX, deltaY),
+            )
+          : resizeFrame(originalFrame, handle, deltaX, deltaY);
+        const snapped =
+          snapToGuides && !moveEvent.altKey
+            ? snapFrameToStageGuides(nextFrame, 0.75, alignmentGuides)
+            : { frame: nextFrame, guides: [] as StageGuide[] };
+        setStageGuides(snapped.guides);
+        gesture.update(snapped.frame);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveResizeHandle(null);
+        setStageGuides([]);
+      },
+    });
   }
 
   function handleRotationHandlePointerDown(
@@ -2780,33 +2762,27 @@ export function SlideEditorVNext({
         ),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const angle =
-        (Math.atan2(
-          moveEvent.clientY - center.y,
-          moveEvent.clientX - center.x,
-        ) *
-          180) /
-        Math.PI;
-      const rotation = snapRotationDegrees(
-        startRotation + angle - startAngle,
-        !moveEvent.altKey,
-      );
-      gesture.update(rotation);
-      setStageAnnouncement(`Rotated to ${Math.round(rotation)} degrees`);
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveRotationNodeId(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const angle =
+          (Math.atan2(
+            moveEvent.clientY - center.y,
+            moveEvent.clientX - center.x,
+          ) *
+            180) /
+          Math.PI;
+        const rotation = snapRotationDegrees(
+          startRotation + angle - startAngle,
+          !moveEvent.altKey,
+        );
+        gesture.update(rotation);
+        setStageAnnouncement(`Rotated to ${Math.round(rotation)} degrees`);
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveRotationNodeId(null);
+      },
+    });
   }
 
   function handleConnectorEndpointPointerDown(
@@ -2839,30 +2815,24 @@ export function SlideEditorVNext({
         ),
     });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const slidePoint = pointPctFromEvent(moveEvent, rect);
-      const snapped =
-        nearestConnectorAnchor(activeSlide.children, slidePoint, nodeId) ??
-        connectorEndpointFromSlidePoint(slidePoint, connectorFrame);
-      gesture.update(snapped);
-      setStageAnnouncement(
-        snapped.kind === "node"
-          ? `Connector ${endpoint} bound to ${snapped.anchor} anchor`
-          : `Connector ${endpoint} moved`,
-      );
-    };
-
-    const handlePointerUp = () => {
-      gesture.finish();
-      setActiveConnectorEndpoint(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    startPointerDragLifecycle(event, {
+      onMove: (moveEvent) => {
+        const slidePoint = pointPctFromEvent(moveEvent, rect);
+        const snapped =
+          nearestConnectorAnchor(activeSlide.children, slidePoint, nodeId) ??
+          connectorEndpointFromSlidePoint(slidePoint, connectorFrame);
+        gesture.update(snapped);
+        setStageAnnouncement(
+          snapped.kind === "node"
+            ? `Connector ${endpoint} bound to ${snapped.anchor} anchor`
+            : `Connector ${endpoint} moved`,
+        );
+      },
+      onEnd: () => {
+        gesture.finish();
+        setActiveConnectorEndpoint(null);
+      },
+    });
   }
 
   function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
