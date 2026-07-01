@@ -179,6 +179,14 @@ import {
   connectorAnchorPoint,
   connectorEndpointFromSlidePoint,
 } from "@/lib/presentation-vnext/connector-geometry";
+import {
+  buildAlignSelectionPatches,
+  buildDistributeSelectionPatches,
+  buildLayerReorderPatches,
+  buildMatchSizeSelectionPatches,
+  buildZOrderSelectionOperations,
+  collectSelectedLayoutEntries,
+} from "./arrangement-geometry";
 
 import {
   SlideCanvasVNext,
@@ -2252,7 +2260,8 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {
@@ -2809,7 +2818,10 @@ export function SlideEditorVNext({
     if (delta) {
       if (event.altKey) {
         const patches = new Map<string, Partial<LayoutBox>>();
-        for (const entry of selectedLayoutEntries()) {
+        for (const entry of collectSelectedLayoutEntries(
+          activeSlide.children,
+          selectedIds,
+        )) {
           const resized = clampFrame({
             ...entry.frame,
             w: entry.frame.w + delta.x,
@@ -3165,126 +3177,45 @@ export function SlideEditorVNext({
 
   function handleReorderLayer(nodeId: string, targetIndex: number) {
     if (!activeSlide) return;
-    const layers = activeSlide.children
-      .flatMap(function flatten(node): SlideChildNode[] {
-        return node.type === "group"
-          ? [node, ...node.children.flatMap(flatten)]
-          : [node];
-      })
-      .filter((node) => node.layout !== undefined)
-      .sort((a, b) => (b.layout?.zIndex ?? 0) - (a.layout?.zIndex ?? 0));
-    const moving = layers.find((node) => node.id === nodeId);
-    if (!moving) return;
-    const reordered = layers.filter((node) => node.id !== nodeId);
-    const insertIndex = Math.max(0, Math.min(targetIndex, reordered.length));
-    reordered.splice(insertIndex, 0, moving);
-    const patches = new Map<string, Partial<LayoutBox>>();
-    reordered.forEach((node, index) => {
-      patches.set(node.id, { zIndex: reordered.length - index });
-    });
+    const patches = buildLayerReorderPatches(
+      activeSlide.children,
+      nodeId,
+      targetIndex,
+    );
+    if (patches.size === 0) return;
     onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
-  }
-
-  function selectedLayoutEntries(): {
-    id: string;
-    node: SlideChildNode;
-    frame: LayoutBox["frame"];
-  }[] {
-    if (!activeSlide) return [];
-    return selectedIds
-      .map((id) => {
-        const node = findNodeById(activeSlide.children, id);
-        return node?.layout && !node.locked
-          ? { id, node, frame: node.layout.frame }
-          : null;
-      })
-      .filter(
-        (
-          entry,
-        ): entry is {
-          id: string;
-          node: SlideChildNode;
-          frame: LayoutBox["frame"];
-        } => entry !== null,
-      );
   }
 
   function handleAlignSelection(mode: SelectionAlignMode) {
     if (!activeSlide) return;
-    const entries = selectedLayoutEntries();
-    if (entries.length < 2) return;
-    const left = Math.min(...entries.map((entry) => entry.frame.x));
-    const top = Math.min(...entries.map((entry) => entry.frame.y));
-    const right = Math.max(
-      ...entries.map((entry) => entry.frame.x + entry.frame.w),
+    const entries = collectSelectedLayoutEntries(
+      activeSlide.children,
+      selectedIds,
     );
-    const bottom = Math.max(
-      ...entries.map((entry) => entry.frame.y + entry.frame.h),
-    );
-    const centerX = left + (right - left) / 2;
-    const centerY = top + (bottom - top) / 2;
-    const patches = new Map<string, Partial<LayoutBox>>();
-    for (const entry of entries) {
-      const frame = entry.frame;
-      const nextFrame = { ...frame };
-      if (mode === "left") nextFrame.x = left;
-      if (mode === "center") nextFrame.x = centerX - frame.w / 2;
-      if (mode === "right") nextFrame.x = right - frame.w;
-      if (mode === "top") nextFrame.y = top;
-      if (mode === "middle") nextFrame.y = centerY - frame.h / 2;
-      if (mode === "bottom") nextFrame.y = bottom - frame.h;
-      patches.set(entry.id, { frame: nextFrame });
-    }
+    const patches = buildAlignSelectionPatches(entries, mode);
+    if (patches.size === 0) return;
     onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
   }
 
   function handleDistributeSelection(mode: SelectionDistributeMode) {
     if (!activeSlide) return;
-    const entries = selectedLayoutEntries();
-    if (entries.length < 3) return;
-    const sorted = [...entries].sort((a, b) =>
-      mode === "horizontal" ? a.frame.x - b.frame.x : a.frame.y - b.frame.y,
+    const entries = collectSelectedLayoutEntries(
+      activeSlide.children,
+      selectedIds,
     );
-    const first = sorted[0].frame;
-    const last = sorted[sorted.length - 1].frame;
-    const start = mode === "horizontal" ? first.x : first.y;
-    const end = mode === "horizontal" ? last.x + last.w : last.y + last.h;
-    const totalSize = sorted.reduce(
-      (sum, entry) =>
-        sum + (mode === "horizontal" ? entry.frame.w : entry.frame.h),
-      0,
-    );
-    const gap = (end - start - totalSize) / (sorted.length - 1);
-    const patches = new Map<string, Partial<LayoutBox>>();
-    let cursor = start;
-    for (const entry of sorted) {
-      const frame = entry.frame;
-      patches.set(entry.id, {
-        frame:
-          mode === "horizontal"
-            ? { ...frame, x: cursor }
-            : { ...frame, y: cursor },
-      });
-      cursor += (mode === "horizontal" ? frame.w : frame.h) + gap;
-    }
+    const patches = buildDistributeSelectionPatches(entries, mode);
+    if (patches.size === 0) return;
     onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
   }
 
   function handleMatchSize(mode: SelectionMatchSizeMode) {
     if (!activeSlide) return;
-    const entries = selectedLayoutEntries();
-    if (entries.length < 2) return;
-    const base = entries[0].frame;
-    const patches = new Map<string, Partial<LayoutBox>>();
-    for (const entry of entries.slice(1)) {
-      patches.set(entry.id, {
-        frame: {
-          ...entry.frame,
-          w: mode === "height" ? entry.frame.w : base.w,
-          h: mode === "width" ? entry.frame.h : base.h,
-        },
-      });
-    }
+    const entries = collectSelectedLayoutEntries(
+      activeSlide.children,
+      selectedIds,
+    );
+    const patches = buildMatchSizeSelectionPatches(entries, mode);
+    if (patches.size === 0) return;
     onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
   }
 
@@ -3292,24 +3223,20 @@ export function SlideEditorVNext({
     kind: "forward" | "backward" | "front" | "back",
   ) {
     if (!activeSlide || selectedIds.length === 0) return;
-    const zIndexes = activeSlide.children
-      .map((node) => node.layout?.zIndex)
-      .filter((zIndex): zIndex is number => typeof zIndex === "number");
-    const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
-    const minZ = zIndexes.length > 0 ? Math.min(...zIndexes) : 0;
+    const operations = buildZOrderSelectionOperations(
+      activeSlide.children,
+      selectedIds,
+      kind,
+    );
+    if (operations.length === 0) return;
     let updated = deck;
-    selectedIds.forEach((id, index) => {
-      const node = findNodeById(activeSlide.children, id);
-      const currentZ = node?.layout?.zIndex ?? 0;
-      const nextZ =
-        kind === "front"
-          ? maxZ + index + 1
-          : kind === "back"
-            ? minZ - index - 1
-            : kind === "forward"
-              ? currentZ + 1
-              : currentZ - 1;
-      updated = reorderZIndex(updated, activeSlide.id, id, nextZ);
+    operations.forEach((operation) => {
+      updated = reorderZIndex(
+        updated,
+        activeSlide.id,
+        operation.id,
+        operation.zIndex,
+      );
     });
     onDeckChange(updated);
   }
