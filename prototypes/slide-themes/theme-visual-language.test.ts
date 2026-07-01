@@ -48,6 +48,18 @@ function readPackage(id: string) {
   return parsed.package;
 }
 
+function readPackageFixture(id: string): Record<string, unknown> {
+  return JSON.parse(
+    readFileSync(
+      join(
+        process.cwd(),
+        `prototypes/slide-themes/packages/${id}.package.json`,
+      ),
+      "utf8",
+    ),
+  ) as Record<string, unknown>;
+}
+
 test("native v7 packages materialize every semantic template into preview decks", () => {
   for (const id of [
     "clarity",
@@ -94,4 +106,75 @@ test("native v7 packages retain distinctive style packages", () => {
 
   assert.equal(pulse.tokens.fonts.heading.includes("JetBrains Mono"), true);
   assert.ok(pulse.decorations?.scanLine);
+});
+
+test("native v7 package fixtures reject malformed assets, decorations, and unknown fields", () => {
+  const baseFixture = readPackageFixture("clarity");
+  const malformedFixtures: Array<{
+    name: string;
+    fixture: Record<string, unknown>;
+    expectedMessage: string;
+  }> = [
+    {
+      name: "unknown top-level field",
+      fixture: {
+        ...JSON.parse(JSON.stringify(baseFixture)),
+        unexpectedField: true,
+      },
+      expectedMessage:
+        "ThemePackage.unexpectedField is not a known theme package field",
+    },
+    {
+      name: "invalid assets manifest",
+      fixture: {
+        ...JSON.parse(JSON.stringify(baseFixture)),
+        assets: {
+          images: {
+            "hero-image": {
+              id: "hero-image",
+              src: "https://example.com/hero.bmp",
+              mimeType: "image/bmp",
+            },
+          },
+        },
+      },
+      expectedMessage: "ThemePackage.assets.images.hero-image.mimeType must be",
+    },
+    {
+      name: "invalid decoration appliesTo contract",
+      fixture: {
+        ...JSON.parse(JSON.stringify(baseFixture)),
+        decorations: {
+          invalidDecoration: {
+            id: "invalidDecoration",
+            component: "text",
+            role: "themeDecoration",
+            layout: { frame: { x: 0, y: 0, w: 15, h: 15 }, zIndex: 1 },
+            style: {},
+            content: { type: "text", text: "Invalid fixture decoration" },
+            appliesTo: {
+              templateKinds: ["not-a-template-kind"],
+            },
+          },
+        },
+      },
+      expectedMessage:
+        "ThemePackage.decorations.invalidDecoration.appliesTo.templateKinds.0 must be one of:",
+    },
+  ];
+
+  for (const malformed of malformedFixtures) {
+    const parsed = validateThemePackage(malformed.fixture);
+    assert.equal(parsed.valid, false, malformed.name);
+    if (!parsed.valid) {
+      assert.ok(
+        parsed.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(malformed.expectedMessage),
+        ),
+        `${malformed.name} diagnostics: ${parsed.diagnostics
+          .map((diagnostic) => diagnostic.message)
+          .join("; ")}`,
+      );
+    }
+  }
 });

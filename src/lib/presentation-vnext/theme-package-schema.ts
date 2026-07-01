@@ -1085,6 +1085,19 @@ export function validateThemePackage(
   input: unknown,
 ): ThemePackageValidationResult {
   const dc = new DiagnosticCollector();
+  const topLevelValidationErrors: string[] = [];
+  const topLevelAllowedKeys = new Set([
+    "schemaVersion",
+    "id",
+    "version",
+    "name",
+    "tagline",
+    "tokens",
+    "styles",
+    "decorations",
+    "chrome",
+    "assets",
+  ]);
 
   if (!isPlainObject(input)) {
     dc.fatal("missing-style-default", "Theme package must be an object");
@@ -1097,6 +1110,19 @@ export function validateThemePackage(
       `Theme package schemaVersion must be 1 (got ${input.schemaVersion})`,
     );
     return { valid: false, diagnostics: dc.diagnostics };
+  }
+
+  validateKnownKeys(
+    input,
+    "ThemePackage",
+    topLevelAllowedKeys,
+    "theme package field",
+    topLevelValidationErrors,
+  );
+  for (const error of topLevelValidationErrors) {
+    dc.error("unknown-field", error, {
+      target: { scope: "theme" },
+    });
   }
 
   if (typeof input.id !== "string" || input.id.length === 0) {

@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import clarityPackageJson from "../../../prototypes/slide-themes/packages/clarity.package.json";
 
 import {
   getThemePackageV7,
   listThemePackagesV7,
   resolveThemePackageForDeck,
 } from "./theme-package-registry";
+import { validateThemePackage } from "./theme-package-schema";
+
+function cloneFixture<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 
 test("getThemePackageV7 resolves generated v7 theme packages by id", () => {
   assert.equal(getThemePackageV7("ocean")?.id, "ocean");
@@ -65,5 +71,87 @@ test("listThemePackagesV7 keeps all generated packages after validation", () => 
     "pulse",
   ]) {
     assert.ok(ids.has(id), `Expected theme package "${id}" in registry`);
+  }
+});
+
+test("registry ingestion contract rejects unknown top-level theme package fields", () => {
+  const invalidPackage = {
+    ...cloneFixture(clarityPackageJson),
+    unsupportedField: { enabled: true },
+  };
+
+  const result = validateThemePackage(invalidPackage);
+  assert.equal(result.valid, false);
+  if (!result.valid) {
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "unknown-field" &&
+          diagnostic.message.includes(
+            "ThemePackage.unsupportedField is not a known theme package field",
+          ),
+      ),
+    );
+  }
+});
+
+test("registry ingestion contract rejects malformed theme package assets", () => {
+  const invalidPackage = {
+    ...cloneFixture(clarityPackageJson),
+    assets: {
+      images: {
+        "hero-image": {
+          id: "hero-image",
+          src: "https://example.com/hero.bmp",
+          mimeType: "image/bmp",
+        },
+      },
+    },
+  };
+
+  const result = validateThemePackage(invalidPackage);
+  assert.equal(result.valid, false);
+  if (!result.valid) {
+    assert.ok(
+      result.diagnostics.some((diagnostic) =>
+        diagnostic.message.includes(
+          "ThemePackage.assets.images.hero-image.mimeType must be one of:",
+        ),
+      ),
+    );
+  }
+});
+
+test("registry ingestion contract rejects malformed theme package decorations", () => {
+  const invalidPackage = {
+    ...cloneFixture(clarityPackageJson),
+    decorations: {
+      badDecoration: {
+        id: "badDecoration",
+        component: "text",
+        role: "themeDecoration",
+        layout: {
+          frame: { x: 0, y: 0, w: 20, h: 20 },
+          zIndex: 0,
+        },
+        style: {},
+        content: { type: "text", text: "fixture decoration" },
+        appliesTo: {
+          templateKinds: ["cover", "not-a-template"],
+        },
+      },
+    },
+  };
+
+  const result = validateThemePackage(invalidPackage);
+  assert.equal(result.valid, false);
+  if (!result.valid) {
+    assert.ok(
+      result.diagnostics.some((diagnostic) =>
+        diagnostic.message.includes(
+          "ThemePackage.decorations.badDecoration.appliesTo.templateKinds.1 must be one of:",
+        ),
+      ),
+    );
   }
 });
