@@ -28,7 +28,7 @@ export interface PublicPresentationModel {
 
 export interface PublicPresentationRecovery {
   error: string;
-  validationErrors?: string[];
+  validationErrors: string[];
   diagnostics: PresentationDiagnostic[];
 }
 
@@ -50,7 +50,10 @@ export function buildPublicPresentationModel(
     ? undefined
     : {
         error: opened.error,
-        validationErrors: opened.errors,
+        validationErrors:
+          opened.errors && opened.errors.length > 0
+            ? opened.errors
+            : [opened.error],
         diagnostics: opened.diagnostics,
       };
 
