@@ -249,6 +249,54 @@ describe("resolveNodeStyle", () => {
     assert.equal(style.text?.color, "#ff0000");
   });
 
+  test("deep-merges nested connector stroke overrides without dropping dash", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    pkg.styles["connector.primary"] = {
+      default: {
+        connector: {
+          stroke: { color: "#334155", widthPt: 1.5, dash: "dotted" },
+        },
+      },
+    };
+    const themeBinding = buildThemeBinding();
+    const binding = { ref: "connector.primary" as const };
+    const localStyle = {
+      connector: { stroke: { color: "#ef4444", widthPt: 2 } },
+    };
+    const { style } = resolveNodeStyle(binding, themeBinding, pkg, localStyle);
+
+    assert.equal(style.connector?.stroke?.color, "#ef4444");
+    assert.equal(style.connector?.stroke?.widthPt, 2);
+    assert.equal(style.connector?.stroke?.dash, "dotted");
+  });
+
+  test("deep-merges visual channel colors without dropping sibling channels", () => {
+    resetBuilderCounter();
+    const pkg = buildMinimalThemePackage();
+    pkg.styles["chart.primary"] = {
+      default: {
+        visual: {
+          channelColors: {
+            primary: "#2563eb",
+            secondary: "#f59e0b",
+            tertiary: "#10b981",
+          },
+        },
+      },
+    };
+    const themeBinding = buildThemeBinding();
+    const binding = { ref: "chart.primary" as const };
+    const localStyle = { visual: { channelColors: { primary: "#7c3aed" } } };
+    const { style } = resolveNodeStyle(binding, themeBinding, pkg, localStyle);
+
+    assert.deepEqual(style.visual?.channelColors, {
+      primary: "#7c3aed",
+      secondary: "#f59e0b",
+      tertiary: "#10b981",
+    });
+  });
+
   test("preserves visual channel color overrides", () => {
     resetBuilderCounter();
     const pkg = buildMinimalThemePackage();

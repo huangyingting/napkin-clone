@@ -29,6 +29,7 @@ import type { AiSlideSpec } from "./ai-plan-schema";
 import type { SemanticTemplateV1 } from "./template-registry";
 import { compileSlide } from "./template-compiler";
 import { connectorEndpointToPointFallback } from "./connector-geometry";
+import { mergeStylePatchDeep } from "./style-patch-merge";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -693,7 +694,13 @@ export function updateSlideLocalStyle(
 ): DeckV7 {
   return mapSlides(deck, (slide) =>
     slide.id === slideId
-      ? { ...slide, localStyle: mergeStylePatch(slide.localStyle, patch) }
+      ? {
+          ...slide,
+          localStyle: mergeStylePatchDeep(
+            slide.localStyle,
+            patch,
+          ) as StylePatch,
+        }
       : slide,
   );
 }
@@ -1074,38 +1081,10 @@ export function updateLocalStyle(
       (node) =>
         ({
           ...node,
-          localStyle: mergeStylePatch(node.localStyle, patch),
+          localStyle: mergeStylePatchDeep(node.localStyle, patch) as StylePatch,
         }) as SlideChildNode,
     );
   });
-}
-
-function mergeStylePatch(
-  base: StylePatch | undefined,
-  patch: StylePatch,
-): StylePatch {
-  if (!base) return patch;
-  const result: StylePatch = { ...base };
-  for (const key of Object.keys(patch) as (keyof StylePatch)[]) {
-    const pv = patch[key];
-    const bv = base[key];
-    if (
-      pv !== undefined &&
-      typeof pv === "object" &&
-      !Array.isArray(pv) &&
-      typeof bv === "object" &&
-      bv !== null &&
-      !Array.isArray(bv)
-    ) {
-      (result as Record<string, unknown>)[key] = {
-        ...(bv as object),
-        ...(pv as object),
-      };
-    } else {
-      (result as Record<string, unknown>)[key] = pv;
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------
