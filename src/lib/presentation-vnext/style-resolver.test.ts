@@ -201,6 +201,191 @@ describe("validateThemePackage", () => {
       );
     }
   });
+
+  test("rejects malformed decoration recipe fields and enums", () => {
+    const pkg = buildMinimalThemePackage("bad-decoration-package", {
+      decorations: {
+        invalidDecoration: {
+          id: "wrong-id",
+          component: "shape",
+          role: "themeDecoration",
+          layout: {
+            frame: { x: 0, y: 0, w: -1, h: 25 },
+            zIndex: "top" as unknown as number,
+          },
+          style: {
+            blendMode: "invalid-mode",
+          },
+          content: { type: "image", assetId: "missing-image" },
+          visibility: "loud" as unknown as "subtle",
+          chrome: "full" as unknown as "default",
+          appliesTo: {
+            templateKinds: ["cover", "unknown-template"] as unknown as Array<
+              import("@/lib/presentation-vnext/schema").SemanticTemplateKind
+            >,
+          },
+        },
+      },
+    } as unknown as Parameters<typeof buildMinimalThemePackage>[1]);
+
+    const result = validateThemePackage(pkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            'ThemePackage.decorations.invalidDecoration.id must match registry key "invalidDecoration"',
+          ),
+        ),
+      );
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            "ThemePackage.decorations.invalidDecoration.layout.zIndex must be an integer",
+          ),
+        ),
+      );
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            "ThemePackage.decorations.invalidDecoration.visibility must be one of: subtle, default, expressive",
+          ),
+        ),
+      );
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            "ThemePackage.decorations.invalidDecoration.appliesTo.templateKinds.1 must be one of:",
+          ),
+        ),
+      );
+    }
+  });
+
+  test("rejects decoration image references missing package asset manifests", () => {
+    const pkg = buildMinimalThemePackage("missing-decoration-assets", {
+      decorations: {
+        heroImage: {
+          id: "heroImage",
+          component: "image",
+          role: "themeDecoration",
+          layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 0 },
+          style: {},
+          content: { type: "image", assetId: "theme-hero-image" },
+        },
+      },
+    });
+
+    const result = validateThemePackage(pkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some(
+          (diagnostic) =>
+            diagnostic.code === "missing-asset" &&
+            diagnostic.path ===
+              "ThemePackage.decorations.heroImage.content.assetId",
+        ),
+      );
+    }
+  });
+
+  test("rejects malformed theme asset manifests", () => {
+    const pkg = buildMinimalThemePackage("bad-assets-package", {
+      assets: {
+        images: {
+          "theme-image": {
+            id: "mismatch-image-id",
+            src: "",
+            widthPx: "wide" as unknown as number,
+            mimeType: "image/tiff" as unknown as "image/png",
+          },
+        },
+        fonts: {
+          "brand-font": {
+            id: "brand-font",
+            family: "",
+            src: 123 as unknown as string,
+            weight: ["bold"] as unknown as number[],
+            style: "oblique" as unknown as "normal",
+          },
+        },
+      },
+    } as unknown as Parameters<typeof buildMinimalThemePackage>[1]);
+
+    const result = validateThemePackage(pkg);
+    assert.ok(!result.valid);
+    if (!result.valid) {
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            'ThemePackage.assets.images.theme-image.id must match manifest key "theme-image"',
+          ),
+        ),
+      );
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            "ThemePackage.assets.images.theme-image.widthPx must be a finite number",
+          ),
+        ),
+      );
+      assert.ok(
+        result.diagnostics.some((diagnostic) =>
+          diagnostic.message.includes(
+            "ThemePackage.assets.fonts.brand-font.style must be one of: normal, italic",
+          ),
+        ),
+      );
+    }
+  });
+
+  test("accepts valid decoration image and asset manifests", () => {
+    const pkg = buildMinimalThemePackage("valid-decoration-assets", {
+      assets: {
+        images: {
+          "theme-hero-image": {
+            id: "theme-hero-image",
+            src: "https://example.com/hero.png",
+            mimeType: "image/png",
+            widthPx: 1200,
+            heightPx: 800,
+          },
+        },
+        fonts: {
+          "brand-font": {
+            id: "brand-font",
+            family: "Inter",
+            src: "https://example.com/inter.woff2",
+            weight: [400, 700],
+            style: "normal",
+          },
+        },
+      },
+      decorations: {
+        heroImage: {
+          id: "heroImage",
+          component: "image",
+          role: "themeDecoration",
+          layout: { frame: { x: 2, y: 2, w: 25, h: 25 }, zIndex: 1 },
+          style: {
+            opacity: 0.9,
+            image: { fit: "cover", maskShape: "rounded" },
+          },
+          content: { type: "image", assetId: "theme-hero-image" },
+          appliesTo: { templateKinds: ["cover"], layoutIds: ["layout-cover"] },
+          visibility: "default",
+          chrome: "default",
+        },
+      },
+    });
+
+    const result = validateThemePackage(pkg);
+    assert.ok(
+      result.valid,
+      `Expected valid but got: ${!result.valid && result.diagnostics.map((diagnostic) => diagnostic.message).join(", ")}`,
+    );
+  });
 });
 
 describe("resolveNodeStyle", () => {
