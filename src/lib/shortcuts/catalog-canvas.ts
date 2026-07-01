@@ -1,7 +1,6 @@
 import type { ShortcutEntry, KeyMatcherMetadata } from "./catalog-types";
 import {
   bareKey,
-  shiftKey,
   modKey,
   modShiftKey,
   arrowKey,
@@ -9,7 +8,6 @@ import {
   altArrowKey,
   altShiftArrowKey,
   bracketKey,
-  shiftBracketKey,
 } from "./catalog-keys";
 
 function canvasShortcut(args: {
@@ -52,28 +50,6 @@ export const CANVAS_SHORTCUTS: readonly ShortcutEntry[] = [
     description: "Select next / previous element",
   }),
   canvasShortcut({
-    id: "canvas.selection.focus",
-    group: "Selection",
-    tokens: ["Space"],
-    match: bareKey(" "),
-    description: "Select the focused element",
-  }),
-  canvasShortcut({
-    id: "canvas.selection.multi-toggle",
-    group: "Selection",
-    tokens: ["Shift", "Space"],
-    match: shiftKey(" "),
-    description: "Add / remove from multi-selection",
-  }),
-  canvasShortcut({
-    id: "canvas.selection.select-all",
-    group: "Selection",
-    tokens: ["Mod", "A"],
-    canonical: "Mod+A",
-    match: modKey("a"),
-    description: "Select all elements",
-  }),
-  canvasShortcut({
     id: "canvas.selection.clear",
     group: "Selection",
     tokens: ["Escape"],
@@ -109,20 +85,26 @@ export const CANVAS_SHORTCUTS: readonly ShortcutEntry[] = [
     description: "Resize selection by 5%",
   }),
   canvasShortcut({
-    id: "canvas.rotate.step",
-    group: "Move & resize",
+    id: "canvas.arrange.forward-backward",
+    group: "Arrange",
     displayLabel: "[ / ]",
     tokens: ["["],
     match: bracketKey(),
-    description: "Rotate selection by 15°",
+    description: "Send backward / bring forward",
   }),
   canvasShortcut({
-    id: "canvas.rotate.fine-step",
-    group: "Move & resize",
-    displayLabel: "Shift + [ / ]",
-    tokens: ["Shift", "["],
-    match: shiftBracketKey(),
-    description: "Rotate selection by 1°",
+    id: "canvas.arrange.front-back",
+    group: "Arrange",
+    displayLabel: "Mod + [ / ]",
+    tokens: ["Mod", "["],
+    match: {
+      key: ["[", "]"],
+      caseInsensitive: false,
+      primaryModifier: "required",
+      altKey: "forbidden",
+      shiftKey: "forbidden",
+    },
+    description: "Send to back / bring to front",
   }),
   canvasShortcut({
     id: "canvas.edit.inline",
@@ -156,16 +138,16 @@ export const CANVAS_SHORTCUTS: readonly ShortcutEntry[] = [
   canvasShortcut({
     id: "canvas.edit.clipboard",
     group: "Edit",
-    displayLabel: "Mod + C / X / V",
+    displayLabel: "Mod + C / V",
     tokens: ["Mod", "C"],
     match: {
-      key: ["c", "x", "v"],
+      key: ["c", "v"],
       caseInsensitive: true,
       primaryModifier: "required",
       altKey: "forbidden",
       shiftKey: "forbidden",
     },
-    description: "Copy / cut / paste",
+    description: "Copy / paste",
   }),
   canvasShortcut({
     id: "canvas.edit.undo",
@@ -198,51 +180,6 @@ export const CANVAS_SHORTCUTS: readonly ShortcutEntry[] = [
     canonical: "Mod+Shift+G",
     match: modShiftKey("g"),
     description: "Ungroup",
-  }),
-  canvasShortcut({
-    id: "canvas.connect.create",
-    group: "Connectors",
-    tokens: ["C"],
-    match: bareKey("c"),
-    description: "Connect selected elements / start connector mode",
-  }),
-  canvasShortcut({
-    id: "canvas.connect.cycle-anchor",
-    group: "Connectors",
-    displayLabel: "C / Shift + C",
-    tokens: ["C"],
-    match: {
-      key: "c",
-      caseInsensitive: true,
-      ctrlKey: "forbidden",
-      metaKey: "forbidden",
-      altKey: "forbidden",
-      shiftKey: "optional",
-    },
-    description: "Cycle a connector's end / start anchor",
-  }),
-  canvasShortcut({
-    id: "canvas.slides.previous-next",
-    group: "Slides",
-    displayLabel: "Arrow Left / Right",
-    tokens: ["ArrowLeft"],
-    match: {
-      key: ["ArrowLeft", "ArrowRight"],
-      ctrlKey: "forbidden",
-      metaKey: "forbidden",
-      altKey: "forbidden",
-      shiftKey: "optional",
-    },
-    description: "Previous / next slide (nothing selected)",
-  }),
-  canvasShortcut({
-    id: "canvas.slides.new",
-    group: "Slides",
-    tokens: ["Mod", "N"],
-    canonical: "Mod+N",
-    match: modKey("n"),
-    /* node:coverage ignore next -- Shortcut literal is asserted through registry metadata; tsx maps this property as uncovered. */
-    description: "New slide",
   }),
   canvasShortcut({
     id: "canvas.help",
