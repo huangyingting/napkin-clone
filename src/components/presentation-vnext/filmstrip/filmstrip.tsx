@@ -180,9 +180,7 @@ export function Filmstrip({
           {/* Thumbnails */}
           <ol
             ref={containerRef}
-            role="listbox"
             aria-label="Slides"
-            aria-orientation="horizontal"
             className="flex min-w-0 flex-1 gap-2 overflow-x-auto px-3 py-1.5"
             onKeyDown={handleKeyDown}
             tabIndex={collapsed ? -1 : 0}

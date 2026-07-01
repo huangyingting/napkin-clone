@@ -786,7 +786,9 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
 
     assert.match(html, /aria-label="Slide filmstrip"/);
-    assert.match(html, /role="listbox"/);
+    assert.match(html, /aria-label="Slides"/);
+    assert.doesNotMatch(html, /role="listbox"/);
+    assert.doesNotMatch(html, /role="option"/);
     assert.match(html, /data-slide-index="0"/);
     assert.match(html, /data-slide-index="1"/);
     assert.match(html, /data-slide-index="2"/);
