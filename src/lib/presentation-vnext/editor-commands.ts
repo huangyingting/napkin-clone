@@ -28,6 +28,7 @@ import type { ResolvedRenderNode } from "./render-tree";
 import type { AiSlideSpec } from "./ai-plan-schema";
 import type { SemanticTemplateV1 } from "./template-registry";
 import { compileSlide } from "./template-compiler";
+import { connectorEndpointToPointFallback } from "./connector-geometry";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -373,50 +374,16 @@ function duplicateSelectedInChildren(
   return result;
 }
 
-function anchorPoint(
-  frame: LayoutBox["frame"],
-  anchor: Extract<ConnectorEndpoint, { kind: "node" }>["anchor"],
-): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: frame.x + frame.w / 2, y: frame.y };
-    case "right":
-      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
-    case "bottom":
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
-    case "left":
-      return { x: frame.x, y: frame.y + frame.h / 2 };
-    case "center":
-    default:
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
-  }
-}
-
 function connectorEndpointToPoint(
   endpoint: ConnectorEndpoint,
   connector: SlideChildNode,
   slide: SlideNode,
 ): ConnectorEndpoint {
-  if (endpoint.kind === "point") return endpoint;
-  if (!connector.layout) return endpoint;
-  const target = findNodeById(slide.children, endpoint.nodeId);
-  if (!target?.layout) return endpoint;
-  const targetPoint = anchorPoint(target.layout.frame, endpoint.anchor);
-  const frame = connector.layout.frame;
-  if (frame.w <= 0 || frame.h <= 0) return endpoint;
-  return {
-    kind: "point",
-    point: {
-      x: Math.max(
-        0,
-        Math.min(100, ((targetPoint.x - frame.x) / frame.w) * 100),
-      ),
-      y: Math.max(
-        0,
-        Math.min(100, ((targetPoint.y - frame.y) / frame.h) * 100),
-      ),
-    },
-  };
+  return connectorEndpointToPointFallback(
+    endpoint,
+    connector.layout?.frame,
+    (nodeId) => findNodeById(slide.children, nodeId)?.layout?.frame,
+  );
 }
 
 function repairConnectorBindingsBeforeDelete(
