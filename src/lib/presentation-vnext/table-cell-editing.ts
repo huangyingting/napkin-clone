@@ -3,6 +3,11 @@ import type { TableCell, TableContent, TextRun } from "./schema";
 
 type RunStyle = Omit<TextRun, "text">;
 
+export interface TableCellNavigation {
+  rowIndex: number;
+  colIndex: number;
+}
+
 function cloneRunStyle(style: RunStyle): RunStyle {
   return style.localStyle
     ? { ...style, localStyle: { ...style.localStyle } }
@@ -49,6 +54,51 @@ function runsEqual(
 
 export function normalizeTableCellText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+export function clampTableCellNavigation({
+  rowCount,
+  colCount,
+  rowIndex,
+  colIndex,
+  rowDelta,
+  colDelta,
+}: {
+  rowCount: number;
+  colCount: number;
+  rowIndex: number;
+  colIndex: number;
+  rowDelta: number;
+  colDelta: number;
+}): TableCellNavigation | null {
+  if (rowCount <= 0 || colCount <= 0) return null;
+  return {
+    rowIndex: Math.max(0, Math.min(rowCount - 1, rowIndex + rowDelta)),
+    colIndex: Math.max(0, Math.min(colCount - 1, colIndex + colDelta)),
+  };
+}
+
+export function wrapTableCellNavigation({
+  rowCount,
+  colCount,
+  rowIndex,
+  colIndex,
+  direction,
+}: {
+  rowCount: number;
+  colCount: number;
+  rowIndex: number;
+  colIndex: number;
+  direction: 1 | -1;
+}): TableCellNavigation | null {
+  if (rowCount <= 0 || colCount <= 0) return null;
+  const total = rowCount * colCount;
+  const current = rowIndex * colCount + colIndex;
+  const next = (current + direction + total) % total;
+  return {
+    rowIndex: Math.floor(next / colCount),
+    colIndex: next % colCount,
+  };
 }
 
 export function tableCellEditableText(cell: TableCell): string {

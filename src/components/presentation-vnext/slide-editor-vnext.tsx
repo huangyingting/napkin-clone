@@ -179,7 +179,6 @@ import {
   connectorAnchorPoint,
   connectorEndpointFromSlidePoint,
 } from "@/lib/presentation-vnext/connector-geometry";
-import { applyPlainTextEditToTableContent } from "@/lib/presentation-vnext/table-cell-editing";
 
 import {
   SlideCanvasVNext,
@@ -217,6 +216,7 @@ import {
 import { InlineTextEditorVNext } from "./inline-text-editor";
 import { applyInlineTextCommit } from "./inline-text-commit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
+import { useTableCellEditing } from "./use-table-cell-editing";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
 import {
@@ -694,21 +694,6 @@ function focusStageNode(nodeId: string): void {
   const safeId = nodeId.replace(/"/g, '\\"');
   const el = document.querySelector<HTMLElement>(`[data-node-id="${safeId}"]`);
   el?.focus();
-}
-
-function focusTableCellSoon(
-  nodeId: string,
-  rowIndex: number,
-  colIndex: number,
-): void {
-  if (typeof window === "undefined") return;
-  window.setTimeout(() => {
-    const safeId = nodeId.replace(/"/g, '\\"');
-    const cell = document.querySelector<HTMLElement>(
-      `[data-node-id="${safeId}"] [data-table-cell="${rowIndex}:${colIndex}"]`,
-    );
-    cell?.focus();
-  }, 0);
 }
 
 /**
@@ -1478,13 +1463,6 @@ export function SlideEditorVNext({
     value: ConnectorEndpoint;
   } | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [tableEditingNodeId, setTableEditingNodeId] = useState<string | null>(
-    null,
-  );
-  const [activeTableCell, setActiveTableCell] = useState<{
-    rowIndex: number;
-    colIndex: number;
-  } | null>(null);
   const isDesktopInspectorViewport = useDesktopInspectorViewport();
 
   useEffect(() => {
@@ -1621,8 +1599,7 @@ export function SlideEditorVNext({
     setFocusedNodeId(null);
     setHoveredNodeId(null);
     setActiveGroupId(null);
-    setTableEditingNodeId(null);
-    setActiveTableCell(null);
+    clearTableEditing();
   }
 
   function handleInsertSlide() {
@@ -1942,8 +1919,7 @@ export function SlideEditorVNext({
       setInlineEditNodeId(null);
     }
     if (tableEditingNodeId && tableEditingNodeId !== nodeId) {
-      setTableEditingNodeId(null);
-      setActiveTableCell(null);
+      clearTableEditing();
     }
     if (activeSlide) {
       const parentGroupId = parentGroupIdForNode(activeSlide.children, nodeId);
@@ -1995,8 +1971,7 @@ export function SlideEditorVNext({
     const replacementId = replacementNodeAfterDelete(selectedIds);
     onDeckChange(deleteNodes(deck, activeSlide.id, selectedIds));
     if (tableEditingNodeId && selectedIds.includes(tableEditingNodeId)) {
-      setTableEditingNodeId(null);
-      setActiveTableCell(null);
+      clearTableEditing();
     }
     if (activeGroupId && selectedIds.includes(activeGroupId)) {
       setActiveGroupId(null);
@@ -2033,11 +2008,7 @@ export function SlideEditorVNext({
       return;
     }
     if (node.type === "table") {
-      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
-      setTableEditingNodeId(nodeId);
-      setActiveTableCell({ rowIndex: 0, colIndex: 0 });
-      focusTableCellSoon(nodeId, 0, 0);
-      setStageAnnouncement("Editing table cells");
+      handleEnterTableEdit(nodeId, { announcement: "Editing table cells" });
       return;
     }
     // Only text and shape (with text) nodes are inline-editable
@@ -2094,8 +2065,7 @@ export function SlideEditorVNext({
     setSelection((s) => clearSelection(s));
     setFocusedNodeId(null);
     setActiveGroupId(null);
-    setTableEditingNodeId(null);
-    setActiveTableCell(null);
+    clearTableEditing();
   }
 
   function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2220,131 +2190,6 @@ export function SlideEditorVNext({
     setStageAnnouncement("Image crop reset");
   }
 
-  function handleEnterTableEdit(nodeId = selectedNode?.id) {
-    if (!activeSlide || !nodeId) return;
-    const node = findNodeById(activeSlide.children, nodeId);
-    if (!node || node.type !== "table") return;
-    setSelection((s) => setSelectedNodeIds(s, [node.id]));
-    setFocusedNodeId(node.id);
-    setTableEditingNodeId(node.id);
-    setActiveTableCell({ rowIndex: 0, colIndex: 0 });
-    focusTableCellSoon(node.id, 0, 0);
-    setStageAnnouncement("Editing table cells. Use Tab or arrow keys to move.");
-  }
-
-  function handleTableCellFocus(
-    nodeId: string,
-    rowIndex: number,
-    colIndex: number,
-  ) {
-    setTableEditingNodeId(nodeId);
-    setActiveTableCell({ rowIndex, colIndex });
-    setFocusedNodeId(nodeId);
-    if (!selectedIds.includes(nodeId)) {
-      setSelection((s) => setSelectedNodeIds(s, [nodeId]));
-    }
-  }
-
-  function handleTableCellCommit(
-    nodeId: string,
-    rowIndex: number,
-    colIndex: number,
-    text: string,
-  ) {
-    if (!activeSlide) return;
-    const node = findNodeById(activeSlide.children, nodeId);
-    if (!node || node.type !== "table") return;
-    const nextContent = applyPlainTextEditToTableContent(
-      node.content,
-      rowIndex,
-      colIndex,
-      text,
-    );
-    if (nextContent === node.content) return;
-    onDeckChange(
-      updateNodeContent(deck, activeSlide.id, nodeId, {
-        rows: nextContent.rows,
-      }),
-    );
-  }
-
-  function moveTableCellFocus(
-    nodeId: string,
-    rowIndex: number,
-    colIndex: number,
-    rowDelta: number,
-    colDelta: number,
-  ) {
-    if (!activeSlide) return;
-    const node = findNodeById(activeSlide.children, nodeId);
-    if (!node || node.type !== "table") return;
-    const rowCount = node.content.rows.length;
-    const colCount = node.content.columns.length;
-    const nextRow = Math.max(0, Math.min(rowCount - 1, rowIndex + rowDelta));
-    const nextCol = Math.max(0, Math.min(colCount - 1, colIndex + colDelta));
-    setActiveTableCell({ rowIndex: nextRow, colIndex: nextCol });
-    focusTableCellSoon(nodeId, nextRow, nextCol);
-  }
-
-  function moveTableCellFocusLinear(
-    nodeId: string,
-    rowIndex: number,
-    colIndex: number,
-    direction: 1 | -1,
-  ) {
-    if (!activeSlide) return;
-    const node = findNodeById(activeSlide.children, nodeId);
-    if (!node || node.type !== "table") return;
-    const colCount = node.content.columns.length;
-    const total = node.content.rows.length * colCount;
-    if (total <= 0) return;
-    const current = rowIndex * colCount + colIndex;
-    const next = (current + direction + total) % total;
-    const nextRow = Math.floor(next / colCount);
-    const nextCol = next % colCount;
-    setActiveTableCell({ rowIndex: nextRow, colIndex: nextCol });
-    focusTableCellSoon(nodeId, nextRow, nextCol);
-  }
-
-  function handleTableCellKeyDown(
-    nodeId: string,
-    rowIndex: number,
-    colIndex: number,
-    event: KeyboardEvent<HTMLElement>,
-  ) {
-    if (event.key === "Escape") {
-      setTableEditingNodeId(null);
-      setActiveTableCell(null);
-      focusSelectedNodeSoon(nodeId);
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    if (event.key === "Tab") {
-      moveTableCellFocusLinear(
-        nodeId,
-        rowIndex,
-        colIndex,
-        event.shiftKey ? -1 : 1,
-      );
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    const movement: Record<string, [number, number] | undefined> = {
-      ArrowLeft: [0, -1],
-      ArrowRight: [0, 1],
-      ArrowUp: [-1, 0],
-      ArrowDown: [1, 0],
-    };
-    const delta = movement[event.key];
-    if (delta && (event.metaKey || event.ctrlKey || event.altKey)) {
-      moveTableCellFocus(nodeId, rowIndex, colIndex, delta[0], delta[1]);
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  }
-
   function toggleSelectionMode() {
     setSelection((s) =>
       setSelectionMode(s, s.mode === "normal" ? "layers" : "normal"),
@@ -2358,7 +2203,8 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (resizeGestureDraft) {
       drafts.set(resizeGestureDraft.nodeId, {
@@ -2428,6 +2274,26 @@ export function SlideEditorVNext({
             item.slideId === activeSlide.id && item.nodeId === firstSelectedId,
         )
       : undefined;
+  const {
+    tableEditingNodeId,
+    activeTableCell,
+    clearTableEditing,
+    handleEnterTableEdit,
+    handleTableCellFocus,
+    handleTableCellCommit,
+    handleTableCellKeyDown,
+  } = useTableCellEditing({
+    deck,
+    activeSlide,
+    selectedNodeId: firstSelectedId,
+    selectedNodeIds: selectedIds,
+    findNodeById,
+    setSelection,
+    setFocusedNodeId,
+    onDeckChange,
+    setStageAnnouncement,
+    focusSelectedNodeSoon,
+  });
   const slidePresence = useSlidePresence({
     documentId,
     userName: presenceUserName,
@@ -2448,7 +2314,7 @@ export function SlideEditorVNext({
   useEffect(() => {
     if (!activeSlide) {
       setActiveGroupId(null);
-      setTableEditingNodeId(null);
+      clearTableEditing();
       return;
     }
     if (activeGroupId && !findNodeById(activeSlide.children, activeGroupId)) {
@@ -2458,10 +2324,9 @@ export function SlideEditorVNext({
       tableEditingNodeId &&
       findNodeById(activeSlide.children, tableEditingNodeId)?.type !== "table"
     ) {
-      setTableEditingNodeId(null);
-      setActiveTableCell(null);
+      clearTableEditing();
     }
-  }, [activeGroupId, activeSlide, tableEditingNodeId]);
+  }, [activeGroupId, activeSlide, clearTableEditing, tableEditingNodeId]);
 
   // Also find the selected resolved node to support decoration detach
   const selectedResolvedNode: ResolvedRenderNode | undefined =
@@ -2762,8 +2627,7 @@ export function SlideEditorVNext({
     if (event.key === "Escape") {
       if (tableEditingNodeId) {
         const tableId = tableEditingNodeId;
-        setTableEditingNodeId(null);
-        setActiveTableCell(null);
+        clearTableEditing();
         focusSelectedNodeSoon(tableId);
         event.preventDefault();
         return;
@@ -4391,8 +4255,7 @@ export function SlideEditorVNext({
             setSelection(createSelectionState(selection.mode));
             setInlineEditNodeId(null);
             setActiveGroupId(null);
-            setTableEditingNodeId(null);
-            setActiveTableCell(null);
+            clearTableEditing();
           }}
           onInsertSlide={handleInsertSlide}
           onDuplicateSlide={(slideId) => {
