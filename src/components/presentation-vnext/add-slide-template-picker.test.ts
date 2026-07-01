@@ -24,6 +24,18 @@ function findButtonByText(node: unknown, text: string): any {
   return undefined;
 }
 
+function collectButtons(node: unknown, result: any[] = []): any[] {
+  if (!isValidElement(node)) return result;
+  const element = node as any;
+  if (element.type === "button") result.push(element);
+  const children = element.props.children;
+  const childNodes = Array.isArray(children) ? children : [children];
+  for (const child of childNodes) {
+    collectButtons(child, result);
+  }
+  return result;
+}
+
 describe("AddSlideTemplatePicker", () => {
   test("renders semantic template groups and layout choices in product language", () => {
     const registry = createDefaultTemplateRegistry();
@@ -59,5 +71,55 @@ describe("AddSlideTemplatePicker", () => {
     assert.ok(airyButton);
     airyButton.props.onClick();
     assert.deepEqual(choices, [{ kind: "content", layoutId: "content-airy" }]);
+  });
+
+  test("gives repeated layout choices unique accessible names", () => {
+    const registry = createDefaultTemplateRegistry();
+    const tree = AddSlideTemplatePicker({
+      templates: registry.all(),
+      onChoose: () => undefined,
+      onClose: () => undefined,
+    });
+    const layoutButtons = collectButtons(tree).filter((button) =>
+      typeof button.props.children === "string"
+        ? button.props.children.includes("·")
+        : false,
+    );
+
+    const labelsByVisibleText = new Map<string, string[]>();
+    for (const button of layoutButtons) {
+      const visibleText = button.props.children as string;
+      const accessibleName = button.props["aria-label"];
+      assert.equal(typeof accessibleName, "string");
+      const labels = labelsByVisibleText.get(visibleText) ?? [];
+      labels.push(accessibleName);
+      labelsByVisibleText.set(visibleText, labels);
+    }
+
+    const repeatedLayoutChoices = [...labelsByVisibleText.entries()].filter(
+      ([, labels]) => labels.length > 1,
+    );
+    assert.ok(repeatedLayoutChoices.length > 0);
+    for (const [visibleText, labels] of repeatedLayoutChoices) {
+      assert.equal(
+        new Set(labels).size,
+        labels.length,
+        `Expected unique accessible names for "${visibleText}"`,
+      );
+    }
+  });
+
+  test("routes the close button to the onClose callback", () => {
+    const registry = createDefaultTemplateRegistry();
+    const calls: string[] = [];
+    const tree = AddSlideTemplatePicker({
+      templates: [registry.get("content")!],
+      onChoose: () => undefined,
+      onClose: () => calls.push("close"),
+    });
+    const closeButton = findButtonByText(tree, "Close");
+    assert.ok(closeButton);
+    closeButton.props.onClick();
+    assert.deepEqual(calls, ["close"]);
   });
 });

@@ -41,6 +41,17 @@ function slidesDocUrl(): string | undefined {
   return process.env.E2E_SLIDES_DOC_URL;
 }
 
+async function readSlideCount(page: Page): Promise<number | null> {
+  const editor = page.locator('[data-slide-editor-vnext="true"]').first();
+  if ((await editor.count()) === 0) return null;
+  const text = await editor.textContent();
+  if (!text) return null;
+  const match = text.match(/(\d+)\s+slides\b/i);
+  if (!match) return null;
+  const count = Number.parseInt(match[1] ?? "", 10);
+  return Number.isFinite(count) ? count : null;
+}
+
 async function clickIfPresent(locator: Locator): Promise<boolean> {
   if ((await locator.count()) === 0) {
     return false;
@@ -505,5 +516,85 @@ test.describe("slides editor accessible toolbar controls", () => {
         "No accessible slide editor toolbar control was found",
       );
     }
+  });
+
+  test("add slide template picker traps focus and supports keyboard insertion", async ({
+    page,
+  }) => {
+    const creds = ownerCredentials();
+    test.skip(!creds, "Set E2E_USER_EMAIL/E2E_USER_PASSWORD to run this flow");
+    const docUrl = slidesDocUrl();
+    test.skip(
+      !docUrl,
+      "Set E2E_SLIDES_DOC_URL to run the add-slide keyboard/focus check",
+    );
+
+    await login(page, creds!);
+    await page.goto(docUrl!);
+
+    const slidesTab = page
+      .getByRole("tab", { name: /slides/i })
+      .or(page.getByRole("button", { name: /slides/i }))
+      .or(page.getByRole("link", { name: /slides/i }))
+      .first();
+    await clickIfPresent(slidesTab);
+
+    const addSlideTrigger = page
+      .getByRole("button", { name: /add slide/i })
+      .first();
+    if ((await addSlideTrigger.count()) === 0) {
+      skipOptionalSlidesFixture("Add slide trigger was not available");
+    }
+    await expect(addSlideTrigger).toBeVisible({ timeout: 10_000 });
+    const beforeCount = await readSlideCount(page);
+    if (beforeCount === null) {
+      skipOptionalSlidesFixture("Slide count summary was not available");
+    }
+
+    const picker = page.getByRole("dialog", { name: /add semantic slide/i });
+    await addSlideTrigger.focus();
+    await expect(addSlideTrigger).toBeFocused();
+    await addSlideTrigger.press("Enter");
+    await expect(picker).toBeVisible({ timeout: 10_000 });
+
+    const pickerButtons = picker.getByRole("button");
+    const buttonCount = await pickerButtons.count();
+    if (buttonCount < 2) {
+      skipOptionalSlidesFixture(
+        "Add semantic slide picker has no template buttons",
+      );
+    }
+    const closeButton = picker.getByRole("button", { name: /^close$/i });
+    const firstTemplateButton = pickerButtons.nth(1);
+    const lastPickerButton = pickerButtons.nth(buttonCount - 1);
+
+    await expect(closeButton).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(lastPickerButton).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(closeButton).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(firstTemplateButton).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await expect(addSlideTrigger).toBeFocused();
+
+    await addSlideTrigger.press("Enter");
+    await expect(picker).toBeVisible();
+    await expect(closeButton).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(firstTemplateButton).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(picker).toHaveCount(0);
+    await expect(addSlideTrigger).toBeFocused();
+    await expect.poll(() => readSlideCount(page)).toBe(beforeCount + 1);
+
+    await addSlideTrigger.press("Enter");
+    await expect(picker).toBeVisible();
+    await closeButton.click();
+    await expect(picker).toHaveCount(0);
+    await expect(addSlideTrigger).toBeFocused();
   });
 });

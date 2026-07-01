@@ -5,7 +5,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { resolveDeckRenderTree } from "@/lib/presentation-vnext/render-resolver";
-import { updateSlideLocalStyle } from "@/lib/presentation-vnext/editor-commands";
+import {
+  groupNodes,
+  moveNodesBy,
+  updateSlideLocalStyle,
+} from "@/lib/presentation-vnext/editor-commands";
 import {
   buildDeckV7,
   buildCoverSlide,
@@ -84,6 +88,36 @@ describe("resolveDeckRenderTree", () => {
       (node) => node.id === "locked-text",
     );
     assert.equal(resolved?.locked, true);
+  });
+
+  test("preserves authored node name and accessibility metadata", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const authoredNode = buildShapeNode({
+      id: "authored-shape",
+      name: "Quarterly highlight",
+      accessibility: {
+        label: "Quarterly highlight callout",
+        alt: "Quarterly highlight alt",
+        decorative: false,
+      },
+    });
+    const deck = buildDeckV7([
+      {
+        ...slide,
+        children: [...slide.children, authoredNode],
+      },
+    ]);
+    const result = resolveDeckRenderTree(deck, buildMinimalThemePackage());
+    const resolved = result.slides[0].nodes.find(
+      (node) => node.id === "authored-shape",
+    );
+    assert.equal(resolved?.name, "Quarterly highlight");
+    assert.deepEqual(resolved?.accessibility, {
+      label: "Quarterly highlight callout",
+      alt: "Quarterly highlight alt",
+      decorative: false,
+    });
   });
 
   test("resolves connector node endpoints to target anchor points", () => {
@@ -710,6 +744,39 @@ describe("resolveDeckRenderTree", () => {
     for (const node of result.slides[0].nodes) {
       assert.ok(node.layout.framePx, `Expected framePx on node ${node.id}`);
     }
+  });
+
+  test("renders grouped children at moved positions after moving the group", () => {
+    resetBuilderCounter();
+    const deck = buildDeckV7([buildContentSlide("Group movement")]);
+    const slide = deck.slides[0];
+    const grouped = groupNodes(
+      deck,
+      slide.id,
+      slide.children.map((node) => node.id),
+      "moved-group",
+      { ref: "surface.card" },
+    );
+    const moved = moveNodesBy(grouped, slide.id, ["moved-group"], {
+      x: 6,
+      y: 4,
+    });
+
+    const resolved = resolveDeckRenderTree(moved, buildMinimalThemePackage());
+    const resolvedGroup = resolved.slides[0].nodes.find(
+      (node) => node.id === "moved-group",
+    );
+    assert.equal(resolvedGroup?.type, "group");
+    if (resolvedGroup?.type !== "group") return;
+    const resolvedChildren = resolvedGroup.children ?? [];
+    assert.ok(resolvedChildren.length > 0);
+    const firstChild = resolvedChildren[0];
+    if (!firstChild) return;
+    const sourceChild = (
+      moved.slides[0].children.find((node) => node.id === "moved-group") as
+        Extract<SlideChildNode, { type: "group" }> | undefined
+    )?.children.find((node) => node.id === firstChild.id);
+    assert.deepEqual(firstChild.layout.frame, sourceChild?.layout?.frame);
   });
 
   test("resolves nested groups, visual assets, decoration content, and connector fallbacks", () => {

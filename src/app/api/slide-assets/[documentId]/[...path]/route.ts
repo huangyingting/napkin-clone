@@ -7,9 +7,9 @@
  * Access rules:
  *  1. Authenticated users with at least `view` capability on the document
  *     can fetch any asset scoped to that document.
- *  2. Assets belonging to a document that is publicly shared (isShared=true
- *     and not deleted/expired) are accessible without authentication — this
- *     covers `/present/[shareId]` and embed viewers.
+ *  2. Anonymous requests must include `shareId` + `shareMode` query params
+ *     that still satisfy the document's active share policy. Public
+ *     presentation/embed surfaces bind these params into protected URLs.
  *  3. All other requests receive 403.
  *
  * URL pattern: GET /api/slide-assets/[documentId]/[...path]
@@ -59,6 +59,8 @@ export async function GET(
   const filenamePart = Array.isArray(pathSegments)
     ? pathSegments.join("/")
     : pathSegments;
+  const requestedShareId = request.nextUrl.searchParams.get("shareId");
+  const requestedShareMode = request.nextUrl.searchParams.get("shareMode");
 
   // Reconstruct the storage key: `${documentId}/${filename}`.
   const storageKey = `${documentId}/${filenamePart}`;
@@ -72,7 +74,11 @@ export async function GET(
   });
 
   const publicAssetResolution = await resolvePublicRender({
-    params: { documentId },
+    params: {
+      documentId,
+      ...(requestedShareId ? { shareId: requestedShareId } : {}),
+      ...(requestedShareMode ? { shareMode: requestedShareMode } : {}),
+    },
     mode: "asset",
     projection: "assetAccess",
   });

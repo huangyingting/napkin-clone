@@ -26,10 +26,12 @@ export type PublicRenderProjection =
   | "presentation"
   | "metadata"
   | "assetAccess";
+type PublicAssetShareMode = "present" | "embed";
 
 export interface PublicRenderRawParams {
   shareId?: string;
   documentId?: string;
+  shareMode?: string;
 }
 
 export type PublicRenderDocumentRow = ShareAccessFields &
@@ -182,25 +184,26 @@ function publicAssetAccessDecisionToAccessDecision(
 
 export function resolvePublicAssetAccessForDocument(
   document: (ShareAccessFields & { deletedAt: Date | null }) | null,
+  requestedShareId: string,
+  requestedShareMode: PublicAssetShareMode | null,
   now?: Date,
 ): PublicAssetAccessDecision {
   if (!document || document.deletedAt) {
     return { allow: false, status: 404, reason: "document-not-found" };
   }
 
-  const requestedShareId = document.shareId ?? "";
-  const present = evaluateShareAccessDecision(
-    toShareAccessInput(document, requestedShareId, "present", now),
-  );
-  if (present.allow) {
-    return { allow: true, via: "share-present" };
+  if (!requestedShareId || !requestedShareMode) {
+    return { allow: false, status: 403, reason: "forbidden" };
   }
 
-  const embed = evaluateShareAccessDecision(
-    toShareAccessInput(document, requestedShareId, "embed", now),
+  const decision = evaluateShareAccessDecision(
+    toShareAccessInput(document, requestedShareId, requestedShareMode, now),
   );
-  if (embed.allow) {
-    return { allow: true, via: "share-embed" };
+  if (decision.allow) {
+    return {
+      allow: true,
+      via: requestedShareMode === "present" ? "share-present" : "share-embed",
+    };
   }
 
   return { allow: false, status: 403, reason: "forbidden" };
@@ -224,8 +227,16 @@ export async function resolvePublicRenderWithSource(
     const document = documentId
       ? await source.findByDocumentId(documentId)
       : null;
+    const rawShareId = input.params.shareId ?? "";
+    const requestedShareId = shareIdFromParam(rawShareId) || rawShareId;
+    const requestedShareMode =
+      input.params.shareMode === "present" || input.params.shareMode === "embed"
+        ? input.params.shareMode
+        : null;
     const publicAccess = resolvePublicAssetAccessForDocument(
       document,
+      requestedShareId,
+      requestedShareMode,
       input.now,
     );
 
@@ -316,7 +327,10 @@ export async function resolvePublicRenderWithSource(
     mode,
     projection,
     shareId,
-    presentation: buildPublicPresentationModel(document),
+    presentation: buildPublicPresentationModel(document, {
+      shareId,
+      mode: mode === "embed" ? "embed" : "present",
+    }),
     decision,
   };
 }

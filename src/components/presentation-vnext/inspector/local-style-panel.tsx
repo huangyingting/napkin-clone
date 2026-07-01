@@ -3,22 +3,100 @@
 import type { JSX } from "react";
 
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
-import type { StylePatch } from "@/lib/presentation-vnext/style-schema";
+import type {
+  StyleObject,
+  StylePatch,
+} from "@/lib/presentation-vnext/style-schema";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  clampToRange,
+  parseFiniteNumberInput,
+  sanitizeBoundedNumber,
+} from "./numeric-sanitization";
 
 export interface LocalStylePanelProps {
   node: SlideChildNode;
+  resolvedStyle?: StyleObject;
   onUpdateLocalStyle: (patch: StylePatch) => void;
 }
 
-export function solidFillColor(localStyle: StylePatch | undefined): string {
-  const fill = localStyle?.fill;
-  return fill?.type === "solid" && typeof fill.color === "string"
-    ? fill.color
-    : "#ffffff";
+function solidColor(fill: unknown): string | undefined {
+  if (
+    typeof fill === "object" &&
+    fill !== null &&
+    "type" in fill &&
+    fill.type === "solid" &&
+    "color" in fill &&
+    typeof fill.color === "string"
+  ) {
+    return fill.color;
+  }
+  return undefined;
 }
 
-export function strokeColor(localStyle: StylePatch | undefined): string {
+export function solidFillColor(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): string {
+  const fill = resolvedStyle?.fill ?? localStyle?.fill;
+  const color = solidColor(fill);
+  if (color) return color;
+  const localColor = solidColor(localStyle?.fill);
+  return localColor ?? "#ffffff";
+}
+
+export function resolvedStrokeWidth(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): number {
+  return resolvedStyle?.stroke?.widthPt ?? localStyle?.stroke?.widthPt ?? 1;
+}
+
+export function resolvedConnectorStrokeWidth(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): number {
+  return (
+    resolvedStyle?.connector?.stroke?.widthPt ??
+    localStyle?.connector?.stroke?.widthPt ??
+    1.5
+  );
+}
+
+export function textFontSize(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): number {
+  return resolvedStyle?.text?.fontSizePt ?? localStyle?.text?.fontSizePt ?? 14;
+}
+
+export function textLineHeight(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): number {
+  return (
+    resolvedStyle?.text?.lineHeight ?? localStyle?.text?.lineHeight ?? 1.15
+  );
+}
+
+export function textColorValue(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): string {
+  const resolved = resolvedStyle?.text?.color;
+  if (typeof resolved === "string") return resolved;
+  const local = localStyle?.text?.color;
+  if (typeof local === "string") return local;
+  return "#111111";
+}
+
+export function strokeColor(
+  localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
+): string {
+  if (typeof resolvedStyle?.stroke?.color === "string") {
+    return resolvedStyle.stroke.color;
+  }
   return typeof localStyle?.stroke?.color === "string"
     ? localStyle.stroke.color
     : "#111111";
@@ -26,7 +104,11 @@ export function strokeColor(localStyle: StylePatch | undefined): string {
 
 export function connectorStrokeColor(
   localStyle: StylePatch | undefined,
+  resolvedStyle?: StyleObject,
 ): string {
+  if (typeof resolvedStyle?.connector?.stroke?.color === "string") {
+    return resolvedStyle.connector.stroke.color;
+  }
   return typeof localStyle?.connector?.stroke?.color === "string"
     ? localStyle.connector.stroke.color
     : "#111111";
@@ -48,21 +130,56 @@ export function tableFillColor(
 
 export function LocalStylePanel({
   node,
+  resolvedStyle,
   onUpdateLocalStyle,
 }: LocalStylePanelProps): JSX.Element {
-  const textColor =
-    typeof node.localStyle?.text?.color === "string"
-      ? node.localStyle.text.color
-      : "#111111";
-  const fontSize = node.localStyle?.text?.fontSizePt ?? 14;
-  const lineHeight = node.localStyle?.text?.lineHeight ?? 1.15;
-  const opacity = node.localStyle?.opacity ?? 1;
+  const textColor = textColorValue(node.localStyle, resolvedStyle);
+  const fontSize = textFontSize(node.localStyle, resolvedStyle);
+  const lineHeight = textLineHeight(node.localStyle, resolvedStyle);
+  const opacity = resolvedStyle?.opacity ?? node.localStyle?.opacity ?? 1;
+  const shapeStrokeWidth = resolvedStrokeWidth(node.localStyle, resolvedStyle);
+  const currentStrokeColor = strokeColor(node.localStyle, resolvedStyle);
+  const connectorWidth = resolvedConnectorStrokeWidth(
+    node.localStyle,
+    resolvedStyle,
+  );
+  const currentConnectorStrokeColor = connectorStrokeColor(
+    node.localStyle,
+    resolvedStyle,
+  );
+  const textWeight =
+    resolvedStyle?.text?.weight ?? node.localStyle?.text?.weight;
+  const textAlign = resolvedStyle?.text?.align ?? node.localStyle?.text?.align;
+  const textItalic =
+    resolvedStyle?.text?.italic ?? node.localStyle?.text?.italic;
+  const textUnderline =
+    resolvedStyle?.text?.underline ?? node.localStyle?.text?.underline;
   const canEditText = node.type === "text" || node.type === "shape";
   const canEditFill = node.type === "shape" || node.type === "text";
   const canEditStroke = node.type === "shape";
   const canEditConnector = node.type === "connector";
   const canEditVisual = node.type === "visual";
   const canEditTable = node.type === "table";
+  const connectorDash =
+    resolvedStyle?.connector?.stroke?.dash ??
+    node.localStyle?.connector?.stroke?.dash;
+  const connectorStartArrow =
+    resolvedStyle?.connector?.startArrow ??
+    node.localStyle?.connector?.startArrow;
+  const connectorEndArrow =
+    resolvedStyle?.connector?.endArrow ?? node.localStyle?.connector?.endArrow;
+  const tableHeaderFillColor = tableFillColor(
+    resolvedStyle?.table?.headerFill,
+    tableFillColor(node.localStyle?.table?.headerFill, "#f8fafc"),
+  );
+  const tableRowFillColor = tableFillColor(
+    resolvedStyle?.table?.rowFill,
+    tableFillColor(node.localStyle?.table?.rowFill, "#ffffff"),
+  );
+  const tableAlternateFillColor = tableFillColor(
+    resolvedStyle?.table?.alternateRowFill,
+    tableFillColor(node.localStyle?.table?.alternateRowFill, "#f8fafc"),
+  );
 
   return (
     <section className="flex flex-col gap-2 px-3 py-2.5">
@@ -93,23 +210,37 @@ export function LocalStylePanel({
                 min={4}
                 max={160}
                 step={1}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const parsed = parseFiniteNumberInput(
+                    event.currentTarget.value,
+                  );
+                  const fontSize =
+                    parsed === undefined
+                      ? undefined
+                      : sanitizeBoundedNumber(parsed, 4, 160);
+                  if (fontSize === undefined) return;
                   onUpdateLocalStyle({
-                    text: { fontSizePt: Number(event.currentTarget.value) },
-                  })
-                }
+                    text: { fontSizePt: fontSize },
+                  });
+                }}
                 className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
               Weight
               <select
-                value={node.localStyle?.text?.weight ?? 400}
-                onChange={(event) =>
+                value={textWeight ?? 400}
+                onChange={(event) => {
+                  const parsed = parseFiniteNumberInput(
+                    event.currentTarget.value,
+                  );
+                  if (parsed === undefined) return;
                   onUpdateLocalStyle({
-                    text: { weight: Number(event.currentTarget.value) },
-                  })
-                }
+                    text: {
+                      weight: Math.round(clampToRange(parsed, 100, 900)),
+                    },
+                  });
+                }}
                 className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
               >
                 <option value={300}>Light</option>
@@ -121,14 +252,12 @@ export function LocalStylePanel({
             <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
               Align
               <select
-                value={node.localStyle?.text?.align ?? "left"}
+                value={textAlign ?? "left"}
                 onChange={(event) =>
                   onUpdateLocalStyle({
                     text: {
                       align: event.currentTarget.value as
-                        | "left"
-                        | "center"
-                        | "right",
+                        "left" | "center" | "right",
                     },
                   })
                 }
@@ -148,18 +277,26 @@ export function LocalStylePanel({
               min={0.8}
               max={2}
               step={0.05}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const lineHeight =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0.8, 2);
+                if (lineHeight === undefined) return;
                 onUpdateLocalStyle({
-                  text: { lineHeight: Number(event.currentTarget.value) },
-                })
-              }
+                  text: { lineHeight },
+                });
+              }}
             />
           </label>
           <div className="flex gap-4 text-xs text-ds-text-secondary">
             <label className="flex items-center gap-1.5">
               <input
                 type="checkbox"
-                checked={node.localStyle?.text?.italic === true}
+                checked={textItalic === true}
                 onChange={(event) =>
                   onUpdateLocalStyle({
                     text: { italic: event.currentTarget.checked },
@@ -171,7 +308,7 @@ export function LocalStylePanel({
             <label className="flex items-center gap-1.5">
               <input
                 type="checkbox"
-                checked={node.localStyle?.text?.underline === true}
+                checked={textUnderline === true}
                 onChange={(event) =>
                   onUpdateLocalStyle({
                     text: { underline: event.currentTarget.checked },
@@ -188,7 +325,7 @@ export function LocalStylePanel({
           Fill color
           <input
             type="color"
-            value={solidFillColor(node.localStyle)}
+            value={solidFillColor(node.localStyle, resolvedStyle)}
             onChange={(event) =>
               onUpdateLocalStyle({
                 fill: { type: "solid", color: event.currentTarget.value },
@@ -204,12 +341,12 @@ export function LocalStylePanel({
             Stroke color
             <input
               type="color"
-              value={strokeColor(node.localStyle)}
+              value={currentStrokeColor}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   stroke: {
                     color: event.currentTarget.value,
-                    widthPt: node.localStyle?.stroke?.widthPt ?? 1,
+                    widthPt: shapeStrokeWidth,
                   },
                 })
               }
@@ -220,18 +357,26 @@ export function LocalStylePanel({
             Stroke width
             <input
               type="number"
-              value={node.localStyle?.stroke?.widthPt ?? 1}
+              value={shapeStrokeWidth}
               min={0}
               max={24}
               step={0.5}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const widthPt =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0, 24);
+                if (widthPt === undefined) return;
                 onUpdateLocalStyle({
                   stroke: {
-                    color: strokeColor(node.localStyle),
-                    widthPt: Number(event.currentTarget.value),
+                    color: currentStrokeColor,
+                    widthPt,
                   },
-                })
-              }
+                });
+              }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
@@ -243,15 +388,14 @@ export function LocalStylePanel({
             Line color
             <input
               type="color"
-              value={connectorStrokeColor(node.localStyle)}
+              value={currentConnectorStrokeColor}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   connector: {
                     ...node.localStyle?.connector,
                     stroke: {
                       color: event.currentTarget.value,
-                      widthPt:
-                        node.localStyle?.connector?.stroke?.widthPt ?? 1.5,
+                      widthPt: connectorWidth,
                     },
                   },
                 })
@@ -263,40 +407,45 @@ export function LocalStylePanel({
             Line width
             <input
               type="number"
-              value={node.localStyle?.connector?.stroke?.widthPt ?? 1.5}
+              value={connectorWidth}
               min={0.5}
               max={24}
               step={0.5}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const widthPt =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0.5, 24);
+                if (widthPt === undefined) return;
                 onUpdateLocalStyle({
                   connector: {
                     ...node.localStyle?.connector,
                     stroke: {
-                      color: connectorStrokeColor(node.localStyle),
-                      widthPt: Number(event.currentTarget.value),
+                      color: currentConnectorStrokeColor,
+                      widthPt,
                     },
                   },
-                })
-              }
+                });
+              }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Dash
             <select
-              value={node.localStyle?.connector?.stroke?.dash ?? "solid"}
+              value={connectorDash ?? "solid"}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   connector: {
                     ...node.localStyle?.connector,
                     stroke: {
-                      color: connectorStrokeColor(node.localStyle),
-                      widthPt:
-                        node.localStyle?.connector?.stroke?.widthPt ?? 1.5,
+                      color: currentConnectorStrokeColor,
+                      widthPt: connectorWidth,
                       dash: event.currentTarget.value as
-                        | "solid"
-                        | "dashed"
-                        | "dotted",
+                        "solid" | "dashed" | "dotted",
                     },
                   },
                 })
@@ -311,15 +460,13 @@ export function LocalStylePanel({
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Start arrow
             <select
-              value={node.localStyle?.connector?.startArrow ?? "none"}
+              value={connectorStartArrow ?? "none"}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   connector: {
                     ...node.localStyle?.connector,
                     startArrow: event.currentTarget.value as
-                      | "none"
-                      | "arrow"
-                      | "filled",
+                      "none" | "arrow" | "filled",
                   },
                 })
               }
@@ -333,15 +480,13 @@ export function LocalStylePanel({
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             End arrow
             <select
-              value={node.localStyle?.connector?.endArrow ?? "arrow"}
+              value={connectorEndArrow ?? "arrow"}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   connector: {
                     ...node.localStyle?.connector,
                     endArrow: event.currentTarget.value as
-                      | "none"
-                      | "arrow"
-                      | "filled",
+                      "none" | "arrow" | "filled",
                   },
                 })
               }
@@ -435,10 +580,7 @@ export function LocalStylePanel({
             Header fill
             <input
               type="color"
-              value={tableFillColor(
-                node.localStyle?.table?.headerFill,
-                "#f8fafc",
-              )}
+              value={tableHeaderFillColor}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   table: {
@@ -457,7 +599,7 @@ export function LocalStylePanel({
             Row fill
             <input
               type="color"
-              value={tableFillColor(node.localStyle?.table?.rowFill, "#ffffff")}
+              value={tableRowFillColor}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   table: {
@@ -476,10 +618,7 @@ export function LocalStylePanel({
             Alternate fill
             <input
               type="color"
-              value={tableFillColor(
-                node.localStyle?.table?.alternateRowFill,
-                "#f8fafc",
-              )}
+              value={tableAlternateFillColor}
               onChange={(event) =>
                 onUpdateLocalStyle({
                   table: {
@@ -525,7 +664,15 @@ export function LocalStylePanel({
               min={0}
               max={8}
               step={0.5}
-              onChange={(event) =>
+              onChange={(event) => {
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const widthPt =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0, 8);
+                if (widthPt === undefined) return;
                 onUpdateLocalStyle({
                   table: {
                     ...node.localStyle?.table,
@@ -535,11 +682,11 @@ export function LocalStylePanel({
                         "string"
                           ? node.localStyle.table.border.color
                           : "#cbd5e1",
-                      widthPt: Number(event.currentTarget.value),
+                      widthPt,
                     },
                   },
-                })
-              }
+                });
+              }}
               className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
             />
           </label>
@@ -552,7 +699,14 @@ export function LocalStylePanel({
               max={24}
               step={1}
               onChange={(event) => {
-                const padding = Number(event.currentTarget.value);
+                const parsed = parseFiniteNumberInput(
+                  event.currentTarget.value,
+                );
+                const padding =
+                  parsed === undefined
+                    ? undefined
+                    : sanitizeBoundedNumber(parsed, 0, 24);
+                if (padding === undefined) return;
                 onUpdateLocalStyle({
                   table: {
                     ...node.localStyle?.table,
@@ -578,9 +732,15 @@ export function LocalStylePanel({
           min={0}
           max={1}
           step={0.05}
-          onChange={(event) =>
-            onUpdateLocalStyle({ opacity: Number(event.currentTarget.value) })
-          }
+          onChange={(event) => {
+            const parsed = parseFiniteNumberInput(event.currentTarget.value);
+            const nextOpacity =
+              parsed === undefined
+                ? undefined
+                : sanitizeBoundedNumber(parsed, 0, 1);
+            if (nextOpacity === undefined) return;
+            onUpdateLocalStyle({ opacity: nextOpacity });
+          }}
         />
       </label>
     </section>

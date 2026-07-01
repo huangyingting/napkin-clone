@@ -33,6 +33,7 @@ import {
   useDeckGeneration,
   type DeckGenerationOptions,
 } from "@/lib/ai/use-deck-generation";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageId } from "@/lib/presentation/theme-packages";
 
@@ -64,6 +65,7 @@ export interface SlideEditorOpenDialogProps {
   onApply: (result: {
     deckV7: DeckV7;
     truncated: boolean;
+    diagnostics: PresentationDiagnostic[];
     options: DeckGenerationOptions;
   }) => void;
   /** Run the deterministic derive (default and fallback for every failure). */
@@ -109,6 +111,7 @@ export function SlideEditorOpenDialog({
       onApply({
         deckV7: result.deckV7,
         truncated: result.truncated,
+        diagnostics: result.diagnostics,
         options: opts,
       });
       return;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
+import { MAX_DECK_JSON_BYTES } from "@/lib/limits";
 import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 
 const LEGACY_DECK = {
@@ -193,6 +194,53 @@ describe("writeDeckWithCas", () => {
 
     assert.equal(result.ok, false);
     assert.match(result.ok === false ? result.error : "", /Invalid deck:/);
+    assert.equal(calls.length, 0);
+  });
+
+  test("rejects decks whose UTF-8 payload exceeds the save limit", async () => {
+    const multibyteText = "漢🙂".repeat(80_000);
+    const oversizedDeck = {
+      ...VALID_DECK_V7,
+      slides: [
+        {
+          ...VALID_DECK_V7.slides[0],
+          children: [
+            {
+              id: "node-utf8",
+              type: "text",
+              content: {
+                paragraphs: [
+                  {
+                    id: "p-utf8",
+                    text: multibyteText,
+                    runs: [{ text: multibyteText }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const serialized = JSON.stringify(oversizedDeck);
+
+    assert.ok(serialized.length <= MAX_DECK_JSON_BYTES);
+    assert.ok(Buffer.byteLength(serialized, "utf8") > MAX_DECK_JSON_BYTES);
+
+    const { db, calls } = makeDb({ updateCount: 1 });
+    const result = await writeDeckWithCas({
+      documentId: "doc-utf8",
+      deckJson: oversizedDeck,
+      clientToken: "client-token",
+      telemetryArea: "test",
+      db,
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Deck is too large to save.",
+      failure: { code: "deck_too_large", retryable: false },
+    });
     assert.equal(calls.length, 0);
   });
 

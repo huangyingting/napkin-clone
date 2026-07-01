@@ -15,6 +15,7 @@ import type { SourceBlockIndex } from "./block-index";
 import type { DeckV7, SlideChildNode } from "./schema";
 import {
   classifyDeckSourceLinks,
+  deriveSourceReviewDerivations,
   dismissNodeSourceIssue,
   refreshAllSafeSourceLinks,
   refreshNodeSource,
@@ -232,6 +233,23 @@ describe("v7 source link classification", () => {
         ["Overview", "orphan-node", "orphan"],
         ["Overview", "remote-node", "unknown"],
       ],
+    );
+  });
+
+  test("memoizes source review derivations by deck and index identity", () => {
+    const deck = deckWithSources();
+    const sourceIndex = index();
+    const first = deriveSourceReviewDerivations(deck, sourceIndex);
+    const second = deriveSourceReviewDerivations(deck, sourceIndex);
+
+    assert.equal(first, second);
+    assert.deepEqual(
+      first.reviewItems,
+      sourceReviewItems(deck, classifyDeckSourceLinks(deck, sourceIndex)),
+    );
+    assert.deepEqual(
+      first.diagnostics,
+      sourceLinkDiagnostics(first.classifications),
     );
   });
 
