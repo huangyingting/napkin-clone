@@ -57,6 +57,9 @@ describe("seedSampleDocument", () => {
         data: {
           title: string;
           content: string;
+          contentJson: {
+            root: { children: Array<{ type: string }> };
+          };
           ownerId: string;
           visuals: {
             create: {
@@ -72,6 +75,24 @@ describe("seedSampleDocument", () => {
     assert.equal(data.title, "Welcome to TextIQ");
     assert.equal(data.ownerId, "user-1");
     assert.match(data.content, /Welcome to TextIQ/);
+    assert.match(data.content, /\| Need \| TextIQ surface \|/);
+    assert.deepEqual(
+      data.contentJson.root.children.map((child) => child.type).slice(0, -1),
+      [
+        "heading",
+        "paragraph",
+        "paragraph",
+        "heading",
+        "list",
+        "heading",
+        "list",
+        "heading",
+        "table",
+        "heading",
+        "paragraph",
+      ],
+    );
+    assert.equal(data.contentJson.root.children.at(-1)?.type, "visual");
     assert.equal(data.visuals.create.anchorBlockId.length > 0, true);
     assert.equal(data.visuals.create.type, "FLOWCHART");
     assert.equal(data.visuals.create.data.type, "flowchart");

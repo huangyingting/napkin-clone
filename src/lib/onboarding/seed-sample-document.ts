@@ -9,23 +9,42 @@ import { VISUAL_KIND_TO_PRISMA } from "@/lib/visual/schema";
 const SAMPLE_DOCUMENT_TITLE = "Welcome to TextIQ";
 
 /**
- * Example Markdown for the first-run sample document. Uses only the block kinds
- * the editor supports (headings, bullet lists, paragraphs) and keeps blocks
- * blank-line separated so {@link parseMarkdown} renders them distinctly.
+ * Example Markdown for the first-run sample document. Uses the block kinds the
+ * editor supports (headings, paragraphs, bullet lists, and tables) and keeps
+ * blocks blank-line separated so Markdown import renders them distinctly.
  */
-const SAMPLE_DOCUMENT_CONTENT = `# Welcome to TextIQ 👋
+const SAMPLE_DOCUMENT_CONTENT = `# Welcome to TextIQ
 
-This is your first document. TextIQ turns plain text into clean, shareable visuals — no design tools required.
+TextIQ is a workspace for turning messy source material into clear documents, visuals, and presentation-ready slides. Start with notes, outlines, research, or meeting transcripts; then shape them into something your team can read, discuss, and share.
 
-## How it works
+TextIQ keeps writing, visual thinking, and deck creation in one flow. You can draft in the document editor, generate diagrams from selected text, organize evidence in tables, and open the slide editor when the story is ready.
 
-- Write or paste your ideas as simple Markdown on the left
-- Generate a visual — flowchart, mind map, chart, and more
-- Customize colors, icons, and layout, then export or share
+## What you can build
+
+- Structured briefs with headings, sections, and reusable source blocks
+- Flowcharts, mind maps, matrices, and other editable visuals
+- Tables for comparing decisions, risks, owners, and next steps
+- Slide decks generated from the same document context
+
+## Example workflow
+
+- Capture the raw thinking in this document
+- Highlight a section and generate a visual from it
+- Use tables to keep responsibilities and evidence concrete
+- Open the slide editor to turn the document into a deck
+
+### Where TextIQ helps
+
+| Need | TextIQ surface | What it does |
+| --- | --- | --- |
+| Explain a process | Visuals | Converts selected text into an editable flowchart or diagram |
+| Compare options | Tables | Keeps criteria, owners, and status in a scannable structure |
+| Prepare a meeting | Slides | Builds a presentation from the document and visual inventory |
+| Share progress | Public links | Publishes a read-only document or deck with controlled access |
 
 ## Try it yourself
 
-Edit this text, then open the visual panel on the right to generate something new. The flowchart already attached to this document shows what a finished visual looks like.`;
+Edit this document, add another heading, or change the table. The editable visual below is attached to the document, so you can select it, restyle it, regenerate it, or use it as source material for a deck.`;
 
 /**
  * Seeds a single first-run sample document (with one pre-attached visual) for a
@@ -58,7 +77,7 @@ export async function seedSampleDocument(userId: string): Promise<void> {
         title: SAMPLE_DOCUMENT_TITLE,
         content: SAMPLE_DOCUMENT_CONTENT,
         contentJson: buildSeedContentJson(
-          "This sample document includes an editable visual below.",
+          SAMPLE_DOCUMENT_CONTENT,
           sampleVisual,
           visualId,
         ) as unknown as Prisma.InputJsonValue,

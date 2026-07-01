@@ -9,22 +9,29 @@ import { buildSeedContentJson } from "./seed-content";
 const DEMO_VISUAL_ID = "demo-visual-id-abc123";
 const sampleVisual = buildVisual({ title: "Seed content visual" });
 
-test("returns a root node with exactly two children: paragraph + visual", () => {
+function lastRootChild(state: ReturnType<typeof buildSeedContentJson>) {
+  const child = state.root.children.at(-1);
+  assert.ok(child);
+  return child;
+}
+
+test("returns a root node with markdown-derived blocks followed by visual", () => {
   const state = buildSeedContentJson(
-    "Hello world",
+    "# Hello world\n\nIntro paragraph\n\n- one\n- two\n\n| Need | Surface |\n| --- | --- |\n| Diagram | Visuals |",
     sampleVisual,
     DEMO_VISUAL_ID,
   );
   assert.equal(state.root.type, "root");
   assert.equal(state.root.version, 1);
-  assert.equal(state.root.children.length, 2);
-  assert.equal(state.root.children[0].type, "paragraph");
-  assert.equal(state.root.children[1].type, "visual");
+  assert.deepEqual(
+    state.root.children.map((child) => child.type),
+    ["heading", "paragraph", "list", "table", "visual"],
+  );
 });
 
 test("visual node has the correct type, version, visualId, and visual payload", () => {
   const state = buildSeedContentJson("intro", sampleVisual, DEMO_VISUAL_ID);
-  const visualNode = state.root.children[1];
+  const visualNode = lastRootChild(state);
   assert.equal(visualNode.type, "visual");
   assert.equal((visualNode as { version: number }).version, 1);
   assert.equal((visualNode as { visualId: string }).visualId, DEMO_VISUAL_ID);
@@ -34,7 +41,7 @@ test("visual node has the correct type, version, visualId, and visual payload", 
 
 test("embedded visual payload passes safeParseVisual", () => {
   const state = buildSeedContentJson("intro", sampleVisual, DEMO_VISUAL_ID);
-  const visualNode = state.root.children[1] as { visual: unknown };
+  const visualNode = lastRootChild(state) as { visual: unknown };
   const parsed = safeParseVisual(visualNode.visual);
   assert.equal(
     parsed.success,
@@ -45,13 +52,13 @@ test("embedded visual payload passes safeParseVisual", () => {
 
 test("embedded visual kind matches the fixture kind", () => {
   const state = buildSeedContentJson("intro", sampleVisual, DEMO_VISUAL_ID);
-  const visual = (state.root.children[1] as { visual: typeof sampleVisual })
+  const visual = (lastRootChild(state) as { visual: typeof sampleVisual })
     .visual;
   assert.equal(visual.type, sampleVisual.type);
   assert.equal(visual.nodes.length, sampleVisual.nodes.length);
 });
 
-test("intro paragraph renders the supplied text as a text child", () => {
+test("markdown paragraph renders the supplied text as a text child", () => {
   const text = "Welcome to TextIQ — here is the sample flowchart.";
   const state = buildSeedContentJson(text, sampleVisual, DEMO_VISUAL_ID);
   const para = state.root.children[0] as {
@@ -67,8 +74,8 @@ test("intro paragraph renders the supplied text as a text child", () => {
 test("different visualId values are stored independently", () => {
   const state1 = buildSeedContentJson("a", sampleVisual, "id-1");
   const state2 = buildSeedContentJson("b", sampleVisual, "id-2");
-  const id1 = (state1.root.children[1] as { visualId: string }).visualId;
-  const id2 = (state2.root.children[1] as { visualId: string }).visualId;
+  const id1 = (lastRootChild(state1) as { visualId: string }).visualId;
+  const id2 = (lastRootChild(state2) as { visualId: string }).visualId;
   assert.equal(id1, "id-1");
   assert.equal(id2, "id-2");
   assert.notEqual(id1, id2);

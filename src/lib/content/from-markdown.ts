@@ -1,11 +1,11 @@
 /**
  * Framework-free converter from the editor's supported Markdown subset
- * (headings H1–H3, bullet lists, and paragraphs) to a serialized Lexical editor
- * state JSON.
+ * (headings H1–H3, bullet lists, pipe tables, and paragraphs) to a serialized
+ * Lexical editor state JSON.
  *
  * It produces the serialized shape Lexical's `editorState.toJSON()` emits for
- * `ParagraphNode`, `HeadingNode`, `ListNode`, and `ListItemNode`, plus the
- * additive durable `bid` field on block-level nodes. The result still
+ * `ParagraphNode`, `HeadingNode`, `ListNode`, `ListItemNode`, and table nodes,
+ * plus the additive durable `bid` field on block-level nodes. The result still
  * round-trips through Lexical's `parseEditorState`. It deliberately does not
  * import `lexical`/React so it stays pure and unit-testable under `node --test`.
  */
