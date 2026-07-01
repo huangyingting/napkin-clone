@@ -182,6 +182,27 @@ describe("SlideEditorVNext toolbar command ownership", () => {
     assert.equal(source.includes('role="menuitemradio"'), true);
     assert.equal(source.includes('role="menuitem"'), true);
   });
+
+  test("exposes present/share roundtrip commands in the top toolbar", () => {
+    assert.equal(source.includes('aria-label="Present slides"'), true);
+    assert.equal(source.includes('aria-label="Share slides"'), true);
+    assert.equal(
+      source.includes("void handleRoundtripAction(") &&
+        source.includes("onPresent") &&
+        source.includes("onShare"),
+      true,
+    );
+  });
+
+  test("routes present/share actions through explicit save-first handling", () => {
+    assert.equal(
+      source.includes("async function handleRoundtripAction(") &&
+        source.includes("if (onSave)") &&
+        source.includes("const saveResult = await onSave(deck);") &&
+        source.includes("if (!saveResult.ok)"),
+      true,
+    );
+  });
 });
 
 describe("deleteActiveSlideFromToolbar", () => {

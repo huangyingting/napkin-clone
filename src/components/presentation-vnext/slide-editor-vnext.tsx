@@ -23,10 +23,9 @@
  * The component never mutates the deck prop. All changes are reported via
  * `onDeckChange`.
  *
- * Close / export: pass `onClose` to render a close button in the top toolbar
- * and `onExportPptx` to render an Export PPTX button. Export errors are caught
- * and surfaced inline via `exportDeckV7AsPPTX` (barrel-exported from
- * `@/lib/presentation-vnext`).
+ * Close / present / share / export: pass `onClose` for close, `onPresent` /
+ * `onShare` for public roundtrip routes, and `onExportPptx` for PPTX export.
+ * Toolbar action errors are caught and surfaced inline.
  */
 
 import {
@@ -54,9 +53,11 @@ import {
   Group,
   Keyboard,
   LayoutPanelLeft,
+  MonitorPlay,
   Redo2,
   Scissors,
   Save,
+  Share2,
   StickyNote,
   Ungroup,
   Undo2,
@@ -513,6 +514,16 @@ export interface SlideEditorVNextProps {
    * Thrown errors are caught and displayed inline.
    */
   onExportPptx?: () => Promise<void>;
+  /**
+   * Called when the user requests the public presentation route from the
+   * editor chrome. The callback should route to/open the present target.
+   */
+  onPresent?: () => Promise<ActionResult>;
+  /**
+   * Called when the user requests the public share route from the editor
+   * chrome. The callback should route to/open/copy the share target.
+   */
+  onShare?: () => Promise<ActionResult>;
   presenceAwareness?: SlidePresenceAwareness | null;
   presenceUserId?: string;
   presenceUserName?: string;
@@ -1126,6 +1137,8 @@ export function SlideEditorVNext({
   onSave,
   onClose,
   onExportPptx,
+  onPresent,
+  onShare,
   presenceAwareness = null,
   presenceUserId = "",
   presenceUserName = "Anonymous",
@@ -1158,8 +1171,8 @@ export function SlideEditorVNext({
     return buildSourceBlockIndex(documentId, documentBlocks);
   }, [documentBlocks, documentId, sourceBlockIndex]);
 
-  // Recoverable export/media errors surfaced below the toolbar banner
-  const [exportError, setExportError] = useState<string | null>(null);
+  // Recoverable toolbar action errors surfaced below the toolbar banner
+  const [toolbarError, setToolbarError] = useState<string | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
@@ -1181,11 +1194,34 @@ export function SlideEditorVNext({
 
   async function handleExportPptx() {
     if (!onExportPptx) return;
-    setExportError(null);
+    setToolbarError(null);
     try {
       await onExportPptx();
     } catch {
-      setExportError("PPTX export failed. Please try again.");
+      setToolbarError("PPTX export failed. Please try again.");
+    }
+  }
+
+  async function handleRoundtripAction(
+    action: (() => Promise<ActionResult>) | undefined,
+    fallbackError: string,
+  ) {
+    if (!action) return;
+    setToolbarError(null);
+    try {
+      if (onSave) {
+        const saveResult = await onSave(deck);
+        if (!saveResult.ok) {
+          setToolbarError(saveResult.error);
+          return;
+        }
+      }
+      const result = await action();
+      if (!result.ok) {
+        setToolbarError(result.error);
+      }
+    } catch {
+      setToolbarError(fallbackError);
     }
   }
 
@@ -1713,7 +1749,7 @@ export function SlideEditorVNext({
     insertImagePendingRef.current = false;
     if (!file || !activeSlide || (!targetId && !inserting)) return;
     if (!file.type.startsWith("image/")) {
-      setExportError("Choose an image file to replace the selected image.");
+      setToolbarError("Choose an image file to replace the selected image.");
       return;
     }
     try {
@@ -1740,9 +1776,9 @@ export function SlideEditorVNext({
         setSelection((s) => setSelectedNodeIds(s, [targetId]));
         focusSelectedNodeSoon(targetId);
       }
-      setExportError(null);
+      setToolbarError(null);
     } catch {
-      setExportError("Image replacement failed. Please try another file.");
+      setToolbarError("Image replacement failed. Please try another file.");
     }
   }
 
@@ -1754,7 +1790,7 @@ export function SlideEditorVNext({
   async function handleReplaceSlideBackgroundImageFile(file: File | undefined) {
     if (!file || !activeSlide) return;
     if (!file.type.startsWith("image/")) {
-      setExportError("Choose an image file to set the slide background.");
+      setToolbarError("Choose an image file to set the slide background.");
       return;
     }
     const slideId = activeSlide.id;
@@ -1772,9 +1808,9 @@ export function SlideEditorVNext({
           },
         }),
       );
-      setExportError(null);
+      setToolbarError(null);
     } catch {
-      setExportError(
+      setToolbarError(
         "Background image upload failed. Please try another file.",
       );
     }
@@ -1784,7 +1820,7 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     if (!onPickVisual) {
       handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
-      setExportError(null);
+      setToolbarError(null);
       return;
     }
     const pickResult = await runVisualPickerMutation({
@@ -1806,10 +1842,10 @@ export function SlideEditorVNext({
       },
     });
     if (pickResult === "failed") {
-      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      setToolbarError(VISUAL_PICKER_FAILURE_MESSAGE);
       return;
     }
-    setExportError(null);
+    setToolbarError(null);
   }
 
   async function handleReplaceSelectedVisual() {
@@ -1834,10 +1870,10 @@ export function SlideEditorVNext({
       },
     });
     if (pickResult === "failed") {
-      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      setToolbarError(VISUAL_PICKER_FAILURE_MESSAGE);
       return;
     }
-    setExportError(null);
+    setToolbarError(null);
   }
 
   function handleInsertConnector() {
@@ -2291,7 +2327,8 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {
@@ -4397,6 +4434,38 @@ export function SlideEditorVNext({
             </Popover>
           )}
 
+          {onPresent ? (
+            <button
+              type="button"
+              onClick={() =>
+                void handleRoundtripAction(
+                  onPresent,
+                  "Presentation route failed. Please try again.",
+                )
+              }
+              aria-label="Present slides"
+              disabled={saveStatus === "saving"}
+              className="flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+            >
+              <MonitorPlay size={14} aria-hidden="true" />
+            </button>
+          ) : null}
+          {onShare ? (
+            <button
+              type="button"
+              onClick={() =>
+                void handleRoundtripAction(
+                  onShare,
+                  "Share route failed. Please try again.",
+                )
+              }
+              aria-label="Share slides"
+              disabled={saveStatus === "saving"}
+              className="flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-subtle bg-ds-surface text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40"
+            >
+              <Share2 size={14} aria-hidden="true" />
+            </button>
+          ) : null}
           {onSave ? (
             <button
               type="button"
@@ -4433,13 +4502,13 @@ export function SlideEditorVNext({
         </div>
       </header>
 
-      {/* Export error banner */}
-      {exportError ? (
+      {/* Toolbar action error banner */}
+      {toolbarError ? (
         <div
           role="alert"
           className="shrink-0 border-b border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
         >
-          {exportError}
+          {toolbarError}
         </div>
       ) : null}
 

@@ -21,6 +21,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useYText } from "@/lib/collab/use-collaboration";
 import type { DocumentEditorViewModel } from "@/lib/document-editor/view-model";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import type { ShareSettings } from "@/lib/document/persistence-types";
+import {
+  buildDocumentShareUrl,
+  toPresentShareUrl,
+} from "@/lib/document/share-routes";
 import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { createEditorPlugin, EditorPluginHost } from "@/lib/lexical/editor-api";
@@ -41,6 +47,7 @@ import {
   saveDeckJson,
   saveDeckPatch,
   saveDocumentLexical,
+  toggleDocumentSharing,
 } from "./actions";
 import { uploadSlideAsset } from "./slide-asset-actions";
 import { BlockSparkPlugin } from "./block-spark";
@@ -161,6 +168,11 @@ function RoutedSlideEditorButton({
   documentId,
   initialDeckJson,
   initialContentJson,
+  initialIsShared,
+  initialShareId,
+  initialSlug,
+  initialSharePresentEnabled,
+  canManage,
   userId,
   userName,
   awareness,
@@ -168,20 +180,115 @@ function RoutedSlideEditorButton({
   documentId: string;
   initialDeckJson: unknown;
   initialContentJson?: string | null;
+  initialIsShared: boolean;
+  initialShareId: string | null;
+  initialSlug: string | null;
+  initialSharePresentEnabled: boolean;
+  canManage: boolean;
   userId: string;
   userName: string;
   awareness: SlidePresenceAwareness | null;
 }) {
+  type SlideEditorShareState = Pick<
+    ShareSettings,
+    "isShared" | "shareId" | "slug" | "presentEnabled"
+  >;
+
   const [editor] = useLexicalComposerContext();
   const [liveContentJson, setLiveContentJson] = useState<string | null>(
     initialContentJson ?? null,
   );
+  const [shareState, setShareState] = useState<SlideEditorShareState>({
+    isShared: initialIsShared,
+    shareId: initialShareId,
+    slug: initialSlug,
+    presentEnabled: initialSharePresentEnabled,
+  });
   const { openSlideEditor, closeSlideEditor } = useRightSurface();
   const deckPort = useMemo(
     () => ({ fetchDeckJson, saveDeckJson, saveDeckPatch }),
     [],
   );
   const slideAssetPort = useMemo(() => ({ uploadSlideAsset }), []);
+
+  const ensureShareState = useCallback(async (): Promise<
+    ActionResult<SlideEditorShareState>
+  > => {
+    if (shareState.isShared && shareState.shareId && shareState.slug) {
+      return actionOk(shareState);
+    }
+    if (!canManage) {
+      return actionError(
+        "Enable sharing from the document toolbar before using this action.",
+      );
+    }
+
+    const result = await toggleDocumentSharing(documentId, true);
+    if (!result.ok) {
+      return actionError(result.error);
+    }
+    const nextState: SlideEditorShareState = {
+      isShared: result.data.isShared,
+      shareId: result.data.shareId,
+      slug: result.data.slug,
+      presentEnabled: result.data.presentEnabled,
+    };
+    setShareState(nextState);
+    return actionOk(nextState);
+  }, [canManage, documentId, shareState]);
+
+  const openPublicRoute = useCallback((url: string): ActionResult => {
+    if (typeof window === "undefined") {
+      return actionError("This action is only available in the browser.");
+    }
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      return actionError("Allow pop-ups to open share links from the editor.");
+    }
+    return actionOk();
+  }, []);
+
+  const handleRoundtripShare = useCallback(async (): Promise<ActionResult> => {
+    const result = await ensureShareState();
+    if (!result.ok) return actionError(result.error);
+    if (typeof window === "undefined") {
+      return actionError("This action is only available in the browser.");
+    }
+    const shareUrl = buildDocumentShareUrl(
+      window.location.origin,
+      result.data.shareId,
+      result.data.slug,
+    );
+    if (!shareUrl) {
+      return actionError("Share link is unavailable. Please try again.");
+    }
+    return openPublicRoute(shareUrl);
+  }, [ensureShareState, openPublicRoute]);
+
+  const handleRoundtripPresent =
+    useCallback(async (): Promise<ActionResult> => {
+      const result = await ensureShareState();
+      if (!result.ok) return actionError(result.error);
+      if (!result.data.presentEnabled) {
+        return actionError(
+          "Presentation links are disabled in share settings for this document.",
+        );
+      }
+      if (typeof window === "undefined") {
+        return actionError("This action is only available in the browser.");
+      }
+      const shareUrl = buildDocumentShareUrl(
+        window.location.origin,
+        result.data.shareId,
+        result.data.slug,
+      );
+      if (!shareUrl) {
+        return actionError(
+          "Presentation link is unavailable. Please try again.",
+        );
+      }
+      return openPublicRoute(toPresentShareUrl(shareUrl));
+    }, [ensureShareState, openPublicRoute]);
 
   useEffect(() => {
     const serialize = (state: EditorState) => {
@@ -204,6 +311,8 @@ function RoutedSlideEditorButton({
       presenceUserName={userName}
       onOpenRightSurface={openSlideEditor}
       onCloseRightSurface={closeSlideEditor}
+      onPresentRoundtrip={handleRoundtripPresent}
+      onShareRoundtrip={handleRoundtripShare}
     />
   );
 }
@@ -580,6 +689,13 @@ export function LexicalEditor({
                           documentId={documentId}
                           initialDeckJson={initialDeckJson}
                           initialContentJson={initialStateJson}
+                          initialIsShared={initialIsShared}
+                          initialShareId={initialShareId}
+                          initialSlug={initialSlug}
+                          initialSharePresentEnabled={
+                            initialSharePresentEnabled
+                          }
+                          canManage={canManage}
                           userId={userId}
                           userName={userName}
                           awareness={collab.awareness}
