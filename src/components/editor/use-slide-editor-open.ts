@@ -461,6 +461,13 @@ export function useSlideEditorOpen({
     let fetchedRaw: unknown = null;
     try {
       const fetched = await deckPort.fetchDeckJson(documentId);
+      if (!fetched.ok) {
+        return {
+          ok: false,
+          error: fetched.error,
+          diagnostics: [],
+        };
+      }
       fetchedRaw = fetched.deckJson;
       revisionTokenRef.current = fetched.revisionToken;
     } catch {
@@ -816,6 +823,10 @@ export function useSlideEditorOpen({
     void (async () => {
       try {
         const fetched = await deckPort.fetchDeckJson(documentId);
+        if (!fetched.ok) {
+          setV7SaveError(fetched.error);
+          return;
+        }
         revisionTokenRef.current = fetched.revisionToken;
         lastSavedRef.current = fetched.deckJson;
         const openResult = openDeckFromJson(fetched.deckJson);
