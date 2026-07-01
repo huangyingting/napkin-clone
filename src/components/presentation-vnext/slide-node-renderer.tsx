@@ -23,6 +23,7 @@ import type {
   TextRun,
   TableContent,
   ShapeKind,
+  ListMarker,
   ConnectorContent,
   ImageCrop,
   ConnectorEndpoint,
@@ -211,6 +212,88 @@ function renderTextRuns(runs: readonly TextRun[]): JSX.Element[] {
   });
 }
 
+type OrderedListNumberStyle = NonNullable<ListMarker["numberStyle"]>;
+
+function toAlphabeticMarker(value: number, uppercase: boolean): string {
+  if (value <= 0) return "0";
+  let remaining = Math.floor(value);
+  let marker = "";
+  while (remaining > 0) {
+    remaining -= 1;
+    marker = String.fromCharCode(97 + (remaining % 26)) + marker;
+    remaining = Math.floor(remaining / 26);
+  }
+  return uppercase ? marker.toUpperCase() : marker;
+}
+
+function toLowerRomanMarker(value: number): string {
+  if (value <= 0) return "0";
+  const numerals: Array<[number, string]> = [
+    [1000, "m"],
+    [900, "cm"],
+    [500, "d"],
+    [400, "cd"],
+    [100, "c"],
+    [90, "xc"],
+    [50, "l"],
+    [40, "xl"],
+    [10, "x"],
+    [9, "ix"],
+    [5, "v"],
+    [4, "iv"],
+    [1, "i"],
+  ];
+  let remaining = Math.floor(value);
+  let marker = "";
+  for (const [amount, symbol] of numerals) {
+    while (remaining >= amount) {
+      marker += symbol;
+      remaining -= amount;
+    }
+  }
+  return marker;
+}
+
+function formatOrderedListMarker(
+  value: number,
+  style: OrderedListNumberStyle | undefined,
+): string {
+  switch (style) {
+    case "lower-alpha":
+      return `${toAlphabeticMarker(value, false)}.`;
+    case "upper-alpha":
+      return `${toAlphabeticMarker(value, true)}.`;
+    case "lower-roman":
+      return `${toLowerRomanMarker(value)}.`;
+    default:
+      return `${value}.`;
+  }
+}
+
+function resolveOrderedListMarkers(
+  paragraphs: readonly TextContent["paragraphs"][number][],
+): (string | undefined)[] {
+  const counters = new Array(6).fill(0) as number[];
+  return paragraphs.map((paragraph) => {
+    if (paragraph.list?.kind !== "number") {
+      counters.fill(0);
+      return undefined;
+    }
+    const indent = Math.max(
+      0,
+      Math.min(counters.length - 1, paragraph.list.indent ?? 0),
+    );
+    for (let depth = indent + 1; depth < counters.length; depth += 1) {
+      counters[depth] = 0;
+    }
+    counters[indent] += 1;
+    return formatOrderedListMarker(
+      counters[indent],
+      paragraph.list.numberStyle,
+    );
+  });
+}
+
 function TextNodeContent({
   content,
   paragraphSpacingPt,
@@ -224,6 +307,7 @@ function TextNodeContent({
     paragraphSpacingPt !== undefined && paragraphSpacingPt > 0
       ? `${paragraphSpacingPt}pt`
       : undefined;
+  const orderedListMarkers = resolveOrderedListMarkers(content.paragraphs);
 
   return (
     <div
@@ -252,7 +336,9 @@ function TextNodeContent({
         >
           {para.list ? (
             <span aria-hidden="true" style={{ flex: "0 0 auto" }}>
-              {para.list.kind === "number" ? `${index + 1}.` : "•"}
+              {para.list.kind === "number"
+                ? (orderedListMarkers[index] ?? "1.")
+                : "•"}
             </span>
           ) : null}
           <span>

@@ -620,7 +620,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /Table node editing cells/);
   });
 
-  test("renders paragraph list markers", () => {
+  test("renders paragraph list markers from numbered-list semantics", () => {
     const node = textNode("list-node", { x: 10, y: 10, w: 40, h: 20 });
     const html = renderToStaticMarkup(
       createElement(SlideCanvasVNext, {
@@ -633,6 +633,17 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
                 paragraphs: [
                   { id: "p1", text: "First", list: { kind: "bullet" } },
                   { id: "p2", text: "Second", list: { kind: "number" } },
+                  {
+                    id: "p3",
+                    text: "Third",
+                    list: { kind: "number", numberStyle: "lower-alpha" },
+                  },
+                  { id: "p4", text: "Break" },
+                  {
+                    id: "p5",
+                    text: "Fourth",
+                    list: { kind: "number", numberStyle: "lower-roman" },
+                  },
                 ],
               },
             },
@@ -643,7 +654,9 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
 
     assert.match(html, />•<\/span>/);
-    assert.match(html, />2\.<\/span>/);
+    assert.match(html, />1\.<\/span><span>Second<\/span>/);
+    assert.match(html, />b\.<\/span><span>Third<\/span>/);
+    assert.match(html, />i\.<\/span><span>Fourth<\/span>/);
   });
 
   test("renders supported background fill styles and deck canvas fallbacks", () => {
