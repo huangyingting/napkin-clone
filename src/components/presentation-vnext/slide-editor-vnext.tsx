@@ -32,6 +32,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -54,6 +55,7 @@ import {
   Image as ImageIcon,
   LayoutPanelLeft,
   Plus,
+  RefreshCw,
   Redo2,
   Save,
   Spline,
@@ -68,6 +70,7 @@ import {
 } from "lucide-react";
 
 import type { ActionResult } from "@/lib/action-result";
+import type { DocumentBlock } from "@/lib/content/document-blocks";
 import type { SaveStatus } from "@/lib/presentation/save-status";
 import type {
   ConnectorAnchor,
@@ -105,6 +108,7 @@ import type {
   SourceBlockIndex,
   SourceBlockIndexEntry,
 } from "@/lib/presentation-vnext/block-index";
+import { buildSourceBlockIndex } from "@/lib/presentation-vnext/block-index";
 import {
   diagnosticTargetKey,
   getDiagnosticNodeId,
@@ -122,6 +126,11 @@ import {
   unlinkNodeSource,
   updateNodeSourceState,
 } from "@/lib/presentation-vnext/source-links";
+import {
+  createDocumentSourceNode,
+  documentSourceInsertBlocks,
+  sourceBlockKindLabel,
+} from "@/lib/presentation-vnext/document-source-commands";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
@@ -315,6 +324,7 @@ export interface SlideEditorVNextProps {
   undoRedoFocus?: { nodeId: string; token: number } | null;
   onUploadImage?: (file: File) => Promise<SlideEditorVNextImageUploadResult>;
   onPickVisual?: () => Promise<SlideEditorVNextVisualPickResult | undefined>;
+  documentBlocks?: readonly DocumentBlock[];
   sourceBlockIndex?: SourceBlockIndex;
   onRefreshSource?: (args: {
     deck: DeckV7;
@@ -412,6 +422,13 @@ function inlineEditableNodes(
   return nodesInReadingOrder(nodes).filter(
     (node) => node.type === "text" || node.type === "shape",
   );
+}
+
+function sourceKindLabel(kind: NodeSourceMetadata["blockKind"]): string {
+  if (kind === "visual") return "Visual";
+  if (kind === "table") return "Table";
+  if (kind === "image") return "Image";
+  return "Text";
 }
 
 function adjacentNodeId(
@@ -1116,6 +1133,7 @@ export function SlideEditorVNext({
   undoRedoFocus = null,
   onUploadImage,
   onPickVisual,
+  documentBlocks = [],
   sourceBlockIndex,
   onRefreshSource,
   onDeckChange,
@@ -1137,6 +1155,11 @@ export function SlideEditorVNext({
   const suppressStageClickRef = useRef(false);
   const lastUndoRedoFocusTokenRef = useRef<number | null>(null);
   const themePackages = listThemePackagesV7();
+  const documentSourceIndex = useMemo(() => {
+    if (sourceBlockIndex) return sourceBlockIndex;
+    if (documentBlocks.length === 0) return undefined;
+    return buildSourceBlockIndex(documentId, documentBlocks);
+  }, [documentBlocks, documentId, sourceBlockIndex]);
 
   // Export error surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
@@ -1144,6 +1167,8 @@ export function SlideEditorVNext({
   // Insert dropdown open state
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const insertMenuRef = useRef<HTMLDivElement | null>(null);
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
+  const sourceMenuRef = useRef<HTMLDivElement | null>(null);
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
   const replaceImageTargetIdRef = useRef<string | null>(null);
@@ -1151,7 +1176,7 @@ export function SlideEditorVNext({
 
   // Close insert dropdown on click-outside or Escape
   useEffect(() => {
-    if (!insertMenuOpen) return;
+    if (!insertMenuOpen && !sourceMenuOpen) return;
     function handlePointerDown(e: PointerEvent) {
       if (
         insertMenuRef.current &&
@@ -1159,9 +1184,18 @@ export function SlideEditorVNext({
       ) {
         setInsertMenuOpen(false);
       }
+      if (
+        sourceMenuRef.current &&
+        !sourceMenuRef.current.contains(e.target as Node)
+      ) {
+        setSourceMenuOpen(false);
+      }
     }
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") setInsertMenuOpen(false);
+      if (e.key === "Escape") {
+        setInsertMenuOpen(false);
+        setSourceMenuOpen(false);
+      }
     }
     document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("keydown", handleKeyDown, true);
@@ -1169,7 +1203,7 @@ export function SlideEditorVNext({
       document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [insertMenuOpen]);
+  }, [insertMenuOpen, sourceMenuOpen]);
 
   // Inline text editing state
   const [inlineEditNodeId, setInlineEditNodeId] = useState<string | null>(null);
@@ -1596,6 +1630,30 @@ export function SlideEditorVNext({
 
   function handleInsertConnector() {
     handleInsertNode(defaultConnectorNode(nextZIndex(activeSlide)));
+  }
+
+  function handleInsertDocumentSourceBlock(
+    block: Parameters<typeof createDocumentSourceNode>[0]["block"],
+  ) {
+    if (!activeSlide) return;
+    const result = insertNode(
+      deck,
+      activeSlide.id,
+      createDocumentSourceNode({
+        block,
+        nodeId: nodeFactoryId(block.kind),
+        zIndex: nextZIndex(activeSlide),
+        linkedAt: new Date().toISOString(),
+      }),
+    );
+    onDeckChange(result.deck);
+    setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+    focusSelectedNodeSoon(result.nodeId);
+    setInsertMenuOpen(false);
+    setSourceMenuOpen(false);
+    setStageAnnouncement(
+      `Inserted ${sourceBlockKindLabel(block.kind)} from document.`,
+    );
   }
 
   function focusSelectedNodeSoon(nodeId: string | undefined) {
@@ -2086,8 +2144,8 @@ export function SlideEditorVNext({
           diagnostic.code === "theme-decoration-export-fallback",
       )
     : [];
-  const sourceClassifications = sourceBlockIndex
-    ? classifyDeckSourceLinks(deck, sourceBlockIndex)
+  const sourceClassifications = documentSourceIndex
+    ? classifyDeckSourceLinks(deck, documentSourceIndex)
     : [];
   const diagnostics = dedupeDiagnostics([
     ...boundaryDiagnostics,
@@ -2095,9 +2153,16 @@ export function SlideEditorVNext({
     ...exportDiagnostics,
     ...sourceLinkDiagnostics(sourceClassifications),
   ]);
-  const sourceReview = sourceBlockIndex
+  const sourceReview = documentSourceIndex
     ? sourceReviewItems(deck, sourceClassifications)
     : [];
+  const documentInsertBlocks = documentSourceInsertBlocks(documentSourceIndex);
+  const sourceStatusLabel =
+    documentSourceIndex === undefined
+      ? "No live document source"
+      : sourceReview.length > 0
+        ? `${sourceReview.length} source issue${sourceReview.length === 1 ? "" : "s"}`
+        : "Up to date";
 
   // ---------------------------------------------------------------------------
   // Selected node data (from the persisted deck, not the resolved tree)
@@ -2117,6 +2182,7 @@ export function SlideEditorVNext({
             item.slideId === activeSlide.id && item.nodeId === firstSelectedId,
         )
       : undefined;
+  const selectedSource = selectedNode?.source;
   const slidePresence = useSlidePresence({
     documentId,
     userName: presenceUserName,
@@ -2789,7 +2855,7 @@ export function SlideEditorVNext({
 
   async function handleRefreshSelectedSource() {
     if (!activeSlide || !selectedNode?.source) return;
-    if (sourceBlockIndex) {
+    if (documentSourceIndex) {
       handleRefreshSourceAt(activeSlide.id, selectedNode.id);
       return;
     }
@@ -2832,13 +2898,13 @@ export function SlideEditorVNext({
   }
 
   function handleRefreshSourceAt(slideId: string, nodeId: string) {
-    if (!sourceBlockIndex) return;
+    if (!documentSourceIndex) return;
     const now = new Date().toISOString();
     const result = refreshNodeSource(
       deck,
       slideId,
       nodeId,
-      sourceBlockIndex,
+      documentSourceIndex,
       now,
     );
     if (result.status === "refreshed") {
@@ -2900,12 +2966,12 @@ export function SlideEditorVNext({
   }
 
   function handleDismissSourceAt(slideId: string, nodeId: string) {
-    if (!sourceBlockIndex) return;
+    if (!documentSourceIndex) return;
     const updated = dismissNodeSourceIssue(
       deck,
       slideId,
       nodeId,
-      sourceBlockIndex,
+      documentSourceIndex,
       new Date().toISOString(),
     );
     onDeckChange(updated);
@@ -2915,10 +2981,10 @@ export function SlideEditorVNext({
   }
 
   function handleRefreshAllSources() {
-    if (!sourceBlockIndex) return;
+    if (!documentSourceIndex) return;
     const result = refreshAllSafeSourceLinks(
       deck,
-      sourceBlockIndex,
+      documentSourceIndex,
       new Date().toISOString(),
     );
     onDeckChange(result.deck);
@@ -2934,6 +3000,19 @@ export function SlideEditorVNext({
     const message = `Refreshed ${result.refreshed.length} source links; skipped ${result.skipped.length}.${skippedDetails}`;
     setSourceReviewStatus(message);
     setStageAnnouncement(message);
+  }
+
+  function handleSyncFromDocument() {
+    handleRefreshAllSources();
+    setSourceMenuOpen(false);
+  }
+
+  function handleReviewSourceLinks() {
+    const [first] = sourceReview;
+    if (!first) return;
+    handleSelectSourceItem(first.slideId, first.nodeId);
+    setInspectorPanelRequest({ panel: "source", nonce: Date.now() });
+    setSourceMenuOpen(false);
   }
 
   function handleSelectLayer(nodeId: string) {
@@ -3394,7 +3473,7 @@ export function SlideEditorVNext({
           : undefined
       }
       selectedSourceClassification={selectedSourceClassification}
-      sourceBlocks={sourceBlockIndex?.blocks}
+      sourceBlocks={documentSourceIndex?.blocks}
       onChangeStyleBinding={handleChangeStyleBinding}
       onAlignSelection={handleAlignSelection}
       onDistributeSelection={handleDistributeSelection}
@@ -3520,7 +3599,10 @@ export function SlideEditorVNext({
               aria-haspopup="true"
               aria-expanded={insertMenuOpen}
               disabled={!activeSlide}
-              onClick={() => setInsertMenuOpen((o) => !o)}
+              onClick={() => {
+                setSourceMenuOpen(false);
+                setInsertMenuOpen((o) => !o);
+              }}
               className="flex h-8 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover disabled:opacity-40"
             >
               <Plus size={13} aria-hidden="true" />
@@ -3529,78 +3611,120 @@ export function SlideEditorVNext({
             </button>
             {insertMenuOpen && (
               <div
-                className="absolute left-0 top-full z-dropdown mt-1 min-w-[140px] overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface-overlay py-1 shadow-ds-popover"
+                className="absolute left-0 top-full z-dropdown mt-1 min-w-[240px] overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface-overlay py-1 shadow-ds-popover"
                 role="menu"
               >
-                {[
-                  {
-                    label: "Slide",
-                    icon: <LayoutPanelLeft size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertSlide();
-                      setInsertMenuOpen(false);
+                <div className="max-h-[min(70vh,32rem)] overflow-y-auto">
+                  {[
+                    {
+                      label: "Slide",
+                      icon: <LayoutPanelLeft size={13} aria-hidden />,
+                      action: () => {
+                        handleInsertSlide();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                  {
-                    label: "Text",
-                    icon: <Type size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertText();
-                      setInsertMenuOpen(false);
+                    {
+                      label: "Text",
+                      icon: <Type size={13} aria-hidden />,
+                      action: () => {
+                        handleInsertText();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                  {
-                    label: "Shape",
-                    icon: <Square size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertShape();
-                      setInsertMenuOpen(false);
+                    {
+                      label: "Shape",
+                      icon: <Square size={13} aria-hidden />,
+                      action: () => {
+                        handleInsertShape();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                  {
-                    label: "Image",
-                    icon: <ImageIcon size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertImage();
-                      setInsertMenuOpen(false);
+                    {
+                      label: "Image",
+                      icon: <ImageIcon size={13} aria-hidden />,
+                      action: () => {
+                        handleInsertImage();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                  {
-                    label: "Visual",
-                    icon: <FileText size={13} aria-hidden />,
-                    action: () => {
-                      void handleInsertVisual();
-                      setInsertMenuOpen(false);
+                    {
+                      label: "Visual",
+                      icon: <FileText size={13} aria-hidden />,
+                      action: () => {
+                        void handleInsertVisual();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                  {
-                    label: "Connector",
-                    icon: <Spline size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertConnector();
-                      setInsertMenuOpen(false);
+                    {
+                      label: "Connector",
+                      icon: <Spline size={13} aria-hidden />,
+                      action: () => {
+                        handleInsertConnector();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                  {
-                    label: "Table",
-                    icon: <Table2 size={13} aria-hidden />,
-                    action: () => {
-                      handleInsertTable();
-                      setInsertMenuOpen(false);
+                    {
+                      label: "Table",
+                      icon: <Table2 size={13} aria-hidden />,
+                      action: () => {
+                        handleInsertTable();
+                        setInsertMenuOpen(false);
+                      },
                     },
-                  },
-                ].map(({ label, icon, action }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    role="menuitem"
-                    onClick={action}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
-                  >
-                    {icon}
-                    {label}
-                  </button>
-                ))}
+                  ].map(({ label, icon, action }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      role="menuitem"
+                      onClick={action}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                    >
+                      {icon}
+                      {label}
+                    </button>
+                  ))}
+
+                  {documentInsertBlocks.length > 0 ? (
+                    <>
+                      <div className="my-1 border-t border-ds-border-subtle" />
+                      <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                        From document
+                      </p>
+                      {documentInsertBlocks.map((block) => {
+                        const icon =
+                          block.kind === "text" ? (
+                            <Type size={13} aria-hidden />
+                          ) : block.kind === "table" ? (
+                            <Table2 size={13} aria-hidden />
+                          ) : (
+                            <FileText size={13} aria-hidden />
+                          );
+                        return (
+                          <button
+                            key={`${block.kind}:${block.id}`}
+                            type="button"
+                            role="menuitem"
+                            onClick={() =>
+                              handleInsertDocumentSourceBlock(block)
+                            }
+                            className="flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                          >
+                            {icon}
+                            <span className="flex min-w-0 flex-col leading-tight">
+                              <span className="truncate font-medium text-ds-text-primary">
+                                {block.displayLabel}
+                              </span>
+                              <span className="truncate text-[10px] text-ds-text-muted">
+                                {sourceBlockKindLabel(block.kind)} · {block.id}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                </div>
               </div>
             )}
           </div>
@@ -3644,6 +3768,99 @@ export function SlideEditorVNext({
               <option value="square">1:1</option>
             </select>
           </label>
+
+          <div ref={sourceMenuRef} className="relative">
+            <button
+              type="button"
+              aria-label="Document source"
+              aria-haspopup="true"
+              aria-expanded={sourceMenuOpen}
+              onClick={() => {
+                setInsertMenuOpen(false);
+                setSourceMenuOpen((open) => !open);
+              }}
+              className="relative flex h-8 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover"
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+              Source
+              <ChevronDown size={12} aria-hidden="true" />
+              {sourceReview.length > 0 ? (
+                <span className="absolute -right-1 -top-1 rounded-full bg-ds-warning-surface px-1 text-[10px] font-bold text-ds-warning-text">
+                  {sourceReview.length}
+                </span>
+              ) : null}
+            </button>
+            {sourceMenuOpen ? (
+              <div
+                className="absolute left-0 top-full z-dropdown mt-1 w-[280px] rounded-ds-md border border-ds-border-subtle bg-ds-surface-overlay p-2 shadow-ds-popover"
+                role="menu"
+              >
+                <div className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary">
+                  {sourceStatusLabel}
+                </div>
+                {documentSourceIndex ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleSyncFromDocument}
+                    className="mt-1.5 flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  >
+                    <RefreshCw size={13} aria-hidden="true" />
+                    Sync from document
+                  </button>
+                ) : null}
+                {sourceReview.length > 0 ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleReviewSourceLinks}
+                    className="mt-0.5 flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  >
+                    <FileText size={13} aria-hidden="true" />
+                    Review source links
+                  </button>
+                ) : null}
+                {selectedSource && selectedNode && activeSlide ? (
+                  <>
+                    <div className="my-1.5 border-t border-ds-border-subtle" />
+                    <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+                      Selected source
+                    </p>
+                    <p className="truncate px-2 py-1 text-[11px] text-ds-text-secondary">
+                      {selectedSource.blockKind
+                        ? sourceKindLabel(selectedSource.blockKind)
+                        : "Source"}{" "}
+                      · {selectedSource.blockId ?? "linked"}
+                    </p>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        void handleRefreshSelectedSource();
+                        setSourceMenuOpen(false);
+                      }}
+                      className="mt-0.5 flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                    >
+                      <RefreshCw size={13} aria-hidden="true" />
+                      Refresh selected source
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        handleUnlinkSourceAt(activeSlide.id, selectedNode.id);
+                        setSourceMenuOpen(false);
+                      }}
+                      className="mt-0.5 flex w-full items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary"
+                    >
+                      <FileText size={13} aria-hidden="true" />
+                      Mark selected as unlinked
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
           <div
             className="mx-1 h-5 w-px bg-ds-border-subtle"
@@ -3831,10 +4048,10 @@ export function SlideEditorVNext({
         </div>
       ) : null}
 
-      {sourceBlockIndex ? (
+      {documentSourceIndex ? (
         <SourceReviewPanel
           items={sourceReview}
-          sourceBlocks={sourceBlockIndex.blocks}
+          sourceBlocks={documentSourceIndex.blocks}
           onSelect={handleSelectSourceItem}
           onRefresh={handleRefreshSourceAt}
           onUnlink={handleUnlinkSourceAt}
