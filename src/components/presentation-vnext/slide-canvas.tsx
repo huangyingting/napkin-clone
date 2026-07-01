@@ -35,7 +35,14 @@ import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
 
 export type ResizeHandlePosition =
-  "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+  | "nw"
+  | "n"
+  | "ne"
+  | "e"
+  | "se"
+  | "s"
+  | "sw"
+  | "w";
 
 export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
