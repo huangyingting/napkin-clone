@@ -117,3 +117,42 @@ test("buildPublicPresentationModel keeps v7 protected asset references instead o
   assert.equal(model.deckV7.assets.images["protected-img"]?.src, assetSrc);
   assert.equal(model.themePackage.id, "neutral");
 });
+
+test("buildPublicPresentationModel binds protected slide asset URLs to the exposing share link", () => {
+  resetBuilderCounter();
+  const boundImageSrc = "/api/slide-assets/doc-1/uploads/protected.png?cache=1";
+  const externalSrc = "https://cdn.example.com/hero.png";
+  const v7Deck = buildDeckV7(
+    [buildSlideV7("content", [buildImageNode("protected-img")])],
+    {
+      assets: {
+        images: {
+          "protected-img": buildImageAsset("protected-img", {
+            src: boundImageSrc,
+            alt: "Protected upload",
+          }),
+          "external-img": buildImageAsset("external-img", {
+            src: externalSrc,
+            alt: "External image",
+          }),
+        },
+      },
+    },
+  );
+
+  const model = buildPublicPresentationModel(
+    {
+      title: "Share-bound public deck",
+      contentJson: { root: { children: [] } },
+      deckJson: v7Deck,
+      owner: { name: "Ava", plan: "pro" },
+    },
+    { shareId: "share123", mode: "present" },
+  );
+
+  assert.equal(
+    model.deckV7.assets.images["protected-img"]?.src,
+    "/api/slide-assets/doc-1/uploads/protected.png?cache=1&shareId=share123&shareMode=present",
+  );
+  assert.equal(model.deckV7.assets.images["external-img"]?.src, externalSrc);
+});
