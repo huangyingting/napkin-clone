@@ -54,8 +54,8 @@ export function SourceReviewPanel({
   onRefreshAll,
   statusMessage,
 }: SourceReviewPanelProps): JSX.Element | null {
+  const relinkOptions = sourceBlocks;
   if (items.length === 0) return null;
-  const relinkOptions = sourceBlocks.slice(0, 8);
   const staleCount = items.filter((item) => item.state === "stale").length;
 
   return (

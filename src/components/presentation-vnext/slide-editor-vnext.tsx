@@ -82,12 +82,7 @@ import type {
   SemanticTemplateKind,
   SlideNode,
   SlideChildNode,
-  SlotKey,
 } from "@/lib/presentation-vnext/schema";
-import type {
-  AiSlideSpec,
-  SlotValue,
-} from "@/lib/presentation-vnext/ai-plan-schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import type {
   StyleBinding,
@@ -158,6 +153,10 @@ import {
   reorderZIndex,
   applyTemplate,
 } from "@/lib/presentation-vnext/editor-commands";
+import {
+  emptySlideSpecFromLayout,
+  slideSpecFromSlide,
+} from "@/lib/presentation-vnext";
 
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-packages";
@@ -212,6 +211,10 @@ import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
+import {
+  runVisualPickerMutation,
+  VISUAL_PICKER_FAILURE_MESSAGE,
+} from "./visual-picker-recovery";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -235,21 +238,6 @@ const DECK_CHROME_KINDS: DeckChromeKind[] = [
 
 const TEMPLATE_REGISTRY = createDefaultTemplateRegistry();
 const TEMPLATE_OPTIONS = TEMPLATE_REGISTRY.all();
-const TEXT_SLOT_KEYS = new Set<SlotKey>([
-  "kicker",
-  "title",
-  "subtitle",
-  "body",
-  "leftTitle",
-  "leftBody",
-  "rightTitle",
-  "rightBody",
-  "quote",
-  "attribution",
-  "stat",
-  "statLabel",
-  "caption",
-]);
 const FILMSTRIP_COLLAPSED_KEY = "slide-filmstrip-collapsed";
 const ZOOM_PERCENT_PRESETS = [200, 150, 125, 100, 75, 50, 25] as const;
 
@@ -991,111 +979,6 @@ function defaultConnectorNode(zIndex: number): SlideChildNode {
   };
 }
 
-function paragraphText(
-  node: Extract<SlideChildNode, { type: "text" }>,
-): string {
-  return node.content.paragraphs
-    .map((paragraph) => paragraph.text)
-    .join("\n")
-    .trim();
-}
-
-function slotKeyForNode(node: SlideChildNode): SlotKey | undefined {
-  if (node.slot) return node.slot;
-  if (node.role === "title") return "title";
-  if (node.role === "subtitle") return "subtitle";
-  if (node.role === "kicker") return "kicker";
-  if (node.role === "body") return "body";
-  if (node.role === "quote") return "quote";
-  if (node.role === "attribution") return "attribution";
-  if (node.role === "caption") return "caption";
-  if (node.role === "metric") return "stat";
-  if (node.role === "table") return "table";
-  if (node.role === "visual") return "visualId";
-  return undefined;
-}
-
-function collectSlideSlots(
-  nodes: readonly SlideChildNode[],
-  slots: Partial<Record<SlotKey, SlotValue>>,
-): void {
-  for (const node of nodes) {
-    const slotKey = slotKeyForNode(node);
-    if (slotKey && node.type === "text" && TEXT_SLOT_KEYS.has(slotKey)) {
-      const text = paragraphText(node);
-      if (text) {
-        slots[slotKey] =
-          slotKey === "body"
-            ? { type: "paragraph", paragraphs: text.split("\n") }
-            : { type: "shortText", text };
-      }
-    } else if (slotKey === "table" && node.type === "table") {
-      slots.table = {
-        type: "table",
-        columns: node.content.columns.map((column) => column.label),
-        rows: node.content.rows.map((row) =>
-          row.cells.map((cell) => cell.text),
-        ),
-        ...(node.content.caption ? { caption: node.content.caption } : {}),
-      };
-    } else if (
-      slotKey === "visualId" &&
-      node.type === "visual" &&
-      node.content.visualId
-    ) {
-      slots.visualId = { type: "visual", visualId: node.content.visualId };
-    }
-    if (node.type === "group") {
-      collectSlideSlots(node.children, slots);
-    }
-  }
-}
-
-function slideSpecFromSlide(
-  slide: SlideNode,
-  kind: SemanticTemplateKind,
-  layoutId?: string,
-): AiSlideSpec {
-  const template = TEMPLATE_REGISTRY.get(kind);
-  const layout = template?.layouts.find(
-    (candidate) => candidate.id === layoutId,
-  );
-  const slots: Partial<Record<SlotKey, SlotValue>> = {};
-  collectSlideSlots(slide.children, slots);
-  return {
-    kind,
-    ...(slide.controls?.tone ? { tone: slide.controls.tone } : {}),
-    ...(layout?.density[0]
-      ? { density: layout.density[0] }
-      : slide.controls?.density
-        ? { density: slide.controls.density }
-        : {}),
-    ...(layout?.emphasis[0]
-      ? { emphasis: layout.emphasis[0] }
-      : slide.controls?.emphasis
-        ? { emphasis: slide.controls.emphasis }
-        : {}),
-    slots,
-    ...(slide.notes ? { speakerNotes: slide.notes } : {}),
-  };
-}
-
-function emptySlideSpecFromLayout(
-  kind: SemanticTemplateKind,
-  layoutId?: string,
-): AiSlideSpec {
-  const template = TEMPLATE_REGISTRY.get(kind);
-  const layout = template?.layouts.find(
-    (candidate) => candidate.id === layoutId,
-  );
-  return {
-    kind,
-    ...(layout?.density[0] ? { density: layout.density[0] } : {}),
-    ...(layout?.emphasis[0] ? { emphasis: layout.emphasis[0] } : {}),
-    slots: {},
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -1138,7 +1021,7 @@ export function SlideEditorVNext({
   const lastUndoRedoFocusTokenRef = useRef<number | null>(null);
   const themePackages = listThemePackagesV7();
 
-  // Export error surfaced below the toolbar banner
+  // Recoverable export/media errors surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
 
   // Insert dropdown open state
@@ -1234,7 +1117,12 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     const template = TEMPLATE_REGISTRY.get(kind);
     if (!template) return;
-    const spec = slideSpecFromSlide(activeSlide, kind, layoutId);
+    const spec = slideSpecFromSlide(
+      activeSlide,
+      kind,
+      layoutId,
+      TEMPLATE_REGISTRY,
+    );
     onDeckChange(applyTemplate(deck, activeSlide.id, spec, template));
     setSelection(createSelectionState(selection.mode));
   }
@@ -1437,7 +1325,11 @@ export function SlideEditorVNext({
   function handleInsertTemplateSlide(choice: AddSlideTemplateChoice) {
     const template = TEMPLATE_REGISTRY.get(choice.kind);
     if (!template) return;
-    const spec = emptySlideSpecFromLayout(choice.kind, choice.layoutId);
+    const spec = emptySlideSpecFromLayout(
+      choice.kind,
+      choice.layoutId,
+      TEMPLATE_REGISTRY,
+    );
     const result = insertTemplateSlide(
       deck,
       spec,
@@ -1555,23 +1447,32 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     if (!onPickVisual) {
       handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
+      setExportError(null);
       return;
     }
-    const picked = await onPickVisual();
-    if (!picked) return;
-    const deckWithAsset = deckWithPickedVisualAsset(deck, picked);
-    const node = defaultVisualNode(nextZIndex(activeSlide));
-    if (node.type !== "visual") return;
-    const result = insertNode(deckWithAsset, activeSlide.id, {
-      ...node,
-      content: {
-        ...node.content,
-        ...visualContentPatchFromPick(picked),
+    const pickResult = await runVisualPickerMutation({
+      onPickVisual,
+      onPicked: (picked) => {
+        const deckWithAsset = deckWithPickedVisualAsset(deck, picked);
+        const node = defaultVisualNode(nextZIndex(activeSlide));
+        if (node.type !== "visual") return;
+        const result = insertNode(deckWithAsset, activeSlide.id, {
+          ...node,
+          content: {
+            ...node.content,
+            ...visualContentPatchFromPick(picked),
+          },
+        });
+        onDeckChange(result.deck);
+        setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+        focusSelectedNodeSoon(result.nodeId);
       },
     });
-    onDeckChange(result.deck);
-    setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
-    focusSelectedNodeSoon(result.nodeId);
+    if (pickResult === "failed") {
+      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      return;
+    }
+    setExportError(null);
   }
 
   async function handleReplaceSelectedVisual() {
@@ -1580,18 +1481,26 @@ export function SlideEditorVNext({
       setStageAnnouncement("No visual picker is configured for this editor.");
       return;
     }
-    const picked = await onPickVisual();
-    if (!picked) return;
-    onDeckChange(
-      updateNodeContent(
-        deckWithPickedVisualAsset(deck, picked),
-        activeSlide.id,
-        selectedNode.id,
-        visualContentPatchFromPick(picked),
-      ),
-    );
-    setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
-    focusSelectedNodeSoon(selectedNode.id);
+    const pickResult = await runVisualPickerMutation({
+      onPickVisual,
+      onPicked: (picked) => {
+        onDeckChange(
+          updateNodeContent(
+            deckWithPickedVisualAsset(deck, picked),
+            activeSlide.id,
+            selectedNode.id,
+            visualContentPatchFromPick(picked),
+          ),
+        );
+        setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
+        focusSelectedNodeSoon(selectedNode.id);
+      },
+    });
+    if (pickResult === "failed") {
+      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      return;
+    }
+    setExportError(null);
   }
 
   function handleInsertConnector() {
