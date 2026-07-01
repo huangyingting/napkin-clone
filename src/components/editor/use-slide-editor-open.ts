@@ -279,6 +279,56 @@ export function createDeckAutosaveOnDue({
   };
 }
 
+interface ApplyAiDeckProposalV7Params {
+  aiDeck: DeckV7;
+  generationDiagnostics?: PresentationDiagnostic[];
+  aiAppliedDeckRef: { current: DeckV7 | null };
+  enterRecoveryV7: (info: SlideEditorOpenErrorV7) => void;
+  finishOpenV7: (deck: DeckV7, diagnostics?: PresentationDiagnostic[]) => void;
+  cancelAutosaveV7: () => void;
+  setV7Dirty: (dirty: boolean) => void;
+  persistDeckV7: (deck: DeckV7) => Promise<ActionResult>;
+}
+
+export function applyAiDeckProposalV7({
+  aiDeck,
+  generationDiagnostics = [],
+  aiAppliedDeckRef,
+  enterRecoveryV7,
+  finishOpenV7,
+  cancelAutosaveV7,
+  setV7Dirty,
+  persistDeckV7,
+}: ApplyAiDeckProposalV7Params): void {
+  // Route AI proposals through the same open boundary so a malformed deck
+  // surfaces recovery diagnostics instead of silently blanking the editor.
+  const opened = openAiGeneratedDeck(aiDeck);
+  if (!opened.ok) {
+    enterRecoveryV7({
+      error: opened.error,
+      diagnostics: mergePresentationDiagnostics(
+        generationDiagnostics,
+        opened.diagnostics,
+      ),
+      validationErrors: opened.errors,
+    });
+    return;
+  }
+  const mergedDiagnostics = mergePresentationDiagnostics(
+    generationDiagnostics,
+    opened.diagnostics,
+  );
+  aiAppliedDeckRef.current = opened.deck;
+  emitProductTelemetry("product.ai.deck.applied", {
+    editDistanceBucket: bucketCount(opened.deck.slides.length),
+    slideCount: opened.deck.slides.length,
+  });
+  cancelAutosaveV7();
+  finishOpenV7(opened.deck, mergedDiagnostics);
+  setV7Dirty(true);
+  void persistDeckV7(opened.deck);
+}
+
 export function useSlideEditorOpen({
   documentId,
   initialDeckJson,
@@ -534,32 +584,24 @@ export function useSlideEditorOpen({
 
   const openWithAiDeckV7 = useCallback(
     (aiDeck: DeckV7, generationDiagnostics: PresentationDiagnostic[] = []) => {
-      // Route AI proposals through the same open boundary so a malformed deck
-      // surfaces recovery diagnostics instead of silently blanking the editor.
-      const opened = openAiGeneratedDeck(aiDeck);
-      if (!opened.ok) {
-        enterRecoveryV7({
-          error: opened.error,
-          diagnostics: mergePresentationDiagnostics(
-            generationDiagnostics,
-            opened.diagnostics,
-          ),
-          validationErrors: opened.errors,
-        });
-        return;
-      }
-      const mergedDiagnostics = mergePresentationDiagnostics(
+      applyAiDeckProposalV7({
+        aiDeck,
         generationDiagnostics,
-        opened.diagnostics,
-      );
-      aiAppliedDeckRef.current = opened.deck;
-      emitProductTelemetry("product.ai.deck.applied", {
-        editDistanceBucket: bucketCount(opened.deck.slides.length),
-        slideCount: opened.deck.slides.length,
+        aiAppliedDeckRef,
+        enterRecoveryV7,
+        finishOpenV7,
+        cancelAutosaveV7,
+        setV7Dirty,
+        persistDeckV7,
       });
-      finishOpenV7(opened.deck, mergedDiagnostics);
     },
-    [enterRecoveryV7, finishOpenV7],
+    [
+      cancelAutosaveV7,
+      enterRecoveryV7,
+      finishOpenV7,
+      persistDeckV7,
+      setV7Dirty,
+    ],
   );
 
   const showAiPreviewV7 = useCallback(
