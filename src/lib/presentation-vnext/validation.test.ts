@@ -566,6 +566,89 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts valid canvas safeArea insets", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      canvas: {
+        format: "16:9",
+        width: 100,
+        height: 56.25,
+        unit: "percent",
+        safeArea: { top: 6, right: 6, bottom: 6, left: 6 },
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(result.success);
+  });
+
+  test("rejects non-object canvas safeArea", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      canvas: {
+        format: "16:9",
+        width: 100,
+        height: 56.25,
+        unit: "percent",
+        safeArea: "bad",
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((e) =>
+          /Deck\.canvas\.safeArea must be an object/.test(e),
+        ),
+      );
+    }
+  });
+
+  test("rejects canvas safeArea with missing or non-finite inset fields", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      canvas: {
+        format: "16:9",
+        width: 100,
+        height: 56.25,
+        unit: "percent",
+        safeArea: { top: 6, right: 6, bottom: 6 },
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((e) =>
+          /Deck\.canvas\.safeArea\.left must be a finite number/.test(e),
+        ),
+      );
+    }
+  });
+
+  test("rejects canvas safeArea with unknown inset keys", () => {
+    const deck = {
+      ...buildMinimalDeckV7(),
+      canvas: {
+        format: "16:9",
+        width: 100,
+        height: 56.25,
+        unit: "percent",
+        safeArea: { top: 6, right: 6, bottom: 6, left: 6, horizontal: 12 },
+      },
+    };
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((e) =>
+          /Deck\.canvas\.safeArea\.horizontal is not a known inset field/.test(
+            e,
+          ),
+        ),
+      );
+    }
+  });
+
   test("rejects non-object asset registry", () => {
     const deck = { ...buildMinimalDeckV7(), assets: "not-an-object" };
     const result = safeParseDeckV7(deck);

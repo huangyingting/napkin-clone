@@ -95,6 +95,9 @@ function validateCanvas(
   if (input.unit !== "percent") {
     fail(errors, `${ctx}.unit must be "percent"`);
   }
+  if (input.safeArea !== undefined) {
+    validateInsetsPct(input.safeArea, `${ctx}.safeArea`, errors);
+  }
   return input;
 }
 
@@ -263,6 +266,12 @@ function validateInsetsPct(
   if (!isPlainObject(input)) {
     fail(errors, `${ctx} must be an object`);
     return;
+  }
+  const allowed = new Set(["top", "right", "bottom", "left"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known inset field`);
+    }
   }
   for (const key of ["top", "right", "bottom", "left"] as const) {
     if (!isFiniteNumber(input[key])) {
