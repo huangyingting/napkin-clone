@@ -51,18 +51,21 @@ command detaches them.
 
 Supported element rendering:
 
-| Node        | Runtime behavior                                                                                |
-| ----------- | ----------------------------------------------------------------------------------------------- |
-| `text`      | Paragraph content, rich text runs, fit mode, role/style binding, local style, and rotation.     |
-| `visual`    | Renders visual placeholders or resolved visual image assets with channel-color defaults.        |
-| `image`     | Renders deck image assets with fit/crop/alt metadata and missing-asset diagnostics.             |
-| `shape`     | Renders shape geometry, optional text content, fill/stroke/effect style, opacity, and rotation. |
-| `connector` | Resolves point/node endpoints and renders straight/elbow/curved connector intent.               |
-| `table`     | Renders a clipped grid with optional header, caption, alternating rows, borders, and cell runs. |
-| `group`     | Renders nested child nodes in group-local order while preserving group lock/selection metadata. |
+| Node        | Runtime behavior                                                                                                              |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `text`      | Paragraph content, rich text runs, fit mode, role/style binding, local style, and rotation.                                   |
+| `visual`    | Renders visual placeholders or resolved visual image assets with channel-color defaults.                                      |
+| `image`     | Renders deck image assets with fit/crop/alt metadata and missing-asset diagnostics.                                           |
+| `shape`     | Renders shape geometry, optional text content, fill/stroke/effect style, opacity, and rotation.                               |
+| `connector` | Resolves point/node endpoints and renders straight/elbow/curved connector intent with per-node SVG marker ids for arrowheads. |
+| `table`     | Renders a clipped grid with optional header, caption, alternating rows, borders, and cell runs.                               |
+| `group`     | Renders nested child nodes in group-local order while preserving group lock/selection metadata.                               |
 
 Renderers do not synthesize nodes from flat slide fields. A stored deck must
 already be valid DeckV7 with slide content under `SlideNode.children`.
+When a container-rendered node uses `fill.type: "image"`, the renderer draws the
+fill as a separate overlay layer and applies `fill.opacity` there so node
+content does not fade with the background image.
 
 ## Present Mode
 
@@ -151,6 +154,9 @@ deterministic across platforms.
   self-hosted CJK fallback (`Noto Sans SC`) appended by `ensureCjkFallback` in
   the token resolver, so Simplified Chinese renders deterministically even for
   theme-default text.
+- Brand custom `@font-face` rules escape the authored family name before CSS
+  injection (`buildFontFaceCss`) so stored font labels cannot break runtime
+  stylesheet syntax.
 - Editable PPTX export maps registry fonts to Office-compatible faces
   (`slideFontExportFace`), choosing the CJK face for primarily-Chinese text.
   Preflight emits a non-blocking `font-cjk-mapping` notice when the deck

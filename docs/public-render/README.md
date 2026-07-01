@@ -21,23 +21,28 @@ presentation rendering, visual dependencies, and paid-plan attribution.
 | Share page                | [`src/app/share/[shareId]/page.tsx`](../../src/app/share/%5BshareId%5D/page.tsx)                                                     |
 | Embed page                | [`src/app/embed/[shareId]/page.tsx`](../../src/app/embed/%5BshareId%5D/page.tsx)                                                     |
 | Public present page       | [`src/app/present/[shareId]/page.tsx`](../../src/app/present/%5BshareId%5D/page.tsx)                                                 |
+| Present embed route input | [`src/lib/public-render/present-embed-route.ts`](../../src/lib/public-render/present-embed-route.ts)                                 |
 | Protected slide assets    | [`src/app/api/slide-assets/[documentId]/[...path]/route.ts`](../../src/app/api/slide-assets/%5BdocumentId%5D/%5B...path%5D/route.ts) |
 
 ## Modes And Projections
 
 The resolver separates user-facing mode from data projection:
 
-| Mode      | Projection     | Purpose                                  |
-| --------- | -------------- | ---------------------------------------- |
-| `view`    | `document`     | Public read-only document page.          |
-| `embed`   | `document`     | Public embeddable document view.         |
-| `present` | `presentation` | Public deck presentation.                |
-| `og`      | `metadata`     | Open Graph and social metadata.          |
-| `asset`   | `assetAccess`  | Protected public asset serving decision. |
+| Mode      | Projection     | Purpose                                                      |
+| --------- | -------------- | ------------------------------------------------------------ |
+| `view`    | `document`     | Public read-only document page.                              |
+| `embed`   | `document`     | Public embeddable document view (`/embed/[shareId]`).        |
+| `embed`   | `presentation` | Embeddable public presentation (`/present/[shareId]/embed`). |
+| `present` | `presentation` | Public deck presentation (`/present/[shareId]`).             |
+| `og`      | `metadata`     | Open Graph and social metadata.                              |
+| `asset`   | `assetAccess`  | Protected public asset serving decision.                     |
 
 The pure resolver validates that asset mode only uses the asset-access
 projection. Non-asset public modes resolve by share id. Asset access resolves by
 document id because asset URLs are scoped to a document.
+The present embed route intentionally uses `mode: "embed"` with
+`projection: "presentation"` so embedded presentations follow embed-share policy
+rather than present-share policy.
 
 ## Access Policy
 
