@@ -659,10 +659,12 @@ function canvasStageFit(
   deck: DeckV7,
   zoomPercent: number,
   viewport: StageFitSize | null,
+  isDesktopInspectorViewport: boolean,
 ): CanvasStageFit {
   const safeViewport = viewport ?? STAGE_VIEWPORT_FALLBACK;
-  const rightOverlayWidth =
-    safeViewport.width >= 1024 ? DESKTOP_INSPECTOR_OVERLAY_WIDTH : 0;
+  const rightOverlayWidth = isDesktopInspectorViewport
+    ? DESKTOP_INSPECTOR_OVERLAY_WIDTH
+    : 0;
   return fitCanvasToViewport({
     viewport: safeViewport,
     aspectRatio: canvasAspectRatio(deck),
@@ -3536,7 +3538,12 @@ export function SlideEditorVNext({
     );
   }
 
-  const stageFit = canvasStageFit(deck, stageZoomPercent, stageViewportSize);
+  const stageFit = canvasStageFit(
+    deck,
+    stageZoomPercent,
+    stageViewportSize,
+    isDesktopInspectorViewport,
+  );
   const stageFrameStyle = canvasFrameStyle(stageFit);
   const stageScrollStyle = stageScrollContentStyle(stageFit);
   const activeSlideName = slideDisplayName(activeSlide, activeSlideIndex);
