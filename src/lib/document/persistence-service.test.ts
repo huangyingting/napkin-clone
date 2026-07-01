@@ -404,6 +404,71 @@ const VALID_DECK_V7 = {
   ],
 };
 
+const VALID_RESTORE_DECK_V7 = {
+  schemaVersion: 7,
+  canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
+  theme: { packageId: "neutral" },
+  assets: {
+    images: {},
+    visuals: {
+      "visual-asset-1": {
+        id: "visual-asset-1",
+        visualId: "asset-visual-id",
+      },
+    },
+  },
+  slides: [
+    {
+      id: "slide-restore-v7",
+      type: "slide",
+      template: { kind: "cover" },
+      style: { ref: "slide.cover" },
+      children: [
+        {
+          id: "visual-keep",
+          type: "visual",
+          layout: { frame: { x: 5, y: 8, w: 35, h: 28 }, zIndex: 1 },
+          style: { ref: "chart.primary" },
+          content: { visualId: "vis-keep" },
+        },
+        {
+          id: "visual-drop",
+          type: "visual",
+          layout: { frame: { x: 42, y: 8, w: 35, h: 28 }, zIndex: 2 },
+          style: { ref: "chart.primary" },
+          content: { visualId: "vis-drop" },
+        },
+        {
+          id: "group-1",
+          type: "group",
+          component: "custom",
+          layout: { frame: { x: 8, y: 40, w: 84, h: 50 }, zIndex: 3 },
+          style: { ref: "surface.card" },
+          children: [
+            {
+              id: "group-visual-drop",
+              type: "visual",
+              layout: { frame: { x: 0, y: 0, w: 30, h: 30 }, zIndex: 1 },
+              style: { ref: "chart.primary" },
+              content: { visualId: "vis-group-drop" },
+            },
+            {
+              id: "group-visual-asset",
+              type: "visual",
+              layout: { frame: { x: 35, y: 0, w: 30, h: 30 }, zIndex: 2 },
+              style: { ref: "chart.primary" },
+              content: {
+                assetId: "visual-asset-1",
+                visualId: "vis-asset-drop",
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 /** Minimal Lexical state carrying a single visual node with the given visualId. */
 function lexicalStateWithVisual(visualId: string): unknown {
   return {
@@ -429,6 +494,28 @@ function lexicalStateWithVisual(visualId: string): unknown {
       version: 1,
     },
   };
+}
+
+function collectDeckV7VisualIds(deck: any): string[] {
+  const visualIds: string[] = [];
+  const visit = (nodes: any[]) => {
+    for (const node of nodes) {
+      if (node.type === "group") {
+        visit(node.children ?? []);
+        continue;
+      }
+      if (
+        node.type === "visual" &&
+        typeof node.content?.visualId === "string"
+      ) {
+        visualIds.push(node.content.visualId);
+      }
+    }
+  };
+  for (const slide of deck.slides ?? []) {
+    visit(slide.children ?? []);
+  }
+  return visualIds;
 }
 
 describe("sanitizeRestoredDeck", () => {
@@ -505,6 +592,33 @@ describe("sanitizeRestoredDeck", () => {
       visualElements.length,
       2,
       "both visual elements should remain",
+    );
+  });
+
+  test("reconciles DeckV7 child visual references during restore", () => {
+    const restoredContent = lexicalStateWithVisual("vis-keep");
+    const result = sanitizeRestoredDeck(
+      VALID_RESTORE_DECK_V7 as unknown as Prisma.JsonValue,
+      restoredContent,
+    );
+
+    assert.notEqual(result, Prisma.DbNull);
+    const deck = result as any;
+    const visualIds = collectDeckV7VisualIds(deck);
+    assert.deepEqual(visualIds, ["vis-keep"]);
+
+    const group = deck.slides[0].children.find(
+      (node: any) => node.id === "group-1",
+    );
+    assert.ok(group, "group should remain");
+    const assetNode = group.children.find(
+      (node: any) => node.id === "group-visual-asset",
+    );
+    assert.ok(assetNode, "asset-backed visual node should remain");
+    assert.equal(
+      assetNode.content.visualId,
+      undefined,
+      "stale visualId should be stripped from asset-backed visual nodes",
     );
   });
 

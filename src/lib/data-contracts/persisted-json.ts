@@ -13,7 +13,8 @@ import {
 } from "./literals";
 
 export type ContractValidationResult =
-  { success: true } | { success: false; error: string };
+  | { success: true }
+  | { success: false; error: string };
 
 export interface PersistedJsonContract {
   name: string;
@@ -35,6 +36,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validateDeckContract(value: unknown): ContractValidationResult {
+  const parsed = safeParseDeckV7(value);
+  return parsed.success ? ok() : fail(parsed.errors.join("; "));
+}
+
+function validateDeckV7Contract(value: unknown): ContractValidationResult {
   const parsed = safeParseDeckV7(value);
   return parsed.success ? ok() : fail(parsed.errors.join("; "));
 }
@@ -127,9 +133,9 @@ export const PERSISTED_JSON_CONTRACTS = {
   "DocumentVersion.deckJson": {
     name: "DocumentVersion.deckJson",
     sourceOfTruth:
-      "DocumentVersion.deckJson snapshots must use the current deck schema.",
+      "DocumentVersion.deckJson snapshots must use DeckV7 (schemaVersion 7).",
     validator: "@/lib/presentation-vnext/validation#safeParseDeckV7",
-    validate: validateDeckContract,
+    validate: validateDeckV7Contract,
   },
   "DocumentVersion.contentJson:visual": {
     name: "DocumentVersion.contentJson:visual",

@@ -12,25 +12,6 @@ function validDeck(): unknown {
   return buildMinimalDeckV7();
 }
 
-function legacyV6Deck(): unknown {
-  return {
-    schemaVersion: 6,
-    canvas: { format: "16:9" },
-    design: { themeId: "indigo" },
-    masters: [{ id: "master-default", name: "Default", elements: [] }],
-    defaultMasterId: "master-default",
-    slides: [
-      {
-        id: "slide-1",
-        index: 0,
-        title: "Intro",
-        notes: "",
-        elements: [],
-      },
-    ],
-  };
-}
-
 function validVisual(): Record<string, unknown> {
   return {
     version: 1,
@@ -67,13 +48,36 @@ test("persisted JSON registry points at current validators", () => {
     PERSISTED_JSON_CONTRACTS["Visual.data"].validate(validVisual()).success,
     true,
   );
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["DocumentVersion.deckJson"].validate(
+      buildMinimalDeckV7(),
+    ).success,
+    true,
+  );
   assert.equal(getPersistedJsonContract("Visual.data").name, "Visual.data");
 });
 
 // @compat — confirms superseded deck shapes and retired anchor types are rejected at the persistence boundary
 test("registry rejects superseded deck and invalid comment anchor shapes", () => {
+  const legacyV6Deck = {
+    schemaVersion: 6,
+    canvas: { format: "16:9" },
+    design: { themeId: "indigo" },
+    masters: [{ id: "master-default", name: "Default", elements: [] }],
+    defaultMasterId: "master-default",
+    slides: [
+      {
+        id: "slide-1",
+        index: 0,
+        title: "Intro",
+        notes: "",
+        elements: [],
+      },
+    ],
+  };
+
   assert.equal(
-    PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(legacyV6Deck())
+    PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(legacyV6Deck)
       .success,
     false,
   );
@@ -81,6 +85,11 @@ test("registry rejects superseded deck and invalid comment anchor shapes", () =>
     PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(
       JSON.stringify(validDeck()),
     ).success,
+    false,
+  );
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["DocumentVersion.deckJson"].validate(legacyV6Deck)
+      .success,
     false,
   );
   assert.equal(
