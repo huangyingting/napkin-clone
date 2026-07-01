@@ -257,7 +257,9 @@ export function LocalStylePanel({
                   onUpdateLocalStyle({
                     text: {
                       align: event.currentTarget.value as
-                        "left" | "center" | "right",
+                        | "left"
+                        | "center"
+                        | "right",
                     },
                   })
                 }
@@ -445,7 +447,9 @@ export function LocalStylePanel({
                       color: currentConnectorStrokeColor,
                       widthPt: connectorWidth,
                       dash: event.currentTarget.value as
-                        "solid" | "dashed" | "dotted",
+                        | "solid"
+                        | "dashed"
+                        | "dotted",
                     },
                   },
                 })
@@ -466,7 +470,9 @@ export function LocalStylePanel({
                   connector: {
                     ...node.localStyle?.connector,
                     startArrow: event.currentTarget.value as
-                      "none" | "arrow" | "filled",
+                      | "none"
+                      | "arrow"
+                      | "filled",
                   },
                 })
               }
@@ -486,7 +492,9 @@ export function LocalStylePanel({
                   connector: {
                     ...node.localStyle?.connector,
                     endArrow: event.currentTarget.value as
-                      "none" | "arrow" | "filled",
+                      | "none"
+                      | "arrow"
+                      | "filled",
                   },
                 })
               }

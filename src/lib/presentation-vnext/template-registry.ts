@@ -5,7 +5,7 @@
  * AI fills semantic slots. These layers must not leak into each other.
  */
 
-import type { TemplateVersion, JsonValue } from "./types";
+import type { TemplateVersion, JsonValue, AssetId } from "./types";
 import type { StyleBinding } from "./style-schema";
 import type {
   SemanticTemplateKind,
@@ -18,7 +18,6 @@ import type {
   GroupComponentKind,
   SlideChildNode,
 } from "./schema";
-import type { TemplateStaticContent } from "./theme-package-schema";
 
 // ---------------------------------------------------------------------------
 // Slot contracts
@@ -43,6 +42,11 @@ export type OverflowPolicy =
   | "chooseDenserLayout"
   | "splitSlide"
   | "truncateWithNote";
+
+export type TemplateStaticContent =
+  | { type: "text"; text: string }
+  | { type: "shape"; shape: string }
+  | { type: "image"; assetId: AssetId };
 
 export type SlotContract = {
   type: SlotValueType;

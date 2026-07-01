@@ -678,6 +678,7 @@ test.describe("deterministic profile document editor smoke", () => {
       const discardDialog = page.getByRole("dialog", {
         name: /close and discard changes/i,
       });
+      // e2e-governance-allow broad-catch: optional discard dialog may disappear between locator creation and visibility check.
       if (await discardDialog.isVisible().catch(() => false)) {
         await discardDialog
           .getByRole("button", { name: /discard changes/i })
@@ -886,6 +887,7 @@ test.describe("deterministic profile document editor smoke", () => {
       (await titleNode.getAttribute("aria-label")) ??
       `Text: ${E2E_PROFILE_FIXTURE.slideTitleText}`;
     const originalTitle = originalLabel.replace(/^Text:\s*/i, "").trim();
+    // e2e-governance-allow nondeterministic-id: profile roundtrip needs a unique visible title token within one test run.
     const mutationToken = Date.now().toString().slice(-6);
     const editedTitle = `${originalTitle} ${mutationToken}`;
 

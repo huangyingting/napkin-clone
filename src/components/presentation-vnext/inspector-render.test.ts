@@ -324,6 +324,7 @@ function invokePanelHandlers(node: ReactNode): number {
   ];
   const clickEvent = {
     preventDefault: () => undefined,
+    stopPropagation: () => undefined,
     currentTarget: {
       value: "#123456",
       checked: true,

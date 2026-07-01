@@ -111,6 +111,28 @@ test("parseDeckResponse returns vnext response metadata", () => {
   });
 });
 
+test("parseDeckResponse drops invalid metadata fields and empty kind counts", () => {
+  const parsed = parseDeckResponse({
+    deck: VALID_DECK_V7,
+    metadata: {
+      requestedGenerationMode: "legacy",
+      generationMode: "vnext",
+      fallback: "no",
+      tableSlideCount: -1,
+      schemaValid: "yes",
+      themePackageId: "not-a-package",
+      selectedKindCounts: { ignored: "bad", negative: -1 },
+    },
+  });
+
+  assert.ok(parsed);
+  assert.deepEqual(parsed.metadata, { generationMode: "vnext" });
+  assert.equal(
+    parseDeckResponse({ deck: VALID_DECK_V7, metadata: [] })?.metadata,
+    undefined,
+  );
+});
+
 test("parseDeckResponse preserves valid diagnostics and drops invalid entries", () => {
   const parsed = parseDeckResponse({
     deck: VALID_DECK_V7,

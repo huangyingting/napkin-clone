@@ -2,6 +2,8 @@
  * v7 deck schema parsing and validation tests.
  */
 
+// e2e-governance-allow oversized-test: schema validation matrix stays centralized until shared invalid-deck fixtures are split.
+
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";

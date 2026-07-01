@@ -3,8 +3,7 @@ import { test } from "node:test";
 
 import type { DocumentBlock } from "@/lib/content";
 import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";
-import type { Deck } from "@/lib/presentation/deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION, type Deck } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 
 import { resolveDeckExportContext } from "./deck-export-context";
@@ -24,7 +23,7 @@ const BLOCKS: DocumentBlock[] = [
 ];
 
 const LEGACY_DECK: Deck = {
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
   canvas: { format: "16:9" },
   design: { themeId: "default" },
   masters: [{ id: "master-default", name: "Default", elements: [] }],

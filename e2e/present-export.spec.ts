@@ -87,6 +87,7 @@ async function detectPresentationState(
   for (let attempt = 0; attempt < 40; attempt += 1) {
     if (await recoveryHeading.isVisible()) return "recovery";
     if (await region.isVisible()) return "region";
+    // e2e-governance-allow wait-for-timeout: polling waits for either present mode or recovery UI without app-side readiness events.
     await page.waitForTimeout(250);
   }
   return "timeout";
@@ -232,6 +233,7 @@ test.describe("present + export", () => {
     const presentRegion = page.getByRole("region", { name: "Presentation" });
     const state = await detectPresentationState(page, presentRegion);
     if (state === "recovery") {
+      // e2e-governance-allow test-skip: seeded profile may contain a non-v7 deck, making safe-area HUD assertions inapplicable.
       test.skip(
         true,
         "present: fixture resolved to a non-v7 deck; skipping safe-area HUD assertions",
@@ -287,6 +289,7 @@ test.describe("present + export", () => {
     const region = page.getByRole("region", { name: /^Presentation/ });
     const state = await detectPresentationState(page, region);
     if (state === "recovery") {
+      // e2e-governance-allow test-skip: seeded public fixture may contain a non-v7 deck, making safe-area HUD assertions inapplicable.
       test.skip(
         true,
         "present: public fixture resolved to a non-v7 deck; skipping safe-area HUD assertions",

@@ -143,7 +143,7 @@ describe("slide editor vnext close confirm flow", () => {
     const event = {
       preventDefault: () => calls.push("preventDefault"),
       returnValue: undefined as unknown,
-    } as BeforeUnloadEvent;
+    } as unknown as BeforeUnloadEvent;
     addedListeners[0](event);
 
     assert.deepEqual(calls, ["preventDefault"]);

@@ -1,17 +1,62 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { createRequire } from "node:module";
+import { before, describe, it } from "node:test";
 
 import {
   resetBrandStorageAdapter,
   setBrandStorageAdapter,
 } from "@/lib/brand/asset-storage";
-import {
-  uploadBrandFont,
-  uploadBrandLogo,
-} from "@/lib/brand/upload-route-service";
 import { prisma } from "@/lib/prisma";
 
 type TestContext = { after: (fn: () => void) => void };
+type ModuleHooks = {
+  registerHooks(hooks: {
+    resolve(
+      specifier: string,
+      context: unknown,
+      nextResolve: (specifier: string, context: unknown) => unknown,
+    ): unknown;
+    load(
+      url: string,
+      context: unknown,
+      nextLoad: (url: string, context: unknown) => unknown,
+    ): unknown;
+  }): void;
+};
+
+const { registerHooks } = createRequire(import.meta.url)(
+  "node:module",
+) as ModuleHooks;
+const serverOnlyStubUrl = "server-only:test-empty";
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "server-only") {
+      return { url: serverOnlyStubUrl, shortCircuit: true };
+    }
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    if (url === serverOnlyStubUrl) {
+      return { format: "commonjs", source: "", shortCircuit: true };
+    }
+    return nextLoad(url, context);
+  },
+});
+
+type UploadBrandLogo =
+  typeof import("@/lib/brand/upload-route-service").uploadBrandLogo;
+type UploadBrandFont =
+  typeof import("@/lib/brand/upload-route-service").uploadBrandFont;
+
+let uploadBrandLogo: UploadBrandLogo;
+let uploadBrandFont: UploadBrandFont;
+
+before(async () => {
+  const uploadService = await import("@/lib/brand/upload-route-service");
+  uploadBrandLogo = uploadService.uploadBrandLogo;
+  uploadBrandFont = uploadService.uploadBrandFont;
+});
 
 function stubObjectMethod<T extends object, K extends keyof T>(
   t: TestContext,
@@ -57,22 +102,24 @@ type UploadCase = {
   bytes: Uint8Array | Buffer;
 };
 
-const CASES: UploadCase[] = [
-  {
-    kind: "logo",
-    upload: uploadBrandLogo,
-    fileName: "logo.png",
-    mime: "image/png",
-    bytes: PNG_BYTES,
-  },
-  {
-    kind: "font",
-    upload: uploadBrandFont,
-    fileName: "font.woff2",
-    mime: "font/woff2",
-    bytes: WOFF2_BYTES,
-  },
-];
+function uploadCases(): UploadCase[] {
+  return [
+    {
+      kind: "logo",
+      upload: uploadBrandLogo,
+      fileName: "logo.png",
+      mime: "image/png",
+      bytes: PNG_BYTES,
+    },
+    {
+      kind: "font",
+      upload: uploadBrandFont,
+      fileName: "font.woff2",
+      mime: "font/woff2",
+      bytes: WOFF2_BYTES,
+    },
+  ];
+}
 
 function buildRequest(
   testCase: UploadCase,
@@ -143,7 +190,7 @@ describe("upload brand asset ownership checks", () => {
     );
 
     for (const brandId of ["brand-missing", "brand-foreign"]) {
-      for (const testCase of CASES) {
+      for (const testCase of uploadCases()) {
         const result = await testCase.upload(
           buildRequest(testCase, brandId),
           "owner-1",
@@ -195,7 +242,7 @@ describe("upload brand asset ownership checks", () => {
       },
     );
 
-    for (const testCase of CASES) {
+    for (const testCase of uploadCases()) {
       const result = await testCase.upload(
         buildRequest(testCase, "brand-owned"),
         "owner-1",
@@ -247,13 +294,13 @@ describe("upload brand asset ownership checks", () => {
     );
 
     const owned = await uploadBrandFont(
-      buildRequest(CASES[1], "brand-owned"),
+      buildRequest(uploadCases()[1], "brand-owned"),
       "owner-1",
     );
     assert.equal(owned.ok, true);
 
     const missing = await uploadBrandFont(
-      buildRequest(CASES[1], "brand-missing"),
+      buildRequest(uploadCases()[1], "brand-missing"),
       "owner-1",
     );
     assert.equal(missing.ok, false);
@@ -261,7 +308,10 @@ describe("upload brand asset ownership checks", () => {
       assert.equal(missing.status, 404);
     }
 
-    const noBrand = await uploadBrandFont(buildRequest(CASES[1]), "owner-1");
+    const noBrand = await uploadBrandFont(
+      buildRequest(uploadCases()[1]),
+      "owner-1",
+    );
     assert.equal(noBrand.ok, true);
 
     assert.equal(storageWrites, 2);

@@ -14,15 +14,18 @@ type ReactInternals = {
   };
 };
 
+type ElementLike = ReactElement<Record<string, unknown>>;
+
 function createHookRenderer() {
   const internals = (React as unknown as ReactInternals)
     .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
   assert.ok(internals, "React internals were unavailable for hook rendering.");
+  const reactInternals = internals;
   const slots: unknown[] = [];
 
   function run<T>(renderComponent: () => T): T {
     let hookIndex = 0;
-    const previous = internals.H;
+    const previous = reactInternals.H;
     const dispatcher = {
       useState: <S>(initial: S | (() => S)) => {
         const slotIndex = hookIndex++;
@@ -92,11 +95,11 @@ function createHookRenderer() {
       },
     };
 
-    internals.H = dispatcher;
+    reactInternals.H = dispatcher;
     try {
       return renderComponent();
     } finally {
-      internals.H = previous;
+      reactInternals.H = previous;
     }
   }
 
@@ -105,16 +108,17 @@ function createHookRenderer() {
 
 function collectElements(
   node: ReactNode,
-  predicate: (element: ReactElement) => boolean,
-  collected: ReactElement[] = [],
-): ReactElement[] {
+  predicate: (element: ElementLike) => boolean,
+  collected: ElementLike[] = [],
+): ElementLike[] {
   if (Array.isArray(node)) {
     for (const child of node) collectElements(child, predicate, collected);
     return collected;
   }
   if (!isValidElement(node)) return collected;
-  if (predicate(node)) collected.push(node);
-  const props = node.props as { children?: ReactNode };
+  const element = node as ElementLike;
+  if (predicate(element)) collected.push(element);
+  const props = element.props as { children?: ReactNode };
   collectElements(props.children, predicate, collected);
   return collected;
 }
@@ -130,7 +134,7 @@ function flattenText(node: ReactNode): string {
 function findButtonByLabel(
   root: ReactNode,
   label: string,
-): ReactElement | undefined {
+): ElementLike | undefined {
   return collectElements(root, (element) => {
     if (typeof element.props.onClick !== "function") return false;
     return flattenText(element.props.children as ReactNode).trim() === label;
@@ -194,7 +198,8 @@ describe("ConflictRecoveryDialogV7", () => {
     });
     const keepMineButton = findButtonByLabel(tree, "Keep my version");
     const clickKeepMine = keepMineButton?.props.onClick as
-      (() => void) | undefined;
+      | (() => void)
+      | undefined;
     assert.equal(typeof clickKeepMine, "function");
     clickKeepMine?.();
     await waitForAsyncDrain();
@@ -219,7 +224,8 @@ describe("ConflictRecoveryDialogV7", () => {
     });
     const useTheirsButton = findButtonByLabel(tree, "Use server version");
     const clickUseTheirs = useTheirsButton?.props.onClick as
-      (() => void) | undefined;
+      | (() => void)
+      | undefined;
     assert.equal(typeof clickUseTheirs, "function");
     clickUseTheirs?.();
     await waitForAsyncDrain();

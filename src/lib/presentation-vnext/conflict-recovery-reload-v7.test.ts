@@ -5,6 +5,7 @@ import {
   CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE,
   reloadConflictServerDeckV7,
 } from "./conflict-recovery-reload-v7";
+import type { DeckFetchPort } from "@/lib/action-ports";
 import { buildMinimalDeckV7 } from "@/test/builders/deck-v7";
 
 describe("reloadConflictServerDeckV7", () => {
@@ -31,6 +32,7 @@ describe("reloadConflictServerDeckV7", () => {
       documentId: "doc-1350",
       deckPort: {
         fetchDeckJson: async () => ({
+          ok: true,
           deckJson: { schemaVersion: 7, slides: null },
           revisionToken: "server-token",
         }),
@@ -45,13 +47,14 @@ describe("reloadConflictServerDeckV7", () => {
   test("supports retrying after a failed reload and applies a valid server deck", async () => {
     const serverDeck = buildMinimalDeckV7();
     let attempts = 0;
-    const deckPort = {
+    const deckPort: Pick<DeckFetchPort, "fetchDeckJson"> = {
       fetchDeckJson: async () => {
         attempts += 1;
         if (attempts === 1) {
           throw new Error("transient gateway");
         }
         return {
+          ok: true,
           deckJson: serverDeck,
           revisionToken: "retry-token",
         };

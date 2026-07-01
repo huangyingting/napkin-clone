@@ -41,7 +41,7 @@ describe("SlideEditorVNext save status announcements", () => {
       saveStatus: "error",
       saveStatusLabel: "Save failed — Retry",
       saveErrorMessage: "Network timeout",
-      onSave: async () => ({ ok: true }),
+      onSave: async () => ({ ok: true, data: undefined }),
     });
 
     assert.match(
@@ -59,10 +59,10 @@ describe("SlideEditorVNext save status announcements", () => {
     const html = renderEditor({
       saveStatus: "saving",
       saveStatusLabel: "Saving…",
-      onSave: async () => ({ ok: true }),
+      onSave: async () => ({ ok: true, data: undefined }),
     });
 
-    assert.match(html, /aria-label="Save slides"/);
-    assert.match(html, /<button[^>]*disabled[^>]*>Saving<\/button>/);
+    assert.match(html, /aria-label="Save slide deck" disabled=""/);
+    assert.match(html, /Saving<\/button>/);
   });
 });

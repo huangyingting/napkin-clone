@@ -1,0 +1,664 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import * as React from "react";
+
+import type { DeckActionPort } from "@/lib/action-ports";
+import type { DeckGenerationOptions } from "@/lib/ai/use-deck-generation";
+import type {
+  FetchDeckResult,
+  SaveDeckResult,
+} from "@/lib/document/persistence-types";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
+import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import {
+  buildDeckV7,
+  buildSlideV7,
+  buildTextContent,
+  buildTextNode,
+} from "@/test/builders/deck-v7";
+
+import {
+  resolveDeckSaveRejectionError,
+  useSlideEditorOpen,
+} from "./use-slide-editor-open";
+
+type ReactInternals = {
+  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
+    H: unknown;
+  };
+};
+
+type EffectSlot = {
+  deps?: readonly unknown[];
+  cleanup?: () => void;
+};
+
+type MemoSlot<T> = {
+  deps?: readonly unknown[];
+  value: T;
+};
+
+type HookResult = ReturnType<typeof useSlideEditorOpen>;
+
+function depsChanged(
+  previous: readonly unknown[] | undefined,
+  next: readonly unknown[] | undefined,
+): boolean {
+  if (!previous || !next || previous.length !== next.length) return true;
+  return next.some((value, index) => !Object.is(value, previous[index]));
+}
+
+function createHookRenderer(editorJson: unknown) {
+  const internals = (React as unknown as ReactInternals)
+    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  assert.ok(internals);
+
+  const slots: unknown[] = [];
+  const cleanups = new Set<() => void>();
+
+  return {
+    run<T>(render: () => T): T {
+      let hookIndex = 0;
+      const previous = internals.H;
+      internals.H = {
+        useState: <S>(initial: S | (() => S)) => {
+          const slot = hookIndex++;
+          if (!(slot in slots)) {
+            slots[slot] =
+              typeof initial === "function" ? (initial as () => S)() : initial;
+          }
+          const setState = (next: S | ((previousValue: S) => S)) => {
+            const previousValue = slots[slot] as S;
+            slots[slot] =
+              typeof next === "function"
+                ? (next as (previousValue: S) => S)(previousValue)
+                : next;
+          };
+          return [slots[slot] as S, setState] as const;
+        },
+        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
+          const slot = hookIndex++;
+          if (!(slot in slots)) slots[slot] = initial;
+          const dispatch = (action: A) => {
+            slots[slot] = reducer(slots[slot] as S, action);
+          };
+          return [slots[slot] as S, dispatch] as const;
+        },
+        useRef: <T>(initial: T) => {
+          const slot = hookIndex++;
+          if (!(slot in slots)) slots[slot] = { current: initial };
+          return slots[slot] as { current: T };
+        },
+        useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => {
+          const slot = hookIndex++;
+          const previousMemo = slots[slot] as MemoSlot<T> | undefined;
+          if (!previousMemo || depsChanged(previousMemo.deps, deps)) {
+            const nextMemo: MemoSlot<T> = { deps, value: factory() };
+            slots[slot] = nextMemo;
+            return nextMemo.value;
+          }
+          return previousMemo.value;
+        },
+        useCallback: <T>(callback: T, deps?: readonly unknown[]) => {
+          const slot = hookIndex++;
+          const previousMemo = slots[slot] as MemoSlot<T> | undefined;
+          if (!previousMemo || depsChanged(previousMemo.deps, deps)) {
+            const nextMemo: MemoSlot<T> = { deps, value: callback };
+            slots[slot] = nextMemo;
+            return nextMemo.value;
+          }
+          return previousMemo.value;
+        },
+        useId: () => `fake-id-${hookIndex++}`,
+        useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
+          const slot = hookIndex++;
+          const previousEffect = slots[slot] as EffectSlot | undefined;
+          if (previousEffect && !depsChanged(previousEffect.deps, deps)) return;
+          previousEffect?.cleanup?.();
+          if (previousEffect?.cleanup) cleanups.delete(previousEffect.cleanup);
+          const cleanup = effect() ?? undefined;
+          if (cleanup) cleanups.add(cleanup);
+          slots[slot] = { deps, cleanup };
+        },
+        useLayoutEffect: () => {
+          hookIndex++;
+        },
+        useInsertionEffect: () => {
+          hookIndex++;
+        },
+        useContext: () => {
+          hookIndex++;
+          return [
+            {
+              getEditorState: () => ({
+                toJSON: () => editorJson,
+              }),
+            },
+            { getTheme: () => null },
+          ];
+        },
+        useTransition: () => {
+          hookIndex++;
+          return [false, (callback?: () => void) => callback?.()] as const;
+        },
+        useDeferredValue: <T>(value: T) => {
+          hookIndex++;
+          return value;
+        },
+        useSyncExternalStore: <T>(
+          _subscribe: () => () => void,
+          getSnapshot: () => T,
+        ) => {
+          hookIndex++;
+          return getSnapshot();
+        },
+        useImperativeHandle: () => {
+          hookIndex++;
+        },
+        useDebugValue: () => {
+          hookIndex++;
+        },
+      };
+      try {
+        return render();
+      } finally {
+        internals.H = previous;
+      }
+    },
+    cleanup() {
+      for (const cleanup of cleanups) cleanup();
+      cleanups.clear();
+    },
+  };
+}
+
+function waitForAsyncDrain(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function createDeferred<T>() {
+  let resolve: ((value: T | PromiseLike<T>) => void) | null = null;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
+  });
+  return {
+    promise,
+    resolve: (value: T) => resolve?.(value),
+  };
+}
+
+function nonEmptyEditorJson(title: string = "Quarterly plan") {
+  return {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "heading",
+          tag: "h1",
+          children: [{ type: "text", text: title }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", text: "Expand the pipeline." }],
+        },
+      ],
+    },
+  };
+}
+
+function emptyEditorJson() {
+  return {
+    root: {
+      type: "root",
+      children: [
+        { type: "paragraph", children: [{ type: "text", text: " " }] },
+      ],
+    },
+  };
+}
+
+function deckWithText(text: string, nodeId: string = "text-node-1"): DeckV7 {
+  return buildDeckV7([
+    buildSlideV7(
+      "content",
+      [
+        buildTextNode({
+          id: nodeId,
+          content: buildTextContent([text]),
+        }),
+      ],
+      { id: "slide-1" },
+    ),
+  ]);
+}
+
+function diagnostic(message: string): PresentationDiagnostic {
+  return {
+    code: "unknown-theme-package",
+    category: "theme",
+    severity: "warning",
+    target: { scope: "theme", themePackageId: "neutral" },
+    message,
+  };
+}
+
+function failure(message: string): FetchDeckResult {
+  return {
+    ok: false,
+    deckJson: null,
+    revisionToken: null,
+    error: message,
+    failure: { code: "storage_unavailable", retryable: true },
+  };
+}
+
+function createDeckPort({
+  fetchResults = [],
+  saveResults = [],
+}: {
+  fetchResults?: Array<FetchDeckResult | Error | (() => FetchDeckResult)>;
+  saveResults?: Array<
+    SaveDeckResult | Error | (() => SaveDeckResult | Promise<SaveDeckResult>)
+  >;
+} = {}) {
+  const fetchCalls: string[] = [];
+  const saveCalls: Array<{
+    documentId: string;
+    deckJson: unknown;
+    revisionToken: string | null | undefined;
+  }> = [];
+  const port: DeckActionPort = {
+    fetchDeckJson: async (documentId) => {
+      fetchCalls.push(documentId);
+      const next = fetchResults.shift();
+      const result = typeof next === "function" ? next() : next;
+      if (result instanceof Error) throw result;
+      return (
+        result ?? {
+          ok: true,
+          deckJson: null,
+          revisionToken: null,
+        }
+      );
+    },
+    saveDeckJson: async (documentId, deckJson, revisionToken) => {
+      saveCalls.push({ documentId, deckJson, revisionToken });
+      const next = saveResults.shift();
+      const result = typeof next === "function" ? await next() : next;
+      if (result instanceof Error) throw result;
+      return result ?? { ok: true, revisionToken: "rev-saved" };
+    },
+    saveDeckPatch: async () => ({ ok: "fallback" }),
+  };
+
+  return { port, fetchCalls, saveCalls, fetchResults, saveResults };
+}
+
+function runHook(
+  renderer: ReturnType<typeof createHookRenderer>,
+  options: {
+    deckPort: DeckActionPort;
+    initialDeckJson?: unknown;
+    initialContentJson?: string | null;
+    onOpenRightSurface?: () => void;
+    onCloseRightSurface?: () => void;
+  },
+): HookResult {
+  return renderer.run(() =>
+    useSlideEditorOpen({
+      documentId: "doc-hook",
+      initialDeckJson: options.initialDeckJson ?? null,
+      deckPort: options.deckPort,
+      initialContentJson: options.initialContentJson,
+      onOpenRightSurface: options.onOpenRightSurface,
+      onCloseRightSurface: options.onCloseRightSurface,
+    }),
+  );
+}
+
+async function withAiFlag<T>(
+  value: string | undefined,
+  run: () => Promise<T>,
+): Promise<T> {
+  const previous = process.env.NEXT_PUBLIC_AI_DECK_GEN_ENABLED;
+  if (value === undefined) {
+    delete process.env.NEXT_PUBLIC_AI_DECK_GEN_ENABLED;
+  } else {
+    process.env.NEXT_PUBLIC_AI_DECK_GEN_ENABLED = value;
+  }
+  try {
+    return await run();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NEXT_PUBLIC_AI_DECK_GEN_ENABLED;
+    } else {
+      process.env.NEXT_PUBLIC_AI_DECK_GEN_ENABLED = previous;
+    }
+  }
+}
+
+test("resolveDeckSaveRejectionError uses fallback text for empty errors", () => {
+  assert.equal(
+    resolveDeckSaveRejectionError(new Error("")),
+    "Couldn't save your deck. Check your connection and retry.",
+  );
+  assert.equal(
+    resolveDeckSaveRejectionError("disk full"),
+    "Couldn't save your deck. Check your connection and retry. (disk full)",
+  );
+});
+
+test("useSlideEditorOpen opens a saved v7 deck and closes cleanly", async () => {
+  await withAiFlag(undefined, async () => {
+    const savedDeck = deckWithText("Saved deck");
+    const deckPort = createDeckPort({
+      fetchResults: [
+        { ok: true, deckJson: savedDeck, revisionToken: "rev-open" },
+      ],
+    });
+    const renderer = createHookRenderer(nonEmptyEditorJson());
+    let opened = 0;
+    let closed = 0;
+    const options = {
+      deckPort: deckPort.port,
+      onOpenRightSurface: () => {
+        opened += 1;
+      },
+      onCloseRightSurface: () => {
+        closed += 1;
+      },
+    };
+
+    let hook = runHook(renderer, options);
+    assert.equal(hook.open, false);
+    await hook.handleOpen();
+
+    hook = runHook(renderer, options);
+    assert.equal(hook.open, true);
+    assert.equal(hook.deckV7, savedDeck);
+    assert.deepEqual(hook.deckOpenDiagnosticsV7, []);
+    assert.equal(hook.saveStatus, "saved");
+    assert.equal(opened, 1);
+    assert.deepEqual(deckPort.fetchCalls, ["doc-hook"]);
+
+    hook.handleClose();
+    hook = runHook(renderer, options);
+    assert.equal(hook.open, false);
+    assert.equal(hook.deckV7, null);
+    assert.equal(hook.hasUnsavedWork, false);
+    assert.equal(closed, 1);
+    renderer.cleanup();
+  });
+});
+
+test("useSlideEditorOpen surfaces saved deck open failures", async () => {
+  await withAiFlag(undefined, async () => {
+    const renderer = createHookRenderer(nonEmptyEditorJson());
+    const resultErrorPort = createDeckPort({
+      fetchResults: [failure("No deck available")],
+    });
+    const options = { deckPort: resultErrorPort.port };
+
+    let hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+
+    assert.equal(hook.open, true);
+    assert.equal(hook.deckV7, null);
+    assert.match(hook.deckOpenErrorV7?.error ?? "", /No deck available/);
+    assert.equal(hook.saveStatus, "error");
+    hook.handleClose();
+    renderer.cleanup();
+  });
+});
+
+test("useSlideEditorOpen stages, cancels, derives, and applies AI previews", async () => {
+  await withAiFlag("true", async () => {
+    const baselineDeck = deckWithText("Baseline");
+    const proposedDeck = deckWithText("AI proposal");
+    const appliedDeck = deckWithText("AI applied");
+    const deckPort = createDeckPort({
+      fetchResults: [
+        { ok: true, deckJson: baselineDeck, revisionToken: "rev-baseline" },
+        { ok: true, deckJson: baselineDeck, revisionToken: "rev-baseline-2" },
+        { ok: true, deckJson: baselineDeck, revisionToken: "rev-baseline-3" },
+      ],
+      saveResults: [{ ok: true, revisionToken: "rev-ai-save" }],
+    });
+    const renderer = createHookRenderer(nonEmptyEditorJson("AI source"));
+    const options = { deckPort: deckPort.port };
+    const generationOptions: DeckGenerationOptions = { length: "short" };
+    const repeatedDiagnostic = diagnostic("Unknown theme");
+
+    let hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+    assert.equal(hook.aiEnabled, true);
+    assert.match(hook.pendingJson ?? "", /AI source/);
+    assert.equal(hook.emptyDocument, false);
+
+    hook.handleOpenDialogApply({
+      deckV7: proposedDeck,
+      truncated: true,
+      diagnostics: [repeatedDiagnostic, repeatedDiagnostic],
+      options: generationOptions,
+    });
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    assert.equal(hook.aiPreviewV7?.proposedDeck, proposedDeck);
+    assert.equal(hook.aiPreviewV7?.baselineDeck, baselineDeck);
+    assert.equal(hook.aiPreviewV7?.truncated, true);
+    assert.deepEqual(hook.aiPreviewV7?.generationDiagnostics, [
+      repeatedDiagnostic,
+    ]);
+
+    hook.handleAiPreviewV7Cancel();
+    hook = runHook(renderer, options);
+    assert.equal(hook.aiPreviewV7, null);
+
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+    hook.handleOpenDialogApply({
+      deckV7: proposedDeck,
+      truncated: false,
+      diagnostics: [],
+      options: generationOptions,
+    });
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    hook.handleAiPreviewV7Derive();
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    assert.equal(hook.open, true);
+    assert.equal(hook.aiPreviewV7, null);
+    assert.ok((hook.deckV7?.slides.length ?? 0) > 0);
+
+    hook.handleClose();
+    hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+    hook.handleOpenDialogApply({
+      deckV7: proposedDeck,
+      truncated: false,
+      diagnostics: [],
+      options: generationOptions,
+    });
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    hook.handleAiPreviewV7Apply(appliedDeck, [diagnostic("Apply diagnostic")]);
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    assert.equal(hook.open, true);
+    assert.equal(hook.deckV7, appliedDeck);
+    assert.equal(deckPort.saveCalls.length, 1);
+    assert.equal(deckPort.saveCalls[0]?.deckJson, appliedDeck);
+    renderer.cleanup();
+  });
+});
+
+test("useSlideEditorOpen derives from initial content fallback and closes the AI dialog", async () => {
+  await withAiFlag("true", async () => {
+    const deckPort = createDeckPort();
+    const renderer = createHookRenderer(emptyEditorJson());
+    const options = {
+      deckPort: deckPort.port,
+      initialContentJson: JSON.stringify(nonEmptyEditorJson("Saved fallback")),
+    };
+
+    let hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+    assert.match(hook.pendingJson ?? "", /Saved fallback/);
+    assert.equal(hook.emptyDocument, false);
+
+    hook.handleOpenDialogClose();
+    hook = runHook(renderer, options);
+    assert.equal(hook.pendingJson, null);
+    assert.equal(hook.emptyDocument, false);
+
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+    hook.handleOpenDialogDerive();
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    assert.equal(hook.open, true);
+    assert.equal(hook.deckOpenErrorV7, null);
+    assert.ok((hook.deckV7?.slides.length ?? 0) > 0);
+    renderer.cleanup();
+  });
+});
+
+test("useSlideEditorOpen serializes saves and restores undo redo focus", async () => {
+  await withAiFlag(undefined, async () => {
+    const firstDeck = deckWithText("Original", "history-node");
+    const secondDeck = deckWithText("Changed", "history-node");
+    const firstSave = createDeferred<SaveDeckResult>();
+    const deckPort = createDeckPort({
+      fetchResults: [
+        { ok: true, deckJson: firstDeck, revisionToken: "rev-history-1" },
+      ],
+      saveResults: [
+        () => firstSave.promise,
+        { ok: true, revisionToken: "rev-history-2" },
+      ],
+    });
+    const renderer = createHookRenderer(nonEmptyEditorJson());
+    const options = { deckPort: deckPort.port };
+
+    let hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+
+    const manualSave = hook.handleSaveV7(firstDeck);
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    hook.handleDeckV7Change(secondDeck);
+    hook = runHook(renderer, options);
+    assert.equal(hook.deckV7, secondDeck);
+    assert.equal(hook.canUndoV7, true);
+    assert.equal(deckPort.saveCalls.length, 1);
+
+    firstSave.resolve({ ok: true, revisionToken: "rev-history-1b" });
+    const result = await manualSave;
+    assert.equal(result.ok, true);
+    await waitForAsyncDrain();
+    hook = runHook(renderer, options);
+    assert.equal(deckPort.saveCalls.length, 2);
+    assert.equal(deckPort.saveCalls[1]?.deckJson, secondDeck);
+
+    hook.handleUndoV7();
+    hook = runHook(renderer, options);
+    assert.equal(hook.deckV7, firstDeck);
+    assert.equal(hook.canRedoV7, true);
+    assert.equal(hook.undoRedoFocusV7?.nodeId, "history-node");
+
+    hook.handleRedoV7();
+    hook = runHook(renderer, options);
+    assert.equal(hook.deckV7, secondDeck);
+    assert.equal(hook.undoRedoFocusV7?.nodeId, "history-node");
+    hook.handleClose();
+    renderer.cleanup();
+  });
+});
+
+test("useSlideEditorOpen handles conflicts, keep-mine, and use-theirs recovery", async () => {
+  await withAiFlag(undefined, async () => {
+    const savedDeck = deckWithText("Server original");
+    const localDeck = deckWithText("Local edit");
+    const newerLocalDeck = deckWithText("Newer local edit");
+    const serverDeck = deckWithText("Server reload");
+    const deckPort = createDeckPort({
+      fetchResults: [
+        { ok: true, deckJson: savedDeck, revisionToken: "rev-start" },
+        { ok: true, deckJson: serverDeck, revisionToken: "rev-server" },
+        new Error("offline"),
+      ],
+      saveResults: [
+        { ok: "conflict", serverRevisionToken: "rev-server-conflict" },
+        { ok: true, revisionToken: "rev-keep-mine" },
+        { ok: "conflict", serverRevisionToken: "rev-still-conflicted" },
+        {
+          ok: false,
+          error: "Write rejected",
+          failure: { code: "storage_unavailable", retryable: true },
+        },
+      ],
+    });
+    const renderer = createHookRenderer(nonEmptyEditorJson());
+    const options = { deckPort: deckPort.port };
+
+    let hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+
+    const conflictResult = await hook.handleSaveV7(localDeck);
+    assert.equal(conflictResult.ok, false);
+    hook = runHook(renderer, options);
+    assert.equal(hook.conflictStateV7?.localDeck, localDeck);
+    assert.match(hook.saveErrorMessage ?? "", /Save conflict/);
+
+    hook.handleDeckV7Change(newerLocalDeck);
+    hook = runHook(renderer, options);
+    assert.equal(hook.conflictStateV7?.localDeck, newerLocalDeck);
+    assert.match(
+      hook.saveErrorMessage ?? "",
+      /resolve the collaboration conflict/,
+    );
+
+    await hook.handleConflictKeepMineV7(newerLocalDeck, "rev-server-conflict");
+    hook = runHook(renderer, options);
+    assert.equal(hook.conflictStateV7, null);
+    assert.equal(hook.hasUnsavedWork, false);
+
+    await assert.rejects(
+      hook.handleConflictKeepMineV7(localDeck, "rev-stale"),
+      /Still conflicted/,
+    );
+    hook = runHook(renderer, options);
+    assert.equal(
+      hook.conflictStateV7?.serverRevisionToken,
+      "rev-still-conflicted",
+    );
+
+    await assert.rejects(
+      hook.handleConflictKeepMineV7(localDeck, "rev-still-conflicted"),
+      /Write rejected/,
+    );
+
+    await hook.handleConflictUseTheirsV7();
+    hook = runHook(renderer, options);
+    assert.equal(hook.deckV7, serverDeck);
+    assert.equal(hook.conflictStateV7, null);
+    assert.equal(hook.hasUnsavedWork, false);
+
+    await assert.rejects(hook.handleConflictUseTheirsV7(), /server version/);
+    hook = runHook(renderer, options);
+    assert.match(hook.saveErrorMessage ?? "", /server version/);
+
+    hook.handleConflictDismissV7();
+    hook = runHook(renderer, options);
+    assert.equal(hook.conflictStateV7, null);
+    hook.handleClose();
+    renderer.cleanup();
+  });
+});

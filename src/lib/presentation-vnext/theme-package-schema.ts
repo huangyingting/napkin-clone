@@ -13,15 +13,13 @@ import type {
   SemanticTemplateKind,
 } from "./schema";
 import type { PresentationDiagnostic } from "./diagnostics";
+import type { TemplateStaticContent } from "./template-registry";
 
 // ---------------------------------------------------------------------------
 // Decoration recipe
 // ---------------------------------------------------------------------------
 
-export type TemplateStaticContent =
-  | { type: "text"; text: string }
-  | { type: "shape"; shape: string }
-  | { type: "image"; assetId: AssetId };
+export type { TemplateStaticContent } from "./template-registry";
 
 export type ThemeDecorationRecipe = {
   id: string;

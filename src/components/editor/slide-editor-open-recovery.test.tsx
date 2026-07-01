@@ -10,7 +10,13 @@ test("SlideEditorOpenRecovery renders diagnostics and validation details", () =>
     createElement(SlideEditorOpenRecovery, {
       error: "Deck schema mismatch",
       diagnostics: [
-        { code: "deck.invalid-slide", message: "Slide 2 had invalid layout." },
+        {
+          code: "invalid-schema-version",
+          category: "validation",
+          severity: "error",
+          target: { scope: "deck" },
+          message: "Slide 2 had invalid layout.",
+        },
       ],
       validationErrors: ["slides[1].children[0].layout.frame.w is required"],
       onClose: () => undefined,

@@ -28,6 +28,14 @@ class MockMenuItem {
   focus() {
     this.focusCalls += 1;
   }
+
+  addEventListener(): void {}
+
+  dispatchEvent(): boolean {
+    return true;
+  }
+
+  removeEventListener(): void {}
 }
 
 function createContainer(items: MockMenuItem[]): ParentNode {
