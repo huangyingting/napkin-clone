@@ -14,9 +14,13 @@ import {
   buildMinimalDeckV7,
   buildCoverSlide,
   buildContentSlide,
+  buildImageNode,
+  buildShapeNode,
   buildSlideV7,
+  buildTableNode,
   buildTableSlide,
   buildTextNode,
+  buildVisualNode,
   resetBuilderCounter,
 } from "@/test/builders/deck-v7";
 
@@ -495,6 +499,259 @@ describe("safeParseDeckV7", () => {
     const deck = buildDeckV7([badSlide as unknown as SlideNode]);
     const result = safeParseDeckV7(deck);
     assert.ok(!result.success);
+  });
+
+  test("rejects unknown nested child-node and content keys", () => {
+    resetBuilderCounter();
+    const badTextNode = buildTextNode({
+      id: "text-bad-nested",
+      content: {
+        paragraphs: [{ id: "para-bad-nested", text: "Body" }],
+      },
+    }) as unknown as Record<string, unknown>;
+    badTextNode.unexpectedNodeKey = true;
+    badTextNode.content = {
+      paragraphs: [
+        {
+          id: "para-bad-nested",
+          text: "Body",
+          unexpectedParagraphKey: true,
+          runs: [
+            {
+              text: "Body",
+              unexpectedRunKey: true,
+              localStyle: {
+                fontSizePt: 14,
+                unknownLocalStyleKey: true,
+              },
+            },
+          ],
+          list: {
+            kind: "bullet",
+            unexpectedListKey: true,
+          },
+        },
+      ],
+      unexpectedTextContentKey: true,
+    };
+
+    const badImageNode = buildImageNode("img-001", {
+      id: "image-bad-nested",
+    }) as unknown as Record<string, unknown>;
+    badImageNode.content = {
+      assetId: "img-001",
+      unexpectedImageContentKey: true,
+    };
+
+    const badShapeNode = buildShapeNode({
+      id: "shape-bad-nested",
+      content: { shape: "rect" },
+    }) as unknown as Record<string, unknown>;
+    badShapeNode.content = {
+      shape: "rect",
+      unexpectedShapeContentKey: true,
+    };
+
+    const badConnectorNode = {
+      id: "connector-bad-nested",
+      type: "connector",
+      role: "connector",
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "point", point: { x: 5, y: 5 } },
+        to: { kind: "point", point: { x: 35, y: 15 } },
+        unexpectedConnectorContentKey: true,
+      },
+    };
+
+    const badTableNode = buildTableNode({
+      id: "table-bad-nested",
+      content: {
+        columns: [{ id: "col-0", label: "Name" }],
+        rows: [{ id: "row-0", cells: [{ text: "Value" }] }],
+      },
+    }) as unknown as Record<string, unknown>;
+    badTableNode.content = {
+      columns: [{ id: "col-0", label: "Name", unexpectedColumnKey: true }],
+      rows: [
+        {
+          id: "row-0",
+          unexpectedRowKey: true,
+          cells: [{ text: "Value", unexpectedCellKey: true }],
+        },
+      ],
+      unexpectedTableContentKey: true,
+    };
+
+    const badVisualNode = buildVisualNode({
+      id: "visual-bad-nested",
+      content: { visualId: "visual-001" },
+    }) as unknown as Record<string, unknown>;
+    badVisualNode.content = {
+      visualId: "visual-001",
+      unexpectedVisualContentKey: true,
+    };
+
+    const badGroupChildNode = buildTextNode({
+      id: "group-child-bad-nested",
+      content: {
+        paragraphs: [{ id: "group-para-1", text: "Nested" }],
+      },
+    }) as unknown as Record<string, unknown>;
+    badGroupChildNode.content = {
+      paragraphs: [{ id: "group-para-1", text: "Nested" }],
+      unexpectedNestedTextContentKey: true,
+    };
+
+    const badGroupNode = {
+      id: "group-bad-nested",
+      type: "group",
+      component: "custom",
+      unexpectedGroupKey: true,
+      children: [badGroupChildNode],
+    };
+
+    const slide = buildSlideV7("content", [
+      badTextNode as unknown as SlideChildNode,
+      badImageNode as unknown as SlideChildNode,
+      badShapeNode as unknown as SlideChildNode,
+      badConnectorNode as unknown as SlideChildNode,
+      badTableNode as unknown as SlideChildNode,
+      badVisualNode as unknown as SlideChildNode,
+      badGroupNode as unknown as SlideChildNode,
+    ]);
+    const result = safeParseDeckV7(buildDeckV7([slide]));
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /slides\[0\]\.children\[0\]\.unexpectedNodeKey/,
+        /slides\[0\]\.children\[0\]\.content\.unexpectedTextContentKey/,
+        /slides\[0\]\.children\[0\]\.content\.paragraphs\[0\]\.unexpectedParagraphKey/,
+        /slides\[0\]\.children\[0\]\.content\.paragraphs\[0\]\.runs\[0\]\.unexpectedRunKey/,
+        /slides\[0\]\.children\[0\]\.content\.paragraphs\[0\]\.runs\[0\]\.localStyle\.unknownLocalStyleKey/,
+        /slides\[0\]\.children\[0\]\.content\.paragraphs\[0\]\.list\.unexpectedListKey/,
+        /slides\[0\]\.children\[1\]\.content\.unexpectedImageContentKey/,
+        /slides\[0\]\.children\[2\]\.content\.unexpectedShapeContentKey/,
+        /slides\[0\]\.children\[3\]\.content\.unexpectedConnectorContentKey/,
+        /slides\[0\]\.children\[4\]\.content\.unexpectedTableContentKey/,
+        /slides\[0\]\.children\[4\]\.content\.columns\[0\]\.unexpectedColumnKey/,
+        /slides\[0\]\.children\[4\]\.content\.rows\[0\]\.unexpectedRowKey/,
+        /slides\[0\]\.children\[4\]\.content\.rows\[0\]\.cells\[0\]\.unexpectedCellKey/,
+        /slides\[0\]\.children\[5\]\.content\.unexpectedVisualContentKey/,
+        /slides\[0\]\.children\[6\]\.unexpectedGroupKey/,
+        /slides\[0\]\.children\[6\]\.children\[0\]\.content\.unexpectedNestedTextContentKey/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
+
+  test("accepts nested slide child nodes that only use known keys", () => {
+    resetBuilderCounter();
+    const textNode = buildTextNode({
+      id: "text-valid-nested",
+      source: {
+        documentId: "doc-1",
+        blockId: "block-1",
+        blockKind: "text",
+        extra: { allowed: true },
+      },
+      content: {
+        paragraphs: [
+          {
+            id: "para-valid-nested",
+            text: "Nested body",
+            runs: [{ text: "Nested body", bold: true }],
+            list: { kind: "bullet", indent: 1 },
+          },
+        ],
+        fit: "fixed-box",
+        language: "en-US",
+      },
+    });
+    const imageNode = buildImageNode("img-001", {
+      id: "image-valid-nested",
+      content: {
+        assetId: "img-001",
+        crop: { top: 0, right: 0, bottom: 0, left: 0 },
+        fit: "cover",
+        focalPoint: { x: 50, y: 50 },
+        alt: "image alt",
+      },
+    });
+    const shapeNode = buildShapeNode({
+      id: "shape-valid-nested",
+      content: {
+        shape: "rect",
+        text: {
+          paragraphs: [{ id: "shape-para-valid", text: "Shape callout" }],
+        },
+      },
+    });
+    const connectorNode: SlideChildNode = {
+      id: "connector-valid-nested",
+      type: "connector",
+      role: "connector",
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "point", point: { x: 5, y: 5 } },
+        to: { kind: "point", point: { x: 35, y: 15 } },
+        routing: "elbow",
+      },
+    };
+    const tableNode = buildTableNode({
+      id: "table-valid-nested",
+      content: {
+        columns: [{ id: "col-0", label: "Name", width: 20 }],
+        rows: [
+          {
+            id: "row-0",
+            cells: [{ text: "Value", runs: [{ text: "Value" }] }],
+          },
+        ],
+        header: true,
+        caption: "Summary table",
+      },
+    });
+    const visualNode = buildVisualNode({
+      id: "visual-valid-nested",
+      content: {
+        visualId: "visual-001",
+        transparentBackground: true,
+        alt: "visual alt",
+      },
+    });
+    const groupNode: SlideChildNode = {
+      id: "group-valid-nested",
+      type: "group",
+      component: "custom",
+      children: [
+        buildTextNode({
+          id: "group-child-valid-nested",
+          content: {
+            paragraphs: [{ id: "group-para-valid", text: "Nested child" }],
+          },
+        }),
+      ],
+    };
+
+    const slide = buildSlideV7("content", [
+      textNode,
+      imageNode,
+      shapeNode,
+      connectorNode,
+      tableNode,
+      visualNode,
+      groupNode,
+    ]);
+    const result = safeParseDeckV7(buildDeckV7([slide]));
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
   });
 
   test("rejects unknown template kind", () => {
