@@ -221,6 +221,193 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("rejects invalid localStyle and chrome style patch contracts", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const badSlide = {
+      ...slide,
+      localStyle: {
+        slide: { chrome: "ultra" },
+      },
+      children: [
+        {
+          ...slide.children[0],
+          localStyle: {
+            unknownField: true,
+            text: { align: "justify" },
+            fill: { type: "solid", color: { token: 42 } },
+          },
+        },
+      ],
+    } as unknown as SlideNode;
+    const deck = buildDeckV7([badSlide], {
+      chrome: {
+        footer: {
+          enabled: true,
+          text: "Footer",
+          style: { sparkle: true } as unknown as Record<string, unknown>,
+        },
+      },
+    } as unknown as Parameters<typeof buildDeckV7>[1]);
+
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /slides\[0\]\.localStyle\.slide\.chrome/,
+        /slides\[0\]\.children\[0\]\.localStyle\.unknownField/,
+        /slides\[0\]\.children\[0\]\.localStyle\.text\.align/,
+        /slides\[0\]\.children\[0\]\.localStyle\.fill\.color\.token/,
+        /Deck\.chrome\.footer\.style\.sparkle/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
+
+  test("rejects invalid theme override style patch values", () => {
+    const deck = buildDeckV7([buildCoverSlide()], {
+      theme: {
+        packageId: "neutral",
+        overrides: {
+          styles: {
+            "text.body": {
+              default: {
+                fill: {
+                  type: "noise",
+                  stops: [{ offsetPct: "zero" }],
+                },
+                table: {
+                  cellPaddingPt: { top: "bad" },
+                },
+                blendMode: "xor",
+              },
+            },
+          },
+        },
+      },
+    } as unknown as Parameters<typeof buildDeckV7>[1]);
+
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /Deck\.theme\.overrides\.styles\.text\.body\.default\.fill\.type/,
+        /Deck\.theme\.overrides\.styles\.text\.body\.default\.fill\.stops\[0\]\.offsetPct/,
+        /Deck\.theme\.overrides\.styles\.text\.body\.default\.table\.cellPaddingPt\.top/,
+        /Deck\.theme\.overrides\.styles\.text\.body\.default\.blendMode/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
+    }
+  });
+
+  test("accepts representative valid text/fill/stroke/image/table/slide style patches", () => {
+    resetBuilderCounter();
+    const slide = buildContentSlide();
+    const styledChild = {
+      ...slide.children[0],
+      localStyle: {
+        text: {
+          fontFamily: { token: "fonts.body" },
+          fontSizePt: 22,
+          weight: 600,
+          italic: false,
+          underline: false,
+          color: "#111111",
+          lineHeight: 1.2,
+          paragraphSpacingPt: 3,
+          align: "left",
+          verticalAlign: "top",
+          letterSpacingEm: 0.01,
+          textTransform: "none",
+        },
+        fill: { type: "solid", color: { token: "colors.accent.fill" } },
+        stroke: { color: "#334155", widthPt: 1.5, dash: "dotted" },
+        image: {
+          fit: "cover",
+          brightness: 1.1,
+          contrast: 0.95,
+          saturation: 1,
+          maskShape: "rounded",
+          radiusPct: 8,
+          shadow: true,
+        },
+        table: {
+          headerFill: { type: "solid", color: "#111111" },
+          rowFill: { type: "solid", color: "#ffffff" },
+          alternateRowFill: { type: "solid", color: "#f3f4f6" },
+          border: { color: "#d1d5db", widthPt: 1, dash: "solid" },
+          cellPaddingPt: { top: 1, right: 1, bottom: 1, left: 1 },
+          text: { fontSizePt: 12, color: "#111111" },
+          headerText: { fontSizePt: 12, weight: 700, color: "#ffffff" },
+        },
+        slide: {
+          background: { type: "solid", color: "#ffffff" },
+          accent: "#4f46e5",
+          paddingPct: { top: 4, right: 4, bottom: 4, left: 4 },
+          chrome: "default",
+          decoration: "subtle",
+        },
+      },
+    } as SlideChildNode;
+
+    const deck = buildDeckV7(
+      [
+        {
+          ...slide,
+          localStyle: {
+            slide: { chrome: "minimal", decoration: "default" },
+          },
+          children: [styledChild],
+        },
+      ],
+      {
+        theme: {
+          packageId: "neutral",
+          overrides: {
+            styles: {
+              "text.body": {
+                default: {
+                  text: { color: "#0f172a" },
+                  fill: { type: "solid", color: "#ffffff" },
+                  stroke: { color: "#334155", widthPt: 1 },
+                  image: { fit: "contain" },
+                  table: {
+                    cellPaddingPt: { top: 2, right: 2, bottom: 2, left: 2 },
+                  },
+                  slide: {
+                    chrome: "none",
+                    decoration: "none",
+                  },
+                },
+              },
+            },
+          },
+        },
+        chrome: {
+          footer: {
+            enabled: true,
+            text: "Footer",
+            style: { text: { color: "#111111" } },
+          },
+        },
+      },
+    );
+
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
   test("rejects non-object input", () => {
     const result = safeParseDeckV7("not-an-object");
     assert.ok(!result.success);
