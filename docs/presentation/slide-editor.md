@@ -1,8 +1,11 @@
-# Slide Editor Runtime
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document describes the runtime architecture of the slide editor. It is about interaction and UI ownership, not the persisted deck schema. For the JSON contract, see ../data-model/deck.md. For detailed stage hit-testing, hover preselection, overlap handling, connector targeting, and pointer state rules, see slide-stage-interactions.md."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Slide Editor Runtime
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON

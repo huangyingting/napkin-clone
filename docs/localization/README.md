@@ -1,8 +1,11 @@
-# Localization And I18n Activation
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "The localization subsystem owns typed UI message catalogs, locale resolution, and the gate that keeps the language switcher hidden until enough user-facing surfaces are translated."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Localization And I18n Activation
 
 The localization subsystem owns typed UI message catalogs, locale resolution,
 and the gate that keeps the language switcher hidden until enough user-facing

@@ -1,8 +1,11 @@
-# Brand Studio
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-06-29"
+description: "This document describes saved brand styles, brand media assets, brand entitlement gates, and applying brands to visuals. Billing plans and credits live in billing.md."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-06-29
+# Brand Studio
 
 This document describes saved brand styles, brand media assets, brand
 entitlement gates, and applying brands to visuals. Billing plans and credits

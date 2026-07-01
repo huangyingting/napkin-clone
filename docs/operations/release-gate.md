@@ -1,10 +1,16 @@
+---
+type: "runbook"
+status: "active gate"
+last_updated: "2026-07-01"
+description: "Release gate and readiness checklist for system stabilization, validation evidence, local release checks, known release caveats, rollback criteria, and foundation release readiness."
+---
+
 # Release Gate and Readiness Checklist
 
-**Type:** Runbook  
-**Last updated:** 2026-07-01  
 **Epic:** #455 — System stabilization and release readiness for document visuals  
-**Issue:** #456  
-**Status:** Active gate — review before every foundation release wave
+**Issue:** #456
+
+Review before every foundation release wave.
 
 ---
 

@@ -1,8 +1,12 @@
+---
+type: "reference"
+status: "accepted"
+last_updated: "2026-07-01"
+description: "Date: 2026-06-23 Issue: #437 / Epic #436 — Cross-surface command envelope for document visuals and deck artifacts Authors: Switch (Frontend Dev)"
+---
+
 # Mutation Audit: Document Visuals and Deck Artifacts
 
-**Type:** Reference  
-**Status:** Accepted  
-**Last updated:** 2026-07-01  
 **Date:** 2026-06-23  
 **Issue:** #437 / Epic #436 — Cross-surface command envelope for document visuals and deck artifacts  
 **Authors:** Switch (Frontend Dev)

@@ -1,8 +1,11 @@
-# Design System Boundary
+---
+type: "design"
+status: "current"
+last_updated: "2026-07-01"
+description: "TextIQ app chrome uses the --ds-* tokens in src/app/globals.css as the source of truth. Visual-content palettes and themes remain separate in src/lib/visual/themes.ts."
+---
 
-**Type:** Design  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Design System Boundary
 
 TextIQ app chrome uses the `--ds-*` tokens in `src/app/globals.css` as the
 source of truth. Visual-content palettes and themes remain separate in

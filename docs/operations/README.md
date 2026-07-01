@@ -1,8 +1,11 @@
-# Operations Docs
+---
+type: "runbook"
+status: "current"
+last_updated: "2026-07-01"
+description: "Operational docs cover deployment, runtime constraints, readiness checks, and manual release procedures."
+---
 
-**Type:** Runbook  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Operations Docs
 
 Operational docs cover deployment, runtime constraints, readiness checks, and
 manual release procedures.

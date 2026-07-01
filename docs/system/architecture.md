@@ -1,8 +1,12 @@
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "Purpose: Current system design map"
+---
+
 # TextIQ — Current Architecture State
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01  
 **Purpose:** Current system design map
 
 > This document is the high-level map. Topic-level contracts live in flat

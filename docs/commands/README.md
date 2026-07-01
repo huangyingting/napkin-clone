@@ -1,8 +1,11 @@
-# Command Architecture
+---
+type: "contract"
+status: "current"
+last_updated: "2026-07-01"
+description: "These documents cover serializable user intent, mutation routing, and command metadata across document visuals and deck artifacts."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Command Architecture
 
 These documents cover serializable user intent, mutation routing, and command
 metadata across document visuals and deck artifacts.

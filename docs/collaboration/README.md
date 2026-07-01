@@ -1,8 +1,11 @@
-# Collaboration Runtime
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This subsystem covers the application-level collaboration contract: Yjs room identity, client readiness, degraded local-only mode, title sync, presence, and room authorization. Deployment and scaling procedures live in ../operations/collaboration-deployment.md."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Collaboration Runtime
 
 This subsystem covers the application-level collaboration contract: Yjs room
 identity, client readiness, degraded local-only mode, title sync, presence, and

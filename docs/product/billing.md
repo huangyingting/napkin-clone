@@ -1,8 +1,11 @@
-# Billing And Entitlements
+---
+type: "contract"
+status: "current"
+last_updated: "2026-06-26"
+description: "This document describes plan entitlements, AI credit metering, usage-ledger idempotency, billing provider selection, and subscription state. Brand Studio design lives in brand-studio.md."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-06-26
+# Billing And Entitlements
 
 This document describes plan entitlements, AI credit metering, usage-ledger
 idempotency, billing provider selection, and subscription state. Brand Studio

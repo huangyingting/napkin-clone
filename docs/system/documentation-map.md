@@ -1,8 +1,11 @@
-# Documentation Coverage Map
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "This map ties the main code subsystems to their design documents. It is a coverage index, not a replacement for source, tests, or schemas."
+---
 
-**Type:** Reference  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Documentation Coverage Map
 
 This map ties the main code subsystems to their design documents. It is a
 coverage index, not a replacement for source, tests, or schemas.

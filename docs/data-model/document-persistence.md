@@ -1,8 +1,11 @@
-# Document Persistence Service
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document describes the service boundary that persists editable document state, rebuilds visual projections, writes decks, snapshots versions, restores versions, and reconciles document-to-deck dependencies. CRUD/listing behavior lives in ../documents/README.md; JSON schema contracts live in deck.md and visual-mirror.md."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Document Persistence Service
 
 This document describes the service boundary that persists editable document
 state, rebuilds visual projections, writes decks, snapshots versions, restores

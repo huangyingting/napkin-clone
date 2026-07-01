@@ -1,8 +1,11 @@
-# Document Management
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This subsystem covers document creation, duplication, dashboard listing, search, tags, favorites, trash, and dashboard-load maintenance. Editor content state is documented in ../editor/; persisted document and deck shapes are documented in ../data-model/."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Document Management
 
 This subsystem covers document creation, duplication, dashboard listing,
 search, tags, favorites, trash, and dashboard-load maintenance. Editor content

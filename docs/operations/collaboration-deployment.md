@@ -1,8 +1,11 @@
-# Collaboration server — deployment & scaling
+---
+type: "runbook"
+status: "current"
+last_updated: "2026-07-01"
+description: "Real-time collaborative editing (multiple cursors, presence, conflict-free merges) is powered by a self-hosted Yjs websocket sync server, scripts/collab-server.mjs. The browser editor connects to it through useLexicalCollaboration. The application-level room/readiness/access contract is documented in ../collaboration/README.md."
+---
 
-**Type:** Runbook  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Collaboration server — deployment & scaling
 
 Real-time collaborative editing (multiple cursors, presence, conflict-free
 merges) is powered by a self-hosted Yjs websocket sync server,

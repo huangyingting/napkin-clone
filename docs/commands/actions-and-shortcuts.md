@@ -1,8 +1,11 @@
-# Actions And Shortcuts
+---
+type: "contract"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document defines the UI action and keyboard shortcut contract. It sits between visible controls and domain-specific command execution: actions describe labels, tooltips, shortcut ids, and disabled states; shortcuts define discoverable key mappings; action ports keep client components from importing route actions directly."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Actions And Shortcuts
 
 This document defines the UI action and keyboard shortcut contract. It sits
 between visible controls and domain-specific command execution: actions describe

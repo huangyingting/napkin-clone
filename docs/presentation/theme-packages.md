@@ -1,8 +1,11 @@
-# Presentation Theme Packages
+---
+type: "contract"
+status: "current"
+last_updated: "2026-06-29"
+description: "Theme packages are the v7 presentation editor's bundled visual-style units. A package owns theme tokens, named style refs, optional decorations, and package assets. Semantic templates are global v7 registry entries, not package-local templates."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-06-29
+# Presentation Theme Packages
 
 Theme packages are the v7 presentation editor's bundled visual-style units. A
 package owns theme tokens, named style refs, optional decorations, and package

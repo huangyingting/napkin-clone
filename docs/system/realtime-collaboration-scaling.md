@@ -1,8 +1,11 @@
+---
+type: "adr"
+status: "accepted"
+last_updated: "2026-07-01"
+description: "Architecture decision record for realtime collaboration scaling, durability, WebSocket room lifecycle, persistence, eviction, flood controls, and operational constraints."
+---
+
 # 1. Realtime collaboration scaling and durability
-
-**Type:** ADR
-
-**Last updated:** 2026-07-01
 
 - **Status:** Accepted
 - **Date:** 2026-06-23

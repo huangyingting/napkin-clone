@@ -1,8 +1,11 @@
-# Document Table Support Plan
+---
+type: "plan"
+status: "planned"
+last_updated: "2026-06-29"
+description: "This plan defines first-class table support in the document editor. Presentation decks already support first-class table slide elements; document tables are the structured authoring source that can feed search, import, export, AI deck generation, and presentation table/evidence slots."
+---
 
-**Type:** Plan  
-**Status:** Planned  
-**Last updated:** 2026-06-29
+# Document Table Support Plan
 
 This plan defines first-class table support in the document editor. Presentation
 decks already support first-class table slide elements; document tables are the

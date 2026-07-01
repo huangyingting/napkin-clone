@@ -1,8 +1,11 @@
-# Access Control And Public Sharing
+---
+type: "contract"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document defines document-level access control and public share behavior. It covers authenticated app permissions, public share/embed/present routes, and collaboration upgrade authorization."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Access Control And Public Sharing
 
 This document defines document-level access control and public share behavior.
 It covers authenticated app permissions, public share/embed/present routes, and

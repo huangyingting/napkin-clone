@@ -1,8 +1,11 @@
-# System Docs
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "These documents describe cross-subsystem architecture contracts. If a design changes during development, update the relevant contract so it continues to describe the current system."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# System Docs
 
 These documents describe cross-subsystem architecture contracts. If a design
 changes during development, update the relevant contract so it continues to

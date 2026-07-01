@@ -1,8 +1,11 @@
-# Legacy Stage Interaction Port Plan
+---
+type: "plan"
+status: "verified — no bulk port needed"
+last_updated: "2026-07-01"
+description: "This document records the feasibility analysis for taking the legacy staging editor's interaction UI and running it on the vNext DeckV7 model and operations. It separates what can be reused unchanged from what must be adapted, and recommends an incremental, parity-driven approach rather than a wholesale copy."
+---
 
-**Type:** Plan  
-**Status:** Verified — no bulk port needed  
-**Last updated:** 2026-07-01
+# Legacy Stage Interaction Port Plan
 
 This document records the feasibility analysis for taking the legacy staging
 editor's interaction UI and running it on the vNext DeckV7 model and operations.

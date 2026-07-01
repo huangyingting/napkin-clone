@@ -1,8 +1,11 @@
-# Developer Bootstrap and Local QA
+---
+type: "runbook"
+status: "current"
+last_updated: "2026-07-01"
+description: "These commands are additive developer tooling. They do not change app runtime behavior."
+---
 
-**Type:** Runbook  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Developer Bootstrap and Local QA
 
 These commands are additive developer tooling. They do not change app runtime
 behavior.

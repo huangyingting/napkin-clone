@@ -1,8 +1,12 @@
+---
+type: "runbook"
+status: "current"
+last_updated: "2026-07-01"
+description: "Epic: #493 — Persisted schema and cross-projection consistency gates Issue: #504 — Schema parse-failure telemetry + repair playbook"
+---
+
 # Persisted-schema repair playbook
 
-**Type:** Runbook  
-**Status:** Current  
-**Last updated:** 2026-07-01  
 **Epic:** #493 — Persisted schema and cross-projection consistency gates  
 **Issue:** #504 — Schema parse-failure telemetry + repair playbook
 

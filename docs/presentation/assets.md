@@ -1,8 +1,11 @@
-# Slide Assets
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document defines the slide image asset lifecycle: upload, storage, serving, resolution, export behavior, and cleanup."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Slide Assets
 
 This document defines the slide image asset lifecycle: upload, storage, serving,
 resolution, export behavior, and cleanup.

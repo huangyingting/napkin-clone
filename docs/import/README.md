@@ -1,8 +1,11 @@
-# Document Import Pipeline
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "The import subsystem parses uploaded .md, .html, .docx, .pptx, and .pdf files into Markdown-compatible text that can be converted into the current Lexical document JSON. It is a public, server-side parsing surface, so validation and abuse controls are part of the design contract."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Document Import Pipeline
 
 The import subsystem parses uploaded `.md`, `.html`, `.docx`, `.pptx`, and
 `.pdf` files into Markdown-compatible text that can be converted into the

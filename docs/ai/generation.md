@@ -1,8 +1,11 @@
-# AI Generation
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "Describes AI visual and deck generation routes, shared validation and billing flow, deck source extraction, vNext deck orchestration, template materialization, output validation, UI flow, quota, credits, and invariants."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# AI Generation
 
 This document describes the AI generation routes for visuals and decks. Both
 routes use the same operational envelope: validate before any model call,
@@ -113,6 +116,12 @@ The model returns a package-template slide plan: semantic `templateKind` values
 plus slot content. The repair step normalizes that plan, and the materializer
 fills installed theme-package templates into editable DeckV7 slide nodes. The
 final deck must pass `safeParseDeckV7` before it can open in the editor.
+
+Template text nodes are never left blank when a slot is absent. `compileSlide`
+uses static template text when provided, otherwise it fills a readable fallback
+derived from the node's slot or semantic role (`Title`, `Body text`, `Metric
+label`, and similar) so generated preview decks remain inspectable before AI or
+document content is applied.
 
 ## UI Flow
 

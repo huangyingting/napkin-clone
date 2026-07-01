@@ -1,10 +1,17 @@
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "API route security matrix covering route access policy, authentication requirements, response semantics, public surface governance, and security test enforcement."
+---
+
 # API Route Security Matrix
 
-**Type:** Reference  
 **Epic:** #495 — API Security and Public Surface Governance
 **Issue:** #509
-**Status:** Current — enforced by `src/app/api/api-route-security-matrix.test.ts`
-**Last updated:** 2026-07-01 (#1420 — share-bound public slide asset access)
+
+Enforced by `src/app/api/api-route-security-matrix.test.ts`.
+Last content update: #1420 — share-bound public slide asset access.
 
 ---
 

@@ -1,8 +1,11 @@
-# Authentication And Account Lifecycle
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This subsystem covers sign-in, account creation, provider linking, account settings, self-serve recovery, email verification, export, and deletion. Route authorization and document/workspace capabilities live in ../security/; this document covers how a user becomes and remains an authenticated account."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Authentication And Account Lifecycle
 
 This subsystem covers sign-in, account creation, provider linking, account
 settings, self-serve recovery, email verification, export, and deletion. Route

@@ -1,8 +1,11 @@
-# Workspaces And Membership
+---
+type: "contract"
+status: "current"
+last_updated: "2026-06-25"
+description: "This document describes workspace ownership, membership, invite links, and how workspace roles feed document permissions."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-06-25
+# Workspaces And Membership
 
 This document describes workspace ownership, membership, invite links, and how
 workspace roles feed document permissions.

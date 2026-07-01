@@ -1,8 +1,11 @@
-# Document Editor Architecture
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "The document editor pairs a Lexical rich-text surface with visual blocks (flowcharts, mind maps, charts, …) and a set of context-aware surfaces (a floating text toolbar, a mobile bottom sheet, a +// insert menu, and a per-visual editing popover). This document explains how those pieces fit together and how to extend them safely."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Document Editor Architecture
 
 The document editor pairs a Lexical rich-text surface with **visual blocks**
 (flowcharts, mind maps, charts, …) and a set of **context-aware surfaces**

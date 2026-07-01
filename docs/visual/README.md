@@ -1,8 +1,11 @@
-# Visual System
+---
+type: "contract"
+status: "current"
+last_updated: "2026-07-01"
+description: "The visual subsystem owns visual schemas, kind capabilities, renderer/export support, transformations, and AI prompt constraints. Persistence of visual nodes and Visual rows is documented in ../data-model/visual-mirror.md; editor lifecycle is documented in ../editor/document-editor.md."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Visual System
 
 The visual subsystem owns visual schemas, kind capabilities, renderer/export
 support, transformations, and AI prompt constraints. Persistence of visual nodes

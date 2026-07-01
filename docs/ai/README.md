@@ -1,8 +1,11 @@
-# AI Architecture
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "These documents describe AI-backed generation flows and their quota/credit boundaries."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# AI Architecture
 
 These documents describe AI-backed generation flows and their quota/credit
 boundaries.

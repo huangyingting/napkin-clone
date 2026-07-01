@@ -1,8 +1,11 @@
-# Security Docs
+---
+type: "contract"
+status: "current"
+last_updated: "2026-07-01"
+description: "Security docs cover authorization, public access, share-link behavior, and HTTP surface governance. They are the contract for routes and server actions that decide who may see or mutate a document."
+---
 
-**Type:** Contract  
-**Status:** Current
-**Last updated:** 2026-07-01
+# Security Docs
 
 Security docs cover authorization, public access, share-link behavior, and HTTP
 surface governance. They are the contract for routes and server actions that

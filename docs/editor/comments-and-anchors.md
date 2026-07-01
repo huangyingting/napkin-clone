@@ -1,8 +1,11 @@
-# Comments And Anchors
+---
+type: "design"
+status: "current"
+last_updated: "2026-06-29"
+description: "This document describes comment threads and their document/slide anchors."
+---
 
-**Type:** Design  
-**Status:** Current  
-**Last updated:** 2026-06-29
+# Comments And Anchors
 
 This document describes comment threads and their document/slide anchors.
 

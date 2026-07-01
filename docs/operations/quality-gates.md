@@ -1,8 +1,11 @@
-# Quality Gates And Governance Scripts
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document is the inventory for local and CI quality gates. It explains what each command protects and where ownership lives. Release sign-off sequence lives in release-gate.md; local setup and troubleshooting live in developer-bootstrap.md."
+---
 
-**Type:** Reference  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Quality Gates And Governance Scripts
 
 This document is the inventory for local and CI quality gates. It explains what
 each command protects and where ownership lives. Release sign-off sequence lives

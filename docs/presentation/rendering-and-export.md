@@ -1,8 +1,11 @@
-# Presentation Rendering And Export
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document describes how authored decks render in the editor, present mode, public viewers, and export pipeline. For the deck JSON shape, see ../data-model/deck.md. For theme/layout resolution, see theme-packages.md."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Presentation Rendering And Export
 
 This document describes how authored decks render in the editor, present mode,
 public viewers, and export pipeline. For the deck JSON shape, see

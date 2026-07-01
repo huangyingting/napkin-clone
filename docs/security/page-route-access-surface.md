@@ -1,10 +1,16 @@
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "Classifies non-API app routes and proxy exclusions, documents access-surface ownership, route classification, and page-route manifest governance."
+---
+
 # Page Route Access Surface
 
-**Type:** Reference  
-**Last updated:** 2026-07-01  
 **Epic:** #983 — HTTP Route, Access Surface, and Next Build Constraint Governance  
-**Issues:** #986, #987  
-**Status:** Current — enforced by `src/lib/auth/page-route-access-manifest.test.ts`
+**Issues:** #986, #987
+
+Enforced by `src/lib/auth/page-route-access-manifest.test.ts`.
 
 This manifest classifies non-API app routes and proxy exclusions. The typed
 source of truth is `src/lib/auth/page-route-access-manifest.ts`; the proxy matcher

@@ -1,8 +1,11 @@
-# DeckV7 Persisted Contract
+---
+type: "contract"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document defines the current Document.deckJson contract. Persisted decks must be DeckV7 JSON. Runtime open, save, render, and export paths reject superseded payload shapes instead of repairing or upgrading them."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# DeckV7 Persisted Contract
 
 This document defines the current `Document.deckJson` contract. Persisted decks
 must be DeckV7 JSON. Runtime open, save, render, and export paths reject

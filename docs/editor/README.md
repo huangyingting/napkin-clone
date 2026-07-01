@@ -1,8 +1,11 @@
-# Editor Architecture
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "These documents describe the Lexical document editor and editor-owned comment UX. Presentation theme, slide editor, rendering, and export behavior belong to the presentation subsystem."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Editor Architecture
 
 These documents describe the Lexical document editor and editor-owned comment
 UX. Presentation theme, slide editor, rendering, and export behavior belong to

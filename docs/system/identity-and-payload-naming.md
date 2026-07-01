@@ -1,8 +1,11 @@
-# Domain Identity And Payload Naming
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "This guide defines current naming vocabulary only. It does not change persisted database columns or JSON payload shapes."
+---
 
-**Type:** Reference  
-**Status:** Current
-**Last updated:** 2026-07-01
+# Domain Identity And Payload Naming
 
 This guide defines current naming vocabulary only. It does not change persisted
 database columns or JSON payload shapes.

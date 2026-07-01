@@ -1,8 +1,11 @@
+---
+type: "adr"
+status: "accepted with release-gate caveat"
+last_updated: "2026-07-01"
+description: "Architecture decision record for slide canvas keyboard accessibility, roving focus, selection shortcuts, keyboard manipulation, and release-gate evidence boundaries."
+---
+
 # 2. Canvas keyboard accessibility for the slide editor
-
-**Type:** ADR
-
-**Last updated:** 2026-07-01
 
 - **Status:** Accepted with release-gate caveat — R1–R3 behavior exists in v7
   source, but AC-5 remains deferred until direct `SlideEditorVNext` keyboard

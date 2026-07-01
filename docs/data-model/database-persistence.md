@@ -1,8 +1,11 @@
-# Database Persistence
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-06-26"
+description: "This document describes database-provider resolution, Prisma client setup, and the high-level relational model. JSON payload contracts remain in deck.md and visual-mirror.md."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-06-26
+# Database Persistence
 
 This document describes database-provider resolution, Prisma client setup, and
 the high-level relational model. JSON payload contracts remain in

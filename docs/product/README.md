@@ -1,8 +1,11 @@
-# Product Architecture
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "These documents describe product-tier behavior that cuts across editor and export surfaces: billing plans, AI credits, entitlement gates, and brand kits."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Product Architecture
 
 These documents describe product-tier behavior that cuts across editor and
 export surfaces: billing plans, AI credits, entitlement gates, and brand kits.

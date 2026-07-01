@@ -1,8 +1,11 @@
-# Diagnostics and Logging
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "TextIQ uses layered diagnostics:"
+---
 
-**Type:** Reference  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Diagnostics and Logging
 
 TextIQ uses layered diagnostics:
 

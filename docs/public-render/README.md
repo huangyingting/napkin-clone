@@ -1,8 +1,11 @@
-# Public Render Surfaces
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "The public-render subsystem resolves share/embed/present/OG/asset requests into read-only models. It bridges security policy, public metadata privacy, presentation rendering, visual dependencies, and paid-plan attribution."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Public Render Surfaces
 
 The public-render subsystem resolves share/embed/present/OG/asset requests into
 read-only models. It bridges security policy, public metadata privacy,

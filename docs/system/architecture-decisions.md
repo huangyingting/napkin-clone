@@ -1,8 +1,11 @@
-# Architecture Decision Records
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "Architecture Decision Records (ADRs) capture durable choices that shape TextIQ's runtime architecture. Source, tests, and schemas remain authoritative for current behavior; ADRs explain why a decision was made and how to amend or supersede it when source behavior materially changes."
+---
 
-**Type:** Reference  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Architecture Decision Records
 
 Architecture Decision Records (ADRs) capture durable choices that shape TextIQ's
 runtime architecture. Source, tests, and schemas remain authoritative for current

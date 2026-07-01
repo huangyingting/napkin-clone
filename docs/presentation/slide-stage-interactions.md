@@ -1,8 +1,11 @@
-# Slide Stage Interactions
+---
+type: "design"
+status: "current"
+last_updated: "2026-07-01"
+description: "This document defines how the slide editor stage should choose, preview, select, move, resize, and edit DeckV7 nodes when many nodes overlap. It is the interaction contract for the vNext slide editor stage, not the persisted deck schema."
+---
 
-**Type:** Design  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Slide Stage Interactions
 
 This document defines how the slide editor stage should choose, preview, select,
 move, resize, and edit DeckV7 nodes when many nodes overlap. It is the
@@ -100,18 +103,18 @@ The hit-test pipeline is:
 Scores are intentionally semantic rather than purely visual z-index based.
 Examples:
 
-| Candidate condition                  | Priority intent                                                                                 |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| Text/list actual content hit         | Very high. Text content is often what users intend to edit/select, even if covered by a shape.  |
-| Text/list near content               | High. A little tolerance around text makes targeting humane.                                    |
-| Text/list frame-only hit             | Low. Empty frame area should not block lower visible objects.                                   |
-| Connector or line stroke hit         | Very high. Thin objects need a generous distance threshold to be selectable.                    |
-| Shape edge hit                       | Very high. Edges/corners usually mean the user is targeting the shape itself.                   |
-| Small shape interior                 | High. Small shapes are likely intentional targets.                                              |
-| Medium shape interior                | Medium-high.                                                                                    |
-| Large/background-like shape interior | Low. Large covering shapes often function as backgrounds/containers and should not trap intent. |
-| Selected element                     | Strong bonus. A selected covering element should remain easy to keep operating.                 |
-| Z-index                              | Small tie-break bonus, not the whole decision.                                                  |
+| Candidate condition                  | Priority intent                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Text/list actual content hit         | Very high. Text content is often what users intend to edit/select, even if covered by a shape.                                |
+| Text/list near content               | High. A little tolerance around text makes targeting humane.                                                                  |
+| Text/list frame-only hit             | Low. Empty frame area should not block lower visible objects.                                                                 |
+| Connector or line stroke hit         | Very high. Thin objects need a generous distance threshold to be selectable.                                                  |
+| Shape edge hit                       | Very high. Edges/corners usually mean the user is targeting the shape itself.                                                 |
+| Small shape interior                 | High. Small shapes are likely intentional targets.                                                                            |
+| Medium shape interior                | Medium-high.                                                                                                                  |
+| Large/background-like shape interior | Low. Large covering shapes often function as backgrounds/containers and should not trap intent.                               |
+| Selected element                     | Optional strong bonus for selected-object flows such as context menus; not used for hover or ordinary pointer-down targeting. |
+| Z-index                              | Small tie-break bonus, not the whole decision.                                                                                |
 
 This is why a text element can be preselected even when a large shape covers it:
 the pointer can be close to the text content, while the large shape's interior is
@@ -246,9 +249,16 @@ hit-test for the target. This keeps hover feedback and click behavior aligned.
 | Editing stage click     | primary stage click while editing    | commit/exit inline edit and clear selection                           |
 
 Pointer-down target resolution and hover preselection use the same ranked
-candidate list, but side effects differ. Hover only updates
+candidate list without selected-node stickiness, so the object shown as
+preselected is also the object a normal drag starts from. Hover only updates
 `preselectedElementId`; pointer-down stores a press-pending target; movement past
 the threshold promotes that target into the active manipulation state.
+
+Selected-node stickiness is reserved for flows that explicitly operate on the
+current selection, such as context-menu targeting and select-under anchoring. It
+must not override ordinary pointer-down targeting, because that would make a
+preselected overlapping object appear draggable while actually dragging the
+already selected object underneath.
 
 The raw semantic hit candidate is resolved through `stage-targeting.ts` before
 selection semantics are applied. This keeps group behavior consistent across
@@ -278,16 +288,16 @@ resolve to member-level selection.
 
 ## Overlap Cases
 
-| Scenario                                           | Expected result                                                                                 |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Large text frame over shape, pointer in text blank | Lower visible object can preselect/select.                                                      |
-| Large shape over text, pointer near text content   | Text can win by semantic score, even if geometrically covered by the shape.                     |
-| Pointer near shape edge                            | Shape wins.                                                                                     |
-| Small shape over text                              | Small shape can win.                                                                            |
-| Selected large shape over text                     | Selected shape keeps a strong bonus so it remains operable.                                     |
-| Multiple arbitrary fully covered objects           | Semantic scoring can improve the common case, but layer list/context menu remains the fallback. |
-| Line/connector over any element                    | Stroke-distance hit wins near the line; box interior alone should not.                          |
-| Locked object over editable object                 | Locked object is excluded by default, so lower editable objects can be targeted.                |
+| Scenario                                           | Expected result                                                                                                              |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Large text frame over shape, pointer in text blank | Lower visible object can preselect/select.                                                                                   |
+| Large shape over text, pointer near text content   | Text can win by semantic score, even if geometrically covered by the shape.                                                  |
+| Pointer near shape edge                            | Shape wins.                                                                                                                  |
+| Small shape over text                              | Small shape can win.                                                                                                         |
+| Selected large shape over text                     | Hover and normal pointer-down can still target the text; context-menu/select-under flows may bias toward the selected shape. |
+| Multiple arbitrary fully covered objects           | Semantic scoring can improve the common case, but layer list/context menu remains the fallback.                              |
+| Line/connector over any element                    | Stroke-distance hit wins near the line; box interior alone should not.                                                       |
+| Locked object over editable object                 | Locked object is excluded by default, so lower editable objects can be targeted.                                             |
 
 ## Precision Fallbacks
 

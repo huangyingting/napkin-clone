@@ -1,8 +1,11 @@
-# Presentation Architecture
+---
+type: "architecture"
+status: "current"
+last_updated: "2026-07-01"
+description: "These documents describe the runtime presentation layer: the slide editor UI, stage interactions, present mode, and export pipeline. They sit between the persisted deck contract and the React components that render/edit slides."
+---
 
-**Type:** Architecture  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# Presentation Architecture
 
 These documents describe the runtime presentation layer: the slide editor UI,
 stage interactions, present mode, and export pipeline. They sit between the

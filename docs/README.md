@@ -1,8 +1,11 @@
-# TextIQ Documentation
+---
+type: "reference"
+status: "current"
+last_updated: "2026-07-01"
+description: "This folder documents the current runtime architecture, persisted contracts, product behavior, operational runbooks, and forward plans for TextIQ. Source code, tests, and schemas remain authoritative; docs explain the current system and name where future work belongs."
+---
 
-**Type:** Reference  
-**Status:** Current  
-**Last updated:** 2026-07-01
+# TextIQ Documentation
 
 This folder documents the current runtime architecture, persisted contracts,
 product behavior, operational runbooks, and forward plans for TextIQ. Source

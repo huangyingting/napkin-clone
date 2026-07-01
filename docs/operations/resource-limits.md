@@ -1,8 +1,11 @@
-# Resource Limits And Budgets
+---
+type: "contract"
+status: "current"
+last_updated: "2026-06-26"
+description: "This document describes the central resource-limit inventory used by import, AI, deck persistence, assets, comments, workspaces, and performance budgets. Runtime environment variables are documented in runtime-config.md."
+---
 
-**Type:** Contract  
-**Status:** Current  
-**Last updated:** 2026-06-26
+# Resource Limits And Budgets
 
 This document describes the central resource-limit inventory used by import,
 AI, deck persistence, assets, comments, workspaces, and performance budgets.
