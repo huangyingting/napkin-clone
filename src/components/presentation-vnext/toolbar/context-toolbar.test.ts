@@ -4,6 +4,7 @@ import { afterEach, describe, test } from "node:test";
 
 import {
   buildSlideToolInsertActions,
+  isContextToolbarInlineTextCommandEnabled,
   restoreFocusAfterContextToolbarEscape,
   seedContextToolbarStyles,
 } from "./context-toolbar";
@@ -219,6 +220,87 @@ describe("slide delete affordance wiring", () => {
   test("disables Delete slide when deletion is unavailable", () => {
     assert.equal(
       source.includes("disabled={!canDeleteSlide || !onDeleteSlide}"),
+      true,
+    );
+  });
+});
+
+describe("isContextToolbarInlineTextCommandEnabled", () => {
+  test("disables inline-only commands outside inline edit mode", () => {
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("strikethrough", false),
+      false,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("bullet-list", false),
+      false,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("numbered-list", false),
+      false,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("indent-list", false),
+      false,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("outdent-list", false),
+      false,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("link", false),
+      false,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("unlink", false),
+      false,
+    );
+  });
+
+  test("keeps text commands enabled in inline edit mode", () => {
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("strikethrough", true),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("bullet-list", true),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("numbered-list", true),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("indent-list", true),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("outdent-list", true),
+      true,
+    );
+    assert.equal(isContextToolbarInlineTextCommandEnabled("link", true), true);
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("unlink", true),
+      true,
+    );
+  });
+
+  test("does not disable commands that already mutate selected node style", () => {
+    assert.equal(isContextToolbarInlineTextCommandEnabled("bold", false), true);
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("italic", false),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("underline", false),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("align-left", false),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("font-size", false),
       true,
     );
   });

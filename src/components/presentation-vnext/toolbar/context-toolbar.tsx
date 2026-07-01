@@ -64,19 +64,49 @@ import { FloatingSurface } from "@/components/ui/floating-surface";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
-import { dispatchInlineTextCommand } from "@/lib/presentation-vnext/inline-text-commands";
+import {
+  dispatchInlineTextCommand,
+  type InlineTextCommandName,
+} from "@/lib/presentation-vnext/inline-text-commands";
 
 const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
+const INLINE_ONLY_TEXT_COMMANDS = new Set<InlineTextCommandName>([
+  "strikethrough",
+  "bullet-list",
+  "numbered-list",
+  "indent-list",
+  "outdent-list",
+  "link",
+  "unlink",
+]);
 
 export type SelectionAlignMode =
-  "left" | "center" | "right" | "top" | "middle" | "bottom";
+  | "left"
+  | "center"
+  | "right"
+  | "top"
+  | "middle"
+  | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
 type SlideToolInsertActionKey =
-  "text" | "shape" | "image" | "visual" | "connector" | "table";
+  | "text"
+  | "shape"
+  | "image"
+  | "visual"
+  | "connector"
+  | "table";
+
+export function isContextToolbarInlineTextCommandEnabled(
+  command: InlineTextCommandName,
+  isInlineEditing: boolean,
+): boolean {
+  if (!INLINE_ONLY_TEXT_COMMANDS.has(command)) return true;
+  return isInlineEditing;
+}
 
 const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
   text: "Insert text",
@@ -599,6 +629,10 @@ export function ContextToolbar({
     nodeType === "text" ||
     (nodeType === "shape" && !isMultiSelect);
   const showArrangeGroup = !isInlineEditing && !isDecorationSelected;
+  const linkCommandEnabled = isContextToolbarInlineTextCommandEnabled(
+    "link",
+    isInlineEditing,
+  );
 
   const styleSeed = seedContextToolbarStyles(
     selectedNode,
@@ -774,6 +808,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Strikethrough"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "strikethrough",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "strikethrough" })
               }
@@ -806,6 +846,12 @@ export function ContextToolbar({
             </ToolbarSelect>
             <TBtn
               label="Bullet list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "bullet-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "bullet-list" })
               }
@@ -814,6 +860,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Numbered list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "numbered-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "numbered-list" })
               }
@@ -822,6 +874,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Outdent list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "outdent-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "outdent-list" })
               }
@@ -830,6 +888,12 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Indent list"
+              disabled={
+                !isContextToolbarInlineTextCommandEnabled(
+                  "indent-list",
+                  isInlineEditing,
+                )
+              }
               onClick={() =>
                 dispatchInlineTextCommand({ command: "indent-list" })
               }
@@ -862,12 +926,16 @@ export function ContextToolbar({
               onChange={updateFontSize}
             />
             <Popover
-              open={linkOpen}
+              open={linkCommandEnabled && linkOpen}
               onClose={() => setLinkOpen(false)}
               portal
               align="center"
               trigger={
-                <TBtn label="Link" onClick={() => setLinkOpen((open) => !open)}>
+                <TBtn
+                  label="Link"
+                  disabled={!linkCommandEnabled}
+                  onClick={() => setLinkOpen((open) => !open)}
+                >
                   <Link size={13} aria-hidden />
                 </TBtn>
               }
@@ -878,6 +946,7 @@ export function ContextToolbar({
                 className="flex flex-col gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  if (!linkCommandEnabled) return;
                   const url = linkDraft.trim();
                   if (url) {
                     dispatchInlineTextCommand({ command: "link", value: url });
@@ -897,13 +966,16 @@ export function ContextToolbar({
                 </label>
                 <button
                   type="submit"
+                  disabled={!linkCommandEnabled}
                   className="self-end rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover"
                 >
                   Apply link
                 </button>
                 <button
                   type="button"
+                  disabled={!linkCommandEnabled}
                   onClick={() => {
+                    if (!linkCommandEnabled) return;
                     dispatchInlineTextCommand({ command: "unlink" });
                     setLinkOpen(false);
                   }}
