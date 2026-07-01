@@ -74,7 +74,6 @@ import type {
   DeckChromeConfig,
   DeckChromeKind,
   ImageCrop,
-  ImageAsset,
   LayoutBox,
   NodeSourceMetadata,
   SemanticTemplateKind,
@@ -190,6 +189,23 @@ import {
   connectorAnchorPoint,
   connectorEndpointFromSlidePoint,
 } from "@/lib/presentation-vnext/connector-geometry";
+import {
+  assetFactoryId,
+  deckWithPickedVisualAsset,
+  deckWithUploadedImageAsset as createDeckWithUploadedImageAsset,
+  defaultConnectorNode,
+  defaultImageNode,
+  defaultShapeNode,
+  defaultTableNode,
+  defaultTextNode,
+  defaultVisualNode,
+  nextZIndex,
+  nodeFactoryId,
+  textNodeAtPoint,
+  visualContentPatchFromPick,
+  type V7ImageUploadResult,
+  type V7VisualPickResult,
+} from "@/lib/presentation-vnext/node-asset-factories";
 import {
   buildAlignSelectionPatches,
   buildDistributeSelectionPatches,
@@ -425,21 +441,9 @@ export function SlideEditorInspectorRegion({
   );
 }
 
-export type SlideEditorVNextImageUploadResult = {
-  src: string;
-  assetId?: string;
-  alt?: string;
-  widthPx?: number;
-  heightPx?: number;
-  mimeType?: ImageAsset["mimeType"];
-  contentHash?: string;
-};
+export type SlideEditorVNextImageUploadResult = V7ImageUploadResult;
 
-export type SlideEditorVNextVisualPickResult = {
-  visualId?: string;
-  assetId?: string;
-  alt?: string;
-};
+export type SlideEditorVNextVisualPickResult = V7VisualPickResult;
 
 export type SlideEditorVNextSourceRefreshResult = SourceLinkHostRefreshResult;
 
@@ -938,27 +942,6 @@ function nearestConnectorAnchor(
   return best && best.distance <= thresholdPct ? best.endpoint : null;
 }
 
-function nodeFactoryId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}`;
-}
-
-function assetFactoryId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-}
-
-function imageMimeType(
-  type: string,
-): "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml" | undefined {
-  return type === "image/png" ||
-    type === "image/jpeg" ||
-    type === "image/webp" ||
-    type === "image/svg+xml"
-    ? type
-    : undefined;
-}
-
 function readImageFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -975,152 +958,6 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
     };
     reader.readAsDataURL(file);
   });
-}
-
-function nextZIndex(slide: SlideNode | undefined): number {
-  if (!slide || slide.children.length === 0) return 1;
-  return (
-    Math.max(...slide.children.map((node) => node.layout?.zIndex ?? 0)) + 1
-  );
-}
-
-function defaultTextNode(zIndex: number): SlideChildNode {
-  const id = nodeFactoryId("text");
-  const frame = { x: 12, y: 16, w: 42, h: 12 } satisfies LayoutBox["frame"];
-  return {
-    id,
-    type: "text",
-    role: "body",
-    layout: { frame, zIndex },
-    style: { ref: "text.body" },
-    content: { paragraphs: [{ id: `${id}-p-1`, text: "Text" }] },
-  };
-}
-
-function textFrameAtPoint(point: { x: number; y: number }): LayoutBox["frame"] {
-  const frame = { x: 12, y: 16, w: 42, h: 12 } satisfies LayoutBox["frame"];
-  return clampFrame({
-    x: point.x - frame.w / 2,
-    y: point.y - frame.h / 2,
-    w: frame.w,
-    h: frame.h,
-  });
-}
-
-function textNodeAtPoint(
-  point: { x: number; y: number },
-  zIndex: number,
-): SlideChildNode {
-  const id = nodeFactoryId("text");
-  const frame = textFrameAtPoint(point);
-  return {
-    id,
-    type: "text",
-    role: "body",
-    layout: { frame, zIndex },
-    style: { ref: "text.body" },
-    content: { paragraphs: [{ id: `${id}-p-1`, text: "Text" }] },
-  };
-}
-
-function defaultShapeNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("shape"),
-    type: "shape",
-    role: "card",
-    layout: { frame: { x: 16, y: 20, w: 28, h: 18 }, zIndex },
-    style: { ref: "surface.card" },
-    content: { shape: "rect" },
-  };
-}
-
-function defaultTableNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("table"),
-    type: "table",
-    role: "table",
-    layout: { frame: { x: 12, y: 18, w: 56, h: 24 }, zIndex },
-    style: { ref: "surface.table" },
-    content: {
-      columns: [
-        { id: "col-1", label: "Column 1" },
-        { id: "col-2", label: "Column 2" },
-      ],
-      rows: [
-        { id: "row-1", cells: [{ text: "" }, { text: "" }] },
-        { id: "row-2", cells: [{ text: "" }, { text: "" }] },
-      ],
-    },
-  };
-}
-
-function defaultImageNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("image"),
-    type: "image",
-    role: "image",
-    layout: { frame: { x: 18, y: 18, w: 40, h: 28 }, zIndex },
-    style: { ref: "media.inline" },
-    content: { assetId: "placeholder", alt: "Image" },
-  };
-}
-
-function defaultVisualNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("visual"),
-    type: "visual",
-    role: "visual",
-    layout: { frame: { x: 18, y: 18, w: 46, h: 30 }, zIndex },
-    style: { ref: "chart.primary" },
-    content: { visualId: "visual-placeholder" },
-  };
-}
-
-function deckWithPickedVisualAsset(
-  deck: DeckV7,
-  picked: SlideEditorVNextVisualPickResult,
-): DeckV7 {
-  if (!picked.assetId) return deck;
-  const visualId = picked.visualId ?? picked.assetId;
-  return {
-    ...deck,
-    assets: {
-      ...deck.assets,
-      visuals: {
-        ...deck.assets.visuals,
-        [picked.assetId]: {
-          id: picked.assetId,
-          visualId,
-          ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
-        },
-      },
-    },
-  };
-}
-
-function visualContentPatchFromPick(
-  picked: SlideEditorVNextVisualPickResult,
-): Record<string, unknown> {
-  return {
-    ...(picked.visualId !== undefined ? { visualId: picked.visualId } : {}),
-    ...(picked.assetId !== undefined ? { assetId: picked.assetId } : {}),
-    ...(picked.alt !== undefined ? { alt: picked.alt } : {}),
-  };
-}
-
-function defaultConnectorNode(zIndex: number): SlideChildNode {
-  return {
-    id: nodeFactoryId("connector"),
-    type: "connector",
-    role: "connector",
-    layout: { frame: { x: 20, y: 45, w: 32, h: 10 }, zIndex },
-    style: { ref: "connector.primary" },
-    content: {
-      from: { kind: "point", point: { x: 0, y: 50 } },
-      to: { kind: "point", point: { x: 100, y: 50 } },
-      routing: "straight",
-    },
-  };
 }
 
 interface CloseRequestHandlers {
@@ -1817,35 +1654,13 @@ export function SlideEditorVNext({
     const upload = onUploadImage
       ? await onUploadImage(file)
       : { src: await readImageFileAsDataUrl(file) };
-    if (!upload.src) return undefined;
-    const assetId = upload.assetId ?? assetFactoryId("image");
-    const alt = upload.alt ?? file.name;
-    const mimeType = upload.mimeType ?? imageMimeType(file.type);
-    return {
-      deckWithAsset: {
-        ...deck,
-        assets: {
-          ...deck.assets,
-          images: {
-            ...deck.assets.images,
-            [assetId]: {
-              id: assetId,
-              src: upload.src,
-              alt,
-              ...(upload.widthPx ? { widthPx: upload.widthPx } : {}),
-              ...(upload.heightPx ? { heightPx: upload.heightPx } : {}),
-              ...(mimeType ? { mimeType } : {}),
-              ...(upload.contentHash
-                ? { contentHash: upload.contentHash }
-                : {}),
-              origin: { kind: "upload", importedAt: new Date().toISOString() },
-            },
-          },
-        },
-      },
-      assetId,
-      alt,
-    };
+    return createDeckWithUploadedImageAsset({
+      deck,
+      upload,
+      fileName: file.name,
+      fileType: file.type,
+      createAssetId: assetFactoryId,
+    });
   }
 
   async function handleReplaceImageFile(file: File | undefined) {
@@ -2430,8 +2245,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {
