@@ -245,6 +245,40 @@ test("setSelectionMode is identity when mode unchanged", () => {
   assert.strictEqual(setSelectionMode(state, "normal"), state);
 });
 
+test("setSelectionMode clears generated selections when leaving layers mode", () => {
+  const slide = mockSlide(
+    [userNode("u1")],
+    [decorationNode("d1")],
+    [chromeNode("c1")],
+  );
+  let state = setSelection(createSelectionState("layers"), ["d1", "c1"]);
+  state = setSelectionMode(
+    state,
+    "normal",
+    getSelectableNodes(slide, "normal").map((node) => node.id),
+  );
+  assert.equal(state.mode, "normal");
+  assert.deepEqual(selectedNodeIds(state), []);
+  assert.equal(selectionSize(state), 0);
+});
+
+test("setSelectionMode preserves selected user nodes when leaving layers mode", () => {
+  const slide = mockSlide(
+    [userNode("u1"), userNode("u2")],
+    [decorationNode("d1")],
+    [chromeNode("c1")],
+  );
+  let state = setSelection(createSelectionState("layers"), ["u1", "d1", "u2"]);
+  state = setSelectionMode(
+    state,
+    "normal",
+    getSelectableNodes(slide, "normal").map((node) => node.id),
+  );
+  assert.equal(state.mode, "normal");
+  assert.deepEqual(selectedNodeIds(state), ["u1", "u2"]);
+  assert.equal(selectionSize(state), 2);
+});
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
