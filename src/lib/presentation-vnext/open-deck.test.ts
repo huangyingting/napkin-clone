@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 
+import * as legacyDeckBoundary from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { DECK_SCHEMA_VERSION_V7 } from "./schema";
 import {
   decideDeckOpen,
   openAiGeneratedDeck,
@@ -13,7 +16,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const MINIMAL_V7 = {
-  schemaVersion: 7,
+  schemaVersion: DECK_SCHEMA_VERSION_V7,
   id: "deck-0001",
   title: "Identity deck",
   canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
@@ -43,7 +46,7 @@ const MINIMAL_V7 = {
 // ---------------------------------------------------------------------------
 
 const MINIMAL_V6 = {
-  schemaVersion: 6,
+  schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
   canvas: { format: "16:9" },
   design: { themeId: "default" },
   slides: [
@@ -74,10 +77,21 @@ const MINIMAL_V6 = {
 // ---------------------------------------------------------------------------
 
 describe("openDeckFromJson — v7 pass-through", () => {
+  test("keeps legacy and current deck schema versions explicitly split", () => {
+    assert.equal(LEGACY_DECK_SCHEMA_VERSION, 6);
+    assert.equal(DECK_SCHEMA_VERSION_V7, 7);
+    assert.notEqual(LEGACY_DECK_SCHEMA_VERSION, DECK_SCHEMA_VERSION_V7);
+    assert.equal(
+      "CURRENT_DECK_SCHEMA_VERSION" in legacyDeckBoundary,
+      false,
+      "Legacy deck boundary must not expose an ambiguous CURRENT_* schema constant",
+    );
+  });
+
   test("accepts a valid v7 deck", () => {
     const result = openDeckFromJson(MINIMAL_V7);
     assert.ok(result.ok);
-    assert.equal(result.deck.schemaVersion, 7);
+    assert.equal(result.deck.schemaVersion, DECK_SCHEMA_VERSION_V7);
   });
 
   test("preserves valid v7 deck JSON and identities unchanged", () => {
@@ -98,7 +112,10 @@ describe("openDeckFromJson — v7 pass-through", () => {
     assert.equal(valid.source, "v7");
     assert.equal(valid.deck, MINIMAL_V7);
 
-    const invalid = openAiGeneratedDeck({ schemaVersion: 7, slides: [] });
+    const invalid = openAiGeneratedDeck({
+      schemaVersion: DECK_SCHEMA_VERSION_V7,
+      slides: [],
+    });
     assert.ok(!invalid.ok);
     assert.match(invalid.error, /v7 deck validation failed/);
   });
@@ -111,7 +128,7 @@ describe("openDeckFromJson — v7 pass-through", () => {
   });
 
   test("returns ok=false for a v7 deck missing required fields", () => {
-    const bad = { schemaVersion: 7, slides: null };
+    const bad = { schemaVersion: DECK_SCHEMA_VERSION_V7, slides: null };
     const result = openDeckFromJson(bad);
     assert.ok(!result.ok);
   });
@@ -137,12 +154,18 @@ describe("openDeckFromJson — unknown schema version", () => {
   test("returns ok=false for superseded v6 deck payloads", () => {
     const result = openDeckFromJson(MINIMAL_V6);
     assert.ok(!result.ok);
-    assert.match(result.error, /Expected schemaVersion 7/);
+    assert.match(
+      result.error,
+      new RegExp(`Expected schemaVersion ${DECK_SCHEMA_VERSION_V7}`),
+    );
     assert.deepEqual(result.diagnostics, []);
   });
 
   test("returns ok=false for a string schemaVersion", () => {
-    const result = openDeckFromJson({ schemaVersion: "7", slides: [] });
+    const result = openDeckFromJson({
+      schemaVersion: String(DECK_SCHEMA_VERSION_V7),
+      slides: [],
+    });
     assert.ok(!result.ok);
   });
 });
@@ -158,7 +181,10 @@ describe("decideDeckOpen", () => {
   });
 
   test("routes invalid non-empty v7 input to recovery instead of blank", () => {
-    const result = decideDeckOpen({ schemaVersion: 7, slides: [] });
+    const result = decideDeckOpen({
+      schemaVersion: DECK_SCHEMA_VERSION_V7,
+      slides: [],
+    });
     assert.equal(result.mode, "recovery");
     if (result.mode === "recovery") {
       assert.match(result.error, /v7 deck validation failed/);
@@ -172,7 +198,10 @@ describe("decideDeckOpen", () => {
     const result = decideDeckOpen(MINIMAL_V6);
     assert.equal(result.mode, "recovery");
     if (result.mode === "recovery") {
-      assert.match(result.error, /Expected schemaVersion 7/);
+      assert.match(
+        result.error,
+        new RegExp(`Expected schemaVersion ${DECK_SCHEMA_VERSION_V7}`),
+      );
       assert.deepEqual(result.diagnostics, []);
     }
   });
@@ -184,11 +213,17 @@ describe("decideDeckOpen", () => {
 
 describe("looksLikeDeckV7", () => {
   test("returns true for an object with schemaVersion 7", () => {
-    assert.equal(looksLikeDeckV7({ schemaVersion: 7 }), true);
+    assert.equal(
+      looksLikeDeckV7({ schemaVersion: DECK_SCHEMA_VERSION_V7 }),
+      true,
+    );
   });
 
   test("returns false for schemaVersion 6", () => {
-    assert.equal(looksLikeDeckV7({ schemaVersion: 6 }), false);
+    assert.equal(
+      looksLikeDeckV7({ schemaVersion: LEGACY_DECK_SCHEMA_VERSION }),
+      false,
+    );
   });
 
   test("returns false for null and non-objects", () => {

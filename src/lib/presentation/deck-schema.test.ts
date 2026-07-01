@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 function textElement(overrides: Record<string, unknown> = {}) {
@@ -53,7 +53,7 @@ function masterElement(overrides: Record<string, unknown> = {}) {
 
 function minimalV6Deck(overrides: Record<string, unknown> = {}) {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [
@@ -80,7 +80,7 @@ test("safeParseDeck accepts a minimal v6 deck", () => {
   const result = safeParseDeck(minimalV6Deck());
   assert.equal(result.success, true);
   if (!result.success) return;
-  assert.equal(result.data.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
+  assert.equal(result.data.schemaVersion, LEGACY_DECK_SCHEMA_VERSION);
 });
 
 test("safeParseDeck rejects unknown top-level fields", () => {

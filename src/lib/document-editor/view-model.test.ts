@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assertViewModelSerializable } from "@/lib/view-models/serializable";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 import { buildDocumentEditorViewModel } from "./view-model";
 
@@ -16,7 +16,7 @@ test("document editor view model serializes document state and share settings", 
       contentJson: { root: { children: [] } },
       deckJson: {
         design: { themeId: "default" },
-        schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+        schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
         slides: [],
       },
       isShared: true,

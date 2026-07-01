@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
+  LEGACY_DECK_SCHEMA_VERSION,
   type Deck,
   type Slide,
   type SlideMaster,
@@ -43,7 +43,7 @@ function makeMaster(overrides: Partial<SlideMaster> = {}): SlideMaster {
 
 test("resolveMaster returns undefined when deck has no masters", () => {
   const deck = {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     slides: [],

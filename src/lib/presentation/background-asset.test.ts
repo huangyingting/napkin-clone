@@ -6,7 +6,7 @@ import { test } from "node:test";
 
 import { safeParseDeck } from "./deck-schema";
 import type { Deck } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 
 function minSlide(overrides: Record<string, unknown> = {}) {
   return {
@@ -21,7 +21,7 @@ function minSlide(overrides: Record<string, unknown> = {}) {
 
 function deckWith(slides: object[]): unknown {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -42,7 +42,7 @@ function minDeck(slideOverrides: Record<string, unknown> = {}): Deck {
         ...slideOverrides,
       },
     ],
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

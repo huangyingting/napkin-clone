@@ -8,7 +8,7 @@ import {
   DEFAULT_VISUAL_BOX,
   MAX_BULLETS,
 } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 // ---------------------------------------------------------------------------
@@ -667,7 +667,7 @@ test("buildVisualElement: generates unique ids across calls", () => {
 
 test("safeParseDeck: preserves a visual element's styleThemeId", () => {
   const deck = {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -709,7 +709,7 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
 
 test("safeParseDeck: omits styleThemeId when absent", () => {
   const deck = {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

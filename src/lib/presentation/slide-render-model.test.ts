@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
+  LEGACY_DECK_SCHEMA_VERSION,
   type Deck,
   type SlideElement,
 } from "./deck";
@@ -87,7 +87,7 @@ function masterTextElement(
 
 function deck(): Deck {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     defaultMasterId: "master-default",

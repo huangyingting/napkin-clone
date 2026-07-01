@@ -683,7 +683,7 @@ export type PatchOp =
 export interface DeckPatch {
   /**
    * Deck schema version at the time the patch was created. Mirrors
-   * {@link CURRENT_DECK_SCHEMA_VERSION} so the persistence layer can reject
+   * {@link LEGACY_DECK_SCHEMA_VERSION} so the persistence layer can reject
    * patches created against an older schema.
    */
   schemaVersion: number;

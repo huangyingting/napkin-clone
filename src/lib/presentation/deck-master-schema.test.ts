@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 function baseDeck(overrides: Record<string, unknown> = {}) {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [
@@ -215,7 +215,7 @@ test("defaultMasterId must reference an existing master", () => {
 
 test("superseded schema versions are rejected", () => {
   const result = safeParseDeck(
-    baseDeck({ schemaVersion: CURRENT_DECK_SCHEMA_VERSION - 1 }),
+    baseDeck({ schemaVersion: LEGACY_DECK_SCHEMA_VERSION - 1 }),
   );
   assert.equal(result.success, false);
   assert.match(result.error, /schemaVersion .* is not supported/);

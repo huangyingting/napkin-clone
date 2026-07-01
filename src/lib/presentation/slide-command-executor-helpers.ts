@@ -1,4 +1,4 @@
-import { CURRENT_DECK_SCHEMA_VERSION, type Deck } from "./deck-core";
+import { LEGACY_DECK_SCHEMA_VERSION, type Deck } from "./deck-core";
 import type {
   DeckPatch,
   PatchOp,
@@ -32,7 +32,7 @@ export function makePatch(
   >,
 ): DeckPatch {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     op,
     slideIds,
     elementIds,

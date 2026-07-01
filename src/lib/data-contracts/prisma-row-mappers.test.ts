@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 import {
   mapCommentRowToDto,
@@ -22,7 +22,7 @@ const now = new Date("2026-06-25T15:15:00.000Z");
 
 function deck(): unknown {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

@@ -30,7 +30,7 @@ import {
   sanitizeRestoredDeck,
   updateDocumentSharePolicyData,
 } from "./persistence-service";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import { prisma } from "@/lib/prisma";
 import type {
   DeckPatch,
@@ -355,7 +355,7 @@ describe("mirrorVisualNodesInTx: visual mirror diff writes", () => {
 // ---------------------------------------------------------------------------
 
 const VALID_DECK = {
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
   canvas: { format: "16:9" },
   design: { themeId: "indigo" },
   masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -746,7 +746,7 @@ describe("deck persistence operations", () => {
     }));
 
     const unsupportedPatch = {
-      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
       op: "slide.add",
       slideIds: ["s2"],
     } as unknown as DeckPatch;
@@ -772,7 +772,7 @@ describe("deck persistence operations", () => {
     );
 
     const titlePatch = {
-      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
       op: "slide.update_title",
       slideIds: ["s1"],
       slideFields: { s1: { title: "Stale token still falls back" } },
@@ -811,7 +811,7 @@ describe("deck persistence operations", () => {
     );
 
     const titlePatch = {
-      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
       op: "slide.update_title",
       slideIds: ["s1"],
       slideFields: { s1: { title: "Quarterly Readout" } },

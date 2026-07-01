@@ -23,7 +23,7 @@
  *
  * Each successful `CommandResult` includes a `patches` array of serialisable
  * {@link DeckPatch} records. The patch format is schema-versioned (mirrors
- * `CURRENT_DECK_SCHEMA_VERSION`) and intentionally minimal so it can be
+ * `LEGACY_DECK_SCHEMA_VERSION`) and intentionally minimal so it can be
  * validated server-side and forwarded to the persistence epic (#376/#403).
  *
  * Use {@link applyPatch} to re-apply a patch to a deck for testing or

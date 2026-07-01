@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  CURRENT_DECK_SCHEMA_VERSION,
+  LEGACY_DECK_SCHEMA_VERSION,
   type ImageElement,
   type TextElement,
 } from "./deck";
@@ -26,7 +26,7 @@ function elementKinds(kind: SlideTemplateKind, visualId?: string): string[] {
 
 function v6Deck(slide: unknown) {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "indigo" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

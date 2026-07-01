@@ -6,7 +6,7 @@ import {
   duplicateDocumentForUser,
   remapDeckSourceRefs,
 } from "./duplicate";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 const sourceRef = {
   documentId: "source-doc",
@@ -17,7 +17,7 @@ const sourceRef = {
 
 function deckWithSourceRefs() {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId: "default" },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

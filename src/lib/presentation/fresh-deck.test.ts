@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "./deck";
 import { pickFreshestDeck } from "./fresh-deck";
 
 // ---------------------------------------------------------------------------
@@ -11,7 +11,7 @@ import { pickFreshestDeck } from "./fresh-deck";
 
 function deck(themeId: string, title: string): Deck {
   return {
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
     canvas: { format: "16:9" },
     design: { themeId },
     masters: [{ id: "master-default", name: "Default", elements: [] }],

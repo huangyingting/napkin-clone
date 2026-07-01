@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buildDashboardViewModel } from "@/lib/dashboard/view-model";
 import { buildDocumentEditorViewModel } from "@/lib/document-editor/view-model";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import { buildPublicPresentationModel } from "@/lib/public-render/presentation";
 import { assertViewModelSerializable } from "@/lib/view-models/serializable";
 
@@ -29,7 +29,7 @@ const deck = {
     },
   ],
   design: { themeId: "indigo" },
-  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
 };
 
 function assertJsonRoundTrip(value: unknown): void {

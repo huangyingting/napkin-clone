@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
+import { LEGACY_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { DECK_SCHEMA_VERSION_V7 } from "@/lib/presentation-vnext/schema";
 import { MAX_DECK_JSON_BYTES } from "@/lib/limits";
 import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 
 const LEGACY_DECK = {
-  schemaVersion: 6,
+  schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
   canvas: { format: "16:9" },
   design: { themeId: "default" },
   masters: [{ id: "master-default", name: "Default", elements: [] }],
@@ -22,7 +24,7 @@ const LEGACY_DECK = {
 };
 
 const VALID_DECK_V7 = {
-  schemaVersion: 7,
+  schemaVersion: DECK_SCHEMA_VERSION_V7,
   canvas: { format: "16:9", width: 100, height: 56.25, unit: "percent" },
   theme: { packageId: "neutral" },
   assets: { images: {} },
@@ -361,7 +363,10 @@ describe("writeDeckWithCas", () => {
 
   test("rejects a structurally invalid v7 deck before writing", async () => {
     const { db, calls } = makeDb({ updateCount: 1 });
-    const badV7 = { schemaVersion: 7, slides: "not-an-array" };
+    const badV7 = {
+      schemaVersion: DECK_SCHEMA_VERSION_V7,
+      slides: "not-an-array",
+    };
     const result = await writeDeckWithCas({
       documentId: "doc-v7",
       deckJson: badV7,
