@@ -161,6 +161,7 @@ import {
   alignmentGuidesForFrames,
   snapFrameToStageGuides,
   type StageGuide,
+  type StageGuideInput,
 } from "@/lib/presentation-vnext/stage-guides";
 import { STAGE_CHROME_Z_INDEX } from "@/lib/presentation-vnext/stage-chrome";
 import {
@@ -645,6 +646,7 @@ function defaultStyleBindingForNode(node: SlideChildNode): StyleBinding {
 
 const STAGE_VIEWPORT_FALLBACK: StageFitSize = { width: 1120, height: 630 };
 const DESKTOP_INSPECTOR_OVERLAY_WIDTH = 352;
+const CLICK_MOVE_THRESHOLD_PX = 4;
 
 function canvasAspectRatio(deck: DeckV7): number {
   const width = deck.canvas.width > 0 ? deck.canvas.width : 16;
@@ -901,6 +903,65 @@ function pointPctFromEvent(
       Math.min(100, ((event.clientY - rect.top) / rect.height) * 100),
     ),
   };
+}
+
+export interface NodeMovePreview {
+  patches: Map<string, Partial<LayoutBox>>;
+  guides: StageGuide[];
+}
+
+interface NodeMovePreviewArgs {
+  startClientX: number;
+  startClientY: number;
+  nextClientX: number;
+  nextClientY: number;
+  rectWidth: number;
+  rectHeight: number;
+  originalFrames: ReadonlyMap<string, LayoutBox["frame"]>;
+  alignmentGuides: readonly StageGuideInput[];
+  thresholdPx?: number;
+}
+
+export function createNodeMovePreview({
+  startClientX,
+  startClientY,
+  nextClientX,
+  nextClientY,
+  rectWidth,
+  rectHeight,
+  originalFrames,
+  alignmentGuides,
+  thresholdPx = CLICK_MOVE_THRESHOLD_PX,
+}: NodeMovePreviewArgs): NodeMovePreview | null {
+  if (rectWidth <= 0 || rectHeight <= 0 || originalFrames.size === 0)
+    return null;
+  if (
+    Math.abs(nextClientX - startClientX) <= thresholdPx &&
+    Math.abs(nextClientY - startClientY) <= thresholdPx
+  ) {
+    return null;
+  }
+
+  const deltaX = ((nextClientX - startClientX) / rectWidth) * 100;
+  const deltaY = ((nextClientY - startClientY) / rectHeight) * 100;
+  const patches = new Map<string, Partial<LayoutBox>>();
+  const guides: StageGuide[] = [];
+  for (const [id, frame] of originalFrames) {
+    const snapped = snapFrameToStageGuides(
+      {
+        ...frame,
+        x: frame.x + deltaX,
+        y: frame.y + deltaY,
+      },
+      0.75,
+      alignmentGuides,
+    );
+    patches.set(id, {
+      frame: snapped.frame,
+    });
+    guides.push(...snapped.guides);
+  }
+  return { patches, guides };
 }
 
 function connectorEndpointsEqual(
@@ -2429,32 +2490,28 @@ export function SlideEditorVNext({
 
     event.preventDefault();
     event.stopPropagation();
-    setDraggingStage(true);
     const startX = event.clientX;
     const startY = event.clientY;
+    let dragThresholdPassed = false;
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
-      const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
-      const patches = new Map<string, Partial<LayoutBox>>();
-      const nextGuides: StageGuide[] = [];
-      for (const [id, frame] of originalFrames) {
-        const snapped = snapFrameToStageGuides(
-          {
-            ...frame,
-            x: frame.x + deltaX,
-            y: frame.y + deltaY,
-          },
-          0.75,
-          alignmentGuides,
-        );
-        patches.set(id, {
-          frame: snapped.frame,
-        });
-        nextGuides.push(...snapped.guides);
+      const preview = createNodeMovePreview({
+        startClientX: startX,
+        startClientY: startY,
+        nextClientX: moveEvent.clientX,
+        nextClientY: moveEvent.clientY,
+        rectWidth: rect.width,
+        rectHeight: rect.height,
+        originalFrames,
+        alignmentGuides,
+      });
+      if (!preview) return;
+      if (!dragThresholdPassed) {
+        dragThresholdPassed = true;
+        setDraggingStage(true);
       }
-      setStageGuides(nextGuides);
-      onDeckChange(updateNodeLayouts(deck, activeSlide.id, patches));
+      setStageGuides(preview.guides);
+      onDeckChange(updateNodeLayouts(deck, activeSlide.id, preview.patches));
     };
 
     const handlePointerUp = () => {
