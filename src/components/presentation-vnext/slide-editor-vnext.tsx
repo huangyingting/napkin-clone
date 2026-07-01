@@ -209,6 +209,7 @@ import {
   type AddSlideTemplateChoice,
 } from "./add-slide-template-picker";
 import { InlineTextEditorVNext } from "./inline-text-editor";
+import { applyInlineTextCommit } from "./inline-text-commit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
@@ -1864,25 +1865,19 @@ export function SlideEditorVNext({
     nodeId: string,
     paragraphs: import("@/lib/presentation-vnext/schema").Paragraph[],
     nextFrame?: LayoutBox["frame"],
+    textAlign?: "left" | "center" | "right",
   ) {
     if (!activeSlide) return;
     const node = findNodeById(activeSlide.children, nodeId);
-    if (!node) return;
-    let updated = deck;
-    if (node.type === "text") {
-      updated = updateNodeContent(updated, activeSlide.id, nodeId, {
-        paragraphs,
-      });
-    } else if (node.type === "shape") {
-      updated = updateNodeContent(updated, activeSlide.id, nodeId, {
-        text: { paragraphs },
-      });
-    }
-    if (nextFrame) {
-      updated = updateNodeLayout(updated, activeSlide.id, nodeId, {
-        frame: nextFrame,
-      });
-    }
+    if (!node || (node.type !== "text" && node.type !== "shape")) return;
+    const updated = applyInlineTextCommit({
+      deck,
+      slideId: activeSlide.id,
+      node,
+      paragraphs,
+      nextFrame,
+      textAlign,
+    });
     onDeckChange(updated);
     setInlineEditNodeId(null);
   }

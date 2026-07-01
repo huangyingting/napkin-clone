@@ -70,23 +70,13 @@ const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
 
 export type SelectionAlignMode =
-  | "left"
-  | "center"
-  | "right"
-  | "top"
-  | "middle"
-  | "bottom";
+  "left" | "center" | "right" | "top" | "middle" | "bottom";
 export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
 type SlideToolInsertActionKey =
-  | "text"
-  | "shape"
-  | "image"
-  | "visual"
-  | "connector"
-  | "table";
+  "text" | "shape" | "image" | "visual" | "connector" | "table";
 
 const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
   text: "Insert text",
@@ -647,7 +637,7 @@ export function ContextToolbar({
 
   function updateTextAlign(align: "left" | "center" | "right") {
     dispatchInlineTextCommand({ command: `align-${align}` });
-    if (!isInlineEditing) onUpdateSelectedLocalStyle?.({ text: { align } });
+    onUpdateSelectedLocalStyle?.({ text: { align } });
   }
 
   function updateFontSize(value: number) {
