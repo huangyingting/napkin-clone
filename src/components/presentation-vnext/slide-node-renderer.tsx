@@ -201,6 +201,14 @@ function textStyleToCss(text: StyleObject["text"]): React.CSSProperties {
   };
 }
 
+function textVerticalAlignToJustifyContent(
+  verticalAlign: "top" | "middle" | "bottom" | undefined,
+): React.CSSProperties["justifyContent"] {
+  if (verticalAlign === "middle") return "center";
+  if (verticalAlign === "bottom") return "flex-end";
+  return "flex-start";
+}
+
 /**
  * Converts a resolved `StyleObject` to inline CSS properties for a container.
  * Text style is applied separately on the inner text container.
@@ -296,9 +304,29 @@ function renderTextRuns(runs: readonly TextRun[]): JSX.Element[] {
   });
 }
 
-function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
+function TextNodeContent({
+  content,
+  paragraphSpacingPt,
+  verticalAlign,
+}: {
+  content: TextContent;
+  paragraphSpacingPt?: number;
+  verticalAlign?: "top" | "middle" | "bottom";
+}): JSX.Element {
+  const paragraphSpacing =
+    paragraphSpacingPt !== undefined && paragraphSpacingPt > 0
+      ? `${paragraphSpacingPt}pt`
+      : undefined;
+
   return (
-    <div className="h-full w-full overflow-hidden">
+    <div
+      className="h-full w-full overflow-hidden"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: textVerticalAlignToJustifyContent(verticalAlign),
+      }}
+    >
       {content.paragraphs.map((para, index) => (
         <p
           key={para.id}
@@ -306,6 +334,10 @@ function TextNodeContent({ content }: { content: TextContent }): JSX.Element {
             display: para.list ? "flex" : undefined,
             gap: para.list ? "0.4em" : undefined,
             margin: 0,
+            marginBottom:
+              paragraphSpacing && index < content.paragraphs.length - 1
+                ? paragraphSpacing
+                : undefined,
             paddingLeft: para.list?.indent
               ? `${para.list.indent * 1.5}em`
               : undefined,
@@ -390,8 +422,12 @@ function ShapeNodeContent({
         </svg>
       )}
       {text && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <TextNodeContent content={text} />
+        <div className="absolute inset-0">
+          <TextNodeContent
+            content={text}
+            paragraphSpacingPt={style.text?.paragraphSpacingPt}
+            verticalAlign={style.text?.verticalAlign}
+          />
         </div>
       )}
     </div>
@@ -1047,7 +1083,13 @@ function renderContent(
 ): JSX.Element | null {
   switch (content.type) {
     case "text":
-      return <TextNodeContent content={content.content} />;
+      return (
+        <TextNodeContent
+          content={content.content}
+          paragraphSpacingPt={style.text?.paragraphSpacingPt}
+          verticalAlign={style.text?.verticalAlign}
+        />
+      );
 
     case "shape":
       return (
