@@ -3326,6 +3326,12 @@ export function SlideEditorVNext({
   const activeSlideName = slideDisplayName(activeSlide, activeSlideIndex);
   const selectedNodeSummary = selectedSummary(selectedIds.length);
   const diagnosticSummary = diagnosticsSummary(diagnostics.length);
+  const saveErrorAnnouncement =
+    saveStatus === "error"
+      ? saveErrorMessage
+        ? `${saveStatusLabel}. ${saveErrorMessage}`
+        : saveStatusLabel
+      : null;
   const activeTemplate = activeSlide
     ? TEMPLATE_REGISTRY.get(activeSlide.template.kind)
     : undefined;
@@ -4381,6 +4387,11 @@ export function SlideEditorVNext({
           </Popover>
         </div>
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-3">
+          {saveErrorAnnouncement ? (
+            <span role="alert" className="sr-only">
+              {saveErrorAnnouncement}
+            </span>
+          ) : null}
           {saveStatus === "error" && onSave ? (
             <button
               type="button"
@@ -4390,10 +4401,17 @@ export function SlideEditorVNext({
               {saveStatusLabel}
             </button>
           ) : (
-            <span>{saveStatusLabel}</span>
+            <span role="status" aria-live="polite" aria-atomic="true">
+              {saveStatusLabel}
+            </span>
           )}
           {saveStatus === "error" && saveErrorMessage ? (
-            <span className="max-w-[260px] truncate text-ds-danger-text">
+            <span
+              role="status"
+              aria-live="assertive"
+              aria-atomic="true"
+              className="max-w-[260px] truncate text-ds-danger-text"
+            >
               {saveErrorMessage}
             </span>
           ) : null}
