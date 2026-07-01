@@ -56,6 +56,19 @@ function canNavigate(diagnostic: PresentationDiagnostic): boolean {
   );
 }
 
+function diagnosticReviewContextLabel(
+  diagnostic: PresentationDiagnostic,
+): string {
+  return `${diagnostic.code}: ${diagnostic.message} (${diagnosticTargetLabel(diagnostic.target)}${diagnostic.path ? `, ${diagnostic.path}` : ""})`;
+}
+
+export function diagnosticReviewActionAriaLabel(
+  actionLabel: string,
+  diagnostic: PresentationDiagnostic,
+): string {
+  return `${actionLabel} for ${diagnosticReviewContextLabel(diagnostic)}`;
+}
+
 export function DeckDiagnosticsReview({
   diagnostics,
   onClose,
@@ -179,6 +192,10 @@ export function DeckDiagnosticsReview({
                           {canNavigate(diagnostic) ? (
                             <button
                               type="button"
+                              aria-label={diagnosticReviewActionAriaLabel(
+                                "Go to target",
+                                diagnostic,
+                              )}
                               onClick={() => onNavigate(diagnostic)}
                               className={cx(
                                 "rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-[11px] font-medium text-ds-text-secondary hover:bg-ds-state-hover",
@@ -191,6 +208,10 @@ export function DeckDiagnosticsReview({
                           {diagnostic.action ? (
                             <button
                               type="button"
+                              aria-label={diagnosticReviewActionAriaLabel(
+                                ACTION_LABELS[diagnostic.action.type],
+                                diagnostic,
+                              )}
                               onClick={() =>
                                 onAction(diagnostic.action!, diagnostic)
                               }

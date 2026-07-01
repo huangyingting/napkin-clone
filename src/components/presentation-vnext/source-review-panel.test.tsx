@@ -6,7 +6,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { SourceBlockIndexEntry } from "@/lib/presentation-vnext/block-index";
 import type { SourceReviewItem } from "@/lib/presentation-vnext/source-links";
-import { SourceReviewPanel } from "./source-review-panel";
+import {
+  SourceReviewPanel,
+  sourceReviewActionAriaLabel,
+} from "./source-review-panel";
 
 const block: SourceBlockIndexEntry = {
   documentId: "doc-1",
@@ -116,6 +119,31 @@ describe("SourceReviewPanel", () => {
     assert.match(html, /Refreshed 1 source links; skipped 1\./);
     assert.match(html, /Mark unlinked/);
     assert.match(html, /Dismiss/);
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Go to target", items[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Refresh source link", items[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Relink source", items[0])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Mark source as unlinked", items[1])}"`,
+      ),
+    );
+    assert.ok(
+      html.includes(
+        `aria-label="${sourceReviewActionAriaLabel("Dismiss source issue", items[1])}"`,
+      ),
+    );
   });
 
   test("routes one-by-one source review actions", () => {
