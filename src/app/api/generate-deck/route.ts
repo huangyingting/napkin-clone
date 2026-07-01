@@ -6,8 +6,10 @@
  * identify the user → enforce quota (anonymous trial cookie + hashed-IP
  * throttle) or per-user rate limit + credit metering → generate via Azure
  * OpenAI (wrapped in the abort deadline, with an output-token budget) → charge
- * credits on success → return `{ deck, truncated }` (the `truncated` flag tells
- * the UI when the source outline was trimmed to fit the input budget).
+ * credits on success → return `{ deck, truncated, diagnostics }` (the
+ * `truncated` flag tells the UI when the source outline was trimmed to fit the
+ * input budget, and `diagnostics` carries AI repair/compile warnings through the
+ * preview handoff).
  *
  * Request contract
  * ----------------
