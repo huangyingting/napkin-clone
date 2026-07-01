@@ -22,7 +22,10 @@ import {
 
 export type PublicRenderMode = "view" | "embed" | "present" | "og" | "asset";
 export type PublicRenderProjection =
-  "document" | "presentation" | "metadata" | "assetAccess";
+  | "document"
+  | "presentation"
+  | "metadata"
+  | "assetAccess";
 type PublicAssetShareMode = "present" | "embed";
 
 export interface PublicRenderRawParams {

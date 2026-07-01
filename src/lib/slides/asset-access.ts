@@ -38,11 +38,15 @@ import {
 
 /** Why an asset request was allowed (for observability / tests). */
 export type SlideAssetAllowReason =
-  "capability" | "share-present" | "share-embed";
+  | "capability"
+  | "share-present"
+  | "share-embed";
 
 /** Why an asset request was denied. */
 export type SlideAssetDenyReason =
-  "asset-not-found" | "document-not-found" | "forbidden";
+  | "asset-not-found"
+  | "document-not-found"
+  | "forbidden";
 
 /** Outcome of a slide-asset access check. */
 export type SlideAssetAccessDecision =
