@@ -1051,6 +1051,168 @@ describe("groupNodes", () => {
     }
   });
 
+  test("groups selected nested and top-level nodes without dropping unselected siblings", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nestedSelected: SlideChildNode = {
+      id: "nested-selected",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 10, y: 10, w: 10, h: 10 }, zIndex: 2 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "nested-selected-p1", text: "Nested" }] },
+    };
+    const nestedUnselected: SlideChildNode = {
+      id: "nested-unselected",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 24, y: 10, w: 12, h: 10 }, zIndex: 3 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "nested-unselected-p1", text: "Keep" }] },
+    };
+    const parentGroup: SlideChildNode = {
+      id: "nested-parent",
+      type: "group",
+      component: "custom",
+      layout: { frame: { x: 8, y: 8, w: 32, h: 16 }, zIndex: 5 },
+      style: { ref: "surface.card" },
+      children: [nestedSelected, nestedUnselected],
+    };
+    const topLevelSelected: SlideChildNode = {
+      id: "top-selected",
+      type: "shape",
+      role: "background",
+      layout: { frame: { x: 60, y: 15, w: 20, h: 10 }, zIndex: 8 },
+      style: { ref: "surface.card" },
+      content: { shape: "rect" },
+    };
+    const withGroup = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? {
+              ...candidate,
+              children: [...candidate.children, parentGroup, topLevelSelected],
+            }
+          : candidate,
+      ),
+    };
+
+    const updated = groupNodes(
+      withGroup,
+      slide.id,
+      [nestedSelected.id, topLevelSelected.id],
+      "group-mixed-nested",
+      { ref: "surface.card" },
+    );
+    const grouped = findNode(updated.slides[0].children, "group-mixed-nested");
+    const updatedParent = findNode(updated.slides[0].children, parentGroup.id);
+
+    assert.equal(grouped?.type, "group");
+    if (grouped?.type === "group") {
+      assert.deepEqual(
+        grouped.children.map((node) => node.id),
+        [nestedSelected.id, topLevelSelected.id],
+      );
+      assert.deepEqual(grouped.layout?.frame, { x: 10, y: 10, w: 70, h: 15 });
+      assert.equal(grouped.layout?.zIndex, 8);
+    }
+    assert.equal(updatedParent?.type, "group");
+    if (updatedParent?.type === "group") {
+      assert.deepEqual(
+        updatedParent.children.map((node) => node.id),
+        [nestedUnselected.id],
+      );
+    }
+    assert.equal(
+      updated.slides[0].children.some(
+        (node) => node.id === topLevelSelected.id,
+      ),
+      false,
+    );
+  });
+
+  test("groups nested siblings inside their parent group scope", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const firstSelected: SlideChildNode = {
+      id: "nested-a",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 20, y: 20, w: 10, h: 10 }, zIndex: 1 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "nested-a-p1", text: "A" }] },
+    };
+    const unselectedSibling: SlideChildNode = {
+      id: "nested-keep",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 10, y: 10, w: 8, h: 8 }, zIndex: 0 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "nested-keep-p1", text: "Keep" }] },
+    };
+    const secondSelected: SlideChildNode = {
+      id: "nested-b",
+      type: "text",
+      role: "body",
+      layout: { frame: { x: 40, y: 25, w: 15, h: 10 }, zIndex: 5 },
+      style: { ref: "text.body" },
+      content: { paragraphs: [{ id: "nested-b-p1", text: "B" }] },
+    };
+    const parentGroup: SlideChildNode = {
+      id: "nested-scope-parent",
+      type: "group",
+      component: "custom",
+      layout: { frame: { x: 5, y: 5, w: 60, h: 40 }, zIndex: 7 },
+      style: { ref: "surface.card" },
+      children: [firstSelected, unselectedSibling, secondSelected],
+    };
+    const withGroup = {
+      ...deck,
+      slides: deck.slides.map((candidate) =>
+        candidate.id === slide.id
+          ? { ...candidate, children: [...candidate.children, parentGroup] }
+          : candidate,
+      ),
+    };
+
+    const updated = groupNodes(
+      withGroup,
+      slide.id,
+      [firstSelected.id, secondSelected.id],
+      "group-nested-siblings",
+      { ref: "surface.card" },
+    );
+    const updatedParent = findNode(updated.slides[0].children, parentGroup.id);
+    const grouped = findNode(
+      updated.slides[0].children,
+      "group-nested-siblings",
+    );
+
+    assert.equal(updatedParent?.type, "group");
+    if (updatedParent?.type === "group") {
+      assert.deepEqual(
+        updatedParent.children.map((node) => node.id),
+        [unselectedSibling.id, "group-nested-siblings"],
+      );
+    }
+    assert.equal(grouped?.type, "group");
+    if (grouped?.type === "group") {
+      assert.deepEqual(
+        grouped.children.map((node) => node.id),
+        [firstSelected.id, secondSelected.id],
+      );
+      assert.deepEqual(grouped.layout?.frame, { x: 20, y: 20, w: 35, h: 15 });
+      assert.equal(grouped.layout?.zIndex, 5);
+    }
+    assert.equal(
+      updated.slides[0].children.some(
+        (node) => node.id === "group-nested-siblings",
+      ),
+      false,
+    );
+  });
+
   test("returns unchanged deck if no matching nodes", () => {
     const deck = makeTestDeck();
     const slide = deck.slides[0];
