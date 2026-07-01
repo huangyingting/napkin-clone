@@ -145,6 +145,28 @@ describe("buildFontFaceCss", () => {
     // bare family after trimming would be empty
     assert.equal(css, "");
   });
+
+  it("escapes quote-based injection payloads in custom family names", () => {
+    const css = buildFontFaceCss(
+      "Acme';}body{color:red}/*",
+      "/fonts/acme.woff2",
+    );
+    assert.match(
+      css,
+      /^@font-face \{ font-family: '(?:[^'\\]|\\.)*'; src: url\('\/fonts\/acme\.woff2'\); font-display: swap; \}$/,
+    );
+    assert.match(css, /font-family: 'Acme\\';}body\{color:red\}\/\*'/);
+    assert.equal((css.match(/'; src/g) ?? []).length, 1);
+  });
+
+  it("escapes control characters in custom family names", () => {
+    const css = buildFontFaceCss(
+      "Acme\u0000\u0009\u000A\u000D\u001F",
+      "/fonts/x",
+    );
+    assert.match(css, /font-family: 'Acme\\0 \\9 \\A \\D \\1F '/);
+    assert.equal(/[\u0000-\u001F\u007F]/.test(css), false);
+  });
 });
 
 // ---------------------------------------------------------------------------
