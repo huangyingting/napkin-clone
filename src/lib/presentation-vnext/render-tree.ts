@@ -73,6 +73,13 @@ export type ResolvedSlideBackground = {
   decorationLevel: "none" | "subtle" | "default" | "expressive";
 };
 
+export type ResolvedSlideRenderLists = {
+  decorations: ResolvedRenderNode[];
+  backgroundChrome: ResolvedRenderNode[];
+  foregroundChrome: ResolvedRenderNode[];
+  userNodes: ResolvedRenderNode[];
+};
+
 // ---------------------------------------------------------------------------
 // Resolved slide render tree
 // ---------------------------------------------------------------------------
@@ -83,6 +90,7 @@ export type ResolvedSlideRenderTree = {
   decorations: ResolvedRenderNode[];
   chrome: ResolvedRenderNode[];
   nodes: ResolvedRenderNode[];
+  renderLists?: ResolvedSlideRenderLists;
   notes?: string;
 };
 
@@ -96,3 +104,66 @@ export type ResolvedDeckRenderTree = {
   slides: ResolvedSlideRenderTree[];
   diagnostics: PresentationDiagnostic[];
 };
+
+function flattenRenderNodes(
+  nodes: readonly ResolvedRenderNode[],
+): ResolvedRenderNode[] {
+  const result: ResolvedRenderNode[] = [];
+  for (const node of nodes) {
+    result.push(node);
+    if (node.children && node.children.length > 0) {
+      result.push(...flattenRenderNodes(node.children));
+    }
+  }
+  return result;
+}
+
+function compareNodesByZIndex(
+  left: ResolvedRenderNode,
+  right: ResolvedRenderNode,
+): number {
+  return (left.layout.zIndex ?? 0) - (right.layout.zIndex ?? 0);
+}
+
+export function buildSlideRenderLists(slide: {
+  decorations: readonly ResolvedRenderNode[];
+  chrome: readonly ResolvedRenderNode[];
+  nodes: readonly ResolvedRenderNode[];
+}): ResolvedSlideRenderLists {
+  const decorations = flattenRenderNodes(slide.decorations);
+  const flattenedChrome = flattenRenderNodes(slide.chrome);
+  const backgroundChrome = flattenedChrome
+    .filter((node) => (node.layout.zIndex ?? 0) < 0)
+    .sort(compareNodesByZIndex);
+  const foregroundChrome = flattenedChrome
+    .filter((node) => (node.layout.zIndex ?? 0) >= 0)
+    .sort(compareNodesByZIndex);
+  const userNodes = flattenRenderNodes(slide.nodes);
+
+  return {
+    decorations,
+    backgroundChrome,
+    foregroundChrome,
+    userNodes,
+  };
+}
+
+const slideRenderListCache = new WeakMap<
+  ResolvedSlideRenderTree,
+  ResolvedSlideRenderLists
+>();
+
+export function getSlideRenderLists(
+  slide: ResolvedSlideRenderTree,
+): ResolvedSlideRenderLists {
+  if (slide.renderLists) {
+    return slide.renderLists;
+  }
+  const cached = slideRenderListCache.get(slide);
+  if (cached) {
+    return cached;
+  }
+  const computed = buildSlideRenderLists(slide);
+  slideRenderListCache.set(slide, computed);
+  return computed;
+}
