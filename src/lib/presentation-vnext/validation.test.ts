@@ -604,6 +604,63 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts safe text run link schemes", () => {
+    resetBuilderCounter();
+    const linkedNode = buildTextNode({
+      content: {
+        paragraphs: [
+          {
+            id: "para-link-https",
+            text: "Website",
+            runs: [{ text: "Website", link: "https://example.test" }],
+          },
+          {
+            id: "para-link-mailto",
+            text: "Email",
+            runs: [{ text: "Email", link: "mailto:team@example.test" }],
+          },
+          {
+            id: "para-link-tel",
+            text: "Call",
+            runs: [{ text: "Call", link: "tel:+15551234567" }],
+          },
+          {
+            id: "para-link-relative",
+            text: "Docs",
+            runs: [{ text: "Docs", link: "/docs/getting-started" }],
+          },
+        ],
+      },
+    });
+    const deck = buildDeckV7([buildSlideV7("content", [linkedNode])]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      !result.success ? result.errors.join("; ") : "expected success",
+    );
+  });
+
+  test("rejects unsafe text run link schemes", () => {
+    resetBuilderCounter();
+    const linkedNode = buildTextNode({
+      content: {
+        paragraphs: [
+          {
+            id: "para-link-bad",
+            text: "Click me",
+            runs: [{ text: "Click me", link: "javascript:alert(1)" }],
+          },
+        ],
+      },
+    });
+    const deck = buildDeckV7([buildSlideV7("content", [linkedNode])]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((e) => /runs\[0\]\.link/.test(e)));
+    }
+  });
+
   test("accepts text content fit and language values", () => {
     const fitModes = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
     const nodes = fitModes.map((fit, index) =>
@@ -760,7 +817,6 @@ describe("safeParseDeckV7", () => {
       `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
     );
   });
-
   test("rejects table with too many columns (>8)", () => {
     resetBuilderCounter();
     const tableSlide = buildTableSlide();
@@ -1236,6 +1292,62 @@ describe("safeParseDeckV7", () => {
     assert.ok(!result.success);
     if (!result.success) {
       assert.ok(result.errors.some((e) => /assets/.test(e)));
+    }
+  });
+
+  test("accepts safe DeckV7 asset source schemes", () => {
+    const deck = buildDeckV7([buildCoverSlide()], {
+      assets: {
+        images: {
+          "img-001": { id: "img-001", src: "https://example.test/image.png" },
+          "img-local": {
+            id: "img-local",
+            src: "/api/slide-assets/doc-1/key-1",
+          },
+          "img-data": { id: "img-data", src: "data:image/png;base64,abc123" },
+        },
+        fonts: {
+          "font-001": {
+            id: "font-001",
+            family: "Inter",
+            src: "/api/slide-assets/doc-1/font-1.woff2",
+          },
+        },
+        files: {
+          "file-001": {
+            id: "file-001",
+            src: "data:application/pdf;base64,abc123",
+          },
+        },
+      },
+    });
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      !result.success ? result.errors.join("; ") : "expected success",
+    );
+  });
+
+  test("rejects unsafe DeckV7 asset source schemes", () => {
+    const deck = buildDeckV7([buildCoverSlide()], {
+      assets: {
+        images: {
+          "img-001": { id: "img-001", src: "javascript:alert(1)" },
+        },
+        files: {
+          "file-001": { id: "file-001", src: "ftp://example.test/file.bin" },
+        },
+      },
+    });
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(
+        result.errors.some((e) => /Deck\.assets\.images\.img-001\.src/.test(e)),
+      );
+      assert.ok(
+        result.errors.some((e) => /Deck\.assets\.files\.file-001\.src/.test(e)),
+      );
     }
   });
 
