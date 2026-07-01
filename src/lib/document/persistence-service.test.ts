@@ -760,6 +760,34 @@ describe("deck persistence operations", () => {
     assert.deepEqual(result, { ok: "fallback" });
   });
 
+  test("patchDeck returns fallback for replayable-looking patches with stale tokens", async (t) => {
+    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
+      id: "doc-fallback",
+    }));
+    const updateMany = stubPrismaMethod(
+      t,
+      prisma.document,
+      "updateMany",
+      async () => ({ count: 1 }),
+    );
+
+    const titlePatch = {
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      op: "slide.update_title",
+      slideIds: ["s1"],
+      slideFields: { s1: { title: "Stale token still falls back" } },
+    } as unknown as DeckPatch;
+
+    const result = await patchDeck(
+      "doc-fallback",
+      [titlePatch],
+      "stale-client-token",
+    );
+
+    assert.deepEqual(result, { ok: "fallback" });
+    assert.equal(updateMany.calls.length, 0);
+  });
+
   test("patchDeck does not replay patches or snapshot documents", async (t) => {
     stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
       id: "doc-patch",

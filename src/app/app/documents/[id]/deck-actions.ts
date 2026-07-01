@@ -86,14 +86,15 @@ export async function fetchDeckJson(id: string): Promise<FetchDeckResult> {
  *
  * The deck has three write entry points, each with a distinct input contract:
  *  - {@link saveDeckJson} — accepts a **full deck JSON** snapshot.
- *  - {@link saveDeckPatch} — accepts **`DeckPatch[]`** records (already produced
- *    by `commitCommand` on the client) and applies them under CAS.
+ *  - {@link saveDeckPatch} — accepts **`DeckPatch[]`** records but currently
+ *    returns a compatibility `{ ok: "fallback" }` response for v7 runtime
+ *    callers, which then use {@link saveDeckJson}.
  *  - {@link saveDeckCommand} — accepts a **`CommandEnvelope<SlideCommand>`**,
  *    validates it with `acceptDeckCommandEnvelope` (schema version / target /
  *    document checks) BEFORE persistence, then executes it server-side.
  *
- * All three preserve the optimistic revision-token CAS via `clientToken` /
- * `expectedRevision`.
+ * Active v7 writes use optimistic revision-token CAS via `saveDeckJson`
+ * (`clientToken`) and command envelopes (`expectedRevision`).
  *
  * @param clientToken - The revision token last received from `fetchDeckJson` or
  *   a prior successful save. When supplied the write uses an atomic CAS.
@@ -126,9 +127,12 @@ export async function saveDeckJson(
 }
 
 /**
- * Applies a list of {@link DeckPatch} records to the stored deck, guarded by
- * the optimistic revision token. Delegates to {@link patchDeck} in the
- * persistence service (#474).
+ * Compatibility patch endpoint for non-v7 callers.
+ *
+ * Patch replay is currently disabled for the v7 runtime. Delegates to
+ * {@link patchDeck}, which validates document availability and returns
+ * `{ ok: "fallback" }` for replay attempts so callers can save a full deck via
+ * {@link saveDeckJson}.
  *
  * Input contract: pre-built `DeckPatch[]` (typically produced by `commitCommand`
  * on the client). For the validated command-envelope entry point see

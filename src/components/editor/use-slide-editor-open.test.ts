@@ -105,6 +105,40 @@ test("persistDeckV7WithRecovery keeps conflict result semantics", async () => {
   ]);
 });
 
+test("persistDeckV7WithRecovery only uses saveDeckJson autosave path", async () => {
+  const deck = createBlankDeckV7({ documentId: "doc-1336" });
+  let saveDeckJsonCalls = 0;
+  let saveDeckPatchCalls = 0;
+  const deckPort = {
+    saveDeckJson: async () => {
+      saveDeckJsonCalls += 1;
+      return { ok: true, revisionToken: "rev-2" } as const;
+    },
+    saveDeckPatch: async () => {
+      saveDeckPatchCalls += 1;
+      return { ok: "fallback" } as const;
+    },
+  };
+
+  const result = await persistDeckV7WithRecovery({
+    updatedDeck: deck,
+    documentId: "doc-1336",
+    deckPort,
+    revisionTokenRef: { current: "rev-1" },
+    lastSavedRef: { current: null },
+    aiAppliedDeckRef: { current: null },
+    setV7Dirty: () => undefined,
+    setV7Saving: () => undefined,
+    setV7SaveError: () => undefined,
+    setConflictStateV7: () => undefined,
+    onAiDeckSaved: () => undefined,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(saveDeckJsonCalls, 1);
+  assert.equal(saveDeckPatchCalls, 0);
+});
+
 test("createDeckAutosaveOnDue catches rejected autosave saves and logs them", async () => {
   const deck = createBlankDeckV7({ documentId: "doc-1413" });
   const logs: Array<{ scope: string; message: string; context: unknown }> = [];

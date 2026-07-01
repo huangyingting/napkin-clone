@@ -301,8 +301,9 @@ Conflict recovery has three user outcomes:
 Presence is advisory only. It shows who has the deck open and which slide they
 are viewing, but optimistic revision tokens are the conflict authority.
 
-Patch autosave (`saveDeckPatch` / `DeckPatch[]`) is not the active v7 runtime
-path; reconciliation work is tracked in [#1336](https://github.com/huangyingting/textiq/issues/1336).
+`saveDeckPatch` remains available only as a compatibility endpoint and currently
+returns `{ ok: "fallback" }`; v7 runtime autosave does not enqueue or persist
+`DeckPatch[]` records.
 
 ## Document Sync And Source Links
 

@@ -383,8 +383,8 @@ durable source of truth.
 
 The slide editor has a parallel autosave pipeline that is completely separate
 from the Lexical `contentJson` path. Deck edits are persisted via
-`saveDeckJson` (whole-deck) or `saveDeckPatch` (patch-based, experimental) in
-`actions.ts`. The schema and persistence contract are documented in
+`saveDeckJson` (whole-deck snapshots) in `actions.ts`. The schema and
+persistence contract are documented in
 [Current Deck Model](../data-model/deck.md). The key points for editor
 contributors are:
 
@@ -392,7 +392,7 @@ contributors are:
 
 Every successful deck save returns a `revisionToken` (24-character opaque
 string). The client stores this token and sends it as `clientToken` on the
-next save. `saveDeckJson` / `saveDeckPatch` perform an atomic compare-and-swap:
+next save. `saveDeckJson` performs an atomic compare-and-swap:
 
 - `clientToken === stored token` → write accepted → new token returned.
 - `clientToken !== stored token` → `{ ok: "conflict", serverRevisionToken }`
@@ -402,20 +402,20 @@ next save. `saveDeckJson` / `saveDeckPatch` perform an atomic compare-and-swap:
 ### Patch saves (`saveDeckPatch`)
 
 `saveDeckPatch(id, patches, clientToken)` accepts an array of `DeckPatch`
-records (from `slide-commands.ts`) and applies them to the stored deck using
-`applyPatch()`. Unsupported ops return `{ ok: "fallback" }`; the caller treats
-that literal as a whole-deck retry signal and then calls `saveDeckJson`.
+records, but patch replay is currently disabled in the v7 runtime. The action
+returns `{ ok: "fallback" }` as a compatibility signal so callers can retry
+with `saveDeckJson`.
 
 ### `DocumentVersion` snapshot policy
 
 `DocumentVersion` snapshots are created **only after a confirmed write**:
 
-| Event                               | Snapshot?                         |
-| ----------------------------------- | --------------------------------- |
-| Successful whole-deck or patch save | Yes (throttled: max 1 per 10 min) |
-| Conflicted save (`ok: "conflict"`)  | **No** (no write occurred)        |
-| Patch fallback (`ok: "fallback"`)   | **No** (no write occurred)        |
-| Pre-restore checkpoint              | Yes (forced — bypasses throttle)  |
+| Event                              | Snapshot?                         |
+| ---------------------------------- | --------------------------------- |
+| Successful whole-deck save         | Yes (throttled: max 1 per 10 min) |
+| Conflicted save (`ok: "conflict"`) | **No** (no write occurred)        |
+| Patch fallback (`ok: "fallback"`)  | **No** (no write occurred)        |
+| Pre-restore checkpoint             | Yes (forced — bypasses throttle)  |
 
 This invariant ensures that a conflict storm (e.g., two tabs rapidly saving)
 cannot create unbounded phantom version entries.
