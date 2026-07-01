@@ -29,6 +29,13 @@ const STATE_LABEL: Record<SourceReviewItem["state"], string> = {
   unlinked: "Unlinked",
 };
 
+type SourceReviewActionLabel =
+  | "Go to target"
+  | "Refresh source link"
+  | "Relink source"
+  | "Mark source as unlinked"
+  | "Dismiss source issue";
+
 function stateClass(state: SourceReviewItem["state"]): string {
   switch (state) {
     case "stale":
@@ -43,6 +50,17 @@ function stateClass(state: SourceReviewItem["state"]): string {
   }
 }
 
+function sourceReviewItemContextLabel(item: SourceReviewItem): string {
+  return `${item.slideLabel}, ${item.nodeName ?? item.nodeId}`;
+}
+
+export function sourceReviewActionAriaLabel(
+  actionLabel: SourceReviewActionLabel,
+  item: SourceReviewItem,
+): string {
+  return `${actionLabel} for ${sourceReviewItemContextLabel(item)}`;
+}
+
 export function SourceReviewPanel({
   items,
   sourceBlocks,
@@ -54,8 +72,8 @@ export function SourceReviewPanel({
   onRefreshAll,
   statusMessage,
 }: SourceReviewPanelProps): JSX.Element | null {
+  const relinkOptions = sourceBlocks;
   if (items.length === 0) return null;
-  const relinkOptions = sourceBlocks.slice(0, 8);
   const staleCount = items.filter((item) => item.state === "stale").length;
 
   return (
@@ -130,6 +148,10 @@ export function SourceReviewPanel({
                   <div className="flex flex-wrap gap-1">
                     <button
                       type="button"
+                      aria-label={sourceReviewActionAriaLabel(
+                        "Go to target",
+                        item,
+                      )}
                       onClick={() => onSelect(item.slideId, item.nodeId)}
                       className="rounded-ds-sm border border-ds-border-subtle px-1.5 py-0.5 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover"
                     >
@@ -137,6 +159,10 @@ export function SourceReviewPanel({
                     </button>
                     <button
                       type="button"
+                      aria-label={sourceReviewActionAriaLabel(
+                        "Refresh source link",
+                        item,
+                      )}
                       disabled={item.state !== "stale"}
                       onClick={() => onRefresh(item.slideId, item.nodeId)}
                       className="rounded-ds-sm border border-ds-border-subtle px-1.5 py-0.5 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
@@ -144,7 +170,10 @@ export function SourceReviewPanel({
                       Refresh
                     </button>
                     <select
-                      aria-label={`Relink ${item.nodeName ?? item.nodeId}`}
+                      aria-label={sourceReviewActionAriaLabel(
+                        "Relink source",
+                        item,
+                      )}
                       defaultValue=""
                       disabled={relinkOptions.length === 0}
                       onChange={(event) => {
@@ -170,6 +199,10 @@ export function SourceReviewPanel({
                     </select>
                     <button
                       type="button"
+                      aria-label={sourceReviewActionAriaLabel(
+                        "Mark source as unlinked",
+                        item,
+                      )}
                       onClick={() => onUnlink(item.slideId, item.nodeId)}
                       className="rounded-ds-sm border border-ds-border-subtle px-1.5 py-0.5 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover"
                     >
@@ -177,6 +210,10 @@ export function SourceReviewPanel({
                     </button>
                     <button
                       type="button"
+                      aria-label={sourceReviewActionAriaLabel(
+                        "Dismiss source issue",
+                        item,
+                      )}
                       onClick={() => onDismiss(item.slideId, item.nodeId)}
                       className="rounded-ds-sm border border-ds-border-subtle px-1.5 py-0.5 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover"
                     >

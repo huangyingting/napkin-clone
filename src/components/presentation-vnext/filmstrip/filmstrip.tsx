@@ -7,13 +7,14 @@
  * horizontal scroll container with keyboard navigation (←/→), drag-to-reorder,
  * and per-slide actions (move, duplicate, delete).
  *
- * Collapsible via a toggle button; collapsed state is persisted in
- * localStorage under `slide-filmstrip-collapsed`.
+ * Collapsible via a toggle button; collapsed state persistence is managed by
+ * the editor and scoped per document.
  */
 
 import { Fragment, useState, type JSX, type KeyboardEvent } from "react";
 import { Plus } from "lucide-react";
 
+import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { SlideCanvasVNext } from "../slide-canvas";
@@ -119,7 +120,7 @@ export function Filmstrip({
       if (!focusedSlide) return;
       event.preventDefault();
       if (renderTree.slides.length <= 1) {
-        setStatusMessage("A deck must keep at least one slide.");
+        setStatusMessage(MIN_DECK_SLIDES_MESSAGE);
         return;
       }
       const nextIndex = Math.min(focusedIndex, renderTree.slides.length - 2);
@@ -137,7 +138,7 @@ export function Filmstrip({
       {dragState.dragPreview ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-dropdown rotate-1 opacity-95 transition-transform duration-150 ease-out"
+          className="pointer-events-none fixed z-dropdown rotate-1 opacity-95 transition-transform duration-150 ease-out motion-reduce:rotate-0 motion-reduce:transition-none"
           style={{
             left: dragState.dragPreview.x,
             top: dragState.dragPreview.y,
@@ -173,16 +174,14 @@ export function Filmstrip({
       >
         <div
           className={cx(
-            "relative flex h-[84px] items-center gap-0 transition-opacity duration-150",
+            "relative flex h-[84px] items-center gap-0 transition-opacity duration-150 motion-reduce:transition-none",
             collapsed && "pointer-events-none opacity-0",
           )}
         >
           {/* Thumbnails */}
           <ol
             ref={containerRef}
-            role="listbox"
             aria-label="Slides"
-            aria-orientation="horizontal"
             className="flex min-w-0 flex-1 gap-2 overflow-x-auto px-3 py-1.5"
             onKeyDown={handleKeyDown}
             tabIndex={collapsed ? -1 : 0}

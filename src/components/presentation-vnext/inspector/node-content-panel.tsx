@@ -5,18 +5,26 @@ import { useState, type JSX } from "react";
 import type {
   ConnectorAnchor,
   ConnectorContent,
+  ImageCrop,
   ShapeKind,
   SlideChildNode,
   TableContent,
   TextContent,
 } from "@/lib/presentation-vnext/schema";
+import { updateTableCellContent } from "@/lib/presentation-vnext/table-cell-editing";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  parseFiniteNumberInput,
+  sanitizePercentPoint,
+  updateImageCropSide,
+} from "./numeric-sanitization";
 
 export interface NodeContentPanelProps {
   node: SlideChildNode;
   onUpdateContent: (patch: Record<string, unknown>) => void;
   assetResolver?: (assetId: string) => string | undefined;
   onReplaceImage?: () => void;
+  onReplaceVisual?: () => void;
 }
 
 const SHAPE_OPTIONS: ShapeKind[] = [
@@ -60,19 +68,10 @@ export function updateTableCell(
   cellIndex: number,
   text: string,
 ): TableContent {
-  return {
-    ...table,
-    rows: table.rows.map((row, currentRowIndex) =>
-      currentRowIndex === rowIndex
-        ? {
-            ...row,
-            cells: row.cells.map((cell, currentCellIndex) =>
-              currentCellIndex === cellIndex ? { ...cell, text } : cell,
-            ),
-          }
-        : row,
-    ),
-  };
+  return updateTableCellContent(table, rowIndex, cellIndex, (cell) => ({
+    ...cell,
+    text,
+  }));
 }
 
 export function emptyTableRow(table: TableContent, id: string) {
@@ -154,15 +153,25 @@ export function updateConnectorPoint(
   axis: "x" | "y",
   value: number,
 ): ConnectorContent {
+  const sanitized = sanitizePercentPoint(value);
+  if (sanitized === undefined) return content;
   const endpoint = content[side];
   if (endpoint.kind !== "point") return content;
   return {
     ...content,
     [side]: {
       ...endpoint,
-      point: { ...endpoint.point, [axis]: value },
+      point: { ...endpoint.point, [axis]: sanitized },
     },
   };
+}
+
+export function nextImageCrop(
+  crop: ImageCrop | undefined,
+  side: keyof ImageCrop,
+  value: number,
+): ImageCrop | undefined {
+  return updateImageCropSide(crop, side, value);
 }
 
 export function NodeContentPanel({
@@ -170,6 +179,7 @@ export function NodeContentPanel({
   onUpdateContent,
   assetResolver,
   onReplaceImage,
+  onReplaceVisual,
 }: NodeContentPanelProps): JSX.Element {
   const [targetRowIndex, setTargetRowIndex] = useState(0);
   const [targetColumnIndex, setTargetColumnIndex] = useState(0);
@@ -190,16 +200,19 @@ export function NodeContentPanel({
         Content
       </h4>
       {node.type === "text" ? (
-        <textarea
-          value={textValue(node.content)}
-          rows={5}
-          onChange={(event) =>
-            onUpdateContent(
-              textContentFromValue(event.currentTarget.value, node.id),
-            )
-          }
-          className={`min-h-24 w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-        />
+        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+          Text content
+          <textarea
+            value={textValue(node.content)}
+            rows={5}
+            onChange={(event) =>
+              onUpdateContent(
+                textContentFromValue(event.currentTarget.value, node.id),
+              )
+            }
+            className={`min-h-24 w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+          />
+        </label>
       ) : null}
       {node.type === "shape" ? (
         <>
@@ -241,20 +254,32 @@ export function NodeContentPanel({
       ) : null}
       {node.type === "image" ? (
         <>
-          <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
-            {assetResolver?.(node.content.assetId) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={assetResolver(node.content.assetId)}
-                alt={node.content.alt ?? ""}
-                className="h-24 w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
-                No image preview
-              </div>
-            )}
-          </div>
+          {(() => {
+            const assetPreview = assetResolver?.(node.content.assetId);
+            return (
+              <>
+                <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
+                  {assetPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={assetPreview}
+                      alt={node.content.alt ?? ""}
+                      className="h-24 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
+                      No image preview
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-ds-text-muted">
+                  {assetPreview
+                    ? "Image snapshot is available."
+                    : "Image snapshot is unavailable."}
+                </p>
+              </>
+            );
+          })()}
           <button
             type="button"
             onClick={onReplaceImage}
@@ -279,16 +304,6 @@ export function NodeContentPanel({
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Asset id
-            <input
-              value={node.content.assetId}
-              onChange={(event) =>
-                onUpdateContent({ assetId: event.currentTarget.value })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Alt text
             <input
               value={node.content.alt ?? ""}
@@ -309,19 +324,17 @@ export function NodeContentPanel({
                   type="number"
                   value={node.content.crop?.[side] ?? 0}
                   min={0}
-                  max={100}
+                  max={95}
                   step={1}
-                  onChange={(event) =>
-                    onUpdateContent({
-                      crop: {
-                        top: node.content.crop?.top ?? 0,
-                        right: node.content.crop?.right ?? 0,
-                        bottom: node.content.crop?.bottom ?? 0,
-                        left: node.content.crop?.left ?? 0,
-                        [side]: Number(event.currentTarget.value),
-                      },
-                    })
-                  }
+                  onChange={(event) => {
+                    const next = parseFiniteNumberInput(
+                      event.currentTarget.value,
+                    );
+                    if (next === undefined) return;
+                    const crop = nextImageCrop(node.content.crop, side, next);
+                    if (crop === undefined) return;
+                    onUpdateContent({ crop });
+                  }}
                   className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
                 />
               </label>
@@ -335,30 +348,62 @@ export function NodeContentPanel({
           >
             Reset crop
           </button>
+          <details className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+            <summary className="cursor-pointer text-xs font-medium text-ds-text-secondary">
+              Debug identifiers
+            </summary>
+            <label className="mt-1.5 flex flex-col gap-1 text-xs text-ds-text-secondary">
+              Image asset id
+              <input
+                value={node.content.assetId}
+                readOnly
+                className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 font-mono text-xs text-ds-text-primary"
+              />
+            </label>
+          </details>
         </>
       ) : null}
       {node.type === "visual" ? (
         <>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Visual id
-            <input
-              value={node.content.visualId ?? ""}
-              onChange={(event) =>
-                onUpdateContent({ visualId: event.currentTarget.value })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-            Asset id
-            <input
-              value={node.content.assetId ?? ""}
-              onChange={(event) =>
-                onUpdateContent({ assetId: event.currentTarget.value })
-              }
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-            />
-          </label>
+          {(() => {
+            const assetPreview = node.content.assetId
+              ? assetResolver?.(node.content.assetId)
+              : undefined;
+            const statusLabel = node.content.visualId
+              ? node.content.assetId
+                ? "Linked visual with snapshot asset."
+                : "Linked visual without snapshot asset."
+              : node.content.assetId
+                ? "Snapshot asset is linked."
+                : "Visual source is unavailable.";
+            return (
+              <>
+                <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
+                  {assetPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={assetPreview}
+                      alt={node.content.alt ?? ""}
+                      className="h-24 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 items-center justify-center text-xs text-ds-text-muted">
+                      No visual preview
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-ds-text-muted">{statusLabel}</p>
+              </>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={onReplaceVisual}
+            disabled={onReplaceVisual === undefined}
+            className="self-start rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+          >
+            Replace visual
+          </button>
           <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
             Alt text
             <input
@@ -381,6 +426,29 @@ export function NodeContentPanel({
             />
             Transparent background
           </label>
+          <details className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+            <summary className="cursor-pointer text-xs font-medium text-ds-text-secondary">
+              Debug identifiers
+            </summary>
+            <div className="mt-1.5 grid gap-1.5">
+              <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+                Visual id
+                <input
+                  value={node.content.visualId ?? ""}
+                  readOnly
+                  className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 font-mono text-xs text-ds-text-primary"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+                Visual asset id
+                <input
+                  value={node.content.assetId ?? ""}
+                  readOnly
+                  className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 font-mono text-xs text-ds-text-primary"
+                />
+              </label>
+            </div>
+          </details>
         </>
       ) : null}
       {node.type === "table" ? (
@@ -703,16 +771,15 @@ export function NodeContentPanel({
                         max={100}
                         step={1}
                         aria-label={`${side} x`}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const next = parseFiniteNumberInput(
+                            event.currentTarget.value,
+                          );
+                          if (next === undefined) return;
                           onUpdateContent(
-                            updateConnectorPoint(
-                              node.content,
-                              side,
-                              "x",
-                              Number(event.currentTarget.value),
-                            ),
-                          )
-                        }
+                            updateConnectorPoint(node.content, side, "x", next),
+                          );
+                        }}
                         className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
                       />
                       <input
@@ -722,16 +789,15 @@ export function NodeContentPanel({
                         max={100}
                         step={1}
                         aria-label={`${side} y`}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const next = parseFiniteNumberInput(
+                            event.currentTarget.value,
+                          );
+                          if (next === undefined) return;
                           onUpdateContent(
-                            updateConnectorPoint(
-                              node.content,
-                              side,
-                              "y",
-                              Number(event.currentTarget.value),
-                            ),
-                          )
-                        }
+                            updateConnectorPoint(node.content, side, "y", next),
+                          );
+                        }}
                         className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
                       />
                     </>

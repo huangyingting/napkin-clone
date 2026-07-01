@@ -2,7 +2,7 @@
 
 **Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON
@@ -72,7 +72,10 @@ The desktop editor is a current-object workflow:
 | Slide rail     | Select, duplicate, remove, and reorder slides.                                                                               |
 
 On smaller surfaces, the inspector can render as a sheet while the stage remains
-the same controlled editor surface.
+the same controlled editor surface. The bottom dock also compacts for narrow
+viewports: rail toggle, Notes, and zoom stay visible; save/diagnostics/mode
+details collapse into a keyboard-reachable status popover; and the dock applies
+bottom safe-area padding when pinned to the viewport edge.
 
 ## Top Toolbar
 

@@ -1,6 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
+import { safeParseDeckV7 } from "@/lib/presentation-vnext/validation";
 
 import {
   COMMENT_ANCHOR_NODE_ID_MAX_LENGTH,
@@ -28,6 +29,13 @@ import { resolveAnchorState } from "@/lib/presentation/slide-comment-anchors";
 
 type CommentDb = Pick<typeof prisma, "comment" | "commentRead">;
 
+const SLIDE_COMMENT_DECK_MISSING_ERROR =
+  "Slide comments require a saved deck on this document.";
+const SLIDE_COMMENT_DECK_INVALID_ERROR =
+  "Slide comments require a valid saved v7 deck.";
+const SLIDE_COMMENT_ANCHOR_ORPHANED_ERROR =
+  "Slide comment anchor must reference an existing slide or element in the saved deck.";
+
 export type CommentCapabilityContext = {
   user: { id: string };
 };
@@ -44,10 +52,13 @@ export type CommentMutationResult = {
 
 export type CommentService = ReturnType<typeof createCommentService>;
 
+export type LoadDeckV7ForDocument = (documentId: string) => Promise<DeckV7>;
+
 type CommentServiceDeps = {
   db?: CommentDb;
   now?: () => Date;
   requireDocumentContext: RequireCommentDocumentContext;
+  loadDeckV7ForDocument?: LoadDeckV7ForDocument;
 };
 
 function commentSelect() {
@@ -106,6 +117,20 @@ export function createCommentService({
   db = prisma,
   now = () => new Date(),
   requireDocumentContext,
+  loadDeckV7ForDocument = async (documentId: string): Promise<DeckV7> => {
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { deckJson: true },
+    });
+    if (!document?.deckJson) {
+      throw new Error(SLIDE_COMMENT_DECK_MISSING_ERROR);
+    }
+    const parsed = safeParseDeckV7(document.deckJson);
+    if (!parsed.success) {
+      throw new Error(SLIDE_COMMENT_DECK_INVALID_ERROR);
+    }
+    return parsed.data;
+  },
 }: CommentServiceDeps) {
   async function listCommentsForAuthorizedDocument(
     documentId: string,
@@ -168,11 +193,16 @@ export function createCommentService({
       const geometry = validateAnchorGeometry(input.anchorGeometry ?? null);
 
       if (slideId) {
-        const anchorRecord = slideAnchorToRecord({
+        const slideAnchor = {
           slideId,
           elementId,
           geometry,
-        });
+        };
+        const deck = await loadDeckV7ForDocument(documentId);
+        if (resolveAnchorState(slideAnchor, deck) !== "attached") {
+          throw new Error(SLIDE_COMMENT_ANCHOR_ORPHANED_ERROR);
+        }
+        const anchorRecord = slideAnchorToRecord(slideAnchor);
         await db.comment.create({
           data: {
             documentId,
