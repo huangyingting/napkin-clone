@@ -7,8 +7,8 @@
  * horizontal scroll container with keyboard navigation (←/→), drag-to-reorder,
  * and per-slide actions (move, duplicate, delete).
  *
- * Collapsible via a toggle button; collapsed state is persisted in
- * localStorage under `slide-filmstrip-collapsed`.
+ * Collapsible via a toggle button; collapsed state persistence is managed by
+ * the editor and scoped per document.
  */
 
 import { Fragment, useState, type JSX, type KeyboardEvent } from "react";
@@ -180,9 +180,7 @@ export function Filmstrip({
           {/* Thumbnails */}
           <ol
             ref={containerRef}
-            role="listbox"
             aria-label="Slides"
-            aria-orientation="horizontal"
             className="flex min-w-0 flex-1 gap-2 overflow-x-auto px-3 py-1.5"
             onKeyDown={handleKeyDown}
             tabIndex={collapsed ? -1 : 0}

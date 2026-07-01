@@ -545,6 +545,10 @@ body {
   bottom: max(var(--ds-space-5), var(--tiq-safe-area-bottom));
 }
 
+.tiq-safe-bottom-dock {
+  padding-bottom: max(var(--ds-space-1), var(--tiq-safe-area-bottom));
+}
+
 @media (hover: none), (pointer: coarse) {
   .tiq-touch-target {
     min-width: var(--tiq-touch-target-min);
