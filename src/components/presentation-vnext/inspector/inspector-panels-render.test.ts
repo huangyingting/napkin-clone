@@ -45,14 +45,21 @@ function invokeHandlers(root: ReactNode): number {
   for (const element of elements(root)) {
     const props = element.props as {
       disabled?: boolean;
+      type?: string;
       onChange?: (event: {
         currentTarget: { value: string; checked: boolean };
       }) => void;
       onClick?: () => void;
     };
     if (props.onChange) {
+      const value =
+        props.type === "number" || props.type === "range"
+          ? "12"
+          : props.type === "color"
+            ? "#123456"
+            : "sample";
       props.onChange({
-        currentTarget: { value: "#123456", checked: true },
+        currentTarget: { value, checked: true },
       });
       count += 1;
     }

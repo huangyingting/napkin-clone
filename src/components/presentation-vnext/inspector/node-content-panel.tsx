@@ -5,12 +5,18 @@ import { useState, type JSX } from "react";
 import type {
   ConnectorAnchor,
   ConnectorContent,
+  ImageCrop,
   ShapeKind,
   SlideChildNode,
   TableContent,
   TextContent,
 } from "@/lib/presentation-vnext/schema";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  parseFiniteNumberInput,
+  sanitizePercentPoint,
+  updateImageCropSide,
+} from "./numeric-sanitization";
 
 export interface NodeContentPanelProps {
   node: SlideChildNode;
@@ -155,15 +161,25 @@ export function updateConnectorPoint(
   axis: "x" | "y",
   value: number,
 ): ConnectorContent {
+  const sanitized = sanitizePercentPoint(value);
+  if (sanitized === undefined) return content;
   const endpoint = content[side];
   if (endpoint.kind !== "point") return content;
   return {
     ...content,
     [side]: {
       ...endpoint,
-      point: { ...endpoint.point, [axis]: value },
+      point: { ...endpoint.point, [axis]: sanitized },
     },
   };
+}
+
+export function nextImageCrop(
+  crop: ImageCrop | undefined,
+  side: keyof ImageCrop,
+  value: number,
+): ImageCrop | undefined {
+  return updateImageCropSide(crop, side, value);
 }
 
 export function NodeContentPanel({
@@ -316,19 +332,17 @@ export function NodeContentPanel({
                   type="number"
                   value={node.content.crop?.[side] ?? 0}
                   min={0}
-                  max={100}
+                  max={95}
                   step={1}
-                  onChange={(event) =>
-                    onUpdateContent({
-                      crop: {
-                        top: node.content.crop?.top ?? 0,
-                        right: node.content.crop?.right ?? 0,
-                        bottom: node.content.crop?.bottom ?? 0,
-                        left: node.content.crop?.left ?? 0,
-                        [side]: Number(event.currentTarget.value),
-                      },
-                    })
-                  }
+                  onChange={(event) => {
+                    const next = parseFiniteNumberInput(
+                      event.currentTarget.value,
+                    );
+                    if (next === undefined) return;
+                    const crop = nextImageCrop(node.content.crop, side, next);
+                    if (crop === undefined) return;
+                    onUpdateContent({ crop });
+                  }}
                   className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
                 />
               </label>
@@ -765,16 +779,15 @@ export function NodeContentPanel({
                         max={100}
                         step={1}
                         aria-label={`${side} x`}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const next = parseFiniteNumberInput(
+                            event.currentTarget.value,
+                          );
+                          if (next === undefined) return;
                           onUpdateContent(
-                            updateConnectorPoint(
-                              node.content,
-                              side,
-                              "x",
-                              Number(event.currentTarget.value),
-                            ),
-                          )
-                        }
+                            updateConnectorPoint(node.content, side, "x", next),
+                          );
+                        }}
                         className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
                       />
                       <input
@@ -784,16 +797,15 @@ export function NodeContentPanel({
                         max={100}
                         step={1}
                         aria-label={`${side} y`}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const next = parseFiniteNumberInput(
+                            event.currentTarget.value,
+                          );
+                          if (next === undefined) return;
                           onUpdateContent(
-                            updateConnectorPoint(
-                              node.content,
-                              side,
-                              "y",
-                              Number(event.currentTarget.value),
-                            ),
-                          )
-                        }
+                            updateConnectorPoint(node.content, side, "y", next),
+                          );
+                        }}
                         className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
                       />
                     </>
