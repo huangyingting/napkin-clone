@@ -196,6 +196,31 @@ describe("seedContextToolbarStyles", () => {
   });
 });
 
+describe("context toolbar measurement scheduling", () => {
+  test("does not keep a requestAnimationFrame polling loop alive", () => {
+    assert.equal(source.includes("const tick = () => {"), false);
+    assert.equal(
+      source.includes("frame = window.requestAnimationFrame(tick);"),
+      false,
+    );
+  });
+
+  test("updates position from event and observer scheduling", () => {
+    assert.equal(
+      source.includes("const schedulePositionUpdate = () => {"),
+      true,
+    );
+    assert.equal(
+      source.includes("new ResizeObserver(schedulePositionUpdate)"),
+      true,
+    );
+    assert.equal(
+      source.includes("new MutationObserver(schedulePositionUpdate)"),
+      true,
+    );
+  });
+});
+
 describe("inline align persistence wiring", () => {
   test("always mirrors align commands to persistent local style patches", () => {
     assert.equal(
