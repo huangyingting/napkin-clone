@@ -571,6 +571,19 @@ function repairSlotValue(
     return { type: "steps", items };
   }
 
+  if (value.type === "timeline") {
+    let items = value.items;
+    if (contract.maxItems && items.length > contract.maxItems) {
+      dc.warning(
+        "slot-over-capacity",
+        `${ctx}: timeline count ${items.length} exceeds max ${contract.maxItems}; truncating`,
+        { path: ctx },
+      );
+      items = items.slice(0, contract.maxItems);
+    }
+    return { type: "timeline", items };
+  }
+
   if (value.type === "table") {
     let { columns, rows } = value;
     const { caption } = value;

@@ -615,21 +615,62 @@ describe("template capacity: overflow triggers slot-over-capacity diagnostic", (
               items: Array.from({ length: 12 }, (_, i) => ({
                 label: `${2010 + i}`,
                 title: `Event ${i + 1}`,
+                body: `Details ${i + 1}`,
               })),
             },
           },
         },
       ],
     };
-    const { diagnostics } = repairAiDeckPlan(plan, registry);
-    // timeline items are repaired by the "steps" branch only if type === "steps"
-    // but timeline slot type is "timeline" — no repair truncation for that type,
-    // so no slot-over-capacity; this tests the absence of false errors
-    assert.ok(
-      !diagnostics.some(
-        (d) => d.severity === "error" || d.severity === "fatal",
-      ),
+    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const repairedSteps = repaired.slides[0].slots.steps;
+    assert.ok(repairedSteps?.type === "timeline");
+    if (repairedSteps?.type === "timeline") {
+      assert.equal(repairedSteps.items.length, 8);
+    }
+    assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
+
+    const template = registry.get("timeline")!;
+    const { slide } = compileSlide(repaired.slides[0] as AiSlideSpec, template);
+    const timelineGroup = slide.children.find(
+      (node) => node.type === "group" && node.slot === "steps",
     );
+    assert.ok(timelineGroup?.type === "group");
+    if (timelineGroup?.type === "group") {
+      const labelNode = timelineGroup.children.find(
+        (node) => node.type === "text" && node.role === "label",
+      );
+      const titleNode = timelineGroup.children.find(
+        (node) => node.type === "text" && node.role === "title",
+      );
+      const bodyNode = timelineGroup.children.find(
+        (node) => node.type === "text" && node.role === "body",
+      );
+
+      assert.equal(labelNode?.type, "text");
+      if (labelNode?.type === "text") {
+        assert.deepEqual(
+          labelNode.content.paragraphs.map((p) => p.text),
+          Array.from({ length: 8 }, (_, i) => `${2010 + i}`),
+        );
+      }
+
+      assert.equal(titleNode?.type, "text");
+      if (titleNode?.type === "text") {
+        assert.deepEqual(
+          titleNode.content.paragraphs.map((p) => p.text),
+          Array.from({ length: 8 }, (_, i) => `Event ${i + 1}`),
+        );
+      }
+
+      assert.equal(bodyNode?.type, "text");
+      if (bodyNode?.type === "text") {
+        assert.deepEqual(
+          bodyNode.content.paragraphs.map((p) => p.text),
+          Array.from({ length: 8 }, (_, i) => `Details ${i + 1}`),
+        );
+      }
+    }
   });
 
   test("appendix: truncates table columns at maxColumns=6", () => {

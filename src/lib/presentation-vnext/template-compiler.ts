@@ -25,7 +25,12 @@ import type {
   SlotKey,
   SlideControls,
 } from "./schema";
-import type { AiSlideSpec, SlotValue, BulletSlotItem } from "./ai-plan-schema";
+import type {
+  AiSlideSpec,
+  SlotValue,
+  BulletSlotItem,
+  TimelineSlotItem,
+} from "./ai-plan-schema";
 import type {
   SemanticTemplateV1,
   TemplateNodeBlueprint,
@@ -109,6 +114,27 @@ function buildTableContent(value: SlotValue): TableContent | null {
     })),
     ...(value.caption ? { caption: value.caption } : {}),
     header: true,
+  };
+}
+
+function buildTimelineRoleContent(
+  items: TimelineSlotItem[],
+  role: TemplateNodeBlueprint["role"],
+): TextContent | null {
+  const texts = items
+    .map((item) => {
+      if (role === "label") return item.label;
+      if (role === "title") return item.title;
+      if (role === "body") return item.body;
+      return undefined;
+    })
+    .filter(
+      (text): text is string => typeof text === "string" && text.length > 0,
+    );
+
+  if (texts.length === 0) return null;
+  return {
+    paragraphs: texts.map((text) => ({ id: generateParagraphId(), text })),
   };
 }
 
@@ -219,9 +245,30 @@ function materialiseBlueprintNode(
 
   if (nodeType === "group") {
     const children: SlideChildNode[] = [];
-    for (const childBp of blueprint.children ?? []) {
-      const child = materialiseBlueprintNode(childBp, slots, dc, slideIndex);
-      if (child) children.push(child);
+    if (slotValue?.type === "timeline") {
+      for (const childBp of blueprint.children ?? []) {
+        const child = materialiseBlueprintNode(childBp, slots, dc, slideIndex);
+        if (!child) continue;
+        if (child.type === "text") {
+          const timelineContent = buildTimelineRoleContent(
+            slotValue.items,
+            childBp.role,
+          );
+          if (timelineContent) {
+            children.push({
+              ...child,
+              content: timelineContent,
+            });
+            continue;
+          }
+        }
+        children.push(child);
+      }
+    } else {
+      for (const childBp of blueprint.children ?? []) {
+        const child = materialiseBlueprintNode(childBp, slots, dc, slideIndex);
+        if (child) children.push(child);
+      }
     }
     if (children.length === 0) {
       // Add a placeholder child so group invariant holds
