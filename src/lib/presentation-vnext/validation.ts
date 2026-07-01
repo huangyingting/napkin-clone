@@ -521,6 +521,8 @@ function validateStyleBinding(
 // Text content
 // ---------------------------------------------------------------------------
 
+const TEXT_FIT_MODES = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
+
 function validateTextContent(
   input: unknown,
   ctx: string,
@@ -534,6 +536,8 @@ function validateTextContent(
     fail(errors, `${ctx}.paragraphs must be an array`);
     return;
   }
+  validateEnumValue(input.fit, TEXT_FIT_MODES, `${ctx}.fit`, errors);
+  validateOptionalString(input.language, `${ctx}.language`, errors);
   for (let i = 0; i < input.paragraphs.length; i++) {
     const para = input.paragraphs[i];
     const pCtx = `${ctx}.paragraphs[${i}]`;

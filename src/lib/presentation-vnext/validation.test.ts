@@ -279,6 +279,74 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts text content fit and language values", () => {
+    const fitModes = ["auto-height", "fixed-box", "shrink-to-fit"] as const;
+    const nodes = fitModes.map((fit, index) =>
+      buildTextNode({
+        id: `text-fit-${index}`,
+        content: {
+          paragraphs: [{ id: `para-fit-${index}`, text: `Fit ${fit}` }],
+          fit,
+          language: "en-US",
+        },
+      }),
+    );
+    const deck = buildDeckV7([buildSlideV7("content", nodes)]);
+    const result = safeParseDeckV7(deck);
+
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+    if (result.success) {
+      const parsedNodes = result.data.slides[0].children;
+      assert.deepEqual(
+        parsedNodes.map((node) =>
+          node.type === "text" ? node.content.fit : undefined,
+        ),
+        fitModes,
+      );
+      assert.deepEqual(
+        parsedNodes.map((node) =>
+          node.type === "text" ? node.content.language : undefined,
+        ),
+        ["en-US", "en-US", "en-US"],
+      );
+    }
+  });
+
+  test("rejects invalid text content fit mode", () => {
+    const badNode = buildTextNode({
+      content: {
+        paragraphs: [{ id: "para-001", text: "hello world" }],
+        fit: "squash" as unknown as "auto-height",
+      },
+    });
+    const deck = buildDeckV7([buildSlideV7("content", [badNode])]);
+    const result = safeParseDeckV7(deck);
+
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((error) => /content\.fit/.test(error)));
+    }
+  });
+
+  test("rejects non-string text content language", () => {
+    const badNode = buildTextNode({
+      content: {
+        paragraphs: [{ id: "para-001", text: "hello world" }],
+        language: 42 as unknown as string,
+      },
+    });
+    const deck = buildDeckV7([buildSlideV7("content", [badNode])]);
+    const result = safeParseDeckV7(deck);
+
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((error) => /content\.language/.test(error)));
+    }
+  });
+
   test("rejects table with too many columns (>8)", () => {
     resetBuilderCounter();
     const tableSlide = buildTableSlide();
