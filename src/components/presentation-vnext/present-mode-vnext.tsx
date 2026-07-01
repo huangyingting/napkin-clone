@@ -31,6 +31,7 @@ import {
 import {
   HudButton,
   KeyboardHelpOverlay,
+  PresenterPanelVNext,
   PresenterTimer,
   PresenterToolIcon,
   SlideOverviewPanelVNext,
@@ -45,6 +46,7 @@ import {
   useSwipeNavigation,
   type PresentationShortcutAction,
 } from "@/components/presentation/runtime/navigation";
+import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SlideCanvasVNext } from "./slide-canvas";
@@ -100,11 +102,13 @@ export function PresentModeVNext({
   const { elapsedSeconds, startedAtRef } = usePresenterTimer();
 
   const currentSlideTree = renderTree?.slides[currentIndex];
+  const nextSlide =
+    currentIndex + 1 < total ? deck.slides[currentIndex + 1] : undefined;
+  const nextSlideTree =
+    currentIndex + 1 < total ? renderTree?.slides[currentIndex + 1] : undefined;
   const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
-    return (
-      deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src
-    );
+    return resolveDeckAssetSource(deck, assetId);
   }
   const aspectRatio =
     canvas && canvas.width > 0 && canvas.height > 0
@@ -298,8 +302,6 @@ export function PresentModeVNext({
     );
   }
 
-  const slideNotes = deck.slides[currentIndex]?.notes ?? undefined;
-
   const overlay = (
     <div
       ref={containerRef}
@@ -315,7 +317,7 @@ export function PresentModeVNext({
       {/* Top HUD */}
       <div
         aria-label="Presentation controls"
-        className={`pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`tiq-safe-present-top pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 pb-3 transition-opacity duration-300 motion-reduce:transition-none ${topHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex flex-wrap items-center gap-3">
           <span
@@ -333,7 +335,7 @@ export function PresentModeVNext({
             className="h-1 w-28 overflow-hidden rounded-full bg-ds-inverse-border-subtle"
           >
             <div
-              className="h-full rounded-full bg-white/60 transition-all duration-300"
+              className="h-full rounded-full bg-white/60 transition-all duration-300 motion-reduce:transition-none"
               style={{ width: `${progress.percentage}%` }}
             />
           </div>
@@ -450,7 +452,7 @@ export function PresentModeVNext({
           className={`group absolute bottom-0 left-0 top-0 w-1/2 cursor-pointer bg-transparent ${FOCUS_RING} disabled:cursor-default`}
         >
           <span
-            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronLeft size={20} />
@@ -463,7 +465,7 @@ export function PresentModeVNext({
           className={`group absolute bottom-0 right-0 top-0 w-1/2 cursor-pointer bg-transparent ${FOCUS_RING} disabled:cursor-default`}
         >
           <span
-            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronRight size={20} />
@@ -472,20 +474,26 @@ export function PresentModeVNext({
       </div>
 
       {/* Speaker notes */}
-      {notesVisible && slideNotes && (
+      {notesVisible && (
         <div
           className="flex-shrink-0 border-t border-ds-inverse-border-subtle p-4"
           style={{ height: "35%" }}
         >
-          <p className="text-sm text-ds-inverse-text whitespace-pre-wrap leading-relaxed">
-            {slideNotes}
-          </p>
+          <PresenterPanelVNext
+            currentSlide={deck.slides[currentIndex]}
+            currentIndex={currentIndex}
+            total={total}
+            nextSlide={nextSlide}
+            nextSlideTree={nextSlideTree}
+            canvas={canvas ?? deck.canvas}
+            assetResolver={resolveDeckAsset}
+          />
         </div>
       )}
 
       {/* Bottom nav bar */}
       <div
-        className={`pointer-events-none absolute bottom-4 left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`tiq-safe-present-bottom pointer-events-none absolute left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 motion-reduce:transition-none ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button

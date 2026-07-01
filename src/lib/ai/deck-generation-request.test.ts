@@ -111,6 +111,32 @@ test("parseDeckResponse returns vnext response metadata", () => {
   });
 });
 
+test("parseDeckResponse preserves valid diagnostics and drops invalid entries", () => {
+  const parsed = parseDeckResponse({
+    deck: VALID_DECK_V7,
+    diagnostics: [
+      {
+        code: "slot-over-capacity",
+        category: "validation",
+        severity: "warning",
+        target: { scope: "slide", slideId: "slide-0001" },
+        message: "Truncated extras",
+      },
+      {
+        code: "invalid",
+        category: "made-up",
+        severity: "warning",
+        target: { scope: "deck" },
+        message: "Should be ignored",
+      },
+    ],
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.diagnostics.length, 1);
+  assert.equal(parsed.diagnostics[0].code, "slot-over-capacity");
+});
+
 test("parseDeckResponse defaults truncated to false", () => {
   const parsed = parseDeckResponse({ deck: VALID_DECK_V7 });
   assert.ok(parsed);
@@ -138,12 +164,23 @@ test("requestDeckGeneration returns the parsed DeckV7 on success", async () => {
     jsonResponse({
       deck: VALID_DECK_V7,
       truncated: true,
+      diagnostics: [
+        {
+          code: "missing-required-slot",
+          category: "validation",
+          severity: "warning",
+          target: { scope: "slide", slideId: "slide-0001" },
+          message: "Used fallback content",
+        },
+      ],
     })) as unknown as typeof fetch;
   const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.truncated, true);
     assert.equal(result.deckV7.schemaVersion, 7);
+    assert.equal(result.diagnostics.length, 1);
+    assert.equal(result.diagnostics[0].code, "missing-required-slot");
   }
 });
 

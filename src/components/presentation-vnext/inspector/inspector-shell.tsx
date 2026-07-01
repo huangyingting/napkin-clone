@@ -23,8 +23,11 @@ import type {
   DeckChromeConfig,
 } from "@/lib/presentation-vnext/schema";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
-import type { StylePatch } from "@/lib/presentation-vnext/style-schema";
-import type { StyleBinding } from "@/lib/presentation-vnext/style-schema";
+import type {
+  StyleBinding,
+  StyleObject,
+  StylePatch,
+} from "@/lib/presentation-vnext/style-schema";
 import type {
   PresentationDiagnostic,
   DiagnosticAction,
@@ -781,6 +784,7 @@ export interface InspectorShellProps {
   activeSlide: SlideNode | undefined;
   deckChrome: DeckChromeConfig | undefined;
   selectedNode: SlideChildNode | undefined;
+  selectedResolvedStyle?: StyleObject;
   selectedIds: string[];
   isDecorationSelected: boolean;
   selectedGeneratedSource?: "themeDecoration" | "deckChrome";
@@ -796,6 +800,7 @@ export interface InspectorShellProps {
   onUpdateSlideLocalStyle: (patch: StylePatch) => void;
   onResetSlideLocalStyle: () => void;
   onUpdateSlideSource: (source: NodeSourceMetadata | undefined) => void;
+  onUploadSlideBackgroundImage?: () => void;
 
   // Node-level handlers
   onUpdateSelectedLayout: (patch: Record<string, unknown>) => void;
@@ -807,6 +812,7 @@ export interface InspectorShellProps {
   onUpdateSelectedLocalStyle: (patch: StylePatch) => void;
   assetResolver?: (assetId: string) => string | undefined;
   onReplaceImage?: () => void;
+  onReplaceVisual?: () => void;
   onResetToTheme: () => void;
   onUpdateSelectedSource: (source: NodeSourceMetadata | undefined) => void;
   onRefreshSelectedSource?: () => void;
@@ -855,6 +861,7 @@ export function InspectorShell({
   activeSlide,
   deckChrome,
   selectedNode,
+  selectedResolvedStyle,
   selectedIds,
   isDecorationSelected,
   selectedGeneratedSource,
@@ -868,12 +875,14 @@ export function InspectorShell({
   onUpdateSlideLocalStyle,
   onResetSlideLocalStyle,
   onUpdateSlideSource,
+  onUploadSlideBackgroundImage,
   onUpdateSelectedLayout,
   onUpdateSelectedAttributes,
   onUpdateSelectedContent,
   onUpdateSelectedLocalStyle,
   assetResolver,
   onReplaceImage,
+  onReplaceVisual,
   onResetToTheme,
   onUpdateSelectedSource,
   onRefreshSelectedSource,
@@ -1065,6 +1074,8 @@ export function InspectorShell({
               onUpdateSource={onUpdateSlideSource}
               onUpdateLocalStyle={onUpdateSlideLocalStyle}
               onResetLocalStyle={onResetSlideLocalStyle}
+              assetResolver={assetResolver}
+              onUploadBackgroundImage={onUploadSlideBackgroundImage}
             />
           </PanelSection>
         )}
@@ -1094,6 +1105,7 @@ export function InspectorShell({
               />
               <LocalStylePanel
                 node={selectedNode}
+                resolvedStyle={selectedResolvedStyle}
                 onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>
@@ -1120,9 +1132,13 @@ export function InspectorShell({
                 onReplaceImage={
                   selectedNode.type === "image" ? onReplaceImage : undefined
                 }
+                onReplaceVisual={
+                  selectedNode.type === "visual" ? onReplaceVisual : undefined
+                }
               />
               <LocalStylePanel
                 node={selectedNode}
+                resolvedStyle={selectedResolvedStyle}
                 onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>
@@ -1215,6 +1231,7 @@ export function InspectorShell({
               />
               <LocalStylePanel
                 node={selectedNode}
+                resolvedStyle={selectedResolvedStyle}
                 onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>

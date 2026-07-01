@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { login } from "./helpers/auth";
 import {
@@ -32,12 +32,64 @@ import {
 
 const SLIDE_TEXT = E2E_PROFILE_FIXTURE.slideTitleText;
 const SECOND_SLIDE_TEXT = E2E_PROFILE_FIXTURE.slideTwoTitleText;
+const MOBILE_PRESENT_VIEWPORT = { width: 390, height: 844 };
+const SAFE_AREA_INSETS = { top: 44, right: 16, bottom: 34, left: 16 };
 
 async function clickNextPublicSlide(page: Page) {
   await expect(async () => {
     await page.getByRole("button", { name: "Next slide" }).last().click();
     await expect(page).toHaveURL(/#2$/, { timeout: 1_000 });
   }).toPass({ timeout: 10_000 });
+}
+
+async function applySafeAreaInsets(page: Page) {
+  await page.evaluate((insets) => {
+    const root = document.documentElement;
+    root.style.setProperty("--tiq-safe-area-top", `${insets.top}px`);
+    root.style.setProperty("--tiq-safe-area-right", `${insets.right}px`);
+    root.style.setProperty("--tiq-safe-area-bottom", `${insets.bottom}px`);
+    root.style.setProperty("--tiq-safe-area-left", `${insets.left}px`);
+  }, SAFE_AREA_INSETS);
+}
+
+async function expectHudRespectsSafeAreas(
+  page: Page,
+  progress: Locator,
+  bottomHud: Locator,
+) {
+  const progressBox = await progress.boundingBox();
+  expect(progressBox, "present: top HUD should be measurable").toBeTruthy();
+  expect(
+    progressBox!.y,
+    "present: top HUD should clear the configured top safe area",
+  ).toBeGreaterThanOrEqual(SAFE_AREA_INSETS.top - 1);
+
+  const bottomHudBox = await bottomHud.boundingBox();
+  expect(bottomHudBox, "present: bottom HUD should be measurable").toBeTruthy();
+
+  const viewport = page.viewportSize();
+  expect(viewport, "present: viewport should be available").toBeTruthy();
+  const bottomInset =
+    viewport!.height - (bottomHudBox!.y + bottomHudBox!.height);
+  expect(
+    bottomInset,
+    "present: bottom HUD should clear the configured bottom safe area",
+  ).toBeGreaterThanOrEqual(SAFE_AREA_INSETS.bottom - 1);
+}
+
+async function detectPresentationState(
+  page: Page,
+  region: Locator,
+): Promise<"region" | "recovery" | "timeout"> {
+  const recoveryHeading = page.getByRole("heading", {
+    name: "Presentation deck could not be opened",
+  });
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await recoveryHeading.isVisible()) return "recovery";
+    if (await region.isVisible()) return "region";
+    await page.waitForTimeout(250);
+  }
+  return "timeout";
 }
 
 test.describe("present + export", () => {
@@ -163,6 +215,45 @@ test.describe("present + export", () => {
     await expect(progress).toHaveAttribute("aria-valuenow", "2");
   });
 
+  test("authenticated present mode keeps HUD chrome outside mobile safe areas", async ({
+    page,
+  }) => {
+    await page.setViewportSize(MOBILE_PRESENT_VIEWPORT);
+    await login(page, profileOwnerCredentials());
+    await page.goto(profileDocPath());
+
+    const presentBtn = page.getByRole("button", { name: /^Present / });
+    await expect(
+      presentBtn,
+      "present: Present button not found in editor toolbar",
+    ).toBeVisible({ timeout: 20_000 });
+    await presentBtn.click();
+
+    const presentRegion = page.getByRole("region", { name: "Presentation" });
+    const state = await detectPresentationState(page, presentRegion);
+    if (state === "recovery") {
+      test.skip(
+        true,
+        "present: fixture resolved to a non-v7 deck; skipping safe-area HUD assertions",
+      );
+    }
+    expect(state, "present: in-app presentation region missing").toBe("region");
+    await expect(
+      presentRegion,
+      "present: in-app presentation region missing",
+    ).toBeVisible({ timeout: 20_000 });
+    await applySafeAreaInsets(page);
+
+    const progress = presentRegion.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(progress, "present: top HUD progress missing").toBeVisible();
+    const bottomHud = presentRegion.locator(".tiq-safe-present-bottom");
+    await expect(bottomHud, "present: bottom HUD missing").toHaveCount(1);
+
+    await expectHudRespectsSafeAreas(page, progress, bottomHud);
+  });
+
   test("public present mode renders the seeded deck via the share link", async ({
     page,
   }) => {
@@ -182,6 +273,40 @@ test.describe("present + export", () => {
       page.getByText(SLIDE_TEXT, { exact: false }).first(),
       "present: seeded slide text missing on public present page",
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("public present mode keeps HUD chrome outside mobile safe areas", async ({
+    page,
+  }) => {
+    await page.setViewportSize(MOBILE_PRESENT_VIEWPORT);
+    const response = await page.goto(profilePresentPath());
+    expect(
+      response?.status(),
+      "present: public present link should resolve (200)",
+    ).toBe(200);
+    const region = page.getByRole("region", { name: /^Presentation/ });
+    const state = await detectPresentationState(page, region);
+    if (state === "recovery") {
+      test.skip(
+        true,
+        "present: public fixture resolved to a non-v7 deck; skipping safe-area HUD assertions",
+      );
+    }
+    expect(state, "present: public presentation region missing").toBe("region");
+    await expect(
+      region,
+      "present: public presentation region missing",
+    ).toBeVisible({ timeout: 20_000 });
+    await applySafeAreaInsets(page);
+
+    const progress = region.getByRole("progressbar", {
+      name: "Presentation progress",
+    });
+    await expect(progress, "present: top HUD progress missing").toBeVisible();
+    const bottomHud = region.locator(".tiq-safe-present-bottom");
+    await expect(bottomHud, "present: bottom HUD missing").toHaveCount(1);
+
+    await expectHudRespectsSafeAreas(page, progress, bottomHud);
   });
 
   test("public present mode supports deterministic slide navigation", async ({

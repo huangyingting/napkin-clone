@@ -188,8 +188,14 @@ render tree.
 
 Key content rules:
 
-- Text nodes store `content.paragraphs[]`; run text must concatenate exactly to
+- Text nodes store `content.paragraphs[]`; each run must provide string `text`,
+  optional boolean formatting flags, optional `localStyle` scalar fields
+  (`color`, `fontSizePt`, `fontFamily`), and optional `link` values limited to
+  `http:`, `https:`, or `mailto:`. Run text must concatenate exactly to
   paragraph text.
+- Paragraph `list` markers require `kind: "bullet" | "number"`; optional
+  `indent` must be an integer `>= 0`, and optional `numberStyle` must be one of
+  `decimal`, `lower-alpha`, `upper-alpha`, or `lower-roman`.
 - Image nodes require a non-empty `content.assetId`.
 - Shape nodes require a supported `content.shape`; `shape: "path"` requires a
   non-empty `path` string.

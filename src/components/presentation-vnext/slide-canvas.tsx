@@ -24,13 +24,22 @@ import type {
   ResolvedRenderNode,
 } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
-import type { FillStyle } from "@/lib/presentation-vnext/style-schema";
+import type {
+  ConnectorEndpoint,
+  ImageCrop,
+  LayoutBox,
+} from "@/lib/presentation-vnext/schema";
 import {
   STAGE_CHROME_Z_INDEX,
   selectionFrameChrome,
 } from "@/lib/presentation-vnext/stage-chrome";
 
-import { SlideNodeRenderer } from "./slide-node-renderer";
+import { fillStyleToCss } from "./fill-style-css";
+import {
+  frameToCss,
+  nodeLayoutTransformToCss,
+  SlideNodeRenderer,
+} from "./slide-node-renderer";
 import type { SelectionState } from "./selection-model";
 import { isSelected } from "./selection-model";
 
@@ -48,6 +57,15 @@ export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
 export type ConnectorEndpointHandle = "from" | "to";
 
+export interface SlideCanvasNodeGestureDraft {
+  frame?: LayoutBox["frame"];
+  rotation?: number;
+  crop?: ImageCrop;
+  connectorEndpoints?: Partial<
+    Record<ConnectorEndpointHandle, ConnectorEndpoint>
+  >;
+}
+
 const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
   "nw",
   "n",
@@ -64,100 +82,6 @@ const CROP_HANDLES: readonly CropHandlePosition[] = [
   "bottom",
   "left",
 ];
-
-// ---------------------------------------------------------------------------
-// Background helper
-// ---------------------------------------------------------------------------
-
-function backgroundToCss(
-  fill: FillStyle | undefined,
-  assetResolver?: (id: string) => string | undefined,
-): React.CSSProperties {
-  if (!fill) return {};
-  const stopsToCss = (
-    stops: readonly { color: unknown; offsetPct: number }[] | undefined,
-  ) =>
-    stops
-      ?.map((stop) => {
-        const color =
-          typeof stop.color === "string" ? stop.color : "transparent";
-        return `${color} ${stop.offsetPct}%`;
-      })
-      .join(", ");
-  switch (fill.type) {
-    case "solid":
-      return typeof fill.color === "string"
-        ? { backgroundColor: fill.color }
-        : {};
-    case "linearGradient": {
-      const from = typeof fill.from === "string" ? fill.from : "transparent";
-      const to = typeof fill.to === "string" ? fill.to : "transparent";
-      const angle = fill.angle ?? 90;
-      const stops = stopsToCss(fill.stops);
-      return {
-        background: `linear-gradient(${angle}deg, ${stops ?? `${from}, ${to}`})`,
-      };
-    }
-    case "radialGradient": {
-      const inner = typeof fill.inner === "string" ? fill.inner : "transparent";
-      const outer = typeof fill.outer === "string" ? fill.outer : "transparent";
-      const stops = stopsToCss(fill.stops);
-      return {
-        background: `radial-gradient(${fill.rx ?? fill.r ?? 70}% ${fill.ry ?? fill.r ?? 70}% at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops ?? `${inner}, ${outer}`})`,
-      };
-    }
-    case "conicGradient": {
-      const stops = stopsToCss(fill.stops) ?? "transparent, transparent";
-      return {
-        background: `conic-gradient(from ${fill.fromAngle ?? 0}deg at ${fill.cx ?? 50}% ${fill.cy ?? 50}%, ${stops})`,
-      };
-    }
-    case "repeatingLinearGradient": {
-      const stops =
-        stopsToCss(fill.stops) ?? "transparent 0%, transparent 100%";
-      return {
-        background: `repeating-linear-gradient(${fill.angle ?? 90}deg, ${stops})`,
-      };
-    }
-    case "pattern": {
-      const color =
-        typeof fill.color === "string" ? fill.color : "currentColor";
-      const background =
-        typeof fill.background === "string" ? fill.background : undefined;
-      const spacing = fill.spacingPct ?? 8;
-      const width = fill.strokeWidthPct ?? 0.25;
-      if (fill.kind === "grid") {
-        return {
-          ...(background ? { backgroundColor: background } : {}),
-          backgroundImage: `linear-gradient(${color} ${width}%, transparent ${width}%), linear-gradient(90deg, ${color} ${width}%, transparent ${width}%)`,
-          backgroundSize: `${spacing}% ${spacing}%`,
-        };
-      }
-      if (fill.kind === "dots") {
-        return {
-          ...(background ? { backgroundColor: background } : {}),
-          backgroundImage: `radial-gradient(circle, ${color} ${width}%, transparent ${width}%)`,
-          backgroundSize: `${spacing}% ${spacing}%`,
-        };
-      }
-      const angle = fill.kind === "scanlines" ? 0 : (fill.angle ?? 135);
-      return {
-        ...(background ? { backgroundColor: background } : {}),
-        backgroundImage: `repeating-linear-gradient(${angle}deg, ${color} 0%, ${color} ${width}%, transparent ${width}%, transparent ${spacing}%)`,
-      };
-    }
-    case "image": {
-      const src = assetResolver?.(fill.assetId);
-      if (!src) return {};
-      return {
-        backgroundImage: `url(${JSON.stringify(src)})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        opacity: fill.opacity,
-      };
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Canvas aspect ratio
@@ -248,6 +172,8 @@ export interface SlideCanvasVNextProps {
     nodeId: string;
     endpoint: ConnectorEndpointHandle;
   } | null;
+  /** Transient, gesture-local node patches rendered before commit. */
+  nodeGestureDrafts?: ReadonlyMap<string, SlideCanvasNodeGestureDraft>;
   /** Active group context id for group-member direct editing. */
   activeGroupId?: string | null;
   /** Active table direct-edit context. */
@@ -312,6 +238,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   activeCropHandle,
   activeRotationNodeId,
   activeConnectorEndpoint,
+  nodeGestureDrafts,
   activeGroupId,
   tableEditingNodeId,
   activeTableCell,
@@ -325,7 +252,21 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   className,
 }: SlideCanvasVNextProps): JSX.Element {
   const aspectRatio = canvas ? canvasAspectRatio(canvas) : 16 / 9;
-  const bgStyle = backgroundToCss(slide.background.fill, assetResolver);
+  const backgroundFill = slide.background.fill;
+  const backgroundFillStyle = fillStyleToCss(backgroundFill, assetResolver);
+  const backgroundFillLayerStyle =
+    backgroundFill?.type === "image" &&
+    backgroundFillStyle.backgroundImage !== undefined
+      ? {
+          ...backgroundFillStyle,
+          position: "absolute" as const,
+          inset: 0,
+          pointerEvents: "none" as const,
+          ...(backgroundFill.opacity !== undefined
+            ? { opacity: backgroundFill.opacity }
+            : {}),
+        }
+      : undefined;
 
   // Flatten groups for rendering (children positioned in slide-relative space)
   const decorationNodes = flattenNodes(slide.decorations);
@@ -336,9 +277,15 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const foregroundChromeNodes = chromeNodes
     .filter((node) => (node.layout.zIndex ?? 0) >= 0)
     .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
-  const userNodes = flattenNodes(slide.nodes);
+  const userNodes = flattenNodes(slide.nodes).map((node) =>
+    applyNodeGestureDraft(node, nodeGestureDrafts),
+  );
+  const isHiddenNode = (nodeId: string) => hiddenNodeIds?.has(nodeId) === true;
+  const stageChromeUserNodes = userNodes.filter(
+    (node) => !isHiddenNode(node.id),
+  );
   const selectedUserNodes = selection
-    ? userNodes.filter((node) => isSelected(selection, node.id))
+    ? stageChromeUserNodes.filter((node) => isSelected(selection, node.id))
     : [];
   const selectedResizableNodes = selectedUserNodes.filter(
     (node) => node.locked !== true,
@@ -354,12 +301,12 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   );
   const activeGroupNode =
     activeGroupId && !preview
-      ? userNodes.find(
+      ? stageChromeUserNodes.find(
           (node) => node.id === activeGroupId && node.type === "group",
         )
       : undefined;
   const preselectedUserNodes = !preview
-    ? userNodes.filter(
+    ? stageChromeUserNodes.filter(
         (node) =>
           !selectedUserNodes.some(
             (selectedNode) => selectedNode.id === node.id,
@@ -389,31 +336,41 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
       style={{
         aspectRatio: `${aspectRatio}`,
         width: "100%",
-        ...bgStyle,
+        ...(backgroundFillLayerStyle ? {} : backgroundFillStyle),
       }}
     >
-      {/* Decorations — rendered behind user nodes, aria-hidden */}
-      {decorationNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          assetResolver={assetResolver}
-          preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
-          // Decorations are never interactive in the normal canvas
+      {backgroundFillLayerStyle ? (
+        <div
+          aria-hidden="true"
+          data-slide-background-fill-layer="image"
+          style={backgroundFillLayerStyle}
         />
-      ))}
+      ) : null}
+      <div
+        style={{ position: "relative", zIndex: 1, width: "100%", height: "100%" }}
+      >
+        {/* Decorations — rendered behind user nodes, aria-hidden */}
+        {decorationNodes.map((node) => (
+          <SlideNodeRenderer
+            key={node.id}
+            node={node}
+            assetResolver={assetResolver}
+            preview={preview}
+            hidden={isHiddenNode(node.id)}
+            // Decorations are never interactive in the normal canvas
+          />
+        ))}
 
-      {/* Background deck chrome — non-interactive outside layers mode */}
-      {backgroundChromeNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          assetResolver={assetResolver}
-          preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
-        />
-      ))}
+        {/* Background deck chrome — non-interactive outside layers mode */}
+        {backgroundChromeNodes.map((node) => (
+          <SlideNodeRenderer
+            key={node.id}
+            node={node}
+            assetResolver={assetResolver}
+            preview={preview}
+            hidden={isHiddenNode(node.id)}
+          />
+        ))}
 
       {/* User nodes */}
       {userNodes.map((node) =>
@@ -450,7 +407,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
               onTableCellKeyDown={onTableCellKeyDown}
               assetResolver={assetResolver}
               preview={preview}
-              hidden={hiddenNodeIds?.has(node.id)}
+              hidden={isHiddenNode(node.id)}
             />
           );
         })(),
@@ -463,7 +420,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           node={node}
           assetResolver={assetResolver}
           preview={preview}
-          hidden={hiddenNodeIds?.has(node.id)}
+          hidden={isHiddenNode(node.id)}
         />
       ))}
 
@@ -510,14 +467,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-resize-overlay`}
               aria-hidden="true"
+              data-node-chrome-overlay="resize"
+              data-node-id={node.id}
               className="pointer-events-none absolute"
-              style={{
-                left: `${node.layout.frame.x}%`,
-                top: `${node.layout.frame.y}%`,
-                width: `${node.layout.frame.w}%`,
-                height: `${node.layout.frame.h}%`,
-                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame,
-              }}
+              style={nodeChromeOverlayFrameStyle(
+                node,
+                STAGE_CHROME_Z_INDEX.selectedFrame,
+              )}
             >
               {RESIZE_HANDLES.map((handle) => (
                 <span
@@ -544,14 +500,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-rotation-overlay`}
               aria-hidden="true"
+              data-node-chrome-overlay="rotation"
+              data-node-id={node.id}
               className="pointer-events-none absolute"
-              style={{
-                left: `${node.layout.frame.x}%`,
-                top: `${node.layout.frame.y}%`,
-                width: `${node.layout.frame.w}%`,
-                height: `${node.layout.frame.h}%`,
-                zIndex: STAGE_CHROME_Z_INDEX.selectedFrame + 1,
-              }}
+              style={nodeChromeOverlayFrameStyle(
+                node,
+                STAGE_CHROME_Z_INDEX.selectedFrame + 1,
+              )}
             >
               <span
                 data-rotation-handle="true"
@@ -585,14 +540,13 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             <div
               key={`${node.id}-crop-overlay`}
               aria-hidden="true"
+              data-node-chrome-overlay="crop"
+              data-node-id={node.id}
               className="pointer-events-none absolute"
-              style={{
-                left: `${node.layout.frame.x}%`,
-                top: `${node.layout.frame.y}%`,
-                width: `${node.layout.frame.w}%`,
-                height: `${node.layout.frame.h}%`,
-                zIndex: STAGE_CHROME_Z_INDEX.cropHandle,
-              }}
+              style={nodeChromeOverlayFrameStyle(
+                node,
+                STAGE_CHROME_Z_INDEX.cropHandle,
+              )}
             >
               {CROP_HANDLES.map((handle) => (
                 <span
@@ -614,54 +568,54 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           ))
         : null}
 
-      {!preview && onConnectorEndpointPointerDown
-        ? selectedConnectorNodes.map((node) => {
-            if (node.content.type !== "connector") return null;
-            const start = connectorEndpointPoint(node.content.content.from);
-            const end = connectorEndpointPoint(node.content.content.to);
-            return (
-              <div
-                key={`${node.id}-connector-endpoints`}
-                aria-hidden="true"
-                className="pointer-events-none absolute"
-                style={{
-                  left: `${node.layout.frame.x}%`,
-                  top: `${node.layout.frame.y}%`,
-                  width: `${node.layout.frame.w}%`,
-                  height: `${node.layout.frame.h}%`,
-                  zIndex: STAGE_CHROME_Z_INDEX.selectedFrame + 2,
-                }}
-              >
-                {(
-                  [
-                    ["from", start],
-                    ["to", end],
-                  ] as const
-                ).map(([endpoint, point]) => (
-                  <span
-                    key={endpoint}
-                    data-connector-endpoint={endpoint}
-                    className={`pointer-events-auto absolute h-3 w-3 rounded-full border shadow-ds-sm ${
-                      activeConnectorEndpoint?.nodeId === node.id &&
-                      activeConnectorEndpoint.endpoint === endpoint
-                        ? "border-ds-accent-fill bg-ds-accent-fill"
-                        : "border-ds-accent-border bg-ds-surface"
-                    }`}
-                    style={{
-                      left: `${point.x}%`,
-                      top: `${point.y}%`,
-                      transform: "translate(-50%, -50%)",
-                      cursor: "crosshair",
-                    }}
-                    onPointerDown={(event) =>
-                      onConnectorEndpointPointerDown(node.id, endpoint, event)
-                    }
-                  />
-                ))}
-              </div>
-            );
-          })
-        : null}
+        {!preview && onConnectorEndpointPointerDown
+          ? selectedConnectorNodes.map((node) => {
+              if (node.content.type !== "connector") return null;
+              const start = connectorEndpointPoint(node.content.content.from);
+              const end = connectorEndpointPoint(node.content.content.to);
+              return (
+                <div
+                  key={`${node.id}-connector-endpoints`}
+                  aria-hidden="true"
+                  data-node-chrome-overlay="connector-endpoints"
+                  data-node-id={node.id}
+                  className="pointer-events-none absolute"
+                  style={nodeChromeOverlayFrameStyle(
+                    node,
+                    STAGE_CHROME_Z_INDEX.selectedFrame + 2,
+                  )}
+                >
+                  {(
+                    [
+                      ["from", start],
+                      ["to", end],
+                    ] as const
+                  ).map(([endpoint, point]) => (
+                    <span
+                      key={endpoint}
+                      data-connector-endpoint={endpoint}
+                      className={`pointer-events-auto absolute h-3 w-3 rounded-full border shadow-ds-sm ${
+                        activeConnectorEndpoint?.nodeId === node.id &&
+                        activeConnectorEndpoint.endpoint === endpoint
+                          ? "border-ds-accent-fill bg-ds-accent-fill"
+                          : "border-ds-accent-border bg-ds-surface"
+                      }`}
+                      style={{
+                        left: `${point.x}%`,
+                        top: `${point.y}%`,
+                        transform: "translate(-50%, -50%)",
+                        cursor: "crosshair",
+                      }}
+                      onPointerDown={(event) =>
+                        onConnectorEndpointPointerDown(node.id, endpoint, event)
+                      }
+                    />
+                  ))}
+                </div>
+              );
+            })
+          : null}
+      </div>
     </div>
   );
 });
@@ -690,16 +644,78 @@ function NodeChromeFrame({
       data-node-id={node.id}
       className="pointer-events-none absolute box-border"
       style={{
-        left: `${node.layout.frame.x}%`,
-        top: `${node.layout.frame.y}%`,
-        width: `${node.layout.frame.w}%`,
-        height: `${node.layout.frame.h}%`,
+        ...nodeChromeOverlayFrameStyle(node, chrome.zIndex),
         border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
         opacity: chrome.opacity,
-        zIndex: chrome.zIndex,
       }}
     />
   );
+}
+
+function nodeChromeOverlayFrameStyle(
+  node: ResolvedRenderNode,
+  zIndex: number,
+): React.CSSProperties {
+  return {
+    ...frameToCss(node.layout.frame),
+    ...nodeLayoutTransformToCss(node.layout),
+    zIndex,
+  };
+}
+
+function applyNodeGestureDraft(
+  node: ResolvedRenderNode,
+  nodeGestureDrafts:
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined,
+): ResolvedRenderNode {
+  const draft = nodeGestureDrafts?.get(node.id);
+  if (!draft) return node;
+  let nextNode = node;
+  if (draft.frame || draft.rotation !== undefined) {
+    nextNode = {
+      ...nextNode,
+      layout: {
+        ...nextNode.layout,
+        ...(draft.frame ? { frame: draft.frame } : {}),
+        ...(draft.rotation !== undefined ? { rotation: draft.rotation } : {}),
+      },
+    };
+  }
+  if (draft.crop && nextNode.content.type === "image") {
+    nextNode = {
+      ...nextNode,
+      content: {
+        ...nextNode.content,
+        content: {
+          ...nextNode.content.content,
+          crop: draft.crop,
+        },
+      },
+    };
+  }
+  if (
+    draft.connectorEndpoints &&
+    (draft.connectorEndpoints.from || draft.connectorEndpoints.to) &&
+    nextNode.content.type === "connector"
+  ) {
+    nextNode = {
+      ...nextNode,
+      content: {
+        ...nextNode.content,
+        content: {
+          ...nextNode.content.content,
+          ...(draft.connectorEndpoints.from
+            ? { from: draft.connectorEndpoints.from }
+            : {}),
+          ...(draft.connectorEndpoints.to
+            ? { to: draft.connectorEndpoints.to }
+            : {}),
+        },
+      },
+    };
+  }
+  return nextNode;
 }
 
 function connectorEndpointPoint(
@@ -728,15 +744,52 @@ function boundsForNodes(
   nodes: readonly ResolvedRenderNode[],
 ): { x: number; y: number; w: number; h: number } | null {
   if (nodes.length === 0) return null;
-  const left = Math.min(...nodes.map((node) => node.layout.frame.x));
-  const top = Math.min(...nodes.map((node) => node.layout.frame.y));
-  const right = Math.max(
-    ...nodes.map((node) => node.layout.frame.x + node.layout.frame.w),
-  );
-  const bottom = Math.max(
-    ...nodes.map((node) => node.layout.frame.y + node.layout.frame.h),
-  );
+  const transformedBounds = nodes.map(transformedNodeBounds);
+  const left = Math.min(...transformedBounds.map((bounds) => bounds.left));
+  const top = Math.min(...transformedBounds.map((bounds) => bounds.top));
+  const right = Math.max(...transformedBounds.map((bounds) => bounds.right));
+  const bottom = Math.max(...transformedBounds.map((bounds) => bounds.bottom));
   return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+function transformedNodeBounds(node: ResolvedRenderNode): {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+} {
+  const { x, y, w, h } = node.layout.frame;
+  const rotation = node.layout.rotation ?? 0;
+  if (rotation % 360 === 0) {
+    return { left: x, top: y, right: x + w, bottom: y + h };
+  }
+  const radians = (rotation * Math.PI) / 180;
+  const sin = Math.sin(radians);
+  const cos = Math.cos(radians);
+  const centerX = x + w / 2;
+  const centerY = y + h / 2;
+  const corners: ReadonlyArray<readonly [number, number]> = [
+    [x, y],
+    [x + w, y],
+    [x + w, y + h],
+    [x, y + h],
+  ];
+  const transformedCorners = corners.map(([cornerX, cornerY]) => {
+    const localX = cornerX - centerX;
+    const localY = cornerY - centerY;
+    return {
+      x: centerX + localX * cos - localY * sin,
+      y: centerY + localX * sin + localY * cos,
+    };
+  });
+  const xs = transformedCorners.map((corner) => corner.x);
+  const ys = transformedCorners.map((corner) => corner.y);
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+  };
 }
 
 function resizeHandleStyle(handle: ResizeHandlePosition): React.CSSProperties {

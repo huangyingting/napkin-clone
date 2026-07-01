@@ -123,6 +123,7 @@ describe("patch fallback path", () => {
     const savePatch: PatchSaveFn = async () => ({
       ok: false,
       error: "Patch validation failed.",
+      failure: { code: "invalid_deck", retryable: false },
     });
 
     const saveDeck: DeckSaveFn = async () => ({
@@ -259,6 +260,7 @@ describe("whole-deck error", () => {
     const saveDeck: DeckSaveFn = async () => ({
       ok: false,
       error: "Deck is too large to save.",
+      failure: { code: "deck_too_large", retryable: false },
     });
 
     const result = await attemptPatchAutosave(

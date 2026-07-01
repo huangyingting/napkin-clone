@@ -7,11 +7,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { writeDeckWithCas } from "@/lib/document/deck-cas-writer";
+import { logError } from "@/lib/log";
 import type {
   DeckPatch,
   SlideCommand,
 } from "@/lib/presentation/slide-commands";
 import type {
+  SaveDeckFailureResult,
   SaveDeckPatchResult,
   SaveDeckResult,
 } from "@/lib/document/persistence-types";
@@ -20,6 +22,14 @@ import { snapshotDocumentVersion } from "./helpers";
 
 // Re-export so the barrel can surface them via `export *`
 export type { DeckPatch, SaveDeckPatchResult, SaveDeckResult };
+
+function fail(
+  error: string,
+  code: SaveDeckFailureResult["failure"]["code"],
+  retryable: boolean,
+): SaveDeckFailureResult {
+  return { ok: false, error, failure: { code, retryable } };
+}
 
 // ---------------------------------------------------------------------------
 // Exported service operations
@@ -30,7 +40,7 @@ export type { DeckPatch, SaveDeckPatchResult, SaveDeckResult };
  * Returns a discriminated result:
  * - `{ ok: true, revisionToken }` — write accepted.
  * - `{ ok: "conflict", serverRevisionToken }` — token mismatch.
- * - `{ ok: false, error }` — validation or server error.
+ * - `{ ok: false, error, failure }` — structured validation/storage failure.
  */
 export async function persistDeck(
   documentId: string,
@@ -57,11 +67,22 @@ export async function patchDeck(
   _clientToken: string | null | undefined,
   _options: { userId?: string | null } = {},
 ): Promise<SaveDeckPatchResult> {
-  const document = await prisma.document.findUnique({
-    where: { id: documentId },
-    select: { id: true },
-  });
-  if (!document) return { ok: false, error: "Document not found." };
+  try {
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { id: true },
+    });
+    if (!document) {
+      return fail("Document not found.", "document_not_found", false);
+    }
+  } catch (error) {
+    logError("deck.patch", error, { documentId, operation: "findUnique" });
+    return fail(
+      "Failed to prepare deck patch save. Please try again.",
+      "storage_unavailable",
+      true,
+    );
+  }
 
   return { ok: "fallback" };
 }
@@ -71,8 +92,9 @@ export async function persistDeckCommand(
   _envelope: CommandEnvelope<SlideCommand>,
   _options: { userId?: string | null } = {},
 ): Promise<SaveDeckResult> {
-  return {
-    ok: false,
-    error: "Deck command persistence is disabled for v7-only slide editing.",
-  };
+  return fail(
+    "Deck command persistence is disabled for v7-only slide editing.",
+    "command_disabled",
+    false,
+  );
 }

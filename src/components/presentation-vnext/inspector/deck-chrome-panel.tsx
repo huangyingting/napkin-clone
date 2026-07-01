@@ -34,6 +34,7 @@ type ChromeValuePatch = Partial<NonNullable<DeckChromeConfig[DeckChromeKind]>>;
 export interface DeckChromePanelProps {
   chrome?: DeckChromeConfig;
   slideProps?: SlideProps;
+  idPrefix?: string;
   onUpdateChrome: (patch: Partial<DeckChromeConfig>) => void;
   onUpdateSlideProps: (patch: Partial<SlideProps>) => void;
 }
@@ -304,10 +305,12 @@ function renderOverrideFields(
 export function DeckChromePanel({
   chrome,
   slideProps,
+  idPrefix = "deck-chrome",
   onUpdateChrome,
   onUpdateSlideProps,
 }: DeckChromePanelProps): JSX.Element {
   const deckChromeOverrides = slideProps?.deckChrome;
+  const idFor = (suffix: string) => `${idPrefix}-${suffix}`;
 
   return (
     <section className="flex flex-col gap-3 px-3 py-2.5">
@@ -394,7 +397,7 @@ export function DeckChromePanel({
 
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs text-ds-text-secondary">
         <input
-          id="deck-chrome-footer-enabled"
+          id={idFor("footer-enabled")}
           type="checkbox"
           checked={isConfigured(chrome?.footer)}
           onChange={(event) =>
@@ -406,7 +409,7 @@ export function DeckChromePanel({
             })
           }
         />
-        <label htmlFor="deck-chrome-footer-enabled">Global footer</label>
+        <label htmlFor={idFor("footer-enabled")}>Global footer</label>
       </div>
       <input
         value={chrome?.footer?.text ?? ""}
@@ -504,7 +507,7 @@ export function DeckChromePanel({
 
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs text-ds-text-secondary">
         <input
-          id="deck-chrome-watermark-enabled"
+          id={idFor("watermark-enabled")}
           type="checkbox"
           checked={isConfigured(chrome?.watermark)}
           onChange={(event) =>
@@ -516,7 +519,7 @@ export function DeckChromePanel({
             })
           }
         />
-        <label htmlFor="deck-chrome-watermark-enabled">Global watermark</label>
+        <label htmlFor={idFor("watermark-enabled")}>Global watermark</label>
       </div>
       <input
         value={chrome?.watermark?.text ?? ""}
@@ -699,11 +702,9 @@ export function DeckChromePanel({
             key={kind}
             className="grid grid-cols-[1fr_auto] items-center gap-2 text-xs text-ds-text-secondary"
           >
-            <label htmlFor={`deck-chrome-override-${kind}`}>
-              {LABELS[kind]}
-            </label>
+            <label htmlFor={idFor(`override-${kind}`)}>{LABELS[kind]}</label>
             <select
-              id={`deck-chrome-override-${kind}`}
+              id={idFor(`override-${kind}`)}
               value={mode}
               onChange={(event) =>
                 onUpdateSlideProps({
