@@ -90,7 +90,6 @@ export function fillStyleToCss(
         backgroundImage: `url(${JSON.stringify(src)})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        opacity: fill.opacity,
       };
     }
   }

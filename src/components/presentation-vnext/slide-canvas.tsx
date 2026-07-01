@@ -252,7 +252,21 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   className,
 }: SlideCanvasVNextProps): JSX.Element {
   const aspectRatio = canvas ? canvasAspectRatio(canvas) : 16 / 9;
-  const bgStyle = fillStyleToCss(slide.background.fill, assetResolver);
+  const backgroundFill = slide.background.fill;
+  const backgroundFillStyle = fillStyleToCss(backgroundFill, assetResolver);
+  const backgroundFillLayerStyle =
+    backgroundFill?.type === "image" &&
+    backgroundFillStyle.backgroundImage !== undefined
+      ? {
+          ...backgroundFillStyle,
+          position: "absolute" as const,
+          inset: 0,
+          pointerEvents: "none" as const,
+          ...(backgroundFill.opacity !== undefined
+            ? { opacity: backgroundFill.opacity }
+            : {}),
+        }
+      : undefined;
 
   // Flatten groups for rendering (children positioned in slide-relative space)
   const decorationNodes = flattenNodes(slide.decorations);
@@ -322,31 +336,41 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
       style={{
         aspectRatio: `${aspectRatio}`,
         width: "100%",
-        ...bgStyle,
+        ...(backgroundFillLayerStyle ? {} : backgroundFillStyle),
       }}
     >
-      {/* Decorations — rendered behind user nodes, aria-hidden */}
-      {decorationNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          assetResolver={assetResolver}
-          preview={preview}
-          hidden={isHiddenNode(node.id)}
-          // Decorations are never interactive in the normal canvas
+      {backgroundFillLayerStyle ? (
+        <div
+          aria-hidden="true"
+          data-slide-background-fill-layer="image"
+          style={backgroundFillLayerStyle}
         />
-      ))}
+      ) : null}
+      <div
+        style={{ position: "relative", zIndex: 1, width: "100%", height: "100%" }}
+      >
+        {/* Decorations — rendered behind user nodes, aria-hidden */}
+        {decorationNodes.map((node) => (
+          <SlideNodeRenderer
+            key={node.id}
+            node={node}
+            assetResolver={assetResolver}
+            preview={preview}
+            hidden={isHiddenNode(node.id)}
+            // Decorations are never interactive in the normal canvas
+          />
+        ))}
 
-      {/* Background deck chrome — non-interactive outside layers mode */}
-      {backgroundChromeNodes.map((node) => (
-        <SlideNodeRenderer
-          key={node.id}
-          node={node}
-          assetResolver={assetResolver}
-          preview={preview}
-          hidden={isHiddenNode(node.id)}
-        />
-      ))}
+        {/* Background deck chrome — non-interactive outside layers mode */}
+        {backgroundChromeNodes.map((node) => (
+          <SlideNodeRenderer
+            key={node.id}
+            node={node}
+            assetResolver={assetResolver}
+            preview={preview}
+            hidden={isHiddenNode(node.id)}
+          />
+        ))}
 
       {/* User nodes */}
       {userNodes.map((node) =>
@@ -544,53 +568,54 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
           ))
         : null}
 
-      {!preview && onConnectorEndpointPointerDown
-        ? selectedConnectorNodes.map((node) => {
-            if (node.content.type !== "connector") return null;
-            const start = connectorEndpointPoint(node.content.content.from);
-            const end = connectorEndpointPoint(node.content.content.to);
-            return (
-              <div
-                key={`${node.id}-connector-endpoints`}
-                aria-hidden="true"
-                data-node-chrome-overlay="connector-endpoints"
-                data-node-id={node.id}
-                className="pointer-events-none absolute"
-                style={nodeChromeOverlayFrameStyle(
-                  node,
-                  STAGE_CHROME_Z_INDEX.selectedFrame + 2,
-                )}
-              >
-                {(
-                  [
-                    ["from", start],
-                    ["to", end],
-                  ] as const
-                ).map(([endpoint, point]) => (
-                  <span
-                    key={endpoint}
-                    data-connector-endpoint={endpoint}
-                    className={`pointer-events-auto absolute h-3 w-3 rounded-full border shadow-ds-sm ${
-                      activeConnectorEndpoint?.nodeId === node.id &&
-                      activeConnectorEndpoint.endpoint === endpoint
-                        ? "border-ds-accent-fill bg-ds-accent-fill"
-                        : "border-ds-accent-border bg-ds-surface"
-                    }`}
-                    style={{
-                      left: `${point.x}%`,
-                      top: `${point.y}%`,
-                      transform: "translate(-50%, -50%)",
-                      cursor: "crosshair",
-                    }}
-                    onPointerDown={(event) =>
-                      onConnectorEndpointPointerDown(node.id, endpoint, event)
-                    }
-                  />
-                ))}
-              </div>
-            );
-          })
-        : null}
+        {!preview && onConnectorEndpointPointerDown
+          ? selectedConnectorNodes.map((node) => {
+              if (node.content.type !== "connector") return null;
+              const start = connectorEndpointPoint(node.content.content.from);
+              const end = connectorEndpointPoint(node.content.content.to);
+              return (
+                <div
+                  key={`${node.id}-connector-endpoints`}
+                  aria-hidden="true"
+                  data-node-chrome-overlay="connector-endpoints"
+                  data-node-id={node.id}
+                  className="pointer-events-none absolute"
+                  style={nodeChromeOverlayFrameStyle(
+                    node,
+                    STAGE_CHROME_Z_INDEX.selectedFrame + 2,
+                  )}
+                >
+                  {(
+                    [
+                      ["from", start],
+                      ["to", end],
+                    ] as const
+                  ).map(([endpoint, point]) => (
+                    <span
+                      key={endpoint}
+                      data-connector-endpoint={endpoint}
+                      className={`pointer-events-auto absolute h-3 w-3 rounded-full border shadow-ds-sm ${
+                        activeConnectorEndpoint?.nodeId === node.id &&
+                        activeConnectorEndpoint.endpoint === endpoint
+                          ? "border-ds-accent-fill bg-ds-accent-fill"
+                          : "border-ds-accent-border bg-ds-surface"
+                      }`}
+                      style={{
+                        left: `${point.x}%`,
+                        top: `${point.y}%`,
+                        transform: "translate(-50%, -50%)",
+                        cursor: "crosshair",
+                      }}
+                      onPointerDown={(event) =>
+                        onConnectorEndpointPointerDown(node.id, endpoint, event)
+                      }
+                    />
+                  ))}
+                </div>
+              );
+            })
+          : null}
+      </div>
     </div>
   );
 });

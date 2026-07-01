@@ -16,7 +16,10 @@ import type {
   ResolvedRenderNode,
   ResolvedNodeContent,
 } from "@/lib/presentation-vnext/render-tree";
-import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
+import type {
+  FillStyle,
+  StyleObject,
+} from "@/lib/presentation-vnext/style-schema";
 import { visualChannelColorWithDefaults } from "@/lib/presentation-vnext/visual-channel-colors";
 import type {
   TextContent,
@@ -130,7 +133,9 @@ export function styleObjectToContainerCss(
 ): React.CSSProperties {
   const includeShapePaint = options.includeShapePaint ?? true;
   return {
-    ...(includeShapePaint ? fillStyleToCss(style.fill, assetResolver) : {}),
+    ...(includeShapePaint
+      ? fillStyleToContainerCss(style.fill, assetResolver)
+      : {}),
     ...(includeShapePaint ? strokeToCss(style.stroke) : {}),
     ...(includeShapePaint ? radiusToCss(style.radius) : {}),
     ...shadowToCss(style.shadow),
@@ -140,6 +145,31 @@ export function styleObjectToContainerCss(
     ...(style.blendMode && style.blendMode !== "normal"
       ? { mixBlendMode: style.blendMode }
       : {}),
+  };
+}
+
+function fillStyleToContainerCss(
+  fill: FillStyle | undefined,
+  assetResolver?: (id: string) => string | undefined,
+): React.CSSProperties {
+  if (!fill || fill.type === "image") return {};
+  return fillStyleToCss(fill, assetResolver);
+}
+
+function imageFillLayerCss(
+  fill: FillStyle | undefined,
+  assetResolver?: (id: string) => string | undefined,
+): React.CSSProperties | undefined {
+  if (!fill || fill.type !== "image") return undefined;
+  const imageFillCss = fillStyleToCss(fill, assetResolver);
+  if (imageFillCss.backgroundImage === undefined) return undefined;
+  return {
+    ...imageFillCss,
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    borderRadius: "inherit",
+    ...(fill.opacity !== undefined ? { opacity: fill.opacity } : {}),
   };
 }
 
@@ -1002,6 +1032,9 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     // Hide when inline editor is active for this node
     ...(hidden ? { visibility: "hidden" } : {}),
   };
+  const fillLayerStyle = shouldIncludeShapePaint
+    ? imageFillLayerCss(style.fill, assetResolver)
+    : undefined;
 
   const textCss = textStyleToCss(style.text);
 
@@ -1072,7 +1105,27 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
           : undefined
       }
     >
-      {inner}
+      {fillLayerStyle ? (
+        <div
+          aria-hidden="true"
+          data-node-fill-layer="image"
+          style={fillLayerStyle}
+        />
+      ) : null}
+      {fillLayerStyle ? (
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          {inner}
+        </div>
+      ) : (
+        inner
+      )}
     </div>
   );
 });
