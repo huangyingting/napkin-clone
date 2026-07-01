@@ -52,6 +52,12 @@ async function readSlideCount(page: Page): Promise<number | null> {
   return Number.isFinite(count) ? count : null;
 }
 
+async function readVisualNodeCount(page: Page): Promise<number | null> {
+  const editor = page.locator('[data-slide-editor-vnext="true"]').first();
+  if ((await editor.count()) === 0) return null;
+  return await editor.locator('[data-node-type="visual"]').count();
+}
+
 async function clickIfPresent(locator: Locator): Promise<boolean> {
   if ((await locator.count()) === 0) {
     return false;
@@ -596,5 +602,116 @@ test.describe("slides editor accessible toolbar controls", () => {
     await closeButton.click();
     await expect(picker).toHaveCount(0);
     await expect(addSlideTrigger).toBeFocused();
+  });
+
+  test("v7 visual picker modal traps focus and restores invoking focus", async ({
+    page,
+  }) => {
+    const creds = ownerCredentials();
+    test.skip(!creds, "Set E2E_USER_EMAIL/E2E_USER_PASSWORD to run this flow");
+    const docUrl = slidesDocUrl();
+    test.skip(
+      !docUrl,
+      "Set E2E_SLIDES_DOC_URL to run the visual-picker keyboard/focus check",
+    );
+
+    await login(page, creds!);
+    await page.goto(docUrl!);
+
+    const slidesTab = page
+      .getByRole("tab", { name: /slides/i })
+      .or(page.getByRole("button", { name: /slides/i }))
+      .or(page.getByRole("link", { name: /slides/i }))
+      .first();
+    await clickIfPresent(slidesTab);
+
+    const beforeVisualCount = await readVisualNodeCount(page);
+    if (beforeVisualCount === null) {
+      skipOptionalSlidesFixture("Visual node count could not be read");
+    }
+
+    const openVisualPicker = async () => {
+      const directInsertVisualTrigger = page
+        .getByRole("button", { name: /insert visual/i })
+        .first();
+      let invokingControl = directInsertVisualTrigger;
+
+      if ((await directInsertVisualTrigger.count()) > 0) {
+        await expect(directInsertVisualTrigger).toBeVisible({
+          timeout: 10_000,
+        });
+        await directInsertVisualTrigger.focus();
+        await expect(directInsertVisualTrigger).toBeFocused();
+        await directInsertVisualTrigger.press("Enter");
+      } else {
+        const insertTrigger = page
+          .getByRole("button", { name: /insert element/i })
+          .first();
+        if ((await insertTrigger.count()) === 0) {
+          skipOptionalSlidesFixture(
+            "Visual insert action was not available in this editor build",
+          );
+        }
+        await expect(insertTrigger).toBeVisible({ timeout: 10_000 });
+        await insertTrigger.focus();
+        await expect(insertTrigger).toBeFocused();
+        await insertTrigger.press("Enter");
+
+        const visualMenuItem = page.getByRole("menuitem", { name: /visual/i });
+        if ((await visualMenuItem.count()) === 0) {
+          skipOptionalSlidesFixture(
+            "Visual insert menu action was not available",
+          );
+        }
+        await visualMenuItem.first().click();
+        invokingControl = insertTrigger;
+      }
+
+      const picker = page.getByRole("dialog", { name: /choose visual/i });
+      await expect(picker).toBeVisible({ timeout: 10_000 });
+      const pickerButtons = picker.getByRole("button");
+      const buttonCount = await pickerButtons.count();
+      if (buttonCount < 2) {
+        skipOptionalSlidesFixture("Visual picker has no selectable visual");
+      }
+
+      return {
+        picker,
+        invokingControl,
+        cancelButton: picker.getByRole("button", { name: /cancel/i }),
+        firstVisualButton: pickerButtons.nth(1),
+        lastPickerButton: pickerButtons.nth(buttonCount - 1),
+      };
+    };
+
+    const firstOpen = await openVisualPicker();
+    await expect(firstOpen.cancelButton).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(firstOpen.lastPickerButton).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(firstOpen.cancelButton).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(firstOpen.firstVisualButton).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(firstOpen.picker).toHaveCount(0);
+    await expect(firstOpen.invokingControl).toBeFocused();
+
+    const secondOpen = await openVisualPicker();
+    await expect(secondOpen.cancelButton).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(secondOpen.firstVisualButton).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(secondOpen.picker).toHaveCount(0);
+    await expect(secondOpen.invokingControl).toBeFocused();
+    await expect
+      .poll(() => readVisualNodeCount(page))
+      .toBe(beforeVisualCount + 1);
+
+    const thirdOpen = await openVisualPicker();
+    await thirdOpen.cancelButton.click();
+    await expect(thirdOpen.picker).toHaveCount(0);
+    await expect(thirdOpen.invokingControl).toBeFocused();
   });
 });
