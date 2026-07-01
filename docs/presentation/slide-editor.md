@@ -181,7 +181,7 @@ editor shell keeps thin wiring around those helpers.
 - **Connectors (interim):** with two connectable elements selected, `C` inserts a
   default-endpoint connector; with a connector selected, `C` / `Shift+C` cycle its
   end / start endpoint anchor. Free-draw routing remains pointer-only and is
-  tracked in #930.
+  tracked in #1574.
 - **Help:** `?` (or View > Keyboard shortcuts) opens the shortcut help dialog
   (`canvasShortcutHelp`).
 
