@@ -3,6 +3,8 @@ import { describe, test } from "node:test";
 
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 
+import { buildTextContent } from "@/test/builders/deck-v7";
+
 import {
   connectorEndpointsEqual,
   nearestConnectorAnchor,
@@ -13,7 +15,7 @@ const targetNode: SlideChildNode = {
   type: "shape",
   layout: { frame: { x: 20, y: 20, w: 20, h: 20 }, zIndex: 1 },
   style: { ref: "surface.card" },
-  content: { shape: "rect", text: [] },
+  content: { shape: "rect", text: buildTextContent([]) },
 };
 
 const ignoredConnector: SlideChildNode = {

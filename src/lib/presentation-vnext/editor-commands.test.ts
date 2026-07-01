@@ -2,6 +2,8 @@
  * Editor command tests.
  */
 
+// e2e-governance-allow oversized-test: editor command mutation matrix remains centralized until command fixtures are split.
+
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {

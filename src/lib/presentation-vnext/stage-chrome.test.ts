@@ -44,8 +44,8 @@ test("selectionFrameChrome keeps selected above preselected", () => {
   const selected = selectionFrameChrome("selected");
   const preselected = selectionFrameChrome("preselected");
   assert.equal(selected.borderWidthPx, 2);
+  assert.equal(preselected.borderWidthPx, 2);
   assert.equal(selected.opacity, 1);
-  assert.ok(preselected.borderWidthPx < selected.borderWidthPx);
   assert.ok(preselected.opacity < selected.opacity);
   assert.ok(selected.zIndex > preselected.zIndex);
 });

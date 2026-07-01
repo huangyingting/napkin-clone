@@ -11,6 +11,8 @@
  * `Prisma.TransactionClient` interface to verify transaction boundaries.
  */
 
+// e2e-governance-allow oversized-test: persistence service transaction matrix stays centralized until split fixtures are extracted.
+
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 import { Prisma } from "@/generated/prisma/client";
@@ -996,6 +998,72 @@ describe("deck persistence operations", () => {
     });
     assert.deepEqual((commentUpdateMany.calls[0]![0] as any).data, {
       elementId: null,
+    });
+  });
+
+  test("persistDeck floats orphaned current anchors when previous deck load fails", async (t) => {
+    const nextDeck = {
+      ...VALID_DECK_V7,
+      slides: [
+        {
+          ...VALID_DECK_V7.slides[0],
+          children: [
+            {
+              id: "node-keep",
+              type: "text",
+              role: "body",
+              layout: { frame: { x: 5, y: 8, w: 40, h: 18 }, zIndex: 1 },
+              style: { ref: "text.body" },
+              content: { paragraphs: [{ id: "node-keep-p1", text: "" }] },
+            },
+          ],
+        },
+      ],
+    };
+
+    stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
+      count: 1,
+    }));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.deckJson && !args.select?.contentJson) {
+        throw new Error("previous deck unavailable");
+      }
+      return { contentJson: EMPTY_LEXICAL_STATE, deckJson: nextDeck };
+    });
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.comment, "findMany", async () => [
+      { id: "defensive-null-slide", slideId: null, elementId: null },
+      { id: "missing-slide", slideId: "slide-gone", elementId: null },
+      {
+        id: "missing-node",
+        slideId: "slide-0001",
+        elementId: "node-gone",
+      },
+      { id: "kept-node", slideId: "slide-0001", elementId: "node-keep" },
+    ]);
+    const commentUpdateMany = stubPrismaMethod(
+      t,
+      prisma.comment,
+      "updateMany",
+      async () => ({ count: 2 }),
+    );
+
+    const result = await persistDeck("doc-orphaned-current", nextDeck, null, {
+      userId: "user-editor",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(commentUpdateMany.calls.length, 1);
+    assert.deepEqual((commentUpdateMany.calls[0]![0] as any).where, {
+      id: { in: ["missing-slide", "missing-node"] },
+    });
+    assert.deepEqual((commentUpdateMany.calls[0]![0] as any).data, {
+      slideId: null,
+      elementId: null,
+      anchorGeometry: Prisma.DbNull,
     });
   });
 

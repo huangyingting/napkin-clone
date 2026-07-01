@@ -248,6 +248,15 @@ export function addEdge(
     ...(edgeSpec.label !== undefined ? { label: edgeSpec.label } : {}),
     ...(edgeSpec.directed !== undefined ? { directed: edgeSpec.directed } : {}),
     ...(edgeSpec.style ? { style: edgeSpec.style } : {}),
+    ...(edgeSpec.arrowStyle !== undefined
+      ? { arrowStyle: edgeSpec.arrowStyle }
+      : {}),
+    ...(edgeSpec.lineStyle !== undefined
+      ? { lineStyle: edgeSpec.lineStyle }
+      : {}),
+    ...(edgeSpec.lineWidth !== undefined
+      ? { lineWidth: edgeSpec.lineWidth }
+      : {}),
   };
   return { next: { ...visual, edges: [...visual.edges, newEdge] }, edgeId };
 }

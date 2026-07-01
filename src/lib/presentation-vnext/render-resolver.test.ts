@@ -774,7 +774,8 @@ describe("resolveDeckRenderTree", () => {
     if (!firstChild) return;
     const sourceChild = (
       moved.slides[0].children.find((node) => node.id === "moved-group") as
-        Extract<SlideChildNode, { type: "group" }> | undefined
+        | Extract<SlideChildNode, { type: "group" }>
+        | undefined
     )?.children.find((node) => node.id === firstChild.id);
     assert.deepEqual(firstChild.layout.frame, sourceChild?.layout?.frame);
   });

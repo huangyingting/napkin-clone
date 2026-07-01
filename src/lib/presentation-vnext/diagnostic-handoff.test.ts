@@ -37,7 +37,7 @@ test("mergePresentationDiagnostics carries generation diagnostics into open diag
     { slideId: "slide-2" },
   );
   const openBoundary = makeDiagnostic(
-    "migration-repair-applied",
+    "local-style-overrides",
     "info",
     "Opened generated deck",
   );

@@ -95,6 +95,7 @@ export function StageNodeContextMenu({
     focusFirstMenuCommand(menu);
 
     function onPointerDown(event: PointerEvent) {
+      if (!menu) return;
       if (!menu.contains(event.target as Node)) onClose();
     }
 

@@ -54,7 +54,10 @@ function invokeHandlers(root: ReactNode): number {
       onChange?: (event: {
         currentTarget: { value: string; checked: boolean };
       }) => void;
-      onClick?: () => void;
+      onClick?: (event: {
+        preventDefault: () => void;
+        stopPropagation: () => void;
+      }) => void;
     };
     if (props.onChange) {
       const value =
@@ -69,7 +72,10 @@ function invokeHandlers(root: ReactNode): number {
       count += 1;
     }
     if (props.onClick && props.disabled !== true) {
-      props.onClick();
+      props.onClick({
+        preventDefault: () => undefined,
+        stopPropagation: () => undefined,
+      });
       count += 1;
     }
   }

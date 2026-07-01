@@ -25,7 +25,9 @@ export interface DeckExportErrorContext {
 }
 
 export type DeckExportContext =
-  LegacyDeckExportContext | DeckV7ExportContext | DeckExportErrorContext;
+  | LegacyDeckExportContext
+  | DeckV7ExportContext
+  | DeckExportErrorContext;
 
 export function buildDeckVisualMap(
   blocks: ReadonlyArray<DocumentBlock>,

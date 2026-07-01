@@ -1,3 +1,4 @@
+// e2e-governance-allow oversized-test: slide editor failure coverage stays centralized until shared editor harnesses are split out.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import * as React from "react";
@@ -33,18 +34,21 @@ type ReactInternals = {
   };
 };
 
+type ElementLike = ReactElement<Record<string, unknown>>;
+
 function collectElements(
   node: ReactNode,
-  predicate: (element: ReactElement) => boolean,
-  collected: ReactElement[] = [],
-): ReactElement[] {
+  predicate: (element: ElementLike) => boolean,
+  collected: ElementLike[] = [],
+): ElementLike[] {
   if (Array.isArray(node)) {
     for (const child of node) collectElements(child, predicate, collected);
     return collected;
   }
   if (!isValidElement(node)) return collected;
-  if (predicate(node)) collected.push(node);
-  const props = node.props as { children?: ReactNode };
+  const element = node as ElementLike;
+  if (predicate(element)) collected.push(element);
+  const props = element.props as { children?: ReactNode };
   collectElements(props.children, predicate, collected);
   return collected;
 }
@@ -63,12 +67,13 @@ function createHookRenderer() {
   const internals = (React as unknown as ReactInternals)
     .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
   assert.ok(internals, "React internals were unavailable for hook rendering.");
+  const reactInternals = internals;
 
   const slots: unknown[] = [];
 
   function run<T>(renderComponent: () => T): T {
     let hookIndex = 0;
-    const previous = internals.H;
+    const previous = reactInternals.H;
 
     const dispatcher = {
       useState: <S>(initial: S | (() => S)) => {
@@ -153,11 +158,11 @@ function createHookRenderer() {
       },
     };
 
-    internals.H = dispatcher;
+    reactInternals.H = dispatcher;
     try {
       return renderComponent();
     } finally {
-      internals.H = previous;
+      reactInternals.H = previous;
     }
   }
 
@@ -166,9 +171,9 @@ function createHookRenderer() {
 
 function findRequiredElement(
   root: ReactNode,
-  predicate: (element: ReactElement) => boolean,
+  predicate: (element: ElementLike) => boolean,
   message: string,
-): ReactElement {
+): ElementLike {
   const [element] = collectElements(root, predicate);
   assert.ok(element, message);
   return element;
@@ -201,7 +206,7 @@ async function flushAsyncWork(): Promise<void> {
 }
 
 async function withWindow<T>(run: () => Promise<T> | T): Promise<T> {
-  const globalWithWindow = globalThis as typeof globalThis & {
+  const globalWithWindow = globalThis as {
     window?: { setTimeout: typeof setTimeout };
   };
   const previousWindow = globalWithWindow.window;
@@ -211,7 +216,8 @@ async function withWindow<T>(run: () => Promise<T> | T): Promise<T> {
   try {
     return await run();
   } finally {
-    if (previousWindow === undefined) delete globalWithWindow.window;
+    if (previousWindow === undefined)
+      Reflect.deleteProperty(globalWithWindow, "window");
     else globalWithWindow.window = previousWindow;
   }
 }
@@ -229,7 +235,7 @@ function withPointerWindow<T>(
     listeners: Map<PointerListenerType, (event: PointerEvent) => void>,
   ) => T,
 ): T {
-  const globalWithWindow = globalThis as typeof globalThis & {
+  const globalWithWindow = globalThis as {
     window?: {
       setTimeout: typeof setTimeout;
       addEventListener: (
@@ -259,7 +265,8 @@ function withPointerWindow<T>(
   try {
     return run(listeners);
   } finally {
-    if (previousWindow === undefined) delete globalWithWindow.window;
+    if (previousWindow === undefined)
+      Reflect.deleteProperty(globalWithWindow, "window");
     else globalWithWindow.window = previousWindow;
   }
 }
