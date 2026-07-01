@@ -60,14 +60,11 @@ export function FilmstripSlide({
 
   return (
     <li
-      role="option"
-      aria-selected={isActive}
-      aria-label={`Slide ${index + 1}`}
       data-slide-index={index}
       onPointerDown={(e) => onPointerDown(e, slideId, index)}
       className={cx(
-        "group relative grid h-[72px] shrink-0 cursor-pointer select-none place-items-center transition-[opacity,transform] duration-150 ease-out",
-        isDragging && "scale-[0.98] opacity-40",
+        "group relative grid h-[72px] shrink-0 cursor-pointer select-none place-items-center transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none",
+        isDragging && "scale-[0.98] opacity-40 motion-reduce:scale-100",
       )}
       style={{ width: thumbnailWidthPx }}
     >
@@ -82,19 +79,20 @@ export function FilmstripSlide({
         <button
           type="button"
           aria-label={`Go to slide ${index + 1}`}
+          aria-current={isActive ? "true" : undefined}
           aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Delete Backspace"
           disabled={!isInteractive}
           tabIndex={isInteractive ? 0 : -1}
           onClick={() => onSelect(index)}
           className={cx(
-            "block h-full w-full rounded-ds-sm text-left transition-transform duration-150 ease-out",
+            "block h-full w-full rounded-ds-sm text-left transition-transform duration-150 ease-out motion-reduce:transition-none",
             isDragging ? "cursor-grabbing" : "cursor-grab",
             FOCUS_RING,
           )}
         >
           <span
             className={cx(
-              "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm ring-offset-1 ring-offset-ds-surface-base transition-[box-shadow] duration-150 ease-out",
+              "pointer-events-none relative block h-full w-full overflow-hidden rounded-ds-sm ring-offset-1 ring-offset-ds-surface-base transition-[box-shadow] duration-150 ease-out motion-reduce:transition-none",
               isActive
                 ? "ring-2 ring-ds-accent ring-inset"
                 : "group-hover:ring-1 group-hover:ring-ds-border-subtle group-hover:ring-inset",
@@ -114,7 +112,7 @@ export function FilmstripSlide({
 
         {/* Action overlay — shown on hover or keyboard focus */}
         <div
-          className="tiq-coarse-actions absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+          className="tiq-coarse-actions absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity motion-reduce:transition-none focus-within:opacity-100 group-hover:opacity-100"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <button

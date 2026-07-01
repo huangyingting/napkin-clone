@@ -155,6 +155,8 @@ export function LayersPanel({
           const selected = selectedIds.includes(item.id);
           const node = item.node;
           const editable = item.editable && node !== undefined;
+          const hidden = node?.hidden === true;
+          const locked = node?.locked === true;
           return (
             <li key={`${item.source}-${item.id}`}>
               <div
@@ -211,13 +213,12 @@ export function LayersPanel({
                   <>
                     <button
                       type="button"
-                      aria-label={node.hidden ? "Show layer" : "Hide layer"}
-                      onClick={() =>
-                        onUpdateNode(item.id, { hidden: !node.hidden })
-                      }
+                      aria-label={`${hidden ? "Show" : "Hide"} layer "${item.label}"`}
+                      aria-pressed={hidden}
+                      onClick={() => onUpdateNode(item.id, { hidden: !hidden })}
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover"
                     >
-                      {node.hidden ? (
+                      {hidden ? (
                         <EyeOff size={12} aria-hidden="true" />
                       ) : (
                         <Eye size={12} aria-hidden="true" />
@@ -225,13 +226,12 @@ export function LayersPanel({
                     </button>
                     <button
                       type="button"
-                      aria-label={node.locked ? "Unlock layer" : "Lock layer"}
-                      onClick={() =>
-                        onUpdateNode(item.id, { locked: !node.locked })
-                      }
+                      aria-label={`${locked ? "Unlock" : "Lock"} layer "${item.label}"`}
+                      aria-pressed={locked}
+                      onClick={() => onUpdateNode(item.id, { locked: !locked })}
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-sm hover:bg-ds-state-hover"
                     >
-                      {node.locked ? (
+                      {locked ? (
                         <Lock size={12} aria-hidden="true" />
                       ) : (
                         <Unlock size={12} aria-hidden="true" />

@@ -22,7 +22,10 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui";
 import { Dialog } from "@/components/ui";
+import { DeckDiagnosticsReview } from "@/components/presentation-vnext/deck-diagnostics-review";
 import { GeneratingIndicator } from "@/components/motion/generation-status";
+import { dedupePresentationDiagnostics } from "@/lib/presentation-vnext/diagnostic-handoff";
+import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
@@ -97,6 +100,36 @@ const MARKER_CLASS: Record<DiffStatus, string> = {
   unchanged: "bg-ds-surface-raised text-ds-text-muted",
 };
 
+export interface DeckGenerationDiagnosticsNoticeProps {
+  diagnosticsCount: number;
+  isRegenerating: boolean;
+  onReview: () => void;
+}
+
+export function DeckGenerationDiagnosticsNotice({
+  diagnosticsCount,
+  isRegenerating,
+  onReview,
+}: DeckGenerationDiagnosticsNoticeProps) {
+  if (diagnosticsCount <= 0) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-ds-md border border-ds-warning-border bg-ds-warning-surface px-3 py-2 text-xs text-ds-warning-text">
+      <p>
+        AI generation reported {diagnosticsCount} diagnostic
+        {diagnosticsCount === 1 ? "" : "s"}.
+      </p>
+      <Button
+        variant="plain"
+        size="sm"
+        onClick={onReview}
+        disabled={isRegenerating}
+      >
+        Review AI diagnostics ({diagnosticsCount})
+      </Button>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -110,12 +143,14 @@ export interface DeckGenerationPreviewVNextProps {
   themePackage?: ThemePackageV1 | null;
   /** Whether the source outline was trimmed to fit the input budget. */
   truncated: boolean;
+  /** AI repair/compile diagnostics to review before apply. */
+  generationDiagnostics: PresentationDiagnostic[];
   /** Serialised document content — re-sent verbatim on Regenerate. */
   contentJson: string;
   /** Generation options — re-sent verbatim on Regenerate. */
   options: DeckGenerationOptions;
   /** Apply the current proposal: parent opens the vNext editor with it. */
-  onApply: (deck: DeckV7) => void;
+  onApply: (deck: DeckV7, diagnostics: PresentationDiagnostic[]) => void;
   /** Discard the proposal and fall back to the baseline. */
   onDerive: () => void;
   /** Dismiss without opening anything. */
@@ -131,6 +166,7 @@ export function DeckGenerationPreviewVNext({
   baselineDeck,
   themePackage,
   truncated,
+  generationDiagnostics,
   contentJson,
   options,
   onApply,
@@ -141,8 +177,12 @@ export function DeckGenerationPreviewVNext({
   const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
 
   const [proposal, setProposal] = useState<DeckV7>(proposedDeck);
+  const [diagnostics, setDiagnostics] = useState<PresentationDiagnostic[]>(() =>
+    dedupePresentationDiagnostics(generationDiagnostics),
+  );
   const isTruncated = truncated;
   const [regenError, setRegenError] = useState(false);
+  const [diagnosticsReviewOpen, setDiagnosticsReviewOpen] = useState(false);
 
   const { generate, status, reset } = useDeckGeneration();
   const isRegenerating = status === "loading";
@@ -161,6 +201,8 @@ export function DeckGenerationPreviewVNext({
     const result = await generate(contentJson, options);
     if (result.ok) {
       setProposal(result.deckV7);
+      setDiagnostics(dedupePresentationDiagnostics(result.diagnostics));
+      setDiagnosticsReviewOpen(false);
     } else {
       setRegenError(true);
     }
@@ -217,6 +259,12 @@ export function DeckGenerationPreviewVNext({
           again, or use the derived deck instead.
         </p>
       ) : null}
+
+      <DeckGenerationDiagnosticsNotice
+        diagnosticsCount={diagnostics.length}
+        isRegenerating={isRegenerating}
+        onReview={() => setDiagnosticsReviewOpen(true)}
+      />
 
       <div className="relative min-h-0 flex-1 overflow-y-auto rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -294,13 +342,21 @@ export function DeckGenerationPreviewVNext({
         <Button
           variant="solid"
           size="md"
-          onClick={() => onApply(proposal)}
+          onClick={() => onApply(proposal, diagnostics)}
           disabled={isRegenerating}
         >
           <Sparkles size={15} aria-hidden="true" />
           Apply
         </Button>
       </div>
+      {diagnosticsReviewOpen ? (
+        <DeckDiagnosticsReview
+          diagnostics={diagnostics}
+          onClose={() => setDiagnosticsReviewOpen(false)}
+          onNavigate={() => undefined}
+          onAction={() => undefined}
+        />
+      ) : null}
     </Dialog>
   );
 }

@@ -10,10 +10,7 @@ export type ShortcutSurface =
   | "present-mode";
 
 export type ShortcutHandlerKind =
-  | "global"
-  | "local"
-  | "browser-editor"
-  | "canvas";
+  "global" | "local" | "browser-editor" | "canvas";
 
 export type ModifierRule = "required" | "forbidden" | "optional";
 
@@ -30,28 +27,21 @@ export type ShortcutId =
   | "editor.align.right"
   | "editor.align.justify"
   | "canvas.selection.traverse"
-  | "canvas.selection.focus"
-  | "canvas.selection.multi-toggle"
-  | "canvas.selection.select-all"
   | "canvas.selection.clear"
   | "canvas.move.step"
   | "canvas.move.large-step"
   | "canvas.resize.step"
   | "canvas.resize.large-step"
-  | "canvas.rotate.step"
-  | "canvas.rotate.fine-step"
   | "canvas.edit.inline"
   | "canvas.edit.delete"
   | "canvas.edit.duplicate"
   | "canvas.edit.clipboard"
   | "canvas.edit.undo"
   | "canvas.edit.redo"
+  | "canvas.arrange.forward-backward"
+  | "canvas.arrange.front-back"
   | "canvas.arrange.group"
   | "canvas.arrange.ungroup"
-  | "canvas.connect.create"
-  | "canvas.connect.cycle-anchor"
-  | "canvas.slides.previous-next"
-  | "canvas.slides.new"
   | "canvas.help"
   | "presentation.next"
   | "presentation.previous"
