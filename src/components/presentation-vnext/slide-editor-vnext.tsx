@@ -1604,6 +1604,25 @@ export function SlideEditorVNext({
     window.setTimeout(() => focusStageNode(nodeId), 0);
   }
 
+  function focusStageViewportSoon() {
+    window.setTimeout(() => {
+      const stageViewport = stageViewportRef.current;
+      if (stageViewport) {
+        stageViewport.focus();
+        return;
+      }
+      editorRootRef.current?.focus();
+    }, 0);
+  }
+
+  function handleContextToolbarEscape() {
+    if (firstSelectedId) {
+      focusSelectedNodeSoon(firstSelectedId);
+      return;
+    }
+    focusStageViewportSoon();
+  }
+
   function handleCopyNodes() {
     if (!activeSlide || selectedIds.length === 0) return;
     const copied = selectedIds
@@ -3983,12 +4002,14 @@ export function SlideEditorVNext({
             onDuplicateSlide={handleDuplicateActiveSlide}
             onDeleteSlide={handleDeleteActiveSlide}
             onDetachDecoration={handleDetachDecoration}
+            onRequestStageFocus={handleContextToolbarEscape}
           />
 
           {activeSlideTree ? (
             <div
               ref={stageViewportRef}
               data-slide-stage-viewport="true"
+              tabIndex={-1}
               className={cx(
                 "box-border h-full min-h-0 p-6",
                 stageFit.needsScroll ? "overflow-auto" : "overflow-hidden",

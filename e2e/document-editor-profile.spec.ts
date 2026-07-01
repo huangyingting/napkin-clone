@@ -557,6 +557,52 @@ test.describe("deterministic profile document editor smoke", () => {
     await expect(editor).toHaveCount(0);
   });
 
+  test("context toolbar Escape restores focus to the selected stage target", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openProfileDocument(page);
+    const editor = await openProfileSlideEditor(page);
+
+    const selectedNode = editor.locator("[data-node-id]:visible").first();
+    await expect(selectedNode).toBeVisible();
+    const selectedNodeId = await selectedNode.getAttribute("data-node-id");
+    expect(selectedNodeId).toBeTruthy();
+    await selectedNode.click();
+
+    const contextToolbar = page.getByRole("toolbar", {
+      name: "Context toolbar",
+    });
+    await expect(contextToolbar).toBeVisible();
+    const deleteButton = contextToolbar.getByRole("button", { name: "Delete" });
+    await deleteButton.focus();
+    await expect(deleteButton).toBeFocused();
+
+    await page.keyboard.press("Escape");
+
+    await expect(async () => {
+      const focusTarget = await page.evaluate(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active) return null;
+        const nodeId = active.getAttribute("data-node-id");
+        if (nodeId) return `node:${nodeId}`;
+        return active.getAttribute("data-slide-stage-viewport") === "true"
+          ? "stage-viewport"
+          : null;
+      });
+      expect(
+        focusTarget === `node:${selectedNodeId}` ||
+          focusTarget === "stage-viewport",
+      ).toBe(true);
+    }, "Escape should return focus to the selected node or stage viewport").toPass(
+      {
+        timeout: 5_000,
+      },
+    );
+
+    await expect(contextToolbar).toBeVisible();
+  });
+
   test("viewer can open the seeded document in read-only mode without owner controls", async ({
     page,
   }) => {
