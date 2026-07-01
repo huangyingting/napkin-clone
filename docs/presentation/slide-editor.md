@@ -2,7 +2,7 @@
 
 **Type:** Architecture  
 **Status:** Current  
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-01
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON
@@ -28,20 +28,23 @@ and pointer state rules, see
 | Deck commands      | [`src/lib/presentation-vnext/editor-commands.ts`](../../src/lib/presentation-vnext/editor-commands.ts)                                     |
 | Source links       | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                           |
 | Presence state     | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)   |
+| Open/save state    | [`src/components/editor/use-slide-editor-open.ts`](../../src/components/editor/use-slide-editor-open.ts)                                   |
+| Autosave scheduler | [`src/lib/presentation/slide-autosave-scheduler.ts`](../../src/lib/presentation/slide-autosave-scheduler.ts)                               |
 
 ## Ownership Model
 
-`SlideEditor` is the stateful shell. It owns:
+`SlideEditorVNext` is the editing surface; `useSlideEditorOpen` is the save/open
+controller. Together they own:
 
 - the current deck value exposed to the parent through `onDeckChange`;
 - undo/redo history;
-- selected slide and selected element ids;
-- pending `DeckPatch[]` records since the last confirmed save;
-- dirty/saving/error save state;
-- source-link staleness and document-sync actions;
+- selected slide and selected node ids;
+- undo/redo deck snapshots and focus restoration targets;
+- debounced full-deck autosave state (`dirty/saving/error`);
+- source-link staleness and review actions;
 - mobile vs desktop placement of the inspector.
 
-Child components are controlled. They receive slide/element state plus callbacks
+Child components are controlled. They receive slide/node state plus callbacks
 and never mutate `Deck` objects directly.
 
 ## Current Object Model
@@ -49,13 +52,14 @@ and never mutate `Deck` objects directly.
 The editor always has one current object:
 
 ```text
-current object = selected element(s) ?? current slide
+current object = selected node(s) ?? current slide
 ```
 
 Deck-level controls never participate in selection. They stay in the top
-toolbar. When the element selection is empty, the slide itself is the current
+toolbar. When the node selection is empty, the slide itself is the current
 object and the canvas popover plus inspector target slide background, notes,
-template provenance, master assignment, and slide actions. When one element, a
+template provenance, deck-chrome override context, and slide actions. When one
+node, a
 group, or a multiset is selected, those surfaces target that selection.
 
 ## Surface Layout
@@ -87,8 +91,8 @@ Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Shortcuts   
 - **Slide kit** selects the active theme package: theme tokens, package
   templates, and the deck chrome baseline. The visible label includes the
   current kit name.
-- **Deck chrome** opens global master chrome controls for deck-level frame,
-  header/footer, and shared master styling.
+- **Deck chrome** opens global deck chrome controls for deck-level frame,
+  header/footer, and shared chrome styling.
 - **Add slide** opens the slide template picker and creates a new slide from the
   active slide kit templates, deck-local custom templates, or fallback built-in
   templates. The picker updates automatically after the slide kit changes.
@@ -103,8 +107,8 @@ Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Shortcuts   
   applying the selected solid/gradient background or accent across the deck.
   Deck-level theme controls are reached from Slide kit and Deck chrome; selected
   object styling remains in the canvas popover and inspector.
-- **Source** owns document sync status, sync from document, stale-link review,
-  and source-link actions that apply to the selected linked element.
+- **Source** owns source-link review status, refresh/relink/unlink actions, and
+  batch source review operations.
 - **Snap** toggles snap-to-grid directly from the toolbar.
 - **Shortcuts** opens the keyboard shortcut dialog. Zoom remains in the bottom
   dock.
@@ -116,25 +120,26 @@ current object.
 
 ## Stage Runtime
 
-`SlideStageEditor` renders `SlideCanvas` and overlays editing chrome. The stage
-is responsible for pointer/keyboard interaction only; deck mutations are routed
-through callbacks owned by `SlideEditor`.
+`SlideEditorVNext` renders `SlideCanvasVNext` and overlays editing chrome. The
+stage is responsible for pointer/keyboard interaction only; deck mutations are
+routed through `onDeckChange` callbacks and pure helpers in
+`editor-commands.ts` / `source-links.ts`.
 
 Current stage capabilities:
 
-- select one or many elements;
+- select one or many nodes;
 - marquee select;
-- move, resize, and rotate elements;
-- drag connector endpoints and snap them to element anchors;
+- move, resize, and rotate nodes;
+- drag connector endpoints and snap them to node anchors;
 - snap boxes to guides/grid;
 - inline-edit text elements, including paragraph/list text;
-- create a text element by double-clicking empty canvas;
-- copy/cut/paste/duplicate/delete selected elements;
+- create a text node by double-clicking empty canvas;
+- copy/cut/paste/duplicate/delete selected nodes;
 - group and ungroup elements;
 - enter a group for member editing;
 - hide advanced controls in simple mode.
 
-Geometry is percentage-based (`ElementBox`) so the same deck renders consistently
+Geometry is percentage-based (`LayoutBox.frame`) so the same deck renders consistently
 at thumbnail, editor, present, and export sizes.
 
 ## Keyboard Accessibility
@@ -149,7 +154,7 @@ editor shell keeps thin wiring around those helpers.
 - **Move:** Arrow nudges the selection by `1%`, Shift+Arrow by `5%`.
 - **Resize:** Alt+Arrow resizes by `1%`, Alt+Shift+Arrow by `5%` — Right/Down
   grow the right/bottom edge, Left/Up shrink them (`resizeBoxByStep`, applied via
-  `SET_ELEMENT_BOXES`).
+  `updateNodeLayouts`).
 - **Traversal:** Tab / Shift+Tab select the next / previous element in a
   deterministic reading order (`orderedElementIds` + `nextElementId`) while a
   canvas element has focus, backed by a roving tabindex (the primary selection,
@@ -171,18 +176,18 @@ editor shell keeps thin wiring around those helpers.
 
 ## Canvas Contract
 
-`SlideCanvas` is read-only. It renders the current
-`ResolvedSlideRenderModel`, including master background chrome, slide elements,
-and master foreground chrome. The stage wraps it with editing affordances, but
+`SlideCanvasVNext` is read-only. It renders the current
+`ResolvedSlideRenderModel`, including theme-decoration layers, slide elements,
+and deck chrome. The stage wraps it with editing affordances, but
 rendering itself is shared with present/public viewers.
 
 The editor can pass `hiddenElementIds` to hide elements during inline editing or
 layer-list visibility toggles. The `editable` flag affects empty-image treatment
-only; it does not make `SlideCanvas` mutate state.
+only; it does not make `SlideCanvasVNext` mutate state.
 
 ## Inspector Runtime
 
-`SlideInspector` owns editing controls, not deck state. It is a task-panel
+`InspectorShell` owns editing controls, not deck state. It is a task-panel
 router that renders exactly one active panel at a time —
 `Slide / Text / Label / Shape / Image / Adjust / Line / Arrange / Effects / Source / Notes / Layers` — with
 a compact in-panel switcher for moving between the panels available to the
@@ -198,21 +203,21 @@ never drift. With no element selected the current object is the slide
 `Effects`, and `Layers`, with `Source` only when the element has a `source`; a
 multi-selection exposes `Arrange / Effects / Layers`. There is no fallback
 routing: when the selection changes so the active panel no longer applies,
-`SlideEditor` closes the right panel instead of guessing a replacement.
+`SlideEditorVNext` closes the right panel instead of guessing a replacement.
 The object-identity header names the current object but no longer exposes a
 permanent `Name` input — element naming lives in `Layers`.
 
-`SlideInspector` receives callbacks for every action:
+`InspectorShell` receives callbacks for every action:
 
 - slide duplicate/remove;
 - template apply/reapply;
 - create/delete deck-local custom templates;
 - update a deck-local custom template from the current slide;
-- element patch/remove/duplicate;
+- node patch/remove/duplicate;
 - z-order, arrange, align, distribute, match-size;
 - group/ungroup;
 - hide/lock/rename layer-list operations;
-- slide `designOverrides.background` and accent updates;
+- slide `localStyle.slide.background` and accent updates;
 - image upload through the slide asset action when `documentId` is available.
 
 Deck-level chrome is not edited in the right inspector. The top toolbar
@@ -222,16 +227,16 @@ slide editing hit-testing, selection, clipboard, z-order, and layer-list
 mutations operate only on slide child nodes.
 
 The inspector must not infer missing context. If a workflow requires full source
-document blocks or document id, those values are passed by `SlideEditor`.
+document blocks or document id, those values are passed by `SlideEditorVNext`.
 
 ## Popover Runtime
 
 The canvas popover is anchored to the current object: the selected union bbox for
-element selections and the slide top edge when the slide is current. Text edit
+node selections and the slide top edge when the slide is current. Text edit
 mode keeps the popover anchored to the text bbox and hides object actions so a
-caret edit cannot accidentally delete or reorder the whole element.
+caret edit cannot accidentally delete or reorder the whole node.
 
-Single-element popovers expose frequent kind-specific verbs: text styling and
+Single-node popovers expose frequent kind-specific verbs: text styling and
 list controls, shape color, connector routing/dash/arrowheads, image replace and
 crop bridge, and visual replace/restyle. Multi-select popovers expose alignment,
 distribution, match-size, z-order, group/ungroup, duplicate, delete, and the
@@ -239,42 +244,40 @@ panel bridge.
 
 ## Mutation Flow
 
-Most user actions flow through slide commands:
+Most user actions flow through pure v7 helpers:
 
 ```text
 UI event
-  -> SlideEditor handler
-  -> executeCommand / commitCommand
-  -> Deck + CommandResult + DeckPatch[]
+  -> SlideEditorVNext handler
+  -> editor-commands.ts / source-links.ts helper
+  -> next DeckV7
   -> onDeckChange
-  -> pending patch buffer
-  -> autosave
+  -> useSlideEditorOpen undo stack + autosave scheduler
+  -> saveDeckJson (manual save or debounced autosave)
 ```
 
-Source-link operations route through `UPDATE_ELEMENT_SOURCE` / source commands
-and end at the same deck change and autosave pipeline.
+Source-link operations route through `refreshNodeSource`,
+`refreshAllSafeSourceLinks`, `unlinkNodeSource`, and `relinkNodeSource`, then
+use the same `onDeckChange` + autosave pipeline.
 
-Element content updates write `element.content`; element formatting writes
-`element.designOverrides`; source-link updates write `element.source`.
-Master mutations are deck-owned commands: `CREATE_MASTER`, `UPDATE_MASTER`,
-`DELETE_MASTER`, `SET_DEFAULT_MASTER`, `SET_SLIDE_MASTER`, and
-`UPDATE_MASTER_ELEMENT`. Template mutations are explicit blueprint commands:
-`ADD_SLIDE_FROM_TEMPLATE`, `APPLY_SLIDE_TEMPLATE`, `CREATE_CUSTOM_TEMPLATE`,
-`UPDATE_CUSTOM_TEMPLATE`, and `DELETE_CUSTOM_TEMPLATE`. Template reapply can
-replace materialized elements or preserve matching element content while
-refreshing the template structure.
+Node content updates write `node.content`; style overrides write
+`node.localStyle`; source-link updates write `node.source`. Slide-level styling
+updates write `slide.localStyle`; deck chrome updates write `deck.chrome` and
+optional per-slide overrides under `slide.props.deckChrome`.
 
 ## Autosave And Conflict Handling
 
-The editor buffers `DeckPatch[]` between successful saves. A debounced autosave
-delegates to `attemptPatchAutosave`:
+`useSlideEditorOpen` uses debounced full-deck saves (`saveDeckJson`) with
+revision tokens:
 
-1. If patches exist, call `saveDeckPatch`.
-2. If patch save succeeds, clear pending patches and store the new revision
-   token.
-3. If patch save returns conflict, surface `ConflictRecoveryDialog`.
-4. If patch replay is unavailable, retry with `saveDeckJson` and the full deck.
-5. If whole-deck save succeeds, clear pending patches and store the new token.
+1. Any deck edit calls `handleDeckV7Change`, marks dirty, and schedules autosave
+   via `createSlideAutosaveScheduler`.
+2. Autosave (or explicit Save) calls `persistDeckV7`, which writes the full deck
+   through `deckPort.saveDeckJson`.
+3. If save succeeds, the editor stores the returned revision token and clears
+   dirty/error state.
+4. If save conflicts, the editor surfaces `ConflictRecoveryDialogV7` with keep
+   mine / use theirs / dismiss choices.
 
 Conflict recovery has three user outcomes:
 
@@ -287,33 +290,35 @@ Conflict recovery has three user outcomes:
 Presence is advisory only. It shows who has the deck open and which slide they
 are viewing, but optimistic revision tokens are the conflict authority.
 
+Patch autosave (`saveDeckPatch` / `DeckPatch[]`) is not the active v7 runtime
+path; reconciliation work is tracked in [#1336](https://github.com/huangyingting/textiq/issues/1336).
+
 ## Document Sync And Source Links
 
-`SlideEditor` receives both:
+`SlideEditorVNext` receives `sourceBlockIndex` and can optionally use host-side
+`onRefreshSource` logic. Source review uses `classifyDeckSourceLinks`,
+`sourceReviewItems`, and `sourceLinkDiagnostics` to surface stale/orphan/unknown
+links.
 
-- `freshDeck`: a deck derived from the current document;
-- `documentBlocks`: the full current document block list.
+Node-level source operations are explicit and type-aware:
 
-Sync from document uses `mergeDeckFromDocument`:
-
-- document-derived slide content can be re-materialized from fresh document
-  content when source provenance still points at the same document section;
-- hand-authored slides preserve their `children`;
-- active `source` elements can refresh content or content hashes in place;
-- orphaned source blocks are surfaced to the user instead of being silently
-  removed.
+- `refreshNodeSource` / `refreshAllSafeSourceLinks` refresh text, shape, table,
+  visual, or image node content in place when compatible;
+- `unlinkNodeSource` marks dependencies as unlinked without deleting content;
+- `relinkNodeSource` rewires a node to a chosen source block;
+- `dismissNodeSourceIssue` records dismissal metadata in `source.extra`.
 
 Source-link controls support update, unlink, relink, and orphan removal. Source
 refs must carry explicit `blockKind`.
 
 ## Invariants
 
-1. `SlideEditor` is the only presentation component that owns deck state.
-2. `SlideStageEditor`, `SlideInspector`, and `LayerList` are controlled views.
-3. `SlideCanvas` is shared and read-only.
-4. Element geometry stays in percentage units.
-5. Node content, local style, and source-link edits write DeckV7 node fields.
-6. Autosave writes through the same patch/whole-deck retry pipeline.
+1. `useSlideEditorOpen` owns open/save/autosave/revision-token state.
+2. `SlideEditorVNext` owns interaction state and emits immutable `DeckV7` updates via `onDeckChange`.
+3. `SlideCanvasVNext` is shared and read-only.
+4. Node geometry stays in percentage `LayoutBox.frame` units.
+5. Node content, local style, and source-link edits write DeckV7 node fields (`SlideNode.children`).
+6. v7 autosave writes full deck snapshots through `saveDeckJson`.
 7. Conflicts are resolved by revision token, not by presence.
 
 ## Primary Tests
@@ -323,4 +328,5 @@ refs must carry explicit `blockKind`.
 - [`src/lib/presentation-vnext/stage-chrome.test.ts`](../../src/lib/presentation-vnext/stage-chrome.test.ts)
 - [`src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts)
 - [`src/components/presentation-vnext/slide-canvas-render.test.ts`](../../src/components/presentation-vnext/slide-canvas-render.test.ts)
+- [`src/lib/presentation/slide-autosave-scheduler.test.ts`](../../src/lib/presentation/slide-autosave-scheduler.test.ts)
 - [`e2e/slides-smoke.spec.ts`](../../e2e/slides-smoke.spec.ts)
