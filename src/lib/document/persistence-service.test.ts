@@ -850,6 +850,10 @@ describe("deck persistence operations", () => {
     );
     stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
     stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.comment, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.comment, "updateMany", async () => ({
+      count: 0,
+    }));
 
     const result = await persistDeck("doc-save", VALID_DECK_V7, null, {
       userId: "user-editor",
@@ -857,6 +861,188 @@ describe("deck persistence operations", () => {
 
     assert.equal(result.ok, true);
     assert.equal(createVersion.calls.length, 1);
+  });
+
+  test("persistDeck floats deleted-slide comment anchors after CAS success", async (t) => {
+    const beforeDeck = {
+      ...VALID_DECK_V7,
+      slides: [
+        {
+          id: "slide-delete",
+          type: "slide",
+          template: { kind: "content" },
+          style: { ref: "slide.content" },
+          children: [],
+        },
+        {
+          id: "slide-keep",
+          type: "slide",
+          template: { kind: "content" },
+          style: { ref: "slide.content" },
+          children: [],
+        },
+      ],
+    };
+    const nextDeck = {
+      ...VALID_DECK_V7,
+      slides: [beforeDeck.slides[1]],
+    };
+
+    stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
+      count: 1,
+    }));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.contentJson) {
+        return { contentJson: EMPTY_LEXICAL_STATE, deckJson: nextDeck };
+      }
+      return { deckJson: beforeDeck };
+    });
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.comment, "findMany", async () => []);
+    const commentUpdateMany = stubPrismaMethod(
+      t,
+      prisma.comment,
+      "updateMany",
+      async () => ({ count: 1 }),
+    );
+
+    const result = await persistDeck("doc-slide-delete", nextDeck, null, {
+      userId: "user-editor",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(commentUpdateMany.calls.length, 1);
+    assert.deepEqual((commentUpdateMany.calls[0]![0] as any).where, {
+      documentId: "doc-slide-delete",
+      slideId: "slide-delete",
+    });
+    assert.deepEqual((commentUpdateMany.calls[0]![0] as any).data, {
+      slideId: null,
+      elementId: null,
+      anchorGeometry: Prisma.DbNull,
+    });
+  });
+
+  test("persistDeck floats deleted-node comment anchors to slide level after CAS success", async (t) => {
+    const beforeDeck = {
+      ...VALID_DECK_V7,
+      slides: [
+        {
+          id: "slide-keep",
+          type: "slide",
+          template: { kind: "content" },
+          style: { ref: "slide.content" },
+          children: [
+            {
+              id: "node-delete",
+              type: "text",
+              role: "body",
+              layout: { frame: { x: 5, y: 8, w: 40, h: 18 }, zIndex: 1 },
+              style: { ref: "text.body" },
+              content: { paragraphs: [{ id: "node-delete-p1", text: "" }] },
+            },
+            {
+              id: "node-keep",
+              type: "text",
+              role: "body",
+              layout: { frame: { x: 5, y: 30, w: 40, h: 18 }, zIndex: 2 },
+              style: { ref: "text.body" },
+              content: { paragraphs: [{ id: "node-keep-p1", text: "" }] },
+            },
+          ],
+        },
+      ],
+    };
+    const nextDeck = {
+      ...beforeDeck,
+      slides: [
+        {
+          ...beforeDeck.slides[0],
+          children: [beforeDeck.slides[0].children[1]],
+        },
+      ],
+    };
+
+    stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
+      count: 1,
+    }));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.contentJson) {
+        return { contentJson: EMPTY_LEXICAL_STATE, deckJson: nextDeck };
+      }
+      return { deckJson: beforeDeck };
+    });
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.comment, "findMany", async () => []);
+    const commentUpdateMany = stubPrismaMethod(
+      t,
+      prisma.comment,
+      "updateMany",
+      async () => ({ count: 1 }),
+    );
+
+    const result = await persistDeck("doc-node-delete", nextDeck, null, {
+      userId: "user-editor",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(commentUpdateMany.calls.length, 1);
+    assert.deepEqual((commentUpdateMany.calls[0]![0] as any).where, {
+      documentId: "doc-node-delete",
+      slideId: "slide-keep",
+      elementId: { in: ["node-delete"] },
+    });
+    assert.deepEqual((commentUpdateMany.calls[0]![0] as any).data, {
+      elementId: null,
+    });
+  });
+
+  test("persistDeck does not reconcile comment anchors when CAS conflicts", async (t) => {
+    const nextDeck = VALID_DECK_V7;
+
+    stubPrismaMethod(t, prisma.document, "updateMany", async () => ({
+      count: 0,
+    }));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.deckRevisionToken) {
+        return { deckRevisionToken: "server-token" };
+      }
+      return { deckJson: nextDeck };
+    });
+    const commentFindMany = stubPrismaMethod(
+      t,
+      prisma.comment,
+      "findMany",
+      async () => [],
+    );
+    const commentUpdateMany = stubPrismaMethod(
+      t,
+      prisma.comment,
+      "updateMany",
+      async () => ({ count: 0 }),
+    );
+
+    const result = await persistDeck(
+      "doc-conflict",
+      nextDeck,
+      "stale-client-token",
+      {
+        userId: "user-editor",
+      },
+    );
+
+    assert.deepEqual(result, {
+      ok: "conflict",
+      serverRevisionToken: "server-token",
+    });
+    assert.equal(commentFindMany.calls.length, 0);
+    assert.equal(commentUpdateMany.calls.length, 0);
   });
 
   test("patchDeck ignores invalid stored deck content and returns fallback", async (t) => {
