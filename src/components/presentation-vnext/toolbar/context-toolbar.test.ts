@@ -1,7 +1,15 @@
-import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { afterEach, describe, test } from "node:test";
 
-import { buildSlideToolInsertActions } from "./context-toolbar";
+import {
+  buildSlideToolInsertActions,
+  restoreFocusAfterContextToolbarEscape,
+} from "./context-toolbar";
+
+const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "document",
+);
 
 describe("buildSlideToolInsertActions", () => {
   test("returns all current-object insertion actions in stable order", () => {
@@ -62,5 +70,60 @@ describe("buildSlideToolInsertActions", () => {
       "connector",
       "table",
     ]);
+  });
+});
+
+afterEach(() => {
+  if (originalDocumentDescriptor) {
+    Object.defineProperty(globalThis, "document", originalDocumentDescriptor);
+    return;
+  }
+  Reflect.deleteProperty(globalThis, "document");
+});
+
+describe("restoreFocusAfterContextToolbarEscape", () => {
+  test("prefers explicit stage-focus callback", () => {
+    let callbackCalls = 0;
+    let blurCalls = 0;
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        activeElement: {
+          blur: () => {
+            blurCalls += 1;
+          },
+        },
+      },
+    });
+
+    restoreFocusAfterContextToolbarEscape(() => {
+      callbackCalls += 1;
+    });
+
+    assert.equal(callbackCalls, 1);
+    assert.equal(blurCalls, 0);
+  });
+
+  test("blurs active element when callback is absent", () => {
+    let blurCalls = 0;
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        activeElement: {
+          blur: () => {
+            blurCalls += 1;
+          },
+        },
+      },
+    });
+
+    restoreFocusAfterContextToolbarEscape(undefined);
+
+    assert.equal(blurCalls, 1);
+  });
+
+  test("is safe when document is unavailable", () => {
+    Reflect.deleteProperty(globalThis, "document");
+    assert.doesNotThrow(() => restoreFocusAfterContextToolbarEscape(undefined));
   });
 });

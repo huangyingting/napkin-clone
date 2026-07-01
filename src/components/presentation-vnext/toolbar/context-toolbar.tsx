@@ -387,6 +387,18 @@ export interface ContextToolbarProps {
   onDuplicateSlide?: () => void;
   onDeleteSlide?: () => void;
   onDetachDecoration?: () => void;
+  onRequestStageFocus?: () => void;
+}
+
+export function restoreFocusAfterContextToolbarEscape(
+  onRequestStageFocus: (() => void) | undefined,
+): void {
+  if (onRequestStageFocus) {
+    onRequestStageFocus();
+    return;
+  }
+  if (typeof document === "undefined") return;
+  (document.activeElement as HTMLElement | null)?.blur();
 }
 
 export function ContextToolbar({
@@ -426,6 +438,7 @@ export function ContextToolbar({
   onDuplicateSlide,
   onDeleteSlide,
   onDetachDecoration,
+  onRequestStageFocus,
 }: ContextToolbarProps): JSX.Element | null {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState({ top: -1000, left: -1000 });
@@ -576,8 +589,9 @@ export function ContextToolbar({
     const toolbar = toolbarRef.current;
     if (!toolbar) return;
     if (event.key === "Escape") {
-      (document.activeElement as HTMLElement | null)?.blur();
       event.preventDefault();
+      event.stopPropagation();
+      restoreFocusAfterContextToolbarEscape(onRequestStageFocus);
       return;
     }
     const controls = Array.from(
