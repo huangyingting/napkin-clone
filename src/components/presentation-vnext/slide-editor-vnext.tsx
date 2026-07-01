@@ -2219,30 +2219,6 @@ export function SlideEditorVNext({
     if (target) applyStageTargetContext(target);
   }
 
-  function handleNodeClick(nodeId: string, event: MouseEvent) {
-    if (suppressStageClickRef.current) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    const target = semanticTargetFromEvent(nodeId, event, {
-      selectedNodeBonus: true,
-    });
-    if (!target) return;
-    const targetNodeId = target.nodeId;
-    const additive = event.shiftKey || event.metaKey || event.ctrlKey;
-    // Commit any active inline edit when clicking a different node
-    if (inlineEditNodeId && inlineEditNodeId !== targetNodeId) {
-      exitInlineEdit();
-    }
-    if (tableEditingNodeId && tableEditingNodeId !== targetNodeId) {
-      clearTableEditing();
-    }
-    applyStageTargetContext(target);
-    setFocusedNodeId(targetNodeId);
-    setSelection((s) => selectNode(s, targetNodeId, additive));
-  }
-
   function handleStageContextMenu(event: MouseEvent<HTMLDivElement>) {
     if (!activeSlide || isEditableTarget(event.target)) return;
     if (isStageEditingHandleTarget(event.target)) return;
@@ -3520,6 +3496,16 @@ export function SlideEditorVNext({
       return;
     }
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      handleEditorKeyDown(event as unknown as KeyboardEvent<HTMLDivElement>);
+    }
+    window.addEventListener("keydown", handleWindowKeyDown);
+    return () => window.removeEventListener("keydown", handleWindowKeyDown);
+  });
 
   // ---------------------------------------------------------------------------
   // Slide root controls
@@ -5374,7 +5360,6 @@ export function SlideEditorVNext({
                     canvas={renderTree?.canvas}
                     assetResolver={resolveDeckAsset}
                     selection={selection}
-                    onNodeClick={handleNodeClick}
                     onNodeDoubleClick={handleNodeDoubleClick}
                     onNodePointerDown={handleNodePointerDown}
                     onNodeFocus={handleNodeFocus}
@@ -5413,7 +5398,7 @@ export function SlideEditorVNext({
                     }
                     slideSelected={selectedIds.length === 0}
                     focusedNodeId={focusedNodeId ?? firstSelectedId ?? null}
-                    className="rounded-ds-sm shadow-ds-xl ring-1 ring-ds-border-subtle"
+                    className="shadow-ds-xl"
                   />
 
                   {/* Inline text editor overlay */}

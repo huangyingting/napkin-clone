@@ -127,11 +127,9 @@ export interface SlideCanvasVNextProps {
   assetResolver?: (id: string) => string | undefined;
   /**
    * Current selection state. When provided, selected nodes display a focus
-   * ring; clicking nodes calls `onNodeClick`.
+   * ring; pointer-down on nodes starts selection/drag handling.
    */
   selection?: SelectionState;
-  /** Called when the user clicks a node. */
-  onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when the user double-clicks a node (used to enter inline edit mode). */
   onNodeDoubleClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when the user starts dragging a node. */
@@ -231,7 +229,6 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   canvas,
   assetResolver,
   selection,
-  onNodeClick,
   onNodeDoubleClick,
   onNodePointerDown,
   onNodeFocus,
@@ -323,12 +320,6 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const multiSelectionFrame =
     selectedUserNodes.length > 1 ? boundsForNodes(selectedUserNodes) : null;
 
-  const handleNodeClick = onNodeClick
-    ? (nodeId: string, event: React.MouseEvent) => {
-        onNodeClick(nodeId, event);
-      }
-    : undefined;
-
   const handleNodeDoubleClick = onNodeDoubleClick
     ? (nodeId: string, event: React.MouseEvent) => {
         onNodeDoubleClick(nodeId, event);
@@ -338,6 +329,8 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   return (
     <div
       data-slide-canvas-vnext="true"
+      data-slide-hovered={slideHovered ? "true" : undefined}
+      data-slide-selected={slideSelected ? "true" : undefined}
       className={`relative overflow-hidden${className ? ` ${className}` : ""}`}
       style={{
         aspectRatio: `${aspectRatio}`,
@@ -387,7 +380,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
         {userNodes.map((node) =>
           (() => {
             const selected = selection ? isSelected(selection, node.id) : false;
-            const interactive = !preview && onNodeClick !== undefined;
+            const interactive = !preview && onNodePointerDown !== undefined;
             return (
               <SlideNodeRenderer
                 key={node.id}
@@ -404,7 +397,6 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                       : -1
                     : undefined
                 }
-                onClick={handleNodeClick}
                 onDoubleClick={handleNodeDoubleClick}
                 onPointerDown={preview ? undefined : onNodePointerDown}
                 onFocus={preview ? undefined : onNodeFocus}
@@ -434,14 +426,6 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
             hidden={isHiddenNode(node.id)}
           />
         ))}
-
-        {!preview && slideHovered && !slideSelected ? (
-          <SlideChromeFrame variant="preselected" />
-        ) : null}
-
-        {!preview && slideSelected ? (
-          <SlideChromeFrame variant="selected" />
-        ) : null}
 
         {!preview
           ? preselectedUserNodes.map((node) => (
@@ -657,11 +641,7 @@ function NodeChromeFrame({
   const color =
     variant === "activeGroup"
       ? "var(--ds-warning-border, #f59e0b)"
-      : variant === "selected"
-        ? isLocked
-          ? "var(--ds-border, #9ca3af)"
-          : "var(--ds-accent-fill, #6366f1)"
-        : "var(--ds-border, #cbd5e1)";
+      : "var(--ds-accent-fill, #6366f1)";
   return (
     <div
       aria-hidden="true"
@@ -672,30 +652,6 @@ function NodeChromeFrame({
         ...nodeChromeOverlayFrameStyle(node, chrome.zIndex),
         border: `${chrome.borderWidthPx}px ${isLocked ? "dashed" : "solid"} ${color}`,
         opacity: chrome.opacity,
-      }}
-    />
-  );
-}
-
-function SlideChromeFrame({
-  variant,
-}: {
-  variant: "selected" | "preselected";
-}) {
-  const chrome = selectionFrameChrome(variant);
-  const color =
-    variant === "selected"
-      ? "var(--ds-accent-fill, #6366f1)"
-      : "var(--ds-border, #cbd5e1)";
-  return (
-    <div
-      aria-hidden="true"
-      data-slide-chrome-frame={variant}
-      className="pointer-events-none absolute inset-0 box-border"
-      style={{
-        border: `${chrome.borderWidthPx}px solid ${color}`,
-        opacity: chrome.opacity,
-        zIndex: chrome.zIndex,
       }}
     />
   );
@@ -889,8 +845,6 @@ export interface DeckCanvasVNextProps {
   assetResolver?: (id: string) => string | undefined;
   /** Same semantics as `SlideCanvasVNextProps.selection`. */
   selection?: SelectionState;
-  /** Called when the user clicks a node on the active slide. */
-  onNodeClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when the user starts dragging a node on the active slide. */
   onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
   /** Called when the user starts resizing a selected node on the active slide. */
@@ -915,7 +869,6 @@ export function DeckCanvasVNext({
   activeSlideIndex = 0,
   assetResolver,
   selection,
-  onNodeClick,
   onNodePointerDown,
   onResizeHandlePointerDown,
   preview = false,
@@ -930,7 +883,6 @@ export function DeckCanvasVNext({
       canvas={deck.canvas}
       assetResolver={assetResolver}
       selection={selection}
-      onNodeClick={onNodeClick}
       onNodePointerDown={onNodePointerDown}
       onResizeHandlePointerDown={onResizeHandlePointerDown}
       preview={preview}

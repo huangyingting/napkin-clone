@@ -133,7 +133,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
         selection,
         focusedNodeId: "node-1",
-        onNodeClick: () => undefined,
         onNodePointerDown: () => undefined,
       }),
     );
@@ -157,7 +156,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         focusedNodeId: "node-selected",
-        onNodeClick: () => undefined,
+        onNodePointerDown: () => undefined,
       }),
     );
 
@@ -181,7 +180,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         focusedNodeId: "node-b",
-        onNodeClick: () => undefined,
+        onNodePointerDown: () => undefined,
         onNodeFocus: () => undefined,
       }),
     );
@@ -200,7 +199,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         focusedNodeId: "locked",
-        onNodeClick: () => undefined,
         onNodePointerDown: () => undefined,
       }),
     );
@@ -211,7 +209,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
       /data-node-id="locked"[^>]*style="[^"]*cursor:not-allowed/,
     );
     assert.match(html, /data-node-chrome-frame="selected"/);
-    assert.match(html, /border:2px dashed var\(--ds-border, #9ca3af\)/);
+    assert.match(html, /border:2px dashed var\(--ds-accent-fill, #6366f1\)/);
   });
 
   test("renders generated chrome without intercepting pointer events", () => {
@@ -343,40 +341,31 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
       createElement(SlideCanvasVNext, {
         slide: slide([textNode("hovered", { x: 10, y: 10, w: 20, h: 10 })]),
         hoveredNodeId: "hovered",
-        onNodeClick: () => undefined,
       }),
     );
 
     assert.match(html, /data-node-chrome-frame="preselected"/);
-    assert.match(html, /border:1.5px solid var\(--ds-border, #cbd5e1\)/);
+    assert.match(html, /border:2px solid var\(--ds-accent-fill, #6366f1\)/);
   });
 
-  test("renders slide chrome for slide preselection and selection", () => {
+  test("does not render chrome borders for slide preselection or selection", () => {
     const preselectedHtml = renderToStaticMarkup(
       createElement(SlideCanvasVNext, {
         slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
         slideHovered: true,
-        onNodeClick: () => undefined,
       }),
     );
     const selectedHtml = renderToStaticMarkup(
       createElement(SlideCanvasVNext, {
         slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
         slideSelected: true,
-        onNodeClick: () => undefined,
       }),
     );
 
-    assert.match(preselectedHtml, /data-slide-chrome-frame="preselected"/);
-    assert.match(
-      preselectedHtml,
-      /border:1.5px solid var\(--ds-border, #cbd5e1\)/,
-    );
-    assert.match(selectedHtml, /data-slide-chrome-frame="selected"/);
-    assert.match(
-      selectedHtml,
-      /border:2px solid var\(--ds-accent-fill, #6366f1\)/,
-    );
+    assert.match(preselectedHtml, /data-slide-hovered="true"/);
+    assert.match(selectedHtml, /data-slide-selected="true"/);
+    assert.doesNotMatch(preselectedHtml, /data-slide-chrome-frame/);
+    assert.doesNotMatch(selectedHtml, /data-slide-chrome-frame/);
   });
 
   test("renders a multi-selection bounding box", () => {
@@ -389,7 +378,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         focusedNodeId: "a",
-        onNodeClick: () => undefined,
       }),
     );
 
@@ -407,7 +395,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         slide: slide([imageNode("image-1", { x: 10, y: 10, w: 30, h: 20 })]),
         selection,
         focusedNodeId: "image-1",
-        onNodeClick: () => undefined,
         onCropHandlePointerDown: () => undefined,
       }),
     );
@@ -442,7 +429,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         focusedNodeId: "resizable",
-        onNodeClick: () => undefined,
         onResizeHandlePointerDown: () => undefined,
         activeResizeHandle: { nodeId: "resizable", handle: "se" },
       }),
@@ -480,7 +466,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         activeGroupId: "group-1",
-        onNodeClick: () => undefined,
         onRotationHandlePointerDown: () => undefined,
         onConnectorEndpointPointerDown: () => undefined,
       }),
@@ -535,7 +520,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           ),
         ]),
         selection,
-        onNodeClick: () => undefined,
         onResizeHandlePointerDown: () => undefined,
         onCropHandlePointerDown: () => undefined,
         onRotationHandlePointerDown: () => undefined,
@@ -587,7 +571,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           textNode("plain", { x: 40, y: 30, w: 20, h: 10 }),
         ]),
         selection,
-        onNodeClick: () => undefined,
       }),
     );
     const multiBoundsStyleMatch = html.match(
@@ -669,7 +652,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         hoveredNodeId: "overlap-text",
         focusedNodeId: "overlap-image",
         hiddenNodeIds: new Set(["inline-edit-source"]),
-        onNodeClick: () => undefined,
         onCropHandlePointerDown: () => undefined,
         onRotationHandlePointerDown: () => undefined,
         onConnectorEndpointPointerDown: () => undefined,
@@ -732,7 +714,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           "hidden-connector",
           "hidden-hover",
         ]),
-        onNodeClick: () => undefined,
         onResizeHandlePointerDown: () => undefined,
         onCropHandlePointerDown: () => undefined,
         onRotationHandlePointerDown: () => undefined,
@@ -786,7 +767,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           }),
         ]),
         selection,
-        onNodeClick: () => undefined,
         onConnectorEndpointPointerDown: () => undefined,
       }),
     );
@@ -814,7 +794,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           }),
         ]),
         selection,
-        onNodeClick: () => undefined,
         nodeGestureDrafts: new Map<string, SlideCanvasNodeGestureDraft>([
           [
             "shape-draft",
@@ -852,7 +831,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           }),
         ]),
         selection,
-        onNodeClick: () => undefined,
         onConnectorEndpointPointerDown: () => undefined,
         assetResolver: () => "https://example.com/image.png",
         nodeGestureDrafts: new Map<string, SlideCanvasNodeGestureDraft>([
@@ -903,7 +881,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         ]),
         selection,
         preview: true,
-        onNodeClick: () => undefined,
         onCropHandlePointerDown: () => undefined,
         onRotationHandlePointerDown: () => undefined,
         onConnectorEndpointPointerDown: () => undefined,
@@ -946,7 +923,7 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
         selection,
         tableEditingNodeId: "table-1",
         activeTableCell: { rowIndex: 0, colIndex: 1 },
-        onNodeClick: () => undefined,
+        onNodePointerDown: () => undefined,
         onTableCellFocus: () => undefined,
         onTableCellCommit: () => undefined,
         onTableCellKeyDown: () => undefined,
@@ -989,7 +966,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
             },
           },
         ]),
-        onNodeClick: () => undefined,
       }),
     );
 
@@ -1102,7 +1078,6 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
           ],
         },
         activeSlideIndex: 0,
-        onNodeClick: () => undefined,
         onNodePointerDown: () => undefined,
         onResizeHandlePointerDown: () => undefined,
         className: "deck-canvas",
@@ -2166,7 +2141,6 @@ describe("SlideCanvasVNext E01 rendering coverage", () => {
         focusedNodeId: undefined,
         hoveredNodeId: "group-child",
         hiddenNodeIds: new Set(["decor", "group-child"]),
-        onNodeClick: () => undefined,
         onNodeDoubleClick: () => undefined,
         onNodePointerDown: () => undefined,
         onNodeFocus: () => undefined,
@@ -2184,7 +2158,6 @@ describe("SlideCanvasVNext E01 rendering coverage", () => {
           "preview-node",
         ]),
         hoveredNodeId: "preview-node",
-        onNodeClick: () => undefined,
         preview: true,
       }),
     );

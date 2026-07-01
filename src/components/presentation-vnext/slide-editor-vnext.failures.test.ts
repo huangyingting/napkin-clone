@@ -218,6 +218,12 @@ async function withWindow<T>(run: () => Promise<T> | T): Promise<T> {
 
 type PointerListenerType = "pointermove" | "pointerup" | "pointercancel";
 
+type MockElementFactory = (args?: {
+  closestMap?: Record<string, unknown>;
+  queryMap?: Record<string, unknown>;
+  rect?: { left: number; top: number; width: number; height: number };
+}) => HTMLElement;
+
 function withPointerWindow<T>(
   run: (
     listeners: Map<PointerListenerType, (event: PointerEvent) => void>,
@@ -259,13 +265,7 @@ function withPointerWindow<T>(
 }
 
 function withMockHTMLElement<T>(
-  run: (
-    createElement: (args?: {
-      closestMap?: Record<string, unknown>;
-      queryMap?: Record<string, unknown>;
-      rect?: { left: number; top: number; width: number; height: number };
-    }) => HTMLElement,
-  ) => T,
+  run: (createElement: MockElementFactory) => T,
 ): T {
   const globalWithHTMLElement = globalThis as typeof globalThis & {
     HTMLElement?: typeof HTMLElement;
@@ -314,6 +314,14 @@ function withMockHTMLElement<T>(
         toJSON: () => ({}),
       } as DOMRect;
     }
+
+    setPointerCapture() {
+      // Pointer capture is intentionally inert in these component tests.
+    }
+
+    releasePointerCapture() {
+      // Pointer capture is intentionally inert in these component tests.
+    }
   }
 
   globalWithHTMLElement.HTMLElement =
@@ -327,6 +335,87 @@ function withMockHTMLElement<T>(
       globalWithHTMLElement.HTMLElement = previousHTMLElement;
     }
   }
+}
+
+function stageCanvasFrom(root: ReactNode): ReactElement {
+  return findRequiredElement(
+    root,
+    (element) => element.type === SlideCanvasVNext,
+    "Expected stage canvas to render.",
+  );
+}
+
+function nodePointerDownFrom(
+  root: ReactNode,
+): NonNullable<
+  React.ComponentProps<typeof SlideCanvasVNext>["onNodePointerDown"]
+> {
+  const onNodePointerDown = (
+    stageCanvasFrom(root).props as {
+      onNodePointerDown?: React.ComponentProps<
+        typeof SlideCanvasVNext
+      >["onNodePointerDown"];
+    }
+  ).onNodePointerDown;
+  assert.ok(onNodePointerDown);
+  return onNodePointerDown;
+}
+
+function focusNode(root: ReactNode, nodeId: string) {
+  const onNodeFocus = (
+    stageCanvasFrom(root).props as {
+      onNodeFocus?: React.ComponentProps<
+        typeof SlideCanvasVNext
+      >["onNodeFocus"];
+    }
+  ).onNodeFocus;
+  assert.ok(onNodeFocus);
+  onNodeFocus(nodeId, {} as React.FocusEvent);
+}
+
+function clickNode(
+  root: ReactNode,
+  listeners: Map<PointerListenerType, (event: PointerEvent) => void>,
+  createElement: MockElementFactory,
+  nodeId: string,
+  options: {
+    clientX?: number;
+    clientY?: number;
+    canvasRect?: { left: number; top: number; width: number; height: number };
+    shiftKey?: boolean;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+  } = {},
+) {
+  const canvasElement = createElement({
+    rect: options.canvasRect ?? { left: 0, top: 0, width: 1000, height: 1000 },
+  });
+  const currentTarget = createElement({
+    closestMap: {
+      '[data-slide-canvas-vnext="true"]': canvasElement,
+    },
+  });
+  const clientX = options.clientX ?? 100;
+  const clientY = options.clientY ?? 100;
+  nodePointerDownFrom(root)(nodeId, {
+    button: 0,
+    pointerId: 1,
+    clientX,
+    clientY,
+    shiftKey: options.shiftKey ?? false,
+    metaKey: options.metaKey ?? false,
+    ctrlKey: options.ctrlKey ?? false,
+    altKey: options.altKey ?? false,
+    target: currentTarget,
+    currentTarget,
+    preventDefault: () => undefined,
+    stopPropagation: () => undefined,
+  } as unknown as React.PointerEvent);
+  listeners.get("pointerup")?.({
+    clientX,
+    clientY,
+  } as PointerEvent);
 }
 
 describe("SlideEditorVNext failure-state coverage", () => {
@@ -507,28 +596,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
 
       let tree = renderTree();
 
-      const stageCanvas = findRequiredElement(
-        tree,
-        (element) =>
-          element.type === SlideCanvasVNext &&
-          typeof (
-            element.props as {
-              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-            }
-          ).onNodeClick === "function",
-        "Expected stage canvas with node click handler.",
-      );
-
-      const onNodeClick = (
-        stageCanvas.props as {
-          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-        }
-      ).onNodeClick;
-      assert.ok(onNodeClick);
-      onNodeClick("image-primary", {
-        shiftKey: false,
-        metaKey: false,
-      } as MouseEvent);
+      focusNode(tree, "image-primary");
 
       tree = renderTree();
 
@@ -709,17 +777,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
           );
 
         let tree = renderTree();
-        const onNodeClick = (
-          stageCanvasFrom(tree).props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
-        assert.ok(onNodeClick);
-        onNodeClick("already-selected", {
-          shiftKey: false,
-          metaKey: false,
-          ctrlKey: false,
-        } as MouseEvent);
+        focusNode(tree, "already-selected");
 
         tree = renderTree();
         const stageShell = findRequiredElement(
@@ -990,25 +1048,12 @@ describe("SlideEditorVNext failure-state coverage", () => {
         );
 
       let tree = renderTree();
-      const onNodeClick = (
-        stageCanvasFrom(tree).props as {
-          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-        }
-      ).onNodeClick;
-      assert.ok(onNodeClick);
-      onNodeClick("editing-node", {
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+      focusNode(tree, "editing-node");
       tree = renderTree();
-      onNodeClick("editing-node", {
+      clickNode(tree, new Map(), createElement, "editing-node", {
         clientX: 120,
         clientY: 120,
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+      });
 
       tree = renderTree();
       const stageShell = findRequiredElement(
@@ -1365,35 +1410,10 @@ describe("SlideEditorVNext failure-state coverage", () => {
           );
 
         let tree = renderTree();
-        const stageCanvas = stageCanvasFrom(tree);
-        const onNodeClick = (
-          stageCanvas.props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
-        const onNodePointerDown = (
-          stageCanvas.props as {
-            onNodePointerDown?: (
-              nodeId: string,
-              event: React.PointerEvent,
-            ) => void;
-          }
-        ).onNodePointerDown;
-        assert.ok(onNodeClick);
-        assert.ok(onNodePointerDown);
-        onNodeClick("drag-selected-text", {
-          shiftKey: false,
-          metaKey: false,
-          ctrlKey: false,
-        } as MouseEvent);
+        focusNode(tree, "drag-selected-text");
 
         tree = renderTree();
         const selectedStageCanvas = stageCanvasFrom(tree);
-        const selectedNodeClick = (
-          selectedStageCanvas.props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
         const selectedNodePointerDown = (
           selectedStageCanvas.props as {
             onNodePointerDown?: (
@@ -1402,7 +1422,6 @@ describe("SlideEditorVNext failure-state coverage", () => {
             ) => void;
           }
         ).onNodePointerDown;
-        assert.ok(selectedNodeClick);
         assert.ok(selectedNodePointerDown);
         const canvasElement = createElement({
           rect: { left: 0, top: 0, width: 1000, height: 1000 },
@@ -1435,16 +1454,6 @@ describe("SlideEditorVNext failure-state coverage", () => {
           clientX: 250,
           clientY: 220,
         } as PointerEvent);
-        selectedNodeClick("drag-selected-text", {
-          clientX: 250,
-          clientY: 220,
-          shiftKey: false,
-          metaKey: false,
-          ctrlKey: false,
-          preventDefault: () => undefined,
-          stopPropagation: () => undefined,
-        } as unknown as MouseEvent);
-
         tree = renderTree();
         const updatedStageCanvas = stageCanvasFrom(tree);
         const hiddenNodeIds = (
@@ -1540,19 +1549,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
         };
 
         let tree = renderTree();
-        const onNodeClick = (
-          stageCanvasFrom(tree).props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
-        assert.ok(onNodeClick);
-        onNodeClick("edit-first", {
-          clientX: 120,
-          clientY: 120,
-          shiftKey: false,
-          metaKey: false,
-          ctrlKey: false,
-        } as MouseEvent);
+        focusNode(tree, "edit-first");
 
         tree = renderTree();
         const selectedPointerDown = pointerDownFrom(tree);
@@ -1782,107 +1779,95 @@ describe("SlideEditorVNext failure-state coverage", () => {
   });
 
   test("bare c connects exactly two selected nodes", async () => {
-    await withWindow(() => {
-      const hookRenderer = createHookRenderer();
-      let currentDeck = buildDeckV7([
-        buildSlideV7(
-          "content",
-          [
-            buildTextNode({
-              id: "connect-a",
-              layout: { frame: { x: 10, y: 10, w: 12, h: 12 }, zIndex: 1 },
-            }),
-            buildTextNode({
-              id: "connect-b",
-              layout: { frame: { x: 60, y: 10, w: 12, h: 12 }, zIndex: 2 },
-            }),
-          ],
-          { id: "slide-connect-pair", name: "Slide 1" },
-        ),
-      ]);
+    await withWindow(() =>
+      withMockHTMLElement((createElement) =>
+        withPointerWindow((listeners) => {
+          const hookRenderer = createHookRenderer();
+          let currentDeck = buildDeckV7([
+            buildSlideV7(
+              "content",
+              [
+                buildTextNode({
+                  id: "connect-a",
+                  layout: { frame: { x: 10, y: 10, w: 12, h: 12 }, zIndex: 1 },
+                }),
+                buildTextNode({
+                  id: "connect-b",
+                  layout: { frame: { x: 60, y: 10, w: 12, h: 12 }, zIndex: 2 },
+                }),
+              ],
+              { id: "slide-connect-pair", name: "Slide 1" },
+            ),
+          ]);
 
-      const renderTree = () =>
-        hookRenderer.run(() =>
-          SlideEditorVNext({
-            documentId: "doc-connect-pair",
-            deck: currentDeck,
-            onDeckChange: (nextDeck) => {
-              currentDeck = nextDeck;
+          const renderTree = () =>
+            hookRenderer.run(() =>
+              SlideEditorVNext({
+                documentId: "doc-connect-pair",
+                deck: currentDeck,
+                onDeckChange: (nextDeck) => {
+                  currentDeck = nextDeck;
+                },
+              }),
+            );
+          const editorRootFrom = (root: ReactNode) =>
+            findRequiredElement(
+              root,
+              (element) =>
+                element.type === "div" &&
+                (element.props as { "data-slide-editor-vnext"?: string })[
+                  "data-slide-editor-vnext"
+                ] === "true" &&
+                typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+                  "function",
+              "Expected editor root with keydown handler.",
+            );
+
+          let tree = renderTree();
+          focusNode(tree, "connect-a");
+          tree = renderTree();
+          clickNode(tree, listeners, createElement, "connect-b", {
+            clientX: 660,
+            clientY: 160,
+            shiftKey: true,
+          });
+
+          tree = renderTree();
+          const onKeyDown = (
+            editorRootFrom(tree).props as {
+              onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+            }
+          ).onKeyDown;
+          assert.ok(onKeyDown);
+          let prevented = false;
+          onKeyDown({
+            key: "c",
+            ctrlKey: false,
+            metaKey: false,
+            altKey: false,
+            shiftKey: false,
+            target: null,
+            preventDefault: () => {
+              prevented = true;
             },
-          }),
-        );
-      const stageCanvasFrom = (root: ReactNode) =>
-        findRequiredElement(
-          root,
-          (element) => element.type === SlideCanvasVNext,
-          "Expected stage canvas to render.",
-        );
-      const editorRootFrom = (root: ReactNode) =>
-        findRequiredElement(
-          root,
-          (element) =>
-            element.type === "div" &&
-            (element.props as { "data-slide-editor-vnext"?: string })[
-              "data-slide-editor-vnext"
-            ] === "true" &&
-            typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
-              "function",
-          "Expected editor root with keydown handler.",
-        );
+          } as unknown as KeyboardEvent<HTMLDivElement>);
 
-      let tree = renderTree();
-      const onNodeClick = (
-        stageCanvasFrom(tree).props as {
-          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-        }
-      ).onNodeClick;
-      assert.ok(onNodeClick);
-      onNodeClick("connect-a", {
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
-      tree = renderTree();
-      onNodeClick("connect-b", {
-        shiftKey: true,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
-
-      tree = renderTree();
-      const onKeyDown = (
-        editorRootFrom(tree).props as {
-          onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
-        }
-      ).onKeyDown;
-      assert.ok(onKeyDown);
-      let prevented = false;
-      onKeyDown({
-        key: "c",
-        ctrlKey: false,
-        metaKey: false,
-        altKey: false,
-        shiftKey: false,
-        target: null,
-        preventDefault: () => {
-          prevented = true;
-        },
-      } as unknown as KeyboardEvent<HTMLDivElement>);
-
-      assert.equal(prevented, true);
-      const connector = currentDeck.slides[0]?.children.find(
-        (node) => node.type === "connector",
-      );
-      assert.ok(connector);
-      assert.equal(connector.content.from.kind, "node");
-      assert.equal(connector.content.to.kind, "node");
-      if (connector.content.from.kind === "node") {
-        assert.equal(connector.content.from.nodeId, "connect-a");
-      }
-      if (connector.content.to.kind === "node") {
-        assert.equal(connector.content.to.nodeId, "connect-b");
-      }
-    });
+          assert.equal(prevented, true);
+          const connector = currentDeck.slides[0]?.children.find(
+            (node) => node.type === "connector",
+          );
+          assert.ok(connector);
+          assert.equal(connector.content.from.kind, "node");
+          assert.equal(connector.content.to.kind, "node");
+          if (connector.content.from.kind === "node") {
+            assert.equal(connector.content.from.nodeId, "connect-a");
+          }
+          if (connector.content.to.kind === "node") {
+            assert.equal(connector.content.to.nodeId, "connect-b");
+          }
+        }),
+      ),
+    );
   });
 
   test("bare c starts connector mode and Enter confirms target", async () => {
@@ -1939,17 +1924,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
         ).onKeyDown;
 
       let tree = renderTree();
-      const onNodeClick = (
-        stageCanvasFrom(tree).props as {
-          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-        }
-      ).onNodeClick;
-      assert.ok(onNodeClick);
-      onNodeClick("connect-source", {
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+      focusNode(tree, "connect-source");
 
       tree = renderTree();
       keyDownFrom(tree)?.({
@@ -2040,25 +2015,8 @@ describe("SlideEditorVNext failure-state coverage", () => {
             },
           }),
         );
-      const stageCanvasFrom = (root: ReactNode) =>
-        findRequiredElement(
-          root,
-          (element) => element.type === SlideCanvasVNext,
-          "Expected stage canvas to render.",
-        );
-
       let tree = renderTree();
-      const onNodeClick = (
-        stageCanvasFrom(tree).props as {
-          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-        }
-      ).onNodeClick;
-      assert.ok(onNodeClick);
-      onNodeClick("anchor-connector", {
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-      } as MouseEvent);
+      focusNode(tree, "anchor-connector");
 
       tree = renderTree();
       const editorRoot = findRequiredElement(
@@ -2131,27 +2089,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
         );
 
       let tree = renderTree();
-      const stageCanvas = findRequiredElement(
-        tree,
-        (element) =>
-          element.type === SlideCanvasVNext &&
-          typeof (
-            element.props as {
-              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-            }
-          ).onNodeClick === "function",
-        "Expected stage canvas with node click handler.",
-      );
-      const onNodeClick = (
-        stageCanvas.props as {
-          onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-        }
-      ).onNodeClick;
-      assert.ok(onNodeClick);
-      onNodeClick?.("image-primary", {
-        shiftKey: false,
-        metaKey: false,
-      } as MouseEvent);
+      focusNode(tree, "image-primary");
 
       tree = renderTree();
       const editorRoot = findRequiredElement(
@@ -2415,20 +2353,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
             );
 
           let tree = renderTree();
-          const initialStageCanvas = stageCanvasFrom(tree);
-          const onNodeClick = (
-            initialStageCanvas.props as {
-              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-            }
-          ).onNodeClick;
-          assert.ok(onNodeClick);
-          onNodeClick("selected-text", {
-            clientX: 360,
-            clientY: 240,
-            shiftKey: false,
-            metaKey: false,
-            ctrlKey: false,
-          } as MouseEvent);
+          focusNode(tree, "selected-text");
 
           tree = renderTree();
           const selectedStageCanvas = stageCanvasFrom(tree);
@@ -2520,20 +2445,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
             );
 
           let tree = renderTree();
-          const initialStageCanvas = stageCanvasFrom(tree);
-          const onNodeClick = (
-            initialStageCanvas.props as {
-              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-            }
-          ).onNodeClick;
-          assert.ok(onNodeClick);
-          onNodeClick("empty-shape", {
-            clientX: 360,
-            clientY: 240,
-            shiftKey: false,
-            metaKey: false,
-            ctrlKey: false,
-          } as MouseEvent);
+          focusNode(tree, "empty-shape");
 
           tree = renderTree();
           const selectedStageCanvas = stageCanvasFrom(tree);
@@ -2591,100 +2503,8 @@ describe("SlideEditorVNext failure-state coverage", () => {
 
   describe("SlideEditorVNext semantic hit testing parity", () => {
     test("semantic click selects covered text under a large covering shape", () => {
-      withMockHTMLElement((createElement) => {
-        const hookRenderer = createHookRenderer();
-        let currentDeck = buildDeckV7([
-          buildSlideV7(
-            "content",
-            [
-              buildTextNode({
-                id: "covered-text",
-                layout: { frame: { x: 10, y: 40, w: 80, h: 20 }, zIndex: 1 },
-                content: {
-                  paragraphs: [
-                    {
-                      id: "covered-text-p1",
-                      text: "Quarterly revenue growth reached 37 percent.",
-                    },
-                  ],
-                },
-              }),
-              buildShapeNode({
-                id: "cover-shape",
-                layout: { frame: { x: 0, y: 0, w: 100, h: 100 }, zIndex: 20 },
-                content: { shape: "rect" },
-              }),
-            ],
-            { id: "slide-overlap", name: "Slide 1" },
-          ),
-        ]);
-
-        const renderTree = () =>
-          hookRenderer.run(() =>
-            SlideEditorVNext({
-              documentId: "doc-semantic-click",
-              deck: currentDeck,
-              onDeckChange: (nextDeck) => {
-                currentDeck = nextDeck;
-              },
-            }),
-          );
-
-        let tree = renderTree();
-        const stageCanvas = findRequiredElement(
-          tree,
-          (element) =>
-            element.type === SlideCanvasVNext &&
-            typeof (
-              element.props as {
-                onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-              }
-            ).onNodeClick === "function",
-          "Expected stage canvas with node click handler.",
-        );
-        const onNodeClick = (
-          stageCanvas.props as {
-            onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-          }
-        ).onNodeClick;
-        assert.ok(onNodeClick, "Expected stage canvas node click handler.");
-
-        const canvasElement = createElement({
-          rect: { left: 100, top: 200, width: 1000, height: 500 },
-        });
-        const target = createElement({
-          closestMap: {
-            '[data-slide-canvas-vnext="true"]': canvasElement,
-          },
-        });
-
-        onNodeClick?.("cover-shape", {
-          clientX: 220,
-          clientY: 450,
-          target,
-        } as unknown as MouseEvent);
-
-        tree = renderTree();
-        const updatedCanvas = findRequiredElement(
-          tree,
-          (element) => element.type === SlideCanvasVNext,
-          "Expected updated stage canvas.",
-        );
-        const selection = (
-          updatedCanvas.props as {
-            selection?: { nodeIds?: ReadonlySet<string> };
-          }
-        ).selection;
-        assert.ok(
-          selection?.nodeIds?.has("covered-text"),
-          "Expected semantic click to select the covered text node.",
-        );
-      });
-    });
-
-    test("Alt+] cycles to covered nodes for select-under parity", async () => {
-      await withWindow(async () =>
-        withMockHTMLElement((createElement) => {
+      withMockHTMLElement((createElement) =>
+        withPointerWindow((listeners) => {
           const hookRenderer = createHookRenderer();
           let currentDeck = buildDeckV7([
             buildSlideV7(
@@ -2708,14 +2528,14 @@ describe("SlideEditorVNext failure-state coverage", () => {
                   content: { shape: "rect" },
                 }),
               ],
-              { id: "slide-select-under", name: "Slide 1" },
+              { id: "slide-overlap", name: "Slide 1" },
             ),
           ]);
 
           const renderTree = () =>
             hookRenderer.run(() =>
               SlideEditorVNext({
-                documentId: "doc-select-under",
+                documentId: "doc-semantic-click",
                 deck: currentDeck,
                 onDeckChange: (nextDeck) => {
                   currentDeck = nextDeck;
@@ -2724,86 +2544,136 @@ describe("SlideEditorVNext failure-state coverage", () => {
             );
 
           let tree = renderTree();
-          const stageCanvas = findRequiredElement(
-            tree,
-            (element) =>
-              element.type === SlideCanvasVNext &&
-              typeof (
-                element.props as {
-                  onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-                }
-              ).onNodeClick === "function",
-            "Expected stage canvas with node click handler.",
-          );
-          const onNodeClick = (
-            stageCanvas.props as {
-              onNodeClick?: (nodeId: string, event: MouseEvent) => void;
-            }
-          ).onNodeClick;
-          assert.ok(onNodeClick, "Expected stage canvas node click handler.");
-          const canvasElement = createElement({
-            rect: { left: 100, top: 200, width: 1000, height: 500 },
+          clickNode(tree, listeners, createElement, "cover-shape", {
+            clientX: 220,
+            clientY: 450,
+            canvasRect: { left: 100, top: 200, width: 1000, height: 500 },
           });
-          const target = createElement({
-            closestMap: {
-              '[data-slide-canvas-vnext="true"]': canvasElement,
-            },
-          });
-          onNodeClick?.("cover-shape", {
-            clientX: 500,
-            clientY: 300,
-            target,
-          } as unknown as MouseEvent);
-
-          tree = renderTree();
-          const editorRoot = findRequiredElement(
-            tree,
-            (element) =>
-              element.type === "div" &&
-              (element.props as { "data-slide-editor-vnext"?: string })[
-                "data-slide-editor-vnext"
-              ] === "true" &&
-              typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
-                "function",
-            "Expected editor root keydown handler.",
-          );
-          const onEditorKeyDown = (
-            editorRoot.props as {
-              onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
-            }
-          ).onKeyDown;
-          assert.ok(onEditorKeyDown, "Expected editor keydown handler.");
-          let prevented = false;
-          onEditorKeyDown?.({
-            key: "]",
-            altKey: true,
-            target: createElement(),
-            preventDefault: () => {
-              prevented = true;
-            },
-          } as unknown as KeyboardEvent<HTMLDivElement>);
 
           tree = renderTree();
           const updatedCanvas = findRequiredElement(
             tree,
             (element) => element.type === SlideCanvasVNext,
-            "Expected stage canvas after Alt+] cycle.",
+            "Expected updated stage canvas.",
           );
           const selection = (
             updatedCanvas.props as {
               selection?: { nodeIds?: ReadonlySet<string> };
             }
           ).selection;
-          assert.equal(
-            prevented,
-            true,
-            "Expected Alt+] keydown to be handled.",
-          );
           assert.ok(
             selection?.nodeIds?.has("covered-text"),
-            "Expected Alt+] to cycle to the covered text node.",
+            "Expected semantic click to select the covered text node.",
           );
         }),
+      );
+    });
+
+    test("Alt+] cycles to covered nodes for select-under parity", async () => {
+      await withWindow(async () =>
+        withMockHTMLElement((createElement) =>
+          withPointerWindow((listeners) => {
+            const hookRenderer = createHookRenderer();
+            let currentDeck = buildDeckV7([
+              buildSlideV7(
+                "content",
+                [
+                  buildTextNode({
+                    id: "covered-text",
+                    layout: {
+                      frame: { x: 10, y: 40, w: 80, h: 20 },
+                      zIndex: 1,
+                    },
+                    content: {
+                      paragraphs: [
+                        {
+                          id: "covered-text-p1",
+                          text: "Quarterly revenue growth reached 37 percent.",
+                        },
+                      ],
+                    },
+                  }),
+                  buildShapeNode({
+                    id: "cover-shape",
+                    layout: {
+                      frame: { x: 0, y: 0, w: 100, h: 100 },
+                      zIndex: 20,
+                    },
+                    content: { shape: "rect" },
+                  }),
+                ],
+                { id: "slide-select-under", name: "Slide 1" },
+              ),
+            ]);
+
+            const renderTree = () =>
+              hookRenderer.run(() =>
+                SlideEditorVNext({
+                  documentId: "doc-select-under",
+                  deck: currentDeck,
+                  onDeckChange: (nextDeck) => {
+                    currentDeck = nextDeck;
+                  },
+                }),
+              );
+
+            let tree = renderTree();
+            clickNode(tree, listeners, createElement, "cover-shape", {
+              clientX: 500,
+              clientY: 300,
+              canvasRect: { left: 100, top: 200, width: 1000, height: 500 },
+            });
+
+            tree = renderTree();
+            const editorRoot = findRequiredElement(
+              tree,
+              (element) =>
+                element.type === "div" &&
+                (element.props as { "data-slide-editor-vnext"?: string })[
+                  "data-slide-editor-vnext"
+                ] === "true" &&
+                typeof (element.props as { onKeyDown?: unknown }).onKeyDown ===
+                  "function",
+              "Expected editor root keydown handler.",
+            );
+            const onEditorKeyDown = (
+              editorRoot.props as {
+                onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+              }
+            ).onKeyDown;
+            assert.ok(onEditorKeyDown, "Expected editor keydown handler.");
+            let prevented = false;
+            onEditorKeyDown?.({
+              key: "]",
+              altKey: true,
+              target: createElement(),
+              preventDefault: () => {
+                prevented = true;
+              },
+            } as unknown as KeyboardEvent<HTMLDivElement>);
+
+            tree = renderTree();
+            const updatedCanvas = findRequiredElement(
+              tree,
+              (element) => element.type === SlideCanvasVNext,
+              "Expected stage canvas after Alt+] cycle.",
+            );
+            const selection = (
+              updatedCanvas.props as {
+                selection?: { nodeIds?: ReadonlySet<string> };
+              }
+            ).selection;
+            assert.equal(
+              prevented,
+              true,
+              "Expected Alt+] keydown to be handled.",
+            );
+            assert.ok(
+              selection?.nodeIds?.has("covered-text"),
+              "Expected Alt+] to cycle to the covered text node.",
+            );
+          }),
+        ),
       );
     });
   });

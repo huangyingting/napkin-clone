@@ -939,8 +939,6 @@ function connectorEndpointPoint(endpoint: ConnectorEndpoint): {
 
 export interface SlideNodeRendererProps {
   node: ResolvedRenderNode;
-  /** Called when the node is clicked (editor usage). */
-  onClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when the node is double-clicked (enter inline edit mode). */
   onDoubleClick?: (nodeId: string, event: React.MouseEvent) => void;
   /** Called when pointer drag starts on the node (editor usage). */
@@ -1003,7 +1001,6 @@ export interface SlideNodeRendererProps {
  */
 export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   node,
-  onClick,
   onDoubleClick,
   onPointerDown,
   selected = false,
@@ -1039,15 +1036,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       includeShapePaint: shouldIncludeShapePaint,
     }),
     boxSizing: "border-box",
-    cursor: onPointerDown
-      ? isLocked
-        ? "not-allowed"
-        : "move"
-      : onClick
-        ? isLocked
-          ? "not-allowed"
-          : "pointer"
-        : "default",
+    cursor: onPointerDown ? (isLocked ? "not-allowed" : "move") : "default",
     ...(node.source === "themeDecoration" || node.source === "deckChrome"
       ? { pointerEvents: "none" }
       : {}),
@@ -1060,10 +1049,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     : undefined;
 
   const textCss = textStyleToCss(style.text);
-
-  function handleClick(e: React.MouseEvent) {
-    onClick?.(node.id, e);
-  }
 
   function handleDoubleClick(e: React.MouseEvent) {
     onDoubleClick?.(node.id, e);
@@ -1117,7 +1102,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       }
       aria-disabled={interactive && isLocked ? true : undefined}
       aria-pressed={interactive && !tableEditing ? selected : undefined}
-      onClick={onClick ? handleClick : undefined}
       onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
       onPointerDown={onPointerDown ? handlePointerDown : undefined}
       onFocus={interactive ? handleFocus : undefined}

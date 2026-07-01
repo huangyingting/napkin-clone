@@ -48,7 +48,7 @@ export function selectionFrameChrome(
         zIndex: STAGE_CHROME_Z_INDEX.selectedFrame,
       }
     : {
-        borderWidthPx: 1.5,
+        borderWidthPx: 2,
         opacity: 0.7,
         zIndex: STAGE_CHROME_Z_INDEX.preselectedFrame,
       };
