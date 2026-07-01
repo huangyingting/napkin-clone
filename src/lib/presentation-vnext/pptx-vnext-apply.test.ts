@@ -487,6 +487,16 @@ describe("applyVnextTextOp", () => {
     assert.equal(opts.rotate, 45);
   });
 
+  test("text-level strikethrough style maps to strike", () => {
+    const { slide, calls } = makeMockSlide();
+    applyVnextTextOp(
+      slide as never,
+      makeTextOp({ textStyle: { strikethrough: true } }),
+    );
+    const opts = calls[0].args[1] as Record<string, unknown>;
+    assert.equal(opts.strike, true);
+  });
+
   test("multi-paragraph content uses run array form", () => {
     const { slide, calls } = makeMockSlide();
     const op = makeTextOp({

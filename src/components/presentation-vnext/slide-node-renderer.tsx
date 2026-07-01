@@ -96,6 +96,12 @@ function shadowToCss(shadow: StyleObject["shadow"]): React.CSSProperties {
 
 function textStyleToCss(text: StyleObject["text"]): React.CSSProperties {
   if (!text) return {};
+  const textDecoration = [
+    text.underline ? "underline" : undefined,
+    text.strikethrough ? "line-through" : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return {
     ...(text.fontFamily && typeof text.fontFamily === "string"
       ? { fontFamily: text.fontFamily }
@@ -103,7 +109,7 @@ function textStyleToCss(text: StyleObject["text"]): React.CSSProperties {
     ...(text.fontSizePt ? { fontSize: `${text.fontSizePt}pt` } : {}),
     ...(text.weight ? { fontWeight: text.weight } : {}),
     ...(text.italic ? { fontStyle: "italic" } : {}),
-    ...(text.underline ? { textDecoration: "underline" } : {}),
+    ...(textDecoration ? { textDecoration } : {}),
     ...(text.color ? { color: colorValueToCss(text.color) } : {}),
     ...(text.lineHeight ? { lineHeight: text.lineHeight } : {}),
     ...(text.align ? { textAlign: text.align } : {}),

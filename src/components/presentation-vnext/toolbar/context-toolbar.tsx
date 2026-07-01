@@ -80,7 +80,6 @@ import {
 const TOOLBAR_GAP = 12;
 const EDGE_INSET = 8;
 const INLINE_ONLY_TEXT_COMMANDS = new Set<InlineTextCommandName>([
-  "strikethrough",
   "bullet-list",
   "numbered-list",
   "indent-list",
@@ -711,7 +710,9 @@ export function ContextToolbar({
   const opacity = styleSeed.opacity;
   const rotation = selectedNode?.layout?.rotation ?? 0;
 
-  function runTextCommand(command: "bold" | "italic" | "underline") {
+  function runTextCommand(
+    command: "bold" | "italic" | "underline" | "strikethrough",
+  ) {
     dispatchInlineTextCommand({ command });
     if (isInlineEditing) return;
     if (command === "bold") {
@@ -720,9 +721,13 @@ export function ContextToolbar({
       });
     } else if (command === "italic") {
       onUpdateSelectedLocalStyle?.({ text: { italic: !textStyle?.italic } });
-    } else {
+    } else if (command === "underline") {
       onUpdateSelectedLocalStyle?.({
         text: { underline: !textStyle?.underline },
+      });
+    } else {
+      onUpdateSelectedLocalStyle?.({
+        text: { strikethrough: !textStyle?.strikethrough },
       });
     }
   }
@@ -895,15 +900,8 @@ export function ContextToolbar({
             </TBtn>
             <TBtn
               label="Strikethrough"
-              disabled={
-                !isContextToolbarInlineTextCommandEnabled(
-                  "strikethrough",
-                  isInlineEditing,
-                )
-              }
-              onClick={() =>
-                dispatchInlineTextCommand({ command: "strikethrough" })
-              }
+              active={!isInlineEditing && textStyle?.strikethrough === true}
+              onClick={() => runTextCommand("strikethrough")}
             >
               <Strikethrough size={13} aria-hidden />
             </TBtn>

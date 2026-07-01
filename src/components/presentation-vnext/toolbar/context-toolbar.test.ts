@@ -236,6 +236,25 @@ describe("inline align persistence wiring", () => {
   });
 });
 
+describe("strikethrough toolbar persistence wiring", () => {
+  test("routes strikethrough through runTextCommand and local style updates", () => {
+    assert.equal(
+      source.includes(
+        'command: "bold" | "italic" | "underline" | "strikethrough"',
+      ),
+      true,
+    );
+    assert.equal(
+      source.includes("text: { strikethrough: !textStyle?.strikethrough }"),
+      true,
+    );
+    assert.equal(
+      source.includes('onClick={() => runTextCommand("strikethrough")}'),
+      true,
+    );
+  });
+});
+
 describe("context toolbar more-menu accessibility wiring", () => {
   test("exposes the More trigger as a menu button", () => {
     assert.equal(source.includes('hasPopup="menu"'), true);
@@ -274,10 +293,6 @@ describe("slide delete affordance wiring", () => {
 describe("isContextToolbarInlineTextCommandEnabled", () => {
   test("disables inline-only commands outside inline edit mode", () => {
     assert.equal(
-      isContextToolbarInlineTextCommandEnabled("strikethrough", false),
-      false,
-    );
-    assert.equal(
       isContextToolbarInlineTextCommandEnabled("bullet-list", false),
       false,
     );
@@ -304,10 +319,6 @@ describe("isContextToolbarInlineTextCommandEnabled", () => {
   });
 
   test("keeps text commands enabled in inline edit mode", () => {
-    assert.equal(
-      isContextToolbarInlineTextCommandEnabled("strikethrough", true),
-      true,
-    );
     assert.equal(
       isContextToolbarInlineTextCommandEnabled("bullet-list", true),
       true,
@@ -339,6 +350,10 @@ describe("isContextToolbarInlineTextCommandEnabled", () => {
     );
     assert.equal(
       isContextToolbarInlineTextCommandEnabled("underline", false),
+      true,
+    );
+    assert.equal(
+      isContextToolbarInlineTextCommandEnabled("strikethrough", false),
       true,
     );
     assert.equal(

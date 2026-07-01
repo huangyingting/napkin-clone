@@ -695,6 +695,7 @@ describe("buildVnextPptxSpec — direct operation conversion", () => {
                   weight: 700,
                   italic: true,
                   underline: true,
+                  strikethrough: true,
                   align: "center",
                   verticalAlign: "bottom",
                 },
@@ -807,6 +808,7 @@ describe("buildVnextPptxSpec — direct operation conversion", () => {
     assert.equal(textOp.textStyle.bold, true);
     assert.equal(textOp.textStyle.italic, true);
     assert.equal(textOp.textStyle.underline, true);
+    assert.equal(textOp.textStyle.strikethrough, true);
     assert.equal(textOp.textStyle.align, "center");
     assert.equal(textOp.textStyle.valign, "bottom");
     assert.ok(Object.hasOwn(textOp.textStyle, "color"));

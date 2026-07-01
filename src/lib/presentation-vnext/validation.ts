@@ -19,8 +19,7 @@ import { SEMANTIC_TEMPLATE_KINDS } from "./template-registry";
 // ---------------------------------------------------------------------------
 
 export type DeckV7ParseResult =
-  | { success: true; data: DeckV7 }
-  | { success: false; errors: string[] };
+  { success: true; data: DeckV7 } | { success: false; errors: string[] };
 
 /** Validates and parses an unknown value as a v7 deck. Does not mutate input. */
 export function safeParseDeckV7(input: unknown): DeckV7ParseResult {
@@ -498,6 +497,7 @@ function validateTextStylePatch(
     "weight",
     "italic",
     "underline",
+    "strikethrough",
     "color",
     "lineHeight",
     "paragraphSpacingPt",
@@ -517,6 +517,12 @@ function validateTextStylePatch(
   }
   if (input.underline !== undefined && typeof input.underline !== "boolean") {
     fail(errors, `${ctx}.underline must be a boolean`);
+  }
+  if (
+    input.strikethrough !== undefined &&
+    typeof input.strikethrough !== "boolean"
+  ) {
+    fail(errors, `${ctx}.strikethrough must be a boolean`);
   }
   if (input.color !== undefined) {
     validateColorValue(input.color, `${ctx}.color`, errors);

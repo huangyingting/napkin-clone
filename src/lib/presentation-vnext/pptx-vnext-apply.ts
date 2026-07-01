@@ -190,6 +190,7 @@ export function applyVnextTextOp(slide: PptxSlide, op: VnextPptxTextOp): void {
     ...(textStyle.bold ? { bold: true } : {}),
     ...(textStyle.italic ? { italic: true } : {}),
     ...(textStyle.underline ? { underline: { style: "sng" } } : {}),
+    ...(textStyle.strikethrough ? { strike: true } : {}),
     ...(textStyle.align ? { align: textStyle.align } : {}),
     ...(textStyle.valign ? { valign: textStyle.valign } : {}),
     ...(rotation !== undefined ? { rotate: rotation } : {}),
