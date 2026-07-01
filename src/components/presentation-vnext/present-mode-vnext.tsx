@@ -45,6 +45,7 @@ import {
   useSwipeNavigation,
   type PresentationShortcutAction,
 } from "@/components/presentation/runtime/navigation";
+import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SlideCanvasVNext } from "./slide-canvas";
@@ -102,9 +103,7 @@ export function PresentModeVNext({
   const currentSlideTree = renderTree?.slides[currentIndex];
   const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
-    return (
-      deck.assets.images[assetId]?.src ?? deck.assets.files?.[assetId]?.src
-    );
+    return resolveDeckAssetSource(deck, assetId);
   }
   const aspectRatio =
     canvas && canvas.width > 0 && canvas.height > 0

@@ -164,6 +164,7 @@ import { createDefaultTemplateRegistry } from "@/lib/presentation-vnext/theme-pa
 import { listThemePackagesV7 } from "@/lib/presentation-vnext/theme-package-registry";
 import { buildExportSpec } from "@/lib/presentation-vnext/export-spec";
 import { resolveNodeFontCss } from "@/lib/presentation-vnext/node-font-css";
+import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import {
   alignmentGuidesForFrames,
   snapFrameToStageGuides,
@@ -2176,15 +2177,7 @@ export function SlideEditorVNext({
   }, [selectedIds, selectedNode?.type]);
 
   function resolveDeckAsset(assetId: string): string | undefined {
-    const visualAssetId = deck.assets.visuals?.[assetId]?.id;
-    return (
-      deck.assets.images[assetId]?.src ??
-      deck.assets.files?.[assetId]?.src ??
-      (visualAssetId
-        ? (deck.assets.images[visualAssetId]?.src ??
-          deck.assets.files?.[visualAssetId]?.src)
-        : undefined)
-    );
+    return resolveDeckAssetSource(deck, assetId);
   }
 
   function handleNodePointerDown(nodeId: string, event: ReactPointerEvent) {
