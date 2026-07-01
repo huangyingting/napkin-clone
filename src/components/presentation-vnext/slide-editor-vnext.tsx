@@ -120,6 +120,8 @@ import {
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import {
+  emptySlideSpecFromLayout,
+  slideSpecFromSlide,
   updateSlideControls,
   updateSlideAttributes,
   updateSlideLocalStyle,
@@ -152,10 +154,6 @@ import {
   ungroupNodes,
   reorderZIndex,
   applyTemplate,
-} from "@/lib/presentation-vnext/editor-commands";
-import {
-  emptySlideSpecFromLayout,
-  slideSpecFromSlide,
 } from "@/lib/presentation-vnext";
 
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
