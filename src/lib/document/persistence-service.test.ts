@@ -37,6 +37,7 @@ import type {
   SlideCommand,
 } from "@/lib/presentation/slide-commands";
 import type { CommandEnvelope } from "@/lib/commands/command-envelope";
+import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 import { snapshotDocumentVersion } from "./persistence/helpers";
 
 // ---------------------------------------------------------------------------
@@ -1141,6 +1142,77 @@ describe("document snapshot and restore operations", () => {
     );
 
     assert.equal(result.documentId, "doc-restore");
+  });
+
+  test("restoreVersion rotates deck tokens so pre-restore CAS writes conflict", async (t) => {
+    const preRestoreToken = "pre-restore-token";
+    let currentRevisionToken = preRestoreToken;
+
+    stubPrismaMethod(
+      t,
+      prisma.documentVersion,
+      "findUniqueOrThrow",
+      async () => ({
+        documentId: "doc-restore",
+        contentJson: lexicalStateWithVisual("vis-keep"),
+        deckJson: VALID_DECK,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    );
+    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
+    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
+    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
+    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
+    stubPrismaMethod(t, prisma.document, "findUnique", async (args: any) => {
+      if (args.select?.contentJson) {
+        return { contentJson: EMPTY_LEXICAL_STATE, deckJson: VALID_DECK };
+      }
+      if (args.select?.deckJson) {
+        return { deckJson: null };
+      }
+      return { shareId: null, slug: null, isShared: false };
+    });
+    const tx = {
+      ...makeStubTx(),
+      document: {
+        updateMany: async (args: any) => {
+          currentRevisionToken = args.data.deckRevisionToken;
+          return { count: 1 };
+        },
+      },
+    } as unknown as Prisma.TransactionClient;
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => fn(tx));
+
+    await restoreVersion("doc-restore", "version-restore", "user-editor");
+
+    assert.notEqual(currentRevisionToken, preRestoreToken);
+
+    const casDb = {
+      document: {
+        updateMany: async (args: any) => {
+          const whereToken = args.where.deckRevisionToken;
+          if (whereToken !== currentRevisionToken) {
+            return { count: 0 };
+          }
+          currentRevisionToken = args.data.deckRevisionToken;
+          return { count: 1 };
+        },
+        findUnique: async () => ({ deckRevisionToken: currentRevisionToken }),
+      },
+    } satisfies DeckCasDb;
+
+    const staleWriteResult = await writeDeckWithCas({
+      documentId: "doc-restore",
+      deckJson: VALID_DECK_V7,
+      clientToken: preRestoreToken,
+      telemetryArea: "test",
+      db: casDb,
+    });
+
+    assert.deepEqual(staleWriteResult, {
+      ok: "conflict",
+      serverRevisionToken: currentRevisionToken,
+    });
   });
 });
 
