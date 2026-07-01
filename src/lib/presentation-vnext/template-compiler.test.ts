@@ -645,10 +645,10 @@ describe("repairAiDeckPlan", () => {
           slots: {
             body: {
               type: "paragraph",
-              paragraphs: Array.from({ length: 6 }, (_, i) => ({
-                id: `p${i}`,
-                text: `Paragraph ${i}`,
-              })),
+              paragraphs: Array.from(
+                { length: 6 },
+                (_, i) => `Paragraph ${i + 1}`,
+              ),
             },
           },
         },
@@ -658,6 +658,101 @@ describe("repairAiDeckPlan", () => {
     const body = repaired.slides[0].slots.body;
     assert.ok(body?.type === "paragraph" && body.paragraphs.length <= 3);
     assert.ok(diagnostics.some((d) => d.code === "slot-over-capacity"));
+  });
+
+  test("drops malformed slot payload shapes and reports diagnostics", () => {
+    const registry = createDefaultTemplateRegistry();
+    const plan = {
+      planVersion: 1,
+      slides: [
+        {
+          kind: "content",
+          slots: {
+            title: { type: "shortText", text: "Valid title" },
+            badShortText: { type: "shortText", text: 123 },
+            badParagraph: { type: "paragraph", paragraphs: "not-an-array" },
+            badBullets: { type: "bullets", items: [{ text: 99 }] },
+            badMetrics: { type: "metrics", items: [{ value: 1, label: "L" }] },
+            badCards: { type: "cards", items: [{ title: 1 }] },
+            badSteps: { type: "steps", items: [{ title: 2 }] },
+            badTable: {
+              type: "table",
+              columns: ["A", 2],
+              rows: [["ok"], ["bad", 3]],
+            },
+            badTimeline: {
+              type: "timeline",
+              items: [{ label: 2026, title: "Milestone" }],
+            },
+            badImage: { type: "image", assetId: 7, prompt: ["bad"] },
+            badVisual: { type: "visual", visualId: 11 },
+          },
+        },
+      ],
+    };
+
+    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    const slots = repaired.slides[0].slots as Record<string, unknown>;
+    const malformedSlotKeys = [
+      "badShortText",
+      "badParagraph",
+      "badBullets",
+      "badMetrics",
+      "badCards",
+      "badSteps",
+      "badTable",
+      "badTimeline",
+      "badImage",
+      "badVisual",
+    ];
+
+    for (const key of malformedSlotKeys) {
+      assert.ok(
+        !(key in slots),
+        `Expected malformed slot "${key}" to be dropped from repaired output`,
+      );
+      assert.ok(
+        diagnostics.some(
+          (d) =>
+            d.code === "unknown-field" &&
+            d.path?.startsWith(`slides[0].slots.${key}`),
+        ),
+        `Expected unknown-field diagnostic for malformed slot "${key}"`,
+      );
+    }
+  });
+
+  test("drops known slots with type mismatch and surfaces missing required slot", () => {
+    const registry = createDefaultTemplateRegistry();
+    const plan = {
+      planVersion: 1,
+      slides: [
+        {
+          kind: "cover",
+          slots: {
+            title: {
+              type: "table",
+              columns: ["A"],
+              rows: [["B"]],
+            },
+          },
+        },
+      ],
+    };
+
+    const { plan: repaired, diagnostics } = repairAiDeckPlan(plan, registry);
+    assert.equal(repaired.slides[0].slots.title, undefined);
+    assert.ok(
+      diagnostics.some(
+        (d) =>
+          d.code === "unknown-field" && d.path === "slides[0].slots.title.type",
+      ),
+      "Expected unknown-field diagnostic for title slot type mismatch",
+    );
+    assert.ok(
+      diagnostics.some((d) => d.code === "missing-required-slot"),
+      "Expected missing-required-slot diagnostic after dropping malformed title",
+    );
   });
 
   test("truncates over-capacity table columns", () => {
