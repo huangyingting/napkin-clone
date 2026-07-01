@@ -135,6 +135,72 @@ test("resolvePublicRenderWithSource applies embed mode policy centrally", async 
   assert.equal(result.decision.concealResource, true);
 });
 
+test("resolvePublicRenderWithSource enforces independent present/embed policy for presentation projection", async () => {
+  const embedDenied = await resolvePublicRenderWithSource(
+    source(
+      document({
+        shareEmbedEnabled: false,
+        sharePresentEnabled: true,
+      }),
+    ),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "embed",
+      projection: "presentation",
+      now: NOW,
+    },
+  );
+  assert.equal(embedDenied.ok, false);
+  assert.equal(embedDenied.decision.allow, false);
+  if (embedDenied.decision.allow) {
+    throw new Error("Expected a denied access decision.");
+  }
+  assert.equal(embedDenied.decision.status, 404);
+  assert.equal(embedDenied.decision.concealResource, true);
+
+  const embedAllowed = await resolvePublicRenderWithSource(
+    source(
+      document({
+        shareEmbedEnabled: true,
+        sharePresentEnabled: false,
+      }),
+    ),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "embed",
+      projection: "presentation",
+      now: NOW,
+    },
+  );
+  assert.equal(embedAllowed.ok, true);
+  if (!embedAllowed.ok || embedAllowed.projection !== "presentation") {
+    throw new Error("Expected presentation projection.");
+  }
+  assert.equal(embedAllowed.mode, "embed");
+
+  const presentDenied = await resolvePublicRenderWithSource(
+    source(
+      document({
+        shareEmbedEnabled: true,
+        sharePresentEnabled: false,
+      }),
+    ),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "present",
+      projection: "presentation",
+      now: NOW,
+    },
+  );
+  assert.equal(presentDenied.ok, false);
+  assert.equal(presentDenied.decision.allow, false);
+  if (presentDenied.decision.allow) {
+    throw new Error("Expected a denied access decision.");
+  }
+  assert.equal(presentDenied.decision.status, 404);
+  assert.equal(presentDenied.decision.concealResource, true);
+});
+
 test("resolvePublicRenderWithSource returns a concealed miss for absent shares", async () => {
   const result = await resolvePublicRenderWithSource(source(null), {
     params: { shareId: "missing-share" },
