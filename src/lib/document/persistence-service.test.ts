@@ -1150,18 +1150,23 @@ describe("document snapshot and restore operations", () => {
 
 describe("visual persistence exported flows", () => {
   test("atomicSaveDocumentLexical snapshots, writes content, mirrors visuals, and logs outcome", async (t) => {
-    stubPrismaMethod(t, prisma.documentVersion, "findFirst", async () => null);
-    stubPrismaMethod(t, prisma.document, "findUnique", async () => ({
-      contentJson: EMPTY_LEXICAL_STATE,
-      deckJson: null,
-    }));
-    stubPrismaMethod(t, prisma.documentVersion, "create", async () => ({}));
-    stubPrismaMethod(t, prisma.documentVersion, "findMany", async () => []);
-    stubPrismaMethod(t, prisma.documentVersion, "deleteMany", async () => ({}));
-
+    const txBase = makeStubTx();
     const tx = {
-      ...makeStubTx(),
+      ...txBase,
+      documentVersion: {
+        findFirst: async () => null,
+        create: async () => {
+          txBase._calls.push("documentVersion.create");
+          return {};
+        },
+        findMany: async () => [],
+        deleteMany: async () => ({}),
+      },
       document: {
+        findUnique: async () => ({
+          contentJson: EMPTY_LEXICAL_STATE,
+          deckJson: null,
+        }),
         updateMany: async () => ({ count: 1 }),
       },
     } as unknown as Prisma.TransactionClient & {
@@ -1176,7 +1181,71 @@ describe("visual persistence exported flows", () => {
     );
 
     assert.equal(outcome.created, 0);
+    assert.ok(tx._calls.includes("documentVersion.create"));
     assert.ok(tx._calls.includes("visual.findMany"));
+  });
+
+  test("atomicSaveDocumentLexical rolls back snapshot version writes when mirror rebuild fails", async (t) => {
+    const attempts = { created: 0, deleted: 0 };
+    const committed = { created: 0, deleted: 0 };
+
+    stubPrismaMethod(t, prisma, "$transaction", async (fn: any) => {
+      const pending = { created: 0, deleted: 0 };
+      const txBase = makeStubTx();
+      const tx = {
+        ...txBase,
+        visual: {
+          ...(txBase as any).visual,
+          findMany: async () => {
+            txBase._calls.push("visual.findMany");
+            throw new Error("mirror rebuild failed");
+          },
+        },
+        documentVersion: {
+          findFirst: async () => null,
+          create: async () => {
+            attempts.created += 1;
+            pending.created += 1;
+            return {};
+          },
+          findMany: async () =>
+            Array.from({ length: 55 }, (_, index) => ({
+              id: `version-${index}`,
+            })),
+          deleteMany: async () => {
+            attempts.deleted += 1;
+            pending.deleted += 1;
+            return {};
+          },
+        },
+        document: {
+          findUnique: async () => ({
+            contentJson: EMPTY_LEXICAL_STATE,
+            deckJson: null,
+          }),
+          updateMany: async () => ({ count: 1 }),
+        },
+      } as unknown as Prisma.TransactionClient;
+
+      try {
+        const result = await fn(tx);
+        committed.created += pending.created;
+        committed.deleted += pending.deleted;
+        return result;
+      } catch (error) {
+        throw error;
+      }
+    });
+
+    await assert.rejects(
+      () => atomicSaveDocumentLexical("doc-atomic-fail", EMPTY_LEXICAL_STATE),
+      /mirror rebuild failed/,
+    );
+
+    assert.equal(attempts.created, 1);
+    assert.equal(attempts.deleted, 1);
+    assert.equal(committed.created, 0);
+    assert.equal(committed.deleted, 0);
   });
 
   test("rebuildMirror wraps mirror rebuilds in a transaction", async (t) => {
