@@ -579,6 +579,94 @@ test.describe("deterministic profile document editor smoke", () => {
     await expect(editor).toHaveCount(0);
   });
 
+  test("slide rail duplicate, delete, and reorder actions mutate deck state and persist after reload", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openProfileDocument(page);
+    const editor = await openProfileSlideEditor(page);
+    const filmstrip = editor.getByRole("list", { name: "Slides" });
+    const slideButtons = filmstrip.getByRole("button", {
+      name: /^Go to slide \d+$/,
+    });
+    const goToSlide = (index: number) =>
+      filmstrip.getByRole("button", { name: `Go to slide ${index}` });
+    const duplicateSlide = (index: number) =>
+      filmstrip.getByRole("button", { name: `Duplicate slide ${index}` });
+    const deleteSlide = (index: number) =>
+      filmstrip.getByRole("button", { name: `Delete slide ${index}` });
+    const titleNode = (title: string) =>
+      editor
+        .getByRole("button", {
+          name: new RegExp(`Text:\\s*${escapeRegExp(title)}`, "i"),
+        })
+        .first();
+
+    await expect(slideButtons).toHaveCount(2);
+    await activate(goToSlide(1));
+    await expect(titleNode(E2E_PROFILE_FIXTURE.slideTitleText)).toBeVisible();
+
+    await filmstrip.locator('[data-slide-index="0"]').hover();
+    await duplicateSlide(1).click();
+    await expect(slideButtons).toHaveCount(3);
+    await expect(goToSlide(2)).toHaveAttribute("aria-current", "true");
+    await activate(goToSlide(3));
+    await expect(
+      titleNode(E2E_PROFILE_FIXTURE.slideTwoTitleText),
+    ).toBeVisible();
+    await activate(goToSlide(2));
+    await expect(titleNode(E2E_PROFILE_FIXTURE.slideTitleText)).toBeVisible();
+
+    await filmstrip.locator('[data-slide-index="1"]').hover();
+    await deleteSlide(2).click();
+    await expect(slideButtons).toHaveCount(2);
+    await expect(goToSlide(3)).toHaveCount(0);
+    await expect(
+      titleNode(E2E_PROFILE_FIXTURE.slideTwoTitleText),
+    ).toBeVisible();
+
+    await activate(goToSlide(1));
+    await expect(titleNode(E2E_PROFILE_FIXTURE.slideTitleText)).toBeVisible();
+    await goToSlide(1).focus();
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect(goToSlide(2)).toHaveAttribute("aria-current", "true");
+    await expect(titleNode(E2E_PROFILE_FIXTURE.slideTitleText)).toBeVisible();
+
+    await activate(goToSlide(1));
+    await expect(
+      titleNode(E2E_PROFILE_FIXTURE.slideTwoTitleText),
+    ).toBeVisible();
+    await activate(goToSlide(2));
+    await expect(titleNode(E2E_PROFILE_FIXTURE.slideTitleText)).toBeVisible();
+
+    await activate(editor.getByRole("button", { name: /save slide deck/i }));
+    await waitForSlideAutosave(page);
+    await page.reload();
+    const reopenedEditor = await openProfileSlideEditor(page);
+    const reopenedFilmstrip = reopenedEditor.getByRole("list", {
+      name: "Slides",
+    });
+    const reopenedGoToSlide = (index: number) =>
+      reopenedFilmstrip.getByRole("button", { name: `Go to slide ${index}` });
+    const reopenedTitleNode = (title: string) =>
+      reopenedEditor
+        .getByRole("button", {
+          name: new RegExp(`Text:\\s*${escapeRegExp(title)}`, "i"),
+        })
+        .first();
+    await expect(
+      reopenedFilmstrip.getByRole("button", { name: /^Go to slide \d+$/ }),
+    ).toHaveCount(2);
+    await activate(reopenedGoToSlide(1));
+    await expect(
+      reopenedTitleNode(E2E_PROFILE_FIXTURE.slideTwoTitleText),
+    ).toBeVisible();
+    await activate(reopenedGoToSlide(2));
+    await expect(
+      reopenedTitleNode(E2E_PROFILE_FIXTURE.slideTitleText),
+    ).toBeVisible();
+  });
+
   test("slide editor undo and redo keep deck state, autosave status, and focus coherent", async ({
     page,
   }) => {
