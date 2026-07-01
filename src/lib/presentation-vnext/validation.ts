@@ -1161,6 +1161,8 @@ function validateSlideNode(
     validateSourceMetadata(input.source, `${ctx}.source`, errors);
   }
 
+  validateOptionalString(input.notes, `${ctx}.notes`, errors);
+
   if (!Array.isArray(input.children)) {
     fail(errors, `${ctx}.children must be an array`);
   } else {

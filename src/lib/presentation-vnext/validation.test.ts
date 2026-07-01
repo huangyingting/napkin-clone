@@ -186,6 +186,37 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("rejects non-string slide notes", () => {
+    resetBuilderCounter();
+    const invalidNotesValues: unknown[] = [
+      { text: "note" },
+      ["note"],
+      123,
+      true,
+    ];
+
+    for (const notes of invalidNotesValues) {
+      const slide = { ...buildCoverSlide(), notes } as unknown as SlideNode;
+      const deck = buildDeckV7([slide]);
+      const result = safeParseDeckV7(deck);
+      assert.ok(!result.success);
+      if (!result.success) {
+        assert.ok(result.errors.some((e) => /slides\[0\]\.notes/.test(e)));
+      }
+    }
+  });
+
+  test("accepts string slide notes", () => {
+    resetBuilderCounter();
+    const slide = { ...buildCoverSlide(), notes: "Presenter reminder" };
+    const deck = buildDeckV7([slide]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
   test("rejects invalid canvas format", () => {
     const deck = {
       ...buildMinimalDeckV7(),
