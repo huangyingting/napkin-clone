@@ -179,6 +179,10 @@ import {
   selectNodesInFrame,
   type SelectionFrame,
 } from "@/lib/presentation-vnext/selection-geometry";
+import {
+  connectorAnchorPoint,
+  connectorEndpointFromSlidePoint,
+} from "@/lib/presentation-vnext/connector-geometry";
 
 import {
   SlideCanvasVNext,
@@ -736,56 +740,6 @@ function pointPctFromEvent(
   };
 }
 
-function connectorEndpointFromSlidePoint(
-  point: { x: number; y: number },
-  connectorFrame: LayoutBox["frame"],
-): ConnectorEndpoint {
-  return {
-    kind: "point",
-    point: {
-      x:
-        connectorFrame.w <= 0
-          ? 0
-          : Math.max(
-              0,
-              Math.min(
-                100,
-                ((point.x - connectorFrame.x) / connectorFrame.w) * 100,
-              ),
-            ),
-      y:
-        connectorFrame.h <= 0
-          ? 0
-          : Math.max(
-              0,
-              Math.min(
-                100,
-                ((point.y - connectorFrame.y) / connectorFrame.h) * 100,
-              ),
-            ),
-    },
-  };
-}
-
-function nodeAnchorPoint(
-  frame: LayoutBox["frame"],
-  anchor: ConnectorAnchor,
-): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: frame.x + frame.w / 2, y: frame.y };
-    case "right":
-      return { x: frame.x + frame.w, y: frame.y + frame.h / 2 };
-    case "bottom":
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h };
-    case "left":
-      return { x: frame.x, y: frame.y + frame.h / 2 };
-    case "center":
-    default:
-      return { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
-  }
-}
-
 function nearestConnectorAnchor(
   nodes: readonly SlideChildNode[],
   point: { x: number; y: number },
@@ -805,7 +759,7 @@ function nearestConnectorAnchor(
       continue;
     }
     for (const anchor of anchors) {
-      const anchorPoint = nodeAnchorPoint(node.layout.frame, anchor);
+      const anchorPoint = connectorAnchorPoint(node.layout.frame, anchor);
       const distance = Math.hypot(
         anchorPoint.x - point.x,
         anchorPoint.y - point.y,
