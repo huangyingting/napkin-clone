@@ -24,4 +24,5 @@ Before handoff, run the smallest reliable checks for touched files.
 - Typecheck next with the smallest reliable scope; use `npm run typecheck` for shared types, routes, generated Next types, or broad contracts.
 - Run nearest focused tests last; prefer `npm run test:subsystem -- <subsystem>` and add `--with-e2e` only when mapped E2E coverage matters.
 - Broaden checks only for shared behavior or cross-module contracts.
+- Before any requested code commit, run `npm run format:check` after targeted formatting and fix every reported file.
 - Before any requested code commit, re-stage formatter changes and commit only code that passed lint.

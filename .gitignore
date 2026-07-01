@@ -76,7 +76,7 @@ progress.txt
 .squad/.cache/
 
 # Repo-local test scratch files
-.tmp/test-fixtures/
+.tmp/
 
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
