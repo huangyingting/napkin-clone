@@ -942,8 +942,6 @@ export interface SlideNodeRendererProps {
   tabIndex?: number;
   /** Called when the node receives keyboard focus. */
   onFocus?: (nodeId: string, event: React.FocusEvent) => void;
-  /** Called when pointer hover enters/leaves this node. */
-  onHoverChange?: (nodeId: string, hovering: boolean) => void;
   /** Enables direct table cell editing for selected table nodes. */
   tableEditing?: boolean;
   activeTableCell?: { rowIndex: number; colIndex: number } | null;
@@ -996,7 +994,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   interactive = false,
   tabIndex,
   onFocus,
-  onHoverChange,
   tableEditing = false,
   activeTableCell,
   onTableCellFocus,
@@ -1044,14 +1041,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
     onFocus?.(node.id, e);
   }
 
-  function handlePointerEnter() {
-    onHoverChange?.(node.id, true);
-  }
-
-  function handlePointerLeave() {
-    onHoverChange?.(node.id, false);
-  }
-
   const inner = renderContent(node.id, content, style, assetResolver, preview, {
     tableEditing,
     activeTableCell,
@@ -1086,8 +1075,6 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
       onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
       onPointerDown={onPointerDown ? handlePointerDown : undefined}
       onFocus={interactive ? handleFocus : undefined}
-      onPointerEnter={interactive ? handlePointerEnter : undefined}
-      onPointerLeave={interactive ? handlePointerLeave : undefined}
       aria-hidden={
         node.source === "themeDecoration" || node.source === "deckChrome"
           ? true

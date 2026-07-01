@@ -136,8 +136,6 @@ export interface SlideCanvasVNextProps {
   onNodePointerDown?: (nodeId: string, event: React.PointerEvent) => void;
   /** Called when a node receives keyboard focus. */
   onNodeFocus?: (nodeId: string, event: React.FocusEvent) => void;
-  /** Called when pointer hover enters/leaves a node. */
-  onNodeHoverChange?: (nodeId: string, hovering: boolean) => void;
   /** Called when the user starts resizing a selected node. */
   onResizeHandlePointerDown?: (
     nodeId: string,
@@ -232,7 +230,6 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   onNodeDoubleClick,
   onNodePointerDown,
   onNodeFocus,
-  onNodeHoverChange,
   onResizeHandlePointerDown,
   onCropHandlePointerDown,
   onRotationHandlePointerDown,
@@ -400,7 +397,6 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                 onDoubleClick={handleNodeDoubleClick}
                 onPointerDown={preview ? undefined : onNodePointerDown}
                 onFocus={preview ? undefined : onNodeFocus}
-                onHoverChange={preview ? undefined : onNodeHoverChange}
                 tableEditing={tableEditingNodeId === node.id}
                 activeTableCell={
                   tableEditingNodeId === node.id ? activeTableCell : null

@@ -2281,7 +2281,7 @@ export function SlideEditorVNext({
   function handleNodeDoubleClick(nodeId: string, event: MouseEvent) {
     if (!activeSlide) return;
     const target = semanticTargetFromEvent(nodeId, event, {
-      selectedNodeBonus: true,
+      selectedNodeBonus: false,
     });
     if (!target) return;
     const targetNodeId = target.nodeId;
@@ -2469,27 +2469,6 @@ export function SlideEditorVNext({
     semanticCandidateStackRef.current = [];
     setHoveredNodeId((current) => (current === null ? current : null));
     setSlideHovered((current) => (current === false ? current : false));
-  }
-
-  function handleNodeHoverChange(nodeId: string, hovering: boolean) {
-    if (
-      !activeSlide ||
-      inlineEditNodeId ||
-      tableEditingNodeId ||
-      marqueeFrame ||
-      draggingStage ||
-      activeResizeHandle ||
-      activeCropHandle ||
-      activeRotationNodeId ||
-      activeConnectorEndpoint
-    ) {
-      return;
-    }
-    setHoveredNodeId((current) => {
-      if (hovering) setSlideHovered(false);
-      if (hovering) return current === nodeId ? current : nodeId;
-      return current === nodeId ? null : current;
-    });
   }
 
   function handleCropHandlePointerDown(
@@ -5359,7 +5338,6 @@ export function SlideEditorVNext({
                     onNodeDoubleClick={handleNodeDoubleClick}
                     onNodePointerDown={handleNodePointerDown}
                     onNodeFocus={handleNodeFocus}
-                    onNodeHoverChange={handleNodeHoverChange}
                     onResizeHandlePointerDown={handleResizeHandlePointerDown}
                     onCropHandlePointerDown={handleCropHandlePointerDown}
                     onRotationHandlePointerDown={

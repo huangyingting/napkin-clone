@@ -349,8 +349,6 @@ test("table editing and canvas chrome invoke remaining safe handlers", () => {
     onNodePointerDown: (nodeId: string) => calls.push(`pointer:${nodeId}`),
     onNodeDoubleClick: (nodeId: string) => calls.push(`double:${nodeId}`),
     onNodeFocus: (nodeId: string) => calls.push(`node-focus:${nodeId}`),
-    onNodeHoverChange: (nodeId: string, hovering: boolean) =>
-      calls.push(`hover:${nodeId}:${hovering}`),
     onResizeHandlePointerDown: (nodeId: string, handle: string) =>
       calls.push(`resize:${nodeId}:${handle}`),
     onRotationHandlePointerDown: (nodeId: string) =>
@@ -373,8 +371,6 @@ test("table editing and canvas chrome invoke remaining safe handlers", () => {
   (nodeProps.onPointerDown as (event: unknown) => void)({});
   (nodeProps.onDoubleClick as (event: unknown) => void)({});
   (nodeProps.onFocus as (event: unknown) => void)({});
-  (nodeProps.onPointerEnter as () => void)();
-  (nodeProps.onPointerLeave as () => void)();
   const resizeHandle = canvasElements.find(
     (props) => props["data-resize-handle"] === "se",
   );

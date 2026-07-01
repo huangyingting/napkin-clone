@@ -1550,6 +1550,81 @@ describe("SlideEditorVNext failure-state coverage", () => {
     );
   });
 
+  test("double-clicking a preselected overlapping text edits it instead of the selected text", () => {
+    const hookRenderer = createHookRenderer();
+    const currentDeck = buildDeckV7([
+      buildSlideV7(
+        "content",
+        [
+          buildTextNode({
+            id: "selected-under-edit",
+            layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 1 },
+          }),
+          buildTextNode({
+            id: "preselected-over-edit",
+            layout: { frame: { x: 20, y: 20, w: 30, h: 12 }, zIndex: 2 },
+          }),
+        ],
+        { id: "slide-overlap-double-click", name: "Slide 1" },
+      ),
+    ]);
+
+    const renderTree = () =>
+      hookRenderer.run(() =>
+        SlideEditorVNext({
+          documentId: "doc-overlap-double-click",
+          deck: currentDeck,
+          onDeckChange: () => undefined,
+        }),
+      );
+
+    let tree = renderTree();
+    focusNode(tree, "selected-under-edit");
+
+    tree = renderTree();
+    const stageCanvas = findRequiredElement(
+      tree,
+      (element) => element.type === SlideCanvasVNext,
+      "Expected stage canvas.",
+    );
+    const onNodeDoubleClick = (
+      stageCanvas.props as {
+        onNodeDoubleClick?: (nodeId: string, event: MouseEvent) => void;
+      }
+    ).onNodeDoubleClick;
+    assert.ok(onNodeDoubleClick);
+    const target = {
+      closest: (selector: string) =>
+        selector === '[data-slide-canvas-vnext="true"]'
+          ? {
+              getBoundingClientRect: () => ({
+                left: 0,
+                top: 0,
+                width: 1000,
+                height: 1000,
+              }),
+            }
+          : null,
+    };
+    onNodeDoubleClick("preselected-over-edit", {
+      clientX: 250,
+      clientY: 250,
+      target,
+    } as unknown as MouseEvent);
+
+    tree = renderTree();
+    const updatedStageCanvas = findRequiredElement(
+      tree,
+      (element) => element.type === SlideCanvasVNext,
+      "Expected updated stage canvas.",
+    );
+    const hiddenNodeIds = (
+      updatedStageCanvas.props as { hiddenNodeIds?: ReadonlySet<string> }
+    ).hiddenNodeIds;
+    assert.equal(hiddenNodeIds?.has("selected-under-edit"), false);
+    assert.equal(hiddenNodeIds?.has("preselected-over-edit"), true);
+  });
+
   test("pressing another node exits the first node's inline edit", () => {
     withMockHTMLElement((createElement) =>
       withPointerWindow((listeners) => {

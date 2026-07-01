@@ -254,6 +254,11 @@ preselected is also the object a normal drag starts from. Hover only updates
 `preselectedElementId`; pointer-down stores a press-pending target; movement past
 the threshold promotes that target into the active manipulation state.
 
+Preselection must be computed from the stage-level semantic pointermove path.
+Node-level DOM `pointerenter`/`pointerleave` handlers must not write preselection
+state directly, because DOM stacking and semantic ranking can disagree for
+overlapping objects.
+
 Selected-node stickiness is reserved for flows that explicitly operate on the
 current selection, such as context-menu targeting and select-under anchoring. It
 must not override ordinary pointer-down targeting, because that would make a

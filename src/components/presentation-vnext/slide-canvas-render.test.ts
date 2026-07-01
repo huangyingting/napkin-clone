@@ -115,7 +115,6 @@ function renderResolvedNodeMarkup(node: ResolvedRenderNode): string {
       onDoubleClick: () => undefined,
       onPointerDown: () => undefined,
       onFocus: () => undefined,
-      onHoverChange: () => undefined,
       assetResolver: (assetId) =>
         assetId === "missing"
           ? undefined
@@ -1600,7 +1599,6 @@ describe("SlideNodeRenderer resolved node content branches", () => {
             onDoubleClick: () => undefined,
             onPointerDown: () => undefined,
             onFocus: () => undefined,
-            onHoverChange: () => undefined,
             assetResolver: (assetId) =>
               assetId.startsWith("missing")
                 ? undefined
@@ -2076,7 +2074,6 @@ describe("SlideCanvasVNext E01 rendering coverage", () => {
         onNodeDoubleClick: () => undefined,
         onNodePointerDown: () => undefined,
         onNodeFocus: () => undefined,
-        onNodeHoverChange: () => undefined,
         onResizeHandlePointerDown: () => undefined,
         onCropHandlePointerDown: () => undefined,
         activeResizeHandle: { nodeId: "resize-me", handle: "se" },
