@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import JSZip from "jszip";
 
-import { parsePptx } from "./pptx";
+import { parsePptx } from "./pptx-parser";
 
 test("parsePptx extracts shape text, native table cells, and linked notes", async () => {
   const zip = new JSZip();
