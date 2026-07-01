@@ -25,6 +25,7 @@ const deterministicProfileSpecs = [
   "import-roundtrip.spec.ts",
   "present-export.spec.ts",
   "slide-asset-upload.spec.ts",
+  "slides-layout-screenshots.spec.ts",
 ];
 
 export default defineConfig({

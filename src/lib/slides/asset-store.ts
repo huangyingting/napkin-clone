@@ -42,6 +42,8 @@ export async function storeSlideAsset(opts: {
           byteSize: input.byteSize,
           checksum: input.checksum,
           storageKey: input.storageKey,
+          ...(meta.widthPx !== undefined ? { widthPx: meta.widthPx } : {}),
+          ...(meta.heightPx !== undefined ? { heightPx: meta.heightPx } : {}),
           ...(input.originalName ? { originalName: input.originalName } : {}),
         },
         select: { id: true },

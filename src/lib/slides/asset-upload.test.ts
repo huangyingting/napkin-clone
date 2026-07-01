@@ -247,28 +247,34 @@ describe("buildAssetMeta", () => {
     assert.equal(result.meta.originalName, "slide-bg.png");
   });
 
-  it("builds metadata for a GIF (no dimensions)", () => {
+  it("builds metadata for a GIF with dimensions", () => {
     const result = buildAssetMeta({
       type: "image/gif",
       name: "anim.gif",
       size: 512,
       checksum: "deadbeef",
+      widthPx: 320,
+      heightPx: 180,
     });
     assert.ok(result.ok);
     assert.equal(result.meta.mimeType, "image/gif");
-    assert.equal(result.meta.widthPx, undefined);
-    assert.equal(result.meta.heightPx, undefined);
+    assert.equal(result.meta.widthPx, 320);
+    assert.equal(result.meta.heightPx, 180);
   });
 
-  it("resolves MIME from extension via octet-stream", () => {
+  it("resolves MIME from extension via octet-stream and keeps dimensions", () => {
     const result = buildAssetMeta({
       type: "application/octet-stream",
       name: "image.webp",
       size: 1024,
       checksum: "ff00",
+      widthPx: 512,
+      heightPx: 512,
     });
     assert.ok(result.ok);
     assert.equal(result.meta.mimeType, "image/webp");
+    assert.equal(result.meta.widthPx, 512);
+    assert.equal(result.meta.heightPx, 512);
   });
 
   it("omits originalName when name is empty string", () => {

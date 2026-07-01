@@ -48,6 +48,11 @@ export function profileDocPath(): string {
   return `/app/documents/${E2E_PROFILE_FIXTURE.documentId}`;
 }
 
+/** App editor URL for the seeded v7 layout screenshot document. */
+export function profileLayoutDocPath(): string {
+  return `/app/documents/${E2E_PROFILE_FIXTURE.layoutDocumentId}`;
+}
+
 /** Public `<slug>-<shareId>` URL segment for the seeded share links. */
 export function profileShareSegment(): string {
   return `${E2E_PROFILE_FIXTURE.slug}-${E2E_PROFILE_FIXTURE.shareId}`;

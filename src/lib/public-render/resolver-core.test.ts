@@ -8,6 +8,12 @@ import {
   type PublicRenderSource,
 } from "./resolver-core";
 import {
+  buildCoverSlide,
+  buildDeckV7,
+  buildImageAsset,
+  resetBuilderCounter,
+} from "@/test/builders/deck-v7";
+import {
   PUBLIC_RENDER_ASSET_ACCESS_SELECT,
   PUBLIC_RENDER_DOCUMENT_SELECT,
   PUBLIC_RENDER_METADATA_SELECT,
@@ -196,12 +202,25 @@ test("resolvePublicRenderWithSource returns metadata defaults for older shared r
 });
 
 test("resolvePublicRenderWithSource builds presentation projections for present mode", async () => {
-  const result = await resolvePublicRenderWithSource(source(document()), {
-    params: { shareId: "shared-doc-share123" },
-    mode: "present",
-    projection: "presentation",
-    now: NOW,
+  resetBuilderCounter();
+  const deckWithProtectedAsset = buildDeckV7([buildCoverSlide()], {
+    assets: {
+      images: {
+        "asset-1": buildImageAsset("asset-1", {
+          src: "/api/slide-assets/doc-1/uploads/protected.png",
+        }),
+      },
+    },
   });
+  const result = await resolvePublicRenderWithSource(
+    source(document({ deckJson: deckWithProtectedAsset })),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "present",
+      projection: "presentation",
+      now: NOW,
+    },
+  );
 
   assert.equal(result.ok, true);
   if (!result.ok || result.projection !== "presentation") {
@@ -210,25 +229,89 @@ test("resolvePublicRenderWithSource builds presentation projections for present 
   assert.equal(result.mode, "present");
   assert.equal(result.presentation.title, "Shared Doc");
   assert.equal(result.presentation.attribution.ownerName, "Document owner");
-});
-
-test("resolvePublicAssetAccessForDocument preserves present-first then embed public asset access", () => {
-  assert.deepEqual(resolvePublicAssetAccessForDocument(document(), NOW), {
-    allow: true,
-    via: "share-present",
-  });
-  assert.deepEqual(
-    resolvePublicAssetAccessForDocument(
-      document({ sharePresentEnabled: false }),
-      NOW,
-    ),
-    { allow: true, via: "share-embed" },
+  assert.equal(
+    result.presentation.deckV7.assets.images["asset-1"]?.src,
+    "/api/slide-assets/doc-1/uploads/protected.png?shareId=share123&shareMode=present",
   );
 });
 
-test("resolvePublicRenderWithSource resolves asset mode and projection for route access checks", async () => {
-  const result = await resolvePublicRenderWithSource(
-    source(document({ sharePresentEnabled: false })),
+test("resolvePublicAssetAccessForDocument enforces share-bound mode-specific access", () => {
+  assert.deepEqual(
+    resolvePublicAssetAccessForDocument(document(), "share123", "present", NOW),
+    {
+      allow: true,
+      via: "share-present",
+    },
+  );
+  assert.deepEqual(
+    resolvePublicAssetAccessForDocument(document(), "share123", "embed", NOW),
+    {
+      allow: true,
+      via: "share-embed",
+    },
+  );
+  assert.deepEqual(
+    resolvePublicAssetAccessForDocument(document(), "", null, NOW),
+    {
+      allow: false,
+      status: 403,
+      reason: "forbidden",
+    },
+  );
+});
+
+test("resolvePublicAssetAccessForDocument denies regenerated, disabled, and expired share inputs", () => {
+  assert.deepEqual(
+    resolvePublicAssetAccessForDocument(
+      document({ shareId: "rotated-share" }),
+      "share123",
+      "present",
+      NOW,
+    ),
+    { allow: false, status: 403, reason: "forbidden" },
+  );
+  assert.deepEqual(
+    resolvePublicAssetAccessForDocument(
+      document({ sharePresentEnabled: false }),
+      "share123",
+      "present",
+      NOW,
+    ),
+    { allow: false, status: 403, reason: "forbidden" },
+  );
+  assert.deepEqual(
+    resolvePublicAssetAccessForDocument(
+      document({ shareExpiresAt: new Date("2026-06-24T00:00:00Z") }),
+      "share123",
+      "present",
+      NOW,
+    ),
+    { allow: false, status: 403, reason: "forbidden" },
+  );
+});
+
+test("resolvePublicRenderWithSource requires share-bound params for asset mode", async () => {
+  const allowed = await resolvePublicRenderWithSource(source(document()), {
+    params: {
+      documentId: "doc-1",
+      shareId: "share123",
+      shareMode: "present",
+    },
+    mode: "asset",
+    projection: "assetAccess",
+    now: NOW,
+  });
+
+  assert.equal(allowed.projection, "assetAccess");
+  assert.equal(allowed.ok, true);
+  assert.deepEqual(allowed.publicAccess, {
+    allow: true,
+    via: "share-present",
+  });
+  assert.equal(allowed.document?.id, "doc-1");
+
+  const missingBinding = await resolvePublicRenderWithSource(
+    source(document()),
     {
       params: { documentId: "doc-1" },
       mode: "asset",
@@ -236,11 +319,15 @@ test("resolvePublicRenderWithSource resolves asset mode and projection for route
       now: NOW,
     },
   );
-
-  assert.equal(result.projection, "assetAccess");
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.publicAccess, { allow: true, via: "share-embed" });
-  assert.equal(result.document?.id, "doc-1");
+  if (missingBinding.projection !== "assetAccess") {
+    throw new Error("Expected asset access projection.");
+  }
+  assert.equal(missingBinding.ok, false);
+  assert.deepEqual(missingBinding.publicAccess, {
+    allow: false,
+    status: 403,
+    reason: "forbidden",
+  });
 });
 
 test("resolvePublicRenderWithSource rejects mismatched asset mode and projection", async () => {
@@ -257,7 +344,11 @@ test("resolvePublicRenderWithSource rejects mismatched asset mode and projection
 
 test("resolvePublicRenderWithSource returns not-found asset decisions for missing or deleted documents", async () => {
   const missing = await resolvePublicRenderWithSource(source(null), {
-    params: { documentId: "doc-missing" },
+    params: {
+      documentId: "doc-missing",
+      shareId: "share123",
+      shareMode: "present",
+    },
     mode: "asset",
     projection: "assetAccess",
     now: NOW,
@@ -279,6 +370,8 @@ test("resolvePublicRenderWithSource returns not-found asset decisions for missin
 
   const deleted = resolvePublicAssetAccessForDocument(
     document({ deletedAt: new Date("2026-06-24T00:00:00Z") }),
+    "share123",
+    "present",
     NOW,
   );
   assert.deepEqual(deleted, {
@@ -292,6 +385,8 @@ test("resolvePublicAssetAccessForDocument keeps private live documents forbidden
   assert.deepEqual(
     resolvePublicAssetAccessForDocument(
       document({ isShared: false, shareId: null }),
+      "share123",
+      "present",
       NOW,
     ),
     { allow: false, status: 403, reason: "forbidden" },

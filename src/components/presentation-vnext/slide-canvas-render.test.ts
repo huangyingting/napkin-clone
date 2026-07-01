@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { DeckCanvasVNext, SlideCanvasVNext } from "./slide-canvas";
+import {
+  DeckCanvasVNext,
+  SlideCanvasVNext,
+  type SlideCanvasNodeGestureDraft,
+} from "./slide-canvas";
 import {
   SlideNodeRenderer,
   styleObjectToContainerCss,
@@ -21,6 +25,7 @@ import type {
   StyleObject,
 } from "@/lib/presentation-vnext/style-schema";
 
+// e2e-governance-allow oversized-test: v7 canvas parity coverage is still centralized here; split tracked separately.
 function textNode(
   id: string,
   frame: { x: number; y: number; w: number; h: number },
@@ -134,6 +139,30 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /role="button"/);
     assert.match(html, /tabindex="0"/);
     assert.match(html, /aria-label="Text: node-1"/);
+    assert.match(html, /aria-pressed="true"/);
+  });
+
+  test("exposes selected and unselected state with aria-pressed", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "node-selected",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          textNode("node-selected", { x: 10, y: 10, w: 20, h: 10 }),
+          textNode("node-unselected", { x: 40, y: 10, w: 20, h: 10 }),
+        ]),
+        selection,
+        focusedNodeId: "node-selected",
+        onNodeClick: () => undefined,
+      }),
+    );
+
+    assert.match(html, /data-node-id="node-selected"[^>]*aria-pressed="true"/);
+    assert.match(
+      html,
+      /data-node-id="node-unselected"[^>]*aria-pressed="false"/,
+    );
   });
 
   test("keeps a single focused node in the roving tabindex order", () => {
@@ -341,6 +370,120 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /data-node-chrome-frame="activeGroup"/);
   });
 
+  test("applies node transforms to selection and handle overlays", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "rotated-image",
+      "rotated-connector",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          imageNode(
+            "rotated-image",
+            { x: 10, y: 10, w: 20, h: 16 },
+            {
+              layout: {
+                frame: { x: 10, y: 10, w: 20, h: 16 },
+                zIndex: 2,
+                rotation: 30,
+                flipX: true,
+                flipY: true,
+              },
+            },
+          ),
+          renderNode(
+            "rotated-connector",
+            {
+              type: "connector",
+              content: {
+                from: { kind: "point", point: { x: 0, y: 50 } },
+                to: { kind: "point", point: { x: 100, y: 50 } },
+              },
+            },
+            {},
+            {
+              layout: {
+                frame: { x: 48, y: 20, w: 28, h: 12 },
+                zIndex: 3,
+                rotation: 30,
+                flipX: true,
+                flipY: true,
+              },
+            },
+          ),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        onResizeHandlePointerDown: () => undefined,
+        onCropHandlePointerDown: () => undefined,
+        onRotationHandlePointerDown: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+      }),
+    );
+
+    assert.match(
+      html,
+      /data-node-chrome-frame="selected"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="resize"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="rotation"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="crop"[^>]*data-node-id="rotated-image"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+    assert.match(
+      html,
+      /data-node-chrome-overlay="connector-endpoints"[^>]*data-node-id="rotated-connector"[^>]*transform:rotate\(30deg\) scaleX\(-1\) scaleY\(-1\);transform-origin:center/,
+    );
+  });
+
+  test("includes rotated node geometry when drawing multi-selection bounds", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "rotated",
+      "plain",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          textNode(
+            "rotated",
+            { x: 10, y: 10, w: 20, h: 10 },
+            {
+              layout: {
+                frame: { x: 10, y: 10, w: 20, h: 10 },
+                zIndex: 1,
+                rotation: 90,
+              },
+            },
+          ),
+          textNode("plain", { x: 40, y: 30, w: 20, h: 10 }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+      }),
+    );
+    const multiBoundsStyleMatch = html.match(
+      /border-dashed border-ds-accent-border[^>]*style="([^"]+)"/,
+    );
+    assert.ok(multiBoundsStyleMatch);
+    const multiBoundsStyle = multiBoundsStyleMatch[1];
+    const left = Number(multiBoundsStyle.match(/left:([^;%]+)%/)?.[1]);
+    const top = Number(multiBoundsStyle.match(/top:([^;%]+)%/)?.[1]);
+    const width = Number(multiBoundsStyle.match(/width:([^;%]+)%/)?.[1]);
+    const height = Number(multiBoundsStyle.match(/height:([^;%]+)%/)?.[1]);
+
+    assert.ok(Math.abs(left - 15) < 0.001);
+    assert.ok(Math.abs(top - 5) < 0.001);
+    assert.ok(Math.abs(width - 45) < 0.001);
+    assert.ok(Math.abs(height - 35) < 0.001);
+  });
+
   test("renders a deterministic dense stage chrome regression signature", () => {
     const selection = setSelection(createSelectionState("normal"), [
       "overlap-image",
@@ -536,6 +679,89 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
   });
 
+  test("renders transient frame and rotation drafts for live gesture feedback", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "shape-draft",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("shape-draft", {
+            type: "shape",
+            content: { shape: "rect" },
+          }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        nodeGestureDrafts: new Map<string, SlideCanvasNodeGestureDraft>([
+          [
+            "shape-draft",
+            {
+              frame: { x: 22, y: 24, w: 33, h: 19 },
+              rotation: 45,
+            },
+          ],
+        ]),
+      }),
+    );
+
+    assert.match(
+      html,
+      /data-node-id="shape-draft"[^>]*style="[^"]*left:22%;top:24%;width:33%;height:19%/,
+    );
+    assert.match(html, /rotate\(45deg\)/);
+  });
+
+  test("renders transient crop and connector drafts for live gesture feedback", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "image-draft",
+      "connector-draft",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          imageNode("image-draft", { x: 8, y: 8, w: 30, h: 20 }),
+          renderNode("connector-draft", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+        assetResolver: () => "https://example.com/image.png",
+        nodeGestureDrafts: new Map<string, SlideCanvasNodeGestureDraft>([
+          [
+            "image-draft",
+            {
+              crop: { top: 6, right: 4, bottom: 10, left: 8 },
+            },
+          ],
+          [
+            "connector-draft",
+            {
+              connectorEndpoints: {
+                from: { kind: "point", point: { x: 25, y: 75 } },
+              },
+            },
+          ],
+        ]),
+      }),
+    );
+
+    assert.match(
+      html,
+      /style="[^"]*width:112%;height:116%;[^"]*left:-8%;top:-6%/,
+    );
+    assert.match(
+      html,
+      /data-connector-endpoint="from"[^>]*style="[^"]*left:25%;top:75%/,
+    );
+  });
+
   test("preview canvases suppress interaction chrome and keyboard roles", () => {
     const selection = setSelection(createSelectionState("normal"), [
       "preview-image",
@@ -583,7 +809,13 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
               rows: [
                 {
                   id: "row-1",
-                  cells: [{ text: "Alpha" }, { text: "Beta" }],
+                  cells: [
+                    { text: "Alpha" },
+                    {
+                      text: "Beta",
+                      runs: [{ text: "Be", bold: true }, { text: "ta" }],
+                    },
+                  ],
                 },
               ],
             },
@@ -602,10 +834,11 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /contentEditable="true"/);
     assert.match(html, /data-table-cell="0:1"/);
     assert.match(html, /aria-label="Table cell row 1, column 2"/);
+    assert.match(html, /Beta/);
     assert.match(html, /Table node editing cells/);
   });
 
-  test("renders paragraph list markers", () => {
+  test("renders paragraph list markers from numbered-list semantics", () => {
     const node = textNode("list-node", { x: 10, y: 10, w: 40, h: 20 });
     const html = renderToStaticMarkup(
       createElement(SlideCanvasVNext, {
@@ -618,6 +851,17 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
                 paragraphs: [
                   { id: "p1", text: "First", list: { kind: "bullet" } },
                   { id: "p2", text: "Second", list: { kind: "number" } },
+                  {
+                    id: "p3",
+                    text: "Third",
+                    list: { kind: "number", numberStyle: "lower-alpha" },
+                  },
+                  { id: "p4", text: "Break" },
+                  {
+                    id: "p5",
+                    text: "Fourth",
+                    list: { kind: "number", numberStyle: "lower-roman" },
+                  },
                 ],
               },
             },
@@ -628,7 +872,9 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
 
     assert.match(html, />•<\/span>/);
-    assert.match(html, />2\.<\/span>/);
+    assert.match(html, />1\.<\/span><span>Second<\/span>/);
+    assert.match(html, />b\.<\/span><span>Third<\/span>/);
+    assert.match(html, />i\.<\/span><span>Fourth<\/span>/);
   });
 
   test("renders supported background fill styles and deck canvas fallbacks", () => {
@@ -859,7 +1105,9 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     );
 
     assert.match(html, /aria-label="Slide filmstrip"/);
-    assert.match(html, /role="listbox"/);
+    assert.match(html, /aria-label="Slides"/);
+    assert.doesNotMatch(html, /role="listbox"/);
+    assert.doesNotMatch(html, /role="option"/);
     assert.match(html, /data-slide-index="0"/);
     assert.match(html, /data-slide-index="1"/);
     assert.match(html, /data-slide-index="2"/);
@@ -976,6 +1224,129 @@ describe("SlideNodeRenderer resolved node content branches", () => {
       /repeating-linear-gradient/,
     );
     assert.match(String(styles[8].backgroundImage), /bg.png/);
+  });
+
+  test("applies text vertical alignment and paragraph spacing in text and shape content", () => {
+    const topText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-top",
+        {
+          type: "text",
+          content: { paragraphs: [{ id: "text-top-p1", text: "Top text" }] },
+        },
+        { text: { verticalAlign: "top" } },
+      ),
+    );
+    const middleText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-middle",
+        {
+          type: "text",
+          content: {
+            paragraphs: [{ id: "text-middle-p1", text: "Middle text" }],
+          },
+        },
+        { text: { verticalAlign: "middle" } },
+      ),
+    );
+    const bottomText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-bottom",
+        {
+          type: "text",
+          content: {
+            paragraphs: [{ id: "text-bottom-p1", text: "Bottom text" }],
+          },
+        },
+        { text: { verticalAlign: "bottom" } },
+      ),
+    );
+    const spacedText = renderResolvedNodeMarkup(
+      renderNode(
+        "text-spacing",
+        {
+          type: "text",
+          content: {
+            paragraphs: [
+              { id: "text-spacing-p1", text: "Paragraph one" },
+              { id: "text-spacing-p2", text: "Paragraph two" },
+            ],
+          },
+        },
+        { text: { paragraphSpacingPt: 6 } },
+      ),
+    );
+    const topShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-top",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: { paragraphs: [{ id: "shape-top-p1", text: "Top shape" }] },
+          },
+        },
+        { text: { verticalAlign: "top" } },
+      ),
+    );
+    const middleShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-middle",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [{ id: "shape-middle-p1", text: "Middle shape" }],
+            },
+          },
+        },
+        { text: { verticalAlign: "middle" } },
+      ),
+    );
+    const bottomShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-bottom",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [{ id: "shape-bottom-p1", text: "Bottom shape" }],
+            },
+          },
+        },
+        { text: { verticalAlign: "bottom" } },
+      ),
+    );
+    const spacedShape = renderResolvedNodeMarkup(
+      renderNode(
+        "shape-spacing",
+        {
+          type: "shape",
+          content: {
+            shape: "rect",
+            text: {
+              paragraphs: [
+                { id: "shape-spacing-p1", text: "Shape paragraph one" },
+                { id: "shape-spacing-p2", text: "Shape paragraph two" },
+              ],
+            },
+          },
+        },
+        { text: { paragraphSpacingPt: 4 } },
+      ),
+    );
+
+    assert.match(topText, /justify-content:flex-start/);
+    assert.match(middleText, /justify-content:center/);
+    assert.match(bottomText, /justify-content:flex-end/);
+    assert.equal((spacedText.match(/margin-bottom:6pt/g) ?? []).length, 1);
+
+    assert.match(topShape, /justify-content:flex-start/);
+    assert.match(middleShape, /justify-content:center/);
+    assert.match(bottomShape, /justify-content:flex-end/);
+    assert.equal((spacedShape.match(/margin-bottom:4pt/g) ?? []).length, 1);
   });
 
   test("renders text, shape, media, table, connector, visual, and group node content", () => {
