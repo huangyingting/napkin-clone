@@ -57,6 +57,7 @@ export type VnextPptxTextStyle = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  strikethrough?: boolean;
   align?: "left" | "center" | "right";
   valign?: "top" | "middle" | "bottom";
 };
@@ -346,6 +347,7 @@ function styleToTextOptions(style: StyleObject): VnextPptxTextStyle {
     ...(text.weight !== undefined && text.weight >= 700 ? { bold: true } : {}),
     ...(text.italic ? { italic: true } : {}),
     ...(text.underline ? { underline: true } : {}),
+    ...(text.strikethrough ? { strikethrough: true } : {}),
     ...(text.align ? { align: text.align } : {}),
     ...(text.verticalAlign ? { valign: text.verticalAlign } : {}),
   };

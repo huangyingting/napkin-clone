@@ -497,6 +497,7 @@ function validateTextStylePatch(
     "weight",
     "italic",
     "underline",
+    "strikethrough",
     "color",
     "lineHeight",
     "paragraphSpacingPt",
@@ -516,6 +517,12 @@ function validateTextStylePatch(
   }
   if (input.underline !== undefined && typeof input.underline !== "boolean") {
     fail(errors, `${ctx}.underline must be a boolean`);
+  }
+  if (
+    input.strikethrough !== undefined &&
+    typeof input.strikethrough !== "boolean"
+  ) {
+    fail(errors, `${ctx}.strikethrough must be a boolean`);
   }
   if (input.color !== undefined) {
     validateColorValue(input.color, `${ctx}.color`, errors);

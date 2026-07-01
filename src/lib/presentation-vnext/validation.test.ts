@@ -324,6 +324,7 @@ describe("safeParseDeckV7", () => {
           weight: 600,
           italic: false,
           underline: false,
+          strikethrough: false,
           color: "#111111",
           lineHeight: 1.2,
           paragraphSpacingPt: 3,

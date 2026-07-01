@@ -3,9 +3,19 @@ import type { CSSProperties } from "react";
 import type { StyleObject, StylePatch } from "./style-schema";
 
 type NodeTextStyle =
-  | Pick<StyleObject, "text">
-  | Pick<StylePatch, "text">
-  | undefined;
+  Pick<StyleObject, "text"> | Pick<StylePatch, "text"> | undefined;
+
+function getTextDecoration(
+  text: StyleObject["text"] | StylePatch["text"],
+): string | undefined {
+  const textDecoration = [
+    text?.underline ? "underline" : undefined,
+    text?.strikethrough ? "line-through" : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return textDecoration.length > 0 ? textDecoration : undefined;
+}
 
 /**
  * Resolves v7 node text style to CSS used by live inline text editing.
@@ -17,6 +27,7 @@ type NodeTextStyle =
 export function resolveNodeFontCss(style: NodeTextStyle): CSSProperties {
   const text = style?.text;
   if (!text) return {};
+  const textDecoration = getTextDecoration(text);
   return {
     ...(typeof text.fontFamily === "string"
       ? { fontFamily: text.fontFamily }
@@ -26,7 +37,7 @@ export function resolveNodeFontCss(style: NodeTextStyle): CSSProperties {
       : {}),
     ...(typeof text.weight === "number" ? { fontWeight: text.weight } : {}),
     ...(text.italic ? { fontStyle: "italic" } : {}),
-    ...(text.underline ? { textDecoration: "underline" } : {}),
+    ...(textDecoration ? { textDecoration } : {}),
     ...(typeof text.color === "string" ? { color: text.color } : {}),
     ...(typeof text.lineHeight === "number"
       ? { lineHeight: text.lineHeight }

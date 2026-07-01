@@ -31,6 +31,20 @@ describe("resolveNodeFontCss", () => {
     );
   });
 
+  test("combines underline and strikethrough text decorations", () => {
+    assert.deepEqual(
+      resolveNodeFontCss({
+        text: {
+          underline: true,
+          strikethrough: true,
+        },
+      }),
+      {
+        textDecoration: "underline line-through",
+      },
+    );
+  });
+
   test("returns empty css when text style is absent", () => {
     assert.deepEqual(resolveNodeFontCss(undefined), {});
     assert.deepEqual(resolveNodeFontCss({}), {});
