@@ -27,6 +27,7 @@ import type {
   ConnectorContent,
   ImageCrop,
   ConnectorEndpoint,
+  LayoutBox,
 } from "@/lib/presentation-vnext/schema";
 import { tableCellEditableText } from "@/lib/presentation-vnext/table-cell-editing";
 import { colorValueToCss, fillStyleToCss } from "./fill-style-css";
@@ -150,18 +151,28 @@ export function styleObjectToContainerCss(
  * Converts a percent-based frame into absolute-position CSS.
  * The parent canvas container must be `position: relative`.
  */
-function frameToCss(frame: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}): React.CSSProperties {
+export function frameToCss(frame: LayoutBox["frame"]): React.CSSProperties {
   return {
     position: "absolute",
     left: `${frame.x}%`,
     top: `${frame.y}%`,
     width: `${frame.w}%`,
     height: `${frame.h}%`,
+  };
+}
+
+export function nodeLayoutTransformToCss(
+  layout: Pick<LayoutBox, "rotation" | "flipX" | "flipY">,
+): React.CSSProperties {
+  const transforms = [
+    layout.rotation !== undefined ? `rotate(${layout.rotation}deg)` : undefined,
+    layout.flipX ? "scaleX(-1)" : undefined,
+    layout.flipY ? "scaleY(-1)" : undefined,
+  ].filter(Boolean);
+  if (transforms.length === 0) return {};
+  return {
+    transform: transforms.join(" "),
+    transformOrigin: "center",
   };
 }
 
@@ -974,22 +985,12 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   const { layout, style, content } = node;
   const shouldIncludeShapePaint =
     content.type !== "shape" || !shapeUsesSvgGeometry(content.content.shape);
-  const transforms = [
-    layout.rotation !== undefined ? `rotate(${layout.rotation}deg)` : undefined,
-    layout.flipX ? "scaleX(-1)" : undefined,
-    layout.flipY ? "scaleY(-1)" : undefined,
-  ].filter(Boolean);
 
   const isLocked = node.locked === true;
 
   const containerStyle: React.CSSProperties = {
     ...frameToCss(layout.frame),
-    ...(transforms.length > 0
-      ? {
-          transform: transforms.join(" "),
-          transformOrigin: "center",
-        }
-      : {}),
+    ...nodeLayoutTransformToCss(layout),
     ...styleObjectToContainerCss(style, assetResolver, {
       includeShapePaint: shouldIncludeShapePaint,
     }),
