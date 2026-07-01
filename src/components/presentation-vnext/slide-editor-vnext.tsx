@@ -228,6 +228,7 @@ import {
   type SlidePresenceAwareness,
   type SlidePresencePeer,
 } from "@/lib/presentation/use-slide-presence";
+import { canvasArrangeShortcutKind } from "@/lib/shortcuts/canvas-runtime";
 
 const DECK_CHROME_KINDS: DeckChromeKind[] = [
   "logo",
@@ -2613,27 +2614,11 @@ export function SlideEditorVNext({
       return;
     }
 
-    if (event.key === "]" || event.key === "[") {
-      const zIndexes =
-        activeSlideTree?.nodes.map((node) => node.layout.zIndex) ?? [];
-      const maxZ = zIndexes.length > 0 ? Math.max(...zIndexes) : 0;
-      const minZ = zIndexes.length > 0 ? Math.min(...zIndexes) : 0;
-      let updated = deck;
-      selectedIds.forEach((id, index) => {
-        const node = findNodeById(activeSlide.children, id);
-        const currentZ = node?.layout?.zIndex ?? 0;
-        const nextZ =
-          event.key === "]"
-            ? event.metaKey || event.ctrlKey
-              ? maxZ + index + 1
-              : currentZ + 1
-            : event.metaKey || event.ctrlKey
-              ? minZ - index - 1
-              : currentZ - 1;
-        updated = reorderZIndex(updated, activeSlide.id, id, nextZ);
-      });
-      onDeckChange(updated);
+    const arrangeKind = canvasArrangeShortcutKind(event);
+    if (arrangeKind) {
+      handleReorderSelection(arrangeKind);
       event.preventDefault();
+      return;
     }
   }
 
