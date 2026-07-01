@@ -21,6 +21,7 @@ import {
   setThemePackage,
   insertNode,
   pasteNodes,
+  cutNodes,
   updateNodeLayout,
   updateNodeRotation,
   updateNodeSourceMetadata,
@@ -494,6 +495,44 @@ describe("insertNode and pasteNodes", () => {
       `${deck.slides[0].children[0].id}-copy`,
     ]);
     assert.strictEqual(missingSlide.deck.slides[0], deck.slides[0]);
+  });
+});
+
+describe("cutNodes", () => {
+  test("cuts selected nodes so they can be pasted back as new copies", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const selected = slide.children[0];
+    const cut = cutNodes(deck, slide.id, [selected.id]);
+
+    assert.deepEqual(
+      cut.nodes.map((node) => node.id),
+      [selected.id],
+    );
+    assert.equal(
+      cut.deck.slides[0].children.some((node) => node.id === selected.id),
+      false,
+    );
+
+    const pasted = pasteNodes(cut.deck, slide.id, cut.nodes);
+    assert.equal(pasted.nodeIds.length, 1);
+    assert.notEqual(pasted.nodeIds[0], selected.id);
+    assert.equal(
+      pasted.deck.slides[0].children.some(
+        (node) => node.id === pasted.nodeIds[0],
+      ),
+      true,
+    );
+  });
+
+  test("preserves delete behavior by using the same delete output", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const selectedId = slide.children[0].id;
+    const cut = cutNodes(deck, slide.id, [selectedId]);
+    const deleted = deleteNodes(deck, slide.id, [selectedId]);
+
+    assert.deepEqual(cut.deck, deleted);
   });
 });
 

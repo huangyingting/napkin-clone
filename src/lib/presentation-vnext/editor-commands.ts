@@ -914,6 +914,24 @@ export function pasteNodes(
   };
 }
 
+export function cutNodes(
+  deck: DeckV7,
+  slideId: string,
+  nodeIds: readonly string[],
+): { deck: DeckV7; nodes: SlideChildNode[] } {
+  if (nodeIds.length === 0) return { deck, nodes: [] };
+  const slide = deck.slides.find((candidate) => candidate.id === slideId);
+  if (!slide) return { deck, nodes: [] };
+  const selected = nodeIds
+    .map((id) => findNodeById(slide.children, id))
+    .filter((node): node is SlideChildNode => node !== undefined);
+  if (selected.length === 0) return { deck, nodes: [] };
+  return {
+    deck: deleteNodes(deck, slideId, nodeIds),
+    nodes: selected,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Update node layout
 // ---------------------------------------------------------------------------
