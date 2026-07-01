@@ -183,10 +183,12 @@ import {
 
 import {
   SlideCanvasVNext,
+  type SlideCanvasNodeGestureDraft,
   type ConnectorEndpointHandle,
   type CropHandlePosition,
   type ResizeHandlePosition,
 } from "./slide-canvas";
+import { createSingleCommitGesture } from "./single-commit-gesture";
 import {
   createSelectionState,
   selectNode,
@@ -661,9 +663,22 @@ function clampFrame(frame: LayoutBox["frame"]): LayoutBox["frame"] {
   };
 }
 
+function framesEqual(a: LayoutBox["frame"], b: LayoutBox["frame"]): boolean {
+  return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+}
+
 function clampCrop(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(95, Math.round(value * 10) / 10));
+}
+
+function cropsEqual(a: ImageCrop, b: ImageCrop): boolean {
+  return (
+    a.top === b.top &&
+    a.right === b.right &&
+    a.bottom === b.bottom &&
+    a.left === b.left
+  );
 }
 
 function normalizeRotationDegrees(rotation: number): number {
@@ -777,6 +792,20 @@ function connectorEndpointFromSlidePoint(
             ),
     },
   };
+}
+
+function connectorEndpointsEqual(
+  a: ConnectorEndpoint,
+  b: ConnectorEndpoint,
+): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "point" && b.kind === "point") {
+    return a.point.x === b.point.x && a.point.y === b.point.y;
+  }
+  if (a.kind === "node" && b.kind === "node") {
+    return a.nodeId === b.nodeId && a.anchor === b.anchor;
+  }
+  return false;
 }
 
 function nodeAnchorPoint(
@@ -1286,16 +1315,33 @@ export function SlideEditorVNext({
     nodeId: string;
     handle: ResizeHandlePosition;
   } | null>(null);
+  const [resizeGestureDraft, setResizeGestureDraft] = useState<{
+    nodeId: string;
+    frame: LayoutBox["frame"];
+  } | null>(null);
   const [activeCropHandle, setActiveCropHandle] = useState<{
     nodeId: string;
     handle: CropHandlePosition;
   } | null>(null);
+  const [cropGestureDraft, setCropGestureDraft] = useState<{
+    nodeId: string;
+    crop: ImageCrop;
+  } | null>(null);
   const [activeRotationNodeId, setActiveRotationNodeId] = useState<
     string | null
   >(null);
+  const [rotationGestureDraft, setRotationGestureDraft] = useState<{
+    nodeId: string;
+    rotation: number;
+  } | null>(null);
   const [activeConnectorEndpoint, setActiveConnectorEndpoint] = useState<{
     nodeId: string;
     endpoint: ConnectorEndpointHandle;
+  } | null>(null);
+  const [connectorGestureDraft, setConnectorGestureDraft] = useState<{
+    nodeId: string;
+    endpoint: ConnectorEndpointHandle;
+    value: ConnectorEndpoint;
   } | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [tableEditingNodeId, setTableEditingNodeId] = useState<string | null>(
@@ -1305,6 +1351,13 @@ export function SlideEditorVNext({
     rowIndex: number;
     colIndex: number;
   } | null>(null);
+
+  useEffect(() => {
+    setResizeGestureDraft(null);
+    setCropGestureDraft(null);
+    setRotationGestureDraft(null);
+    setConnectorGestureDraft(null);
+  }, [activeSlide?.id]);
 
   useEffect(() => {
     if (!undoRedoFocus) return;
@@ -1894,6 +1947,13 @@ export function SlideEditorVNext({
     event.stopPropagation();
     setActiveCropHandle({ nodeId, handle });
     setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    const gesture = createSingleCommitGesture<ImageCrop>({
+      initialValue: startCrop,
+      equals: cropsEqual,
+      onPreview: (crop) => setCropGestureDraft(crop ? { nodeId, crop } : null),
+      onCommit: (crop) =>
+        onDeckChange(updateNodeContent(deck, activeSlide.id, nodeId, { crop })),
+    });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const point = pointPctFromEvent(moveEvent, rect);
@@ -1908,22 +1968,21 @@ export function SlideEditorVNext({
       if (handle === "bottom") {
         nextCrop.bottom = clampCrop(startCrop.bottom - deltaY);
       }
-      onDeckChange(
-        updateNodeContent(deck, activeSlide.id, nodeId, {
-          crop: nextCrop,
-        }),
-      );
+      gesture.update(nextCrop);
       setStageAnnouncement(`Cropping image ${handle}`);
     };
 
     const handlePointerUp = () => {
+      gesture.finish();
       setActiveCropHandle(null);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   }
 
   function handleResetSelectedImageCrop() {
@@ -2078,6 +2137,38 @@ export function SlideEditorVNext({
 
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
+  const stageNodeGestureDrafts:
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
+    const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
+    if (resizeGestureDraft) {
+      drafts.set(resizeGestureDraft.nodeId, {
+        frame: resizeGestureDraft.frame,
+      });
+    }
+    if (cropGestureDraft) {
+      drafts.set(cropGestureDraft.nodeId, {
+        ...(drafts.get(cropGestureDraft.nodeId) ?? {}),
+        crop: cropGestureDraft.crop,
+      });
+    }
+    if (rotationGestureDraft) {
+      drafts.set(rotationGestureDraft.nodeId, {
+        ...(drafts.get(rotationGestureDraft.nodeId) ?? {}),
+        rotation: rotationGestureDraft.rotation,
+      });
+    }
+    if (connectorGestureDraft) {
+      drafts.set(connectorGestureDraft.nodeId, {
+        ...(drafts.get(connectorGestureDraft.nodeId) ?? {}),
+        connectorEndpoints: {
+          ...(drafts.get(connectorGestureDraft.nodeId)?.connectorEndpoints ??
+            {}),
+          [connectorGestureDraft.endpoint]: connectorGestureDraft.value,
+        },
+      });
+    }
+    return drafts.size > 0 ? drafts : undefined;
+  })();
 
   const exportDiagnostics = renderTree
     ? buildExportSpec(renderTree).diagnostics.filter(
@@ -2274,6 +2365,18 @@ export function SlideEditorVNext({
     const alignmentGuides = alignmentGuidesForFrames(
       layoutFramesExcluding(activeSlide.children, new Set([nodeId])),
     );
+    const gesture = createSingleCommitGesture<LayoutBox["frame"]>({
+      initialValue: originalFrame,
+      equals: framesEqual,
+      onPreview: (frame) =>
+        setResizeGestureDraft(frame ? { nodeId, frame } : null),
+      onCommit: (frame) =>
+        onDeckChange(
+          updateNodeLayout(deck, activeSlide.id, nodeId, {
+            frame,
+          }),
+        ),
+    });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
@@ -2289,14 +2392,11 @@ export function SlideEditorVNext({
         alignmentGuides,
       );
       setStageGuides(snapped.guides);
-      onDeckChange(
-        updateNodeLayout(deck, activeSlide.id, nodeId, {
-          frame: snapped.frame,
-        }),
-      );
+      gesture.update(snapped.frame);
     };
 
     const handlePointerUp = () => {
+      gesture.finish();
       setActiveResizeHandle(null);
       setStageGuides([]);
       window.removeEventListener("pointermove", handlePointerMove);
@@ -2332,6 +2432,17 @@ export function SlideEditorVNext({
     event.stopPropagation();
     setActiveRotationNodeId(nodeId);
     setSelection((s) => setSelectedNodeIds(s, [nodeId]));
+    const gesture = createSingleCommitGesture<number>({
+      initialValue: startRotation,
+      onPreview: (rotation) =>
+        setRotationGestureDraft(
+          rotation === null ? null : { nodeId, rotation },
+        ),
+      onCommit: (rotation) =>
+        onDeckChange(
+          updateNodeRotation(deck, activeSlide.id, nodeId, rotation),
+        ),
+    });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const angle =
@@ -2345,11 +2456,12 @@ export function SlideEditorVNext({
         startRotation + angle - startAngle,
         !moveEvent.altKey,
       );
-      onDeckChange(updateNodeRotation(deck, activeSlide.id, nodeId, rotation));
+      gesture.update(rotation);
       setStageAnnouncement(`Rotated to ${Math.round(rotation)} degrees`);
     };
 
     const handlePointerUp = () => {
+      gesture.finish();
       setActiveRotationNodeId(null);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
@@ -2377,17 +2489,26 @@ export function SlideEditorVNext({
     setActiveConnectorEndpoint({ nodeId, endpoint });
     setSelection((s) => setSelectedNodeIds(s, [nodeId]));
     const connectorFrame = node.layout.frame;
+    const startEndpoint = node.content[endpoint];
+    const gesture = createSingleCommitGesture<ConnectorEndpoint>({
+      initialValue: startEndpoint,
+      equals: connectorEndpointsEqual,
+      onPreview: (value) =>
+        setConnectorGestureDraft(value ? { nodeId, endpoint, value } : null),
+      onCommit: (value) =>
+        onDeckChange(
+          updateNodeContent(deck, activeSlide.id, nodeId, {
+            [endpoint]: value,
+          }),
+        ),
+    });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const slidePoint = pointPctFromEvent(moveEvent, rect);
       const snapped =
         nearestConnectorAnchor(activeSlide.children, slidePoint, nodeId) ??
         connectorEndpointFromSlidePoint(slidePoint, connectorFrame);
-      onDeckChange(
-        updateNodeContent(deck, activeSlide.id, nodeId, {
-          [endpoint]: snapped,
-        }),
-      );
+      gesture.update(snapped);
       setStageAnnouncement(
         snapped.kind === "node"
           ? `Connector ${endpoint} bound to ${snapped.anchor} anchor`
@@ -2396,6 +2517,7 @@ export function SlideEditorVNext({
     };
 
     const handlePointerUp = () => {
+      gesture.finish();
       setActiveConnectorEndpoint(null);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
@@ -4019,6 +4141,7 @@ export function SlideEditorVNext({
                     onConnectorEndpointPointerDown={
                       handleConnectorEndpointPointerDown
                     }
+                    nodeGestureDrafts={stageNodeGestureDrafts}
                     activeResizeHandle={activeResizeHandle}
                     activeCropHandle={activeCropHandle}
                     activeRotationNodeId={activeRotationNodeId}
