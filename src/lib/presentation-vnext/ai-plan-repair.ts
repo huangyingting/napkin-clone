@@ -8,7 +8,16 @@
  * - Never trusts AI-generated ids wholesale.
  */
 
-import type { AiDeckPlanV1, AiSlideSpec, SlotValue } from "./ai-plan-schema";
+import type {
+  AiDeckPlanV1,
+  AiSlideSpec,
+  SlotValue,
+  BulletSlotItem,
+  MetricSlotItem,
+  CardSlotItem,
+  StepSlotItem,
+  TimelineSlotItem,
+} from "./ai-plan-schema";
 import type { SlotContract } from "./template-registry";
 import type { PresentationDiagnostic } from "./diagnostics";
 import { DiagnosticCollector } from "./diagnostics";
@@ -55,6 +64,415 @@ function countCodePoints(s: string): number {
 /** Normalises whitespace in a string for capacity counting. */
 function normaliseWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function emitMalformedSlotDiagnostic(
+  dc: DiagnosticCollector,
+  path: string,
+  message: string,
+): void {
+  dc.error("unknown-field", `${path}: ${message}`, { path });
+}
+
+function readRequiredString(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): string | undefined {
+  if (typeof value === "string") return value;
+  emitMalformedSlotDiagnostic(dc, path, "must be a string");
+  return undefined;
+}
+
+function readOptionalString(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "string") return value;
+  emitMalformedSlotDiagnostic(dc, path, "must be a string");
+  return undefined;
+}
+
+function readStringArray(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): string[] | undefined {
+  if (!Array.isArray(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an array of strings");
+    return undefined;
+  }
+
+  const parsed: string[] = [];
+  let hasInvalid = false;
+  for (let i = 0; i < value.length; i += 1) {
+    const item = value[i];
+    if (typeof item !== "string") {
+      hasInvalid = true;
+      emitMalformedSlotDiagnostic(dc, `${path}[${i}]`, "must be a string");
+      continue;
+    }
+    parsed.push(item);
+  }
+  return hasInvalid ? undefined : parsed;
+}
+
+function readStringMatrix(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): string[][] | undefined {
+  if (!Array.isArray(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an array of string arrays");
+    return undefined;
+  }
+
+  const parsed: string[][] = [];
+  let hasInvalid = false;
+  for (let rowIndex = 0; rowIndex < value.length; rowIndex += 1) {
+    const row = value[rowIndex];
+    if (!Array.isArray(row)) {
+      hasInvalid = true;
+      emitMalformedSlotDiagnostic(
+        dc,
+        `${path}[${rowIndex}]`,
+        "must be an array of strings",
+      );
+      continue;
+    }
+
+    const parsedRow: string[] = [];
+    for (let colIndex = 0; colIndex < row.length; colIndex += 1) {
+      const cell = row[colIndex];
+      if (typeof cell !== "string") {
+        hasInvalid = true;
+        emitMalformedSlotDiagnostic(
+          dc,
+          `${path}[${rowIndex}][${colIndex}]`,
+          "must be a string",
+        );
+        continue;
+      }
+      parsedRow.push(cell);
+    }
+    parsed.push(parsedRow);
+  }
+
+  return hasInvalid ? undefined : parsed;
+}
+
+function readArrayOf<T>(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+  parser: (
+    item: unknown,
+    itemPath: string,
+    dc: DiagnosticCollector,
+  ) => T | null,
+): T[] | undefined {
+  if (!Array.isArray(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an array");
+    return undefined;
+  }
+
+  const parsed: T[] = [];
+  let hasInvalid = false;
+  for (let i = 0; i < value.length; i += 1) {
+    const item = parser(value[i], `${path}[${i}]`, dc);
+    if (item) {
+      parsed.push(item);
+    } else {
+      hasInvalid = true;
+    }
+  }
+  return hasInvalid ? undefined : parsed;
+}
+
+function readBulletItem(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): BulletSlotItem | null {
+  if (!isRecord(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an object");
+    return null;
+  }
+
+  const text = readRequiredString(value.text, `${path}.text`, dc);
+  if (text === undefined) return null;
+
+  let children: BulletSlotItem[] | undefined;
+  if (value.children !== undefined) {
+    const parsedChildren = readArrayOf(
+      value.children,
+      `${path}.children`,
+      dc,
+      readBulletItem,
+    );
+    if (parsedChildren !== undefined) {
+      children = parsedChildren;
+    }
+  }
+
+  return {
+    text,
+    ...(children !== undefined ? { children } : {}),
+  };
+}
+
+function readMetricItem(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): MetricSlotItem | null {
+  if (!isRecord(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an object");
+    return null;
+  }
+
+  const metricValue = readRequiredString(value.value, `${path}.value`, dc);
+  const label = readRequiredString(value.label, `${path}.label`, dc);
+  if (metricValue === undefined || label === undefined) return null;
+
+  const detail = readOptionalString(value.detail, `${path}.detail`, dc);
+  return {
+    value: metricValue,
+    label,
+    ...(detail !== undefined ? { detail } : {}),
+  };
+}
+
+function readCardItem(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): CardSlotItem | null {
+  if (!isRecord(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an object");
+    return null;
+  }
+
+  const title = readRequiredString(value.title, `${path}.title`, dc);
+  if (title === undefined) return null;
+
+  const body = readOptionalString(value.body, `${path}.body`, dc);
+  const metric = readOptionalString(value.metric, `${path}.metric`, dc);
+  return {
+    title,
+    ...(body !== undefined ? { body } : {}),
+    ...(metric !== undefined ? { metric } : {}),
+  };
+}
+
+function readStepItem(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): StepSlotItem | null {
+  if (!isRecord(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an object");
+    return null;
+  }
+
+  const title = readRequiredString(value.title, `${path}.title`, dc);
+  if (title === undefined) return null;
+
+  const body = readOptionalString(value.body, `${path}.body`, dc);
+  const date = readOptionalString(value.date, `${path}.date`, dc);
+  return {
+    title,
+    ...(body !== undefined ? { body } : {}),
+    ...(date !== undefined ? { date } : {}),
+  };
+}
+
+function readTimelineItem(
+  value: unknown,
+  path: string,
+  dc: DiagnosticCollector,
+): TimelineSlotItem | null {
+  if (!isRecord(value)) {
+    emitMalformedSlotDiagnostic(dc, path, "must be an object");
+    return null;
+  }
+
+  const label = readRequiredString(value.label, `${path}.label`, dc);
+  const title = readRequiredString(value.title, `${path}.title`, dc);
+  if (label === undefined || title === undefined) return null;
+
+  const body = readOptionalString(value.body, `${path}.body`, dc);
+  return {
+    label,
+    title,
+    ...(body !== undefined ? { body } : {}),
+  };
+}
+
+function validateSlotValue(
+  slotKey: SlotKey,
+  slotValue: unknown,
+  contract: SlotContract | undefined,
+  dc: DiagnosticCollector,
+  slideIndex: number,
+): SlotValue | undefined {
+  const ctx = `slides[${slideIndex}].slots.${slotKey}`;
+
+  if (!isRecord(slotValue)) {
+    emitMalformedSlotDiagnostic(dc, ctx, "must be an object");
+    return undefined;
+  }
+
+  const type = slotValue.type;
+  if (typeof type !== "string") {
+    emitMalformedSlotDiagnostic(dc, `${ctx}.type`, "must be a string");
+    return undefined;
+  }
+
+  let validated: SlotValue | undefined;
+  if (type === "shortText") {
+    const text = readRequiredString(slotValue.text, `${ctx}.text`, dc);
+    if (text !== undefined) validated = { type: "shortText", text };
+  } else if (type === "paragraph") {
+    const paragraphs = readStringArray(
+      slotValue.paragraphs,
+      `${ctx}.paragraphs`,
+      dc,
+    );
+    if (paragraphs !== undefined) validated = { type: "paragraph", paragraphs };
+  } else if (type === "bullets") {
+    const items = readArrayOf(
+      slotValue.items,
+      `${ctx}.items`,
+      dc,
+      readBulletItem,
+    );
+    if (items !== undefined) validated = { type: "bullets", items };
+  } else if (type === "metric") {
+    const metricValue = readRequiredString(slotValue.value, `${ctx}.value`, dc);
+    const label = readRequiredString(slotValue.label, `${ctx}.label`, dc);
+    if (metricValue !== undefined && label !== undefined) {
+      const detail = readOptionalString(slotValue.detail, `${ctx}.detail`, dc);
+      validated = {
+        type: "metric",
+        value: metricValue,
+        label,
+        ...(detail !== undefined ? { detail } : {}),
+      };
+    }
+  } else if (type === "metrics") {
+    const items = readArrayOf(
+      slotValue.items,
+      `${ctx}.items`,
+      dc,
+      readMetricItem,
+    );
+    if (items !== undefined) validated = { type: "metrics", items };
+  } else if (type === "cards") {
+    const items = readArrayOf(
+      slotValue.items,
+      `${ctx}.items`,
+      dc,
+      readCardItem,
+    );
+    if (items !== undefined) validated = { type: "cards", items };
+  } else if (type === "steps") {
+    const items = readArrayOf(
+      slotValue.items,
+      `${ctx}.items`,
+      dc,
+      readStepItem,
+    );
+    if (items !== undefined) validated = { type: "steps", items };
+  } else if (type === "image") {
+    const hasAnyField =
+      "assetId" in slotValue || "prompt" in slotValue || "alt" in slotValue;
+    const assetId = readOptionalString(slotValue.assetId, `${ctx}.assetId`, dc);
+    const prompt = readOptionalString(slotValue.prompt, `${ctx}.prompt`, dc);
+    const alt = readOptionalString(slotValue.alt, `${ctx}.alt`, dc);
+    if (
+      hasAnyField &&
+      assetId === undefined &&
+      prompt === undefined &&
+      alt === undefined
+    ) {
+      return undefined;
+    }
+    validated = {
+      type: "image",
+      ...(assetId !== undefined ? { assetId } : {}),
+      ...(prompt !== undefined ? { prompt } : {}),
+      ...(alt !== undefined ? { alt } : {}),
+    };
+  } else if (type === "table") {
+    const columns = readStringArray(slotValue.columns, `${ctx}.columns`, dc);
+    const rows = readStringMatrix(slotValue.rows, `${ctx}.rows`, dc);
+    if (columns !== undefined && rows !== undefined) {
+      const caption = readOptionalString(
+        slotValue.caption,
+        `${ctx}.caption`,
+        dc,
+      );
+      validated = {
+        type: "table",
+        columns,
+        rows,
+        ...(caption !== undefined ? { caption } : {}),
+      };
+    }
+  } else if (type === "timeline") {
+    const items = readArrayOf(
+      slotValue.items,
+      `${ctx}.items`,
+      dc,
+      readTimelineItem,
+    );
+    if (items !== undefined) validated = { type: "timeline", items };
+  } else if (type === "visual") {
+    const visualId = readRequiredString(
+      slotValue.visualId,
+      `${ctx}.visualId`,
+      dc,
+    );
+    if (visualId !== undefined) {
+      const caption = readOptionalString(
+        slotValue.caption,
+        `${ctx}.caption`,
+        dc,
+      );
+      validated = {
+        type: "visual",
+        visualId,
+        ...(caption !== undefined ? { caption } : {}),
+      };
+    }
+  } else {
+    emitMalformedSlotDiagnostic(
+      dc,
+      `${ctx}.type`,
+      `unsupported slot value type "${type}"`,
+    );
+    return undefined;
+  }
+
+  if (validated === undefined) return undefined;
+
+  if (contract && validated.type !== contract.type) {
+    dc.error(
+      "unknown-field",
+      `${ctx}.type "${validated.type}" does not match template contract type "${contract.type}"`,
+      { path: `${ctx}.type` },
+    );
+    return undefined;
+  }
+
+  return validated;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,19 +682,25 @@ function repairSlide(
   const repairedSlots: Partial<Record<SlotKey, SlotValue>> = {};
 
   for (const [slotKey, slotValue] of Object.entries(rawSlots)) {
-    if (typeof slotValue !== "object" || slotValue === null) continue;
-    const sv = slotValue as SlotValue;
-
     const contract = template?.slots[slotKey as SlotKey];
+    const validated = validateSlotValue(
+      slotKey as SlotKey,
+      slotValue,
+      contract,
+      dc,
+      index,
+    );
+    if (!validated) continue;
+
     if (!contract) {
-      // Slot not in template — include as-is
-      repairedSlots[slotKey as SlotKey] = sv;
+      // Slot not in template — include validated value as-is
+      repairedSlots[slotKey as SlotKey] = validated;
       continue;
     }
 
     const repaired = repairSlotValue(
       slotKey as SlotKey,
-      sv,
+      validated,
       contract,
       dc,
       index,

@@ -31,15 +31,51 @@ test("fitCanvasToViewport scrolls only when zoom exceeds fit", () => {
   );
 });
 
-test("fitCanvasToViewport shifts left for a right overlay only when there is slack", () => {
+test("fitCanvasToViewport keeps 100% canvas within the desktop safe area", () => {
   const fit = fitCanvasToViewport({
-    viewport: { width: 1400, height: 600 },
+    viewport: { width: 1100, height: 560 },
     aspectRatio: 16 / 9,
     zoomPercent: 100,
     rightOverlayWidth: 352,
   });
-  const centeredLeft = (1400 - fit.frame.width) / 2;
+  const safeViewportWidth = 1100 - 352;
+  const frameRight = fit.frame.left + fit.frame.width;
 
-  assert.ok(fit.frame.left < centeredLeft);
+  assert.ok(frameRight <= safeViewportWidth + 0.5);
   assert.equal(fit.needsScroll, false);
+  assert.equal(fit.scrollContentSize.width, 1100);
+});
+
+test("fitCanvasToViewport respects inspector-safe width near desktop breakpoints", () => {
+  for (const width of [1024, 1200]) {
+    const fit = fitCanvasToViewport({
+      viewport: { width, height: 600 },
+      aspectRatio: 16 / 9,
+      zoomPercent: 100,
+      rightOverlayWidth: 352,
+    });
+    const safeViewportWidth = width - 352;
+    const frameRight = fit.frame.left + fit.frame.width;
+
+    assert.ok(frameRight <= safeViewportWidth + 0.5);
+    assert.equal(fit.needsScroll, false);
+  }
+});
+
+test("fitCanvasToViewport adds horizontal scroll room to reveal right edge behind overlay", () => {
+  const viewport = { width: 1120, height: 360 };
+  const rightOverlayWidth = 352;
+  const fit = fitCanvasToViewport({
+    viewport,
+    aspectRatio: 16 / 9,
+    zoomPercent: 125,
+    rightOverlayWidth,
+  });
+  const safeViewportWidth = viewport.width - rightOverlayWidth;
+  const frameRight = fit.frame.left + fit.frame.width;
+  const requiredScrollLeft = Math.max(0, frameRight - safeViewportWidth);
+  const availableScrollLeft = fit.scrollContentSize.width - viewport.width;
+
+  assert.equal(fit.needsScroll, true);
+  assert.ok(availableScrollLeft + 0.5 >= requiredScrollLeft);
 });

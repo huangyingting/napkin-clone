@@ -49,6 +49,13 @@ function layoutLabel(layout: TemplateLayoutVariant): string {
   return `${density} · ${emphasis}`;
 }
 
+function layoutChoiceAriaLabel(
+  template: SemanticTemplateV1,
+  layout: TemplateLayoutVariant,
+): string {
+  return `Add ${template.label} slide, ${layoutLabel(layout)}`;
+}
+
 function groupedTemplates(
   templates: readonly SemanticTemplateV1[],
 ): [TemplateGroup, SemanticTemplateV1[]][] {
@@ -127,24 +134,28 @@ export function AddSlideTemplatePicker({
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {template.layouts.map((layout) => (
-                      <button
-                        key={layout.id}
-                        type="button"
-                        onClick={() =>
-                          onChoose({
-                            kind: template.kind,
-                            layoutId: layout.id,
-                          })
-                        }
-                        className={cx(
-                          "rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:border-ds-accent-border hover:bg-ds-accent-surface hover:text-ds-text-primary",
-                          FOCUS_RING,
-                        )}
-                      >
-                        {layoutLabel(layout)}
-                      </button>
-                    ))}
+                    {template.layouts.map((layout) => {
+                      const choiceLabel = layoutLabel(layout);
+                      return (
+                        <button
+                          key={layout.id}
+                          type="button"
+                          aria-label={layoutChoiceAriaLabel(template, layout)}
+                          onClick={() =>
+                            onChoose({
+                              kind: template.kind,
+                              layoutId: layout.id,
+                            })
+                          }
+                          className={cx(
+                            "rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:border-ds-accent-border hover:bg-ds-accent-surface hover:text-ds-text-primary",
+                            FOCUS_RING,
+                          )}
+                        >
+                          {choiceLabel}
+                        </button>
+                      );
+                    })}
                   </div>
                 </article>
               ))}

@@ -151,6 +151,50 @@ test("#1253: collectDeckAssetRefs preserves assets.visuals registry refs", () =>
   assert.equal(refs.size, 2);
 });
 
+test("#1395: collectDeckAssetRefs extracts deck chrome logo asset ids", () => {
+  const deck = {
+    schemaVersion: 7,
+    assets: { images: {}, visuals: {} },
+    theme: {
+      packageId: "theme-default",
+      overrides: {
+        chrome: {
+          logo: { assetId: "theme-logo-asset" },
+        },
+      },
+    },
+    chrome: {
+      logo: { assetId: "deck-logo-asset" },
+    },
+    slides: [
+      {
+        id: "s1",
+        props: {
+          deckChrome: {
+            logo: {
+              mode: "override",
+              value: { assetId: "slide-logo-asset" },
+            },
+          },
+        },
+      },
+      {
+        id: "s2",
+        props: {
+          deckChrome: {
+            logo: { mode: "inherit" },
+          },
+        },
+      },
+    ],
+  };
+  const refs = collectDeckAssetRefs(deck);
+  assert.ok(refs.has("deck-logo-asset"));
+  assert.ok(refs.has("theme-logo-asset"));
+  assert.ok(refs.has("slide-logo-asset"));
+  assert.equal(refs.size, 3);
+});
+
 // ---------------------------------------------------------------------------
 // markOrphanedAssets
 // ---------------------------------------------------------------------------
@@ -263,6 +307,51 @@ test("#1253: markOrphanedAssets preserves assets referenced by v7 visual nodes",
   assert.equal(count, 1);
   assert.ok(db.markedIds.includes("orphan-1"));
   assert.ok(!db.markedIds.includes("visual-node-asset"));
+});
+
+test("#1395: markOrphanedAssets preserves deck chrome logo assets", async () => {
+  const db = makeMockDb({
+    deckJson: {
+      schemaVersion: 7,
+      assets: { images: {}, visuals: {} },
+      theme: {
+        packageId: "theme-default",
+        overrides: {
+          chrome: {
+            logo: { assetId: "theme-logo-asset" },
+          },
+        },
+      },
+      chrome: {
+        logo: { assetId: "deck-logo-asset" },
+      },
+      slides: [
+        {
+          id: "s1",
+          props: {
+            deckChrome: {
+              logo: {
+                mode: "override",
+                value: { assetId: "slide-logo-asset" },
+              },
+            },
+          },
+        },
+      ],
+    },
+    liveAssets: [
+      { id: "deck-logo-asset" },
+      { id: "theme-logo-asset" },
+      { id: "slide-logo-asset" },
+      { id: "orphan-1" },
+    ],
+  });
+  const count = await markOrphanedAssets("doc-1", db);
+  assert.equal(count, 1);
+  assert.ok(db.markedIds.includes("orphan-1"));
+  assert.ok(!db.markedIds.includes("deck-logo-asset"));
+  assert.ok(!db.markedIds.includes("theme-logo-asset"));
+  assert.ok(!db.markedIds.includes("slide-logo-asset"));
 });
 
 test("#396: markOrphanedAssets returns 0 when all assets are active", async () => {
