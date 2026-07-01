@@ -11,6 +11,7 @@ import type {
   TableContent,
   TextContent,
 } from "@/lib/presentation-vnext/schema";
+import { updateTableCellContent } from "@/lib/presentation-vnext/table-cell-editing";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import {
   parseFiniteNumberInput,
@@ -67,19 +68,10 @@ export function updateTableCell(
   cellIndex: number,
   text: string,
 ): TableContent {
-  return {
-    ...table,
-    rows: table.rows.map((row, currentRowIndex) =>
-      currentRowIndex === rowIndex
-        ? {
-            ...row,
-            cells: row.cells.map((cell, currentCellIndex) =>
-              currentCellIndex === cellIndex ? { ...cell, text } : cell,
-            ),
-          }
-        : row,
-    ),
-  };
+  return updateTableCellContent(table, rowIndex, cellIndex, (cell) => ({
+    ...cell,
+    text,
+  }));
 }
 
 export function emptyTableRow(table: TableContent, id: string) {
