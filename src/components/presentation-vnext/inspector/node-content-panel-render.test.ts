@@ -131,6 +131,7 @@ describe("NodeContentPanel render coverage", () => {
     );
     assert.match(textHtml, /First line/);
     assert.match(textHtml, /Second line/);
+    assert.match(textHtml, /Text content\s*<textarea/);
 
     const shapeHtml = renderPanel(
       baseNode({

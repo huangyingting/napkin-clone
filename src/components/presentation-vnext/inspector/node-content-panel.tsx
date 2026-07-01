@@ -190,16 +190,19 @@ export function NodeContentPanel({
         Content
       </h4>
       {node.type === "text" ? (
-        <textarea
-          value={textValue(node.content)}
-          rows={5}
-          onChange={(event) =>
-            onUpdateContent(
-              textContentFromValue(event.currentTarget.value, node.id),
-            )
-          }
-          className={`min-h-24 w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-        />
+        <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
+          Text content
+          <textarea
+            value={textValue(node.content)}
+            rows={5}
+            onChange={(event) =>
+              onUpdateContent(
+                textContentFromValue(event.currentTarget.value, node.id),
+              )
+            }
+            className={`min-h-24 w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+          />
+        </label>
       ) : null}
       {node.type === "shape" ? (
         <>
