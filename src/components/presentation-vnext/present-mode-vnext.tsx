@@ -315,7 +315,7 @@ export function PresentModeVNext({
       {/* Top HUD */}
       <div
         aria-label="Presentation controls"
-        className={`tiq-safe-present-top pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 pb-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`tiq-safe-present-top pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 pb-3 transition-opacity duration-300 motion-reduce:transition-none ${topHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex flex-wrap items-center gap-3">
           <span
@@ -333,7 +333,7 @@ export function PresentModeVNext({
             className="h-1 w-28 overflow-hidden rounded-full bg-ds-inverse-border-subtle"
           >
             <div
-              className="h-full rounded-full bg-white/60 transition-all duration-300"
+              className="h-full rounded-full bg-white/60 transition-all duration-300 motion-reduce:transition-none"
               style={{ width: `${progress.percentage}%` }}
             />
           </div>
@@ -450,7 +450,7 @@ export function PresentModeVNext({
           className={`group absolute bottom-0 left-0 top-0 w-1/2 cursor-pointer bg-transparent ${FOCUS_RING} disabled:cursor-default`}
         >
           <span
-            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronLeft size={20} />
@@ -463,7 +463,7 @@ export function PresentModeVNext({
           className={`group absolute bottom-0 right-0 top-0 w-1/2 cursor-pointer bg-transparent ${FOCUS_RING} disabled:cursor-default`}
         >
           <span
-            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronRight size={20} />
@@ -485,7 +485,7 @@ export function PresentModeVNext({
 
       {/* Bottom nav bar */}
       <div
-        className={`tiq-safe-present-bottom pointer-events-none absolute left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`tiq-safe-present-bottom pointer-events-none absolute left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 motion-reduce:transition-none ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
