@@ -2,8 +2,6 @@ export type DeckActionFailureCode =
   | "document_not_found"
   | "invalid_deck"
   | "deck_too_large"
-  | "command_rejected"
-  | "command_disabled"
   | "storage_unavailable";
 
 export type DeckActionFailure = {

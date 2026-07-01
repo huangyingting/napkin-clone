@@ -4,12 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { requireDocumentActionContext } from "./document-context";
 import { prisma } from "@/lib/prisma";
-import { logError, logInfo } from "@/lib/log";
-import {
-  persistDeck,
-  patchDeck,
-  persistDeckCommand,
-} from "@/lib/document/persistence-service";
+import { logError } from "@/lib/log";
+import { persistDeck, patchDeck } from "@/lib/document/persistence-service";
 import type {
   FetchDeckResult,
   SaveDeckFailureResult,
@@ -17,11 +13,6 @@ import type {
   SaveDeckResult,
 } from "@/lib/document/persistence-types";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
-import type { SlideCommand } from "@/lib/presentation/slide-commands";
-import {
-  acceptDeckCommandEnvelope,
-  type CommandEnvelope,
-} from "@/lib/commands/command-envelope";
 
 function fail(
   error: string,
@@ -84,17 +75,14 @@ export async function fetchDeckJson(id: string): Promise<FetchDeckResult> {
  *
  * ## Mutation entry-point boundaries (Epic #494)
  *
- * The deck has three write entry points, each with a distinct input contract:
+ * The deck has two write entry points, each with a distinct input contract:
  *  - {@link saveDeckJson} — accepts a **full deck JSON** snapshot.
  *  - {@link saveDeckPatch} — accepts **`DeckPatch[]`** records but currently
  *    returns a compatibility `{ ok: "fallback" }` response for v7 runtime
  *    callers, which then use {@link saveDeckJson}.
- *  - {@link saveDeckCommand} — accepts a **`CommandEnvelope<SlideCommand>`**,
- *    validates it with `acceptDeckCommandEnvelope` (schema version / target /
- *    document checks) BEFORE persistence, then executes it server-side.
  *
  * Active v7 writes use optimistic revision-token CAS via `saveDeckJson`
- * (`clientToken`) and command envelopes (`expectedRevision`).
+ * (`clientToken`).
  *
  * @param clientToken - The revision token last received from `fetchDeckJson` or
  *   a prior successful save. When supplied the write uses an atomic CAS.
@@ -135,8 +123,7 @@ export async function saveDeckJson(
  * {@link saveDeckJson}.
  *
  * Input contract: pre-built `DeckPatch[]` (typically produced by `commitCommand`
- * on the client). For the validated command-envelope entry point see
- * {@link saveDeckCommand}.
+ * on the client).
  */
 export async function saveDeckPatch(
   id: string,
@@ -161,61 +148,4 @@ export async function saveDeckPatch(
     revalidatePath(`/app/documents/${id}`);
   }
   return result;
-}
-
-/**
- * Validated command-envelope write path for deck mutations (Epic #494, #508).
- *
- * Accepts a serializable {@link CommandEnvelope} carrying a {@link SlideCommand}
- * payload and enforces, in order:
- *  1. authorization — `requireDocumentCapability(..., "edit")`;
- *  2. envelope acceptance — `acceptDeckCommandEnvelope` rejects malformed,
- *     unsupported-schema-version, wrong-target-surface, and wrong-document
- *     envelopes BEFORE any persistence, with structured + safely-logged errors;
- *  3. server-side execution — runs the pure `executeCommand` against the stored
- *     deck;
- *  4. persistence — writes the result via `persistDeck` under the optimistic
- *     revision-token CAS (using `target.expectedRevision` as the client token).
- *
- * This keeps the existing CAS behavior intact while giving callers a single,
- * server-validated command surface that never trusts a client-provided patch
- * shape.
- */
-export async function saveDeckCommand(
-  id: string,
-  envelope: CommandEnvelope<SlideCommand>,
-): Promise<SaveDeckResult> {
-  const { user } = await requireDocumentActionContext(id, "edit");
-
-  const acceptance = acceptDeckCommandEnvelope(envelope, { documentId: id });
-  if (!acceptance.ok) {
-    logInfo("deck.command.rejected", "Rejected deck command envelope", {
-      documentId: id,
-      code: acceptance.code,
-      errors: acceptance.errors,
-      envelopeId: typeof envelope?.id === "string" ? envelope.id : "(unknown)",
-    });
-    return {
-      ok: false,
-      error: `Rejected command (${acceptance.code}): ${acceptance.errors.join("; ")}`,
-      failure: { code: "command_rejected", retryable: false },
-    };
-  }
-
-  let persisted: SaveDeckResult;
-  try {
-    persisted = await persistDeckCommand(id, envelope, { userId: user.id });
-  } catch (error) {
-    logError("deck.command", error, { documentId: id });
-    return fail(
-      "Failed to save deck command. Please try again.",
-      "storage_unavailable",
-      true,
-    );
-  }
-
-  if (persisted.ok === true) {
-    revalidatePath(`/app/documents/${id}`);
-  }
-  return persisted;
 }

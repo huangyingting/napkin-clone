@@ -34,4 +34,4 @@ export type {
   SaveDeckPatchResult,
   SaveDeckResult,
 } from "./persistence/deck";
-export { persistDeck, patchDeck, persistDeckCommand } from "./persistence/deck";
+export { persistDeck, patchDeck } from "./persistence/deck";

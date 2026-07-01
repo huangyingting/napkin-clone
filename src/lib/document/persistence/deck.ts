@@ -2,17 +2,14 @@
  * Deck persistence operations.
  *
  * Owns full-deck save (`persistDeck`) and compatibility shims for patch-based
- * (`patchDeck`) and command-based (`persistDeckCommand`) entry points.
+ * (`patchDeck`) entry points.
  */
 
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeDeckWithCas } from "@/lib/document/deck-cas-writer";
 import { logError } from "@/lib/log";
-import type {
-  DeckPatch,
-  SlideCommand,
-} from "@/lib/presentation/slide-commands";
+import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import type {
   DeckV7,
   SlideChildNode,
@@ -24,7 +21,6 @@ import type {
   SaveDeckPatchResult,
   SaveDeckResult,
 } from "@/lib/document/persistence-types";
-import type { CommandEnvelope } from "@/lib/commands/command-envelope";
 import { snapshotDocumentVersion } from "./helpers";
 
 // Re-export so the barrel can surface them via `export *`
@@ -244,16 +240,4 @@ export async function patchDeck(
   }
 
   return { ok: "fallback" };
-}
-
-export async function persistDeckCommand(
-  _documentId: string,
-  _envelope: CommandEnvelope<SlideCommand>,
-  _options: { userId?: string | null } = {},
-): Promise<SaveDeckResult> {
-  return fail(
-    "Deck command persistence is disabled for v7-only slide editing.",
-    "command_disabled",
-    false,
-  );
 }

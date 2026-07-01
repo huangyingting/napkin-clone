@@ -20,7 +20,6 @@ import {
   mirrorVisualNodesInTx,
   patchDeck,
   persistDeck,
-  persistDeckCommand,
   regenerateDocumentShareLink,
   rebuildMirror,
   reconcileDeckAfterMirror,
@@ -32,11 +31,8 @@ import {
 } from "./persistence-service";
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import { prisma } from "@/lib/prisma";
-import type {
-  DeckPatch,
-  SlideCommand,
-} from "@/lib/presentation/slide-commands";
-import type { CommandEnvelope } from "@/lib/commands/command-envelope";
+import type { DeckPatch } from "@/lib/presentation/slide-commands";
+import * as persistenceService from "./persistence-service";
 import { writeDeckWithCas, type DeckCasDb } from "./deck-cas-writer";
 import { snapshotDocumentVersion } from "./persistence/helpers";
 
@@ -1055,39 +1051,12 @@ describe("deck persistence operations", () => {
     assert.deepEqual(result, { ok: "fallback" });
   });
 
-  test("persistDeckCommand is disabled for v7-only slide editing", async () => {
-    const envelope = deckCommandEnvelope({
-      type: "UPDATE_SLIDE_TITLE",
-      slideId: "missing-slide",
-      title: "Missing",
-    });
-
-    const result = await persistDeckCommand("doc-command", envelope);
-
-    assert.equal(result.ok, false);
-    assert.match(
-      result.error,
-      /Deck command persistence is disabled for v7-only slide editing\./,
-    );
+  test("persistence-service closes command save export and keeps supported save exports", () => {
+    assert.equal(typeof persistenceService.persistDeck, "function");
+    assert.equal(typeof persistenceService.patchDeck, "function");
+    assert.equal("persistDeckCommand" in persistenceService, false);
   });
 });
-
-function deckCommandEnvelope(
-  payload: SlideCommand,
-  overrides: Partial<CommandEnvelope<SlideCommand>> = {},
-): CommandEnvelope<SlideCommand> {
-  return {
-    id: "command-title-update",
-    schemaVersion: 1,
-    type: "deck.slide_command",
-    timestamp: "2026-06-28T00:00:00.000Z",
-    actor: { id: "user-editor" },
-    target: { surface: "deck", documentId: "doc-command" },
-    payload,
-    source: "user",
-    ...overrides,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // persistence/sharing service boundaries

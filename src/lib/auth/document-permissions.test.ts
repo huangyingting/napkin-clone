@@ -390,7 +390,6 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   saveDocumentLexical: "edit",
   saveDeckJson: "edit",
   saveDeckPatch: "edit",
-  saveDeckCommand: "edit",
   toggleDocumentSharing: "manage",
   regenerateShareLink: "manage",
   updateSharePolicy: "manage",
@@ -406,6 +405,12 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   // Slide assets
   uploadSlideAsset: "edit",
 };
+
+test("deck action capability map omits disabled command-save entry point", () => {
+  assert.equal(ACTION_CAPABILITY.saveDeckJson, "edit");
+  assert.equal(ACTION_CAPABILITY.saveDeckPatch, "edit");
+  assert.equal("saveDeckCommand" in ACTION_CAPABILITY, false);
+});
 
 for (const [action, capability] of Object.entries(ACTION_CAPABILITY)) {
   test(`${action} (requires ${capability}): owner & editor/viewer gating`, () => {
