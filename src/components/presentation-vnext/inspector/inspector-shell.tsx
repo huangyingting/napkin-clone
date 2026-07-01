@@ -826,7 +826,7 @@ export interface InspectorShellProps {
   onSelectLayer: (nodeId: string) => void;
   onUpdateLayer: (
     nodeId: string,
-    patch: { locked?: boolean; hidden?: boolean },
+    patch: { name?: string; locked?: boolean; hidden?: boolean },
   ) => void;
   onReorderLayer: (nodeId: string, targetIndex: number) => void;
 

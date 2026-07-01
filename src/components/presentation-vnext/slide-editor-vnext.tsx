@@ -2946,7 +2946,7 @@ export function SlideEditorVNext({
 
   function handleUpdateLayer(
     nodeId: string,
-    patch: { locked?: boolean; hidden?: boolean },
+    patch: { name?: string; locked?: boolean; hidden?: boolean },
   ) {
     if (!activeSlide) return;
     onDeckChange(updateNodeAttributes(deck, activeSlide.id, nodeId, patch));
