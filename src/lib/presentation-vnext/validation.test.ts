@@ -186,6 +186,37 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("rejects non-string slide notes", () => {
+    resetBuilderCounter();
+    const invalidNotesValues: unknown[] = [
+      { text: "note" },
+      ["note"],
+      123,
+      true,
+    ];
+
+    for (const notes of invalidNotesValues) {
+      const slide = { ...buildCoverSlide(), notes } as unknown as SlideNode;
+      const deck = buildDeckV7([slide]);
+      const result = safeParseDeckV7(deck);
+      assert.ok(!result.success);
+      if (!result.success) {
+        assert.ok(result.errors.some((e) => /slides\[0\]\.notes/.test(e)));
+      }
+    }
+  });
+
+  test("accepts string slide notes", () => {
+    resetBuilderCounter();
+    const slide = { ...buildCoverSlide(), notes: "Presenter reminder" };
+    const deck = buildDeckV7([slide]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
   test("rejects invalid canvas format", () => {
     const deck = {
       ...buildMinimalDeckV7(),
@@ -217,6 +248,8 @@ describe("safeParseDeckV7", () => {
   test("rejects invalid text runs (runs don't match paragraph text)", () => {
     resetBuilderCounter();
     const slide = buildContentSlide();
+    const paragraphText = "TOP SECRET PARAGRAPH TEXT";
+    const runText = "TOP SECRET RUN CONTENT";
     const badNode = {
       ...slide.children[0],
       type: "text",
@@ -224,8 +257,8 @@ describe("safeParseDeckV7", () => {
         paragraphs: [
           {
             id: "para-001",
-            text: "hello world",
-            runs: [{ text: "hello" }, { text: " mismatch" }],
+            text: paragraphText,
+            runs: [{ text: runText }],
           },
         ],
       },
@@ -235,7 +268,14 @@ describe("safeParseDeckV7", () => {
     const result = safeParseDeckV7(deck);
     assert.ok(!result.success);
     if (!result.success) {
-      assert.ok(result.errors.some((e) => /run/.test(e)));
+      assert.ok(
+        result.errors.some((e) =>
+          /runs text must concatenate to paragraph text/.test(e),
+        ),
+      );
+      const joinedErrors = result.errors.join(" ");
+      assert.ok(!joinedErrors.includes(paragraphText));
+      assert.ok(!joinedErrors.includes(runText));
     }
   });
 

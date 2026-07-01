@@ -21,6 +21,7 @@ import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostic
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
+import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import {
   initialPublicHashSlideIndex,
@@ -147,15 +148,7 @@ export function PublicPresentViewerVNext({
 
   const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
-    const visualAssetId = deck.assets.visuals?.[assetId]?.id;
-    return (
-      deck.assets.images[assetId]?.src ??
-      deck.assets.files?.[assetId]?.src ??
-      (visualAssetId
-        ? (deck.assets.images[visualAssetId]?.src ??
-          deck.assets.files?.[visualAssetId]?.src)
-        : undefined)
-    );
+    return resolveDeckAssetSource(deck, assetId);
   }
   const aspectRatio =
     canvas && canvas.width > 0 && canvas.height > 0

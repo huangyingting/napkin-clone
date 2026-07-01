@@ -96,8 +96,8 @@ export function DeckDiagnosticsReview({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {groups.length === 0 ? (
             <p className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 py-4 text-sm text-ds-text-secondary">
-              This deck has no validation, render, asset, theme, migration,
-              source, or export diagnostics to review.
+              This deck has no validation, render, asset, theme, source, or
+              export diagnostics to review.
             </p>
           ) : (
             <div className="flex flex-col gap-3">

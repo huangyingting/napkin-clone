@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 
 import { Prisma } from "../src/generated/prisma/client";
 import { safeParseDeck } from "../src/lib/presentation/deck-schema";
+import { safeParseDeckV7 } from "../src/lib/presentation-vnext/validation";
 import { deriveStorageKey } from "../src/lib/slides/asset-storage";
 import {
   VISUAL_KIND_TO_PRISMA,
@@ -16,6 +17,7 @@ import {
   E2E_PROFILE_FIXTURE,
   buildE2EProfileContentJson,
   buildE2EProfileDeck,
+  buildE2EProfileDeckV7,
   buildE2EProfileFixtureDescriptor,
   buildE2EProfileVisual,
   fixtureAssetChecksum,
@@ -287,7 +289,55 @@ async function main() {
   });
 
   // -------------------------------------------------------------------------
-  // 5b. PRIVATE document + asset — never shared. Used to assert that anonymous
+  // 5b. Dedicated v7 layout screenshot document.
+  // -------------------------------------------------------------------------
+  const rawLayoutDeck = buildE2EProfileDeckV7();
+  const parsedLayoutDeck = safeParseDeckV7(rawLayoutDeck);
+  if (!parsedLayoutDeck.success) {
+    throw new Error(
+      `Fixture v7 layout deck failed validation: ${parsedLayoutDeck.errors.join("; ")}`,
+    );
+  }
+  const layoutContentJson = buildE2EProfileContentJson(
+    parsedVisual.data,
+  ) as unknown as Prisma.InputJsonValue;
+
+  await prisma.document.upsert({
+    where: { id: F.layoutDocumentId },
+    update: {
+      title: F.layoutDocumentTitle,
+      content: `${F.documentBodyText} (layout fixture)`,
+      contentJson: layoutContentJson,
+      deckJson: parsedLayoutDeck.data as unknown as Prisma.InputJsonValue,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      shareId: null,
+      slug: null,
+      isShared: false,
+      shareEmbedEnabled: false,
+      sharePresentEnabled: false,
+      shareExpiresAt: null,
+      deletedAt: null,
+      tags: { set: [{ id: dashboardTag.id }] },
+    },
+    create: {
+      id: F.layoutDocumentId,
+      title: F.layoutDocumentTitle,
+      content: `${F.documentBodyText} (layout fixture)`,
+      contentJson: layoutContentJson,
+      deckJson: parsedLayoutDeck.data as unknown as Prisma.InputJsonValue,
+      ownerId: owner.id,
+      workspaceId: F.workspaceId,
+      shareId: null,
+      slug: null,
+      isShared: false,
+      shareEmbedEnabled: false,
+      sharePresentEnabled: false,
+      tags: { connect: { id: dashboardTag.id } },
+    },
+  });
+
+  // 5c. PRIVATE document + asset — never shared. Used to assert that anonymous
   //     and unrelated requests to a private slide asset are denied (403/404),
   //     in contrast to the shared document above.
   // -------------------------------------------------------------------------

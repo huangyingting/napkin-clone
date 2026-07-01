@@ -15,6 +15,8 @@ export interface SlideSettingsPanelProps {
   onUpdateSource: (source: NodeSourceMetadata | undefined) => void;
   onUpdateLocalStyle: (patch: StylePatch) => void;
   onResetLocalStyle: () => void;
+  assetResolver?: (assetId: string) => string | undefined;
+  onUploadBackgroundImage?: () => void;
 }
 
 export function slideBackgroundColor(slide: SlideNode): string {
@@ -44,6 +46,15 @@ export function slideBackgroundSecondaryColor(slide: SlideNode): string {
 export function slideBackgroundAssetId(slide: SlideNode): string {
   const background = slide.localStyle?.slide?.background;
   return background?.type === "image" ? (background.assetId ?? "") : "";
+}
+
+export function slideBackgroundPreviewAsset(
+  slide: SlideNode,
+  assetResolver?: (assetId: string) => string | undefined,
+): string | undefined {
+  const assetId = slideBackgroundAssetId(slide);
+  if (!assetId || !assetResolver) return undefined;
+  return assetResolver(assetId);
 }
 
 export function slideAccentColor(slide: SlideNode): string {
@@ -156,7 +167,16 @@ export function SlideSettingsPanel({
   onUpdateSource,
   onUpdateLocalStyle,
   onResetLocalStyle,
+  assetResolver,
+  onUploadBackgroundImage,
 }: SlideSettingsPanelProps): JSX.Element {
+  const backgroundAssetId = slideBackgroundAssetId(slide);
+  const backgroundPreviewAsset = slideBackgroundPreviewAsset(
+    slide,
+    assetResolver,
+  );
+  const hasBackgroundAssetId = backgroundAssetId.trim().length > 0;
+
   function updateSource(patch: Partial<NodeSourceMetadata>) {
     onUpdateSource(slideSourceWithPatch(slide, patch));
   }
@@ -207,24 +227,69 @@ export function SlideSettingsPanel({
             </select>
           </label>
           {slide.localStyle?.slide?.background?.type === "image" ? (
-            <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-              Background asset id
-              <input
-                value={slideBackgroundAssetId(slide)}
-                onChange={(event) =>
-                  onUpdateLocalStyle({
-                    slide: {
-                      background: {
-                        type: "image",
-                        assetId: event.currentTarget.value,
-                        opacity: 1,
+            <>
+              <div className="overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised">
+                {backgroundPreviewAsset ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={backgroundPreviewAsset}
+                    alt={`${slide.name ?? "Slide"} background preview`}
+                    className="h-24 w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-24 items-center justify-center px-2 text-center text-xs text-ds-text-muted">
+                    {hasBackgroundAssetId
+                      ? "Missing image asset"
+                      : "No background image selected"}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onUploadBackgroundImage}
+                  disabled={onUploadBackgroundImage === undefined}
+                  className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+                >
+                  {hasBackgroundAssetId ? "Replace image" : "Upload image"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateLocalStyle({
+                      slide: {
+                        background: {
+                          type: "solid",
+                          color: slideBackgroundColor(slide),
+                        },
                       },
-                    },
-                  })
-                }
-                className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
-              />
-            </label>
+                    })
+                  }
+                  disabled={!hasBackgroundAssetId}
+                  className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-hover disabled:opacity-40"
+                >
+                  Clear image
+                </button>
+              </div>
+              <label className="flex flex-col gap-1 text-[11px] text-ds-text-muted">
+                Asset id (advanced)
+                <input
+                  value={backgroundAssetId}
+                  onChange={(event) =>
+                    onUpdateLocalStyle({
+                      slide: {
+                        background: {
+                          type: "image",
+                          assetId: event.currentTarget.value,
+                          opacity: 1,
+                        },
+                      },
+                    })
+                  }
+                  className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 font-mono text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+                />
+              </label>
+            </>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
