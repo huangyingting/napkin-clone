@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
+import { buildMinimalDeckV7 } from "@/test/builders/deck-v7";
 
 import {
   PERSISTED_JSON_CONTRACTS,
@@ -55,6 +56,12 @@ test("persisted JSON registry points at current validators", () => {
     PERSISTED_JSON_CONTRACTS["Visual.data"].validate(validVisual()).success,
     true,
   );
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["DocumentVersion.deckJson"].validate(
+      buildMinimalDeckV7(),
+    ).success,
+    true,
+  );
   assert.equal(getPersistedJsonContract("Visual.data").name, "Visual.data");
 });
 
@@ -64,6 +71,11 @@ test("registry rejects superseded deck and invalid comment anchor shapes", () =>
     PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(
       JSON.stringify(validDeck()),
     ).success,
+    false,
+  );
+  assert.equal(
+    PERSISTED_JSON_CONTRACTS["DocumentVersion.deckJson"].validate(validDeck())
+      .success,
     false,
   );
   assert.equal(
