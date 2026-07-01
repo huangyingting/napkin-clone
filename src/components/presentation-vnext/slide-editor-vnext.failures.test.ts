@@ -18,6 +18,7 @@ import {
 import { InspectorShell } from "./inspector";
 import { SlideCanvasVNext } from "./slide-canvas";
 import {
+  SlideEditorInspectorRegion,
   SlideEditorVNext,
   type SlideEditorVNextImageUploadResult,
   type SlideEditorVNextProps,
@@ -402,12 +403,30 @@ describe("SlideEditorVNext failure-state coverage", () => {
 
       tree = renderTree();
 
+      const hasReplaceImageAction = (element: ReactElement): boolean =>
+        element.type === InspectorShell &&
+        typeof (element.props as { onReplaceImage?: () => void })
+          .onReplaceImage === "function";
+      const resolveInspectorSurface = (root: ReactNode): ReactNode => {
+        if (collectElements(root, hasReplaceImageAction).length > 0)
+          return root;
+        const inspectorRegion = findRequiredElement(
+          root,
+          (element) =>
+            element.type === SlideEditorInspectorRegion &&
+            typeof (element.props as { renderInspectorShell?: () => ReactNode })
+              .renderInspectorShell === "function",
+          "Expected inspector region shell renderer.",
+        );
+        return (
+          inspectorRegion.props as { renderInspectorShell: () => ReactNode }
+        ).renderInspectorShell();
+      };
+      const inspectorSurface = resolveInspectorSurface(tree);
+
       const inspectorShell = findRequiredElement(
-        tree,
-        (element) =>
-          element.type === InspectorShell &&
-          typeof (element.props as { onReplaceImage?: () => void })
-            .onReplaceImage === "function",
+        inspectorSurface,
+        hasReplaceImageAction,
         "Expected inspector shell replace-image action.",
       );
 
@@ -511,7 +530,7 @@ describe("SlideEditorVNext failure-state coverage", () => {
       assert.equal(replacedNode.content.assetId, "img-replaced");
 
       const selectedInspectorShell = findRequiredElement(
-        tree,
+        resolveInspectorSurface(tree),
         (element) => element.type === InspectorShell,
         "Expected inspector shell to remain rendered.",
       );
