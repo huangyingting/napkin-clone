@@ -551,18 +551,135 @@ function validateTextContent(
     if (typeof para.text !== "string") {
       fail(errors, `${pCtx}.text must be a string`);
     }
-    // Validate runs concatenate to paragraph text
-    if (Array.isArray(para.runs) && typeof para.text === "string") {
-      const joined = (para.runs as unknown[])
-        .map((r) => (isPlainObject(r) ? (r.text ?? "") : ""))
+    if (para.runs !== undefined && !Array.isArray(para.runs)) {
+      fail(errors, `${pCtx}.runs must be an array`);
+    }
+    // Validate runs and enforce run text concatenation to paragraph text.
+    if (Array.isArray(para.runs)) {
+      const joined = para.runs
+        .map((run, runIndex) =>
+          validateTextRun(run, `${pCtx}.runs[${runIndex}]`, errors),
+        )
         .join("");
-      if (joined !== para.text) {
+      if (typeof para.text === "string" && joined !== para.text) {
         fail(
           errors,
           `${pCtx}: runs text must concatenate to paragraph text (runLength=${joined.length}, paragraphLength=${para.text.length})`,
         );
       }
     }
+    if (para.list !== undefined) {
+      validateListMarker(para.list, `${pCtx}.list`, errors);
+    }
+  }
+}
+
+const TEXT_RUN_LINK_SCHEMES = ["http:", "https:", "mailto:"] as const;
+const LIST_MARKER_KINDS = ["bullet", "number"] as const;
+const LIST_MARKER_NUMBER_STYLES = [
+  "decimal",
+  "lower-alpha",
+  "upper-alpha",
+  "lower-roman",
+] as const;
+const TEXT_RUN_BOOLEAN_FIELDS = [
+  "bold",
+  "italic",
+  "underline",
+  "strikethrough",
+  "code",
+] as const;
+
+function isAllowedTextRunLink(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return TEXT_RUN_LINK_SCHEMES.includes(
+      url.protocol as (typeof TEXT_RUN_LINK_SCHEMES)[number],
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validateTextRun(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): string {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return "";
+  }
+  if (typeof input.text !== "string") {
+    fail(errors, `${ctx}.text must be a string`);
+  }
+  for (const key of TEXT_RUN_BOOLEAN_FIELDS) {
+    const value = input[key];
+    if (value !== undefined && typeof value !== "boolean") {
+      fail(errors, `${ctx}.${key} must be a boolean`);
+    }
+  }
+  if (input.link !== undefined) {
+    if (typeof input.link !== "string") {
+      fail(errors, `${ctx}.link must be a string`);
+    } else if (!isAllowedTextRunLink(input.link)) {
+      fail(
+        errors,
+        `${ctx}.link must use one of: ${TEXT_RUN_LINK_SCHEMES.join(", ")}`,
+      );
+    }
+  }
+  if (input.localStyle !== undefined) {
+    validateRunLocalStyle(input.localStyle, `${ctx}.localStyle`, errors);
+  }
+  return typeof input.text === "string" ? input.text : "";
+}
+
+function validateRunLocalStyle(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  validateOptionalString(input.color, `${ctx}.color`, errors);
+  validateOptionalFiniteNumber(input.fontSizePt, `${ctx}.fontSizePt`, errors);
+  validateOptionalString(input.fontFamily, `${ctx}.fontFamily`, errors);
+}
+
+function validateListMarker(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+  if (
+    !LIST_MARKER_KINDS.includes(
+      input.kind as (typeof LIST_MARKER_KINDS)[number],
+    )
+  ) {
+    fail(errors, `${ctx}.kind must be one of: ${LIST_MARKER_KINDS.join(", ")}`);
+  }
+  if (input.indent !== undefined) {
+    if (!Number.isInteger(input.indent) || (input.indent as number) < 0) {
+      fail(errors, `${ctx}.indent must be an integer >= 0`);
+    }
+  }
+  if (
+    input.numberStyle !== undefined &&
+    !LIST_MARKER_NUMBER_STYLES.includes(
+      input.numberStyle as (typeof LIST_MARKER_NUMBER_STYLES)[number],
+    )
+  ) {
+    fail(
+      errors,
+      `${ctx}.numberStyle must be one of: ${LIST_MARKER_NUMBER_STYLES.join(", ")}`,
+    );
   }
 }
 
