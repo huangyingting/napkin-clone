@@ -242,8 +242,7 @@ describe("inspector panels render and wire controls", () => {
     );
     assert.ok(strokeWidthInput);
     const onChange = strokeWidthInput.props.onChange as
-      | ((event: { currentTarget: { value: string } }) => void)
-      | undefined;
+      ((event: { currentTarget: { value: string } }) => void) | undefined;
     assert.ok(onChange);
     onChange?.({ currentTarget: { value: "6" } });
 
@@ -283,8 +282,7 @@ describe("inspector panels render and wire controls", () => {
     );
     assert.ok(lineWidthInput);
     const onChange = lineWidthInput.props.onChange as
-      | ((event: { currentTarget: { value: string } }) => void)
-      | undefined;
+      ((event: { currentTarget: { value: string } }) => void) | undefined;
     assert.ok(onChange);
     onChange?.({ currentTarget: { value: "4" } });
 
@@ -569,7 +567,7 @@ describe("inspector panels render and wire controls", () => {
     ]);
   });
 
-  test("LayersPanel renders nested layer labels and empty state", () => {
+  test("LayersPanel renders nested layer labels, contextual toggle names, and empty state", () => {
     const updates: unknown[] = [];
     const group = childNode({
       id: "group-1",
@@ -614,6 +612,22 @@ describe("inspector panels render and wire controls", () => {
     assert.match(html, /Group/);
     assert.match(html, /Nested text/);
     assert.match(html, /Nested image/);
+    assert.match(
+      html,
+      /aria-label="Hide layer &quot;Nested text&quot;" aria-pressed="false"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Lock layer &quot;Nested text&quot;" aria-pressed="false"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Show layer &quot;Nested image&quot;" aria-pressed="true"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Unlock layer &quot;Nested image&quot;" aria-pressed="true"/,
+    );
     assert.equal(empty, "");
   });
 });
