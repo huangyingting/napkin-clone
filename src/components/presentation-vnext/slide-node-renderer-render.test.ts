@@ -438,7 +438,7 @@ describe("SlideNodeRenderer content variants", () => {
     assert.match(html, />iii\.<\/span><span>Lower roman continuation<\/span>/);
   });
 
-  test("renders styled shape labels and SVG path shapes", () => {
+  test("renders styled shape labels and SVG geometry", () => {
     const html = renderNode(
       node(
         {
@@ -460,10 +460,11 @@ describe("SlideNodeRenderer content variants", () => {
 
     assert.match(html, /<svg/);
     assert.match(html, /Decision/);
-    assert.match(html, /background-color:#ffeeaa/);
+    assert.match(html, /fill="#ffeeaa"/);
+    assert.doesNotMatch(html, /background-color:#ffeeaa/);
   });
 
-  test("renders path, triangle, and ellipse shape variants", () => {
+  test("renders ellipse, circle, line, triangle, diamond, square, and path variants", () => {
     const pathHtml = renderNode(
       node(
         {
@@ -481,6 +482,12 @@ describe("SlideNodeRenderer content variants", () => {
         },
       ),
     );
+    const diamondHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "diamond" },
+      }),
+    );
     const triangleHtml = renderNode(
       node({
         type: "shape",
@@ -493,10 +500,34 @@ describe("SlideNodeRenderer content variants", () => {
         content: { shape: "ellipse" },
       }),
     );
+    const circleHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "circle" },
+      }),
+    );
+    const lineHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "line" },
+      }),
+    );
+    const squareHtml = renderNode(
+      node({
+        type: "shape",
+        content: { shape: "square" },
+      }),
+    );
 
     assert.match(pathHtml, /M 0 0 L 100 0 L 50 100 Z/);
+    assert.match(pathHtml, /fill="#ddeeff"/);
+    assert.doesNotMatch(pathHtml, /background-color:#ddeeff/);
+    assert.match(diamondHtml, /M 50 0 L 100 50 L 50 100 L 0 50 Z/);
     assert.match(triangleHtml, /M 50 0 L 100 100 L 0 100 Z/);
-    assert.doesNotMatch(ellipseHtml, /<svg/);
+    assert.match(ellipseHtml, /<ellipse/);
+    assert.match(circleHtml, /<circle/);
+    assert.match(lineHtml, /<line/);
+    assert.match(squareHtml, /M 0 0 L 100 0 L 100 100 L 0 100 Z/);
   });
 
   test("renders table headers, cell runs, and alternating row fill", () => {
