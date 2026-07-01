@@ -31,6 +31,7 @@ import {
 import {
   HudButton,
   KeyboardHelpOverlay,
+  PresenterPanelVNext,
   PresenterTimer,
   PresenterToolIcon,
   SlideOverviewPanelVNext,
@@ -101,6 +102,10 @@ export function PresentModeVNext({
   const { elapsedSeconds, startedAtRef } = usePresenterTimer();
 
   const currentSlideTree = renderTree?.slides[currentIndex];
+  const nextSlide =
+    currentIndex + 1 < total ? deck.slides[currentIndex + 1] : undefined;
+  const nextSlideTree =
+    currentIndex + 1 < total ? renderTree?.slides[currentIndex + 1] : undefined;
   const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
     return resolveDeckAssetSource(deck, assetId);
@@ -297,8 +302,6 @@ export function PresentModeVNext({
     );
   }
 
-  const slideNotes = deck.slides[currentIndex]?.notes ?? undefined;
-
   const overlay = (
     <div
       ref={containerRef}
@@ -471,14 +474,20 @@ export function PresentModeVNext({
       </div>
 
       {/* Speaker notes */}
-      {notesVisible && slideNotes && (
+      {notesVisible && (
         <div
           className="flex-shrink-0 border-t border-ds-inverse-border-subtle p-4"
           style={{ height: "35%" }}
         >
-          <p className="text-sm text-ds-inverse-text whitespace-pre-wrap leading-relaxed">
-            {slideNotes}
-          </p>
+          <PresenterPanelVNext
+            currentSlide={deck.slides[currentIndex]}
+            currentIndex={currentIndex}
+            total={total}
+            nextSlide={nextSlide}
+            nextSlideTree={nextSlideTree}
+            canvas={canvas ?? deck.canvas}
+            assetResolver={resolveDeckAsset}
+          />
         </div>
       )}
 
