@@ -236,7 +236,7 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
     assert.match(html, /aria-current="true"/);
   });
 
-  test("keeps Arrow/Home/End/Delete/Alt+Arrow behavior, focus restore, and announcements", () => {
+  test("handles keyboard slide selection/reorder/delete flows with focus restore and announcements", () => {
     const selected: number[] = [];
     const deleted: string[] = [];
     const moved: Array<[string, number]> = [];
@@ -281,17 +281,32 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
           preventDefault: () => undefined,
         }) as unknown as KeyboardEvent<HTMLOListElement>;
 
+      onKeyDown!(keyEvent("ArrowLeft"));
       onKeyDown!(keyEvent("ArrowRight"));
       onKeyDown!(keyEvent("Home"));
       onKeyDown!(keyEvent("End"));
+      onKeyDown!(keyEvent("Enter", { slideIndex: 0 }));
+      onKeyDown!(keyEvent(" ", { slideIndex: 2 }));
+      onKeyDown!(keyEvent("ArrowLeft", { altKey: true }));
       onKeyDown!(keyEvent("ArrowRight", { altKey: true }));
       onKeyDown!(keyEvent("Delete"));
+      onKeyDown!(keyEvent("Backspace", { slideIndex: 2 }));
     });
 
-    assert.deepEqual(selected, [2, 0, 2]);
-    assert.deepEqual(moved, [["slide-2", 2]]);
-    assert.deepEqual(deleted, ["slide-2"]);
-    assert.equal(focusCalls, 5);
+    assert.deepEqual(selected, [0, 2, 0, 2, 0, 2]);
+    assert.deepEqual(moved, [
+      ["slide-2", 0],
+      ["slide-2", 2],
+    ]);
+    assert.deepEqual(deleted, ["slide-2", "slide-3"]);
+    assert.equal(focusCalls, 8);
+    assert.ok(
+      selectors.some((selector) =>
+        selector.includes(
+          `[data-slide-index="0"] button[aria-label^="Go to slide"]`,
+        ),
+      ),
+    );
     assert.ok(
       selectors.some((selector) =>
         selector.includes(
@@ -310,8 +325,10 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
     const statusUpdates = updates
       .filter((update) => update.index === 0)
       .map((update) => update.value);
+    assert.ok(statusUpdates.includes("Moved slide 2 to 1."));
     assert.ok(statusUpdates.includes("Moved slide 2 to 3."));
     assert.ok(statusUpdates.includes("Deleted slide 2."));
+    assert.ok(statusUpdates.includes("Deleted slide 3."));
   });
 
   test("announces the minimum-slide invariant and blocks deletion in one-slide decks", () => {
@@ -351,6 +368,23 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
       .filter((update) => update.index === 0)
       .map((update) => update.value);
     assert.ok(statusUpdates.includes(MIN_DECK_SLIDES_MESSAGE));
+  });
+
+  test("removes filmstrip tab stops when collapsed", () => {
+    const html = renderToStaticMarkup(
+      createElement(Filmstrip, filmstripProps({ collapsed: true })),
+    );
+
+    assert.match(html, /aria-hidden="true"/);
+    assert.match(html, /aria-label="Slides"[^>]*tabindex="-1"/);
+    assert.match(
+      html,
+      /aria-label="Go to slide 1"[^>]*disabled=""[^>]*tabindex="-1"/,
+    );
+    assert.match(
+      html,
+      /aria-label="Add slide"[^>]*disabled=""[^>]*tabindex="-1"/,
+    );
   });
 });
 
