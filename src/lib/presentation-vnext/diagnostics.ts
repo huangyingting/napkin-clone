@@ -37,13 +37,6 @@ export type PresentationDiagnosticCode =
   | "theme-decoration-export-fallback"
   | "unsupported-export-feature"
   | "local-style-overrides"
-  | "migration-id-rewrite"
-  | "migration-dropped-node"
-  | "migration-unmapped-reference"
-  | "migration-unmapped-source-ref"
-  | "migration-repair-required"
-  | "migration-repair-applied"
-  | "migration-repair-failed"
   | "stale-source"
   | "orphaned-source"
   | "missing-source-block"
@@ -54,28 +47,14 @@ export type DiagnosticSeverity = "info" | "warning" | "error" | "fatal";
 
 /** Stable subsystem vocabulary used for filtering and summary counts. */
 export type DiagnosticCategory =
-  | "validation"
-  | "migration"
-  | "source"
-  | "asset"
-  | "theme"
-  | "render"
-  | "export";
+  "validation" | "source" | "asset" | "theme" | "render" | "export";
 
 /** Stable target scopes used by inspector and deck-level review grouping. */
 export type DiagnosticTargetScope =
-  | "deck"
-  | "slide"
-  | "node"
-  | "asset"
-  | "source"
-  | "style"
-  | "theme"
-  | "export";
+  "deck" | "slide" | "node" | "asset" | "source" | "style" | "theme" | "export";
 
 export const DIAGNOSTIC_CATEGORIES: readonly DiagnosticCategory[] = [
   "validation",
-  "migration",
   "source",
   "asset",
   "theme",
@@ -254,7 +233,6 @@ function detailString(
 export function categoryForDiagnosticCode(
   code: PresentationDiagnosticCode,
 ): DiagnosticCategory {
-  if (code.startsWith("migration-")) return "migration";
   if (
     code === "stale-source" ||
     code === "orphaned-source" ||

@@ -297,7 +297,7 @@ export interface SlideEditorVNextProps {
   deck: DeckV7;
   /** Theme package to use for rendering. Falls back to the neutral package. */
   themePackage?: ThemePackageV1 | null;
-  /** Boundary diagnostics, e.g. migration or theme fallback notices. */
+  /** Boundary diagnostics, e.g. validation or theme fallback notices. */
   diagnostics?: readonly PresentationDiagnostic[];
   saveStatus?: SaveStatus;
   saveStatusLabel?: string;
