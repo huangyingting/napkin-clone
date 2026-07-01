@@ -25,6 +25,7 @@ import type {
   StyleObject,
 } from "@/lib/presentation-vnext/style-schema";
 
+// e2e-governance-allow oversized-test: v7 canvas parity coverage is still centralized here; split tracked separately.
 function textNode(
   id: string,
   frame: { x: number; y: number; w: number; h: number },
