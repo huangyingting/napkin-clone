@@ -1241,6 +1241,50 @@ describe("updateLocalStyle deep merge", () => {
     assert.equal(node?.localStyle?.text?.italic, true);
     assert.equal(node?.localStyle?.text?.color, "#ff0000");
   });
+
+  test("preserves existing nested connector stroke fields across toolbar patches", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const step1 = updateLocalStyle(deck, slide.id, nodeId, {
+      connector: {
+        stroke: { color: "#334155", widthPt: 1.5, dash: "dotted" },
+      },
+    });
+    const step2 = updateLocalStyle(step1, slide.id, nodeId, {
+      connector: { stroke: { color: "#ef4444", widthPt: 2 } },
+    });
+    const node = step2.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.equal(node?.localStyle?.connector?.stroke?.color, "#ef4444");
+    assert.equal(node?.localStyle?.connector?.stroke?.widthPt, 2);
+    assert.equal(node?.localStyle?.connector?.stroke?.dash, "dotted");
+  });
+
+  test("preserves sibling visual channel colors across sequential patches", () => {
+    const deck = makeTestDeck();
+    const slide = deck.slides[0];
+    const nodeId = slide.children[0].id;
+    const step1 = updateLocalStyle(deck, slide.id, nodeId, {
+      visual: {
+        channelColors: {
+          primary: "#2563eb",
+          secondary: "#f59e0b",
+          tertiary: "#10b981",
+        },
+      },
+    });
+    const step2 = updateLocalStyle(step1, slide.id, nodeId, {
+      visual: { channelColors: { primary: "#7c3aed" } },
+    });
+    const node = step2.slides[0].children.find((n) => n.id === nodeId);
+
+    assert.deepEqual(node?.localStyle?.visual?.channelColors, {
+      primary: "#7c3aed",
+      secondary: "#f59e0b",
+      tertiary: "#10b981",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
