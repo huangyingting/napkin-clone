@@ -94,8 +94,9 @@ document, and the specs run for real against it.
   same bcrypt path the app uses);
 - a workspace granting the viewer read-only access;
 - one **shared** document with intro text + an embedded visual, a persisted
-  `deckJson` whose first slide carries known text and an `ImageElement` backed by
-  a slide `Asset` (bytes written under `storage/slide-assets/…`), and an enabled
+  `deckJson` in `schemaVersion: 7` (`DeckV7`) whose first slide carries known
+  text and an `ImageNode` backed by a slide `Asset` (bytes written under
+  `storage/slide-assets/…`), and an enabled
   public present/embed share policy;
 - a second **private** (never-shared) document + asset used to assert
   protected-asset denial.

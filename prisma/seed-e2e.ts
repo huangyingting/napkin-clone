@@ -6,7 +6,8 @@ import path from "node:path";
 import bcrypt from "bcryptjs";
 
 import { Prisma } from "../src/generated/prisma/client";
-import { safeParseDeck } from "../src/lib/presentation/deck-schema";
+import { openDeckFromJson } from "../src/lib/presentation-vnext/open-deck";
+import { safeParseDeckV7 } from "../src/lib/presentation-vnext/validation";
 import { deriveStorageKey } from "../src/lib/slides/asset-storage";
 import {
   VISUAL_KIND_TO_PRISMA,
@@ -273,14 +274,21 @@ async function main() {
     select: { id: true },
   });
 
-  // Persist the deck once the asset id is known so the ImageElement carries a
-  // real `assetId`. Validated through safeParseDeck so a broken deck fails loud.
+  // Persist the deck once the asset id is known so the ImageNode carries a real
+  // `assetId`. Validate through the v7 parser and open boundary so a broken
+  // fixture fails loudly before it is written to Document.deckJson.
   const rawDeck = buildE2EProfileDeck(assetUrl, asset.id);
-  const parsedDeck = safeParseDeck(rawDeck);
+  const parsedDeck = safeParseDeckV7(rawDeck);
   if (!parsedDeck.success) {
-    throw new Error(`Fixture deck failed validation: ${parsedDeck.error}`);
+    throw new Error(
+      `Fixture deck failed v7 validation: ${parsedDeck.errors.join("; ")}`,
+    );
   }
-  const deck = parsedDeck.data;
+  const openedDeck = openDeckFromJson(parsedDeck.data);
+  if (!openedDeck.ok) {
+    throw new Error(`Fixture deck failed open boundary: ${openedDeck.error}`);
+  }
+  const deck = openedDeck.deck;
   await prisma.document.update({
     where: { id: F.documentId },
     data: { deckJson: deck as unknown as Prisma.InputJsonValue },
