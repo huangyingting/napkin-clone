@@ -127,9 +127,7 @@ test("compileDocumentSlidePlanToDeckV7 stores deck and node provenance", () => {
 
   assert.equal(compiled.ok, true);
   if (!compiled.ok) return;
-  const deckDerivation = jsonObject(
-    compiled.deck.metadata?.extra?.derivation,
-  );
+  const deckDerivation = jsonObject(compiled.deck.metadata?.extra?.derivation);
   assert.equal(compiled.deck.theme.packageId, "clarity");
   assert.equal(deckDerivation?.planner, "deterministic");
   assert.deepEqual(deckDerivation?.sourceBlockIds, [
