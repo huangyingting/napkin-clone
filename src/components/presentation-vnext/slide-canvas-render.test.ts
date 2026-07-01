@@ -18,6 +18,7 @@ import type {
   ResolvedDeckRenderTree,
   ResolvedNodeContent,
   ResolvedRenderNode,
+  ResolvedSlideRenderLists,
   ResolvedSlideRenderTree,
 } from "@/lib/presentation-vnext/render-tree";
 import type {
@@ -253,6 +254,80 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.ok(
       html.indexOf("deck-chrome-footer") <
         html.indexOf("deck-chrome-pageNumber"),
+    );
+  });
+
+  test("prefers precomputed render lists when available", () => {
+    const precomputedLists: ResolvedSlideRenderLists = {
+      decorations: [
+        textNode(
+          "precomputed-decoration",
+          { x: 0, y: 0, w: 20, h: 10 },
+          { source: "themeDecoration" },
+        ),
+      ],
+      backgroundChrome: [
+        textNode(
+          "precomputed-background-chrome",
+          { x: 0, y: 90, w: 100, h: 5 },
+          {
+            source: "deckChrome",
+            chromeKind: "watermark",
+            layout: { frame: { x: 0, y: 90, w: 100, h: 5 }, zIndex: -10 },
+          },
+        ),
+      ],
+      foregroundChrome: [
+        textNode(
+          "precomputed-foreground-chrome",
+          { x: 0, y: 95, w: 100, h: 5 },
+          {
+            source: "deckChrome",
+            chromeKind: "footer",
+            layout: { frame: { x: 0, y: 95, w: 100, h: 5 }, zIndex: 900 },
+          },
+        ),
+      ],
+      userNodes: [textNode("precomputed-user", { x: 30, y: 30, w: 20, h: 10 })],
+    };
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: {
+          ...slide([textNode("fallback-user", { x: 10, y: 10, w: 20, h: 10 })]),
+          decorations: [
+            textNode("fallback-decoration", { x: 0, y: 0, w: 100, h: 100 }),
+          ],
+          chrome: [
+            textNode("fallback-foreground-chrome", {
+              x: 10,
+              y: 90,
+              w: 80,
+              h: 5,
+            }),
+          ],
+          renderLists: precomputedLists,
+        },
+      }),
+    );
+
+    assert.match(html, /precomputed-decoration/);
+    assert.match(html, /precomputed-background-chrome/);
+    assert.match(html, /precomputed-user/);
+    assert.match(html, /precomputed-foreground-chrome/);
+    assert.doesNotMatch(html, /fallback-decoration/);
+    assert.doesNotMatch(html, /fallback-user/);
+    assert.doesNotMatch(html, /fallback-foreground-chrome/);
+    assert.ok(
+      html.indexOf("precomputed-decoration") <
+        html.indexOf("precomputed-background-chrome"),
+    );
+    assert.ok(
+      html.indexOf("precomputed-background-chrome") <
+        html.indexOf("precomputed-user"),
+    );
+    assert.ok(
+      html.indexOf("precomputed-user") <
+        html.indexOf("precomputed-foreground-chrome"),
     );
   });
 

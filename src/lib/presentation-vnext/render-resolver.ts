@@ -41,6 +41,7 @@ import type {
   ResolvedNodeContent,
   ResolvedSlideBackground,
 } from "./render-tree";
+import { buildSlideRenderLists } from "./render-tree";
 import {
   resolveNodeStyle,
   resolveTheme,
@@ -1126,6 +1127,7 @@ function resolveSlide(
     canvasWidthPx,
     canvasHeightPx,
   );
+  const renderLists = buildSlideRenderLists({ decorations, chrome, nodes });
 
   return {
     id: slide.id,
@@ -1133,6 +1135,7 @@ function resolveSlide(
     decorations,
     chrome,
     nodes,
+    renderLists,
     ...(slide.notes ? { notes: slide.notes } : {}),
   };
 }

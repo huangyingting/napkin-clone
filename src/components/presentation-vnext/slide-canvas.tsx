@@ -23,6 +23,7 @@ import type {
   ResolvedDeckRenderTree,
   ResolvedRenderNode,
 } from "@/lib/presentation-vnext/render-tree";
+import { getSlideRenderLists } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
 import type {
   ConnectorEndpoint,
@@ -92,21 +93,6 @@ function canvasAspectRatio(canvas: CanvasSpec): number {
     return canvas.width / canvas.height;
   }
   return 16 / 9;
-}
-
-// ---------------------------------------------------------------------------
-// Node flat list (including group children for rendering)
-// ---------------------------------------------------------------------------
-
-function flattenNodes(nodes: ResolvedRenderNode[]): ResolvedRenderNode[] {
-  const result: ResolvedRenderNode[] = [];
-  for (const node of nodes) {
-    result.push(node);
-    if (node.children && node.children.length > 0) {
-      result.push(...flattenNodes(node.children));
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,18 +254,16 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
         }
       : undefined;
 
-  // Flatten groups for rendering (children positioned in slide-relative space)
-  const decorationNodes = flattenNodes(slide.decorations);
-  const chromeNodes = flattenNodes(slide.chrome);
-  const backgroundChromeNodes = chromeNodes
-    .filter((node) => (node.layout.zIndex ?? 0) < 0)
-    .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
-  const foregroundChromeNodes = chromeNodes
-    .filter((node) => (node.layout.zIndex ?? 0) >= 0)
-    .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
-  const userNodes = flattenNodes(slide.nodes).map((node) =>
-    applyNodeGestureDraft(node, nodeGestureDrafts),
-  );
+  const renderLists = getSlideRenderLists(slide);
+  const decorationNodes = renderLists.decorations;
+  const backgroundChromeNodes = renderLists.backgroundChrome;
+  const foregroundChromeNodes = renderLists.foregroundChrome;
+  const userNodes =
+    nodeGestureDrafts && nodeGestureDrafts.size > 0
+      ? renderLists.userNodes.map((node) =>
+          applyNodeGestureDraft(node, nodeGestureDrafts),
+        )
+      : renderLists.userNodes;
   const isHiddenNode = (nodeId: string) => hiddenNodeIds?.has(nodeId) === true;
   const stageChromeUserNodes = userNodes.filter(
     (node) => !isHiddenNode(node.id),
@@ -481,7 +465,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                   data-resize-handle={handle}
                   className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border shadow-ds-sm ${
                     activeResizeHandle?.nodeId === node.id &&
-                    activeResizeHandle.handle === handle
+                    activeResizeHandle?.handle === handle
                       ? "border-ds-accent-fill bg-ds-accent-fill"
                       : "border-ds-accent-border bg-ds-surface"
                   }`}
@@ -554,7 +538,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                   data-crop-handle={handle}
                   className={`pointer-events-auto absolute rounded-full border shadow-ds-sm ${
                     activeCropHandle?.nodeId === node.id &&
-                    activeCropHandle.handle === handle
+                    activeCropHandle?.handle === handle
                       ? "border-ds-accent-fill bg-ds-accent-fill"
                       : "border-ds-accent-border bg-ds-surface"
                   }`}
@@ -596,7 +580,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
                       data-connector-endpoint={endpoint}
                       className={`pointer-events-auto absolute h-3 w-3 rounded-full border shadow-ds-sm ${
                         activeConnectorEndpoint?.nodeId === node.id &&
-                        activeConnectorEndpoint.endpoint === endpoint
+                        activeConnectorEndpoint?.endpoint === endpoint
                           ? "border-ds-accent-fill bg-ds-accent-fill"
                           : "border-ds-accent-border bg-ds-surface"
                       }`}
