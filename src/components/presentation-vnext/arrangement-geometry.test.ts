@@ -220,3 +220,26 @@ test("buildZOrderSelectionOperations computes forward/backward/front/back moves"
     ],
   );
 });
+
+test("buildZOrderSelectionOperations ignores missing z-index values when computing front/back bounds", () => {
+  const nodes: SlideChildNode[] = [
+    textNode("layoutless"),
+    textNode("also-layoutless"),
+  ];
+
+  assert.deepEqual(
+    buildZOrderSelectionOperations(nodes, ["layoutless", "missing"], "front"),
+    [
+      { id: "layoutless", zIndex: 1 },
+      { id: "missing", zIndex: 2 },
+    ],
+  );
+
+  assert.deepEqual(
+    buildZOrderSelectionOperations(nodes, ["layoutless", "missing"], "back"),
+    [
+      { id: "layoutless", zIndex: -1 },
+      { id: "missing", zIndex: -2 },
+    ],
+  );
+});

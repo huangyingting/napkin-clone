@@ -58,6 +58,11 @@ test("test subsystem map exposes stable subsystem names", () => {
 test("test subsystem map classifies files by owning subsystem", () => {
   assert.deepEqual(classifyTestFile("src/lib/auth/password.test.ts"), ["auth"]);
   assert.ok(
+    classifyTestFile(
+      "src/components/editor/use-slide-editor-open.test.ts",
+    ).includes("editor"),
+  );
+  assert.ok(
     classifyTestFile("src/lib/presentation/deck-schema.test.ts").includes(
       "data-model",
     ),

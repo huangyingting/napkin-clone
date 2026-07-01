@@ -145,6 +145,7 @@ export const SUBSYSTEM_TEST_TARGETS = {
     description:
       "Lexical editor, document editor view models, and document editing flows",
     patterns: [
+      /^src\/components\/editor\//,
       /^src\/lib\/document-editor\//,
       /^src\/lib\/lexical\//,
       /^src\/app\/app\/documents\//,
