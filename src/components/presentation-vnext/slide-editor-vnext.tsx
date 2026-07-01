@@ -896,6 +896,38 @@ export interface NodeMovePreview {
   guides: StageGuide[];
 }
 
+function nodeMovePatchFramesEqual(
+  a: ReadonlyMap<string, Partial<LayoutBox>>,
+  b: ReadonlyMap<string, Partial<LayoutBox>>,
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [id, patch] of a) {
+    const nextPatch = b.get(id);
+    if (!nextPatch?.frame || !patch.frame) return false;
+    if (!framesEqual(patch.frame, nextPatch.frame)) return false;
+  }
+  return true;
+}
+
+export function nodeMovePreviewsEqual(
+  a: NodeMovePreview,
+  b: NodeMovePreview,
+): boolean {
+  return nodeMovePatchFramesEqual(a.patches, b.patches);
+}
+
+function nodeMoveGestureDrafts(
+  preview: NodeMovePreview | null,
+): ReadonlyMap<string, SlideCanvasNodeGestureDraft> | null {
+  if (!preview || preview.patches.size === 0) return null;
+  const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
+  for (const [nodeId, patch] of preview.patches) {
+    if (!patch.frame) continue;
+    drafts.set(nodeId, { frame: patch.frame });
+  }
+  return drafts.size > 0 ? drafts : null;
+}
+
 interface NodeMovePreviewArgs {
   startClientX: number;
   startClientY: number;
@@ -1430,6 +1462,10 @@ export function SlideEditorVNext({
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
   const [draggingStage, setDraggingStage] = useState(false);
+  const [moveGestureDraft, setMoveGestureDraft] = useState<ReadonlyMap<
+    string,
+    SlideCanvasNodeGestureDraft
+  > | null>(null);
   const [activeResizeHandle, setActiveResizeHandle] = useState<{
     nodeId: string;
     handle: ResizeHandlePosition;
@@ -1472,6 +1508,7 @@ export function SlideEditorVNext({
   }, [inspectorSheetOpen, isDesktopInspectorViewport]);
 
   useEffect(() => {
+    setMoveGestureDraft(null);
     setResizeGestureDraft(null);
     setCropGestureDraft(null);
     setRotationGestureDraft(null);
@@ -2206,6 +2243,14 @@ export function SlideEditorVNext({
     | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
     | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
+    if (moveGestureDraft) {
+      for (const [nodeId, draft] of moveGestureDraft) {
+        drafts.set(nodeId, {
+          ...(drafts.get(nodeId) ?? {}),
+          ...draft,
+        });
+      }
+    }
     if (resizeGestureDraft) {
       drafts.set(resizeGestureDraft.nodeId, {
         frame: resizeGestureDraft.frame,
@@ -2387,6 +2432,19 @@ export function SlideEditorVNext({
     const startX = event.clientX;
     const startY = event.clientY;
     let dragThresholdPassed = false;
+    const gesture = createSingleCommitGesture<NodeMovePreview>({
+      initialValue: {
+        patches: new Map<string, Partial<LayoutBox>>(),
+        guides: [],
+      },
+      equals: nodeMovePreviewsEqual,
+      onPreview: (preview) => {
+        setMoveGestureDraft(nodeMoveGestureDrafts(preview));
+        setStageGuides(preview?.guides ?? []);
+      },
+      onCommit: (preview) =>
+        onDeckChange(updateNodeLayouts(deck, activeSlide.id, preview.patches)),
+    });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const preview = createNodeMovePreview({
@@ -2404,13 +2462,12 @@ export function SlideEditorVNext({
         dragThresholdPassed = true;
         setDraggingStage(true);
       }
-      setStageGuides(preview.guides);
-      onDeckChange(updateNodeLayouts(deck, activeSlide.id, preview.patches));
+      gesture.update(preview);
     };
 
     const handlePointerUp = () => {
+      gesture.finish();
       setDraggingStage(false);
-      setStageGuides([]);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
