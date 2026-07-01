@@ -23,6 +23,10 @@ import type {
   SlideChildNode,
   SlideNode,
 } from "@/lib/presentation-vnext/schema";
+import type {
+  StyleObject,
+  StylePatch,
+} from "@/lib/presentation-vnext/style-schema";
 
 type ElementWithProps = ReactElement<Record<string, unknown>>;
 
@@ -69,6 +73,13 @@ function invokeHandlers(root: ReactNode): number {
     }
   }
   return count;
+}
+
+function findElement(
+  root: ReactNode,
+  predicate: (element: ElementWithProps) => boolean,
+): ElementWithProps | undefined {
+  return elements(root).find((element) => predicate(element));
 }
 
 function childNode(patch: Partial<SlideChildNode>): SlideChildNode {
@@ -189,6 +200,99 @@ describe("inspector panels render and wire controls", () => {
     assert.ok(invokeHandlers(visual) >= 6);
     assert.ok(invokeHandlers(table) >= 6);
     assert.ok(updates.length >= 17);
+  });
+
+  test("LocalStylePanel seeds resolved values and preserves resolved stroke color on width edit", () => {
+    const updates: StylePatch[] = [];
+    const resolvedStyle: StyleObject = {
+      text: {
+        color: "#1d4ed8",
+        fontSizePt: 26,
+        lineHeight: 1.4,
+      },
+      fill: { type: "solid", color: "#dbeafe" },
+      stroke: { color: "#2563eb", widthPt: 3 },
+    };
+    const element = LocalStylePanel({
+      node: childNode({
+        type: "shape",
+        content: {
+          shape: "rect",
+          text: { paragraphs: [{ id: "label", text: "Label" }] },
+        },
+        localStyle: {},
+      }),
+      resolvedStyle,
+      onUpdateLocalStyle: (patch) => updates.push(patch),
+    });
+
+    const html = render(element);
+    assert.match(html, /value="#1d4ed8"/);
+    assert.match(html, /value="#dbeafe"/);
+    assert.match(html, /value="#2563eb"/);
+
+    const strokeWidthInput = findElement(
+      element,
+      (candidate) =>
+        candidate.type === "input" &&
+        candidate.props.type === "number" &&
+        candidate.props.min === 0 &&
+        candidate.props.max === 24 &&
+        candidate.props.step === 0.5,
+    );
+    assert.ok(strokeWidthInput);
+    const onChange = strokeWidthInput.props.onChange as
+      | ((event: { currentTarget: { value: string } }) => void)
+      | undefined;
+    assert.ok(onChange);
+    onChange?.({ currentTarget: { value: "6" } });
+
+    assert.deepEqual(updates.at(-1), {
+      stroke: { color: "#2563eb", widthPt: 6 },
+    });
+  });
+
+  test("LocalStylePanel preserves resolved connector color on line width edit", () => {
+    const updates: StylePatch[] = [];
+    const resolvedStyle: StyleObject = {
+      connector: {
+        stroke: { color: "#0f172a", widthPt: 2.5, dash: "dashed" },
+      },
+    };
+    const element = LocalStylePanel({
+      node: childNode({
+        type: "connector",
+        content: {
+          from: { kind: "point", point: { x: 0, y: 0 } },
+          to: { kind: "point", point: { x: 100, y: 100 } },
+        },
+        localStyle: {},
+      }),
+      resolvedStyle,
+      onUpdateLocalStyle: (patch) => updates.push(patch),
+    });
+
+    const lineWidthInput = findElement(
+      element,
+      (candidate) =>
+        candidate.type === "input" &&
+        candidate.props.type === "number" &&
+        candidate.props.min === 0.5 &&
+        candidate.props.max === 24 &&
+        candidate.props.step === 0.5,
+    );
+    assert.ok(lineWidthInput);
+    const onChange = lineWidthInput.props.onChange as
+      | ((event: { currentTarget: { value: string } }) => void)
+      | undefined;
+    assert.ok(onChange);
+    onChange?.({ currentTarget: { value: "4" } });
+
+    assert.deepEqual(updates.at(-1), {
+      connector: {
+        stroke: { color: "#0f172a", widthPt: 4 },
+      },
+    });
   });
 
   test("NodeSourcePanel renders linked, unlinked, and standalone source states", () => {

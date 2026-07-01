@@ -2183,8 +2183,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (resizeGestureDraft) {
       drafts.set(resizeGestureDraft.nodeId, {
@@ -3505,6 +3504,7 @@ export function SlideEditorVNext({
       activeSlide={activeSlide}
       deckChrome={deck.chrome}
       selectedNode={selectedNode}
+      selectedResolvedStyle={selectedResolvedNode?.style}
       selectedIds={selectedIds}
       isDecorationSelected={isDecorationSelected}
       selectedGeneratedSource={
@@ -4012,6 +4012,7 @@ export function SlideEditorVNext({
           <ContextToolbar
             selectedIds={selectedIds}
             selectedNode={selectedNode}
+            selectedResolvedStyle={selectedResolvedNode?.style}
             isInlineEditing={inlineEditNodeId !== null}
             isDragging={
               draggingStage ||

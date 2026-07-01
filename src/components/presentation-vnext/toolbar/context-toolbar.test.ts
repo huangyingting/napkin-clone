@@ -4,7 +4,10 @@ import { afterEach, describe, test } from "node:test";
 import {
   buildSlideToolInsertActions,
   restoreFocusAfterContextToolbarEscape,
+  seedContextToolbarStyles,
 } from "./context-toolbar";
+import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
+import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
 
 const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -125,5 +128,64 @@ describe("restoreFocusAfterContextToolbarEscape", () => {
   test("is safe when document is unavailable", () => {
     Reflect.deleteProperty(globalThis, "document");
     assert.doesNotThrow(() => restoreFocusAfterContextToolbarEscape(undefined));
+  });
+});
+
+describe("seedContextToolbarStyles", () => {
+  test("seeds shape controls from resolved style values", () => {
+    const node: SlideChildNode = {
+      id: "shape-1",
+      type: "shape",
+      role: "card",
+      layout: { frame: { x: 0, y: 0, w: 40, h: 20 }, zIndex: 1 },
+      content: {
+        shape: "rect",
+        text: { paragraphs: [{ id: "p-1", text: "Label" }] },
+      },
+      localStyle: {},
+    };
+    const resolvedStyle: StyleObject = {
+      text: { color: "#1d4ed8", fontSizePt: 26 },
+      fill: { type: "solid", color: "#dbeafe" },
+      stroke: { color: "#2563eb", widthPt: 3 },
+      opacity: 0.84,
+    };
+
+    const seed = seedContextToolbarStyles(node, resolvedStyle);
+
+    assert.equal(seed.textColor, "#1d4ed8");
+    assert.equal(seed.fontSize, 26);
+    assert.equal(seed.fillColor, "#dbeafe");
+    assert.equal(seed.shapeStrokeColor, "#2563eb");
+    assert.equal(seed.shapeStrokeWidth, 3);
+    assert.equal(seed.opacity, 0.84);
+  });
+
+  test("seeds connector controls from resolved connector stroke values", () => {
+    const node: SlideChildNode = {
+      id: "connector-1",
+      type: "connector",
+      role: "connector",
+      layout: { frame: { x: 0, y: 0, w: 40, h: 20 }, zIndex: 1 },
+      content: {
+        from: { kind: "point", point: { x: 0, y: 0 } },
+        to: { kind: "point", point: { x: 100, y: 100 } },
+      },
+      localStyle: {},
+    };
+    const resolvedStyle: StyleObject = {
+      connector: {
+        stroke: { color: "#0f172a", widthPt: 2.5, dash: "dashed" },
+        startArrow: "filled",
+        endArrow: "none",
+      },
+    };
+
+    const seed = seedContextToolbarStyles(node, resolvedStyle);
+
+    assert.equal(seed.connectorStrokeColor, "#0f172a");
+    assert.equal(seed.connectorStrokeWidth, 2.5);
+    assert.equal(seed.connectorStartArrow, "filled");
+    assert.equal(seed.connectorEndArrow, "none");
   });
 });

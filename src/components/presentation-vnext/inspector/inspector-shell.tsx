@@ -23,8 +23,11 @@ import type {
   DeckChromeConfig,
 } from "@/lib/presentation-vnext/schema";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
-import type { StylePatch } from "@/lib/presentation-vnext/style-schema";
-import type { StyleBinding } from "@/lib/presentation-vnext/style-schema";
+import type {
+  StyleBinding,
+  StyleObject,
+  StylePatch,
+} from "@/lib/presentation-vnext/style-schema";
 import type {
   PresentationDiagnostic,
   DiagnosticAction,
@@ -781,6 +784,7 @@ export interface InspectorShellProps {
   activeSlide: SlideNode | undefined;
   deckChrome: DeckChromeConfig | undefined;
   selectedNode: SlideChildNode | undefined;
+  selectedResolvedStyle?: StyleObject;
   selectedIds: string[];
   isDecorationSelected: boolean;
   selectedGeneratedSource?: "themeDecoration" | "deckChrome";
@@ -857,6 +861,7 @@ export function InspectorShell({
   activeSlide,
   deckChrome,
   selectedNode,
+  selectedResolvedStyle,
   selectedIds,
   isDecorationSelected,
   selectedGeneratedSource,
@@ -1100,6 +1105,7 @@ export function InspectorShell({
               />
               <LocalStylePanel
                 node={selectedNode}
+                resolvedStyle={selectedResolvedStyle}
                 onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>
@@ -1132,6 +1138,7 @@ export function InspectorShell({
               />
               <LocalStylePanel
                 node={selectedNode}
+                resolvedStyle={selectedResolvedStyle}
                 onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>
@@ -1224,6 +1231,7 @@ export function InspectorShell({
               />
               <LocalStylePanel
                 node={selectedNode}
+                resolvedStyle={selectedResolvedStyle}
                 onUpdateLocalStyle={onUpdateSelectedLocalStyle}
               />
             </PanelSection>
