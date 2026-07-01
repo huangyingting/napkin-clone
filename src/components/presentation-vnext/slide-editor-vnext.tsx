@@ -55,6 +55,7 @@ import {
   LayoutPanelLeft,
   MonitorPlay,
   Redo2,
+  RefreshCw,
   Scissors,
   Save,
   Share2,
@@ -560,6 +561,12 @@ export interface SlideEditorVNextProps {
    */
   onSave?: (deck: DeckV7) => Promise<ActionResult>;
   /**
+   * Called when the user requests a deterministic whole-deck rebuild from the
+   * owning document content. The parent owns source loading, replacement, and
+   * persistence.
+   */
+  onRegenerate?: () => Promise<ActionResult>;
+  /**
    * Called when the user closes the editor. When provided, a close button
    * is rendered in the top toolbar.
    */
@@ -1020,6 +1027,7 @@ export function SlideEditorVNext({
   onRefreshSource,
   onDeckChange,
   onSave,
+  onRegenerate,
   onClose,
   onExportPptx,
   onPresent,
@@ -1117,6 +1125,23 @@ export function SlideEditorVNext({
       await onExportPptx();
     } catch {
       setToolbarError("PPTX export failed. Please try again.");
+    }
+  }
+
+  async function handleRegenerate() {
+    if (!onRegenerate) return;
+    setToolbarError(null);
+    try {
+      const result = await onRegenerate();
+      if (!result.ok) {
+        setToolbarError(result.error);
+        return;
+      }
+      setStageAnnouncement(
+        "Regenerated slides from the latest saved document.",
+      );
+    } catch {
+      setToolbarError("Regenerate failed. Please try again.");
     }
   }
 
@@ -4574,6 +4599,26 @@ export function SlideEditorVNext({
                 aria-hidden="true"
               />
 
+              {onRegenerate ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleRegenerate()}
+                    aria-label="Regenerate slides from document"
+                    disabled={saveStatus === "saving"}
+                    className="flex h-8 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2.5 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-state-hover disabled:opacity-40"
+                  >
+                    <RefreshCw size={14} aria-hidden="true" />
+                    Regenerate
+                  </button>
+
+                  <div
+                    className="mx-1 h-5 w-px bg-ds-border-subtle"
+                    aria-hidden="true"
+                  />
+                </>
+              ) : null}
+
               <button
                 type="button"
                 onClick={handleCopyNodes}
@@ -4805,6 +4850,23 @@ export function SlideEditorVNext({
                   </button>
                 ))}
 
+                <div className="my-1 border-t border-ds-border-subtle" />
+                {onRegenerate ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      void handleRegenerate();
+                      closeCompactToolbarMenuAndRestoreFocus();
+                    }}
+                    className={cx(
+                      "flex w-full items-center rounded-ds-sm px-2 py-1.5 text-left text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+                      FOCUS_RING,
+                    )}
+                  >
+                    Regenerate from document
+                  </button>
+                ) : null}
                 <div className="my-1 border-t border-ds-border-subtle" />
                 <button
                   type="button"

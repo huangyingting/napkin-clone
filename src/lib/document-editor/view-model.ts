@@ -7,6 +7,7 @@ export interface DocumentEditorViewModel {
   initialTitle: string;
   initialStateJson: string | null;
   initialDeckJson: unknown;
+  initialDeckRevisionToken: string | null;
   initialIsShared: boolean;
   initialShareId: string | null;
   initialSlug: string | null;
@@ -30,6 +31,7 @@ export interface DocumentEditorRow {
   title: string;
   contentJson: unknown;
   deckJson: unknown;
+  deckRevisionToken: string | null;
   isShared: boolean;
   shareId: string | null;
   slug: string | null;
@@ -70,6 +72,7 @@ export function buildDocumentEditorViewModel({
       ? JSON.stringify(document.contentJson)
       : null,
     initialDeckJson: document.deckJson ?? null,
+    initialDeckRevisionToken: document.deckRevisionToken,
     initialIsShared: document.isShared,
     initialShareId: document.shareId,
     initialSlug: document.slug,

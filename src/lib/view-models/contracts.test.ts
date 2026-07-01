@@ -75,6 +75,7 @@ test("serialized view-model contract matrix stays JSON-shaped", () => {
       title: "Roadmap",
       contentJson: { root: { children: [] } },
       deckJson: deck,
+      deckRevisionToken: "deck-rev-1",
       isShared: true,
       shareId: "share-1",
       slug: "roadmap",

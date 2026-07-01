@@ -16,28 +16,31 @@ and pointer state rules, see
 
 ## Source Files
 
-| Area               | Source                                                                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Editor shell       | [`src/components/presentation-vnext/slide-editor-vnext.tsx`](../../src/components/presentation-vnext/slide-editor-vnext.tsx)               |
-| Read-only canvas   | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                           |
-| Node renderer      | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)             |
-| Inspector          | [`src/components/presentation-vnext/inspector/inspector-shell.tsx`](../../src/components/presentation-vnext/inspector/inspector-shell.tsx) |
-| Context toolbar    | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx)     |
-| Filmstrip          | [`src/components/presentation-vnext/filmstrip/filmstrip.tsx`](../../src/components/presentation-vnext/filmstrip/filmstrip.tsx)             |
-| Stage fit          | [`src/lib/presentation-vnext/stage-fit.ts`](../../src/lib/presentation-vnext/stage-fit.ts)                                                 |
-| Stage chrome       | [`src/lib/presentation-vnext/stage-chrome.ts`](../../src/lib/presentation-vnext/stage-chrome.ts)                                           |
-| Stage guides       | [`src/lib/presentation-vnext/stage-guides.ts`](../../src/lib/presentation-vnext/stage-guides.ts)                                           |
-| Selection geometry | [`src/lib/presentation-vnext/selection-geometry.ts`](../../src/lib/presentation-vnext/selection-geometry.ts)                               |
-| Deck commands      | [`src/lib/presentation-vnext/editor-commands.ts`](../../src/lib/presentation-vnext/editor-commands.ts)                                     |
-| Source links       | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                           |
-| Presence state     | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)   |
-| Open/save state    | [`src/components/editor/use-slide-editor-open.ts`](../../src/components/editor/use-slide-editor-open.ts)                                   |
-| Autosave scheduler | [`src/lib/presentation/slide-autosave-scheduler.ts`](../../src/lib/presentation/slide-autosave-scheduler.ts)                               |
+| Area               | Source                                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route page         | [`src/app/app/documents/[id]/slides/page.tsx`](../../src/app/app/documents/%5Bid%5D/slides/page.tsx)                                           |
+| Route controller   | [`src/app/app/documents/[id]/slides/slide-editor-route-client.tsx`](../../src/app/app/documents/%5Bid%5D/slides/slide-editor-route-client.tsx) |
+| Editor shell       | [`src/components/presentation-vnext/slide-editor-vnext.tsx`](../../src/components/presentation-vnext/slide-editor-vnext.tsx)                   |
+| Read-only canvas   | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                               |
+| Node renderer      | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)                 |
+| Inspector          | [`src/components/presentation-vnext/inspector/inspector-shell.tsx`](../../src/components/presentation-vnext/inspector/inspector-shell.tsx)     |
+| Context toolbar    | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx)         |
+| Filmstrip          | [`src/components/presentation-vnext/filmstrip/filmstrip.tsx`](../../src/components/presentation-vnext/filmstrip/filmstrip.tsx)                 |
+| Stage fit          | [`src/lib/presentation-vnext/stage-fit.ts`](../../src/lib/presentation-vnext/stage-fit.ts)                                                     |
+| Stage chrome       | [`src/lib/presentation-vnext/stage-chrome.ts`](../../src/lib/presentation-vnext/stage-chrome.ts)                                               |
+| Stage guides       | [`src/lib/presentation-vnext/stage-guides.ts`](../../src/lib/presentation-vnext/stage-guides.ts)                                               |
+| Selection geometry | [`src/lib/presentation-vnext/selection-geometry.ts`](../../src/lib/presentation-vnext/selection-geometry.ts)                                   |
+| Deck commands      | [`src/lib/presentation-vnext/editor-commands.ts`](../../src/lib/presentation-vnext/editor-commands.ts)                                         |
+| Source links       | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                               |
+| Presence state     | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)       |
+| Open/save state    | [`src/components/editor/use-slide-editor-open.ts`](../../src/components/editor/use-slide-editor-open.ts)                                       |
+| Autosave scheduler | [`src/lib/presentation/slide-autosave-scheduler.ts`](../../src/lib/presentation/slide-autosave-scheduler.ts)                                   |
 
 ## Ownership Model
 
-`SlideEditorVNext` is the editing surface; `useSlideEditorOpen` is the save/open
-controller. Together they own:
+`SlideEditorVNext` is the editing surface. The canonical `/slides` route owns
+open/save state for full-page editing; the legacy document-page overlay hook is
+not the primary editor lifecycle. Together the route controller and editor own:
 
 - the current deck value exposed to the parent through `onDeckChange`;
 - undo/redo history;
@@ -49,6 +52,38 @@ controller. Together they own:
 
 Child components are controlled. They receive slide/node state plus callbacks
 and never mutate `Deck` objects directly.
+
+## Route Ownership
+
+The canonical authenticated slide editor URL is
+`/app/documents/[id]/slides`. The document editor toolbar links to that route;
+the document page does not own a slide-editor overlay lifecycle.
+
+The slides route keeps the same owning document and persisted deck fields:
+
+- `Document.contentJson` is the saved source used for deterministic derivation
+  and source review.
+- `Document.deckJson` is the editable DeckV7 payload.
+- `Document.deckRevisionToken` is used for optimistic save conflict detection.
+
+Route open behavior is deterministic and credit-free:
+
+1. Open saved valid DeckV7 when present.
+2. If no deck is saved, derive a faithful baseline from the latest saved
+   `contentJson`.
+3. If the saved document content has no usable blocks, open a blank DeckV7.
+4. Invalid non-empty deck JSON opens recovery instead of silently overwriting
+   with a blank deck.
+
+`Regenerate` in the slides route means deterministic whole-deck re-derive from
+the latest saved server `contentJson`. It does not call AI, spend credits, or
+read unsaved Lexical state from the document route. Regenerate replaces the
+current deck immediately, pushes the previous deck into undo history, and saves
+through the same DeckV7 CAS path.
+
+AI deck generation is not part of the canonical slides route first version. If
+AI proposal/rewrite returns later, it should be an explicit command distinct
+from deterministic Regenerate.
 
 ## Current Object Model
 

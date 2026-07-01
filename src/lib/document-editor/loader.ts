@@ -20,6 +20,7 @@ const documentEditorSelect = (userId: string) =>
     title: true,
     contentJson: true,
     deckJson: true,
+    deckRevisionToken: true,
     isShared: true,
     shareId: true,
     slug: true,

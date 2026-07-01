@@ -14,6 +14,7 @@ test("document editor view model serializes document state and share settings", 
       id: "doc-1",
       title: "Roadmap",
       contentJson: { root: { children: [] } },
+      deckRevisionToken: "deck-rev-1",
       deckJson: {
         design: { themeId: "default" },
         schemaVersion: LEGACY_DECK_SCHEMA_VERSION,
@@ -50,6 +51,7 @@ test("document editor view model serializes document state and share settings", 
   });
 
   assert.equal(viewModel.initialStateJson, '{"root":{"children":[]}}');
+  assert.equal(viewModel.initialDeckRevisionToken, "deck-rev-1");
   assert.equal(viewModel.initialShareExpiresAt, "2026-02-03T04:05:06.000Z");
   assert.equal(viewModel.initialShareMetadataMode, "title-excerpt");
   assert.equal(viewModel.initialShareDiscoverable, true);
@@ -69,6 +71,7 @@ test("document editor view model derives workspace viewer capabilities", () => {
       title: "Shared",
       contentJson: null,
       deckJson: null,
+      deckRevisionToken: null,
       isShared: false,
       shareId: null,
       slug: null,

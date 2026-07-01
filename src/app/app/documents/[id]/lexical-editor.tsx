@@ -4,30 +4,17 @@ import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { LexicalCollaboration } from "@lexical/react/LexicalCollaborationContext";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import type {
-  EditorState,
-  EditorThemeClasses,
-  Klass,
-  LexicalNode,
-} from "lexical";
-import { SlidersHorizontal } from "lucide-react";
+import type { EditorThemeClasses, Klass, LexicalNode } from "lexical";
+import { LayoutPanelLeft, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useYText } from "@/lib/collab/use-collaboration";
 import type { DocumentEditorViewModel } from "@/lib/document-editor/view-model";
-import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import type { ShareSettings } from "@/lib/document/persistence-types";
-import {
-  buildDocumentShareUrl,
-  toPresentShareUrl,
-} from "@/lib/document/share-routes";
-import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { createEditorPlugin, EditorPluginHost } from "@/lib/lexical/editor-api";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
@@ -42,19 +29,11 @@ import {
   type VisualNodeRendererProps,
 } from "@/lib/lexical/visual-node";
 
-import {
-  fetchDeckJson,
-  saveDeckJson,
-  saveDeckPatch,
-  saveDocumentLexical,
-  toggleDocumentSharing,
-} from "./actions";
-import { uploadSlideAsset } from "./slide-asset-actions";
+import { fetchDeckJson, saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";
-import { SlideEditorButton } from "@/components/editor/slide-editor-button";
 import {
   EditorToolbarButton,
   EditorToolbarDivider,
@@ -76,7 +55,7 @@ import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
 import { VisualCard } from "./visual-card";
 import { VisualPanelProvider } from "./visual-panel-context";
-import { RightSurfaceProvider, useRightSurface } from "./right-surface-context";
+import { RightSurfaceProvider } from "./right-surface-context";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
@@ -161,159 +140,6 @@ function DocumentStyleButton({ disabled }: { disabled: boolean }) {
     >
       <OverallAdjustmentsPanel />
     </Popover>
-  );
-}
-
-function RoutedSlideEditorButton({
-  documentId,
-  initialDeckJson,
-  initialContentJson,
-  initialIsShared,
-  initialShareId,
-  initialSlug,
-  initialSharePresentEnabled,
-  canManage,
-  userId,
-  userName,
-  awareness,
-}: {
-  documentId: string;
-  initialDeckJson: unknown;
-  initialContentJson?: string | null;
-  initialIsShared: boolean;
-  initialShareId: string | null;
-  initialSlug: string | null;
-  initialSharePresentEnabled: boolean;
-  canManage: boolean;
-  userId: string;
-  userName: string;
-  awareness: SlidePresenceAwareness | null;
-}) {
-  type SlideEditorShareState = Pick<
-    ShareSettings,
-    "isShared" | "shareId" | "slug" | "presentEnabled"
-  >;
-
-  const [editor] = useLexicalComposerContext();
-  const [liveContentJson, setLiveContentJson] = useState<string | null>(
-    initialContentJson ?? null,
-  );
-  const [shareState, setShareState] = useState<SlideEditorShareState>({
-    isShared: initialIsShared,
-    shareId: initialShareId,
-    slug: initialSlug,
-    presentEnabled: initialSharePresentEnabled,
-  });
-  const { openSlideEditor, closeSlideEditor } = useRightSurface();
-  const deckPort = useMemo(
-    () => ({ fetchDeckJson, saveDeckJson, saveDeckPatch }),
-    [],
-  );
-  const slideAssetPort = useMemo(() => ({ uploadSlideAsset }), []);
-
-  const ensureShareState = useCallback(async (): Promise<
-    ActionResult<SlideEditorShareState>
-  > => {
-    if (shareState.isShared && shareState.shareId && shareState.slug) {
-      return actionOk(shareState);
-    }
-    if (!canManage) {
-      return actionError(
-        "Enable sharing from the document toolbar before using this action.",
-      );
-    }
-
-    const result = await toggleDocumentSharing(documentId, true);
-    if (!result.ok) {
-      return actionError(result.error);
-    }
-    const nextState: SlideEditorShareState = {
-      isShared: result.data.isShared,
-      shareId: result.data.shareId,
-      slug: result.data.slug,
-      presentEnabled: result.data.presentEnabled,
-    };
-    setShareState(nextState);
-    return actionOk(nextState);
-  }, [canManage, documentId, shareState]);
-
-  const openPublicRoute = useCallback((url: string): ActionResult => {
-    if (typeof window === "undefined") {
-      return actionError("This action is only available in the browser.");
-    }
-    const opened = window.open(url, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      return actionError("Allow pop-ups to open share links from the editor.");
-    }
-    return actionOk();
-  }, []);
-
-  const handleRoundtripShare = useCallback(async (): Promise<ActionResult> => {
-    const result = await ensureShareState();
-    if (!result.ok) return actionError(result.error);
-    if (typeof window === "undefined") {
-      return actionError("This action is only available in the browser.");
-    }
-    const shareUrl = buildDocumentShareUrl(
-      window.location.origin,
-      result.data.shareId,
-      result.data.slug,
-    );
-    if (!shareUrl) {
-      return actionError("Share link is unavailable. Please try again.");
-    }
-    return openPublicRoute(shareUrl);
-  }, [ensureShareState, openPublicRoute]);
-
-  const handleRoundtripPresent =
-    useCallback(async (): Promise<ActionResult> => {
-      const result = await ensureShareState();
-      if (!result.ok) return actionError(result.error);
-      if (!result.data.presentEnabled) {
-        return actionError(
-          "Presentation links are disabled in share settings for this document.",
-        );
-      }
-      if (typeof window === "undefined") {
-        return actionError("This action is only available in the browser.");
-      }
-      const shareUrl = buildDocumentShareUrl(
-        window.location.origin,
-        result.data.shareId,
-        result.data.slug,
-      );
-      if (!shareUrl) {
-        return actionError(
-          "Presentation link is unavailable. Please try again.",
-        );
-      }
-      return openPublicRoute(toPresentShareUrl(shareUrl));
-    }, [ensureShareState, openPublicRoute]);
-
-  useEffect(() => {
-    const serialize = (state: EditorState) => {
-      setLiveContentJson(JSON.stringify(state.toJSON()));
-    };
-    return editor.registerUpdateListener(({ editorState }) => {
-      serialize(editorState);
-    });
-  }, [editor]);
-
-  return (
-    <SlideEditorButton
-      documentId={documentId}
-      initialDeckJson={initialDeckJson}
-      initialContentJson={liveContentJson}
-      deckPort={deckPort}
-      slideAssetPort={slideAssetPort}
-      presenceAwareness={awareness}
-      presenceUserId={userId}
-      presenceUserName={userName}
-      onOpenRightSurface={openSlideEditor}
-      onCloseRightSurface={closeSlideEditor}
-      onPresentRoundtrip={handleRoundtripPresent}
-      onShareRoundtrip={handleRoundtripShare}
-    />
   );
 }
 
@@ -432,7 +258,7 @@ export function LexicalEditor({
   initialTitle,
   initialStateJson = null,
   initialDeckJson = null,
-  userId,
+  userId: _userId,
   userName,
   canEdit = true,
   canManage = false,
@@ -685,21 +511,14 @@ export function LexicalEditor({
 
                     <EditorToolbarGroup label="Create and present">
                       {canEdit && (
-                        <RoutedSlideEditorButton
-                          documentId={documentId}
-                          initialDeckJson={initialDeckJson}
-                          initialContentJson={initialStateJson}
-                          initialIsShared={initialIsShared}
-                          initialShareId={initialShareId}
-                          initialSlug={initialSlug}
-                          initialSharePresentEnabled={
-                            initialSharePresentEnabled
-                          }
-                          canManage={canManage}
-                          userId={userId}
-                          userName={userName}
-                          awareness={collab.awareness}
-                        />
+                        <Link
+                          href={`/app/documents/${documentId}/slides`}
+                          aria-label="Open slide editor"
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-ds-focus-offset"
+                        >
+                          <LayoutPanelLeft size={15} aria-hidden="true" />
+                          <span>Slides</span>
+                        </Link>
                       )}
                       <RoutedPresentButton
                         documentId={documentId}

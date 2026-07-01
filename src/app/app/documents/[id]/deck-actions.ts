@@ -110,6 +110,7 @@ export async function saveDeckJson(
 
   if (result.ok === true) {
     revalidatePath(`/app/documents/${id}`);
+    revalidatePath(`/app/documents/${id}/slides`);
   }
   return result;
 }
@@ -146,6 +147,7 @@ export async function saveDeckPatch(
 
   if (result.ok === true) {
     revalidatePath(`/app/documents/${id}`);
+    revalidatePath(`/app/documents/${id}/slides`);
   }
   return result;
 }
