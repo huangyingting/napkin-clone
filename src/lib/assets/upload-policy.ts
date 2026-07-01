@@ -100,6 +100,12 @@ function hasPrefix(bytes: Uint8Array, prefix: readonly number[]): boolean {
 export function sniffAssetMime(bytes: Uint8Array): string | null {
   if (hasPrefix(bytes, [0x89, 0x50, 0x4e, 0x47])) return "image/png";
   if (hasPrefix(bytes, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (
+    hasPrefix(bytes, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61]) ||
+    hasPrefix(bytes, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
+  ) {
+    return "image/gif";
+  }
   if (hasPrefix(bytes, [0x52, 0x49, 0x46, 0x46]) && bytes.length >= 12) {
     const webp = String.fromCharCode(...bytes.slice(8, 12));
     /* node:coverage ignore next -- WEBP sniffing is asserted; tsx maps the inner branch as uncovered. */
@@ -140,6 +146,15 @@ export function imageDimensionsFromBytes(
   if (mime === "image/jpeg") {
     return jpegDimensions(bytes);
   }
+  if (mime === "image/gif" && bytes.length >= 10) {
+    return {
+      widthPx: readUInt16LE(bytes, 6),
+      heightPx: readUInt16LE(bytes, 8),
+    };
+  }
+  if (mime === "image/webp") {
+    return webpDimensions(bytes);
+  }
   return {};
 }
 
@@ -149,6 +164,26 @@ function readUInt32BE(bytes: Uint8Array, offset: number): number {
     ((bytes[offset + 1]! << 16) |
       (bytes[offset + 2]! << 8) |
       bytes[offset + 3]!)
+  );
+}
+
+function readUInt16LE(bytes: Uint8Array, offset: number): number {
+  return bytes[offset]! | (bytes[offset + 1]! << 8);
+}
+
+function readUInt24LE(bytes: Uint8Array, offset: number): number {
+  return (
+    bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16)
+  );
+}
+
+function readUInt32LE(bytes: Uint8Array, offset: number): number {
+  return (
+    (bytes[offset]! |
+      (bytes[offset + 1]! << 8) |
+      (bytes[offset + 2]! << 16) |
+      (bytes[offset + 3]! << 24)) >>>
+    0
   );
 }
 
@@ -173,6 +208,66 @@ function jpegDimensions(bytes: Uint8Array): {
     offset += 2 + length;
   }
   /* node:coverage ignore next -- malformed JPEG fallback is asserted; tsx maps the function tail as uncovered. */
+  return {};
+}
+
+function webpDimensions(bytes: Uint8Array): {
+  widthPx?: number;
+  heightPx?: number;
+} {
+  if (
+    bytes.length < 20 ||
+    !hasPrefix(bytes, [0x52, 0x49, 0x46, 0x46]) ||
+    String.fromCharCode(...bytes.slice(8, 12)) !== "WEBP"
+  ) {
+    return {};
+  }
+
+  let chunkOffset = 12;
+  while (chunkOffset + 8 <= bytes.length) {
+    const chunkType = String.fromCharCode(
+      ...bytes.slice(chunkOffset, chunkOffset + 4),
+    );
+    const chunkSize = readUInt32LE(bytes, chunkOffset + 4);
+    const payloadOffset = chunkOffset + 8;
+    const payloadEnd = payloadOffset + chunkSize;
+    if (payloadEnd > bytes.length) return {};
+
+    if (chunkType === "VP8X") {
+      if (chunkSize < 10) return {};
+      return {
+        widthPx: readUInt24LE(bytes, payloadOffset + 4) + 1,
+        heightPx: readUInt24LE(bytes, payloadOffset + 7) + 1,
+      };
+    }
+
+    if (chunkType === "VP8L") {
+      if (chunkSize < 5 || bytes[payloadOffset] !== 0x2f) return {};
+      const bits = readUInt32LE(bytes, payloadOffset + 1);
+      return {
+        widthPx: (bits & 0x3fff) + 1,
+        heightPx: ((bits >> 14) & 0x3fff) + 1,
+      };
+    }
+
+    if (chunkType === "VP8 ") {
+      if (
+        chunkSize < 10 ||
+        bytes[payloadOffset + 3] !== 0x9d ||
+        bytes[payloadOffset + 4] !== 0x01 ||
+        bytes[payloadOffset + 5] !== 0x2a
+      ) {
+        return {};
+      }
+      return {
+        widthPx: readUInt16LE(bytes, payloadOffset + 6) & 0x3fff,
+        heightPx: readUInt16LE(bytes, payloadOffset + 8) & 0x3fff,
+      };
+    }
+
+    chunkOffset = payloadEnd + (chunkSize % 2);
+  }
+
   return {};
 }
 

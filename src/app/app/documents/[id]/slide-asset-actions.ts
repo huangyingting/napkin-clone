@@ -85,6 +85,8 @@ export async function uploadSlideAsset(
     name: fileEntry.name,
     size: fileEntry.size,
     checksum,
+    widthPx: dimensions.widthPx,
+    heightPx: dimensions.heightPx,
   });
   if (!metaResult.ok) {
     return actionError(formatAssetUploadError(metaResult.error));
