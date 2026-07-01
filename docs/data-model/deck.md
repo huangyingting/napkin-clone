@@ -1,7 +1,7 @@
 ---
 type: "contract"
 status: "current"
-last_updated: "2026-07-01"
+last_updated: "2026-07-02"
 description: "This document defines the current Document.deckJson contract. Persisted decks must be DeckV7 JSON. Runtime open, save, render, and export paths reject superseded payload shapes instead of repairing or upgrading them."
 ---
 
@@ -83,6 +83,12 @@ versions.
 | `blank`    | `null` or `undefined` deck candidate                 | Start from an explicit blank deck.                   |
 | `open`     | Valid DeckV7 payload                                 | Use the validated deck directly.                     |
 | `recovery` | Non-empty payload that fails open or DeckV7 validate | Surface recovery diagnostics; do not silently blank. |
+
+At the document-editor entry point, the `blank` decision is only the persisted
+deck open result. If the current document has usable Lexical content, the Slides
+button supplies a deterministic `deriveDeckV7FromDocumentContent` fallback so
+the first editor session opens with document-derived slides and semantic slide
+templates. Empty documents still use the explicit blank deck.
 
 There is no runtime migration shim for older deck payloads.
 

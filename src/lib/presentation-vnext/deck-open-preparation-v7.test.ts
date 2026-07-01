@@ -98,4 +98,45 @@ describe("prepareDeckForOpenV7", () => {
       revisionToken: "server-rev",
     });
   });
+
+  test("carries fallback diagnostics when absent deck json uses a derived deck", async () => {
+    const fallbackDeck = buildMinimalDeckV7();
+    const result = await prepareDeckForOpenV7({
+      documentId: "doc-1309",
+      deckPort: {
+        fetchDeckJson: async () => ({
+          ok: true,
+          deckJson: null,
+          revisionToken: "server-rev",
+        }),
+      },
+      fallbackDeck: () => ({
+        deck: fallbackDeck,
+        diagnostics: [
+          {
+            code: "unknown-theme-package",
+            category: "theme",
+            severity: "warning",
+            target: { scope: "theme", themePackageId: "custom" },
+            message: "Theme fallback was used.",
+          },
+        ],
+      }),
+    });
+
+    assert.deepEqual(result, {
+      ok: true,
+      deck: fallbackDeck,
+      diagnostics: [
+        {
+          code: "unknown-theme-package",
+          category: "theme",
+          severity: "warning",
+          target: { scope: "theme", themePackageId: "custom" },
+          message: "Theme fallback was used.",
+        },
+      ],
+      revisionToken: "server-rev",
+    });
+  });
 });

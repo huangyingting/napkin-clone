@@ -27,6 +27,10 @@ export type PreparedDeckForOpenV7 =
       validationErrors?: string[];
     };
 
+export type DeckOpenFallbackV7 =
+  | DeckV7
+  | { deck: DeckV7; diagnostics?: PresentationDiagnostic[] };
+
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
     return error.message.trim();
@@ -45,6 +49,16 @@ export function resolveDeckOpenFetchRejectionErrorV7(error: unknown): string {
   return `${DECK_OPEN_FETCH_REJECTED_MESSAGE_V7} (${details})`;
 }
 
+function normalizeFallbackDeck(fallback: DeckOpenFallbackV7): {
+  deck: DeckV7;
+  diagnostics: PresentationDiagnostic[];
+} {
+  if ("schemaVersion" in fallback) {
+    return { deck: fallback, diagnostics: [] };
+  }
+  return { deck: fallback.deck, diagnostics: fallback.diagnostics ?? [] };
+}
+
 export async function prepareDeckForOpenV7({
   documentId,
   deckPort,
@@ -53,7 +67,7 @@ export async function prepareDeckForOpenV7({
 }: {
   documentId: string;
   deckPort: Pick<DeckFetchPort, "fetchDeckJson">;
-  fallbackDeck: () => DeckV7;
+  fallbackDeck: () => DeckOpenFallbackV7;
   onFetchFailure?: (failure: DeckOpenFetchFailureV7) => void;
 }): Promise<PreparedDeckForOpenV7> {
   let fetchedDeck: Awaited<ReturnType<DeckFetchPort["fetchDeckJson"]>>;
@@ -86,10 +100,11 @@ export async function prepareDeckForOpenV7({
 
   const decision = decideDeckOpen(fetchedDeck.deckJson ?? null);
   if (decision.mode === "blank") {
+    const fallback = normalizeFallbackDeck(fallbackDeck());
     return {
       ok: true,
-      deck: fallbackDeck(),
-      diagnostics: [],
+      deck: fallback.deck,
+      diagnostics: fallback.diagnostics,
       revisionToken: fetchedDeck.revisionToken,
     };
   }

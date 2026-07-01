@@ -4,8 +4,9 @@
  * Open/close/route state controller for the v7-only slide editor entry point.
  *
  * Development builds support only DeckV7 at runtime. Legacy deck JSON is not
- * migrated here; when no valid v7 deck is available, the editor starts from a
- * native blank DeckV7.
+ * migrated here; when no saved v7 deck is available, the editor derives a deck
+ * from the current document content and only falls back to a native blank DeckV7
+ * for genuinely empty documents.
  */
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
@@ -458,8 +459,20 @@ export function useSlideEditorOpen({
   }, []);
 
   const fallbackDeck = useCallback(
-    () => createBlankDeckV7({ documentId }),
-    [documentId],
+    (contentJson?: string | null) => {
+      if (contentJson && !isEffectivelyEmptyEditorState(contentJson)) {
+        const derived = deriveDeckV7FromDocumentContent({
+          contentJson,
+          documentId,
+          themePackageId: pendingThemePackageId,
+        });
+        if (derived.ok) {
+          return { deck: derived.deck, diagnostics: derived.diagnostics };
+        }
+      }
+      return createBlankDeckV7({ documentId });
+    },
+    [documentId, pendingThemePackageId],
   );
 
   const finishOpenV7 = useCallback(
@@ -502,12 +515,12 @@ export function useSlideEditorOpen({
     [cancelAutosaveV7, onOpenRightSurface],
   );
 
-  const prepareOpenV7 =
-    useCallback(async (): Promise<PreparedDeckForOpenV7> => {
+  const prepareOpenV7 = useCallback(
+    async (contentJson?: string | null): Promise<PreparedDeckForOpenV7> => {
       return await prepareDeckForOpenV7({
         documentId,
         deckPort,
-        fallbackDeck,
+        fallbackDeck: () => fallbackDeck(contentJson),
         onFetchFailure: ({ reason, error }) => {
           logInfo("editor.slide-editor", "v7-open-fetch-failed", {
             documentId,
@@ -516,22 +529,27 @@ export function useSlideEditorOpen({
           });
         },
       });
-    }, [deckPort, documentId, fallbackDeck]);
+    },
+    [deckPort, documentId, fallbackDeck],
+  );
 
-  const openSavedV7 = useCallback(async () => {
-    aiAppliedDeckRef.current = null;
-    const prepared = await prepareOpenV7();
-    if (prepared.ok) {
-      revisionTokenRef.current = prepared.revisionToken;
-      finishOpenV7(prepared.deck, prepared.diagnostics);
-      return;
-    }
-    enterRecoveryV7({
-      error: prepared.error,
-      diagnostics: prepared.diagnostics,
-      validationErrors: prepared.validationErrors,
-    });
-  }, [enterRecoveryV7, finishOpenV7, prepareOpenV7]);
+  const openSavedV7 = useCallback(
+    async (contentJson?: string | null) => {
+      aiAppliedDeckRef.current = null;
+      const prepared = await prepareOpenV7(contentJson);
+      if (prepared.ok) {
+        revisionTokenRef.current = prepared.revisionToken;
+        finishOpenV7(prepared.deck, prepared.diagnostics);
+        return;
+      }
+      enterRecoveryV7({
+        error: prepared.error,
+        diagnostics: prepared.diagnostics,
+        validationErrors: prepared.validationErrors,
+      });
+    },
+    [enterRecoveryV7, finishOpenV7, prepareOpenV7],
+  );
 
   const openDerivedV7 = useCallback(
     async (contentJson: string) => {
@@ -584,7 +602,7 @@ export function useSlideEditorOpen({
       options: DeckGenerationOptions,
       json: string,
     ) => {
-      const preparedBaseline = await prepareOpenV7();
+      const preparedBaseline = await prepareOpenV7(json);
       if (!preparedBaseline.ok) {
         enterRecoveryV7({
           error: preparedBaseline.error,
@@ -633,7 +651,7 @@ export function useSlideEditorOpen({
       return;
     }
 
-    await openSavedV7();
+    await openSavedV7(contentJson);
   }, [aiEnabled, editor, effectiveContentJson, openSavedV7]);
 
   const handleClose = useCallback(() => {

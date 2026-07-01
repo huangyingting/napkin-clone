@@ -1,7 +1,7 @@
 ---
 type: "architecture"
 status: "current"
-last_updated: "2026-07-01"
+last_updated: "2026-07-02"
 description: "Describes AI visual and deck generation routes, shared validation and billing flow, deck source extraction, vNext deck orchestration, template materialization, output validation, UI flow, quota, credits, and invariants."
 ---
 
@@ -133,15 +133,18 @@ user later changes z-order explicitly.
 
 The slide editor open button controls deck generation UI:
 
-1. Build the deterministic baseline deck from the live Lexical state.
-2. If AI deck generation is enabled, show a chooser: generate with AI or derive
+1. Capture the live Lexical state, falling back to the saved `contentJson` when
+   the live editor is still seeding.
+2. If no saved DeckV7 exists and the document has usable content, build the
+   deterministic baseline deck from that content before the editor opens.
+3. If AI deck generation is enabled, show a chooser: generate with AI or derive
    from document.
-3. Show staged progress while generation runs.
-4. Present a preview/diff surface comparing generated deck vs baseline.
-5. Applying the generated deck opens the editor through the same fresh-deck path
+4. Show staged progress while generation runs.
+5. Present a preview/diff surface comparing generated deck vs baseline.
+6. Applying the generated deck opens the editor through the same fresh-deck path
    used by deterministic derivation.
-6. Generation failure is surfaced to the caller; deterministic derivation is a
-   separate user action.
+7. Generation failure falls back to deterministic derivation, except empty
+   content, which stays in the chooser with an "add content first" prompt.
 
 ## Quota And Credits
 

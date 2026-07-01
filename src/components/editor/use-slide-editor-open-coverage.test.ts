@@ -391,6 +391,76 @@ test("useSlideEditorOpen opens a saved v7 deck and closes cleanly", async () => 
   });
 });
 
+test("useSlideEditorOpen derives a first deck from document content when no saved deck exists", async () => {
+  await withAiFlag(undefined, async () => {
+    const deckPort = createDeckPort({
+      fetchResults: [{ ok: true, deckJson: null, revisionToken: null }],
+    });
+    const renderer = createHookRenderer({
+      root: {
+        type: "root",
+        children: [
+          {
+            type: "heading",
+            tag: "h1",
+            bid: "heading-1",
+            children: [{ type: "text", text: "Launch plan" }],
+          },
+          {
+            type: "table",
+            bid: "table-1",
+            children: [
+              {
+                type: "tablerow",
+                children: [
+                  {
+                    type: "tablecell",
+                    children: [{ type: "text", text: "Need" }],
+                  },
+                  {
+                    type: "tablecell",
+                    children: [{ type: "text", text: "Owner" }],
+                  },
+                ],
+              },
+              {
+                type: "tablerow",
+                children: [
+                  {
+                    type: "tablecell",
+                    children: [{ type: "text", text: "Brief" }],
+                  },
+                  {
+                    type: "tablecell",
+                    children: [{ type: "text", text: "PM" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const options = { deckPort: deckPort.port };
+
+    let hook = runHook(renderer, options);
+    await hook.handleOpen();
+    hook = runHook(renderer, options);
+
+    assert.equal(hook.open, true);
+    assert.equal(hook.deckOpenErrorV7, null);
+    assert.equal(hook.deckV7?.metadata?.sourceDocumentId, "doc-hook");
+    assert.notEqual(hook.deckV7?.slides[0]?.id, "slide-blank-1");
+    assert.ok(
+      hook.deckV7?.slides.some((slide) =>
+        slide.children.some((child) => child.type === "table"),
+      ),
+    );
+    assert.deepEqual(deckPort.fetchCalls, ["doc-hook"]);
+    renderer.cleanup();
+  });
+});
+
 test("useSlideEditorOpen surfaces saved deck open failures", async () => {
   await withAiFlag(undefined, async () => {
     const renderer = createHookRenderer(nonEmptyEditorJson());
