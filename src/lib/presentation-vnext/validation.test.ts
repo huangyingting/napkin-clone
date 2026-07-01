@@ -1233,6 +1233,106 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts connector node endpoints with valid anchors and routing", () => {
+    resetBuilderCounter();
+    const startNode = buildTextNode({ id: "connector-start-node" });
+    const endNode = buildTextNode({ id: "connector-end-node" });
+    const connectorNode = {
+      id: "connector-node-valid",
+      type: "connector",
+      role: "connector",
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", nodeId: startNode.id, anchor: "right" },
+        to: { kind: "node", nodeId: endNode.id, anchor: "left" },
+        routing: "curved",
+      },
+    };
+    const slide = buildSlideV7("content", [
+      startNode,
+      endNode,
+      connectorNode as unknown as SlideChildNode,
+    ]);
+    const result = safeParseDeckV7(buildDeckV7([slide]));
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
+  test("rejects connector point endpoints with non-finite coordinates", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const badNode = {
+      id: "conn-point-bad",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 40, h: 5 }, zIndex: 1 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "point", point: { x: Number.NaN, y: 2.5 } },
+        to: { kind: "point", point: { x: 40, y: Number.POSITIVE_INFINITY } },
+      },
+    };
+    const badSlide = { ...slide, children: [badNode] };
+    const result = safeParseDeckV7(
+      buildDeckV7([badSlide as unknown as SlideNode]),
+    );
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((e) => /content\.from\.point\.x/.test(e)));
+      assert.ok(result.errors.some((e) => /content\.to\.point\.y/.test(e)));
+    }
+  });
+
+  test("rejects connector node endpoints with invalid nodeId or anchor", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const badNode = {
+      id: "conn-node-bad",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 40, h: 5 }, zIndex: 1 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "node", anchor: "top" },
+        to: { kind: "node", nodeId: "", anchor: "middle" },
+      },
+    };
+    const badSlide = { ...slide, children: [badNode] };
+    const result = safeParseDeckV7(
+      buildDeckV7([badSlide as unknown as SlideNode]),
+    );
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((e) => /content\.from\.nodeId/.test(e)));
+      assert.ok(result.errors.some((e) => /content\.to\.nodeId/.test(e)));
+      assert.ok(result.errors.some((e) => /content\.to\.anchor/.test(e)));
+    }
+  });
+
+  test("rejects connector content with invalid routing", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const badNode = {
+      id: "conn-routing-bad",
+      type: "connector",
+      layout: { frame: { x: 0, y: 0, w: 40, h: 5 }, zIndex: 1 },
+      style: { ref: "connector.primary" },
+      content: {
+        from: { kind: "point", point: { x: 0, y: 2.5 } },
+        to: { kind: "point", point: { x: 40, y: 2.5 } },
+        routing: "zigzag",
+      },
+    };
+    const badSlide = { ...slide, children: [badNode] };
+    const result = safeParseDeckV7(
+      buildDeckV7([badSlide as unknown as SlideNode]),
+    );
+    assert.ok(!result.success);
+    if (!result.success) {
+      assert.ok(result.errors.some((e) => /content\.routing/.test(e)));
+    }
+  });
+
   test("rejects shape with invalid shape kind", () => {
     resetBuilderCounter();
     const slide = buildCoverSlide();
@@ -1557,7 +1657,20 @@ describe("safeParseDeckV7", () => {
     const deck = buildDeckV7([buildCoverSlide()], {
       assets: {
         images: {
-          "img-001": { id: "img-001", src: "https://example.test/image.png" },
+          "img-001": {
+            id: "img-001",
+            src: "https://example.test/image.png",
+            alt: "Hero image",
+            widthPx: 1920,
+            heightPx: 1080,
+            mimeType: "image/png",
+            contentHash: "hash-image",
+            origin: {
+              kind: "upload",
+              sourceId: "doc-1",
+              importedAt: "2026-02-01T00:00:00Z",
+            },
+          },
           "img-local": {
             id: "img-local",
             src: "/api/slide-assets/doc-1/key-1",
@@ -1569,12 +1682,28 @@ describe("safeParseDeckV7", () => {
             id: "font-001",
             family: "Inter",
             src: "/api/slide-assets/doc-1/font-1.woff2",
+            weight: [400, 700],
+            style: "normal",
+            contentHash: "hash-font",
+          },
+        },
+        visuals: {
+          "visual-001": {
+            id: "visual-001",
+            visualId: "visual-001",
+            documentId: "doc-1",
+            title: "Q2 KPI visual",
+            alt: "KPI chart",
+            contentHash: "hash-visual",
           },
         },
         files: {
           "file-001": {
             id: "file-001",
             src: "data:application/pdf;base64,abc123",
+            filename: "report.pdf",
+            mimeType: "application/pdf",
+            contentHash: "hash-file",
           },
         },
       },
@@ -1606,6 +1735,68 @@ describe("safeParseDeckV7", () => {
       assert.ok(
         result.errors.some((e) => /Deck\.assets\.files\.file-001\.src/.test(e)),
       );
+    }
+  });
+
+  test("rejects malformed nested DeckV7 asset entries", () => {
+    const deck = buildDeckV7([buildCoverSlide()], {
+      assets: {
+        images: {
+          "img-001": {
+            id: "img-002",
+            src: "https://example.test/image.png",
+            widthPx: "wide",
+            origin: { kind: "legacy" },
+          },
+        },
+        fonts: {
+          "font-001": {
+            id: "font-001",
+            family: 42,
+            src: "https://example.test/font.woff2",
+            weight: ["heavy"],
+            style: "oblique",
+          },
+        },
+        visuals: {
+          "visual-001": {
+            id: "visual-001",
+            visualId: 123,
+            documentId: false,
+            alt: 999,
+          },
+        },
+        files: {
+          "file-001": {
+            id: "file-001",
+            src: "https://example.test/file.pdf",
+            filename: 42,
+            mimeType: {},
+          },
+        },
+      },
+    } as unknown as Parameters<typeof buildDeckV7>[1]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(!result.success);
+    if (!result.success) {
+      for (const pattern of [
+        /Deck\.assets\.images\.img-001\.id must match asset key/,
+        /Deck\.assets\.images\.img-001\.widthPx/,
+        /Deck\.assets\.images\.img-001\.origin\.kind/,
+        /Deck\.assets\.fonts\.font-001\.family/,
+        /Deck\.assets\.fonts\.font-001\.weight\[0\]/,
+        /Deck\.assets\.fonts\.font-001\.style/,
+        /Deck\.assets\.visuals\.visual-001\.visualId/,
+        /Deck\.assets\.visuals\.visual-001\.documentId/,
+        /Deck\.assets\.visuals\.visual-001\.alt/,
+        /Deck\.assets\.files\.file-001\.filename/,
+        /Deck\.assets\.files\.file-001\.mimeType/,
+      ]) {
+        assert.ok(
+          result.errors.some((error) => pattern.test(error)),
+          `missing error matching ${pattern}\n${result.errors.join("\n")}`,
+        );
+      }
     }
   });
 
