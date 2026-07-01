@@ -209,6 +209,7 @@ import {
 import { createSingleCommitGesture } from "./single-commit-gesture";
 import {
   createSelectionState,
+  getSelectableNodes,
   selectNode,
   clearSelection,
   setSelection as setSelectedNodeIds,
@@ -2418,8 +2419,18 @@ export function SlideEditorVNext({
   }
 
   function toggleSelectionMode() {
+    const normalSelectableIds =
+      activeSlideTree !== null
+        ? getSelectableNodes(activeSlideTree, "normal").map((node) => node.id)
+        : activeSlide
+          ? flattenEditorNodes(activeSlide.children).map((node) => node.id)
+          : [];
     setSelection((s) =>
-      setSelectionMode(s, s.mode === "normal" ? "layers" : "normal"),
+      setSelectionMode(
+        s,
+        s.mode === "normal" ? "layers" : "normal",
+        s.mode === "layers" ? normalSelectableIds : undefined,
+      ),
     );
   }
 
@@ -2430,8 +2441,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {

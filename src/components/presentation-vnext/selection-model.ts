@@ -142,13 +142,24 @@ export function setSelection(
   return { ...state, nodeIds: new Set(nodeIds) };
 }
 
-/** Switches the editing mode, preserving the current selection set. */
+/**
+ * Switches the editing mode.
+ *
+ * When `selectableNodeIds` is provided, selection is filtered to that allow-list
+ * after the mode switch.
+ */
 export function setSelectionMode(
   state: SelectionState,
   mode: SelectionMode,
+  selectableNodeIds?: readonly string[],
 ): SelectionState {
-  if (state.mode === mode) return state;
-  return { ...state, mode };
+  if (state.mode === mode && !selectableNodeIds) return state;
+  const nextState = state.mode === mode ? state : { ...state, mode };
+  if (!selectableNodeIds) return nextState;
+  const selectable = new Set(selectableNodeIds);
+  const nextNodeIds = [...nextState.nodeIds].filter((id) => selectable.has(id));
+  if (nextNodeIds.length === nextState.nodeIds.size) return nextState;
+  return { ...nextState, nodeIds: new Set(nextNodeIds) };
 }
 
 // ---------------------------------------------------------------------------
