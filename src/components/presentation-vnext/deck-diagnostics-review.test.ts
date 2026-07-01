@@ -7,14 +7,51 @@ import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
 import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 
-function collectClickHandlers(node: ReactNode): (() => void)[] {
-  if (Array.isArray(node)) return node.flatMap(collectClickHandlers);
-  if (!isValidElement(node)) return [];
-  const props = node.props as { onClick?: () => void; children?: ReactNode };
-  return [
-    ...(typeof props.onClick === "function" ? [props.onClick] : []),
-    ...collectClickHandlers(props.children),
-  ];
+interface TestElement {
+  type: unknown;
+  props: Record<string, unknown>;
+}
+
+function textContent(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (node == null || typeof node === "boolean") return "";
+  if (Array.isArray(node)) return node.map(textContent).join("");
+  if (!isValidElement(node)) return "";
+  return textContent((node.props as { children?: ReactNode }).children);
+}
+
+function findElement(
+  node: ReactNode,
+  predicate: (element: TestElement) => boolean,
+): TestElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const match = findElement(child, predicate);
+      if (match) return match;
+    }
+    return null;
+  }
+  if (!isValidElement(node)) return null;
+  const element: TestElement = {
+    type: node.type,
+    props: node.props as Record<string, unknown>,
+  };
+  if (predicate(element)) return element;
+  return findElement(element.props.children as ReactNode, predicate);
+}
+
+function findButtonClickHandler(
+  node: ReactNode,
+  label: string,
+): (() => void) | null {
+  const button = findElement(
+    node,
+    (element) =>
+      element.type === "button" &&
+      textContent(element.props.children as ReactNode).trim() === label,
+  );
+  if (!button || typeof button.props.onClick !== "function") return null;
+  return button.props.onClick as () => void;
 }
 
 describe("DeckDiagnosticsReview", () => {
@@ -116,9 +153,62 @@ describe("DeckDiagnosticsReview", () => {
       onNavigate: () => calls.push("navigate"),
       onAction: () => calls.push("action"),
     });
+    const close = findButtonClickHandler(element, "Close");
+    const navigate = findButtonClickHandler(element, "Go to target");
+    const action = findButtonClickHandler(element, "Open asset panel");
 
-    for (const handler of collectClickHandlers(element)) handler();
+    assert.ok(close);
+    assert.ok(navigate);
+    assert.ok(action);
+    close();
+    navigate();
+    action();
 
     assert.deepEqual(calls, ["close", "navigate", "action"]);
+  });
+
+  test("dismisses from backdrop and Escape without closing on dialog clicks", () => {
+    const calls: string[] = [];
+    const element = DeckDiagnosticsReview({
+      diagnostics: [
+        makeDiagnostic("duplicate-id", "info", "Duplicate id in deck"),
+      ],
+      onClose: () => calls.push("close"),
+      onNavigate: () => undefined,
+      onAction: () => undefined,
+    });
+
+    const rootProps = element.props as {
+      onClick?: (event: { target: unknown; currentTarget: unknown }) => void;
+      children?: ReactNode;
+    };
+    const dialog = findElement(
+      rootProps.children,
+      (candidate) => candidate.props["data-deck-diagnostics-review"] === "true",
+    );
+    const onKeyDown =
+      dialog && typeof dialog.props.onKeyDown === "function"
+        ? (dialog.props.onKeyDown as (event: {
+            key: string;
+            stopPropagation: () => void;
+          }) => void)
+        : null;
+
+    assert.equal(typeof rootProps.onClick, "function");
+    assert.ok(onKeyDown);
+
+    const backdrop = {};
+    rootProps.onClick!({ target: backdrop, currentTarget: backdrop });
+    rootProps.onClick!({ target: {}, currentTarget: backdrop });
+    onKeyDown!({
+      key: "Escape",
+      stopPropagation: () => calls.push("stopped"),
+    });
+    onKeyDown!({
+      key: "Enter",
+      stopPropagation: () => calls.push("ignored"),
+    });
+
+    assert.deepEqual(calls, ["close", "stopped", "close"]);
   });
 });
