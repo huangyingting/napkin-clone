@@ -545,6 +545,16 @@ body {
   bottom: max(var(--ds-space-5), var(--tiq-safe-area-bottom));
 }
 
+.tiq-safe-present-top {
+  padding-top: max(var(--ds-space-3), var(--tiq-safe-area-top));
+  padding-right: max(var(--ds-space-4), var(--tiq-safe-area-right));
+  padding-left: max(var(--ds-space-4), var(--tiq-safe-area-left));
+}
+
+.tiq-safe-present-bottom {
+  bottom: max(var(--ds-space-4), var(--tiq-safe-area-bottom));
+}
+
 .tiq-safe-bottom-dock {
   padding-bottom: max(var(--ds-space-1), var(--tiq-safe-area-bottom));
 }
