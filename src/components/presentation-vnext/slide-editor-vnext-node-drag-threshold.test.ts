@@ -45,6 +45,27 @@ describe("createNodeMovePreview", () => {
     assert.ok(preview.guides.length > 0);
   });
 
+  test("skips guide snapping when disabled", () => {
+    const preview = createNodeMovePreview({
+      startClientX: 100,
+      startClientY: 100,
+      nextClientX: 105,
+      nextClientY: 105,
+      rectWidth: 1000,
+      rectHeight: 1000,
+      originalFrames: new Map([["node-a", { x: 9.6, y: 89.4, w: 20, h: 10 }]]),
+      alignmentGuides: [],
+      snapToGuides: false,
+    });
+
+    assert.ok(preview);
+    assert.deepEqual(preview.guides, []);
+    const frame = preview.patches.get("node-a")?.frame;
+    assert.ok(frame);
+    assert.equal(Math.round(frame.x * 10), 101);
+    assert.equal(Math.round(frame.y * 10), 899);
+  });
+
   test("commits one final layout patch after multiple drag previews", () => {
     const commits: NodeMovePreview[] = [];
     const previews: Array<NodeMovePreview | null> = [];

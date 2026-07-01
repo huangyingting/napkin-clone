@@ -34,6 +34,23 @@ describe("SlideEditorVNext toolbar command ownership", () => {
     );
   });
 
+  test("exposes a pressed-state snap toggle in the top toolbar", () => {
+    assert.equal(source.includes('aria-label="Toggle snap to guides"'), true);
+    assert.equal(source.includes("aria-pressed={snapToGuides}"), true);
+    assert.equal(source.includes("onClick={toggleSnapToGuides}"), true);
+  });
+
+  test("gates move and resize guide snapping behind snap state", () => {
+    assert.equal(
+      source.includes("snapToGuides: snapToGuides && !moveEvent.altKey"),
+      true,
+    );
+    assert.match(
+      source,
+      /snapToGuides && !moveEvent\.altKey[\s\S]*snapFrameToStageGuides/,
+    );
+  });
+
   test("removes generic element insertion from the top toolbar", () => {
     assert.equal(source.includes('aria-label="Insert element"'), false);
   });

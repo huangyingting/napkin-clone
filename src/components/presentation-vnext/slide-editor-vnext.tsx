@@ -50,6 +50,7 @@ import {
   Copy,
   Edit3,
   FileDown,
+  Grid3x3,
   Group,
   Keyboard,
   LayoutPanelLeft,
@@ -835,6 +836,7 @@ interface NodeMovePreviewArgs {
   rectHeight: number;
   originalFrames: ReadonlyMap<string, LayoutBox["frame"]>;
   alignmentGuides: readonly StageGuideInput[];
+  snapToGuides?: boolean;
   thresholdPx?: number;
 }
 
@@ -847,6 +849,7 @@ export function createNodeMovePreview({
   rectHeight,
   originalFrames,
   alignmentGuides,
+  snapToGuides = true,
   thresholdPx = CLICK_MOVE_THRESHOLD_PX,
 }: NodeMovePreviewArgs): NodeMovePreview | null {
   if (rectWidth <= 0 || rectHeight <= 0 || originalFrames.size === 0)
@@ -863,15 +866,14 @@ export function createNodeMovePreview({
   const patches = new Map<string, Partial<LayoutBox>>();
   const guides: StageGuide[] = [];
   for (const [id, frame] of originalFrames) {
-    const snapped = snapFrameToStageGuides(
-      {
-        ...frame,
-        x: frame.x + deltaX,
-        y: frame.y + deltaY,
-      },
-      0.75,
-      alignmentGuides,
-    );
+    const nextFrame = clampFrame({
+      ...frame,
+      x: frame.x + deltaX,
+      y: frame.y + deltaY,
+    });
+    const snapped = snapToGuides
+      ? snapFrameToStageGuides(nextFrame, 0.75, alignmentGuides)
+      : { frame: nextFrame, guides: [] as StageGuide[] };
     patches.set(id, {
       frame: snapped.frame,
     });
@@ -1381,6 +1383,7 @@ export function SlideEditorVNext({
   const [selection, setSelection] = useState<SelectionState>(() =>
     createSelectionState("normal"),
   );
+  const [snapToGuides, setSnapToGuides] = useState(true);
   const [clipboardNodes, setClipboardNodes] = useState<SlideChildNode[]>([]);
   const [stageGuides, setStageGuides] = useState<StageGuide[]>([]);
   const [marqueeFrame, setMarqueeFrame] = useState<SelectionFrame | null>(null);
@@ -1594,6 +1597,13 @@ export function SlideEditorVNext({
       writeFilmstripCollapsed(documentId, next);
       return next;
     });
+  }
+
+  function toggleSnapToGuides() {
+    const next = !snapToGuides;
+    setSnapToGuides(next);
+    if (!next) setStageGuides([]);
+    setStageAnnouncement(next ? "Snap to guides on" : "Snap to guides off");
   }
 
   function setFooterZoom(percent: number) {
@@ -2497,6 +2507,7 @@ export function SlideEditorVNext({
         rectHeight: rect.height,
         originalFrames,
         alignmentGuides,
+        snapToGuides: snapToGuides && !moveEvent.altKey,
       });
       if (!preview) return;
       if (!dragThresholdPassed) {
@@ -2555,16 +2566,16 @@ export function SlideEditorVNext({
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
       const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
-      const snapped = snapFrameToStageGuides(
-        node.layout?.constraints?.preserveAspectRatio
-          ? applyAspectLock(
-              originalFrame,
-              resizeFrame(originalFrame, handle, deltaX, deltaY),
-            )
-          : resizeFrame(originalFrame, handle, deltaX, deltaY),
-        0.75,
-        alignmentGuides,
-      );
+      const nextFrame = node.layout?.constraints?.preserveAspectRatio
+        ? applyAspectLock(
+            originalFrame,
+            resizeFrame(originalFrame, handle, deltaX, deltaY),
+          )
+        : resizeFrame(originalFrame, handle, deltaX, deltaY);
+      const snapped =
+        snapToGuides && !moveEvent.altKey
+          ? snapFrameToStageGuides(nextFrame, 0.75, alignmentGuides)
+          : { frame: nextFrame, guides: [] as StageGuide[] };
       setStageGuides(snapped.guides);
       gesture.update(snapped.frame);
     };
@@ -3786,6 +3797,27 @@ export function SlideEditorVNext({
               />
             </div>
           </Popover>
+          <Tooltip
+            label={snapToGuides ? "Snap to guides: on" : "Snap to guides: off"}
+            side="bottom"
+          >
+            <button
+              type="button"
+              aria-label="Toggle snap to guides"
+              aria-pressed={snapToGuides}
+              onClick={toggleSnapToGuides}
+              className={cx(
+                "flex h-8 items-center gap-1.5 rounded-ds-sm border px-2.5 text-xs font-medium transition-colors",
+                snapToGuides
+                  ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+                  : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover",
+                FOCUS_RING,
+              )}
+            >
+              <Grid3x3 size={14} aria-hidden="true" />
+              Snap
+            </button>
+          </Tooltip>
 
           <div
             className="mx-1 h-5 w-px bg-ds-border-subtle"
