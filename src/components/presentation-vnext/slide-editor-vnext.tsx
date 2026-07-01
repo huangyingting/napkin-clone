@@ -1229,6 +1229,30 @@ export function handleCloseConfirmAction(
   }
 }
 
+interface BeforeUnloadGuardHandlers {
+  addBeforeUnloadListener: (
+    listener: (event: BeforeUnloadEvent) => void,
+  ) => void;
+  removeBeforeUnloadListener: (
+    listener: (event: BeforeUnloadEvent) => void,
+  ) => void;
+}
+
+export function setupBeforeUnloadGuard(
+  hasUnsavedWork: boolean,
+  handlers: BeforeUnloadGuardHandlers,
+): (() => void) | undefined {
+  if (!hasUnsavedWork) {
+    return undefined;
+  }
+  const onBeforeUnload = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+    event.returnValue = "";
+  };
+  handlers.addBeforeUnloadListener(onBeforeUnload);
+  return () => handlers.removeBeforeUnloadListener(onBeforeUnload);
+}
+
 export function deleteActiveSlideFromToolbar(
   deck: DeckV7,
   activeSlideId: string | undefined,
@@ -1385,6 +1409,17 @@ export function SlideEditorVNext({
       closeEditor: () => onClose?.(),
     });
   }
+
+  useEffect(
+    () =>
+      setupBeforeUnloadGuard(hasUnsavedWork, {
+        addBeforeUnloadListener: (listener) =>
+          window.addEventListener("beforeunload", listener),
+        removeBeforeUnloadListener: (listener) =>
+          window.removeEventListener("beforeunload", listener),
+      }),
+    [hasUnsavedWork],
+  );
 
   function handleThemePackageChange(packageId: string) {
     const nextPackage = themePackages.find(
@@ -2262,8 +2297,7 @@ export function SlideEditorVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
   const activeSlideTree = renderTree?.slides[activeSlideIndex] ?? null;
   const stageNodeGestureDrafts:
-    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
-    | undefined = (() => {
+    ReadonlyMap<string, SlideCanvasNodeGestureDraft> | undefined = (() => {
     const drafts = new Map<string, SlideCanvasNodeGestureDraft>();
     if (moveGestureDraft) {
       for (const [nodeId, draft] of moveGestureDraft) {

@@ -5,6 +5,7 @@ import { isValidElement, type ReactNode } from "react";
 import {
   handleCloseConfirmAction,
   routeCloseRequest,
+  setupBeforeUnloadGuard,
   SlideEditorCloseConfirmDialog,
 } from "./slide-editor-vnext";
 
@@ -124,5 +125,45 @@ describe("slide editor vnext close confirm flow", () => {
     discard();
 
     assert.deepEqual(calls, ["cancel", "cancel", "discard"]);
+  });
+
+  test("registers and cleans up beforeunload guard for unsaved work", () => {
+    const addedListeners: Array<(event: BeforeUnloadEvent) => void> = [];
+    const removedListeners: Array<(event: BeforeUnloadEvent) => void> = [];
+
+    const cleanup = setupBeforeUnloadGuard(true, {
+      addBeforeUnloadListener: (listener) => addedListeners.push(listener),
+      removeBeforeUnloadListener: (listener) => removedListeners.push(listener),
+    });
+
+    assert.equal(addedListeners.length, 1);
+    assert.equal(typeof cleanup, "function");
+
+    const calls: string[] = [];
+    const event = {
+      preventDefault: () => calls.push("preventDefault"),
+      returnValue: undefined as unknown,
+    } as BeforeUnloadEvent;
+    addedListeners[0](event);
+
+    assert.deepEqual(calls, ["preventDefault"]);
+    assert.equal(event.returnValue, "");
+
+    cleanup?.();
+    assert.deepEqual(removedListeners, [addedListeners[0]]);
+  });
+
+  test("skips beforeunload guard when there is no unsaved work", () => {
+    const addedListeners: Array<(event: BeforeUnloadEvent) => void> = [];
+    const removedListeners: Array<(event: BeforeUnloadEvent) => void> = [];
+
+    const cleanup = setupBeforeUnloadGuard(false, {
+      addBeforeUnloadListener: (listener) => addedListeners.push(listener),
+      removeBeforeUnloadListener: (listener) => removedListeners.push(listener),
+    });
+
+    assert.equal(cleanup, undefined);
+    assert.deepEqual(addedListeners, []);
+    assert.deepEqual(removedListeners, []);
   });
 });
