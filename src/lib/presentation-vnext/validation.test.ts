@@ -494,6 +494,105 @@ describe("safeParseDeckV7", () => {
     }
   });
 
+  test("accepts image node with valid crop, fit, focalPoint, and alt", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const imageNode = {
+      id: "img-rich",
+      type: "image",
+      layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 1 },
+      style: { ref: "media.hero" },
+      content: {
+        assetId: "img-001",
+        crop: { top: 5, right: 10, bottom: 5, left: 10 },
+        fit: "cover",
+        focalPoint: { x: 45, y: 55 },
+        alt: "Descriptive alt text",
+      },
+    };
+    const deck = buildDeckV7([
+      { ...slide, children: [imageNode] } as SlideNode,
+    ]);
+    const result = safeParseDeckV7(deck);
+    assert.ok(
+      result.success,
+      `Expected success but got errors: ${!result.success && result.errors.join(", ")}`,
+    );
+  });
+
+  test("rejects image node with malformed crop, fit, focalPoint, and alt", () => {
+    resetBuilderCounter();
+    const slide = buildCoverSlide();
+    const baseNode = {
+      id: "img-base",
+      type: "image",
+      layout: { frame: { x: 0, y: 0, w: 20, h: 20 }, zIndex: 1 },
+      style: { ref: "media.hero" },
+      content: { assetId: "img-001" },
+    };
+    const cases: Array<{
+      name: string;
+      node: Record<string, unknown>;
+      errorPattern: RegExp;
+    }> = [
+      {
+        name: "invalid-fit",
+        node: {
+          ...baseNode,
+          content: { ...baseNode.content, fit: "stretchy" },
+        },
+        errorPattern: /content\.fit|contain|cover|fill|none/i,
+      },
+      {
+        name: "invalid-crop",
+        node: {
+          ...baseNode,
+          content: {
+            ...baseNode.content,
+            crop: { top: "5", right: 2, bottom: 3, left: 4 },
+          },
+        },
+        errorPattern: /content\.crop\.top|finite number/i,
+      },
+      {
+        name: "invalid-focal-point",
+        node: {
+          ...baseNode,
+          content: {
+            ...baseNode.content,
+            focalPoint: { x: "50", y: 50 },
+          },
+        },
+        errorPattern: /content\.focalPoint\.x|finite number/i,
+      },
+      {
+        name: "invalid-alt",
+        node: {
+          ...baseNode,
+          content: { ...baseNode.content, alt: 7 },
+        },
+        errorPattern: /content\.alt|string/i,
+      },
+    ];
+
+    for (const testCase of cases) {
+      const badNode = { ...testCase.node, id: `img-${testCase.name}` };
+      const badSlide = {
+        ...slide,
+        children: [badNode as unknown as SlideChildNode],
+      };
+      const deck = buildDeckV7([badSlide as unknown as SlideNode]);
+      const result = safeParseDeckV7(deck);
+      assert.ok(!result.success, `Expected parse failure for ${testCase.name}`);
+      if (!result.success) {
+        assert.ok(
+          result.errors.some((error) => testCase.errorPattern.test(error)),
+          `Expected ${testCase.name} to fail with pattern ${testCase.errorPattern}, got: ${result.errors.join(" | ")}`,
+        );
+      }
+    }
+  });
+
   test("rejects visual node with neither assetId nor visualId", () => {
     resetBuilderCounter();
     const slide = buildCoverSlide();
