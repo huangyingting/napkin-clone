@@ -675,6 +675,30 @@ const SEMANTIC_ROLES = [
   "background",
   "themeDecoration",
 ] as const;
+const SLOT_KEYS = [
+  "kicker",
+  "title",
+  "subtitle",
+  "body",
+  "bullets",
+  "leftTitle",
+  "leftBody",
+  "leftBullets",
+  "rightTitle",
+  "rightBody",
+  "rightBullets",
+  "cards",
+  "steps",
+  "quote",
+  "attribution",
+  "stat",
+  "statLabel",
+  "metrics",
+  "table",
+  "visualId",
+  "imagePrompt",
+  "caption",
+] as const;
 
 const SOURCE_BLOCK_KINDS = ["text", "visual", "table", "image"] as const;
 const SOURCE_REFRESH_STATES = [
@@ -734,6 +758,71 @@ function validateStringField(
   if (value !== undefined && typeof value !== "string") {
     fail(errors, `${ctx} must be a string`);
   }
+}
+
+function validateAccessibilityMetadata(
+  input: unknown,
+  ctx: string,
+  errors: string[],
+): void {
+  if (input === undefined) return;
+  if (!isPlainObject(input)) {
+    fail(errors, `${ctx} must be an object`);
+    return;
+  }
+
+  const allowed = new Set(["label", "alt", "decorative", "readingOrder"]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) {
+      fail(errors, `${ctx}.${key} is not a known accessibility field`);
+    }
+  }
+
+  validateOptionalString(input.label, `${ctx}.label`, errors);
+  validateOptionalString(input.alt, `${ctx}.alt`, errors);
+  if (input.decorative !== undefined && typeof input.decorative !== "boolean") {
+    fail(errors, `${ctx}.decorative must be a boolean`);
+  }
+  validateOptionalFiniteNumber(
+    input.readingOrder,
+    `${ctx}.readingOrder`,
+    errors,
+  );
+}
+
+function validateBaseNodeMetadata(
+  input: Record<string, unknown>,
+  ctx: string,
+  errors: string[],
+): void {
+  validateOptionalString(input.name, `${ctx}.name`, errors);
+
+  if (
+    input.role !== undefined &&
+    !SEMANTIC_ROLES.includes(input.role as (typeof SEMANTIC_ROLES)[number])
+  ) {
+    fail(errors, `${ctx}.role is not a known semantic role`);
+  }
+
+  if (
+    input.slot !== undefined &&
+    !SLOT_KEYS.includes(input.slot as (typeof SLOT_KEYS)[number])
+  ) {
+    fail(errors, `${ctx}.slot is not a known slot key`);
+  }
+
+  if (input.locked !== undefined && typeof input.locked !== "boolean") {
+    fail(errors, `${ctx}.locked must be a boolean`);
+  }
+  if (input.hidden !== undefined && typeof input.hidden !== "boolean") {
+    fail(errors, `${ctx}.hidden must be a boolean`);
+  }
+
+  validateAccessibilityMetadata(
+    input.accessibility,
+    `${ctx}.accessibility`,
+    errors,
+  );
 }
 
 function validateSourceMetadata(
@@ -890,13 +979,7 @@ function validateChildNode(
       nodeIds.add(id);
     }
   }
-
-  if (
-    input.role !== undefined &&
-    !SEMANTIC_ROLES.includes(input.role as (typeof SEMANTIC_ROLES)[number])
-  ) {
-    fail(errors, `${ctx}.role is not a known semantic role`);
-  }
+  validateBaseNodeMetadata(input, ctx, errors);
 
   if (input.layout !== undefined) {
     validateLayoutBox(input.layout, `${ctx}.layout`, errors);
@@ -1181,6 +1264,7 @@ function validateSlideNode(
       nodeIds.add(id);
     }
   }
+  validateBaseNodeMetadata(input, ctx, errors);
 
   // Template binding
   if (!isPlainObject(input.template)) {
