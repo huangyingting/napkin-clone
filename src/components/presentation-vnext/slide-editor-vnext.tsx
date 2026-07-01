@@ -216,6 +216,10 @@ import { InlineTextEditorVNext } from "./inline-text-editor";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
+import {
+  runVisualPickerMutation,
+  VISUAL_PICKER_FAILURE_MESSAGE,
+} from "./visual-picker-recovery";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
@@ -1092,7 +1096,7 @@ export function SlideEditorVNext({
   const lastUndoRedoFocusTokenRef = useRef<number | null>(null);
   const themePackages = listThemePackagesV7();
 
-  // Export error surfaced below the toolbar banner
+  // Recoverable export/media errors surfaced below the toolbar banner
   const [exportError, setExportError] = useState<string | null>(null);
 
   // Insert dropdown open state
@@ -1509,23 +1513,32 @@ export function SlideEditorVNext({
     if (!activeSlide) return;
     if (!onPickVisual) {
       handleInsertNode(defaultVisualNode(nextZIndex(activeSlide)));
+      setExportError(null);
       return;
     }
-    const picked = await onPickVisual();
-    if (!picked) return;
-    const deckWithAsset = deckWithPickedVisualAsset(deck, picked);
-    const node = defaultVisualNode(nextZIndex(activeSlide));
-    if (node.type !== "visual") return;
-    const result = insertNode(deckWithAsset, activeSlide.id, {
-      ...node,
-      content: {
-        ...node.content,
-        ...visualContentPatchFromPick(picked),
+    const pickResult = await runVisualPickerMutation({
+      onPickVisual,
+      onPicked: (picked) => {
+        const deckWithAsset = deckWithPickedVisualAsset(deck, picked);
+        const node = defaultVisualNode(nextZIndex(activeSlide));
+        if (node.type !== "visual") return;
+        const result = insertNode(deckWithAsset, activeSlide.id, {
+          ...node,
+          content: {
+            ...node.content,
+            ...visualContentPatchFromPick(picked),
+          },
+        });
+        onDeckChange(result.deck);
+        setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
+        focusSelectedNodeSoon(result.nodeId);
       },
     });
-    onDeckChange(result.deck);
-    setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
-    focusSelectedNodeSoon(result.nodeId);
+    if (pickResult === "failed") {
+      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      return;
+    }
+    setExportError(null);
   }
 
   async function handleReplaceSelectedVisual() {
@@ -1534,18 +1547,26 @@ export function SlideEditorVNext({
       setStageAnnouncement("No visual picker is configured for this editor.");
       return;
     }
-    const picked = await onPickVisual();
-    if (!picked) return;
-    onDeckChange(
-      updateNodeContent(
-        deckWithPickedVisualAsset(deck, picked),
-        activeSlide.id,
-        selectedNode.id,
-        visualContentPatchFromPick(picked),
-      ),
-    );
-    setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
-    focusSelectedNodeSoon(selectedNode.id);
+    const pickResult = await runVisualPickerMutation({
+      onPickVisual,
+      onPicked: (picked) => {
+        onDeckChange(
+          updateNodeContent(
+            deckWithPickedVisualAsset(deck, picked),
+            activeSlide.id,
+            selectedNode.id,
+            visualContentPatchFromPick(picked),
+          ),
+        );
+        setSelection((s) => setSelectedNodeIds(s, [selectedNode.id]));
+        focusSelectedNodeSoon(selectedNode.id);
+      },
+    });
+    if (pickResult === "failed") {
+      setExportError(VISUAL_PICKER_FAILURE_MESSAGE);
+      return;
+    }
+    setExportError(null);
   }
 
   function handleInsertConnector() {
