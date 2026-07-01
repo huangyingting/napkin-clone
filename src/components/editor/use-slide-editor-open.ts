@@ -12,7 +12,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { DeckActionPort } from "@/lib/action-ports";
-import type { ActionResult } from "@/lib/action-result";
+import { actionOk, type ActionResult } from "@/lib/action-result";
 import type { SaveDeckResult } from "@/lib/document/persistence-types";
 import { isAiDeckGenClientEnabled } from "@/lib/ai/ai-deck-gen-flag";
 import { isEffectivelyEmptyEditorState } from "@/lib/ai/empty-content";
@@ -183,6 +183,56 @@ export async function persistDeckV7WithRecovery({
   }
 }
 
+interface CreateSerializedDeckPersistorParams<TDeck> {
+  persistDeck: (deck: TDeck) => Promise<ActionResult>;
+}
+
+export function createSerializedDeckPersistor<TDeck>({
+  persistDeck,
+}: CreateSerializedDeckPersistorParams<TDeck>): (
+  deck: TDeck,
+) => Promise<ActionResult> {
+  let latestDeck: TDeck | null = null;
+  let inFlightSave: Promise<ActionResult> | null = null;
+  let saveAgain = false;
+
+  return (deck: TDeck): Promise<ActionResult> => {
+    latestDeck = deck;
+    if (inFlightSave) {
+      saveAgain = true;
+      return inFlightSave;
+    }
+
+    const savePromise = (async (): Promise<ActionResult> => {
+      let lastResult: ActionResult = actionOk();
+      try {
+        do {
+          saveAgain = false;
+          const deckToSave: TDeck | null = latestDeck;
+          if (deckToSave === null) {
+            return lastResult;
+          }
+          lastResult = await persistDeck(deckToSave);
+          if (latestDeck !== deckToSave) {
+            saveAgain = true;
+          }
+        } while (saveAgain);
+        return lastResult;
+      } finally {
+        saveAgain = false;
+      }
+    })();
+
+    inFlightSave = savePromise;
+    void savePromise.finally(() => {
+      if (inFlightSave === savePromise) {
+        inFlightSave = null;
+      }
+    });
+    return savePromise;
+  };
+}
+
 interface CreateDeckAutosaveOnDueParams {
   persistDeckV7: (deck: DeckV7) => Promise<ActionResult>;
   log: typeof logInfo;
@@ -250,8 +300,11 @@ export function useSlideEditorOpen({
   const autosaveSchedulerRef = useRef<SlideAutosaveScheduler<DeckV7> | null>(
     null,
   );
+  const inFlightPersistV7Ref = useRef<Promise<ActionResult> | null>(null);
+  const latestPersistDeckV7Ref = useRef<DeckV7 | null>(null);
+  const saveAgainPersistV7Ref = useRef(false);
 
-  const persistDeckV7 = useCallback(
+  const persistDeckV7WithSingleWrite = useCallback(
     async (updatedDeck: DeckV7): Promise<ActionResult> => {
       return persistDeckV7WithRecovery({
         updatedDeck,
@@ -273,6 +326,42 @@ export function useSlideEditorOpen({
       });
     },
     [deckPort, documentId],
+  );
+  const persistDeckV7 = useCallback(
+    (updatedDeck: DeckV7): Promise<ActionResult> => {
+      latestPersistDeckV7Ref.current = updatedDeck;
+      if (inFlightPersistV7Ref.current) {
+        saveAgainPersistV7Ref.current = true;
+        return inFlightPersistV7Ref.current;
+      }
+      const savePromise = (async (): Promise<ActionResult> => {
+        let lastResult: ActionResult = actionOk();
+        try {
+          do {
+            saveAgainPersistV7Ref.current = false;
+            const deckToSave = latestPersistDeckV7Ref.current;
+            if (deckToSave === null) {
+              return lastResult;
+            }
+            lastResult = await persistDeckV7WithSingleWrite(deckToSave);
+            if (latestPersistDeckV7Ref.current !== deckToSave) {
+              saveAgainPersistV7Ref.current = true;
+            }
+          } while (saveAgainPersistV7Ref.current);
+          return lastResult;
+        } finally {
+          saveAgainPersistV7Ref.current = false;
+        }
+      })();
+      inFlightPersistV7Ref.current = savePromise;
+      void savePromise.finally(() => {
+        if (inFlightPersistV7Ref.current === savePromise) {
+          inFlightPersistV7Ref.current = null;
+        }
+      });
+      return savePromise;
+    },
+    [persistDeckV7WithSingleWrite],
   );
 
   useEffect(() => {
