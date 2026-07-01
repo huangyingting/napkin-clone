@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { DeckCanvasVNext, SlideCanvasVNext } from "./slide-canvas";
+import {
+  DeckCanvasVNext,
+  SlideCanvasVNext,
+  type SlideCanvasNodeGestureDraft,
+} from "./slide-canvas";
 import {
   SlideNodeRenderer,
   styleObjectToContainerCss,
@@ -461,6 +465,89 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(
       html,
       /data-connector-endpoint="to"[^>]*style="[^"]*left:50%;top:0%/,
+    );
+  });
+
+  test("renders transient frame and rotation drafts for live gesture feedback", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "shape-draft",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("shape-draft", {
+            type: "shape",
+            content: { shape: "rect" },
+          }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        nodeGestureDrafts: new Map<string, SlideCanvasNodeGestureDraft>([
+          [
+            "shape-draft",
+            {
+              frame: { x: 22, y: 24, w: 33, h: 19 },
+              rotation: 45,
+            },
+          ],
+        ]),
+      }),
+    );
+
+    assert.match(
+      html,
+      /data-node-id="shape-draft"[^>]*style="[^"]*left:22%;top:24%;width:33%;height:19%/,
+    );
+    assert.match(html, /rotate\(45deg\)/);
+  });
+
+  test("renders transient crop and connector drafts for live gesture feedback", () => {
+    const selection = setSelection(createSelectionState("normal"), [
+      "image-draft",
+      "connector-draft",
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          imageNode("image-draft", { x: 8, y: 8, w: 30, h: 20 }),
+          renderNode("connector-draft", {
+            type: "connector",
+            content: {
+              from: { kind: "point", point: { x: 0, y: 50 } },
+              to: { kind: "point", point: { x: 100, y: 50 } },
+            },
+          }),
+        ]),
+        selection,
+        onNodeClick: () => undefined,
+        onConnectorEndpointPointerDown: () => undefined,
+        assetResolver: () => "https://example.com/image.png",
+        nodeGestureDrafts: new Map<string, SlideCanvasNodeGestureDraft>([
+          [
+            "image-draft",
+            {
+              crop: { top: 6, right: 4, bottom: 10, left: 8 },
+            },
+          ],
+          [
+            "connector-draft",
+            {
+              connectorEndpoints: {
+                from: { kind: "point", point: { x: 25, y: 75 } },
+              },
+            },
+          ],
+        ]),
+      }),
+    );
+
+    assert.match(
+      html,
+      /style="[^"]*width:112%;height:116%;[^"]*left:-8%;top:-6%/,
+    );
+    assert.match(
+      html,
+      /data-connector-endpoint="from"[^>]*style="[^"]*left:25%;top:75%/,
     );
   });
 

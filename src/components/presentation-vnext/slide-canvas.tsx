@@ -24,6 +24,11 @@ import type {
   ResolvedRenderNode,
 } from "@/lib/presentation-vnext/render-tree";
 import type { CanvasSpec } from "@/lib/presentation-vnext/types";
+import type {
+  ConnectorEndpoint,
+  ImageCrop,
+  LayoutBox,
+} from "@/lib/presentation-vnext/schema";
 import {
   STAGE_CHROME_Z_INDEX,
   selectionFrameChrome,
@@ -47,6 +52,15 @@ export type ResizeHandlePosition =
 export type CropHandlePosition = "top" | "right" | "bottom" | "left";
 
 export type ConnectorEndpointHandle = "from" | "to";
+
+export interface SlideCanvasNodeGestureDraft {
+  frame?: LayoutBox["frame"];
+  rotation?: number;
+  crop?: ImageCrop;
+  connectorEndpoints?: Partial<
+    Record<ConnectorEndpointHandle, ConnectorEndpoint>
+  >;
+}
 
 const RESIZE_HANDLES: readonly ResizeHandlePosition[] = [
   "nw",
@@ -154,6 +168,8 @@ export interface SlideCanvasVNextProps {
     nodeId: string;
     endpoint: ConnectorEndpointHandle;
   } | null;
+  /** Transient, gesture-local node patches rendered before commit. */
+  nodeGestureDrafts?: ReadonlyMap<string, SlideCanvasNodeGestureDraft>;
   /** Active group context id for group-member direct editing. */
   activeGroupId?: string | null;
   /** Active table direct-edit context. */
@@ -218,6 +234,7 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   activeCropHandle,
   activeRotationNodeId,
   activeConnectorEndpoint,
+  nodeGestureDrafts,
   activeGroupId,
   tableEditingNodeId,
   activeTableCell,
@@ -242,7 +259,9 @@ export const SlideCanvasVNext = memo(function SlideCanvasVNext({
   const foregroundChromeNodes = chromeNodes
     .filter((node) => (node.layout.zIndex ?? 0) >= 0)
     .sort((a, b) => (a.layout.zIndex ?? 0) - (b.layout.zIndex ?? 0));
-  const userNodes = flattenNodes(slide.nodes);
+  const userNodes = flattenNodes(slide.nodes).map((node) =>
+    applyNodeGestureDraft(node, nodeGestureDrafts),
+  );
   const selectedUserNodes = selection
     ? userNodes.filter((node) => isSelected(selection, node.id))
     : [];
@@ -606,6 +625,61 @@ function NodeChromeFrame({
       }}
     />
   );
+}
+
+function applyNodeGestureDraft(
+  node: ResolvedRenderNode,
+  nodeGestureDrafts:
+    | ReadonlyMap<string, SlideCanvasNodeGestureDraft>
+    | undefined,
+): ResolvedRenderNode {
+  const draft = nodeGestureDrafts?.get(node.id);
+  if (!draft) return node;
+  let nextNode = node;
+  if (draft.frame || draft.rotation !== undefined) {
+    nextNode = {
+      ...nextNode,
+      layout: {
+        ...nextNode.layout,
+        ...(draft.frame ? { frame: draft.frame } : {}),
+        ...(draft.rotation !== undefined ? { rotation: draft.rotation } : {}),
+      },
+    };
+  }
+  if (draft.crop && nextNode.content.type === "image") {
+    nextNode = {
+      ...nextNode,
+      content: {
+        ...nextNode.content,
+        content: {
+          ...nextNode.content.content,
+          crop: draft.crop,
+        },
+      },
+    };
+  }
+  if (
+    draft.connectorEndpoints &&
+    (draft.connectorEndpoints.from || draft.connectorEndpoints.to) &&
+    nextNode.content.type === "connector"
+  ) {
+    nextNode = {
+      ...nextNode,
+      content: {
+        ...nextNode.content,
+        content: {
+          ...nextNode.content.content,
+          ...(draft.connectorEndpoints.from
+            ? { from: draft.connectorEndpoints.from }
+            : {}),
+          ...(draft.connectorEndpoints.to
+            ? { to: draft.connectorEndpoints.to }
+            : {}),
+        },
+      },
+    };
+  }
+  return nextNode;
 }
 
 function connectorEndpointPoint(
