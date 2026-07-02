@@ -646,25 +646,27 @@ export function SlideEditorRouteClient({
 
   if (openError) {
     return (
-      <SlideRouteRecovery
-        error={openError.error}
-        diagnostics={openError.diagnostics}
-        validationErrors={openError.validationErrors}
-        onBack={goBackToDocument}
-      />
+      <main className="fixed inset-0 overflow-hidden bg-ds-surface">
+        <SlideRouteRecovery
+          error={openError.error}
+          diagnostics={openError.diagnostics}
+          validationErrors={openError.validationErrors}
+          onBack={goBackToDocument}
+        />
+      </main>
     );
   }
 
   if (!deck) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-ds-surface text-sm text-ds-text-secondary">
+      <main className="fixed inset-0 flex items-center justify-center overflow-hidden bg-ds-surface text-sm text-ds-text-secondary">
         Loading slides…
-      </div>
+      </main>
     );
   }
 
   return (
-    <>
+    <main className="fixed inset-0 overflow-hidden bg-ds-surface">
       <SlideEditorVNext
         documentId={documentId}
         deck={deck}
@@ -758,6 +760,6 @@ export function SlideEditorRouteClient({
           onDismiss={() => setConflictState(null)}
         />
       ) : null}
-    </>
+    </main>
   );
 }
