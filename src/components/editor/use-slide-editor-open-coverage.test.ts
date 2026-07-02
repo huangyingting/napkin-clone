@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 
 import type { DeckActionPort } from "@/lib/action-ports";
 import type { DeckGenerationOptions } from "@/lib/ai/use-deck-generation";
@@ -16,17 +15,12 @@ import {
   buildTextContent,
   buildTextNode,
 } from "@/test/builders/deck-v7";
+import { withReactTestDispatcher } from "@/test/react-internals";
 
 import {
   resolveDeckSaveRejectionError,
   useSlideEditorOpen,
 } from "./use-slide-editor-open";
-
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
 
 type EffectSlot = {
   deps?: readonly unknown[];
@@ -49,121 +43,121 @@ function depsChanged(
 }
 
 function createHookRenderer(editorJson: unknown) {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals);
-
   const slots: unknown[] = [];
   const cleanups = new Set<() => void>();
 
   return {
     run<T>(render: () => T): T {
       let hookIndex = 0;
-      const previous = internals.H;
-      internals.H = {
-        useState: <S>(initial: S | (() => S)) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] =
-              typeof initial === "function" ? (initial as () => S)() : initial;
-          }
-          const setState = (next: S | ((previousValue: S) => S)) => {
-            const previousValue = slots[slot] as S;
-            slots[slot] =
-              typeof next === "function"
-                ? (next as (previousValue: S) => S)(previousValue)
-                : next;
-          };
-          return [slots[slot] as S, setState] as const;
+      return withReactTestDispatcher(
+        {
+          useState: <S>(initial: S | (() => S)) => {
+            const slot = hookIndex++;
+            if (!(slot in slots)) {
+              slots[slot] =
+                typeof initial === "function"
+                  ? (initial as () => S)()
+                  : initial;
+            }
+            const setState = (next: S | ((previousValue: S) => S)) => {
+              const previousValue = slots[slot] as S;
+              slots[slot] =
+                typeof next === "function"
+                  ? (next as (previousValue: S) => S)(previousValue)
+                  : next;
+            };
+            return [slots[slot] as S, setState] as const;
+          },
+          useReducer: <S, A>(
+            reducer: (state: S, action: A) => S,
+            initial: S,
+          ) => {
+            const slot = hookIndex++;
+            if (!(slot in slots)) slots[slot] = initial;
+            const dispatch = (action: A) => {
+              slots[slot] = reducer(slots[slot] as S, action);
+            };
+            return [slots[slot] as S, dispatch] as const;
+          },
+          useRef: <T>(initial: T) => {
+            const slot = hookIndex++;
+            if (!(slot in slots)) slots[slot] = { current: initial };
+            return slots[slot] as { current: T };
+          },
+          useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => {
+            const slot = hookIndex++;
+            const previousMemo = slots[slot] as MemoSlot<T> | undefined;
+            if (!previousMemo || depsChanged(previousMemo.deps, deps)) {
+              const nextMemo: MemoSlot<T> = { deps, value: factory() };
+              slots[slot] = nextMemo;
+              return nextMemo.value;
+            }
+            return previousMemo.value;
+          },
+          useCallback: <T>(callback: T, deps?: readonly unknown[]) => {
+            const slot = hookIndex++;
+            const previousMemo = slots[slot] as MemoSlot<T> | undefined;
+            if (!previousMemo || depsChanged(previousMemo.deps, deps)) {
+              const nextMemo: MemoSlot<T> = { deps, value: callback };
+              slots[slot] = nextMemo;
+              return nextMemo.value;
+            }
+            return previousMemo.value;
+          },
+          useId: () => `fake-id-${hookIndex++}`,
+          useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
+            const slot = hookIndex++;
+            const previousEffect = slots[slot] as EffectSlot | undefined;
+            if (previousEffect && !depsChanged(previousEffect.deps, deps))
+              return;
+            previousEffect?.cleanup?.();
+            if (previousEffect?.cleanup)
+              cleanups.delete(previousEffect.cleanup);
+            const cleanup = effect() ?? undefined;
+            if (cleanup) cleanups.add(cleanup);
+            slots[slot] = { deps, cleanup };
+          },
+          useLayoutEffect: () => {
+            hookIndex++;
+          },
+          useInsertionEffect: () => {
+            hookIndex++;
+          },
+          useContext: () => {
+            hookIndex++;
+            return [
+              {
+                getEditorState: () => ({
+                  toJSON: () => editorJson,
+                }),
+              },
+              { getTheme: () => null },
+            ];
+          },
+          useTransition: () => {
+            hookIndex++;
+            return [false, (callback?: () => void) => callback?.()] as const;
+          },
+          useDeferredValue: <T>(value: T) => {
+            hookIndex++;
+            return value;
+          },
+          useSyncExternalStore: <T>(
+            _subscribe: () => () => void,
+            getSnapshot: () => T,
+          ) => {
+            hookIndex++;
+            return getSnapshot();
+          },
+          useImperativeHandle: () => {
+            hookIndex++;
+          },
+          useDebugValue: () => {
+            hookIndex++;
+          },
         },
-        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = initial;
-          const dispatch = (action: A) => {
-            slots[slot] = reducer(slots[slot] as S, action);
-          };
-          return [slots[slot] as S, dispatch] as const;
-        },
-        useRef: <T>(initial: T) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = { current: initial };
-          return slots[slot] as { current: T };
-        },
-        useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => {
-          const slot = hookIndex++;
-          const previousMemo = slots[slot] as MemoSlot<T> | undefined;
-          if (!previousMemo || depsChanged(previousMemo.deps, deps)) {
-            const nextMemo: MemoSlot<T> = { deps, value: factory() };
-            slots[slot] = nextMemo;
-            return nextMemo.value;
-          }
-          return previousMemo.value;
-        },
-        useCallback: <T>(callback: T, deps?: readonly unknown[]) => {
-          const slot = hookIndex++;
-          const previousMemo = slots[slot] as MemoSlot<T> | undefined;
-          if (!previousMemo || depsChanged(previousMemo.deps, deps)) {
-            const nextMemo: MemoSlot<T> = { deps, value: callback };
-            slots[slot] = nextMemo;
-            return nextMemo.value;
-          }
-          return previousMemo.value;
-        },
-        useId: () => `fake-id-${hookIndex++}`,
-        useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
-          const slot = hookIndex++;
-          const previousEffect = slots[slot] as EffectSlot | undefined;
-          if (previousEffect && !depsChanged(previousEffect.deps, deps)) return;
-          previousEffect?.cleanup?.();
-          if (previousEffect?.cleanup) cleanups.delete(previousEffect.cleanup);
-          const cleanup = effect() ?? undefined;
-          if (cleanup) cleanups.add(cleanup);
-          slots[slot] = { deps, cleanup };
-        },
-        useLayoutEffect: () => {
-          hookIndex++;
-        },
-        useInsertionEffect: () => {
-          hookIndex++;
-        },
-        useContext: () => {
-          hookIndex++;
-          return [
-            {
-              getEditorState: () => ({
-                toJSON: () => editorJson,
-              }),
-            },
-            { getTheme: () => null },
-          ];
-        },
-        useTransition: () => {
-          hookIndex++;
-          return [false, (callback?: () => void) => callback?.()] as const;
-        },
-        useDeferredValue: <T>(value: T) => {
-          hookIndex++;
-          return value;
-        },
-        useSyncExternalStore: <T>(
-          _subscribe: () => () => void,
-          getSnapshot: () => T,
-        ) => {
-          hookIndex++;
-          return getSnapshot();
-        },
-        useImperativeHandle: () => {
-          hookIndex++;
-        },
-        useDebugValue: () => {
-          hookIndex++;
-        },
-      };
-      try {
-        return render();
-      } finally {
-        internals.H = previous;
-      }
+        render,
+      );
     },
     cleanup() {
       for (const cleanup of cleanups) cleanup();

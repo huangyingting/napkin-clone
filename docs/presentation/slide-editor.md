@@ -1,7 +1,7 @@
 ---
 type: "architecture"
 status: "current"
-last_updated: "2026-07-01"
+last_updated: "2026-07-02"
 description: "This document describes the runtime architecture of the slide editor. It is about interaction and UI ownership, not the persisted deck schema. For the JSON contract, see ../data-model/deck.md. For detailed stage hit-testing, hover preselection, overlap handling, connector targeting, and pointer state rules, see slide-stage-interactions.md."
 ---
 
@@ -34,7 +34,7 @@ and pointer state rules, see
 | Source links       | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                               |
 | Presence state     | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)       |
 | Open/save state    | [`src/components/editor/use-slide-editor-open.ts`](../../src/components/editor/use-slide-editor-open.ts)                                       |
-| Autosave scheduler | [`src/lib/presentation/slide-autosave-scheduler.ts`](../../src/lib/presentation/slide-autosave-scheduler.ts)                                   |
+| Autosave scheduler | [`src/lib/presentation-shared/slide-autosave-scheduler.ts`](../../src/lib/presentation-shared/slide-autosave-scheduler.ts)                     |
 
 ## Ownership Model
 
@@ -221,7 +221,7 @@ editor shell keeps thin wiring around those helpers.
   end / start endpoint anchor. Free-draw routing remains pointer-only and is
   tracked in #1574.
 - **Help:** `?` (or View > Keyboard shortcuts) opens the shortcut help dialog
-  (`canvasShortcutHelp`).
+  (`canvasShortcutHelp` in `src/lib/presentation-shared/canvas-shortcut-help.ts`).
 
 ## Canvas Contract
 
@@ -373,10 +373,10 @@ refs must carry explicit `blockKind`.
 
 ## Primary Tests
 
-- [`src/lib/presentation-vnext/editor-commands.test.ts`](../../src/lib/presentation-vnext/editor-commands.test.ts)
+- `src/lib/presentation-vnext/editor-commands*.test.ts`
 - [`src/lib/presentation-vnext/source-links.test.ts`](../../src/lib/presentation-vnext/source-links.test.ts)
 - [`src/lib/presentation-vnext/stage-chrome.test.ts`](../../src/lib/presentation-vnext/stage-chrome.test.ts)
 - [`src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.test.ts)
 - [`src/components/presentation-vnext/slide-canvas-render.test.ts`](../../src/components/presentation-vnext/slide-canvas-render.test.ts)
-- [`src/lib/presentation/slide-autosave-scheduler.test.ts`](../../src/lib/presentation/slide-autosave-scheduler.test.ts)
+- [`src/lib/presentation-shared/slide-autosave-scheduler.test.ts`](../../src/lib/presentation-shared/slide-autosave-scheduler.test.ts)
 - [`e2e/slides-smoke.spec.ts`](../../e2e/slides-smoke.spec.ts)

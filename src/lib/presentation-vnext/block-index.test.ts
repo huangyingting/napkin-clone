@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import type { DocumentBlock } from "@/lib/content";
-import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import { DEFAULT_STYLE, VISUAL_SCHEMA_VERSION } from "@/lib/visual/schema";
 import { buildSourceBlockIndex, findSourceBlock } from "./block-index";
 

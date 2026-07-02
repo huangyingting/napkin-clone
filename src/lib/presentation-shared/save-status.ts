@@ -1,5 +1,5 @@
 /**
- * Pure, headless helpers for the slide editor's save-status feedback (issue
+ * Pure, headless helpers for shared slide-editor save-status feedback (issue
  * #208).
  *
  * These mirror the document editor's autosave model (`SaveStatus` /
@@ -8,11 +8,9 @@
  * flushes immediately, and a status badge reflects the current persistence
  * state. The logic that maps the editor's `dirty` / `saving` / `error` booleans
  * to a single {@link SaveStatus}, and the decision of whether a given deck
- * change should schedule an autosave, are factored out here so they can be
- * unit-tested with no DOM, React or browser dependencies.
+ * change should schedule an autosave, are factored out here so legacy and vNext
+ * editors can share them without DOM, React or browser dependencies.
  */
-
-import type { Deck } from "./deck-core";
 
 /** The four save states surfaced to the user, mirroring the document editor. */
 export type SaveStatus = "saved" | "pending" | "saving" | "error";
@@ -67,14 +65,14 @@ export function resolveSaveStatus({
 }
 
 /** Inputs to the autosave scheduling decision. */
-export interface AutosaveDecisionInputs {
+export interface AutosaveDecisionInputs<TDeck = unknown> {
   /** The deck the editor is currently showing. */
-  current: Deck;
+  current: TDeck;
   /**
    * The last deck the editor observed, or `null` before any has been seen.
    * `null` means this is the initial load / first render.
    */
-  lastSeen: Deck | null;
+  lastSeen: TDeck | null;
 }
 
 /**
@@ -87,10 +85,10 @@ export interface AutosaveDecisionInputs {
  * autosaved, and an unchanged reference is a no-op; only a new reference is a
  * real edit worth persisting.
  */
-export function shouldScheduleAutosave({
+export function shouldScheduleAutosave<TDeck>({
   current,
   lastSeen,
-}: AutosaveDecisionInputs): boolean {
+}: AutosaveDecisionInputs<TDeck>): boolean {
   if (lastSeen === null) {
     return false;
   }

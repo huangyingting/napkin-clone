@@ -321,7 +321,7 @@ adapters perform file-generation side effects after this pure spec step.
 
 - `src/lib/presentation-vnext/validation.test.ts`
 - `src/lib/presentation-vnext/open-deck.test.ts`
-- `src/lib/presentation-vnext/editor-commands.test.ts`
+- `src/lib/presentation-vnext/editor-commands*.test.ts`
 - `src/lib/presentation-vnext/render-resolver.test.ts`
 - `src/lib/presentation-vnext/export-spec.test.ts`
 - `src/lib/presentation-vnext/pptx-export-adapter.test.ts`

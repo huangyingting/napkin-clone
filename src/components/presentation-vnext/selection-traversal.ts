@@ -2,29 +2,18 @@ import type {
   LayoutBox,
   SlideChildNode,
 } from "@/lib/presentation-vnext/schema";
+import {
+  findNodeById,
+  flattenNodeTree,
+  parentGroupIdForNode,
+} from "@/lib/presentation-vnext/node-tree-ops";
 
-export function findNodeById(
-  nodes: readonly SlideChildNode[],
-  id: string,
-): SlideChildNode | undefined {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.type === "group") {
-      const found = findNodeById(node.children, id);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
+export { findNodeById, parentGroupIdForNode };
 
 export function flattenEditorNodes(
   nodes: readonly SlideChildNode[],
 ): SlideChildNode[] {
-  return nodes.flatMap((node) =>
-    node.type === "group"
-      ? [node, ...flattenEditorNodes(node.children)]
-      : [node],
-  );
+  return flattenNodeTree(nodes);
 }
 
 export function nodesInReadingOrder(
@@ -90,28 +79,13 @@ export function adjacentInlineEditableNodeId(
   return ordered[nextIndex]?.id;
 }
 
-export function parentGroupIdForNode(
-  nodes: readonly SlideChildNode[],
-  nodeId: string,
-  parentGroupId: string | null = null,
-): string | null {
-  for (const node of nodes) {
-    if (node.id === nodeId) return parentGroupId;
-    if (node.type === "group") {
-      const found = parentGroupIdForNode(node.children, nodeId, node.id);
-      if (found !== null) return found;
-    }
-  }
-  return null;
-}
-
 export function childIdsForGroup(
   nodes: readonly SlideChildNode[],
   groupId: string,
 ): string[] {
   const group = findNodeById(nodes, groupId);
   if (!group || group.type !== "group") return [];
-  return flattenEditorNodes(group.children).map((node) => node.id);
+  return flattenNodeTree(group.children).map((node) => node.id);
 }
 
 export function layoutFramesExcluding(

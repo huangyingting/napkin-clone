@@ -15,6 +15,12 @@ import {
   buildTextNode,
 } from "@/test/builders/deck-v7";
 import {
+  createTestElementFactory,
+  makeDOMRect,
+  TestHTMLElement,
+} from "@/test/fake-dom";
+import { createReactHookRenderer } from "@/test/react-internals";
+import {
   handleCloseConfirmAction,
   routeCloseRequest,
   setupBeforeUnloadGuard,
@@ -24,67 +30,11 @@ import {
   type SlideEditorVNextProps,
 } from "./slide-editor-vnext";
 
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
-
 type ElementProps = Record<string, unknown>;
 
 type FakeListener = (event: Record<string, unknown>) => void;
 
-class FakeHTMLElement {
-  focused = 0;
-
-  constructor(private readonly rect = makeRect(0, 0, 1000, 562.5)) {}
-
-  closest(selector: string): FakeHTMLElement | null {
-    if (selector.includes("input") || selector.includes("button")) return null;
-    if (selector.includes("[data-slide-canvas-vnext")) return this;
-    if (selector.includes("[data-node-id]")) return this;
-    return null;
-  }
-
-  querySelector(): FakeHTMLElement {
-    return this;
-  }
-
-  getBoundingClientRect(): DOMRect {
-    return this.rect;
-  }
-
-  focus(): void {
-    this.focused += 1;
-  }
-
-  setPointerCapture(): void {
-    // no-op test double
-  }
-
-  releasePointerCapture(): void {
-    // no-op test double
-  }
-}
-
-function makeRect(
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-): DOMRect {
-  return {
-    left,
-    top,
-    width,
-    height,
-    right: left + width,
-    bottom: top + height,
-    x: left,
-    y: top,
-    toJSON: () => ({}),
-  } as DOMRect;
-}
+const elementFactory = createTestElementFactory();
 
 function installBrowserGlobals({ desktop = false } = {}) {
   const previous = new Map<PropertyKey, PropertyDescriptor | undefined>(
@@ -93,7 +43,11 @@ function installBrowserGlobals({ desktop = false } = {}) {
     ),
   );
   const listeners = new Map<string, Set<FakeListener>>();
-  const canvasElement = new FakeHTMLElement(makeRect(10, 20, 1000, 562.5));
+  const canvasElement = elementFactory.createElement(
+    {},
+    makeDOMRect(10, 20, 1000, 562.5),
+  );
+  elementFactory.setCanvasElement(canvasElement);
 
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -152,7 +106,7 @@ function installBrowserGlobals({ desktop = false } = {}) {
   Object.defineProperty(globalThis, "HTMLElement", {
     configurable: true,
     writable: true,
-    value: FakeHTMLElement,
+    value: TestHTMLElement,
   });
   Object.defineProperty(globalThis, "ResizeObserver", {
     configurable: true,
@@ -179,94 +133,11 @@ function installBrowserGlobals({ desktop = false } = {}) {
 }
 
 function createHookRenderer({ runEffects = false } = {}) {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals);
-  const slots: unknown[] = [];
-
-  return {
-    run<T>(render: () => T): T {
-      let hookIndex = 0;
-      const previous = internals.H;
-      internals.H = {
-        useState: <S>(initial: S | (() => S)) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] =
-              typeof initial === "function" ? (initial as () => S)() : initial;
-          }
-          const setState = (next: S | ((previous: S) => S)) => {
-            const previousValue = slots[slot] as S;
-            slots[slot] =
-              typeof next === "function"
-                ? (next as (previous: S) => S)(previousValue)
-                : next;
-          };
-          return [slots[slot] as S, setState] as const;
-        },
-        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = initial;
-          const dispatch = (action: A) => {
-            slots[slot] = reducer(slots[slot] as S, action);
-          };
-          return [slots[slot] as S, dispatch] as const;
-        },
-        useRef: <T>(initial: T) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = { current: initial };
-          return slots[slot] as { current: T };
-        },
-        useMemo: <T>(factory: () => T) => {
-          hookIndex++;
-          return factory();
-        },
-        useCallback: <T>(callback: T) => {
-          hookIndex++;
-          return callback;
-        },
-        useId: () => `deep-coverage-id-${hookIndex++}`,
-        useEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useLayoutEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useInsertionEffect: () => {
-          hookIndex++;
-        },
-        useContext: () => {
-          hookIndex++;
-          return undefined;
-        },
-        useTransition: () => {
-          hookIndex++;
-          return [false, (callback?: () => void) => callback?.()] as const;
-        },
-        useDeferredValue: <T>(value: T) => {
-          hookIndex++;
-          return value;
-        },
-        useSyncExternalStore: <T>(
-          _subscribe: () => () => void,
-          getSnapshot: () => T,
-        ) => {
-          hookIndex++;
-          return getSnapshot();
-        },
-        useImperativeHandle: () => {
-          hookIndex++;
-        },
-      };
-      try {
-        return render();
-      } finally {
-        internals.H = previous;
-      }
-    },
-  };
+  return createReactHookRenderer({
+    idPrefix: "deep-coverage-id",
+    runEffects,
+    runLayoutEffects: runEffects,
+  });
 }
 
 function collectElements(node: ReactNode, elements: ReactElement[] = []) {
@@ -675,7 +546,7 @@ describe("SlideEditorVNext render and interaction branches", () => {
         maybeProps(tree, (props) => props["aria-label"] === "Deck title"),
         undefined,
       );
-      assert.ok(browser.canvasElement.focused >= 0);
+      assert.ok(browser.canvasElement.focused.count >= 0);
     } finally {
       browser.restore();
     }

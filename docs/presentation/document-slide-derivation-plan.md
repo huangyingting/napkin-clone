@@ -1,6 +1,6 @@
 ---
 type: "plan"
-status: "approved"
+status: "implemented"
 last_updated: "2026-07-02"
 description: "Executable hard-cut plan for replacing the current document-to-slides generation path with a traceable DocumentSourcePlanV1 -> DocumentSlidePlanV1 -> SemanticDeckPlanV1 -> DeckV7 pipeline while removing package-template generation and AI-specific plan vocabulary from the generation domain."
 ---
@@ -430,6 +430,18 @@ Do not delete these as part of this plan:
 - public render/export fallbacks not owned by deck generation.
 
 ## Implementation Phases
+
+Implementation update — 2026-07-02: phases 1-6 are implemented in source. The
+document-derived deck path is split across source-plan, planner, repair,
+compiler, template, and provenance modules, and the package-template generation
+domain has been removed from `src/`.
+
+- [x] Phase 1: Semantic plan rename and hard cut.
+- [x] Phase 2: Document source and slide plan layer.
+- [x] Phase 3: AI document slide plan pipeline.
+- [x] Phase 4: API protocol cleanup.
+- [x] Phase 5: Preview provenance summary.
+- [x] Phase 6: Delete package-template domain files.
 
 ### Phase 1: Semantic Plan Rename And Hard Cut
 

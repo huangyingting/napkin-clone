@@ -1,21 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Window } from "happy-dom";
-import * as React from "react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 
 import { INLINE_TEXT_COMMAND_EVENT_V7 } from "@/lib/presentation-vnext/inline-text-commands";
 import type { Paragraph } from "@/lib/presentation-vnext/schema";
+import { createReactHookRenderer } from "@/test/react-internals";
 import {
   inlineTextAlignForCommand,
   InlineTextEditorVNext,
 } from "./inline-text-editor";
-
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
 
 type HookRendererOptions = {
   runEffects?: boolean;
@@ -26,101 +20,12 @@ function createHookRenderer({
   runEffects = false,
   firstRefCurrent,
 }: HookRendererOptions = {}) {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals);
-  const slots: unknown[] = [];
-
-  return {
-    run<T>(render: () => T): T {
-      let hookIndex = 0;
-      const previous = internals.H;
-      internals.H = {
-        useState: <S>(initial: S | (() => S)) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] =
-              typeof initial === "function" ? (initial as () => S)() : initial;
-          }
-          const setState = (next: S | ((previous: S) => S)) => {
-            const previousValue = slots[slot] as S;
-            slots[slot] =
-              typeof next === "function"
-                ? (next as (previous: S) => S)(previousValue)
-                : next;
-          };
-          return [slots[slot] as S, setState] as const;
-        },
-        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = initial;
-          const dispatch = (action: A) => {
-            slots[slot] = reducer(slots[slot] as S, action);
-          };
-          return [slots[slot] as S, dispatch] as const;
-        },
-        useRef: <T>(initial: T) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] = {
-              current:
-                slot === 0 && firstRefCurrent !== undefined
-                  ? firstRefCurrent
-                  : initial,
-            };
-          }
-          return slots[slot] as { current: T };
-        },
-        useMemo: <T>(factory: () => T) => {
-          hookIndex++;
-          return factory();
-        },
-        useCallback: <T>(callback: T) => {
-          hookIndex++;
-          return callback;
-        },
-        useId: () => `inline-remaining-id-${hookIndex++}`,
-        useEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useLayoutEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useInsertionEffect: () => {
-          hookIndex++;
-        },
-        useContext: () => {
-          hookIndex++;
-          return undefined;
-        },
-        useTransition: () => {
-          hookIndex++;
-          return [false, (callback?: () => void) => callback?.()] as const;
-        },
-        useDeferredValue: <T>(value: T) => {
-          hookIndex++;
-          return value;
-        },
-        useSyncExternalStore: <T>(
-          _subscribe: () => () => void,
-          getSnapshot: () => T,
-        ) => {
-          hookIndex++;
-          return getSnapshot();
-        },
-        useImperativeHandle: () => {
-          hookIndex++;
-        },
-      };
-      try {
-        return render();
-      } finally {
-        internals.H = previous;
-      }
-    },
-  };
+  return createReactHookRenderer({
+    firstRefCurrent,
+    idPrefix: "inline-remaining-id",
+    runEffects,
+    runLayoutEffects: runEffects,
+  });
 }
 
 function collectElements(node: ReactNode, elements: ReactElement[] = []) {
@@ -211,12 +116,18 @@ test("InlineTextEditorVNext mounts rich HTML, places client caret, and commits a
       configurable: true,
       value: 120,
     });
-    const clientRange = window.document.createRange();
     (
       window.document as typeof window.document & {
-        caretRangeFromPoint: () => typeof clientRange;
+        caretRangeFromPoint: () => Range;
       }
-    ).caretRangeFromPoint = () => clientRange;
+    ).caretRangeFromPoint = () => {
+      const textNode = container.querySelector("span")?.firstChild;
+      assert.ok(textNode);
+      const clientRange = window.document.createRange();
+      clientRange.setStart(textNode, 3);
+      clientRange.collapse(true);
+      return clientRange as unknown as Range;
+    };
     const commits: Array<{
       paragraphs: Paragraph[];
       frame?: { x: number; y: number; w: number; h: number };
@@ -279,6 +190,11 @@ test("InlineTextEditorVNext mounts rich HTML, places client caret, and commits a
     assert.match(container.innerHTML, /Unsafe &amp;/);
     assert.match(container.innerHTML, /&lt;tag&gt;/);
     assert.match(container.innerHTML, /data-list-kind="number"/);
+    assert.equal(
+      window.getSelection()?.anchorNode,
+      container.querySelector("span")?.firstChild,
+    );
+    assert.equal(window.getSelection()?.anchorOffset, 3);
 
     (editor.props as { onInput: () => void }).onInput();
     assert.equal(container.style.height, "60%");

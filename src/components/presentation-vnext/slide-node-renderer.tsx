@@ -953,6 +953,8 @@ export interface SlideNodeRendererProps {
   hovered?: boolean;
   /** When true, this node is the current keyboard focus target. */
   focused?: boolean;
+  /** Registers the outer positioned element with focus/geometry owners. */
+  nodeRef?: (element: HTMLDivElement | null) => void;
   /** When true, the node participates in the stage roving-tabindex model. */
   interactive?: boolean;
   /** Tab index assigned by the stage roving-tabindex model. */
@@ -1010,6 +1012,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
   selected = false,
   hovered = false,
   focused = false,
+  nodeRef,
   interactive = false,
   tabIndex,
   onFocus,
@@ -1082,6 +1085,7 @@ export const SlideNodeRenderer = memo(function SlideNodeRenderer({
 
   return (
     <div
+      ref={nodeRef}
       data-node-id={node.id}
       data-node-type={node.type}
       data-node-source={node.source}

@@ -33,7 +33,7 @@ import { normalizeTextParagraphs } from "../deck-elements";
 import {
   slideFormatConfig,
   type SlideFormat,
-} from "@/lib/presentation/slide-format";
+} from "@/lib/presentation-shared/slide-format";
 import {
   resolvedFillRepresentativeColor,
   resolveSlideRenderModel,

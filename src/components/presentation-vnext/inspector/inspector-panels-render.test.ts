@@ -1,6 +1,5 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import * as React from "react";
 import {
   Children,
   createElement,
@@ -28,6 +27,7 @@ import type {
   StyleObject,
   StylePatch,
 } from "@/lib/presentation-vnext/style-schema";
+import { withReactTestDispatcher } from "@/test/react-internals";
 
 type ElementWithProps = ReactElement<Record<string, unknown>>;
 
@@ -105,39 +105,28 @@ function render(element: ReactNode) {
 }
 
 function withFakeHooks<T>(renderComponent: () => T): T {
-  const internals = (
-    React as unknown as {
-      __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-        H: unknown;
-      };
-    }
-  ).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  if (!internals) return renderComponent();
-
-  const previous = internals.H;
-  internals.H = {
-    useState: <S>(initial: S | (() => S)) => [
-      typeof initial === "function" ? (initial as () => S)() : initial,
-      () => undefined,
-    ],
-    useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
-    useRef: <T>(initial: T) => ({ current: initial }),
-    useMemo: <T>(factory: () => T) => factory(),
-    useCallback: <T>(callback: T) => callback,
-    useId: () => "fake-react-id",
-    useContext: () => undefined,
-    useEffect: () => undefined,
-    useLayoutEffect: () => undefined,
-    useInsertionEffect: () => undefined,
-    useSyncExternalStore: () => undefined,
-    useTransition: () => [false, () => undefined],
-    useDeferredValue: <T>(value: T) => value,
-  };
-  try {
-    return renderComponent();
-  } finally {
-    internals.H = previous;
-  }
+  return withReactTestDispatcher(
+    {
+      useState: <S>(initial: S | (() => S)) => [
+        typeof initial === "function" ? (initial as () => S)() : initial,
+        () => undefined,
+      ],
+      useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
+      useRef: <T>(initial: T) => ({ current: initial }),
+      useMemo: <T>(factory: () => T) => factory(),
+      useCallback: <T>(callback: T) => callback,
+      useId: () => "fake-react-id",
+      useContext: () => undefined,
+      useEffect: () => undefined,
+      useLayoutEffect: () => undefined,
+      useInsertionEffect: () => undefined,
+      useSyncExternalStore: () => undefined,
+      useTransition: () => [false, () => undefined],
+      useDeferredValue: <T>(value: T) => value,
+    },
+    renderComponent,
+    { requireInternals: false },
+  );
 }
 
 describe("inspector panels render and wire controls", () => {

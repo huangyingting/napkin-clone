@@ -10,7 +10,7 @@
 
 import { useRef, useState, type RefObject } from "react";
 
-import { reorderTargetIndexForDraggedItem } from "@/lib/presentation/slide-reorder";
+import { reorderTargetIndexForDraggedItem } from "@/lib/presentation-shared/slide-reorder";
 
 const DRAG_THRESHOLD_PX = 4;
 const AUTO_SCROLL_ZONE_PX = 32;

@@ -39,7 +39,7 @@ import {
   announceRotation,
   applyKeyboardRotation,
   keyboardRotationDelta,
-} from "@/lib/presentation/canvas-keyboard-rotate";
+} from "@/lib/presentation-shared/canvas-keyboard-rotate";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import {

@@ -14,7 +14,7 @@ import {
   ZOOM_PERCENT_PRESETS,
   zoomToPercent,
 } from "./stage-fit";
-import { slideAspectRatio } from "./slide-format";
+import { slideAspectRatio } from "@/lib/presentation-shared/slide-format";
 
 test("SLIDE_ASPECT_RATIO is the fixed 16:9 slide ratio", () => {
   assert.equal(SLIDE_ASPECT_RATIO, 16 / 9);

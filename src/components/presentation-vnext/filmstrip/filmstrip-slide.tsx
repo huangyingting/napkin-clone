@@ -7,7 +7,7 @@
  * action overlay (move ↑/↓, duplicate, delete) on the active slide.
  */
 
-import { type JSX } from "react";
+import { type JSX, type Ref } from "react";
 import { Copy, Trash2 } from "lucide-react";
 
 import type { ResolvedSlideRenderTree } from "@/lib/presentation-vnext/render-tree";
@@ -27,6 +27,7 @@ export interface FilmstripSlideProps {
   isInteractive?: boolean;
   assetResolver?: (id: string) => string | undefined;
   visualResolver?: (id: string) => Visual | undefined;
+  slideButtonRef?: Ref<HTMLButtonElement>;
   onSelect: (index: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -48,6 +49,7 @@ export function FilmstripSlide({
   isInteractive = true,
   assetResolver,
   visualResolver,
+  slideButtonRef,
   onSelect,
   onDuplicate,
   onDelete,
@@ -80,6 +82,7 @@ export function FilmstripSlide({
       >
         {/* Thumbnail */}
         <button
+          ref={slideButtonRef}
           type="button"
           aria-label={`Go to slide ${index + 1}`}
           aria-current={isActive ? "true" : undefined}

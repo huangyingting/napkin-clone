@@ -8,7 +8,13 @@ import type {
   SlideDeckChromeOverrides,
   SlideProps,
 } from "@/lib/presentation-vnext/schema";
-import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  EditorActionButton,
+  EditorField,
+  editorColorControlClass,
+  editorControlClass,
+  parseEditorNumberInput,
+} from "./editor-primitives";
 
 const CHROME_KINDS: DeckChromeKind[] = [
   "logo",
@@ -37,10 +43,6 @@ export interface DeckChromePanelProps {
   idPrefix?: string;
   onUpdateChrome: (patch: Partial<DeckChromeConfig>) => void;
   onUpdateSlideProps: (patch: Partial<SlideProps>) => void;
-}
-
-function inputClass(extra = "") {
-  return `rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs text-ds-text-primary outline-none ${FOCUS_RING}${extra ? ` ${extra}` : ""}`;
 }
 
 function nextOverrides(
@@ -96,11 +98,6 @@ function enabledField(value: ChromeValuePatch) {
   return typeof candidate === "boolean" ? candidate : true;
 }
 
-function parseNumber(value: string): number | undefined {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function isConfigured(item: { enabled?: boolean } | undefined): boolean {
   return item !== undefined && item.enabled !== false;
 }
@@ -117,7 +114,7 @@ function renderOverrideFields(
         checked={enabledField(value)}
         onChange={(event) => onPatch({ enabled: event.currentTarget.checked })}
       />
-      Enabled on this slide
+      Enabled in this slide override
     </label>
   );
 
@@ -129,7 +126,7 @@ function renderOverrideFields(
           value={stringField(value, "assetId")}
           placeholder="Logo asset id"
           onChange={(event) => onPatch({ assetId: event.currentTarget.value })}
-          className={inputClass("col-span-2 font-mono")}
+          className={editorControlClass("col-span-2 font-mono")}
         />
         <select
           value={stringField(value, "placement", "top-right")}
@@ -140,7 +137,7 @@ function renderOverrideFields(
               >["placement"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="top-left">Top left</option>
           <option value="top-right">Top right</option>
@@ -156,7 +153,7 @@ function renderOverrideFields(
               >["size"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="small">Small</option>
           <option value="medium">Medium</option>
@@ -174,7 +171,7 @@ function renderOverrideFields(
           value={stringField(value, "text")}
           placeholder="Footer text"
           onChange={(event) => onPatch({ text: event.currentTarget.value })}
-          className={inputClass("col-span-2")}
+          className={editorControlClass("col-span-2")}
         />
         <select
           value={stringField(value, "align", "center")}
@@ -185,7 +182,7 @@ function renderOverrideFields(
               >["align"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="left">Left</option>
           <option value="center">Center</option>
@@ -208,7 +205,7 @@ function renderOverrideFields(
               >["format"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="number">1</option>
           <option value="number-total">1 / total</option>
@@ -222,7 +219,7 @@ function renderOverrideFields(
               >["placement"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="bottom-left">Bottom left</option>
           <option value="bottom-center">Bottom center</option>
@@ -240,7 +237,7 @@ function renderOverrideFields(
           value={stringField(value, "text")}
           placeholder="Watermark text"
           onChange={(event) => onPatch({ text: event.currentTarget.value })}
-          className={inputClass("col-span-2")}
+          className={editorControlClass("col-span-2")}
         />
         <select
           value={stringField(value, "layoutMode", "diagonal")}
@@ -251,7 +248,7 @@ function renderOverrideFields(
               >["layoutMode"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="center">Center</option>
           <option value="diagonal">Diagonal</option>
@@ -265,7 +262,7 @@ function renderOverrideFields(
               >["size"],
             })
           }
-          className={inputClass()}
+          className={editorControlClass()}
         >
           <option value="small">Small</option>
           <option value="medium">Medium</option>
@@ -286,7 +283,7 @@ function renderOverrideFields(
           kind === "border" ? "#cbd5e1" : "#94a3b8",
         )}
         onChange={(event) => onPatch({ color: event.currentTarget.value })}
-        className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
+        className={editorColorControlClass()}
       />
       <input
         type="number"
@@ -294,9 +291,11 @@ function renderOverrideFields(
         step="0.25"
         value={numberField(value, "widthPt", kind === "border" ? 1 : 0.75)}
         onChange={(event) =>
-          onPatch({ widthPt: parseNumber(event.currentTarget.value) })
+          onPatch({
+            widthPt: parseEditorNumberInput(event.currentTarget.value),
+          })
         }
-        className={inputClass()}
+        className={editorControlClass()}
       />
     </div>
   );
@@ -315,16 +314,24 @@ export function DeckChromePanel({
   return (
     <section className="flex flex-col gap-3 px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
-          Deck Chrome
-        </h4>
-        <button
-          type="button"
+        <div className="flex flex-col gap-1">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+            Deck chrome defaults
+          </h4>
+          <p className="text-[11px] text-ds-text-muted">
+            Owned by deck settings; selected-slide overrides are below.
+          </p>
+        </div>
+        <EditorActionButton
+          action={{
+            id: "reset-slide-chrome-overrides",
+            label: "Reset slide overrides",
+            description:
+              "Remove chrome override state from the selected slide.",
+          }}
           onClick={() => onUpdateSlideProps({ deckChrome: undefined })}
-          className="rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-[11px] text-ds-text-secondary hover:bg-ds-state-hover"
-        >
-          Reset slide
-        </button>
+          className="shrink-0 text-[11px]"
+        />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -341,58 +348,73 @@ export function DeckChromePanel({
               })
             }
           />
-          Global logo
+          Deck default logo
         </label>
-        <input
-          value={chrome?.logo?.assetId ?? ""}
-          placeholder="Image asset id"
-          onChange={(event) =>
-            onUpdateChrome({
-              logo: {
-                ...(chrome?.logo ?? {}),
-                assetId: event.currentTarget.value,
-              },
-            })
-          }
-          className={inputClass("font-mono")}
-        />
-        <select
-          value={chrome?.logo?.placement ?? "top-right"}
-          onChange={(event) =>
-            onUpdateChrome({
-              logo: {
-                ...(chrome?.logo ?? {}),
-                placement: event.currentTarget.value as NonNullable<
-                  DeckChromeConfig["logo"]
-                >["placement"],
-              },
-            })
-          }
-          className={inputClass()}
+        <EditorField
+          id={idFor("logo-asset-id")}
+          label="Logo asset id"
+          description="Deck default shown unless a slide override replaces it."
         >
-          <option value="top-left">Top left</option>
-          <option value="top-right">Top right</option>
-          <option value="bottom-left">Bottom left</option>
-          <option value="bottom-right">Bottom right</option>
-        </select>
-        <select
-          value={chrome?.logo?.size ?? "medium"}
-          onChange={(event) =>
-            onUpdateChrome({
-              logo: {
-                ...(chrome?.logo ?? {}),
-                size: event.currentTarget.value as NonNullable<
-                  DeckChromeConfig["logo"]
-                >["size"],
-              },
-            })
-          }
-          className={inputClass()}
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
+          <input
+            id={idFor("logo-asset-id")}
+            value={chrome?.logo?.assetId ?? ""}
+            placeholder="Image asset id"
+            onChange={(event) =>
+              onUpdateChrome({
+                logo: {
+                  ...(chrome?.logo ?? {}),
+                  assetId: event.currentTarget.value,
+                },
+              })
+            }
+            className={editorControlClass("font-mono")}
+          />
+        </EditorField>
+        <div className="grid grid-cols-2 gap-2">
+          <EditorField id={idFor("logo-placement")} label="Logo placement">
+            <select
+              id={idFor("logo-placement")}
+              value={chrome?.logo?.placement ?? "top-right"}
+              onChange={(event) =>
+                onUpdateChrome({
+                  logo: {
+                    ...(chrome?.logo ?? {}),
+                    placement: event.currentTarget.value as NonNullable<
+                      DeckChromeConfig["logo"]
+                    >["placement"],
+                  },
+                })
+              }
+              className={editorControlClass()}
+            >
+              <option value="top-left">Top left</option>
+              <option value="top-right">Top right</option>
+              <option value="bottom-left">Bottom left</option>
+              <option value="bottom-right">Bottom right</option>
+            </select>
+          </EditorField>
+          <EditorField id={idFor("logo-size")} label="Logo size">
+            <select
+              id={idFor("logo-size")}
+              value={chrome?.logo?.size ?? "medium"}
+              onChange={(event) =>
+                onUpdateChrome({
+                  logo: {
+                    ...(chrome?.logo ?? {}),
+                    size: event.currentTarget.value as NonNullable<
+                      DeckChromeConfig["logo"]
+                    >["size"],
+                  },
+                })
+              }
+              className={editorControlClass()}
+            >
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </EditorField>
+        </div>
       </div>
 
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs text-ds-text-secondary">
@@ -409,21 +431,28 @@ export function DeckChromePanel({
             })
           }
         />
-        <label htmlFor={idFor("footer-enabled")}>Global footer</label>
+        <label htmlFor={idFor("footer-enabled")}>Deck default footer</label>
       </div>
-      <input
-        value={chrome?.footer?.text ?? ""}
-        placeholder="Footer text"
-        onChange={(event) =>
-          onUpdateChrome({
-            footer: {
-              ...(chrome?.footer ?? {}),
-              text: event.currentTarget.value,
-            },
-          })
-        }
-        className={inputClass()}
-      />
+      <EditorField
+        id={idFor("footer-text")}
+        label="Footer text"
+        description="Deck-level footer copied into slides that inherit chrome."
+      >
+        <input
+          id={idFor("footer-text")}
+          value={chrome?.footer?.text ?? ""}
+          placeholder="Footer text"
+          onChange={(event) =>
+            onUpdateChrome({
+              footer: {
+                ...(chrome?.footer ?? {}),
+                text: event.currentTarget.value,
+              },
+            })
+          }
+          className={editorControlClass()}
+        />
+      </EditorField>
       <select
         value={chrome?.footer?.align ?? "center"}
         onChange={(event) =>
@@ -436,7 +465,7 @@ export function DeckChromePanel({
             },
           })
         }
-        className={inputClass()}
+        className={editorControlClass()}
       >
         <option value="left">Footer left</option>
         <option value="center">Footer centered</option>
@@ -445,7 +474,7 @@ export function DeckChromePanel({
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-          Page number
+          Deck default page number
           <select
             value={isConfigured(chrome?.pageNumber) ? "on" : "off"}
             onChange={(event) =>
@@ -456,7 +485,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="off">Off</option>
             <option value="on">On</option>
@@ -476,7 +505,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="number">1</option>
             <option value="number-total">1 / total</option>
@@ -496,7 +525,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="bottom-left">Bottom left</option>
             <option value="bottom-center">Bottom center</option>
@@ -519,21 +548,30 @@ export function DeckChromePanel({
             })
           }
         />
-        <label htmlFor={idFor("watermark-enabled")}>Global watermark</label>
+        <label htmlFor={idFor("watermark-enabled")}>
+          Deck default watermark
+        </label>
       </div>
-      <input
-        value={chrome?.watermark?.text ?? ""}
-        placeholder="Watermark text"
-        onChange={(event) =>
-          onUpdateChrome({
-            watermark: {
-              ...(chrome?.watermark ?? {}),
-              text: event.currentTarget.value,
-            },
-          })
-        }
-        className={inputClass()}
-      />
+      <EditorField
+        id={idFor("watermark-text")}
+        label="Watermark text"
+        description="Deck-level watermark copied into slides that inherit chrome."
+      >
+        <input
+          id={idFor("watermark-text")}
+          value={chrome?.watermark?.text ?? ""}
+          placeholder="Watermark text"
+          onChange={(event) =>
+            onUpdateChrome({
+              watermark: {
+                ...(chrome?.watermark ?? {}),
+                text: event.currentTarget.value,
+              },
+            })
+          }
+          className={editorControlClass()}
+        />
+      </EditorField>
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
           Watermark layout
@@ -549,7 +587,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="center">Center</option>
             <option value="diagonal">Diagonal</option>
@@ -569,7 +607,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="small">Small</option>
             <option value="medium">Medium</option>
@@ -580,7 +618,7 @@ export function DeckChromePanel({
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-          Border
+          Deck default border
           <select
             value={isConfigured(chrome?.border) ? "on" : "off"}
             onChange={(event) =>
@@ -591,7 +629,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="off">Off</option>
             <option value="on">On</option>
@@ -610,7 +648,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
+            className={editorColorControlClass()}
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
@@ -624,18 +662,18 @@ export function DeckChromePanel({
               onUpdateChrome({
                 border: {
                   ...(chrome?.border ?? {}),
-                  widthPt: parseNumber(event.currentTarget.value),
+                  widthPt: parseEditorNumberInput(event.currentTarget.value),
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           />
         </label>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
-          Safe area
+          Deck default safe area
           <select
             value={isConfigured(chrome?.safeArea) ? "on" : "off"}
             onChange={(event) =>
@@ -646,7 +684,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           >
             <option value="off">Off</option>
             <option value="on">On</option>
@@ -665,7 +703,7 @@ export function DeckChromePanel({
                 },
               })
             }
-            className={`h-8 rounded-ds-md border border-ds-border-subtle bg-ds-surface ${FOCUS_RING}`}
+            className={editorColorControlClass()}
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ds-text-secondary">
@@ -679,19 +717,25 @@ export function DeckChromePanel({
               onUpdateChrome({
                 safeArea: {
                   ...(chrome?.safeArea ?? {}),
-                  widthPt: parseNumber(event.currentTarget.value),
+                  widthPt: parseEditorNumberInput(event.currentTarget.value),
                 },
               })
             }
-            className={inputClass()}
+            className={editorControlClass()}
           />
         </label>
       </div>
 
       <div className="my-1 h-px bg-ds-border-subtle" aria-hidden="true" />
-      <h5 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
-        Slide Overrides
-      </h5>
+      <div className="flex flex-col gap-1">
+        <h5 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          Selected slide overrides
+        </h5>
+        <p className="text-[11px] text-ds-text-muted">
+          These controls only affect the selected slide. Use deck default to
+          inherit the settings above.
+        </p>
+      </div>
       {CHROME_KINDS.map((kind) => {
         const override = deckChromeOverrides?.[kind];
         const mode = override?.mode ?? "inherit";
@@ -716,13 +760,13 @@ export function DeckChromePanel({
                   ),
                 })
               }
-              className={inputClass("w-32")}
+              className={editorControlClass("w-32")}
             >
-              <option value="inherit">Inherit</option>
-              <option value="disabled">Disable</option>
-              <option value="override">Override</option>
+              <option value="inherit">Use deck default</option>
+              <option value="disabled">Disable on slide</option>
+              <option value="override">Override on slide</option>
               {mode === "detached" ? (
-                <option value="detached">Detached</option>
+                <option value="detached">Detached local copy</option>
               ) : null}
             </select>
             {mode === "override"

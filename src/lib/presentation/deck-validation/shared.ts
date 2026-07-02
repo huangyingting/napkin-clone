@@ -7,7 +7,10 @@ import type {
   ConnectorRouting,
   TextFitMode,
 } from "../deck-elements";
-import { SLIDE_FORMATS, type SlideFormat } from "../slide-format";
+import {
+  SLIDE_FORMATS,
+  type SlideFormat,
+} from "@/lib/presentation-shared/slide-format";
 
 export class DeckValidationError extends Error {
   constructor(message: string) {

@@ -15,7 +15,7 @@ import {
   emitProductTelemetry,
 } from "@/lib/telemetry/product";
 import { appendPendingPatches } from "./use-slide-editor-commit";
-import { type SlideFormat } from "@/lib/presentation/slide-format";
+import { type SlideFormat } from "@/lib/presentation-shared/slide-format";
 import {
   slideAccentValue,
   slideBackgroundGradientValue,

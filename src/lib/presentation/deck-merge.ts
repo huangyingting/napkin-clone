@@ -30,7 +30,7 @@ import { buildVisualElement } from "./deck-elements";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
-import { hashDocumentBlock } from "./document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import {
   updateTextElementFromBlock,
   buildRefreshSourceRef,

@@ -34,7 +34,7 @@ describe("KeyboardShortcutHelpDialog", () => {
   test("sources shortcut entries from canvasShortcutHelp", () => {
     assert.equal(
       source.includes(
-        'import { canvasShortcutHelp } from "@/lib/presentation/canvas-a11y";',
+        'import { canvasShortcutHelp } from "@/lib/presentation-shared/canvas-shortcut-help";',
       ),
       true,
     );

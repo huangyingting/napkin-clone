@@ -7,7 +7,7 @@ import {
   commitCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
-import { reorderTargetIndexForDraggedItem } from "@/lib/presentation/slide-reorder";
+import { reorderTargetIndexForDraggedItem } from "@/lib/presentation-shared/slide-reorder";
 import { appendPendingPatches } from "@/components/presentation/slide-editor/use-slide-editor-commit";
 
 interface SlideRailControllerOptions {

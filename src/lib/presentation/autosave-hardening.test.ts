@@ -21,7 +21,7 @@ import {
   shouldPersist,
   SAVE_STATUS_LABEL,
   SLIDE_SAVE_DEBOUNCE_MS,
-} from "@/lib/presentation/save-status";
+} from "@/lib/presentation-shared/save-status";
 
 import {
   generateRevisionToken,

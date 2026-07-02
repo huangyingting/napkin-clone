@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck } from "./deck";
 import {
   SAVE_STATUS_LABEL,
   SLIDE_SAVE_DEBOUNCE_MS,
@@ -12,8 +11,10 @@ import {
   type SaveStatus,
 } from "./save-status";
 
+type TestDeck = { themeId: string; slides: unknown[] };
+
 /** Builds a distinguishable deck (a fresh reference each call). */
-function deck(themeId = "default"): Deck {
+function deck(themeId = "default"): TestDeck {
   return { themeId, slides: [] };
 }
 

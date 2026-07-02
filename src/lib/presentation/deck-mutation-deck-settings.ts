@@ -1,5 +1,5 @@
 import type { Deck } from "./deck-core";
-import type { SlideFormat } from "./slide-format";
+import type { SlideFormat } from "@/lib/presentation-shared/slide-format";
 
 /**
  * Changes the presentation theme id.

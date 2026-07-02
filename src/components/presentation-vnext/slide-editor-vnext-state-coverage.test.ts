@@ -18,18 +18,19 @@ import {
   buildTextNode,
   buildVisualNode,
 } from "@/test/builders/deck-v7";
+import { createBrowserGlobalInstaller } from "@/test/browser-globals";
+import {
+  createTestElementFactory,
+  makeDOMRect,
+  TestHTMLElement,
+} from "@/test/fake-dom";
+import { createReactHookRenderer } from "@/test/react-internals";
 import {
   SlideEditorCloseConfirmDialog,
   SlideEditorInspectorRegion,
   SlideEditorVNext,
   type SlideEditorVNextProps,
 } from "./slide-editor-vnext";
-
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
 
 type ElementProps = Record<string, unknown>;
 
@@ -51,72 +52,12 @@ type FakeWindow = {
   >;
 };
 
-type FakeBrowserGlobals = {
-  window?: unknown;
-  document?: unknown;
-  navigator?: unknown;
-  HTMLElement?: unknown;
-  File?: unknown;
-  ResizeObserver?: unknown;
-};
-
-class FakeHTMLElement {
-  private readonly dataset: Record<string, string>;
-  private readonly rect: DOMRect;
-  readonly focused: { count: number };
-
-  constructor(
-    dataset: Record<string, string> = {},
-    frame: DOMRect = rect(0, 0, 1000, 562.5),
-    focused: { count: number } = { count: 0 },
-  ) {
-    this.dataset = dataset;
-    this.rect = frame;
-    this.focused = focused;
-  }
-
-  closest(selector: string): FakeHTMLElement | null {
-    if (selector.includes("input") || selector.includes("button")) return null;
-    if (selector.includes("[data-slide-canvas-vnext")) return canvasElement;
-    if (selector.includes("[data-node-id]")) {
-      return this.dataset.nodeId ? this : null;
-    }
-    if (
-      selector.includes("[data-resize-handle]") ||
-      selector.includes("[data-crop-handle]") ||
-      selector.includes("[data-rotation-handle]") ||
-      selector.includes("[data-connector-endpoint]")
-    ) {
-      return null;
-    }
-    return null;
-  }
-
-  querySelector(): FakeHTMLElement | null {
-    return canvasElement;
-  }
-
-  getBoundingClientRect(): DOMRect {
-    return this.rect;
-  }
-
-  focus(): void {
-    this.focused.count += 1;
-  }
-
-  setPointerCapture(): void {
-    // Test double for pointer capture.
-  }
-
-  releasePointerCapture(): void {
-    // Test double for pointer capture.
-  }
-}
-
-const canvasElement = new FakeHTMLElement(
+const elementFactory = createTestElementFactory();
+const canvasElement = elementFactory.createElement(
   { slideCanvasVnext: "true" },
-  rect(10, 20, 1000, 562.5),
+  makeDOMRect(10, 20, 1000, 562.5),
 );
+elementFactory.setCanvasElement(canvasElement);
 
 class FakeFile {
   readonly name: string;
@@ -132,39 +73,17 @@ class FakeFile {
   }
 }
 
-function rect(
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-): DOMRect {
-  return {
-    left,
-    top,
-    width,
-    height,
-    right: left + width,
-    bottom: top + height,
-    x: left,
-    y: top,
-    toJSON: () => ({}),
-  } as DOMRect;
-}
-
 function installBrowserGlobals({
   desktop = false,
 }: { desktop?: boolean } = {}) {
-  const globalRef = globalThis as typeof globalThis & FakeBrowserGlobals;
-  const previous = new Map<PropertyKey, PropertyDescriptor | undefined>(
-    [
-      "window",
-      "document",
-      "navigator",
-      "HTMLElement",
-      "File",
-      "ResizeObserver",
-    ].map((key) => [key, Object.getOwnPropertyDescriptor(globalRef, key)]),
-  );
+  const browserGlobals = createBrowserGlobalInstaller([
+    "window",
+    "document",
+    "navigator",
+    "HTMLElement",
+    "File",
+    "ResizeObserver",
+  ]);
   const listeners = new Map<string, Set<FakeEventListener>>();
   const fakeWindow: FakeWindow = {
     listeners,
@@ -204,37 +123,19 @@ function installBrowserGlobals({
     }),
   };
 
-  Object.defineProperty(globalRef, "window", {
-    configurable: true,
-    writable: true,
-    value: fakeWindow,
+  browserGlobals.define("window", fakeWindow);
+  browserGlobals.define("document", {
+    querySelector: () => elementFactory.createElement(),
   });
-  Object.defineProperty(globalRef, "document", {
-    configurable: true,
-    writable: true,
-    value: {
-      querySelector: () => new FakeHTMLElement(),
-    },
+  browserGlobals.define("navigator", {
+    platform: "MacIntel",
+    userAgent: "node",
   });
-  Object.defineProperty(globalRef, "navigator", {
-    configurable: true,
-    writable: true,
-    value: { platform: "MacIntel", userAgent: "node" },
-  });
-  Object.defineProperty(globalRef, "HTMLElement", {
-    configurable: true,
-    writable: true,
-    value: FakeHTMLElement,
-  });
-  Object.defineProperty(globalRef, "File", {
-    configurable: true,
-    writable: true,
-    value: FakeFile,
-  });
-  Object.defineProperty(globalRef, "ResizeObserver", {
-    configurable: true,
-    writable: true,
-    value: class {
+  browserGlobals.define("HTMLElement", TestHTMLElement);
+  browserGlobals.define("File", FakeFile);
+  browserGlobals.define(
+    "ResizeObserver",
+    class {
       observe(): void {
         // No-op in direct-render tests.
       }
@@ -242,115 +143,23 @@ function installBrowserGlobals({
         // No-op in direct-render tests.
       }
     },
-  });
+  );
 
   return {
     window: fakeWindow,
-    restore: () => {
-      for (const key of previous.keys()) {
-        const descriptor = previous.get(key);
-        if (descriptor) {
-          Object.defineProperty(globalRef, key, descriptor);
-        } else {
-          Reflect.deleteProperty(globalRef, key);
-        }
-      }
-    },
+    restore: browserGlobals.restore,
   };
 }
 
 function createHookRenderer({
   runEffects = false,
 }: { runEffects?: boolean } = {}) {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals);
-  const slots: unknown[] = [];
-
-  return {
-    run<T>(render: () => T): T {
-      let hookIndex = 0;
-      const previous = internals.H;
-      internals.H = {
-        useState: <S>(initial: S | (() => S)) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] =
-              typeof initial === "function" ? (initial as () => S)() : initial;
-          }
-          const setState = (next: S | ((previous: S) => S)) => {
-            const previousValue = slots[slot] as S;
-            slots[slot] =
-              typeof next === "function"
-                ? (next as (previous: S) => S)(previousValue)
-                : next;
-          };
-          return [slots[slot] as S, setState] as const;
-        },
-        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = initial;
-          const dispatch = (action: A) => {
-            slots[slot] = reducer(slots[slot] as S, action);
-          };
-          return [slots[slot] as S, dispatch] as const;
-        },
-        useRef: <T>(initial: T) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = { current: initial };
-          return slots[slot] as { current: T };
-        },
-        useMemo: <T>(factory: () => T) => {
-          hookIndex++;
-          return factory();
-        },
-        useCallback: <T>(callback: T) => {
-          hookIndex++;
-          return callback;
-        },
-        useId: () => `fake-id-${hookIndex++}`,
-        useEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useLayoutEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useInsertionEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useContext: () => {
-          hookIndex++;
-          return undefined;
-        },
-        useTransition: () => {
-          hookIndex++;
-          return [false, (callback?: () => void) => callback?.()] as const;
-        },
-        useDeferredValue: <T>(value: T) => {
-          hookIndex++;
-          return value;
-        },
-        useSyncExternalStore: <T>(
-          _subscribe: () => () => void,
-          getSnapshot: () => T,
-        ) => {
-          hookIndex++;
-          return getSnapshot();
-        },
-        useImperativeHandle: () => {
-          hookIndex++;
-        },
-      };
-      try {
-        return render();
-      } finally {
-        internals.H = previous;
-      }
-    },
-  };
+  return createReactHookRenderer({
+    idPrefix: "fake-id",
+    runEffects,
+    runInsertionEffects: runEffects,
+    runLayoutEffects: runEffects,
+  });
 }
 
 function collectElements(node: ReactNode, elements: ReactElement[] = []) {
@@ -1168,7 +977,7 @@ test("SlideEditorVNext direct state coverage drives keyboard, inline edit, uploa
       tree,
       (props) => props["data-slide-stage-frame"] === "true",
     );
-    const ref = frame.ref as (el: FakeHTMLElement | null) => void;
+    const ref = frame.ref as (el: TestHTMLElement | null) => void;
     ref(canvasElement);
     tree = harness.render();
     (rootProps(tree).onKeyDown as (event: unknown) => void)(keyEvent("Enter"));

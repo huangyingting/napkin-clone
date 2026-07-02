@@ -427,7 +427,7 @@ test("insertableTextElement heading stamps sourceRef when both ids present", () 
 // ---------------------------------------------------------------------------
 
 import { insertableVisualElement } from "./document-insertable";
-import { hashDocumentBlock } from "./document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 
 function visualBlock(visualId: string): DocumentBlock {
   return { kind: "visual", visualId, visual: {} as Visual };

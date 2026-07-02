@@ -4,6 +4,7 @@ import type { DeckV7, SlideChildNode, SlideNode } from "./schema";
 import type { StyleBinding } from "./style-schema";
 import type { DiagnosticAction, PresentationDiagnostic } from "./diagnostics";
 import { getDiagnosticNodeId, getDiagnosticSlideId } from "./diagnostics";
+import { findNodeById } from "./node-tree-ops";
 import {
   resetLocalStyleOverride,
   restoreThemeDecoration,
@@ -37,20 +38,6 @@ export type DiagnosticRepairContext = {
   selectedNodeId?: string;
   defaultStyleBindingForNode: (node: SlideChildNode) => StyleBinding;
 };
-
-function findNodeById(
-  nodes: readonly SlideChildNode[],
-  id: string,
-): SlideChildNode | undefined {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.type === "group") {
-      const found = findNodeById(node.children, id);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
 
 function findSlideForNode(deck: DeckV7, nodeId: string): SlideNode | undefined {
   return deck.slides.find((slide) => findNodeById(slide.children, nodeId));

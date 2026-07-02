@@ -7,55 +7,19 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { NodeContentPanel } from "./node-content-panel";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
+import { createReactHookRenderer } from "@/test/react-internals";
 
 type ElementWithProps = ReactElement<Record<string, unknown>>;
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
 
 function withMockUseState<T>(callback: () => T): T {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(
-    internals,
-    "React internals are required for hook dispatcher tests",
-  );
-  const previous = internals.H;
-  const state: unknown[] = [];
-  let index = 0;
-  internals.H = {
-    useState(initial: unknown) {
-      const currentIndex = index;
-      index += 1;
-      if (state.length <= currentIndex) {
-        state[currentIndex] =
-          typeof initial === "function"
-            ? (initial as () => unknown)()
-            : initial;
-      }
-      return [
-        state[currentIndex],
-        (next: unknown) => {
-          state[currentIndex] =
-            typeof next === "function"
-              ? (next as (previous: unknown) => unknown)(state[currentIndex])
-              : next;
-        },
-      ];
-    },
-  };
-  try {
-    return callback();
-  } finally {
-    internals.H = previous;
-  }
+  return createReactHookRenderer({
+    idPrefix: "node-content-panel-test-id",
+    message: "React internals are required for hook dispatcher tests",
+  }).run(callback);
 }
 
 function elements(root: ReactNode): ElementWithProps[] {

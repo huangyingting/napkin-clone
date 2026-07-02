@@ -72,6 +72,15 @@ import {
   type InlineTextCommandName,
 } from "@/lib/presentation-vnext/inline-text-commands";
 import {
+  CURRENT_OBJECT_INSERT_NODE_COMMAND_DESCRIPTORS,
+  currentObjectAlignCommandDescriptor,
+  currentObjectReorderCommandDescriptor,
+  type CurrentObjectInsertNodeCommandId,
+  type CurrentObjectInsertNodeKind,
+  type CurrentObjectReorderCommandId,
+  type CurrentObjectReorderMode,
+} from "@/lib/presentation-vnext/current-object-command-descriptors";
+import {
   focusFirstMenuCommand,
   isMenuCommandNavigationKey,
   moveMenuCommandFocus,
@@ -119,13 +128,15 @@ export type SelectionDistributeMode = "horizontal" | "vertical";
 export type SelectionMatchSizeMode = "width" | "height" | "both";
 
 type TableNode = Extract<SlideChildNode, { type: "table" }>;
-type SlideToolInsertActionKey =
-  | "text"
-  | "shape"
-  | "image"
-  | "visual"
-  | "connector"
-  | "table";
+type SlideToolInsertActionKey = CurrentObjectInsertNodeKind;
+type ContextToolbarReorderActionKey = CurrentObjectReorderMode;
+
+const CONTEXT_TOOLBAR_REORDER_MODES = [
+  "forward",
+  "backward",
+  "front",
+  "back",
+] as const satisfies readonly CurrentObjectReorderMode[];
 
 export function isContextToolbarInlineTextCommandEnabled(
   command: InlineTextCommandName,
@@ -153,15 +164,6 @@ export function contextToolbarTextRoleFontSizePt(
   return CONTEXT_TOOLBAR_TEXT_ROLE_FONT_SIZE_PT[role];
 }
 
-const SLIDE_TOOL_INSERT_LABELS: Record<SlideToolInsertActionKey, string> = {
-  text: "Insert text",
-  shape: "Insert shape",
-  image: "Insert image",
-  visual: "Insert visual",
-  connector: "Insert connector",
-  table: "Insert table",
-};
-
 interface SlideToolInsertCallbacks {
   onInsertText?: () => void;
   onInsertShape?: () => void;
@@ -173,6 +175,7 @@ interface SlideToolInsertCallbacks {
 
 interface SlideToolInsertAction {
   key: SlideToolInsertActionKey;
+  commandId: CurrentObjectInsertNodeCommandId;
   label: string;
   onClick: () => void;
 }
@@ -193,13 +196,56 @@ export function buildSlideToolInsertActions({
     connector: onInsertConnector,
     table: onInsertTable,
   };
-  return (["text", "shape", "image", "visual", "connector", "table"] as const)
-    .map((key) => {
-      const onClick = handlers[key];
-      if (!onClick) return null;
-      return { key, label: SLIDE_TOOL_INSERT_LABELS[key], onClick };
-    })
-    .filter((action): action is SlideToolInsertAction => action !== null);
+  return CURRENT_OBJECT_INSERT_NODE_COMMAND_DESCRIPTORS.flatMap(
+    (descriptor) => {
+      const onClick = handlers[descriptor.nodeKind];
+      if (!onClick) return [];
+      const action: SlideToolInsertAction = {
+        key: descriptor.nodeKind,
+        commandId: descriptor.id,
+        label: descriptor.label,
+        onClick,
+      };
+      return [action];
+    },
+  );
+}
+
+interface ContextToolbarReorderCallbacks {
+  onBringForward: () => void;
+  onSendBackward: () => void;
+  onBringToFront?: () => void;
+  onSendToBack?: () => void;
+}
+
+interface ContextToolbarReorderAction {
+  key: ContextToolbarReorderActionKey;
+  commandId: CurrentObjectReorderCommandId;
+  label: string;
+  onClick: () => void;
+}
+
+export function buildContextToolbarReorderActions({
+  onBringForward,
+  onSendBackward,
+  onBringToFront,
+  onSendToBack,
+}: ContextToolbarReorderCallbacks): ContextToolbarReorderAction[] {
+  const handlers: Record<ContextToolbarReorderActionKey, () => void> = {
+    forward: onBringForward,
+    backward: onSendBackward,
+    front: () => onBringToFront?.(),
+    back: () => onSendToBack?.(),
+  };
+  return CONTEXT_TOOLBAR_REORDER_MODES.map((mode) => {
+    const descriptor = currentObjectReorderCommandDescriptor(mode);
+    return {
+      key: mode,
+      commandId: descriptor.id,
+      label: descriptor.label,
+      onClick: handlers[mode],
+    };
+  });
 }
 
 function renderSlideToolInsertIcon(key: SlideToolInsertActionKey) {
@@ -216,6 +262,19 @@ function renderSlideToolInsertIcon(key: SlideToolInsertActionKey) {
       return <Spline size={13} aria-hidden />;
     case "table":
       return <Table2 size={13} aria-hidden />;
+  }
+}
+
+function renderContextToolbarReorderIcon(key: ContextToolbarReorderActionKey) {
+  switch (key) {
+    case "forward":
+      return <BringToFront size={13} aria-hidden />;
+    case "backward":
+      return <SendToBack size={13} aria-hidden />;
+    case "front":
+      return "TF";
+    case "back":
+      return "TB";
   }
 }
 
@@ -986,6 +1045,12 @@ export function ContextToolbar({
     onInsertVisual,
     onInsertConnector,
     onInsertTable,
+  });
+  const contextToolbarReorderActions = buildContextToolbarReorderActions({
+    onBringForward,
+    onSendBackward,
+    onBringToFront,
+    onSendToBack,
   });
   const showSlideTools =
     selectedIds.length === 0 &&
@@ -1770,7 +1835,7 @@ export function ContextToolbar({
             {isMultiSelect ? (
               <>
                 <TBtn
-                  label="Align left"
+                  label={currentObjectAlignCommandDescriptor("left").label}
                   onClick={() =>
                     routeContextToolbarAlign({
                       mode: "left",
@@ -1781,7 +1846,7 @@ export function ContextToolbar({
                   <AlignLeft size={13} aria-hidden />
                 </TBtn>
                 <TBtn
-                  label="Align center"
+                  label={currentObjectAlignCommandDescriptor("center").label}
                   onClick={() =>
                     routeContextToolbarAlign({
                       mode: "center",
@@ -1792,7 +1857,7 @@ export function ContextToolbar({
                   <AlignCenter size={13} aria-hidden />
                 </TBtn>
                 <TBtn
-                  label="Align right"
+                  label={currentObjectAlignCommandDescriptor("right").label}
                   onClick={() =>
                     routeContextToolbarAlign({
                       mode: "right",
@@ -1866,18 +1931,15 @@ export function ContextToolbar({
 
             {!isMultiSelect ? (
               <>
-                <TBtn label="Bring forward" onClick={onBringForward}>
-                  <BringToFront size={13} aria-hidden />
-                </TBtn>
-                <TBtn label="Send backward" onClick={onSendBackward}>
-                  <SendToBack size={13} aria-hidden />
-                </TBtn>
-                <TBtn label="Bring to front" onClick={() => onBringToFront?.()}>
-                  TF
-                </TBtn>
-                <TBtn label="Send to back" onClick={() => onSendToBack?.()}>
-                  TB
-                </TBtn>
+                {contextToolbarReorderActions.map((action) => (
+                  <TBtn
+                    key={action.commandId}
+                    label={action.label}
+                    onClick={() => action.onClick()}
+                  >
+                    {renderContextToolbarReorderIcon(action.key)}
+                  </TBtn>
+                ))}
               </>
             ) : null}
 

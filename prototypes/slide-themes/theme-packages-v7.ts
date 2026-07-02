@@ -5,19 +5,14 @@ import type {
   StyleRef,
 } from "@/lib/presentation-vnext/style-schema";
 import { STYLE_REFS } from "@/lib/presentation-vnext/style-registry";
+import {
+  BUILT_IN_THEME_PACKAGE_IDS,
+  type BuiltInThemePackageId,
+} from "@/lib/presentation-shared/theme-package-ids";
 
-export const THEME_PACKAGE_SOURCE_IDS = [
-  "clarity",
-  "ocean",
-  "aurora",
-  "monolith",
-  "editorial",
-  "noir",
-  "terra",
-  "pulse",
-] as const;
+export const THEME_PACKAGE_SOURCE_IDS = BUILT_IN_THEME_PACKAGE_IDS;
 
-export type ThemePackageSourceId = (typeof THEME_PACKAGE_SOURCE_IDS)[number];
+export type ThemePackageSourceId = BuiltInThemePackageId;
 
 type ColorInput = string | { token: string };
 

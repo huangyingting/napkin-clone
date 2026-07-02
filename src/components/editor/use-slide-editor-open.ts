@@ -28,11 +28,11 @@ import {
   resolveSaveErrorMessage,
   resolveSaveStatus,
   type SaveStatus,
-} from "@/lib/presentation/save-status";
+} from "@/lib/presentation-shared/save-status";
 import {
   createSlideAutosaveScheduler,
   type SlideAutosaveScheduler,
-} from "@/lib/presentation/slide-autosave-scheduler";
+} from "@/lib/presentation-shared/slide-autosave-scheduler";
 import { bucketCount, emitProductTelemetry } from "@/lib/telemetry/product";
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import { createBlankDeckV7 } from "@/lib/presentation-vnext/empty-deck";

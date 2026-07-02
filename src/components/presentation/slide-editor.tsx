@@ -53,7 +53,7 @@ import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import type { ActionResult } from "@/lib/action-result";
-import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import { type SelectionMode } from "@/components/presentation/slide-stage-editor";
 import {
@@ -78,11 +78,11 @@ import {
   SLIDE_FORMATS,
   slideAspectRatio,
   slideFormatConfig,
-} from "@/lib/presentation/slide-format";
+} from "@/lib/presentation-shared/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
-import { resolveSaveErrorMessage } from "@/lib/presentation/save-status";
+import { resolveSaveErrorMessage } from "@/lib/presentation-shared/save-status";
 import {
   commitCommand,
   type DeckPatch,
@@ -108,7 +108,7 @@ import {
   resolvePanelTab,
   toToolbarSelectionKind,
 } from "@/lib/presentation/slide-panel-ui";
-import { slideReorderKeyDirection } from "@/lib/presentation/slide-reorder";
+import { slideReorderKeyDirection } from "@/lib/presentation-shared/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import { useSlideSourceLinkCommands } from "@/components/presentation/slide-editor/use-slide-source-link-commands";
@@ -133,7 +133,7 @@ import { useSlideElementCommands } from "@/components/presentation/slide-editor/
 import { useSlideBackgroundCommands } from "@/components/presentation/slide-editor/use-slide-background-commands";
 import { useSlideInsertCommands } from "@/components/presentation/slide-editor/use-slide-insert-commands";
 import { useSlideManagementCommands } from "@/components/presentation/slide-editor/use-slide-management-commands";
-import { KeyboardShortcutHelpDialog } from "@/components/presentation/slide-editor/keyboard-shortcut-help-dialog";
+import { KeyboardShortcutHelpDialog } from "@/components/presentation-shared/keyboard-shortcut-help-dialog";
 import { getThemePackage } from "@/lib/presentation/theme-packages";
 import {
   bucketCount,

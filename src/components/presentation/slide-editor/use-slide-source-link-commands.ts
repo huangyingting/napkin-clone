@@ -8,7 +8,7 @@ import type {
   DocumentTextBlock,
 } from "@/lib/content";
 import type { Deck, SourceRef } from "@/lib/presentation/deck";
-import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import {
   findStaleSourceLinks,
   updateTextElementFromBlock,

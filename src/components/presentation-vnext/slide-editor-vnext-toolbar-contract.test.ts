@@ -10,6 +10,10 @@ const source = readFileSync(
   new URL("./slide-editor-vnext.tsx", import.meta.url),
   "utf8",
 );
+const shellControllerSource = readFileSync(
+  new URL("./use-slide-editor-shell-controller.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("SlideEditorVNext toolbar command ownership", () => {
   test("exposes the top command row as a named editing toolbar landmark", () => {
@@ -211,10 +215,18 @@ describe("SlideEditorVNext toolbar command ownership", () => {
 
   test("routes present/share actions through explicit save-first handling", () => {
     assert.equal(
-      source.includes("async function handleRoundtripAction(") &&
-        source.includes("if (onSave)") &&
-        source.includes("const saveResult = await onSave(deck);") &&
-        source.includes("if (!saveResult.ok)"),
+      source.includes("useSlideEditorShellController({") &&
+        source.includes("deck,") &&
+        source.includes("onSave,") &&
+        source.includes("handleRoundtripAction") &&
+        shellControllerSource.includes(
+          "async function handleRoundtripAction(",
+        ) &&
+        shellControllerSource.includes("if (onSave)") &&
+        shellControllerSource.includes(
+          "const saveResult = await onSave(deck);",
+        ) &&
+        shellControllerSource.includes("if (!saveResult.ok)"),
       true,
     );
   });

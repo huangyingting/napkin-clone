@@ -10,7 +10,10 @@ import type {
   BackgroundTreatment,
   PresentationTheme,
 } from "./presentation-theme-types";
-import { slideFormatConfig, type SlideFormat } from "./slide-format";
+import {
+  slideFormatConfig,
+  type SlideFormat,
+} from "@/lib/presentation-shared/slide-format";
 import {
   resolveShapeLabelStyle,
   resolveTextElementStyle,

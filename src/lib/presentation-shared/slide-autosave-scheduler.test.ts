@@ -6,15 +6,18 @@ import {
   type AutosaveTimer,
   type AutosaveTimerHandle,
 } from "./slide-autosave-scheduler";
+import { SLIDE_SAVE_DEBOUNCE_MS } from "./save-status";
 
 function createManualTimer() {
   let nextHandle = 1;
   const callbacks = new Map<number, () => void>();
   const cleared: number[] = [];
+  const delays: number[] = [];
   const timer: AutosaveTimer = {
-    set(callback: () => void): AutosaveTimerHandle {
+    set(callback: () => void, delayMs: number): AutosaveTimerHandle {
       const handle = nextHandle++;
       callbacks.set(handle, callback);
+      delays.push(delayMs);
       return handle as unknown as AutosaveTimerHandle;
     },
     clear(handle: AutosaveTimerHandle): void {
@@ -26,6 +29,7 @@ function createManualTimer() {
   return {
     timer,
     cleared,
+    delays,
     fire(handle: number): void {
       callbacks.get(handle)?.();
       callbacks.delete(handle);
@@ -37,6 +41,18 @@ function createManualTimer() {
 }
 
 describe("createSlideAutosaveScheduler", () => {
+  test("uses the shared slide save debounce by default", () => {
+    const manual = createManualTimer();
+    const scheduler = createSlideAutosaveScheduler<string>({
+      onDue: () => undefined,
+      timer: manual.timer,
+    });
+
+    scheduler.schedule("draft");
+
+    assert.deepEqual(manual.delays, [SLIDE_SAVE_DEBOUNCE_MS]);
+  });
+
   test("debounces to the latest scheduled deck", () => {
     const manual = createManualTimer();
     const saved: string[] = [];

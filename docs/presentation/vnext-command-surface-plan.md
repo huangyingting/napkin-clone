@@ -1,7 +1,7 @@
 ---
 type: "plan"
-status: "final"
-last_updated: "2026-07-01"
+status: "implemented"
+last_updated: "2026-07-02"
 description: "P1 plan for vNext current-object command placement, inspector continuity, deck chrome ownership, connector draw scope, design-system primitives, and accessibility."
 ---
 
@@ -17,12 +17,12 @@ UI ownership without changing DeckV7 semantics.
 
 ## Current behavior
 
-The vNext editor already exposes toolbar, context toolbar, inspector, keyboard,
-and stage gestures, but command ownership is split across editor-local code and
-panel-specific code. This makes it unclear whether a command belongs to the deck
-toolbar, selected-object popover, inspector panel, or deck chrome controls.
+The vNext editor exposes toolbar, context toolbar, inspector, keyboard, and
+stage gestures. The shared command descriptor catalog now gives those surfaces a
+common vocabulary, while some editor-local wiring remains until future UI slices
+move every affordance to descriptors.
 
-Observed coupling:
+Historical coupling that drove this plan:
 
 - `src/components/presentation-vnext/slide-editor-vnext.tsx` derives and wires
   many current-object actions directly.
@@ -30,7 +30,7 @@ Observed coupling:
   affordances that should be backed by shared action descriptors.
 - `src/components/presentation-vnext/inspector/inspector-shell.tsx` and
   `src/lib/presentation-vnext/inspector-panel-ui.ts` already provide useful
-  panel boundaries, but continuity rules need to be explicit.
+  panel boundaries; continuity is now resolved through shared panel logic.
 - Stage command sources include `src/components/presentation-vnext/stage-pointer-interactions.ts`,
   `src/components/presentation-vnext/stage-connector-interactions.ts`, and
   `src/lib/presentation-vnext/editor-commands.ts`.
@@ -128,16 +128,25 @@ and backed by the same command descriptors as other node actions.
   ids, raw provenance, and deck chrome overrides should live in advanced
   sections with clear labels.
 
+## Implementation update — 2026-07-02
+
+The command descriptor catalog, disabled-reason vocabulary, inspector continuity
+resolver, deck-chrome default/override split, editor field/action/menu
+primitives, and descriptor bijection tests are implemented. Toolbar and
+inspector arrange controls now consume the shared descriptor catalog; future UI
+rewrites should continue moving local affordances onto that surface instead of
+adding new command-specific wiring.
+
 ## Action items
 
-- [ ] Define the `CurrentObjectCommandDescriptor` shape and disabled-reason
+- [x] Define the `CurrentObjectCommandDescriptor` shape and disabled-reason
       vocabulary.
-- [ ] Map toolbar, popover, inspector, keyboard, and stage commands to
+- [x] Map toolbar, popover, inspector, keyboard, and stage commands to
       descriptor families.
-- [ ] Add inspector continuity rules to panel selection logic.
-- [ ] Split deck-level chrome defaults from slide-level override controls.
-- [ ] Build shared field/action/menu primitives before rewriting panels.
-- [ ] Add inspector-command bijection tests: every visible command maps to one
+- [x] Add inspector continuity rules to panel selection logic.
+- [x] Split deck-level chrome defaults from slide-level override controls.
+- [x] Build shared field/action/menu primitives before rewriting panels.
+- [x] Add inspector-command bijection tests: every visible command maps to one
       command family, and every command family has an intentional UI owner.
 
 ## Verification

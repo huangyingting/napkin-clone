@@ -6,7 +6,7 @@ import type {
   SlideChildNode,
   SlideNode,
 } from "./presentation-vnext/schema";
-import { hashDocumentBlock } from "./presentation/document-block-hash";
+import { hashDocumentBlock } from "./presentation-shared/document-block-hash";
 import type { SlideCommentAnchor } from "./presentation/slide-comment-anchors";
 import {
   resolveBlockRef,

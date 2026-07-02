@@ -26,7 +26,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { Deck } from "@/lib/presentation/deck";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
-import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import { slideAspectRatio } from "@/lib/presentation-shared/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { SlideCanvas } from "@/components/presentation/slide-canvas";

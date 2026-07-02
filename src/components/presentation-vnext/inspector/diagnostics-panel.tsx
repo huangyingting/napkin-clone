@@ -13,31 +13,13 @@ import type {
   PresentationDiagnostic,
   DiagnosticSeverity,
   DiagnosticAction,
-  DiagnosticActionType,
 } from "@/lib/presentation-vnext/diagnostics";
 import {
   diagnosticTargetLabel,
   groupDiagnostics,
 } from "@/lib/presentation-vnext/diagnostics";
+import { diagnosticActionDescriptor } from "@/lib/presentation-vnext/review-action-descriptors";
 import { FOCUS_RING } from "@/components/ui/tokens";
-
-// ---------------------------------------------------------------------------
-// Action labels (matching spec §Validation And Diagnostics)
-// ---------------------------------------------------------------------------
-
-const ACTION_LABELS: Record<DiagnosticActionType, string> = {
-  "reset-to-theme": "Reset to theme",
-  "choose-denser-layout": "Use denser layout",
-  "split-slide": "Split slide",
-  "open-asset-panel": "Open asset panel",
-  "remove-override": "Remove override",
-  "restore-decoration": "Restore decoration",
-  "replace-style-ref": "Replace style ref",
-  "refresh-source": "Refresh source",
-  "unlink-source": "Unlink source",
-  "relink-source": "Relink source",
-  "open-source-review": "Open Source Review",
-};
 
 // ---------------------------------------------------------------------------
 // Severity badge styles
@@ -117,6 +99,10 @@ export function DiagnosticsPanel({
             </div>
             <ul className="flex flex-col gap-1" role="list">
               {group.diagnostics.map((d, i) => {
+                const action = d.action;
+                const actionDescriptor = action
+                  ? diagnosticActionDescriptor(action)
+                  : undefined;
                 const styles = SEVERITY_STYLES[d.severity];
                 return (
                   <li
@@ -135,15 +121,17 @@ export function DiagnosticsPanel({
                       {d.code} · {d.category} ·{" "}
                       {diagnosticTargetLabel(d.target)}
                     </p>
-                    {d.action && (
+                    {action && actionDescriptor ? (
                       <button
                         type="button"
-                        onClick={() => onAction(d.action!, d)}
-                        className={`self-start rounded-ds-sm px-2 py-0.5 text-[11px] font-medium text-ds-accent-text underline-offset-2 hover:underline ${FOCUS_RING}`}
+                        disabled={Boolean(actionDescriptor.disabledReason)}
+                        title={actionDescriptor.disabledReason}
+                        onClick={() => onAction(action, d)}
+                        className={`self-start rounded-ds-sm px-2 py-0.5 text-[11px] font-medium text-ds-accent-text underline-offset-2 hover:underline disabled:opacity-40 ${FOCUS_RING}`}
                       >
-                        {ACTION_LABELS[d.action.type]}
+                        {actionDescriptor.label}
                       </button>
-                    )}
+                    ) : null}
                   </li>
                 );
               })}

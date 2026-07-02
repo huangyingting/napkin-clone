@@ -25,7 +25,7 @@ import type {
   DocumentTextBlock,
 } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
-import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import {
   findStaleSourceLinks,
   updateTableElementFromBlock,

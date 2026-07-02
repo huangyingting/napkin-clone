@@ -5,6 +5,7 @@ import * as React from "react";
 import { LayersPanel } from "./layers-panel";
 import type { ResolvedRenderNode } from "@/lib/presentation-vnext/render-tree";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
+import { createReactHookRenderer } from "@/test/react-internals";
 
 type ElementWithProps = React.ReactElement<Record<string, unknown>>;
 
@@ -23,53 +24,12 @@ function elements(root: React.ReactNode): ElementWithProps[] {
 }
 
 function createStatefulRenderer<T>(renderComponent: () => T): () => T {
-  const internals = (
-    React as typeof React & {
-      __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-        H: unknown;
-      };
-    }
-  ).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  if (!internals) return renderComponent;
-
-  const stateSlots: unknown[] = [];
+  const renderer = createReactHookRenderer({
+    idPrefix: "layer-panel-test-id",
+    requireInternals: false,
+  });
   return () => {
-    const previous = internals.H;
-    let stateIndex = 0;
-    internals.H = {
-      useState: <S>(initial: S | (() => S)) => {
-        const slot = stateIndex;
-        stateIndex += 1;
-        if (!Object.prototype.hasOwnProperty.call(stateSlots, slot)) {
-          stateSlots[slot] =
-            typeof initial === "function" ? (initial as () => S)() : initial;
-        }
-        const setState = (next: S | ((prev: S) => S)) => {
-          stateSlots[slot] =
-            typeof next === "function"
-              ? (next as (prev: S) => S)(stateSlots[slot] as S)
-              : next;
-        };
-        return [stateSlots[slot] as S, setState];
-      },
-      useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
-      useRef: <TValue>(initial: TValue) => ({ current: initial }),
-      useMemo: <TValue>(factory: () => TValue) => factory(),
-      useCallback: <TValue>(callback: TValue) => callback,
-      useId: () => "layer-panel-test-id",
-      useContext: () => undefined,
-      useEffect: () => undefined,
-      useLayoutEffect: () => undefined,
-      useInsertionEffect: () => undefined,
-      useSyncExternalStore: () => undefined,
-      useTransition: () => [false, () => undefined],
-      useDeferredValue: <TValue>(value: TValue) => value,
-    };
-    try {
-      return renderComponent();
-    } finally {
-      internals.H = previous;
-    }
+    return renderer.run(renderComponent);
   };
 }
 
