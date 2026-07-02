@@ -16,6 +16,65 @@ import type { Visual } from "@/lib/visual/schema";
 import { SlideCanvasVNext } from "../slide-canvas";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 
+const THUMBNAIL_HEIGHT_PX = 72;
+const VIRTUAL_THUMBNAIL_HEIGHT_PX = 540;
+
+function canvasAspectRatio(canvas: CanvasSpec): number {
+  const width = canvas.width > 0 ? canvas.width : 16;
+  const height = canvas.height > 0 ? canvas.height : 9;
+  return width / height;
+}
+
+function thumbnailMetrics(canvas: CanvasSpec) {
+  const aspectRatio = canvasAspectRatio(canvas);
+  const thumbnailWidthPx = Math.max(
+    48,
+    Math.min(128, THUMBNAIL_HEIGHT_PX * aspectRatio),
+  );
+  const virtualWidthPx = VIRTUAL_THUMBNAIL_HEIGHT_PX * aspectRatio;
+  return {
+    aspectRatio: `${canvas.width > 0 ? canvas.width : 16} / ${canvas.height > 0 ? canvas.height : 9}`,
+    thumbnailWidthPx,
+    virtualWidthPx,
+    virtualHeightPx: VIRTUAL_THUMBNAIL_HEIGHT_PX,
+    scale: thumbnailWidthPx / virtualWidthPx,
+  };
+}
+
+export function FilmstripThumbnailCanvas({
+  slide,
+  canvas,
+  assetResolver,
+  visualResolver,
+}: {
+  slide: ResolvedSlideRenderTree;
+  canvas: CanvasSpec;
+  assetResolver?: (id: string) => string | undefined;
+  visualResolver?: (id: string) => Visual | undefined;
+}) {
+  const metrics = thumbnailMetrics(canvas);
+  return (
+    <div
+      data-filmstrip-thumbnail-canvas="true"
+      className="absolute left-0 top-0"
+      style={{
+        width: metrics.virtualWidthPx,
+        height: metrics.virtualHeightPx,
+        transform: `scale(${metrics.scale})`,
+        transformOrigin: "top left",
+      }}
+    >
+      <SlideCanvasVNext
+        slide={slide}
+        canvas={canvas}
+        assetResolver={assetResolver}
+        visualResolver={visualResolver}
+        preview
+      />
+    </div>
+  );
+}
+
 export interface FilmstripSlideProps {
   slideTree: ResolvedSlideRenderTree;
   canvas: CanvasSpec;
@@ -55,13 +114,7 @@ export function FilmstripSlide({
   onDelete,
   onPointerDown,
 }: FilmstripSlideProps): JSX.Element {
-  const canvasWidth = canvas.width > 0 ? canvas.width : 16;
-  const canvasHeight = canvas.height > 0 ? canvas.height : 9;
-  const thumbnailAspectRatio = `${canvasWidth} / ${canvasHeight}`;
-  const thumbnailWidthPx = Math.max(
-    48,
-    Math.min(128, (72 * canvasWidth) / canvasHeight),
-  );
+  const metrics = thumbnailMetrics(canvas);
 
   return (
     <li
@@ -71,13 +124,13 @@ export function FilmstripSlide({
         "group relative grid h-[72px] shrink-0 cursor-pointer select-none place-items-center transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none",
         isDragging && "scale-[0.98] opacity-40 motion-reduce:scale-100",
       )}
-      style={{ width: thumbnailWidthPx }}
+      style={{ width: metrics.thumbnailWidthPx }}
     >
       <div
         data-thumbnail-frame="true"
         className="relative h-full w-full"
         style={{
-          aspectRatio: thumbnailAspectRatio,
+          aspectRatio: metrics.aspectRatio,
         }}
       >
         {/* Thumbnail */}
@@ -104,12 +157,11 @@ export function FilmstripSlide({
                 : "group-hover:ring-1 group-hover:ring-ds-border-subtle group-hover:ring-inset",
             )}
           >
-            <SlideCanvasVNext
+            <FilmstripThumbnailCanvas
               slide={slideTree}
               canvas={canvas}
               assetResolver={assetResolver}
               visualResolver={visualResolver}
-              preview
             />
             <span className="absolute bottom-1 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-1.5 text-[11px] font-bold tabular-nums text-ds-text-on-accent shadow-sm">
               {index + 1}

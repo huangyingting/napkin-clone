@@ -1371,6 +1371,10 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /data-slide-index="2"/);
     assert.match(html, /Go to slide 2/);
     assert.match(html, /deck-chrome-pageNumber/);
+    assert.match(html, /data-filmstrip-thumbnail-canvas="true"/);
+    assert.match(html, /width:960px/);
+    assert.match(html, /height:540px/);
+    assert.match(html, /transform:scale\(0\.13333333333333333\)/);
     assert.match(html, /aria-label="Add slide"/);
     assert.match(collapsedHtml, /aria-hidden="true"/);
     assert.match(collapsedHtml, /tabindex="-1"/);

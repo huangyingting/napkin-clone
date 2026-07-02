@@ -26,12 +26,11 @@ import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
 import type { Visual } from "@/lib/visual/schema";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
-import { SlideCanvasVNext } from "../slide-canvas";
 import {
   createFocusGeometryRegistry,
   focusGeometryTargets,
 } from "../focus-geometry-registry";
-import { FilmstripSlide } from "./filmstrip-slide";
+import { FilmstripSlide, FilmstripThumbnailCanvas } from "./filmstrip-slide";
 import { useFilmstripDrag } from "./use-filmstrip-drag";
 
 export interface FilmstripProps {
@@ -191,12 +190,11 @@ export function Filmstrip({
               className="relative overflow-hidden rounded-ds-sm ring-2 ring-ds-accent ring-inset"
               style={{ aspectRatio: thumbnailAspectRatio, width: "100%" }}
             >
-              <SlideCanvasVNext
+              <FilmstripThumbnailCanvas
                 slide={renderTree.slides[dragState.dragPreview.index]!}
                 canvas={renderTree.canvas}
                 assetResolver={assetResolver}
                 visualResolver={visualResolver}
-                preview
               />
               <span className="absolute bottom-1.5 left-1/2 flex h-7 min-w-7 -translate-x-1/2 items-center justify-center rounded-full bg-ds-accent px-2 text-sm font-bold tabular-nums text-ds-text-on-accent shadow-sm">
                 {dragState.dragPreview.index + 1}
