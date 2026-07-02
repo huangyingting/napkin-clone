@@ -16,25 +16,26 @@ and pointer state rules, see
 
 ## Source Files
 
-| Area               | Source                                                                                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Route page         | [`src/app/app/documents/[id]/slides/page.tsx`](../../src/app/app/documents/%5Bid%5D/slides/page.tsx)                                           |
-| Route controller   | [`src/app/app/documents/[id]/slides/slide-editor-route-client.tsx`](../../src/app/app/documents/%5Bid%5D/slides/slide-editor-route-client.tsx) |
-| Editor shell       | [`src/components/presentation-vnext/slide-editor-vnext.tsx`](../../src/components/presentation-vnext/slide-editor-vnext.tsx)                   |
-| Read-only canvas   | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                               |
-| Node renderer      | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)                 |
-| Inspector          | [`src/components/presentation-vnext/inspector/inspector-shell.tsx`](../../src/components/presentation-vnext/inspector/inspector-shell.tsx)     |
-| Context toolbar    | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx)         |
-| Filmstrip          | [`src/components/presentation-vnext/filmstrip/filmstrip.tsx`](../../src/components/presentation-vnext/filmstrip/filmstrip.tsx)                 |
-| Stage fit          | [`src/lib/presentation-vnext/stage-fit.ts`](../../src/lib/presentation-vnext/stage-fit.ts)                                                     |
-| Stage chrome       | [`src/lib/presentation-vnext/stage-chrome.ts`](../../src/lib/presentation-vnext/stage-chrome.ts)                                               |
-| Stage guides       | [`src/lib/presentation-vnext/stage-guides.ts`](../../src/lib/presentation-vnext/stage-guides.ts)                                               |
-| Selection geometry | [`src/lib/presentation-vnext/selection-geometry.ts`](../../src/lib/presentation-vnext/selection-geometry.ts)                                   |
-| Deck commands      | [`src/lib/presentation-vnext/editor-commands.ts`](../../src/lib/presentation-vnext/editor-commands.ts)                                         |
-| Source links       | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                               |
-| Presence state     | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)       |
-| Open/save state    | [`src/components/editor/use-slide-editor-open.ts`](../../src/components/editor/use-slide-editor-open.ts)                                       |
-| Autosave scheduler | [`src/lib/presentation-shared/slide-autosave-scheduler.ts`](../../src/lib/presentation-shared/slide-autosave-scheduler.ts)                     |
+| Area                | Source                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route page          | [`src/app/app/documents/[id]/slides/page.tsx`](../../src/app/app/documents/%5Bid%5D/slides/page.tsx)                                           |
+| Route controller    | [`src/app/app/documents/[id]/slides/slide-editor-route-client.tsx`](../../src/app/app/documents/%5Bid%5D/slides/slide-editor-route-client.tsx) |
+| Editor shell        | [`src/components/presentation-vnext/slide-editor-vnext.tsx`](../../src/components/presentation-vnext/slide-editor-vnext.tsx)                   |
+| Read-only canvas    | [`src/components/presentation-vnext/slide-canvas.tsx`](../../src/components/presentation-vnext/slide-canvas.tsx)                               |
+| Node renderer       | [`src/components/presentation-vnext/slide-node-renderer.tsx`](../../src/components/presentation-vnext/slide-node-renderer.tsx)                 |
+| Inspector           | [`src/components/presentation-vnext/inspector/inspector-shell.tsx`](../../src/components/presentation-vnext/inspector/inspector-shell.tsx)     |
+| Context toolbar     | [`src/components/presentation-vnext/toolbar/context-toolbar.tsx`](../../src/components/presentation-vnext/toolbar/context-toolbar.tsx)         |
+| Filmstrip           | [`src/components/presentation-vnext/filmstrip/filmstrip.tsx`](../../src/components/presentation-vnext/filmstrip/filmstrip.tsx)                 |
+| Stage fit           | [`src/lib/presentation-vnext/stage-fit.ts`](../../src/lib/presentation-vnext/stage-fit.ts)                                                     |
+| Stage chrome        | [`src/lib/presentation-vnext/stage-chrome.ts`](../../src/lib/presentation-vnext/stage-chrome.ts)                                               |
+| Stage guides        | [`src/lib/presentation-vnext/stage-guides.ts`](../../src/lib/presentation-vnext/stage-guides.ts)                                               |
+| Selection geometry  | [`src/lib/presentation-vnext/selection-geometry.ts`](../../src/lib/presentation-vnext/selection-geometry.ts)                                   |
+| Deck commands       | [`src/lib/presentation-vnext/editor-commands.ts`](../../src/lib/presentation-vnext/editor-commands.ts)                                         |
+| Document derivation | [`src/lib/presentation-vnext/document-slide-plan.ts`](../../src/lib/presentation-vnext/document-slide-plan.ts)                                 |
+| Source links        | [`src/lib/presentation-vnext/source-links.ts`](../../src/lib/presentation-vnext/source-links.ts)                                               |
+| Presence state      | [`src/lib/presentation-vnext/slide-editor-collaboration-state.ts`](../../src/lib/presentation-vnext/slide-editor-collaboration-state.ts)       |
+| Open/save state     | [`src/components/editor/use-slide-editor-open.ts`](../../src/components/editor/use-slide-editor-open.ts)                                       |
+| Autosave scheduler  | [`src/lib/presentation-shared/slide-autosave-scheduler.ts`](../../src/lib/presentation-shared/slide-autosave-scheduler.ts)                     |
 
 ## Ownership Model
 
@@ -121,6 +122,27 @@ bottom safe-area padding when pinned to the viewport edge.
 Desktop and mobile status surfaces announce save state with live regions:
 steady-state save labels are polite updates, and save failures are assertive.
 
+## Command Surface Ownership
+
+The editor uses one current-object command model across toolbar, canvas popover,
+inspector, keyboard shortcuts, and stage gestures. Deck-level commands stay in
+the top toolbar. Current-slide and current-node commands are routed through the
+canvas popover and inspector so the active object has one visible owner at a
+time.
+
+Inspector continuity preserves compatible panels when selection changes. For
+example, text-to-text and shape-to-shape selection changes keep the same panel;
+multi-selection falls back to common arrange/source panels when object-specific
+fields no longer apply. Panel changes should preserve focus only when the same
+field remains valid, otherwise the panel heading receives focus and announces
+the change.
+
+Deck chrome has split ownership: deck-level chrome defaults live behind the
+toolbar Deck chrome entrypoint, while slide-level overrides live in the slide
+inspector and are labeled as overrides. Present, public render, and export all
+resolve the same deck defaults plus slide overrides through the read-only
+render path.
+
 ## Top Toolbar
 
 The top toolbar is a compact deck/session command surface. It uses stable
@@ -128,7 +150,7 @@ first-level text controls where space matters and icon buttons for compact view
 commands:
 
 ```text
-Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Shortcuts       Undo Redo | Save status | Save | Close
+Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Regenerate | Shortcuts       Undo Redo | Save status | Save | Close
 ```
 
 - **Slide kit** selects the active theme package: theme tokens, package
@@ -154,6 +176,9 @@ Slide kit | Deck chrome | Add slide | Slide ratio | Source | Snap | Shortcuts   
   refresh/unlink actions, and direct insertion of document blocks (text/table/
   visual) through `document-source-commands.ts`.
 - **Snap** toggles snap-to-grid directly from the toolbar.
+- **Regenerate** appears on the canonical slides route and deterministically
+  rebuilds the whole deck from latest saved document content, then saves through
+  the DeckV7 CAS path. It is not an AI command.
 - **Shortcuts** opens the keyboard shortcut dialog. Zoom remains in the bottom
   dock.
 

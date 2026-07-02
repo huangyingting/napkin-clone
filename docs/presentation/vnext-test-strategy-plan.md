@@ -1,6 +1,6 @@
 ---
 type: "plan"
-status: "implemented — gaps tracked"
+status: "active — gaps tracked"
 last_updated: "2026-07-02"
 description: "P1 plan to reshape vNext presentation tests around refactor-safe behavior coverage instead of oversized suites and React-internals mocking."
 ---

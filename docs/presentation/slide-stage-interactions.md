@@ -12,6 +12,18 @@ move, resize, and edit DeckV7 nodes when many nodes overlap. It is the
 interaction contract for the vNext slide editor stage, not the persisted deck
 schema.
 
+## Legacy Parity Status
+
+vNext already owns the production stage interaction model. A bulk port of the
+legacy v6 stage editor is not needed: legacy interaction code is coupled to v6
+flat element arrays and `groupId`, while vNext uses DeckV7 node trees,
+`GroupNode.children`, and vNext command helpers. Verified parity includes
+align/distribute/match-size, Shift+nudge, select-all, group/ungroup,
+undo/redo, rotation snapping, keyboard connector flow, clipboard,
+duplicate/delete, and connector endpoint editing. The remaining difference is a
+UX affordance only: vNext creates connectors by insert-then-endpoint-drag rather
+than a single drag-from-source gesture.
+
 ## Source Files
 
 | Area                  | Source                                                                                                                                 |

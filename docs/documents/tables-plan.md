@@ -1,7 +1,7 @@
 ---
 type: "plan"
-status: "planned"
-last_updated: "2026-06-29"
+status: "active — authoring controls pending"
+last_updated: "2026-07-02"
 description: "This plan defines first-class table support in the document editor. Presentation decks already support first-class table slide elements; document tables are the structured authoring source that can feed search, import, export, AI deck generation, and presentation table/evidence slots."
 ---
 
@@ -159,6 +159,15 @@ Document tables feed presentation generation as structured candidates:
   contract in [../data-model/deck.md](../data-model/deck.md).
 
 ## Implementation Phases
+
+Implementation status as of 2026-07-02:
+
+- Lexical table nodes are registered, block insertion can create a simple table,
+  and Markdown/HTML table import paths project tables into serialized Lexical.
+- `DocumentTableBlock`, plain-text Markdown projection, source block indexing,
+  deterministic slide derivation, and vNext source refresh support table blocks.
+- Remaining first-class document authoring work is row/column insertion and
+  deletion UI plus an explicit caption editing surface in the document editor.
 
 ### Phase 1: Lexical Table Foundation
 

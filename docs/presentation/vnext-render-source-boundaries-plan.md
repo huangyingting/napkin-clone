@@ -1,6 +1,6 @@
 ---
 type: "plan"
-status: "implemented — P2 provenance follow-up pending"
+status: "active — P2 provenance follow-up pending"
 last_updated: "2026-07-02"
 description: "P1/P2 plan to split vNext render, export, source, diagnostic, and document-plan boundaries without changing runtime behavior."
 ---
