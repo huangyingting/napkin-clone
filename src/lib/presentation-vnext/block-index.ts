@@ -1,5 +1,5 @@
 import type { DocumentBlock } from "@/lib/content";
-import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import type {
   NodeSourceMetadata,
   TableColumn,

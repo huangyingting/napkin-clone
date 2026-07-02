@@ -1,6 +1,6 @@
 /**
- * Pure, headless debounce scheduler for slide deck autosave (issues #208 /
- * V7-008).
+ * Pure, headless debounce scheduler for shared slide deck autosave (issues
+ * #208 / V7-008).
  *
  * The v7 editor autosaves a short while after the user stops editing, while an
  * explicit Save must *flush* any pending autosave so the two paths never race or
@@ -8,9 +8,11 @@
  * factored out here — behind an injectable timer — so it can be unit-tested with
  * no DOM, React or real clock, then wired into the editor hook.
  *
- * The scheduler is deck-shape agnostic (generic over the payload) so it does not
- * depend on the v7 schema; the editor binds it to `DeckV7`.
+ * The scheduler is deck-shape agnostic (generic over the payload) so it can be
+ * shared by route and editor controllers without importing presentation schema.
  */
+
+import { SLIDE_SAVE_DEBOUNCE_MS } from "./save-status";
 
 /** Opaque timer handle; `number` in browsers, `Timeout` object in Node. */
 export type AutosaveTimerHandle = ReturnType<typeof setTimeout>;
@@ -55,9 +57,6 @@ const defaultTimer: AutosaveTimer = {
   clear: (handle) => clearTimeout(handle),
 };
 
-/** Debounce window shared with {@link SLIDE_SAVE_DEBOUNCE_MS}. */
-const DEFAULT_DEBOUNCE_MS = 1500;
-
 /**
  * Creates a debounced autosave scheduler.
  *
@@ -68,7 +67,7 @@ const DEFAULT_DEBOUNCE_MS = 1500;
  */
 export function createSlideAutosaveScheduler<TDeck>({
   onDue,
-  debounceMs = DEFAULT_DEBOUNCE_MS,
+  debounceMs = SLIDE_SAVE_DEBOUNCE_MS,
   timer = defaultTimer,
 }: SlideAutosaveSchedulerOptions<TDeck>): SlideAutosaveScheduler<TDeck> {
   let handle: AutosaveTimerHandle | null = null;

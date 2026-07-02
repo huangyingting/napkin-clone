@@ -3,14 +3,13 @@
 /**
  * Presenter tools for vNext present mode.
  *
- * Re-exports the HUD, keyboard-help, and timer components from the existing
- * v6 present-mode (they are data-agnostic). Provides a vNext-specific
- * `SlideOverviewPanelVNext` that accepts `ResolvedDeckRenderTree` instead of
- * a v6 `Deck + visuals` pair.
+ * Owns the data-agnostic HUD, keyboard-help, and timer chrome shared by the
+ * vNext presenter shell. Provides a vNext-specific `SlideOverviewPanelVNext`
+ * that accepts `ResolvedDeckRenderTree`.
  */
 
-import { type JSX } from "react";
-import { X } from "lucide-react";
+import { type JSX, type ReactNode } from "react";
+import { FileText, Grid3x3, Maximize2, Minimize2, X } from "lucide-react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import type {
@@ -18,19 +17,172 @@ import type {
   SlideNode,
 } from "@/lib/presentation-vnext/schema";
 import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tree";
+import {
+  PRESENT_MODE_SHORTCUTS,
+  formatPresentElapsedTime,
+} from "@/lib/presentation-vnext/present-shell";
 
 import { SlideCanvasVNext } from "@/components/presentation-vnext/slide-canvas";
 
 // ---------------------------------------------------------------------------
-// Re-exports of data-agnostic HUD components
+// Data-agnostic presenter HUD components
 // ---------------------------------------------------------------------------
 
-export {
-  KeyboardHelpOverlay,
-  PresenterTimer,
-  HudButton,
-  PresenterToolIcon,
-} from "@/components/presentation/present-mode/presenter-tools";
+function ShortcutKeys({ keys }: { keys: string[] }): JSX.Element {
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {keys.map((key, index) => (
+        <kbd
+          key={`${key}-${index}`}
+          className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-ds-inverse-border-subtle bg-ds-inverse-control px-1.5 text-xs font-medium text-ds-inverse-text"
+        >
+          {key}
+        </kbd>
+      ))}
+    </span>
+  );
+}
+
+export function KeyboardHelpOverlay({
+  onClose,
+}: {
+  onClose: () => void;
+}): JSX.Element {
+  return (
+    <div
+      className="absolute inset-0 z-header flex items-center justify-center bg-black/60 p-6"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="present-mode-shortcuts-title"
+        className="w-full max-w-3xl rounded-2xl border border-ds-inverse-border-subtle bg-ds-inverse-surface p-6 text-ds-inverse-text shadow-ds-overlay backdrop-blur-sm"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2
+              id="present-mode-shortcuts-title"
+              className="text-lg font-semibold"
+            >
+              Keyboard shortcuts
+            </h2>
+            <p className="mt-1 text-sm text-ds-inverse-muted">
+              Presenter tools stay in-app only and never appear in the public
+              viewer.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close keyboard shortcuts"
+            onClick={onClose}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-ds-inverse-muted transition-colors hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text ${FOCUS_RING}`}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+          {PRESENT_MODE_SHORTCUTS.map((shortcut) => (
+            <li
+              key={shortcut.description}
+              className="flex items-center justify-between gap-4 rounded-xl border border-ds-inverse-border-subtle bg-ds-inverse-control px-4 py-3"
+            >
+              <span className="text-sm text-ds-inverse-text">
+                {shortcut.description}
+              </span>
+              <ShortcutKeys keys={shortcut.keys} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export function PresenterTimer({
+  elapsedSeconds,
+}: {
+  elapsedSeconds: number;
+}): JSX.Element {
+  const formatted = formatPresentElapsedTime(elapsedSeconds);
+  return (
+    <span
+      aria-label={`Elapsed time ${formatted}`}
+      className="rounded-md border border-ds-inverse-border-subtle bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium tabular-nums text-ds-inverse-text backdrop-blur-sm"
+    >
+      <span className="mr-1 text-ds-inverse-muted">Timer</span>
+      {formatted}
+    </span>
+  );
+}
+
+export function HudButton({
+  label,
+  onClick,
+  children,
+  active,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  active?: boolean;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active === undefined ? undefined : active}
+      onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${FOCUS_RING} ${
+        active
+          ? "border-ds-inverse-text bg-ds-inverse-control-hover text-ds-inverse-text"
+          : "border-ds-inverse-border-subtle bg-ds-inverse-control text-ds-inverse-muted hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function PresenterToolIcon({
+  kind,
+  isFullscreen,
+  laserActive,
+}: {
+  kind: "notes" | "overview" | "timer" | "laser" | "fullscreen" | "exit";
+  isFullscreen?: boolean;
+  laserActive?: boolean;
+}): JSX.Element {
+  switch (kind) {
+    case "notes":
+      return <FileText size={14} aria-hidden="true" />;
+    case "overview":
+      return <Grid3x3 size={14} aria-hidden="true" />;
+    case "timer":
+      return <span className="text-[11px] font-semibold leading-none">T</span>;
+    case "laser":
+      return (
+        <span
+          aria-hidden="true"
+          className={`block h-2.5 w-2.5 rounded-full ${
+            laserActive
+              ? "bg-red-400 shadow-[var(--ds-shadow-laser-indicator)]"
+              : "border border-current"
+          }`}
+        />
+      );
+    case "fullscreen":
+      return isFullscreen ? (
+        <Minimize2 size={14} aria-hidden="true" />
+      ) : (
+        <Maximize2 size={14} aria-hidden="true" />
+      );
+    case "exit":
+      return <X size={14} aria-hidden="true" />;
+  }
+}
 
 function firstNonEmptyLine(value: string | undefined): string | null {
   if (!value) return null;

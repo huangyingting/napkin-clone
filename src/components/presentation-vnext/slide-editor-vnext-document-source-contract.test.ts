@@ -6,6 +6,10 @@ const source = readFileSync(
   new URL("./slide-editor-vnext.tsx", import.meta.url),
   "utf8",
 );
+const sourceReviewController = readFileSync(
+  new URL("./use-source-review-controller.ts", import.meta.url),
+  "utf8",
+);
 
 describe("SlideEditorVNext document-source command surface", () => {
   test("renders document-source command controls", () => {
@@ -16,6 +20,10 @@ describe("SlideEditorVNext document-source command surface", () => {
 
   test("wires document source block insertion commands", () => {
     assert.equal(source.includes("handleInsertDocumentSourceBlock"), true);
-    assert.equal(source.includes("documentSourceInsertBlocks"), true);
+    assert.equal(source.includes("documentInsertBlocks"), true);
+    assert.equal(
+      sourceReviewController.includes("documentSourceInsertBlocks"),
+      true,
+    );
   });
 });

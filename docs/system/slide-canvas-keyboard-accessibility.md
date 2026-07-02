@@ -1,7 +1,7 @@
 ---
 type: "adr"
 status: "accepted with release-gate caveat"
-last_updated: "2026-07-01"
+last_updated: "2026-07-02"
 description: "Architecture decision record for slide canvas keyboard accessibility, roving focus, selection shortcuts, keyboard manipulation, and release-gate evidence boundaries."
 ---
 
@@ -50,7 +50,8 @@ The canvas already supports a non-trivial keyboard model:
   (`{`/`}` keys in `event.key`), with a live announcement.
   - `slide-editor-vnext.tsx` keyboard handler (`keyboardRotationDelta` +
     `updateNodeLayouts`) and
-    `slide-editor-vnext.failures.test.ts` keyboard rotation smoke.
+    `slide-editor-vnext-toolbar-command-surface.failures.test.ts` keyboard
+    rotation smoke.
 - **Delete.** **Delete** / **Backspace** removes the selected element(s).
   - `slide-editor.tsx:1304-1313`
 - **Slide navigation.** **Arrow Left/Right** pages between slides when no
@@ -110,7 +111,7 @@ re-pointed at this ADR.
 
 A discoverable in-product **keyboard shortcut help dialog** (#535, opened with
 `?` or the toolbar keyboard button) documents the full model; its content is the
-pure `canvasShortcutHelp` helper.
+pure `canvasShortcutHelp` helper in `src/lib/presentation-shared/canvas-shortcut-help.ts`.
 
 **User impact now:** keyboard-only and screen-reader users can focus, select,
 move, **resize**, rotate selected nodes, delete, duplicate and group elements,
@@ -152,7 +153,8 @@ traverse deterministically, and keep their place after every edit.
   `src/components/presentation-vnext/selection-traversal.test.ts`,
   `src/components/presentation-vnext/slide-canvas-render.test.ts`,
   `src/lib/presentation/canvas-a11y.test.ts`,
-  `src/components/presentation-vnext/slide-editor-vnext.failures.test.ts`).
+  `src/lib/presentation-shared/canvas-shortcut-help.test.ts`,
+  `src/components/presentation-vnext/slide-editor-vnext-toolbar-command-surface.failures.test.ts`).
   Broader direct `SlideEditorVNext` keyboard interaction coverage for AC-5 is
   still pending.
 

@@ -291,6 +291,17 @@ describe("InspectorShell render affordances", () => {
     assert.match(html, /aria-selected="true"/);
   });
 
+  test("incompatible initialPanel falls back to the multi-select arrange panel", () => {
+    const html = renderInspector({
+      initialPanel: "text",
+      selectedNode: textNode,
+      selectedIds: ["text-1", "shape-1"],
+    });
+
+    assert.match(html, /Arrange 2 nodes/);
+    assert.doesNotMatch(html, /Content/);
+  });
+
   test("diagnostics tab displays a count badge", () => {
     const html = renderInspector({
       diagnostics: [

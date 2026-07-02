@@ -24,7 +24,7 @@ import {
   type WatermarkLayout,
   type WatermarkSize,
 } from "@/lib/presentation/global-master-chrome";
-import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import { slideAspectRatio } from "@/lib/presentation-shared/slide-format";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { Visual } from "@/lib/visual/schema";
 

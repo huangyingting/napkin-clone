@@ -17,7 +17,7 @@ import {
   slideAspectRatio,
   slideFormatConfig,
   type SlideFormat,
-} from "./slide-format";
+} from "@/lib/presentation-shared/slide-format";
 
 export type Size = { width: number; height: number };
 

@@ -121,27 +121,27 @@ describe("SourceReviewPanel", () => {
     assert.match(html, /Dismiss/);
     assert.ok(
       html.includes(
-        `aria-label="${sourceReviewActionAriaLabel("Go to target", items[0])}"`,
+        `aria-label="${sourceReviewActionAriaLabel("go-to-target", items[0])}"`,
       ),
     );
     assert.ok(
       html.includes(
-        `aria-label="${sourceReviewActionAriaLabel("Refresh source link", items[0])}"`,
+        `aria-label="${sourceReviewActionAriaLabel("refresh-source-link", items[0])}"`,
       ),
     );
     assert.ok(
       html.includes(
-        `aria-label="${sourceReviewActionAriaLabel("Relink source", items[0])}"`,
+        `aria-label="${sourceReviewActionAriaLabel("relink-source", items[0])}"`,
       ),
     );
     assert.ok(
       html.includes(
-        `aria-label="${sourceReviewActionAriaLabel("Mark source as unlinked", items[1])}"`,
+        `aria-label="${sourceReviewActionAriaLabel("mark-source-unlinked", items[1])}"`,
       ),
     );
     assert.ok(
       html.includes(
-        `aria-label="${sourceReviewActionAriaLabel("Dismiss source issue", items[1])}"`,
+        `aria-label="${sourceReviewActionAriaLabel("dismiss-source-issue", items[1])}"`,
       ),
     );
   });

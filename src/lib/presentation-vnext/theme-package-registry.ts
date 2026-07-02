@@ -13,21 +13,26 @@ import { makeDiagnostic } from "./diagnostics";
 import type { ThemePackageV1 } from "./theme-package-schema";
 import { validateThemePackage } from "./theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "./neutral-theme-package";
+import {
+  BUILT_IN_THEME_PACKAGE_IDS,
+  resolveBuiltInThemePackageId,
+  type BuiltInThemePackageId,
+} from "../presentation-shared/theme-package-ids";
 
-const RAW_THEME_PACKAGES: readonly unknown[] = [
-  clarityPackageJson,
-  oceanPackageJson,
-  auroraPackageJson,
-  monolithPackageJson,
-  editorialPackageJson,
-  noirPackageJson,
-  terraPackageJson,
-  pulsePackageJson,
-];
+const RAW_THEME_PACKAGE_BY_ID = {
+  clarity: clarityPackageJson,
+  ocean: oceanPackageJson,
+  aurora: auroraPackageJson,
+  monolith: monolithPackageJson,
+  editorial: editorialPackageJson,
+  noir: noirPackageJson,
+  terra: terraPackageJson,
+  pulse: pulsePackageJson,
+} as const satisfies Record<BuiltInThemePackageId, unknown>;
 
-const PACKAGE_ALIASES: Record<string, string> = {
-  default: "clarity",
-};
+const RAW_THEME_PACKAGES: readonly unknown[] = BUILT_IN_THEME_PACKAGE_IDS.map(
+  (packageId) => RAW_THEME_PACKAGE_BY_ID[packageId],
+);
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -66,7 +71,7 @@ export function resolveThemePackageIdV7(
   packageId: string | null | undefined,
 ): string {
   if (!packageId) return NEUTRAL_THEME_PACKAGE.id;
-  return PACKAGE_ALIASES[packageId] ?? packageId;
+  return resolveBuiltInThemePackageId(packageId) ?? packageId;
 }
 
 export function getThemePackageV7(

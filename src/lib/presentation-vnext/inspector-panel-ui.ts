@@ -31,6 +31,12 @@ export type InspectorPanelOption = {
   label: string;
 };
 
+export type InspectorPanelContinuityInput = {
+  activePanel: InspectorPanelId | null | undefined;
+  panels: readonly InspectorPanelOption[];
+  defaultPanel: InspectorPanelId;
+};
+
 const PANEL: Record<InspectorPanelId, InspectorPanelOption> = {
   slide: { id: "slide", label: "Slide" },
   notes: { id: "notes", label: "Notes" },
@@ -149,4 +155,20 @@ export function availablePanels(
   }
 
   return panels.map((id) => PANEL[id]);
+}
+
+/**
+ * Preserves the active inspector panel when the next selection still exposes
+ * that panel, otherwise replaces it with the next selection's default panel.
+ */
+export function resolveInspectorPanelContinuity({
+  activePanel,
+  panels,
+  defaultPanel,
+}: InspectorPanelContinuityInput): InspectorPanelId {
+  if (activePanel && panels.some((panel) => panel.id === activePanel)) {
+    return activePanel;
+  }
+
+  return panels[0]?.id ?? defaultPanel;
 }

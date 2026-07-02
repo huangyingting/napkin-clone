@@ -10,7 +10,7 @@ import {
   resolveSaveStatus,
   shouldPersist,
   shouldScheduleAutosave,
-} from "@/lib/presentation/save-status";
+} from "@/lib/presentation-shared/save-status";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
 
 import {

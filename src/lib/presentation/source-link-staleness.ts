@@ -42,7 +42,7 @@ import type {
   DocumentTableBlock,
   DocumentTextBlock,
 } from "@/lib/content";
-import { hashDocumentBlock } from "./document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 
 function elementContent(
   element: TextElement | VisualElement | TableElement,

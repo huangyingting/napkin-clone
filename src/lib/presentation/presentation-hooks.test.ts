@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import React from "react";
 
 import type { Deck } from "./deck";
 import { useDeckHistory } from "./use-deck-history";
@@ -10,41 +9,31 @@ import {
   SLIDE_PRESENCE_AWARENESS_KEY,
   useSlidePresence,
   type SlidePresencePayload,
-} from "./use-slide-presence";
-
-const reactInternals = (
-  React as typeof React & {
-    __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE: {
-      H: unknown;
-    };
-  }
-).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+} from "@/lib/presentation-shared/use-slide-presence";
+import { withReactTestDispatcher } from "@/test/react-internals";
 
 function withHookDispatcher<T>(
   overrides: Record<string, (...args: any[]) => any>,
   run: () => T,
 ): T {
-  const previous = reactInternals.H;
-  reactInternals.H = {
-    useCallback: (callback: unknown) => callback,
-    useEffect: (effect: () => void | (() => void)) => effect(),
-    useReducer: (
-      _reducer: unknown,
-      initialArg: unknown,
-      init?: (arg: unknown) => unknown,
-    ) => [init ? init(initialArg) : initialArg, () => {}],
-    useRef: (current: unknown) => ({ current }),
-    useState: (initial: unknown) => [
-      typeof initial === "function" ? initial() : initial,
-      () => {},
-    ],
-    ...overrides,
-  };
-  try {
-    return run();
-  } finally {
-    reactInternals.H = previous;
-  }
+  return withReactTestDispatcher(
+    {
+      useCallback: (callback: unknown) => callback,
+      useEffect: (effect: () => void | (() => void)) => effect(),
+      useReducer: (
+        _reducer: unknown,
+        initialArg: unknown,
+        init?: (arg: unknown) => unknown,
+      ) => [init ? init(initialArg) : initialArg, () => {}],
+      useRef: (current: unknown) => ({ current }),
+      useState: (initial: unknown) => [
+        typeof initial === "function" ? initial() : initial,
+        () => {},
+      ],
+      ...overrides,
+    },
+    run,
+  );
 }
 
 function deck(title = "Initial"): Deck {

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import * as React from "react";
 import {
   Children,
   createElement,
@@ -13,6 +12,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { Filmstrip, type FilmstripProps } from "./filmstrip";
 import { FilmstripSlide } from "./filmstrip-slide";
+import { withReactTestDispatcher } from "@/test/react-internals";
 import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
 import type {
   ResolvedDeckRenderTree,
@@ -21,13 +21,9 @@ import type {
 } from "@/lib/presentation-vnext/render-tree";
 
 type ElementWithProps = ReactElement<Record<string, unknown>>;
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
 
 type MockStateUpdate = { index: number; value: unknown };
+type MockLayoutEffect = () => void | (() => void);
 
 function textNode(
   id: string,
@@ -125,63 +121,60 @@ function withMockHooks<T>(
   value: T;
   refs: Array<{ current: unknown }>;
   updates: MockStateUpdate[];
+  layoutEffects: MockLayoutEffect[];
 } {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals, "React internals are required for filmstrip hook tests");
-
-  const previous = internals.H;
   const refs: Array<{ current: unknown }> = [];
   const stateValues: unknown[] = [];
   const updates: MockStateUpdate[] = [];
+  const layoutEffects: MockLayoutEffect[] = [];
   let stateIndex = 0;
 
-  internals.H = {
-    useState: (initial: unknown) => {
-      const index = stateIndex;
-      stateIndex += 1;
-      if (stateValues.length <= index) {
-        stateValues[index] =
-          options.stateOverrides?.get(index) ??
-          (typeof initial === "function"
-            ? (initial as () => unknown)()
-            : initial);
-      }
-      return [
-        stateValues[index],
-        (next: unknown) => {
-          const value =
-            typeof next === "function"
-              ? (next as (prev: unknown) => unknown)(stateValues[index])
-              : next;
-          stateValues[index] = value;
-          updates.push({ index, value });
-        },
-      ];
+  return withReactTestDispatcher(
+    {
+      useState: (initial: unknown) => {
+        const index = stateIndex;
+        stateIndex += 1;
+        if (stateValues.length <= index) {
+          stateValues[index] =
+            options.stateOverrides?.get(index) ??
+            (typeof initial === "function"
+              ? (initial as () => unknown)()
+              : initial);
+        }
+        return [
+          stateValues[index],
+          (next: unknown) => {
+            const value =
+              typeof next === "function"
+                ? (next as (prev: unknown) => unknown)(stateValues[index])
+                : next;
+            stateValues[index] = value;
+            updates.push({ index, value });
+          },
+        ];
+      },
+      useRef: <T>(initial: T) => {
+        const ref = { current: initial };
+        refs.push(ref as { current: unknown });
+        return ref;
+      },
+      useMemo: <T>(factory: () => T) => factory(),
+      useCallback: <T>(callbackFn: T) => callbackFn,
+      useId: () => "filmstrip-test-id",
+      useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
+      useContext: () => undefined,
+      useEffect: () => undefined,
+      useLayoutEffect: (effect: MockLayoutEffect) => {
+        layoutEffects.push(effect);
+      },
+      useInsertionEffect: () => undefined,
+      useSyncExternalStore: () => undefined,
+      useTransition: () => [false, () => undefined],
+      useDeferredValue: <T>(value: T) => value,
     },
-    useRef: <T>(initial: T) => {
-      const ref = { current: initial };
-      refs.push(ref as { current: unknown });
-      return ref;
-    },
-    useMemo: <T>(factory: () => T) => factory(),
-    useCallback: <T>(callbackFn: T) => callbackFn,
-    useId: () => "filmstrip-test-id",
-    useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
-    useContext: () => undefined,
-    useEffect: () => undefined,
-    useLayoutEffect: () => undefined,
-    useInsertionEffect: () => undefined,
-    useSyncExternalStore: () => undefined,
-    useTransition: () => [false, () => undefined],
-    useDeferredValue: <T>(value: T) => value,
-  };
-
-  try {
-    return { value: callback(), refs, updates };
-  } finally {
-    internals.H = previous;
-  }
+    () => ({ value: callback(), refs, updates, layoutEffects }),
+    { message: "React internals are required for filmstrip hook tests" },
+  );
 }
 
 class FakeElement {
@@ -196,27 +189,55 @@ class FakeElement {
   }
 }
 
-function withFilmstripGlobals(
+function withFilmstripHTMLElement(
   run: (targetForIndex: (index: number) => unknown) => void,
 ) {
-  const originalWindow = globalThis.window;
   const originalHTMLElement = globalThis.HTMLElement;
 
-  (globalThis as unknown as { window: unknown }).window = {
-    setTimeout: (callback: () => void) => {
-      callback();
-      return 0;
-    },
-  };
   (globalThis as unknown as { HTMLElement: unknown }).HTMLElement =
     FakeElement as unknown as typeof HTMLElement;
 
   try {
     run((index) => new FakeElement(String(index)));
   } finally {
-    (globalThis as unknown as { window: unknown }).window = originalWindow;
     (globalThis as unknown as { HTMLElement: unknown }).HTMLElement =
       originalHTMLElement;
+  }
+}
+
+function registerSlideButtonRefs(
+  root: ReactNode,
+  slideCount: number,
+  onFocus: (index: number) => void,
+) {
+  for (let index = 0; index < slideCount; index += 1) {
+    const slideElement = findElement(
+      root,
+      (candidate) =>
+        candidate.type === FilmstripSlide && candidate.props.index === index,
+    );
+    assert.ok(slideElement, `expected filmstrip slide ${index + 1}`);
+    const slideButtonRef = slideElement.props.slideButtonRef as
+      | ((element: HTMLButtonElement | null) => void)
+      | undefined;
+    if (typeof slideButtonRef !== "function") {
+      assert.fail("expected slide button registry ref");
+    }
+    slideButtonRef({
+      focus: () => onFocus(index),
+      getBoundingClientRect: () =>
+        ({
+          bottom: index + 1,
+          height: 1,
+          left: index,
+          right: index + 1,
+          top: index,
+          width: 1,
+          x: index,
+          y: index,
+          toJSON: () => ({}),
+        }) as DOMRectReadOnly,
+    } as unknown as HTMLButtonElement);
   }
 }
 
@@ -247,8 +268,8 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
     });
     const {
       value: element,
-      refs,
       updates,
+      layoutEffects,
     } = withMockHooks(() => Filmstrip(props));
     const list = findElement(element, (candidate) => candidate.type === "ol");
     assert.ok(list, "expected filmstrip list");
@@ -260,16 +281,17 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
     ).onKeyDown;
     assert.equal(typeof onKeyDown, "function");
 
-    const selectors: string[] = [];
-    let focusCalls = 0;
-    refs[0]!.current = {
-      querySelector: (selector: string) => {
-        selectors.push(selector);
-        return { focus: () => (focusCalls += 1) };
-      },
+    const focusCalls: number[] = [];
+    registerSlideButtonRefs(element, props.renderTree.slides.length, (index) =>
+      focusCalls.push(index),
+    );
+    const runLayoutEffects = () => {
+      for (const effect of layoutEffects) {
+        effect();
+      }
     };
 
-    withFilmstripGlobals((targetForIndex) => {
+    withFilmstripHTMLElement((targetForIndex) => {
       const keyEvent = (
         key: string,
         options: { altKey?: boolean; slideIndex?: number } = {},
@@ -281,16 +303,24 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
           preventDefault: () => undefined,
         }) as unknown as KeyboardEvent<HTMLOListElement>;
 
-      onKeyDown!(keyEvent("ArrowLeft"));
-      onKeyDown!(keyEvent("ArrowRight"));
-      onKeyDown!(keyEvent("Home"));
-      onKeyDown!(keyEvent("End"));
-      onKeyDown!(keyEvent("Enter", { slideIndex: 0 }));
-      onKeyDown!(keyEvent(" ", { slideIndex: 2 }));
-      onKeyDown!(keyEvent("ArrowLeft", { altKey: true }));
-      onKeyDown!(keyEvent("ArrowRight", { altKey: true }));
-      onKeyDown!(keyEvent("Delete"));
-      onKeyDown!(keyEvent("Backspace", { slideIndex: 2 }));
+      const dispatch = (
+        key: string,
+        options: { altKey?: boolean; slideIndex?: number } = {},
+      ) => {
+        onKeyDown!(keyEvent(key, options));
+        runLayoutEffects();
+      };
+
+      dispatch("ArrowLeft");
+      dispatch("ArrowRight");
+      dispatch("Home");
+      dispatch("End");
+      dispatch("Enter", { slideIndex: 0 });
+      dispatch(" ", { slideIndex: 2 });
+      dispatch("ArrowLeft", { altKey: true });
+      dispatch("ArrowRight", { altKey: true });
+      dispatch("Delete");
+      dispatch("Backspace", { slideIndex: 2 });
     });
 
     assert.deepEqual(selected, [0, 2, 0, 2, 0, 2]);
@@ -299,28 +329,7 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
       ["slide-2", 2],
     ]);
     assert.deepEqual(deleted, ["slide-2", "slide-3"]);
-    assert.equal(focusCalls, 8);
-    assert.ok(
-      selectors.some((selector) =>
-        selector.includes(
-          `[data-slide-index="0"] button[aria-label^="Go to slide"]`,
-        ),
-      ),
-    );
-    assert.ok(
-      selectors.some((selector) =>
-        selector.includes(
-          `[data-slide-index="2"] button[aria-label^="Go to slide"]`,
-        ),
-      ),
-    );
-    assert.ok(
-      selectors.some((selector) =>
-        selector.includes(
-          `[data-slide-index="1"] button[aria-label^="Go to slide"]`,
-        ),
-      ),
-    );
+    assert.deepEqual(focusCalls, [0, 2, 0, 2, 0, 2, 1, 1]);
 
     const statusUpdates = updates
       .filter((update) => update.index === 0)
@@ -338,11 +347,7 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
       activeSlideIndex: 0,
       onDeleteSlide: (slideId) => deleted.push(slideId),
     });
-    const {
-      value: element,
-      refs,
-      updates,
-    } = withMockHooks(() => Filmstrip(props));
+    const { value: element, updates } = withMockHooks(() => Filmstrip(props));
     const list = findElement(element, (candidate) => candidate.type === "ol");
     assert.ok(list, "expected filmstrip list");
 
@@ -353,9 +358,7 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
     ).onKeyDown;
     assert.equal(typeof onKeyDown, "function");
 
-    refs[0]!.current = { querySelector: () => null };
-
-    withFilmstripGlobals((targetForIndex) => {
+    withFilmstripHTMLElement((targetForIndex) => {
       onKeyDown!({
         key: "Delete",
         target: targetForIndex(0),
@@ -368,6 +371,42 @@ describe("Filmstrip ARIA pattern and keyboard behavior", () => {
       .filter((update) => update.index === 0)
       .map((update) => update.value);
     assert.ok(statusUpdates.includes(MIN_DECK_SLIDES_MESSAGE));
+  });
+
+  test("restores requested slide focus through the focus geometry registry", () => {
+    const selected: number[] = [];
+    const focusCalls: number[] = [];
+    const { value: element, layoutEffects } = withMockHooks(() =>
+      Filmstrip(
+        filmstripProps({
+          onSelectSlide: (index) => selected.push(index),
+        }),
+      ),
+    );
+    registerSlideButtonRefs(element, 3, (index) => focusCalls.push(index));
+    const list = findElement(element, (candidate) => candidate.type === "ol");
+    assert.ok(list, "expected filmstrip list");
+    const onKeyDown = (
+      list.props as {
+        onKeyDown?: (event: KeyboardEvent<HTMLOListElement>) => void;
+      }
+    ).onKeyDown;
+    assert.equal(typeof onKeyDown, "function");
+
+    withFilmstripHTMLElement((targetForIndex) => {
+      onKeyDown!({
+        key: "ArrowRight",
+        target: targetForIndex(1),
+        preventDefault: () => undefined,
+      } as unknown as KeyboardEvent<HTMLOListElement>);
+    });
+
+    for (const effect of layoutEffects) {
+      effect();
+    }
+
+    assert.deepEqual(selected, [2]);
+    assert.deepEqual(focusCalls, [2]);
   });
 
   test("removes filmstrip tab stops when collapsed", () => {

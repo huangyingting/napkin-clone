@@ -12,6 +12,7 @@
  * - {@link LocalStylePanel}    — local style patch editing controls.
  * - {@link NodeSourcePanel}    — source metadata controls.
  * - {@link LayersPanel}        — slide layer list controls.
+ * - {@link EditorField}        — shared field, number, action, and menu primitives.
  * - {@link InspectorShell}     — tab strip + panel router for the full inspector.
  */
 
@@ -47,6 +48,24 @@ export type { NodeSourcePanelProps } from "./node-source-panel";
 
 export { LayersPanel } from "./layers-panel";
 export type { LayersPanelProps } from "./layers-panel";
+
+export {
+  EditorActionButton,
+  EditorActionMenu,
+  EditorField,
+  EditorNumberField,
+  editorColorControlClass,
+  editorControlClass,
+  parseEditorNumberInput,
+} from "./editor-primitives";
+export type {
+  EditorActionButtonProps,
+  EditorActionDescriptor,
+  EditorActionGroup,
+  EditorActionMenuProps,
+  EditorFieldProps,
+  EditorNumberFieldProps,
+} from "./editor-primitives";
 
 export { InspectorShell } from "./inspector-shell";
 export type { InspectorShellProps } from "./inspector-shell";

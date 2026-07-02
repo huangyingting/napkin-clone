@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import * as React from "react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 
 import type { DocumentBlock } from "@/lib/content/document-blocks";
@@ -16,93 +15,22 @@ import {
   buildTextContent,
   buildTextNode,
 } from "@/test/builders/deck-v7";
+import { createBrowserGlobalInstaller } from "@/test/browser-globals";
+import {
+  createTestElementFactory,
+  makeDOMRect,
+  TestHTMLElement,
+} from "@/test/fake-dom";
+import { createReactHookRenderer } from "@/test/react-internals";
 import {
   SlideEditorVNext,
   type SlideEditorVNextProps,
 } from "./slide-editor-vnext";
 
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
-
 type ElementProps = Record<string, unknown>;
 type FakeListener = (event: Record<string, unknown>) => void;
 
-type FakeBrowserGlobals = {
-  window?: unknown;
-  document?: unknown;
-  navigator?: unknown;
-  HTMLElement?: unknown;
-  File?: unknown;
-  ResizeObserver?: unknown;
-  setTimeout?: unknown;
-  clearTimeout?: unknown;
-};
-
-class FakeHTMLElement {
-  readonly focused = { count: 0 };
-
-  constructor(
-    private readonly dataset: Record<string, string> = {},
-    private readonly rect: DOMRect = makeRect(0, 0, 1000, 562.5),
-    private readonly menuItems: FakeHTMLElement[] = [],
-  ) {}
-
-  closest(selector: string): FakeHTMLElement | null {
-    if (selector.includes("input") || selector.includes("button")) return null;
-    if (selector.includes("[data-slide-canvas-vnext")) return canvasElement;
-    if (selector.includes("[data-node-id]")) {
-      return this.dataset.nodeId ? this : null;
-    }
-    if (
-      selector.includes("[data-resize-handle]") ||
-      selector.includes("[data-crop-handle]") ||
-      selector.includes("[data-rotation-handle]") ||
-      selector.includes("[data-connector-endpoint]")
-    ) {
-      return null;
-    }
-    return null;
-  }
-
-  querySelector(): FakeHTMLElement | null {
-    return this.menuItems[0] ?? canvasElement;
-  }
-
-  querySelectorAll(): FakeHTMLElement[] {
-    return this.menuItems;
-  }
-
-  hasAttribute(name: string): boolean {
-    return this.dataset[name] === "true";
-  }
-
-  getAttribute(name: string): string | null {
-    return this.dataset[name] ?? null;
-  }
-
-  getBoundingClientRect(): DOMRect {
-    return this.rect;
-  }
-
-  focus(): void {
-    this.focused.count += 1;
-  }
-
-  click(): void {
-    this.focused.count += 1;
-  }
-
-  setPointerCapture(): void {
-    // Pointer capture test double.
-  }
-
-  releasePointerCapture(): void {
-    // Pointer capture test double.
-  }
-}
+const elementFactory = createTestElementFactory();
 
 class FakeFile {
   readonly name: string;
@@ -118,40 +46,21 @@ class FakeFile {
   }
 }
 
-const canvasElement = new FakeHTMLElement(
+const canvasElement = elementFactory.createElement(
   { slideCanvasVnext: "true", nodeId: "shape-a" },
-  makeRect(10, 20, 1000, 562.5),
+  makeDOMRect(10, 20, 1000, 562.5),
 );
-
-function makeRect(
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-): DOMRect {
-  return {
-    left,
-    top,
-    width,
-    height,
-    right: left + width,
-    bottom: top + height,
-    x: left,
-    y: top,
-    toJSON: () => ({}),
-  } as DOMRect;
-}
+elementFactory.setCanvasElement(canvasElement);
 
 function menuContainer() {
-  return new FakeHTMLElement({}, makeRect(0, 0, 1, 1), [
-    new FakeHTMLElement({ role: "menuitem" }),
-    new FakeHTMLElement({ role: "menuitem" }),
+  return elementFactory.createElement({}, makeDOMRect(0, 0, 1, 1), [
+    elementFactory.createElement({ role: "menuitem" }),
+    elementFactory.createElement({ role: "menuitem" }),
   ]);
 }
 
 function installBrowserGlobals({ desktop = false, syncTimers = false } = {}) {
-  const globalRef = globalThis as typeof globalThis & FakeBrowserGlobals;
-  const keys: (keyof FakeBrowserGlobals)[] = [
+  const browserGlobals = createBrowserGlobalInstaller([
     "window",
     "document",
     "navigator",
@@ -160,10 +69,8 @@ function installBrowserGlobals({ desktop = false, syncTimers = false } = {}) {
     "ResizeObserver",
     "setTimeout",
     "clearTimeout",
-  ];
-  const previous = new Map<PropertyKey, PropertyDescriptor | undefined>(
-    keys.map((key) => [key, Object.getOwnPropertyDescriptor(globalRef, key)]),
-  );
+  ]);
+  const { globalRef } = browserGlobals;
   const listeners = new Map<string, Set<FakeListener>>();
   const fakeSetTimeout = (callback: () => void) => {
     if (syncTimers) callback();
@@ -172,77 +79,59 @@ function installBrowserGlobals({ desktop = false, syncTimers = false } = {}) {
   };
   const fakeClearTimeout = () => undefined;
 
-  Object.defineProperty(globalRef, "window", {
-    configurable: true,
-    writable: true,
-    value: {
-      listeners,
-      addEventListener: (type: string, listener: FakeListener) => {
-        const set = listeners.get(type) ?? new Set<FakeListener>();
-        set.add(listener);
-        listeners.set(type, set);
-      },
-      removeEventListener: (type: string, listener: FakeListener) => {
-        listeners.get(type)?.delete(listener);
-      },
-      dispatch: (type: string, event: Record<string, unknown>) => {
-        for (const listener of listeners.get(type) ?? []) listener(event);
-      },
-      setTimeout: fakeSetTimeout,
-      clearTimeout: fakeClearTimeout,
-      requestAnimationFrame: (callback: FrameRequestCallback) => {
-        callback(0);
-        return 1;
-      },
-      cancelAnimationFrame: () => undefined,
-      matchMedia: () =>
-        ({
-          matches: desktop,
-          media: "(min-width: 1024px)",
-          onchange: null,
-          addEventListener: () => undefined,
-          removeEventListener: () => undefined,
-          addListener: () => undefined,
-          removeListener: () => undefined,
-          dispatchEvent: () => true,
-        }) as MediaQueryList,
-      getComputedStyle: () => ({
-        paddingLeft: "0",
-        paddingRight: "0",
-        paddingTop: "0",
-        paddingBottom: "0",
-      }),
+  browserGlobals.define("window", {
+    listeners,
+    addEventListener: (type: string, listener: FakeListener) => {
+      const set = listeners.get(type) ?? new Set<FakeListener>();
+      set.add(listener);
+      listeners.set(type, set);
     },
-  });
-  Object.defineProperty(globalRef, "document", {
-    configurable: true,
-    writable: true,
-    value: {
-      querySelector: () => canvasElement,
-      activeElement: canvasElement,
-      documentElement: { style: { overflow: "" } },
-      body: { style: { overflow: "" }, nodeType: 1 },
+    removeEventListener: (type: string, listener: FakeListener) => {
+      listeners.get(type)?.delete(listener);
     },
+    dispatch: (type: string, event: Record<string, unknown>) => {
+      for (const listener of listeners.get(type) ?? []) listener(event);
+    },
+    setTimeout: fakeSetTimeout,
+    clearTimeout: fakeClearTimeout,
+    requestAnimationFrame: (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    },
+    cancelAnimationFrame: () => undefined,
+    matchMedia: () =>
+      ({
+        matches: desktop,
+        media: "(min-width: 1024px)",
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => true,
+      }) as MediaQueryList,
+    getComputedStyle: () => ({
+      paddingLeft: "0",
+      paddingRight: "0",
+      paddingTop: "0",
+      paddingBottom: "0",
+    }),
   });
-  Object.defineProperty(globalRef, "navigator", {
-    configurable: true,
-    writable: true,
-    value: { platform: desktop ? "MacIntel" : "Win32", userAgent: "node" },
+  browserGlobals.define("document", {
+    querySelector: () => canvasElement,
+    activeElement: canvasElement,
+    documentElement: { style: { overflow: "" } },
+    body: { style: { overflow: "" }, nodeType: 1 },
   });
-  Object.defineProperty(globalRef, "HTMLElement", {
-    configurable: true,
-    writable: true,
-    value: FakeHTMLElement,
+  browserGlobals.define("navigator", {
+    platform: desktop ? "MacIntel" : "Win32",
+    userAgent: "node",
   });
-  Object.defineProperty(globalRef, "File", {
-    configurable: true,
-    writable: true,
-    value: FakeFile,
-  });
-  Object.defineProperty(globalRef, "ResizeObserver", {
-    configurable: true,
-    writable: true,
-    value: class {
+  browserGlobals.define("HTMLElement", TestHTMLElement);
+  browserGlobals.define("File", FakeFile);
+  browserGlobals.define(
+    "ResizeObserver",
+    class {
       observe(): void {
         // No-op observer.
       }
@@ -250,128 +139,24 @@ function installBrowserGlobals({ desktop = false, syncTimers = false } = {}) {
         // No-op observer.
       }
     },
-  });
-  Object.defineProperty(globalRef, "setTimeout", {
-    configurable: true,
-    writable: true,
-    value: fakeSetTimeout,
-  });
-  Object.defineProperty(globalRef, "clearTimeout", {
-    configurable: true,
-    writable: true,
-    value: fakeClearTimeout,
-  });
+  );
+  browserGlobals.define("setTimeout", fakeSetTimeout);
+  browserGlobals.define("clearTimeout", fakeClearTimeout);
 
   return {
     window: globalRef.window as unknown as {
       dispatch: (type: string, event: Record<string, unknown>) => void;
     },
-    restore: () => {
-      for (const [key, descriptor] of previous) {
-        if (descriptor) Object.defineProperty(globalRef, key, descriptor);
-        else Reflect.deleteProperty(globalRef, key);
-      }
-    },
+    restore: browserGlobals.restore,
   };
 }
 
 function createHookRenderer({ runEffects = false } = {}) {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals);
-  const slots: unknown[] = [];
-  const cleanups: (() => void)[] = [];
-
-  return {
-    run<T>(render: () => T): T {
-      let hookIndex = 0;
-      const previous = internals.H;
-      internals.H = {
-        useState: <S>(initial: S | (() => S)) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] =
-              typeof initial === "function" ? (initial as () => S)() : initial;
-          }
-          const setState = (next: S | ((previous: S) => S)) => {
-            const previousValue = slots[slot] as S;
-            slots[slot] =
-              typeof next === "function"
-                ? (next as (previous: S) => S)(previousValue)
-                : next;
-          };
-          return [slots[slot] as S, setState] as const;
-        },
-        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = initial;
-          const dispatch = (action: A) => {
-            slots[slot] = reducer(slots[slot] as S, action);
-          };
-          return [slots[slot] as S, dispatch] as const;
-        },
-        useRef: <T>(initial: T) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = { current: initial };
-          return slots[slot] as { current: T };
-        },
-        useMemo: <T>(factory: () => T) => {
-          hookIndex++;
-          return factory();
-        },
-        useCallback: <T>(callback: T) => {
-          hookIndex++;
-          return callback;
-        },
-        useId: () => `final-id-${hookIndex++}`,
-        useEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (!runEffects) return;
-          const cleanup = effect?.();
-          if (typeof cleanup === "function") cleanups.push(cleanup);
-        },
-        useLayoutEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (!runEffects) return;
-          const cleanup = effect?.();
-          if (typeof cleanup === "function") cleanups.push(cleanup);
-        },
-        useInsertionEffect: () => {
-          hookIndex++;
-        },
-        useContext: () => {
-          hookIndex++;
-          return undefined;
-        },
-        useTransition: () => {
-          hookIndex++;
-          return [false, (callback?: () => void) => callback?.()] as const;
-        },
-        useDeferredValue: <T>(value: T) => {
-          hookIndex++;
-          return value;
-        },
-        useSyncExternalStore: <T>(
-          _subscribe: () => () => void,
-          getSnapshot: () => T,
-        ) => {
-          hookIndex++;
-          return getSnapshot();
-        },
-        useImperativeHandle: () => {
-          hookIndex++;
-        },
-      };
-      try {
-        return render();
-      } finally {
-        internals.H = previous;
-      }
-    },
-    cleanup() {
-      for (const cleanup of cleanups.splice(0)) cleanup();
-    },
-  };
+  return createReactHookRenderer({
+    idPrefix: "final-id",
+    runEffects,
+    runLayoutEffects: runEffects,
+  });
 }
 
 function collectElements(node: ReactNode, elements: ReactElement[] = []) {
@@ -531,7 +316,7 @@ function panelWithText(tree: ReactNode, text: string): ElementProps {
 
 function driveMenuKeyBranches(panel: ElementProps) {
   const container = menuContainer();
-  (panel.ref as { current: FakeHTMLElement | null } | undefined)!.current =
+  (panel.ref as { current: TestHTMLElement | null } | undefined)!.current =
     container;
   const firstItem = container.querySelectorAll()[0];
   const arrow = keyEvent("ArrowDown", { target: firstItem });
@@ -937,11 +722,11 @@ test("SlideEditorVNext final coverage drives selected source, diagnostics, file 
       tree,
       (props) => props["data-slide-stage-frame"] === "true",
     );
-    (frame.ref as (el: FakeHTMLElement | null) => void)(canvasElement);
+    (frame.ref as (el: TestHTMLElement | null) => void)(canvasElement);
 
     const firstInput = fileInputProps(tree, 0);
-    (firstInput.ref as { current: FakeHTMLElement | null }).current =
-      new FakeHTMLElement();
+    (firstInput.ref as { current: TestHTMLElement | null }).current =
+      elementFactory.createElement();
 
     (canvasProps(harness.render()).onNodeFocus as (nodeId: string) => void)(
       "text-source",

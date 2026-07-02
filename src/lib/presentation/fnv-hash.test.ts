@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { fnv1aHash32 } from "./fnv-hash";
+import { fnv1aHash32 } from "@/lib/presentation-shared/fnv-hash";
 import { buildDeckFromBlocks } from "./deck";
 import type { DocumentBlock } from "@/lib/content";
 

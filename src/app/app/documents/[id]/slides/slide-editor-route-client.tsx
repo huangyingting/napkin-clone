@@ -16,17 +16,17 @@ import {
   buildDocumentShareUrl,
   toPresentShareUrl,
 } from "@/lib/document/share-routes";
-import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import {
   SAVE_STATUS_LABEL,
   resolveSaveErrorMessage,
   resolveSaveStatus,
   type SaveStatus,
-} from "@/lib/presentation/save-status";
+} from "@/lib/presentation-shared/save-status";
 import {
   createSlideAutosaveScheduler,
   type SlideAutosaveScheduler,
-} from "@/lib/presentation/slide-autosave-scheduler";
+} from "@/lib/presentation-shared/slide-autosave-scheduler";
 import { DEFAULT_THEME_PACKAGE_ID } from "@/lib/presentation/theme-packages";
 import { buildSourceBlockIndex } from "@/lib/presentation-vnext/block-index";
 import {

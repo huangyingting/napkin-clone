@@ -1,7 +1,7 @@
 ---
 type: "plan"
-status: "final"
-last_updated: "2026-07-01"
+status: "implemented — gaps tracked"
+last_updated: "2026-07-02"
 description: "P1 plan to reshape vNext presentation tests around refactor-safe behavior coverage instead of oversized suites and React-internals mocking."
 ---
 
@@ -31,54 +31,57 @@ oversized files and implementation details.
 | Filmstrip            | Strong           | `src/components/presentation-vnext/filmstrip/filmstrip.test.ts`                                            | Keep focused component tests around reorder/drop behavior.                          |
 | Export               | Strong           | `src/lib/presentation-vnext/export-spec.test.ts`, `src/lib/presentation-vnext/pptx-export-adapter.test.ts` | Add present-to-export parity/E2E coverage where output behavior crosses layers.     |
 | Source links         | Strong           | `src/lib/presentation-vnext/source-links.ts`, source review tests                                          | Share source/diagnostic action-model tests as boundaries are split.                 |
-| Commands/editing     | Oversized        | `src/lib/presentation-vnext/editor-commands.test.ts`                                                       | Split by command family and keep assertions on pure command results.                |
-| Full editor failures | Oversized        | `src/components/presentation-vnext/slide-editor-vnext.failures.test.ts`                                    | Split by editor region and retire React-internals mocking.                          |
-| Stage gestures       | Gaps             | `src/components/presentation-vnext/stage-pointer-interactions.ts`, `stage-connector-interactions.ts`       | Add choreography tests for pointer lifecycle, selection, resize, rotate, connector. |
-| Diagnostics repair   | Gaps             | `src/lib/presentation-vnext/diagnostic-repairs.ts`, `deck-diagnostics-review.tsx`                          | Add safety matrix for auto-repair eligibility and non-destructive repair behavior.  |
-| Inline text/IME      | Gaps             | `src/components/presentation-vnext/inline-text-editor*`                                                    | Add IME/CJK commit/cancel/composition tests around the adapter.                     |
+| Commands/editing     | Split/focused    | `src/lib/presentation-vnext/editor-commands*.test.ts`                                                      | Keep command-family assertions on pure command results.                             |
+| Full editor failures | Split/focused    | `src/components/presentation-vnext/slide-editor-vnext-*.failures.test.ts`                                  | Keep retiring quarantined React-internals usage as controller/component tests land. |
+| Stage gestures       | Covered          | `src/components/presentation-vnext/stage-pointer-interactions.ts`, `stage-connector-interactions.ts`       | Keep choreography coverage focused on controller and region failure tests.          |
+| Diagnostics repair   | Covered          | `src/lib/presentation-vnext/diagnostic-repairs.ts`, `deck-diagnostics-review.tsx`                          | Keep safety matrix coverage with review action descriptors.                         |
+| Inline text/IME      | Covered          | `src/components/presentation-vnext/inline-text-editor*`                                                    | Keep IME/CJK coverage around the adapter.                                           |
 
 ## Oversized split plan
 
 ### `editor-commands.test.ts`
 
-`src/lib/presentation-vnext/editor-commands.test.ts` is about 61 KB. Split it
-into command-family files so a refactor can validate only the affected family:
+`src/lib/presentation-vnext/editor-commands.test.ts` was split into
+command-family files so a refactor can validate only the affected family:
 
-- [ ] `editor-commands.layout.test.ts` for frame, position, rotation, sizing,
+- [x] `editor-commands.layout.test.ts` for frame, position, rotation, sizing,
       align/distribute, and percent geometry.
-- [ ] `editor-commands.node-tree.test.ts` for insert, delete, duplicate,
+- [x] `editor-commands.node-tree.test.ts` for insert, delete, duplicate,
       reorder, grouping, ungrouping, parent lookup, and z-order.
-- [ ] `editor-commands.text.test.ts` for text content, rich text, style, and
+- [x] `editor-commands.text.test.ts` for text content, rich text, style, and
       inline edit handoff.
-- [ ] `editor-commands.table.test.ts` for table structure, cell edit, and table
-      style commands.
-- [ ] `editor-commands.media-shape-connector.test.ts` for image/media, shape,
+- [x] `editor-commands.table.test.ts` is the family home for table command
+      coverage; no table-specific commands existed in the original suite.
+- [x] `editor-commands.media-shape-connector.test.ts` for image/media, shape,
       connector, endpoints, and visual-block commands.
-- [ ] `editor-commands.slide-deck.test.ts` for slide add/delete/reorder,
+- [x] `editor-commands.slide-deck.test.ts` for slide add/delete/reorder,
       background, theme, and deck chrome commands.
-- [ ] `editor-commands.source-diagnostics.test.ts` for source metadata,
-      diagnostic repair, and provenance-safe updates.
+- [x] `editor-commands.source-diagnostics.test.ts` for source metadata;
+      diagnostic-specific command coverage remains with diagnostic repair tests.
 
 Each file should use shared builders and assert on returned `DeckV7` values, not
 on editor component internals.
 
-### `slide-editor-vnext.failures.test.ts`
+### Slide editor failure region tests
 
-`src/components/presentation-vnext/slide-editor-vnext.failures.test.ts` is about
-89 KB. Split it by editor region:
+The former monolithic failure suite was split by editor region while preserving
+the migrated coverage:
 
-- [ ] `slide-editor-shell.failures.test.ts` for open/save/conflict/reload and
-      shell-level error boundaries.
-- [ ] `stage-interactions.failures.test.ts` for selection, drag, resize, rotate,
-      marquee, connector, select-under, and focus restoration.
-- [ ] `inspector-continuity.failures.test.ts` for panel preservation, disabled
-      states, validation, and command descriptor mapping.
-- [ ] `toolbar-command-surface.failures.test.ts` for toolbar/popover/current
-      object command placement.
-- [ ] `inline-text-editor.failures.test.ts` for double-click, commit/cancel,
-      composition, and IME/CJK behavior.
-- [ ] `source-diagnostics-review.failures.test.ts` for source review,
-      diagnostic review, repair eligibility, and safe repair actions.
+- [x] `slide-editor-vnext-shell.failures.test.ts` for export, save, present, and
+      share shell failures.
+- [x] `slide-editor-vnext-stage-selection.failures.test.ts` for marquee,
+      keyboard selection, context menu selection, connector detach, and
+      select-under parity.
+- [x] `slide-editor-vnext-stage-gestures.failures.test.ts` for drag, duplicate,
+      resize, and live gesture badges.
+- [x] `slide-editor-vnext-inspector-continuity.failures.test.ts` for image
+      replacement validation, retry, and selected-inspector continuity.
+- [x] `slide-editor-vnext-toolbar-command-surface.failures.test.ts` for connector
+      keyboard commands and rotation command announcements.
+- [x] `slide-editor-vnext-inline-text-editor.failures.test.ts` for double-click,
+      selected-text click, and edit-mode exit behavior.
+- [x] `slide-editor-vnext-source-diagnostics-review.failures.test.ts` for source
+      review, diagnostic review, repair eligibility, and safe repair actions.
 
 ## React internals and fake DOM retirement
 
@@ -92,15 +95,20 @@ on editor component internals.
 - Do not treat DOM overlays as the source of truth for stage geometry; test
   geometry helpers and registry outputs directly.
 
+Implementation update — 2026-07-02: oversized command tests and slide-editor
+failure tests are split by command family and editor region. Remaining React
+internals usage is quarantined in `src/test/react-internals.ts` and the shared
+failure harness while future slices replace it with controller/component tests.
+
 ## Gap coverage
 
-| Gap                    | Required coverage                                                                                                                                  |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stage choreography     | Pointer down/move/up lifecycle, drag threshold, marquee selection, resize handles, rotation, connector edit/create, select-under, escape/cancel.   |
-| Inspector-command map  | Every visible command descriptor has one command family; every supported command family has an intentional toolbar/popover/inspector owner.        |
-| Present-to-export flow | A focused E2E or integration path verifies that authoring output, present mode, public render, and export resolve the same DeckV7/render contract. |
-| Diagnostics safety     | Matrix for diagnostic severity, repair availability, no-op safety, destructive repair blocking, and source review handoff.                         |
-| Inline editor IME      | Composition start/update/end, CJK input, enter/escape behavior, blur commit/cancel, and style handoff.                                             |
+| Gap                    | Status    | Coverage                                                                                                                                           |
+| ---------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stage choreography     | Covered   | Region failure tests and the stage controller test cover drag, resize, selection, connector detach, rotation, and cancel/escape paths.             |
+| Inspector-command map  | Covered   | Current-object descriptor bijection tests and inspector continuity tests map command families to toolbar, popover, inspector, keyboard, and stage. |
+| Present-to-export flow | Follow-up | Add a focused E2E or integration path proving authoring output, present mode, public render, and export resolve the same DeckV7/render contract.   |
+| Diagnostics safety     | Covered   | Source/diagnostic review failure coverage and descriptor tests cover repair eligibility, safe repairs, destructive actions, and handoff.           |
+| Inline editor IME      | Covered   | Inline text adapter tests cover composition, CJK preservation, blur commit deferral, enter/escape, and style handoff.                              |
 
 ## Validation commands
 

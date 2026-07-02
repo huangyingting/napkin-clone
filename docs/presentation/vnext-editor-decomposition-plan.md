@@ -1,7 +1,7 @@
 ---
 type: "plan"
-status: "final"
-last_updated: "2026-07-01"
+status: "active — core slices implemented"
+last_updated: "2026-07-02"
 description: "P0 plan to shrink SlideEditorVNext into a thin shell with explicit controllers while preserving vNext editor behavior, output parity, and export/present compatibility."
 ---
 
@@ -37,13 +37,13 @@ are comparatively clean, but the shell does not yet respect that boundary.
 
 | Evidence                  | Source                                                                                          | What it shows                                                               |
 | ------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Oversized editor shell    | `src/components/presentation-vnext/slide-editor-vnext.tsx`                                      | 5,804 lines; component shape contradicts the thin-shell invariant.          |
+| Oversized editor shell    | `src/components/presentation-vnext/slide-editor-vnext.tsx`                                      | About 5.9k lines; component shape still exceeds the thin-shell invariant.   |
 | Stage helpers already     | `src/components/presentation-vnext/stage-pointer-interactions.ts`                               | Pointer and gesture logic is already separable from the React shell.        |
 | Targeting helpers already | `src/components/presentation-vnext/stage-targeting.ts`                                          | Hit/target behavior can be tested outside the full editor.                  |
 | Drag lifecycle helpers    | `src/components/presentation-vnext/pointer-drag-lifecycle.ts`                                   | Drag state can move behind an interaction controller.                       |
 | Inspector shell exists    | `src/components/presentation-vnext/inspector/inspector-shell.tsx`                               | Inspector rendering already has a shell boundary that can consume actions.  |
 | Inspector UI helpers      | `src/lib/presentation-vnext/inspector-panel-ui.ts`                                              | Panel decisions can be described without mounting the full editor.          |
-| Oversized failure tests   | `src/components/presentation-vnext/slide-editor-vnext.failures.test.ts`                         | 89 KB failure suite couples behavior coverage to editor internals.          |
+| Split failure tests       | `src/components/presentation-vnext/slide-editor-vnext-*.failures.test.ts`                       | Region-focused failure coverage still shares React-internals test helpers.  |
 | Command contract          | `src/lib/presentation-vnext/editor-commands.ts`                                                 | Mutations are already mostly pure and should remain the command boundary.   |
 | Render/export contracts   | `src/lib/presentation-vnext/render-tree.ts`, `src/lib/presentation-vnext/export-spec.ts`        | Output code can stay read-only while editor controllers dispatch mutations. |
 | Diagnostics/recovery      | `src/lib/presentation-vnext/diagnostics.ts`, `src/lib/presentation-vnext/diagnostic-repairs.ts` | Review/repair actions should not be embedded in the editor component.       |
@@ -77,20 +77,29 @@ are comparatively clean, but the shell does not yet respect that boundary.
 | 6     | Move diagnostics/source review actions | Represent source review and diagnostic repair affordances with the same action descriptor shape used by toolbar/inspector actions.         | Review panels can be tested without mounting the god shell.                                            |
 | 7     | Collapse the shell                     | Delete dead local state and inline handlers from `SlideEditorVNext` after every region has an owner.                                       | Shell is primarily composition and callback wiring.                                                    |
 
+Implementation update — 2026-07-02: current-object descriptors, the stage
+interaction controller, focus/geometry registry, inline text DOM adapter,
+review-action descriptors, and overlay extraction have landed. The remaining
+P0 work is the final shell collapse and moving table direct-edit ownership out
+of the render surface.
+
 ## Action items
 
-- [ ] Define the editor behavior inventory for selection, drag, resize, rotate,
+- [x] Define the editor behavior inventory for selection, drag, resize, rotate,
       text edit, connector, table edit, diagnostics, source review, filmstrip,
       deck chrome, export, focus, and keyboard shortcuts.
-- [ ] Introduce current-object action descriptors before moving toolbar or
+- [x] Introduce current-object action descriptors before moving toolbar or
       inspector UI.
-- [ ] Extract `useStageInteractionController` without changing command payloads.
-- [ ] Split canvas rendering from overlays/table edit.
-- [ ] Add a focus/geometry registry and migrate one focus path at a time.
-- [ ] Wrap inline text edit behavior in an adapter and add IME acceptance tests.
-- [ ] Move diagnostics/source-review repair actions behind descriptors.
+- [x] Extract `useStageInteractionController` without changing command payloads.
+- [x] Split selection, resize, crop, rotation, and connector overlays out of
+      canvas rendering.
+- [ ] Move remaining table direct-edit state out of the canvas render surface.
+- [x] Add a focus/geometry registry and migrate focus paths to registered stage
+      nodes and filmstrip buttons.
+- [x] Wrap inline text edit behavior in an adapter and add IME acceptance tests.
+- [x] Move diagnostics/source-review repair actions behind descriptors.
 - [ ] Delete obsolete editor-local state only after equivalent controller tests
-      pass.
+      pass; `SlideEditorVNext` still needs a final shell-collapse slice.
 
 ## Out of scope
 

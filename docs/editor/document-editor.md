@@ -1,7 +1,7 @@
 ---
 type: "architecture"
 status: "current"
-last_updated: "2026-07-01"
+last_updated: "2026-07-02"
 description: "The document editor pairs a Lexical rich-text surface with visual blocks (flowcharts, mind maps, charts, …) and a set of context-aware surfaces (a floating text toolbar, a mobile bottom sheet, a +// insert menu, and a per-visual editing popover). This document explains how those pieces fit together and how to extend them safely."
 ---
 
@@ -438,13 +438,13 @@ Self-conflicts (same user, two tabs) are handled identically.
 
 ### Presence model
 
-The slide editor presence model (`use-slide-presence.ts`) reuses the Yjs
+The shared slide editor presence model (`presentation-shared/use-slide-presence.ts`) reuses the Yjs
 awareness channel to broadcast who has the deck open and which slide they are
 viewing. Presence is advisory — it does not imply real-time merge. Conflicts
 are handled by the revision-token CAS, not by presence locking. When the
 awareness channel is unavailable the hook degrades gracefully (empty peers).
 
-See [`use-slide-presence.ts`](../../src/lib/presentation/use-slide-presence.ts)
+See [`use-slide-presence.ts`](../../src/lib/presentation-shared/use-slide-presence.ts)
 for the `SlidePresencePayload` shape and `useSlidePresence` hook API.
 
 ## Tests

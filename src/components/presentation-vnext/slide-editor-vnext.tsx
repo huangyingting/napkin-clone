@@ -68,7 +68,7 @@ import {
 
 import type { ActionResult } from "@/lib/action-result";
 import type { DocumentBlock } from "@/lib/content/document-blocks";
-import type { SaveStatus } from "@/lib/presentation/save-status";
+import type { SaveStatus } from "@/lib/presentation-shared/save-status";
 import type {
   ConnectorEndpoint,
   DeckV7,
@@ -94,32 +94,19 @@ import type {
   PresentationDiagnostic,
   DiagnosticAction,
 } from "@/lib/presentation-vnext/diagnostics";
-import type {
-  SourceBlockIndex,
-  SourceBlockIndexEntry,
-} from "@/lib/presentation-vnext/block-index";
-import { buildSourceBlockIndex } from "@/lib/presentation-vnext/block-index";
+import type { SourceBlockIndex } from "@/lib/presentation-vnext/block-index";
 import {
   diagnosticTargetKey,
   getDiagnosticNodeId,
   getDiagnosticSlideId,
 } from "@/lib/presentation-vnext/diagnostics";
 import { applyDiagnosticRepairAction } from "@/lib/presentation-vnext/diagnostic-repairs";
-import { deriveSourceReviewDerivations } from "@/lib/presentation-vnext/source-links";
-import {
-  dismissSourceReviewItem,
-  refreshAllSourceReviewItems,
-  refreshSelectedSourceLink,
-  refreshSourceReviewItem,
-  relinkSourceReviewItem,
-  unlinkSourceReviewItem,
-  type SourceLinkHostRefreshArgs,
-  type SourceLinkHostRefreshResult,
-  type SourceLinkOrchestrationResult,
+import type {
+  SourceLinkHostRefreshArgs,
+  SourceLinkHostRefreshResult,
 } from "@/lib/presentation-vnext/source-link-orchestration";
 import {
   createDocumentSourceNode,
-  documentSourceInsertBlocks,
   sourceBlockKindLabel,
 } from "@/lib/presentation-vnext/document-source-commands";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
@@ -182,7 +169,6 @@ import {
 import {
   normalizeSelectionFrame,
   selectNodesInFrame,
-  type SelectionFrame,
 } from "@/lib/presentation-vnext/selection-geometry";
 import { connectorEndpointFromSlidePoint } from "@/lib/presentation-vnext/connector-geometry";
 import {
@@ -217,11 +203,15 @@ import {
 
 import {
   SlideCanvasVNext,
-  type SlideCanvasNodeGestureDraft,
   type ConnectorEndpointHandle,
   type CropHandlePosition,
   type ResizeHandlePosition,
 } from "./slide-canvas";
+import {
+  createFocusGeometryRegistry,
+  focusGeometryTargets,
+  type FocusGeometryRegistry,
+} from "./focus-geometry-registry";
 import { startPointerDragLifecycle } from "./pointer-drag-lifecycle";
 import { createSingleCommitGesture } from "./single-commit-gesture";
 import {
@@ -273,7 +263,6 @@ import {
   nextKeyboardConnectorTargetIdVNext,
   selectedKeyboardConnectablePair,
   startKeyboardConnectorModeVNext,
-  type KeyboardConnectorModeVNext,
 } from "./stage-keyboard-interactions";
 import {
   buildStageGestureBadge,
@@ -295,6 +284,7 @@ import {
   pointerMovedBeyondThreshold,
   shouldEnterInlineNodeEditOnClick,
 } from "./stage-pointer-interactions";
+import { useStageInteractionController } from "./use-stage-interaction-controller";
 import { pairDuplicatesAfterOriginals } from "./stage-duplicate";
 import {
   connectorEndpointsEqual,
@@ -311,6 +301,11 @@ import {
 import { applyInlineTextCommit } from "./inline-text-commit";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { useExportDiagnostics } from "./use-export-diagnostics";
+import {
+  SlideEditorCloseConfirmDialog,
+  useSlideEditorShellController,
+} from "./use-slide-editor-shell-controller";
+import { useSourceReviewController } from "./use-source-review-controller";
 import { useTableCellEditing } from "./use-table-cell-editing";
 import { SourceReviewPanel } from "./source-review-panel";
 import { DeckDiagnosticsReview } from "./deck-diagnostics-review";
@@ -319,12 +314,11 @@ import {
   runVisualPickerMutation,
   VISUAL_PICKER_FAILURE_MESSAGE,
 } from "./visual-picker-recovery";
-import { KeyboardShortcutHelpDialog } from "@/components/presentation/slide-editor/keyboard-shortcut-help-dialog";
-import { Dialog } from "@/components/ui/dialog";
+import { KeyboardShortcutHelpDialog } from "@/components/presentation-shared/keyboard-shortcut-help-dialog";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
-import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import {
   focusFirstMenuCommand,
   isMenuCommandNavigationKey,
@@ -336,13 +330,20 @@ import {
   useSlidePresence,
   type SlidePresenceAwareness,
   type SlidePresencePeer,
-} from "@/lib/presentation/use-slide-presence";
+} from "@/lib/presentation-shared/use-slide-presence";
 import { canvasArrangeShortcutKind } from "@/lib/shortcuts/canvas-runtime";
 import {
   announceRotation,
   applyKeyboardRotation,
   keyboardRotationDelta,
-} from "@/lib/presentation/canvas-keyboard-rotate";
+} from "@/lib/presentation-shared/canvas-keyboard-rotate";
+
+export {
+  handleCloseConfirmAction,
+  routeCloseRequest,
+  setupBeforeUnloadGuard,
+  SlideEditorCloseConfirmDialog,
+} from "./use-slide-editor-shell-controller";
 
 const DECK_CHROME_KINDS: DeckChromeKind[] = [
   "logo",
@@ -682,11 +683,11 @@ function stageScrollContentStyle(stageFit: CanvasStageFit): CSSProperties {
   };
 }
 
-function focusStageNode(nodeId: string): void {
-  if (typeof document === "undefined") return;
-  const safeId = nodeId.replace(/"/g, '\\"');
-  const el = document.querySelector<HTMLElement>(`[data-node-id="${safeId}"]`);
-  el?.focus();
+function focusStageNode(
+  focusGeometryRegistry: FocusGeometryRegistry,
+  nodeId: string,
+): void {
+  focusGeometryRegistry.focus(focusGeometryTargets.stageNode(nodeId));
 }
 
 /**
@@ -870,61 +871,6 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-interface CloseRequestHandlers {
-  openCloseConfirmDialog: () => void;
-  closeEditor: () => void;
-}
-
-export function routeCloseRequest(
-  hasUnsavedWork: boolean,
-  handlers: CloseRequestHandlers,
-): void {
-  if (hasUnsavedWork) {
-    handlers.openCloseConfirmDialog();
-    return;
-  }
-  handlers.closeEditor();
-}
-
-interface CloseConfirmActionHandlers {
-  closeCloseConfirmDialog: () => void;
-  closeEditor: () => void;
-}
-
-export function handleCloseConfirmAction(
-  action: "cancel" | "discard",
-  handlers: CloseConfirmActionHandlers,
-): void {
-  handlers.closeCloseConfirmDialog();
-  if (action === "discard") {
-    handlers.closeEditor();
-  }
-}
-
-interface BeforeUnloadGuardHandlers {
-  addBeforeUnloadListener: (
-    listener: (event: BeforeUnloadEvent) => void,
-  ) => void;
-  removeBeforeUnloadListener: (
-    listener: (event: BeforeUnloadEvent) => void,
-  ) => void;
-}
-
-export function setupBeforeUnloadGuard(
-  hasUnsavedWork: boolean,
-  handlers: BeforeUnloadGuardHandlers,
-): (() => void) | undefined {
-  if (!hasUnsavedWork) {
-    return undefined;
-  }
-  const onBeforeUnload = (event: BeforeUnloadEvent) => {
-    event.preventDefault();
-    event.returnValue = "";
-  };
-  handlers.addBeforeUnloadListener(onBeforeUnload);
-  return () => handlers.removeBeforeUnloadListener(onBeforeUnload);
-}
-
 export function deleteActiveSlideFromToolbar(
   deck: DeckV7,
   activeSlideId: string | undefined,
@@ -951,55 +897,6 @@ export function deleteActiveSlideFromToolbar(
     nextDeck: result.deck,
     nextIndex: result.index,
   };
-}
-
-export function SlideEditorCloseConfirmDialog({
-  onCancel,
-  onDiscard,
-}: {
-  onCancel: () => void;
-  onDiscard: () => void;
-}) {
-  return (
-    <Dialog
-      open
-      onClose={onCancel}
-      aria-labelledby="slide-editor-vnext-close-confirm-title"
-      className="max-w-sm"
-    >
-      <h2
-        id="slide-editor-vnext-close-confirm-title"
-        className="text-base font-semibold text-ds-text-primary"
-      >
-        Close and discard changes?
-      </h2>
-      <p className="mt-2 text-sm text-ds-text-secondary">
-        You have unsaved slide changes. Close the editor and discard them?
-      </p>
-      <div className="mt-6 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className={cx(
-            "flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary",
-            FOCUS_RING,
-          )}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onDiscard}
-          className={cx(
-            "flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90",
-            FOCUS_RING,
-          )}
-        >
-          Discard changes
-        </button>
-      </div>
-    </Dialog>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1038,6 +935,10 @@ export function SlideEditorVNext({
 }: SlideEditorVNextProps): JSX.Element {
   const pkg = themePackage ?? NEUTRAL_THEME_PACKAGE;
   const editorRootRef = useRef<HTMLDivElement | null>(null);
+  const focusGeometryRegistry = useMemo(
+    () => createFocusGeometryRegistry(),
+    [],
+  );
   const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(
     null,
   );
@@ -1064,11 +965,6 @@ export function SlideEditorVNext({
       navigator.userAgent;
     return /mac|iphone|ipad|ipod/i.test(platform);
   }, []);
-  const documentSourceIndex = useMemo(() => {
-    if (sourceBlockIndex) return sourceBlockIndex;
-    if (documentBlocks.length === 0) return undefined;
-    return buildSourceBlockIndex(documentId, documentBlocks);
-  }, [documentBlocks, documentId, sourceBlockIndex]);
   const documentVisualsById = useMemo(() => {
     const visuals = new Map<
       string,
@@ -1085,10 +981,6 @@ export function SlideEditorVNext({
     (visualId: string) => documentVisualsById.get(visualId),
     [documentVisualsById],
   );
-
-  // Recoverable toolbar action errors surfaced below the toolbar banner
-  const [toolbarError, setToolbarError] = useState<string | null>(null);
-  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
   const [addSlidePickerOpen, setAddSlidePickerOpen] = useState(false);
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1117,74 +1009,6 @@ export function SlideEditorVNext({
     setInlineEditInitialCaret(null);
     setInlineEditNodeId(null);
   }
-
-  async function handleExportPptx() {
-    if (!onExportPptx) return;
-    setToolbarError(null);
-    try {
-      await onExportPptx();
-    } catch {
-      setToolbarError("PPTX export failed. Please try again.");
-    }
-  }
-
-  async function handleRegenerate() {
-    if (!onRegenerate) return;
-    setToolbarError(null);
-    try {
-      const result = await onRegenerate();
-      if (!result.ok) {
-        setToolbarError(result.error);
-        return;
-      }
-      setStageAnnouncement(
-        "Regenerated slides from the latest saved document.",
-      );
-    } catch {
-      setToolbarError("Regenerate failed. Please try again.");
-    }
-  }
-
-  async function handleRoundtripAction(
-    action: (() => Promise<ActionResult>) | undefined,
-    fallbackError: string,
-  ) {
-    if (!action) return;
-    setToolbarError(null);
-    try {
-      if (onSave) {
-        const saveResult = await onSave(deck);
-        if (!saveResult.ok) {
-          setToolbarError(saveResult.error);
-          return;
-        }
-      }
-      const result = await action();
-      if (!result.ok) {
-        setToolbarError(result.error);
-      }
-    } catch {
-      setToolbarError(fallbackError);
-    }
-  }
-
-  function handleCloseRequest() {
-    routeCloseRequest(hasUnsavedWork, {
-      openCloseConfirmDialog: () => setCloseConfirmOpen(true),
-      closeEditor: () => onClose?.(),
-    });
-  }
-
-  useEffect(
-    () =>
-      setupBeforeUnloadGuard(hasUnsavedWork, {
-        addBeforeUnloadListener: (listener) =>
-          window.addEventListener("beforeunload", listener),
-        removeBeforeUnloadListener: (listener) =>
-          window.removeEventListener("beforeunload", listener),
-      }),
-    [hasUnsavedWork],
-  );
 
   function handleThemePackageChange(packageId: string) {
     const nextPackage = themePackages.find(
@@ -1249,11 +1073,7 @@ export function SlideEditorVNext({
   );
   const [snapToGuides, setSnapToGuides] = useState(true);
   const [clipboardNodes, setClipboardNodes] = useState<SlideChildNode[]>([]);
-  const [stageGuides, setStageGuides] = useState<StageGuide[]>([]);
-  const [marqueeFrame, setMarqueeFrame] = useState<SelectionFrame | null>(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-  const [stageAnnouncement, setStageAnnouncement] = useState("");
-  const [sourceReviewStatus, setSourceReviewStatus] = useState("");
   const [stageZoomPercent, setStageZoomPercent] = useState(100);
   const [stageViewportSize, setStageViewportSize] =
     useState<StageFitSize | null>(null);
@@ -1290,50 +1110,64 @@ export function SlideEditorVNext({
     nodeId: string;
     candidateIds: string[];
   } | null>(null);
-  const [keyboardConnectorMode, setKeyboardConnectorMode] =
-    useState<KeyboardConnectorModeVNext | null>(null);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [slideHovered, setSlideHovered] = useState(false);
-  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const semanticCandidateStackRef = useRef<readonly string[]>([]);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
-  const [draggingStage, setDraggingStage] = useState(false);
-  const [moveGestureDraft, setMoveGestureDraft] = useState<ReadonlyMap<
-    string,
-    SlideCanvasNodeGestureDraft
-  > | null>(null);
-  const [activeResizeHandle, setActiveResizeHandle] = useState<{
-    nodeId: string;
-    handle: ResizeHandlePosition;
-  } | null>(null);
-  const [resizeGestureDraft, setResizeGestureDraft] = useState<{
-    nodeId: string;
-    frame: LayoutBox["frame"];
-  } | null>(null);
-  const [activeCropHandle, setActiveCropHandle] = useState<{
-    nodeId: string;
-    handle: CropHandlePosition;
-  } | null>(null);
-  const [cropGestureDraft, setCropGestureDraft] = useState<{
-    nodeId: string;
-    crop: ImageCrop;
-  } | null>(null);
-  const [activeRotationNodeId, setActiveRotationNodeId] = useState<
-    string | null
-  >(null);
-  const [rotationGestureDraft, setRotationGestureDraft] = useState<{
-    nodeId: string;
-    rotation: number;
-  } | null>(null);
-  const [activeConnectorEndpoint, setActiveConnectorEndpoint] = useState<{
-    nodeId: string;
-    endpoint: ConnectorEndpointHandle;
-  } | null>(null);
-  const [connectorGestureDraft, setConnectorGestureDraft] = useState<{
-    nodeId: string;
-    endpoint: ConnectorEndpointHandle;
-    value: ConnectorEndpoint;
-  } | null>(null);
+  const {
+    stageGuides,
+    setStageGuides,
+    marqueeFrame,
+    setMarqueeFrame,
+    stageAnnouncement,
+    setStageAnnouncement,
+    keyboardConnectorMode,
+    setKeyboardConnectorMode,
+    hoveredNodeId,
+    setHoveredNodeId,
+    slideHovered,
+    setSlideHovered,
+    focusedNodeId,
+    setFocusedNodeId,
+    draggingStage,
+    setDraggingStage,
+    moveGestureDraft,
+    setMoveGestureDraft,
+    activeResizeHandle,
+    setActiveResizeHandle,
+    resizeGestureDraft,
+    setResizeGestureDraft,
+    activeCropHandle,
+    setActiveCropHandle,
+    cropGestureDraft,
+    setCropGestureDraft,
+    activeRotationNodeId,
+    setActiveRotationNodeId,
+    rotationGestureDraft,
+    setRotationGestureDraft,
+    activeConnectorEndpoint,
+    setActiveConnectorEndpoint,
+    connectorGestureDraft,
+    setConnectorGestureDraft,
+    clearGestureDrafts,
+  } = useStageInteractionController();
+  const {
+    toolbarError,
+    setToolbarError,
+    closeConfirmOpen,
+    handleExportPptx,
+    handleRegenerate,
+    handleRoundtripAction,
+    handleCloseRequest,
+    handleCloseConfirmCancel,
+    handleCloseConfirmDiscard,
+  } = useSlideEditorShellController({
+    deck,
+    hasUnsavedWork,
+    onClose,
+    onExportPptx,
+    onRegenerate,
+    onSave,
+    setStageAnnouncement,
+  });
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const isDesktopInspectorViewport = useDesktopInspectorViewport();
   const deckChromeToolbarPanelRef = useRef<HTMLDivElement | null>(null);
@@ -1373,13 +1207,9 @@ export function SlideEditorVNext({
 
   useEffect(() => {
     return scheduleEffectStateUpdate(() => {
-      setMoveGestureDraft(null);
-      setResizeGestureDraft(null);
-      setCropGestureDraft(null);
-      setRotationGestureDraft(null);
-      setConnectorGestureDraft(null);
+      clearGestureDrafts();
     });
-  }, [activeSlide?.id]);
+  }, [activeSlide?.id, clearGestureDrafts]);
 
   useEffect(() => {
     if (!undoRedoFocus) return;
@@ -1405,7 +1235,10 @@ export function SlideEditorVNext({
       if (targetNode) {
         setSelection((s) => setSelectedNodeIds(s, [targetNode.id]));
         setFocusedNodeId(targetNode.id);
-        window.setTimeout(() => focusStageNode(targetNode.id), 0);
+        window.setTimeout(
+          () => focusStageNode(focusGeometryRegistry, targetNode.id),
+          0,
+        );
         return;
       }
 
@@ -1413,7 +1246,13 @@ export function SlideEditorVNext({
       setFocusedNodeId(null);
       window.setTimeout(() => editorRootRef.current?.focus(), 0);
     });
-  }, [deck, undoRedoFocus]);
+  }, [
+    deck,
+    focusGeometryRegistry,
+    setFocusedNodeId,
+    setHoveredNodeId,
+    undoRedoFocus,
+  ]);
 
   function requestInspectorPanel(panel: InspectorPanelId) {
     setInspectorPanelRequest((current) => ({
@@ -1425,6 +1264,11 @@ export function SlideEditorVNext({
   function openMobileInspector(panel: InspectorPanelId = "slide") {
     requestInspectorPanel(panel);
     setInspectorSheetOpen(true);
+  }
+
+  function openInspectorPanel(panel: InspectorPanelId) {
+    requestInspectorPanel(panel);
+    if (isMobileInspectorViewport()) setInspectorSheetOpen(true);
   }
 
   function closeMobileInspector() {
@@ -1649,7 +1493,10 @@ export function SlideEditorVNext({
     onDeckChange(result.deck);
     setSelection((s) => setSelectedNodeIds(s, [result.nodeId]));
     setFocusedNodeId(result.nodeId);
-    window.setTimeout(() => focusStageNode(result.nodeId), 0);
+    window.setTimeout(
+      () => focusStageNode(focusGeometryRegistry, result.nodeId),
+      0,
+    );
   }
 
   function handleInsertText() {
@@ -1868,7 +1715,7 @@ export function SlideEditorVNext({
   function focusSelectedNodeSoon(nodeId: string | undefined) {
     if (!nodeId) return;
     setFocusedNodeId(nodeId);
-    window.setTimeout(() => focusStageNode(nodeId), 0);
+    window.setTimeout(() => focusStageNode(focusGeometryRegistry, nodeId), 0);
   }
 
   function focusStageViewportSoon() {
@@ -1925,7 +1772,10 @@ export function SlideEditorVNext({
     if (replacementId) {
       setSelection((s) => setSelectedNodeIds(s, [replacementId]));
       setFocusedNodeId(replacementId);
-      window.setTimeout(() => focusStageNode(replacementId), 0);
+      window.setTimeout(
+        () => focusStageNode(focusGeometryRegistry, replacementId),
+        0,
+      );
     } else {
       setSelection((s) => clearSelection(s));
       setFocusedNodeId(null);
@@ -2617,25 +2467,6 @@ export function SlideEditorVNext({
   });
 
   const exportDiagnostics = useExportDiagnostics(renderTree);
-  const sourceDerivations = useMemo(
-    () => deriveSourceReviewDerivations(deck, documentSourceIndex),
-    [deck, documentSourceIndex],
-  );
-  const sourceClassifications = sourceDerivations.classifications;
-  const diagnostics = dedupeDiagnostics([
-    ...boundaryDiagnostics,
-    ...(renderTree?.diagnostics ?? []),
-    ...exportDiagnostics,
-    ...sourceDerivations.diagnostics,
-  ]);
-  const sourceReview = sourceDerivations.reviewItems;
-  const documentInsertBlocks = documentSourceInsertBlocks(documentSourceIndex);
-  const sourceStatusLabel =
-    documentSourceIndex === undefined
-      ? "No live document source"
-      : sourceReview.length > 0
-        ? `${sourceReview.length} source issue${sourceReview.length === 1 ? "" : "s"}`
-        : "Up to date";
 
   // ---------------------------------------------------------------------------
   // Selected node data (from the persisted deck, not the resolved tree)
@@ -2648,14 +2479,46 @@ export function SlideEditorVNext({
     activeSlide && firstSelectedId
       ? findNodeById(activeSlide.children, firstSelectedId)
       : undefined;
-  const selectedSourceClassification =
-    activeSlide && firstSelectedId
-      ? sourceClassifications.find(
-          (item) =>
-            item.slideId === activeSlide.id && item.nodeId === firstSelectedId,
-        )
-      : undefined;
   const selectedSource = selectedNode?.source;
+  const {
+    documentSourceIndex,
+    sourceDerivations,
+    selectedSourceClassification,
+    sourceReview,
+    documentInsertBlocks,
+    sourceStatusLabel,
+    sourceReviewStatus,
+    handleRefreshSelectedSource,
+    handleSelectSourceItem,
+    handleRefreshSourceAt,
+    handleUnlinkSourceAt,
+    handleRelinkSourceAt,
+    handleDismissSourceAt,
+    handleRefreshAllSources,
+    handleSyncFromDocument,
+    handleReviewSourceLinks,
+  } = useSourceReviewController({
+    documentId,
+    documentBlocks,
+    sourceBlockIndex,
+    deck,
+    activeSlide,
+    selectedNode,
+    onRefreshSource,
+    onDeckChange,
+    setActiveSlideIndex,
+    setSelection,
+    focusSelectedNodeSoon,
+    openInspectorPanel,
+    setSourceMenuOpen,
+    setStageAnnouncement,
+  });
+  const diagnostics = dedupeDiagnostics([
+    ...boundaryDiagnostics,
+    ...(renderTree?.diagnostics ?? []),
+    ...exportDiagnostics,
+    ...sourceDerivations.diagnostics,
+  ]);
   const {
     tableEditingNodeId,
     activeTableCell,
@@ -2735,7 +2598,7 @@ export function SlideEditorVNext({
         setStageAnnouncement(`${selectedIds.length} nodes selected`);
       }
     });
-  }, [selectedIds, selectedNode?.type]);
+  }, [selectedIds, selectedNode?.type, setStageAnnouncement]);
 
   function resolveDeckAsset(assetId: string): string | undefined {
     return resolveDeckAssetSource(deck, assetId);
@@ -3239,7 +3102,10 @@ export function SlideEditorVNext({
       if (nextId) {
         setSelection((s) => setSelectedNodeIds(s, [nextId]));
         setFocusedNodeId(nextId);
-        window.setTimeout(() => focusStageNode(nextId), 0);
+        window.setTimeout(
+          () => focusStageNode(focusGeometryRegistry, nextId),
+          0,
+        );
         event.preventDefault();
       }
       return;
@@ -3345,7 +3211,10 @@ export function SlideEditorVNext({
         ];
         setSelection((s) => setSelectedNodeIds(s, orderedSelection));
         setFocusedNodeId(primaryId);
-        window.setTimeout(() => focusStageNode(primaryId), 0);
+        window.setTimeout(
+          () => focusStageNode(focusGeometryRegistry, primaryId),
+          0,
+        );
       }
       return;
     }
@@ -3696,123 +3565,6 @@ export function SlideEditorVNext({
     onDeckChange(
       updateNodeSourceMetadata(deck, activeSlide.id, firstSelectedId, source),
     );
-  }
-
-  async function handleRefreshSelectedSource() {
-    if (!activeSlide || !selectedNode?.source) return;
-    const result = await refreshSelectedSourceLink({
-      deck,
-      slide: activeSlide,
-      node: selectedNode,
-      now: new Date().toISOString(),
-      sourceBlockIndex: documentSourceIndex,
-      onRefreshSource,
-    });
-    if (!result) return;
-    applySourceLinkOrchestration(result);
-  }
-
-  function handleSelectSourceItem(slideId: string, nodeId: string) {
-    const slideIndex = deck.slides.findIndex((slide) => slide.id === slideId);
-    if (slideIndex === -1) return;
-    setActiveSlideIndex(slideIndex);
-    setSelection((s) => setSelectedNodeIds(s, [nodeId]));
-    focusSelectedNodeSoon(nodeId);
-  }
-
-  function applySourceLinkOrchestration(
-    result: SourceLinkOrchestrationResult,
-  ): void {
-    if (result.deck) {
-      onDeckChange(result.deck);
-    }
-    if (result.selection) {
-      handleSelectSourceItem(result.selection.slideId, result.selection.nodeId);
-    }
-    if (result.statusMessage) {
-      setSourceReviewStatus(result.statusMessage);
-    }
-    if (result.announcement) {
-      setStageAnnouncement(result.announcement);
-    }
-  }
-
-  function handleRefreshSourceAt(slideId: string, nodeId: string) {
-    if (!documentSourceIndex) return;
-    applySourceLinkOrchestration(
-      refreshSourceReviewItem({
-        deck,
-        sourceBlockIndex: documentSourceIndex,
-        slideId,
-        nodeId,
-        now: new Date().toISOString(),
-      }),
-    );
-  }
-
-  function handleUnlinkSourceAt(slideId: string, nodeId: string) {
-    applySourceLinkOrchestration(
-      unlinkSourceReviewItem({
-        deck,
-        slideId,
-        nodeId,
-        now: new Date().toISOString(),
-      }),
-    );
-  }
-
-  function handleRelinkSourceAt(
-    slideId: string,
-    nodeId: string,
-    block: SourceBlockIndexEntry,
-  ) {
-    applySourceLinkOrchestration(
-      relinkSourceReviewItem({
-        deck,
-        slideId,
-        nodeId,
-        block,
-        now: new Date().toISOString(),
-      }),
-    );
-  }
-
-  function handleDismissSourceAt(slideId: string, nodeId: string) {
-    if (!documentSourceIndex) return;
-    applySourceLinkOrchestration(
-      dismissSourceReviewItem({
-        deck,
-        sourceBlockIndex: documentSourceIndex,
-        slideId,
-        nodeId,
-        now: new Date().toISOString(),
-      }),
-    );
-  }
-
-  function handleRefreshAllSources() {
-    if (!documentSourceIndex) return;
-    applySourceLinkOrchestration(
-      refreshAllSourceReviewItems({
-        deck,
-        sourceBlockIndex: documentSourceIndex,
-        now: new Date().toISOString(),
-      }),
-    );
-  }
-
-  function handleSyncFromDocument() {
-    handleRefreshAllSources();
-    setSourceMenuOpen(false);
-  }
-
-  function handleReviewSourceLinks() {
-    const [first] = sourceReview;
-    if (!first) return;
-    handleSelectSourceItem(first.slideId, first.nodeId);
-    requestInspectorPanel("source");
-    if (isMobileInspectorViewport()) setInspectorSheetOpen(true);
-    setSourceMenuOpen(false);
   }
 
   function handleSelectLayer(nodeId: string) {
@@ -5152,18 +4904,8 @@ export function SlideEditorVNext({
       ) : null}
       {closeConfirmOpen ? (
         <SlideEditorCloseConfirmDialog
-          onCancel={() =>
-            handleCloseConfirmAction("cancel", {
-              closeCloseConfirmDialog: () => setCloseConfirmOpen(false),
-              closeEditor: () => onClose?.(),
-            })
-          }
-          onDiscard={() =>
-            handleCloseConfirmAction("discard", {
-              closeCloseConfirmDialog: () => setCloseConfirmOpen(false),
-              closeEditor: () => onClose?.(),
-            })
-          }
+          onCancel={handleCloseConfirmCancel}
+          onDiscard={handleCloseConfirmDiscard}
         />
       ) : null}
 
@@ -5457,6 +5199,7 @@ export function SlideEditorVNext({
                     }
                     slideSelected={selectedIds.length === 0}
                     focusedNodeId={focusedNodeId ?? firstSelectedId ?? null}
+                    focusGeometryRegistry={focusGeometryRegistry}
                     className="shadow-ds-xl"
                   />
 

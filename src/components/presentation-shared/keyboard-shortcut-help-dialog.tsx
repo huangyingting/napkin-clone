@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 
 import { IconButton } from "@/components/ui";
 import { Dialog } from "@/components/ui/dialog";
-import { canvasShortcutHelp } from "@/lib/presentation/canvas-a11y";
+import { canvasShortcutHelp } from "@/lib/presentation-shared/canvas-shortcut-help";
 
 /**
  * In-product keyboard shortcut help overlay for the slide editor canvas (#535).

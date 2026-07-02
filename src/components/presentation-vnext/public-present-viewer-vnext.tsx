@@ -14,7 +14,7 @@
  * - `embed` mode suppresses the top HUD chrome
  */
 
-import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { useCallback, type JSX } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { PresentationDiagnostic } from "@/lib/presentation-vnext/diagnostics";
@@ -22,20 +22,15 @@ import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
 import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
-import { fitAspectRatio } from "@/lib/presentation/stage-fit";
-import {
-  initialPublicHashSlideIndex,
-  usePublicSlideHash,
-} from "@/components/presentation/runtime/public-hash-plugin";
+import { presentCanvasAspectRatio } from "@/lib/presentation-vnext/present-shell";
 import {
   PRESENTATION_NAVIGATION_SHORTCUT_IDS,
-  usePresentationClickZones,
-  usePresentationKeyboardNavigation,
-  useSlideBounds,
-  useSlideNavigation,
-  useSwipeNavigation,
-  type PresentationShortcutAction,
-} from "@/components/presentation/runtime/navigation";
+  initialPublicPresentHashSlideIndex,
+  usePresentKeyboardNavigation,
+  usePresentNavigationShellVNext,
+  usePublicPresentSlideHash,
+  type PresentShortcutAction,
+} from "@/components/presentation-vnext/present-shell-vnext";
 import { MadeWithBadge } from "@/components/made-with-badge";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SlideCanvasVNext } from "./slide-canvas";
@@ -78,83 +73,57 @@ export function PublicPresentViewerVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
 
   const total = renderTree?.slides.length ?? 0;
+  const canvas = renderTree?.canvas;
 
-  const { currentIndex, goNext, goPrev, goFirst, goLast, progress } =
-    useSlideNavigation(total, initialPublicHashSlideIndex(total));
-  const { slideAreaRef, slideAreaBounds } = useSlideBounds<HTMLDivElement>();
+  const {
+    currentIndex,
+    goNext,
+    goPrev,
+    goFirst,
+    goLast,
+    progress,
+    slideAreaRef,
+    fittedSlideSize,
+    swipeHandlers,
+    clickZones,
+    hudVisible,
+  } = usePresentNavigationShellVNext<HTMLDivElement>({
+    total,
+    initialIndex: initialPublicPresentHashSlideIndex(total),
+    aspectRatio: presentCanvasAspectRatio(canvas),
+    autoHideHud: !embed,
+  });
 
-  usePublicSlideHash(currentIndex);
+  usePublicPresentSlideHash(currentIndex);
 
   const handleShortcut = useCallback(
-    (action: PresentationShortcutAction) => {
+    (action: PresentShortcutAction) => {
       switch (action) {
         case "next":
           goNext();
-          break;
+          return true;
         case "previous":
           goPrev();
-          break;
+          return true;
         case "first":
           goFirst();
-          break;
+          return true;
         case "last":
           goLast();
-          break;
+          return true;
       }
     },
     [goFirst, goLast, goNext, goPrev],
   );
 
-  usePresentationKeyboardNavigation({
+  usePresentKeyboardNavigation({
     shortcuts: PRESENTATION_NAVIGATION_SHORTCUT_IDS,
     onShortcut: handleShortcut,
   });
 
-  const swipeHandlers = useSwipeNavigation({
-    onNext: goNext,
-    onPrevious: goPrev,
-  });
-  const clickZones = usePresentationClickZones({
-    currentIndex,
-    total,
-    onNext: goNext,
-    onPrevious: goPrev,
-  });
-
-  const [hudVisible, setHudVisible] = useState(true);
-  const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const scheduleHudHide = useCallback(() => {
-    if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
-    hudTimerRef.current = setTimeout(() => setHudVisible(false), 3000);
-  }, []);
-
-  const resetHudTimer = useCallback(() => {
-    setHudVisible(true);
-    scheduleHudHide();
-  }, [scheduleHudHide]);
-
-  useEffect(() => {
-    if (embed) return;
-    scheduleHudHide();
-    window.addEventListener("mousemove", resetHudTimer);
-    window.addEventListener("keydown", resetHudTimer);
-    return () => {
-      window.removeEventListener("mousemove", resetHudTimer);
-      window.removeEventListener("keydown", resetHudTimer);
-      if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
-    };
-  }, [embed, resetHudTimer, scheduleHudHide]);
-
-  const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
     return resolveDeckAssetSource(deck, assetId);
   }
-  const aspectRatio =
-    canvas && canvas.width > 0 && canvas.height > 0
-      ? canvas.width / canvas.height
-      : 16 / 9;
-  const fittedSlideSize = fitAspectRatio(slideAreaBounds, aspectRatio);
 
   if (recovery) {
     const details = [

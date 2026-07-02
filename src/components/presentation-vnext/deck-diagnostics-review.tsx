@@ -8,7 +8,6 @@ import type {
 
 import type {
   DiagnosticAction,
-  DiagnosticActionType,
   PresentationDiagnostic,
 } from "@/lib/presentation-vnext/diagnostics";
 import {
@@ -17,21 +16,8 @@ import {
   getDiagnosticSlideId,
   groupDiagnostics,
 } from "@/lib/presentation-vnext/diagnostics";
+import { diagnosticActionDescriptor } from "@/lib/presentation-vnext/review-action-descriptors";
 import { FOCUS_RING, cx } from "@/components/ui/tokens";
-
-const ACTION_LABELS: Record<DiagnosticActionType, string> = {
-  "reset-to-theme": "Reset to theme",
-  "choose-denser-layout": "Use denser layout",
-  "split-slide": "Split slide",
-  "open-asset-panel": "Open asset panel",
-  "remove-override": "Remove override",
-  "restore-decoration": "Restore decoration",
-  "replace-style-ref": "Replace style ref",
-  "refresh-source": "Refresh source",
-  "unlink-source": "Unlink source",
-  "relink-source": "Relink source",
-  "open-source-review": "Open Source Review",
-};
 
 const SEVERITY_STYLES: Record<string, string> = {
   fatal: "bg-ds-status-error-fill text-ds-status-error-text",
@@ -163,69 +149,77 @@ export function DeckDiagnosticsReview({
                     className="flex flex-col divide-y divide-ds-border-subtle"
                     role="list"
                   >
-                    {group.diagnostics.map((diagnostic, index) => (
-                      <li
-                        key={`${diagnostic.code}-${diagnostic.path ?? ""}-${index}`}
-                        className="flex flex-col gap-2 px-3 py-2 text-xs"
-                      >
-                        <div className="flex items-start gap-2">
-                          <span
-                            className={cx(
-                              "mt-0.5 shrink-0 rounded px-1 py-0.5 text-[10px] font-bold uppercase",
-                              SEVERITY_STYLES[diagnostic.severity],
-                            )}
-                          >
-                            {diagnostic.severity}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-ds-text-primary">
-                              {diagnostic.message}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-ds-text-muted">
-                              {diagnostic.code} · {diagnostic.category} ·{" "}
-                              {diagnosticTargetLabel(diagnostic.target)}
-                              {diagnostic.path ? ` · ${diagnostic.path}` : ""}
-                            </p>
+                    {group.diagnostics.map((diagnostic, index) => {
+                      const action = diagnostic.action;
+                      const actionDescriptor = action
+                        ? diagnosticActionDescriptor(action)
+                        : undefined;
+                      return (
+                        <li
+                          key={`${diagnostic.code}-${diagnostic.path ?? ""}-${index}`}
+                          className="flex flex-col gap-2 px-3 py-2 text-xs"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span
+                              className={cx(
+                                "mt-0.5 shrink-0 rounded px-1 py-0.5 text-[10px] font-bold uppercase",
+                                SEVERITY_STYLES[diagnostic.severity],
+                              )}
+                            >
+                              {diagnostic.severity}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-ds-text-primary">
+                                {diagnostic.message}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-ds-text-muted">
+                                {diagnostic.code} · {diagnostic.category} ·{" "}
+                                {diagnosticTargetLabel(diagnostic.target)}
+                                {diagnostic.path ? ` · ${diagnostic.path}` : ""}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 pl-0 sm:pl-16">
-                          {canNavigate(diagnostic) ? (
-                            <button
-                              type="button"
-                              aria-label={diagnosticReviewActionAriaLabel(
-                                "Go to target",
-                                diagnostic,
-                              )}
-                              onClick={() => onNavigate(diagnostic)}
-                              className={cx(
-                                "rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-[11px] font-medium text-ds-text-secondary hover:bg-ds-state-hover",
-                                FOCUS_RING,
-                              )}
-                            >
-                              Go to target
-                            </button>
-                          ) : null}
-                          {diagnostic.action ? (
-                            <button
-                              type="button"
-                              aria-label={diagnosticReviewActionAriaLabel(
-                                ACTION_LABELS[diagnostic.action.type],
-                                diagnostic,
-                              )}
-                              onClick={() =>
-                                onAction(diagnostic.action!, diagnostic)
-                              }
-                              className={cx(
-                                "rounded-ds-sm px-2 py-1 text-[11px] font-medium text-ds-accent-text underline-offset-2 hover:underline",
-                                FOCUS_RING,
-                              )}
-                            >
-                              {ACTION_LABELS[diagnostic.action.type]}
-                            </button>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
+                          <div className="flex flex-wrap gap-2 pl-0 sm:pl-16">
+                            {canNavigate(diagnostic) ? (
+                              <button
+                                type="button"
+                                aria-label={diagnosticReviewActionAriaLabel(
+                                  "Go to target",
+                                  diagnostic,
+                                )}
+                                onClick={() => onNavigate(diagnostic)}
+                                className={cx(
+                                  "rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-[11px] font-medium text-ds-text-secondary hover:bg-ds-state-hover",
+                                  FOCUS_RING,
+                                )}
+                              >
+                                Go to target
+                              </button>
+                            ) : null}
+                            {action && actionDescriptor ? (
+                              <button
+                                type="button"
+                                aria-label={diagnosticReviewActionAriaLabel(
+                                  actionDescriptor.label,
+                                  diagnostic,
+                                )}
+                                disabled={Boolean(
+                                  actionDescriptor.disabledReason,
+                                )}
+                                title={actionDescriptor.disabledReason}
+                                onClick={() => onAction(action, diagnostic)}
+                                className={cx(
+                                  "rounded-ds-sm px-2 py-1 text-[11px] font-medium text-ds-accent-text underline-offset-2 hover:underline disabled:opacity-40",
+                                  FOCUS_RING,
+                                )}
+                              >
+                                {actionDescriptor.label}
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               ))}

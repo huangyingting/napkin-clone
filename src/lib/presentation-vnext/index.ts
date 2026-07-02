@@ -225,6 +225,14 @@ export type { DeckV7ParseResult } from "./validation";
 export { safeParseDeckV7 } from "./validation";
 
 // Theme package schema
+export type { BuiltInThemePackageId } from "../presentation-shared/theme-package-ids";
+export {
+  BUILT_IN_THEME_PACKAGE_IDS,
+  DEFAULT_BUILT_IN_THEME_PACKAGE_ID,
+  BUILT_IN_THEME_PACKAGE_ALIASES,
+  isBuiltInThemePackageId,
+  resolveBuiltInThemePackageId,
+} from "../presentation-shared/theme-package-ids";
 export type {
   TemplateStaticContent,
   ThemeDecorationRecipe,
@@ -289,6 +297,48 @@ export {
 
 // Slide spec projection
 export { slideSpecFromSlide, emptySlideSpecFromLayout } from "./slide-spec";
+
+// DeckV7 node tree traversal and mutation helpers
+export type {
+  NodeTreeEntry,
+  NodeTreeFlattenOptions,
+  NodeLayerOrder,
+  NodeLayerOrderOptions,
+  NodeTreeMutationResult,
+  InsertNodeResult,
+  RemoveNodesResult,
+  ReorderNodeResult,
+  GroupNodeFactoryContext,
+  GroupNodesResult,
+  UngroupNodeResult,
+} from "./node-tree-ops";
+export {
+  flattenNodeTreeEntries,
+  flattenNodeTree,
+  flattenLeafNodes,
+  findNodeEntryById,
+  findNodeById,
+  findParentGroupForNode,
+  parentGroupIdForNode,
+  parentPathForNode,
+  ancestorIdsForNode,
+  isAncestorOfNode,
+  collectSubtreeNodeIds,
+  collectDescendantNodeIds,
+  collectNodeTreeIds,
+  expandNodeIdsWithDescendants,
+  topLevelSelectedNodeIds,
+  commonAncestorPath,
+  nodesInLayerOrder,
+  buildLayerReorderPatches,
+  insertNodeAtPath,
+  insertNodeRelativeTo,
+  removeNodesById,
+  removeNodeById,
+  reorderNodeWithinParent,
+  groupNodesById,
+  ungroupNodeById,
+} from "./node-tree-ops";
 
 // Render tree
 export type {
@@ -360,6 +410,43 @@ export {
   reorderZIndex,
   updateAssetMetadata,
 } from "./editor-commands";
+
+// Current-object command descriptors
+export type {
+  CurrentObjectCommandSurface,
+  CurrentObjectCommandDisabledReason,
+  CurrentObjectKind,
+  CurrentObjectCommandFamily,
+  CurrentObjectCommandOwner,
+  CurrentObjectCommandDescriptor,
+  CurrentObjectInsertNodeKind,
+  CurrentObjectInsertNodeCommandDescriptor,
+  CurrentObjectInsertNodeCommandId,
+  CurrentObjectAlignMode,
+  CurrentObjectAlignCommandDescriptor,
+  CurrentObjectAlignCommandId,
+  CurrentObjectReorderMode,
+  CurrentObjectReorderCommandDescriptor,
+  CurrentObjectReorderCommandId,
+  CurrentObjectCommandId,
+} from "./current-object-command-descriptors";
+export {
+  CURRENT_OBJECT_COMMAND_SURFACES,
+  CURRENT_OBJECT_COMMAND_SURFACE_LABELS,
+  CURRENT_OBJECT_DISABLED_REASONS,
+  CURRENT_OBJECT_DISABLED_REASON_LABELS,
+  CURRENT_OBJECT_COMMAND_FAMILIES,
+  CURRENT_OBJECT_INSERT_NODE_COMMAND_DESCRIPTORS,
+  CURRENT_OBJECT_ALIGN_COMMAND_DESCRIPTORS,
+  CURRENT_OBJECT_REORDER_COMMAND_DESCRIPTORS,
+  CURRENT_OBJECT_COMMAND_DESCRIPTORS,
+  findCurrentObjectCommandDescriptor,
+  currentObjectCommandDescriptor,
+  currentObjectCommandDescriptorsForSurface,
+  currentObjectAlignCommandDescriptor,
+  currentObjectReorderCommandDescriptor,
+  currentObjectInsertNodeCommandDescriptor,
+} from "./current-object-command-descriptors";
 
 export type {
   StageGuide,

@@ -1,109 +1,20 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import * as React from "react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 
 import { CONFLICT_USE_SERVER_RELOAD_FAILED_MESSAGE } from "@/lib/presentation-vnext/conflict-recovery-reload-v7";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import { buildMinimalDeckV7 } from "@/test/builders/deck-v7";
+import { createReactHookRenderer } from "@/test/react-internals";
 import { ConflictRecoveryDialogV7 } from "./conflict-recovery-dialog-v7";
-
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
 
 type ElementLike = ReactElement<Record<string, unknown>>;
 
 function createHookRenderer() {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals, "React internals were unavailable for hook rendering.");
-  const reactInternals = internals;
-  const slots: unknown[] = [];
-
-  function run<T>(renderComponent: () => T): T {
-    let hookIndex = 0;
-    const previous = reactInternals.H;
-    const dispatcher = {
-      useState: <S>(initial: S | (() => S)) => {
-        const slotIndex = hookIndex++;
-        if (!(slotIndex in slots)) {
-          slots[slotIndex] =
-            typeof initial === "function" ? (initial as () => S)() : initial;
-        }
-        const setState = (next: S | ((previousState: S) => S)) => {
-          const previousState = slots[slotIndex] as S;
-          slots[slotIndex] =
-            typeof next === "function"
-              ? (next as (previousState: S) => S)(previousState)
-              : next;
-        };
-        return [slots[slotIndex] as S, setState] as const;
-      },
-      useRef: <T>(initial: T) => {
-        const slotIndex = hookIndex++;
-        if (!(slotIndex in slots)) slots[slotIndex] = { current: initial };
-        return slots[slotIndex] as { current: T };
-      },
-      useMemo: <T>(factory: () => T) => {
-        hookIndex++;
-        return factory();
-      },
-      useCallback: <T>(callback: T) => {
-        hookIndex++;
-        return callback;
-      },
-      useId: () => {
-        const slotIndex = hookIndex++;
-        if (!(slotIndex in slots))
-          slots[slotIndex] = `fake-react-id-${slotIndex}`;
-        return slots[slotIndex] as string;
-      },
-      useContext: () => {
-        hookIndex++;
-        return undefined;
-      },
-      useEffect: () => {
-        hookIndex++;
-      },
-      useLayoutEffect: () => {
-        hookIndex++;
-      },
-      useInsertionEffect: () => {
-        hookIndex++;
-      },
-      useSyncExternalStore: <T>(
-        _subscribe: (_callback: () => void) => () => void,
-        getSnapshot: () => T,
-        getServerSnapshot?: () => T,
-      ) => {
-        hookIndex++;
-        return getServerSnapshot ? getServerSnapshot() : getSnapshot();
-      },
-      useTransition: () => {
-        hookIndex++;
-        return [false, (callback?: () => void) => callback?.()] as const;
-      },
-      useDeferredValue: <T>(value: T) => {
-        hookIndex++;
-        return value;
-      },
-      useImperativeHandle: () => {
-        hookIndex++;
-      },
-    };
-
-    reactInternals.H = dispatcher;
-    try {
-      return renderComponent();
-    } finally {
-      reactInternals.H = previous;
-    }
-  }
-
-  return { run };
+  return createReactHookRenderer({
+    idPrefix: "fake-react-id",
+    preferServerSnapshot: true,
+  });
 }
 
 function collectElements(

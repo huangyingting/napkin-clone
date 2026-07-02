@@ -10,7 +10,7 @@ import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
   slideAspectRatio,
   type SlideFormat,
-} from "@/lib/presentation/slide-format";
+} from "@/lib/presentation-shared/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 
 import { PRESENT_MODE_SHORTCUTS } from "./presenter-shortcuts";

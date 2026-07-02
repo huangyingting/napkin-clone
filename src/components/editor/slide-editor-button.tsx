@@ -27,9 +27,9 @@ import { buildSourceBlockIndex } from "@/lib/presentation-vnext/block-index";
 import { openDeckFromJson } from "@/lib/presentation-vnext/open-deck";
 import { exportDeckV7AsPPTX } from "@/lib/presentation-vnext/pptx-vnext-apply";
 import { resolveThemePackageForDeck } from "@/lib/presentation-vnext/theme-package-registry";
-import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
-import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
-import type { SlidePresenceAwareness } from "@/lib/presentation/use-slide-presence";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
+import type { SlidePresenceAwareness } from "@/lib/presentation-shared/use-slide-presence";
 import { downloadBlob } from "@/lib/visual/export";
 
 export function SlideEditorOpenRecovery({

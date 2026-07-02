@@ -22,6 +22,7 @@ import type {
   StyleBinding,
   StylePatch,
 } from "@/lib/presentation-vnext/style-schema";
+import { currentObjectReorderCommandDescriptor } from "@/lib/presentation-vnext/current-object-command-descriptors";
 
 import { InspectorShell, type InspectorShellProps } from "./inspector-shell";
 import {
@@ -350,7 +351,7 @@ test("InspectorShell final tabs, notes, decoration, and fallback panels call saf
     initialPanel: "decoration",
   });
   assert.equal(textContent(decoration).includes("Deck Chrome"), true);
-  clickButtons(decoration, ["Detach from theme"]);
+  clickButtons(decoration, ["Detach from deck chrome"]);
 
   assert.deepEqual(recorder.slideAttributes, [{ notes: "Updated notes" }]);
   assert.ok(recorder.actions.includes("toggle-layers"));
@@ -359,6 +360,7 @@ test("InspectorShell final tabs, notes, decoration, and fallback panels call saf
 
 test("InspectorShell final arrange panels exercise align, distribute, match size, and reorder actions", () => {
   const recorder = createRecorder();
+  const reorderModes = ["front", "back", "forward", "backward"] as const;
   const multi = renderInspector(recorder, {
     selectedNode: textNode,
     selectedIds: ["text-1", "image-1", "shape-1"],
@@ -378,10 +380,9 @@ test("InspectorShell final arrange panels exercise align, distribute, match size
     "Match both",
     "Group",
     "Ungroup",
-    "Front",
-    "Back",
-    "Forward",
-    "Backward",
+    ...reorderModes.map(
+      (mode) => currentObjectReorderCommandDescriptor(mode).shortLabel,
+    ),
   ]);
 
   const disabledMulti = renderInspector(recorder, {
@@ -401,7 +402,13 @@ test("InspectorShell final arrange panels exercise align, distribute, match size
     selectedIds: [textNode.id],
     initialPanel: "arrange",
   });
-  clickButtons(single, ["Bring front", "Send back", "Forward", "Backward"]);
+  clickButtons(
+    single,
+    reorderModes.map(
+      (mode) =>
+        currentObjectReorderCommandDescriptor(mode).inspectorSingleLabel,
+    ),
+  );
 
   assert.deepEqual(recorder.align.slice(0, 6), [
     "left",

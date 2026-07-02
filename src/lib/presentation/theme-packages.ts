@@ -7,6 +7,13 @@ import oceanPackageJson from "./theme-package-sources/ocean.package.json";
 import pulsePackageJson from "./theme-package-sources/pulse.package.json";
 import terraPackageJson from "./theme-package-sources/terra.package.json";
 
+import {
+  BUILT_IN_THEME_PACKAGE_IDS,
+  DEFAULT_BUILT_IN_THEME_PACKAGE_ID,
+  isBuiltInThemePackageId,
+  resolveBuiltInThemePackageId,
+  type BuiltInThemePackageId,
+} from "../presentation-shared/theme-package-ids";
 import type { Deck, Slide, SlideMaster, SlideTemplate } from "./deck-core";
 import type { PresentationTheme } from "./presentation-theme-types";
 import {
@@ -41,20 +48,12 @@ export {
   type ThemePackageTemplateMetadata,
 } from "./theme-template-taxonomy";
 
-export const THEME_PACKAGE_IDS = [
-  "clarity",
-  "ocean",
-  "aurora",
-  "monolith",
-  "editorial",
-  "noir",
-  "terra",
-  "pulse",
-] as const;
+export const THEME_PACKAGE_IDS = BUILT_IN_THEME_PACKAGE_IDS;
 
-export type ThemePackageId = (typeof THEME_PACKAGE_IDS)[number];
+export type ThemePackageId = BuiltInThemePackageId;
 
-export const DEFAULT_THEME_PACKAGE_ID: ThemePackageId = "clarity";
+export const DEFAULT_THEME_PACKAGE_ID: ThemePackageId =
+  DEFAULT_BUILT_IN_THEME_PACKAGE_ID;
 
 export interface PresentationThemePackage {
   id: ThemePackageId;
@@ -79,22 +78,22 @@ type PackageDeckSource = {
   templates: SlideTemplate[];
 };
 
-const PACKAGE_ID_SET = new Set<string>(THEME_PACKAGE_IDS);
 const TEMPLATE_ID_KIND_SET = new Set<string>(THEME_PACKAGE_TEMPLATE_KINDS);
-const PACKAGE_ALIASES: Record<string, ThemePackageId> = {
-  default: DEFAULT_THEME_PACKAGE_ID,
-};
+const PACKAGE_SOURCE_BY_ID = {
+  clarity: clarityPackageJson,
+  ocean: oceanPackageJson,
+  aurora: auroraPackageJson,
+  monolith: monolithPackageJson,
+  editorial: editorialPackageJson,
+  noir: noirPackageJson,
+  terra: terraPackageJson,
+  pulse: pulsePackageJson,
+} as const satisfies Record<ThemePackageId, unknown>;
 
-const PACKAGE_SOURCES: PackageDeckSource[] = [
-  clarityPackageJson,
-  oceanPackageJson,
-  auroraPackageJson,
-  monolithPackageJson,
-  editorialPackageJson,
-  noirPackageJson,
-  terraPackageJson,
-  pulsePackageJson,
-].map((source) => source as unknown as PackageDeckSource);
+const PACKAGE_SOURCES: PackageDeckSource[] = THEME_PACKAGE_IDS.map(
+  (packageId) =>
+    PACKAGE_SOURCE_BY_ID[packageId] as unknown as PackageDeckSource,
+);
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -134,14 +133,13 @@ const PACKAGE_BY_ID = new Map(
 );
 
 export function isThemePackageId(value: unknown): value is ThemePackageId {
-  return typeof value === "string" && PACKAGE_ID_SET.has(value);
+  return isBuiltInThemePackageId(value);
 }
 
 export function resolveThemePackageId(
   packageId: string,
 ): ThemePackageId | undefined {
-  if (isThemePackageId(packageId)) return packageId;
-  return PACKAGE_ALIASES[packageId];
+  return resolveBuiltInThemePackageId(packageId);
 }
 
 export function getThemePackage(

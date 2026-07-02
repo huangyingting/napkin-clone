@@ -66,7 +66,7 @@ import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
-import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
 import {
   PRESENTATION_ROLES,
@@ -80,7 +80,7 @@ import type {
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
-import type { SlideFormat } from "@/lib/presentation/slide-format";
+import type { SlideFormat } from "@/lib/presentation-shared/slide-format";
 import type {
   AlignMode,
   DistributeMode,
@@ -89,7 +89,7 @@ import type {
 import {
   SLIDE_FORMATS,
   slideFormatConfig,
-} from "@/lib/presentation/slide-format";
+} from "@/lib/presentation-shared/slide-format";
 import {
   ZOOM_PERCENT_PRESETS,
   zoomToPercent,

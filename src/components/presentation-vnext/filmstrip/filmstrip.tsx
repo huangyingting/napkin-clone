@@ -11,7 +11,15 @@
  * the editor and scoped per document.
  */
 
-import { Fragment, useState, type JSX, type KeyboardEvent } from "react";
+import {
+  Fragment,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type KeyboardEvent,
+} from "react";
 import { Plus } from "lucide-react";
 
 import { MIN_DECK_SLIDES_MESSAGE } from "@/lib/presentation-vnext";
@@ -19,6 +27,10 @@ import type { ResolvedDeckRenderTree } from "@/lib/presentation-vnext/render-tre
 import type { Visual } from "@/lib/visual/schema";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 import { SlideCanvasVNext } from "../slide-canvas";
+import {
+  createFocusGeometryRegistry,
+  focusGeometryTargets,
+} from "../focus-geometry-registry";
 import { FilmstripSlide } from "./filmstrip-slide";
 import { useFilmstripDrag } from "./use-filmstrip-drag";
 
@@ -48,6 +60,11 @@ export function Filmstrip({
   onMoveSlide,
 }: FilmstripProps): JSX.Element {
   const [statusMessage, setStatusMessage] = useState("");
+  const pendingFocusSlideIndexRef = useRef<number | null>(null);
+  const focusGeometryRegistry = useMemo(
+    () => createFocusGeometryRegistry(),
+    [],
+  );
   const canvasWidth =
     renderTree.canvas.width > 0 ? renderTree.canvas.width : 16;
   const canvasHeight =
@@ -59,6 +76,35 @@ export function Filmstrip({
     onSelectSlide,
   });
 
+  useLayoutEffect(() => {
+    const pendingFocusSlideIndex = pendingFocusSlideIndexRef.current;
+    if (pendingFocusSlideIndex === null) return;
+    if (renderTree.slides.length === 0) {
+      pendingFocusSlideIndexRef.current = null;
+      return;
+    }
+    const targetIndex = Math.min(
+      Math.max(pendingFocusSlideIndex, 0),
+      renderTree.slides.length - 1,
+    );
+    pendingFocusSlideIndexRef.current = targetIndex;
+    if (
+      focusGeometryRegistry.focus(
+        focusGeometryTargets.filmstripSlideButton(targetIndex),
+      )
+    ) {
+      pendingFocusSlideIndexRef.current = null;
+    }
+  });
+
+  function requestSlideButtonFocus(index: number) {
+    if (renderTree.slides.length === 0) return;
+    pendingFocusSlideIndexRef.current = Math.min(
+      Math.max(index, 0),
+      renderTree.slides.length - 1,
+    );
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLOListElement>) {
     const focusedCell =
       event.target instanceof HTMLElement
@@ -67,14 +113,6 @@ export function Filmstrip({
     const focusedIndex = focusedCell?.dataset.slideIndex
       ? Number(focusedCell.dataset.slideIndex)
       : activeSlideIndex;
-    const focusSlideButton = (index: number) => {
-      window.setTimeout(() => {
-        const button = containerRef.current?.querySelector<HTMLButtonElement>(
-          `[data-slide-index="${index}"] button[aria-label^="Go to slide"]`,
-        );
-        button?.focus();
-      }, 0);
-    };
     const focusedSlide = renderTree.slides[focusedIndex];
 
     if (
@@ -90,7 +128,7 @@ export function Filmstrip({
       event.preventDefault();
       onMoveSlide(focusedSlide.id, nextIndex);
       setStatusMessage(`Moved slide ${focusedIndex + 1} to ${nextIndex + 1}.`);
-      focusSlideButton(nextIndex);
+      requestSlideButtonFocus(nextIndex);
       return;
     }
 
@@ -98,7 +136,7 @@ export function Filmstrip({
       event.preventDefault();
       const nextIndex = focusedIndex - 1;
       onSelectSlide(nextIndex);
-      focusSlideButton(nextIndex);
+      requestSlideButtonFocus(nextIndex);
     } else if (
       event.key === "ArrowRight" &&
       focusedIndex < renderTree.slides.length - 1
@@ -106,16 +144,16 @@ export function Filmstrip({
       event.preventDefault();
       const nextIndex = focusedIndex + 1;
       onSelectSlide(nextIndex);
-      focusSlideButton(nextIndex);
+      requestSlideButtonFocus(nextIndex);
     } else if (event.key === "Home") {
       event.preventDefault();
       onSelectSlide(0);
-      focusSlideButton(0);
+      requestSlideButtonFocus(0);
     } else if (event.key === "End") {
       event.preventDefault();
       const nextIndex = renderTree.slides.length - 1;
       onSelectSlide(nextIndex);
-      focusSlideButton(nextIndex);
+      requestSlideButtonFocus(nextIndex);
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onSelectSlide(focusedIndex);
@@ -129,7 +167,7 @@ export function Filmstrip({
       const nextIndex = Math.min(focusedIndex, renderTree.slides.length - 2);
       onDeleteSlide(focusedSlide.id);
       setStatusMessage(`Deleted slide ${focusedIndex + 1}.`);
-      focusSlideButton(nextIndex);
+      requestSlideButtonFocus(nextIndex);
     }
   }
 
@@ -212,6 +250,9 @@ export function Filmstrip({
                     isInteractive={!collapsed}
                     assetResolver={assetResolver}
                     visualResolver={visualResolver}
+                    slideButtonRef={focusGeometryRegistry.createRef(
+                      focusGeometryTargets.filmstripSlideButton(index),
+                    )}
                     onSelect={onSelectSlide}
                     onDuplicate={() => onDuplicateSlide(slideId)}
                     onDelete={() => onDeleteSlide(slideId)}

@@ -36,7 +36,7 @@ import {
 } from "./deck-elements";
 import { makeElementId } from "./deck-ids";
 import type { SourceRef } from "./deck-source-refs";
-import { hashDocumentBlock } from "./document-block-hash";
+import { hashDocumentBlock } from "@/lib/presentation-shared/document-block-hash";
 import type { PresentationRole } from "./presentation-theme-types";
 import { headingFontSize, SLIDE_TEXT_FONT_SIZE } from "./text-defaults";
 

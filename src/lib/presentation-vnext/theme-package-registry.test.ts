@@ -5,6 +5,7 @@ import clarityPackageJson from "../../../prototypes/slide-themes/packages/clarit
 import {
   getThemePackageV7,
   listThemePackagesV7,
+  resolveThemePackageIdV7,
   resolveThemePackageForDeck,
 } from "./theme-package-registry";
 import { validateThemePackage } from "./theme-package-schema";
@@ -26,6 +27,12 @@ test("resolveThemePackageForDeck returns the requested v7 package", () => {
   assert.equal(result.package.id, "ocean");
   assert.equal(result.fallback, false);
   assert.deepEqual(result.diagnostics, []);
+});
+
+test("resolveThemePackageIdV7 shares built-in aliases without blocking custom ids", () => {
+  assert.equal(resolveThemePackageIdV7(undefined), "neutral");
+  assert.equal(resolveThemePackageIdV7("default"), "clarity");
+  assert.equal(resolveThemePackageIdV7("custom-brand"), "custom-brand");
 });
 
 test("resolveThemePackageForDeck falls back to neutral with a diagnostic for unknown packages", () => {

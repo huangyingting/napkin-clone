@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Window } from "happy-dom";
-import * as React from "react";
 import {
   createElement,
   isValidElement,
@@ -19,6 +18,7 @@ import {
   buildTextContent,
   buildTextNode,
 } from "@/test/builders/deck-v7";
+import { createReactHookRenderer } from "@/test/react-internals";
 import {
   DeckGenerationDiagnosticsNotice,
   DeckGenerationPreviewVNext,
@@ -31,12 +31,6 @@ import {
 } from "./present-mode/presenter-tools-vnext";
 import { PublicPresentViewerVNext } from "./public-present-viewer-vnext";
 
-type ReactInternals = {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-    H: unknown;
-  };
-};
-
 type ElementProps = Record<string, unknown>;
 
 type PortalLike = {
@@ -45,94 +39,11 @@ type PortalLike = {
 };
 
 function createHookRenderer({ runEffects = false } = {}) {
-  const internals = (React as unknown as ReactInternals)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  assert.ok(internals);
-  const slots: unknown[] = [];
-
-  return {
-    run<T>(render: () => T): T {
-      let hookIndex = 0;
-      const previous = internals.H;
-      internals.H = {
-        useState: <S>(initial: S | (() => S)) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) {
-            slots[slot] =
-              typeof initial === "function" ? (initial as () => S)() : initial;
-          }
-          const setState = (next: S | ((previous: S) => S)) => {
-            const previousValue = slots[slot] as S;
-            slots[slot] =
-              typeof next === "function"
-                ? (next as (previous: S) => S)(previousValue)
-                : next;
-          };
-          return [slots[slot] as S, setState] as const;
-        },
-        useReducer: <S, A>(reducer: (state: S, action: A) => S, initial: S) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = initial;
-          const dispatch = (action: A) => {
-            slots[slot] = reducer(slots[slot] as S, action);
-          };
-          return [slots[slot] as S, dispatch] as const;
-        },
-        useRef: <T>(initial: T) => {
-          const slot = hookIndex++;
-          if (!(slot in slots)) slots[slot] = { current: initial };
-          return slots[slot] as { current: T };
-        },
-        useMemo: <T>(factory: () => T) => {
-          hookIndex++;
-          return factory();
-        },
-        useCallback: <T>(callback: T) => {
-          hookIndex++;
-          return callback;
-        },
-        useId: () => `presenter-coverage-id-${hookIndex++}`,
-        useEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useLayoutEffect: (effect?: () => void | (() => void)) => {
-          hookIndex++;
-          if (runEffects) effect?.();
-        },
-        useInsertionEffect: () => {
-          hookIndex++;
-        },
-        useContext: () => {
-          hookIndex++;
-          return undefined;
-        },
-        useTransition: () => {
-          hookIndex++;
-          return [false, (callback?: () => void) => callback?.()] as const;
-        },
-        useDeferredValue: <T>(value: T) => {
-          hookIndex++;
-          return value;
-        },
-        useSyncExternalStore: <T>(
-          _subscribe: () => () => void,
-          getSnapshot: () => T,
-        ) => {
-          hookIndex++;
-          return getSnapshot();
-        },
-        useImperativeHandle: () => {
-          hookIndex++;
-        },
-      };
-      try {
-        return render();
-      } finally {
-        internals.H = previous;
-      }
-    },
-  };
+  return createReactHookRenderer({
+    idPrefix: "presenter-coverage-id",
+    runEffects,
+    runLayoutEffects: runEffects,
+  });
 }
 
 function collectElements(node: ReactNode, elements: ReactElement[] = []) {

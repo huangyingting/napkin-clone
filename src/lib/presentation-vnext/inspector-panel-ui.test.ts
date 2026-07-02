@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import {
   availablePanels,
   defaultPanelForNode,
+  resolveInspectorPanelContinuity,
 } from "@/lib/presentation-vnext/inspector-panel-ui";
 import type { InspectorPanelId } from "@/lib/presentation-vnext/inspector-panel-ui";
 import {
@@ -33,6 +34,22 @@ function panelIds(
   },
 ): InspectorPanelId[] {
   return availablePanels(node, opts).map((p) => p.id);
+}
+
+function resolvePanel(
+  activePanel: InspectorPanelId | null | undefined,
+  node: SlideChildNode | null,
+  opts?: {
+    multiSelect?: boolean;
+    isDecoration?: boolean;
+    hasDiagnostics?: boolean;
+  },
+): InspectorPanelId {
+  return resolveInspectorPanelContinuity({
+    activePanel,
+    panels: availablePanels(node, opts),
+    defaultPanel: defaultPanelForNode(node, opts?.isDecoration ?? false),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +279,33 @@ describe("availablePanels — diagnostics flag", () => {
   test("no diagnostics panel without flag", () => {
     const ids = panelIds(buildTextNode());
     assert.equal(ids.includes("diagnostics"), false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inspector panel continuity
+// ---------------------------------------------------------------------------
+
+describe("resolveInspectorPanelContinuity", () => {
+  test("preserves a compatible panel when selection changes", () => {
+    assert.equal(resolvePanel("style", buildTextNode()), "style");
+    assert.equal(resolvePanel("style", buildShapeNode()), "style");
+  });
+
+  test("replaces an incompatible panel with the selected object's default panel", () => {
+    assert.equal(resolvePanel("text", buildShapeNode()), "shape");
+    assert.equal(resolvePanel("shape", buildImageNode()), "image");
+  });
+
+  test("falls back to the common arrange panel for incompatible multi-selection", () => {
+    assert.equal(
+      resolvePanel("text", buildTextNode(), { multiSelect: true }),
+      "arrange",
+    );
+  });
+
+  test("closes object-specific panels when no object is selected", () => {
+    assert.equal(resolvePanel("shape", null), "slide");
   });
 });
 

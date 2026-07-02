@@ -16,24 +16,28 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   type CSSProperties,
   type JSX,
   type KeyboardEvent,
 } from "react";
 
-import type { Paragraph, TextRun } from "@/lib/presentation-vnext/schema";
+import type { Paragraph } from "@/lib/presentation-vnext/schema";
 import {
   INLINE_TEXT_COMMAND_EVENT_V7,
   type InlineTextCommandPayload,
 } from "@/lib/presentation-vnext/inline-text-commands";
 import { STAGE_CHROME_Z_INDEX } from "@/lib/presentation-vnext/stage-chrome";
-import {
-  mergeRunsV7,
-  shouldStoreRunsV7,
-} from "@/lib/presentation-vnext/rich-text";
 
-export type InlineTextAlign = "left" | "center" | "right";
+import { createInlineTextDomAdapter } from "./inline-text-dom-adapter";
+import type {
+  InlineTextAdapterExit,
+  InlineTextAlign,
+} from "./inline-text-dom-adapter";
+
+export { inlineTextAlignForCommand } from "./inline-text-dom-adapter";
+export type { InlineTextAlign } from "./inline-text-dom-adapter";
 
 export type InlineTextInitialCaret =
   | { kind: "client"; x: number; y: number }
@@ -75,148 +79,8 @@ export interface InlineTextEditorVNextProps {
 }
 
 // ---------------------------------------------------------------------------
-// Run serialization helpers
+// Caret placement helpers
 // ---------------------------------------------------------------------------
-
-type InlineRunStyle = Omit<TextRun, "text">;
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function styleFromElement(
-  element: HTMLElement,
-  inherited: InlineRunStyle,
-): InlineRunStyle {
-  const tagName = element.tagName.toLowerCase();
-  const next: InlineRunStyle = { ...inherited };
-  if (tagName === "b" || tagName === "strong") next.bold = true;
-  if (tagName === "i" || tagName === "em") next.italic = true;
-  if (tagName === "u") next.underline = true;
-  if (tagName === "s" || tagName === "strike" || tagName === "del") {
-    next.strikethrough = true;
-  }
-  if (tagName === "a") next.link = element.getAttribute("href") ?? undefined;
-
-  const fontWeight = element.style.fontWeight;
-  if (fontWeight === "bold" || Number(fontWeight) >= 600) next.bold = true;
-  if (element.style.fontStyle === "italic") next.italic = true;
-  if (element.style.textDecorationLine.includes("underline")) {
-    next.underline = true;
-  }
-  if (element.style.textDecorationLine.includes("line-through")) {
-    next.strikethrough = true;
-  }
-
-  const color = element.style.color || element.getAttribute("color");
-  const fontSize = element.style.fontSize;
-  if (color || fontSize) {
-    next.localStyle = { ...next.localStyle };
-    if (color) next.localStyle.color = color;
-    if (fontSize.endsWith("pt")) {
-      next.localStyle.fontSizePt = Number.parseFloat(fontSize);
-    } else if (fontSize.endsWith("px")) {
-      next.localStyle.fontSizePt = Number.parseFloat(fontSize) * 0.75;
-    }
-  }
-  return next;
-}
-
-function collectRuns(node: Node, inherited: InlineRunStyle = {}): TextRun[] {
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent ?? "";
-    return text.length > 0 ? [{ text, ...inherited }] : [];
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return [];
-  const element = node as HTMLElement;
-  if (element.tagName.toLowerCase() === "br") return [{ text: "\n" }];
-  const style = styleFromElement(element, inherited);
-  return Array.from(element.childNodes).flatMap((child) =>
-    collectRuns(child, style),
-  );
-}
-
-function serializeParagraphNode(
-  node: Node,
-  fallbackId: string,
-  listKind?: "bullet" | "number",
-  listIndent?: number,
-): Paragraph {
-  const runs = mergeRunsV7(collectRuns(node)).filter(
-    (run) => run.text !== "\n",
-  );
-  const text = runs.map((run) => run.text).join("");
-  return {
-    id: fallbackId,
-    text,
-    ...(shouldStoreRunsV7(runs) ? { runs } : {}),
-    ...(listKind
-      ? {
-          list: {
-            kind: listKind,
-            ...(listIndent && listIndent > 0 ? { indent: listIndent } : {}),
-          },
-        }
-      : {}),
-  };
-}
-
-function editableParagraphNodes(
-  container: HTMLElement,
-): { node: Node; listKind?: "bullet" | "number"; listIndent?: number }[] {
-  const nodes: {
-    node: Node;
-    listKind?: "bullet" | "number";
-    listIndent?: number;
-  }[] = [];
-  for (const child of Array.from(container.childNodes)) {
-    if (child.nodeType === Node.TEXT_NODE) {
-      if ((child.textContent ?? "").length > 0) nodes.push({ node: child });
-      continue;
-    }
-    if (child.nodeType !== Node.ELEMENT_NODE) continue;
-    const element = child as HTMLElement;
-    const tagName = element.tagName.toLowerCase();
-    if (tagName === "ul" || tagName === "ol") {
-      const listKind = tagName === "ol" ? "number" : "bullet";
-      for (const item of Array.from(element.children)) {
-        if (item.tagName.toLowerCase() === "li") {
-          nodes.push({
-            node: item,
-            listKind,
-            listIndent: listIndentFromElement(item as HTMLElement),
-          });
-        }
-      }
-    } else if (tagName === "li") {
-      const listKind =
-        element.parentElement?.tagName.toLowerCase() === "ol"
-          ? "number"
-          : "bullet";
-      nodes.push({
-        node: element,
-        listKind,
-        listIndent: listIndentFromElement(element),
-      });
-    } else if (
-      element.dataset.listKind === "bullet" ||
-      element.dataset.listKind === "number"
-    ) {
-      nodes.push({
-        node: element,
-        listKind: element.dataset.listKind,
-        listIndent: listIndentFromElement(element),
-      });
-    } else {
-      nodes.push({ node: element });
-    }
-  }
-  return nodes;
-}
 
 function caretRangeFromPoint(x: number, y: number): Range | null {
   if (typeof document.caretRangeFromPoint === "function") {
@@ -261,233 +125,6 @@ function placeInitialCaret(
   selection.removeAllRanges();
   selection.addRange(range);
 }
-function listIndentFromElement(element: HTMLElement): number | undefined {
-  const raw = element.dataset.listIndent;
-  const indent = raw ? Number.parseInt(raw, 10) : 0;
-  return Number.isFinite(indent) && indent > 0 ? indent : undefined;
-}
-
-/** Convert the contenteditable DOM back to Paragraph[] preserving basic runs. */
-function domToParagraphs(
-  container: HTMLElement,
-  idPrefix: string,
-  initialParagraphs: Paragraph[],
-): Paragraph[] {
-  const paragraphNodes = editableParagraphNodes(container);
-  const nodes =
-    paragraphNodes.length > 0
-      ? paragraphNodes
-      : [{ node: document.createTextNode("") }];
-  return nodes.map(({ node, listKind, listIndent }, index) =>
-    serializeParagraphNode(
-      node,
-      initialParagraphs[index]?.id ?? `${idPrefix}-p-${index + 1}`,
-      listKind,
-      listIndent,
-    ),
-  );
-}
-
-function runToHtml(run: TextRun): string {
-  const styles: string[] = [];
-  if (run.bold) styles.push("font-weight:700");
-  if (run.italic) styles.push("font-style:italic");
-  if (run.underline || run.strikethrough) {
-    styles.push(
-      `text-decoration:${[
-        run.underline ? "underline" : undefined,
-        run.strikethrough ? "line-through" : undefined,
-      ]
-        .filter(Boolean)
-        .join(" ")}`,
-    );
-  }
-  if (typeof run.localStyle?.color === "string") {
-    styles.push(`color:${run.localStyle.color}`);
-  }
-  if (typeof run.localStyle?.fontSizePt === "number") {
-    styles.push(`font-size:${run.localStyle.fontSizePt}pt`);
-  }
-  const styleAttr = styles.length > 0 ? ` style="${styles.join(";")}"` : "";
-  return `<span${styleAttr}>${escapeHtml(run.text)}</span>`;
-}
-
-/** Render initial paragraphs as HTML for the contenteditable. */
-function paragraphsToHtml(paragraphs: Paragraph[]): string {
-  return paragraphs
-    .map((p) => {
-      const text = p.runs?.length
-        ? p.runs.map(runToHtml).join("")
-        : escapeHtml(p.text);
-      if (!p.list) return `<div>${text || "<br>"}</div>`;
-      const indent = p.list.indent ?? 0;
-      const indentAttr = indent > 0 ? ` data-list-indent="${indent}"` : "";
-      const indentStyle =
-        indent > 0 ? ` style="padding-left:${indent * 1.5}em"` : "";
-      return `<div data-list-kind="${p.list.kind}"${indentAttr}${indentStyle}>${text || "<br>"}</div>`;
-    })
-    .join("");
-}
-
-function rangeInside(container: HTMLElement): Range | null {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
-  const range = selection.getRangeAt(0);
-  const start = range.startContainer;
-  const end = range.endContainer;
-  if (!container.contains(start) || !container.contains(end)) return null;
-  return range;
-}
-
-function restoreSelection(node: Node): void {
-  const selection = window.getSelection();
-  if (!selection) return;
-  const range = document.createRange();
-  range.selectNodeContents(node);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function wrapRange(
-  container: HTMLElement,
-  configure: (element: HTMLElement) => void,
-  tagName = "span",
-): void {
-  const range = rangeInside(container);
-  if (!range || range.collapsed) return;
-  const wrapper = document.createElement(tagName);
-  configure(wrapper);
-  const fragment = range.extractContents();
-  wrapper.appendChild(fragment);
-  range.insertNode(wrapper);
-  restoreSelection(wrapper);
-}
-
-function unwrapElement(element: HTMLElement) {
-  const parent = element.parentNode;
-  if (!parent) return;
-  while (element.firstChild) {
-    parent.insertBefore(element.firstChild, element);
-  }
-  parent.removeChild(element);
-}
-
-function unlinkRange(container: HTMLElement) {
-  const range = rangeInside(container);
-  if (!range) return;
-  const anchors = new Set<HTMLAnchorElement>();
-  const addClosestAnchor = (node: Node | null) => {
-    const element =
-      node instanceof Element ? node : (node?.parentElement ?? null);
-    const anchor = element?.closest("a");
-    if (anchor instanceof HTMLAnchorElement && container.contains(anchor)) {
-      anchors.add(anchor);
-    }
-  };
-  const selection = window.getSelection();
-  addClosestAnchor(selection?.anchorNode ?? null);
-  addClosestAnchor(selection?.focusNode ?? null);
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, {
-    acceptNode(node) {
-      if (!(node instanceof HTMLAnchorElement)) return NodeFilter.FILTER_SKIP;
-      return range.intersectsNode(node)
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_SKIP;
-    },
-  });
-  let current = walker.nextNode();
-  while (current) {
-    if (current instanceof HTMLAnchorElement) anchors.add(current);
-    current = walker.nextNode();
-  }
-  anchors.forEach(unwrapElement);
-}
-
-function blockForRange(container: HTMLElement, range: Range): HTMLElement {
-  const node =
-    range.startContainer.nodeType === Node.ELEMENT_NODE
-      ? (range.startContainer as HTMLElement)
-      : range.startContainer.parentElement;
-  return node?.closest("p,div,li") ?? container;
-}
-
-function applyBlockAlign(container: HTMLElement, align: InlineTextAlign) {
-  const range = rangeInside(container);
-  if (!range) return;
-  blockForRange(container, range).style.textAlign = align;
-}
-
-export function inlineTextAlignForCommand(
-  command: InlineTextCommandPayload["command"],
-): InlineTextAlign | undefined {
-  switch (command) {
-    case "align-left":
-      return "left";
-    case "align-center":
-      return "center";
-    case "align-right":
-      return "right";
-    default:
-      return undefined;
-  }
-}
-
-function toggleList(container: HTMLElement, kind: "bullet" | "number") {
-  const range = rangeInside(container);
-  if (!range) return;
-  const block = blockForRange(container, range);
-  const currentList = block.closest("ul,ol");
-  const targetTag = kind === "number" ? "ol" : "ul";
-  if (currentList) {
-    if (currentList.tagName.toLowerCase() === targetTag) {
-      const replacement = document.createDocumentFragment();
-      for (const item of Array.from(currentList.children)) {
-        const div = document.createElement("div");
-        div.innerHTML = item.innerHTML || "<br>";
-        replacement.appendChild(div);
-      }
-      currentList.replaceWith(replacement);
-    } else {
-      const nextList = document.createElement(targetTag);
-      nextList.innerHTML = currentList.innerHTML;
-      currentList.replaceWith(nextList);
-      restoreSelection(nextList);
-    }
-    return;
-  }
-  const list = document.createElement(targetTag);
-  const item = document.createElement("li");
-  item.innerHTML = block.innerHTML || "<br>";
-  list.appendChild(item);
-  block.replaceWith(list);
-  restoreSelection(item);
-}
-
-function adjustListIndent(container: HTMLElement, direction: 1 | -1) {
-  const range = rangeInside(container);
-  if (!range) return;
-  const block = blockForRange(container, range);
-  const listItem = block.closest("li") as HTMLElement | null;
-  const editableBlock = listItem ?? block;
-  const listKind =
-    editableBlock.dataset.listKind ??
-    (listItem
-      ? listItem.parentElement?.tagName.toLowerCase() === "ol"
-        ? "number"
-        : "bullet"
-      : undefined);
-  if (listKind !== "bullet" && listKind !== "number") return;
-  const current = listIndentFromElement(editableBlock) ?? 0;
-  const next = Math.max(0, Math.min(6, current + direction));
-  if (next > 0) {
-    editableBlock.dataset.listIndent = String(next);
-    editableBlock.style.paddingLeft = `${next * 1.5}em`;
-  } else {
-    delete editableBlock.dataset.listIndent;
-    editableBlock.style.paddingLeft = "";
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -506,8 +143,17 @@ export function InlineTextEditorVNext({
   onTabPrev,
 }: InlineTextEditorVNextProps): JSX.Element {
   const editableRef = useRef<HTMLDivElement | null>(null);
-  const committedRef = useRef(false);
-  const committedTextAlignRef = useRef<InlineTextAlign | undefined>(undefined);
+  const adapter = useMemo(
+    () =>
+      createInlineTextDomAdapter({
+        nodeId,
+        initialParagraphs,
+      }),
+    // Keep paragraph data as the entry snapshot so parent re-renders do not
+    // reset in-progress DOM edits; a new node gets a fresh adapter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodeId],
+  );
 
   // Position in viewport-px derived from canvas-percent frame
   const style: CSSProperties = {
@@ -553,150 +199,74 @@ export function InlineTextEditorVNext({
     }
   }
 
-  // Focus and place caret on mount.
+  // Focus and place caret when an inline edit session starts.
   useEffect(() => {
     const el = editableRef.current;
     if (!el) return;
-    el.innerHTML = paragraphsToHtml(
-      initialParagraphs.length > 0
-        ? initialParagraphs
-        : [{ id: `${nodeId}-p-1`, text: "" }],
-    );
+    adapter.mountInitialHtml(el);
     el.focus();
     placeInitialCaret(el, initialCaret);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [adapter, initialCaret]);
+
+  function finishAdapterExit(exit: InlineTextAdapterExit) {
+    if (exit.kind === "commit") {
+      onCommit(nodeId, exit.paragraphs, autoHeightFrame(), exit.textAlign);
+    } else if (exit.kind === "cancel") {
+      onCancel();
+    }
+  }
 
   function doCommit() {
-    if (committedRef.current) return;
-    committedRef.current = true;
-    const el = editableRef.current;
-    if (!el) {
-      onCancel();
-      return;
-    }
-    const paragraphs = domToParagraphs(el, nodeId, initialParagraphs);
-    onCommit(
-      nodeId,
-      paragraphs,
-      autoHeightFrame(),
-      committedTextAlignRef.current,
-    );
+    finishAdapterExit(adapter.commit(editableRef.current));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
+      const exit = adapter.commitOrCancelForEscape(editableRef.current);
+      if (exit.kind === "none") return;
       event.preventDefault();
       event.stopPropagation();
-      if (!editableRef.current?.innerText?.trim()) {
-        // Set guard before cancel so a subsequent blur fires doCommit() as a
-        // no-op rather than spuriously committing an empty paragraph.
-        committedRef.current = true;
-        onCancel();
-      } else {
-        doCommit();
-      }
+      finishAdapterExit(exit);
       return;
     }
     if (event.key === "Tab") {
+      const exit = adapter.commitForTab(editableRef.current);
+      if (exit.kind === "none") return;
       event.preventDefault();
+      finishAdapterExit(exit);
       if (event.shiftKey) {
-        doCommit();
         onTabPrev?.();
       } else {
-        doCommit();
         onTabNext?.();
       }
       return;
     }
   }
 
+  function handleCompositionStart() {
+    adapter.startComposition();
+  }
+
+  function handleCompositionEnd() {
+    finishAdapterExit(adapter.endComposition(editableRef.current));
+  }
+
   // Listen for toolbar format commands
   useEffect(() => {
     function handleCommand(event: Event) {
-      const { command, value } = (
-        event as CustomEvent<InlineTextCommandPayload>
-      ).detail;
+      const payload = (event as CustomEvent<InlineTextCommandPayload>).detail;
       const el = editableRef.current;
       if (
         !el ||
         (!el.contains(document.activeElement) && document.activeElement !== el)
       )
         return;
-      el.focus();
-      const textAlign = inlineTextAlignForCommand(command);
-      if (textAlign) {
-        committedTextAlignRef.current = textAlign;
-        applyBlockAlign(el, textAlign);
-        return;
-      }
-      switch (command) {
-        case "bold":
-          wrapRange(el, (span) => {
-            span.style.fontWeight = "700";
-          });
-          break;
-        case "italic":
-          wrapRange(el, (span) => {
-            span.style.fontStyle = "italic";
-          });
-          break;
-        case "underline":
-          wrapRange(el, (span) => {
-            span.style.textDecoration = "underline";
-          });
-          break;
-        case "strikethrough":
-          wrapRange(el, (span) => {
-            span.style.textDecoration = "line-through";
-          });
-          break;
-        case "bullet-list":
-          toggleList(el, "bullet");
-          break;
-        case "numbered-list":
-          toggleList(el, "number");
-          break;
-        case "indent-list":
-          adjustListIndent(el, 1);
-          break;
-        case "outdent-list":
-          adjustListIndent(el, -1);
-          break;
-        case "link":
-          if (value) {
-            wrapRange(
-              el,
-              (anchor) => {
-                anchor.setAttribute("href", value);
-              },
-              "a",
-            );
-          }
-          break;
-        case "unlink":
-          unlinkRange(el);
-          break;
-        case "color":
-          if (value) {
-            wrapRange(el, (span) => {
-              span.style.color = value;
-            });
-          }
-          break;
-        case "font-size":
-          if (value) {
-            wrapRange(el, (span) => {
-              span.style.fontSize = value;
-            });
-          }
-          break;
-      }
+      adapter.applyCommand(el, payload);
     }
     document.addEventListener(INLINE_TEXT_COMMAND_EVENT_V7, handleCommand);
     return () =>
       document.removeEventListener(INLINE_TEXT_COMMAND_EVENT_V7, handleCommand);
-  }, []);
+  }, [adapter]);
 
   return (
     <div
@@ -710,6 +280,8 @@ export function InlineTextEditorVNext({
       style={style}
       onInput={syncAutoHeight}
       onKeyDown={handleKeyDown}
+      onCompositionStart={handleCompositionStart}
+      onCompositionEnd={handleCompositionEnd}
       onBlur={doCommit}
     />
   );

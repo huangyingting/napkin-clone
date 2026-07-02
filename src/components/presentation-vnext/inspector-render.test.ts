@@ -1,7 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import * as React from "react";
-import type { ComponentProps, ReactNode } from "react";
+import {
+  createElement,
+  isValidElement,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -25,6 +29,7 @@ import {
   buildTableNode,
   buildTextNode,
 } from "@/test/builders/deck-v7";
+import { withReactTestDispatcher } from "@/test/react-internals";
 import { makeDiagnostic } from "@/lib/presentation-vnext/diagnostics";
 import type {
   NodeSourceMetadata,
@@ -33,7 +38,6 @@ import type {
 } from "@/lib/presentation-vnext/schema";
 import type { StylePatch } from "@/lib/presentation-vnext/style-schema";
 
-const { createElement, isValidElement } = React;
 const noop = () => undefined;
 const updateRecord = (_patch: Record<string, unknown>) => undefined;
 const updateStyle = (_patch: StylePatch) => undefined;
@@ -254,39 +258,28 @@ function render(element: ReturnType<typeof createElement>): string {
 }
 
 function withFakeHooks<T>(renderComponent: () => T): T {
-  const internals = (
-    React as unknown as {
-      __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-        H: unknown;
-      };
-    }
-  ).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-  if (!internals) return renderComponent();
-
-  const previous = internals.H;
-  internals.H = {
-    useState: <S>(initial: S | (() => S)) => [
-      typeof initial === "function" ? (initial as () => S)() : initial,
-      () => undefined,
-    ],
-    useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
-    useRef: <T>(initial: T) => ({ current: initial }),
-    useMemo: <T>(factory: () => T) => factory(),
-    useCallback: <T>(callback: T) => callback,
-    useId: () => "fake-react-id",
-    useContext: () => undefined,
-    useEffect: () => undefined,
-    useLayoutEffect: () => undefined,
-    useInsertionEffect: () => undefined,
-    useSyncExternalStore: () => undefined,
-    useTransition: () => [false, () => undefined],
-    useDeferredValue: <T>(value: T) => value,
-  };
-  try {
-    return renderComponent();
-  } finally {
-    internals.H = previous;
-  }
+  return withReactTestDispatcher(
+    {
+      useState: <S>(initial: S | (() => S)) => [
+        typeof initial === "function" ? (initial as () => S)() : initial,
+        () => undefined,
+      ],
+      useReducer: <S>(_: unknown, initial: S) => [initial, () => undefined],
+      useRef: <T>(initial: T) => ({ current: initial }),
+      useMemo: <T>(factory: () => T) => factory(),
+      useCallback: <T>(callback: T) => callback,
+      useId: () => "fake-react-id",
+      useContext: () => undefined,
+      useEffect: () => undefined,
+      useLayoutEffect: () => undefined,
+      useInsertionEffect: () => undefined,
+      useSyncExternalStore: () => undefined,
+      useTransition: () => [false, () => undefined],
+      useDeferredValue: <T>(value: T) => value,
+    },
+    renderComponent,
+    { requireInternals: false },
+  );
 }
 
 function collectHandlers(
@@ -591,9 +584,11 @@ describe("vNext inspector components", () => {
       }),
     );
 
-    assert.match(html, /Slide Overrides/);
+    assert.match(html, /Deck chrome defaults/);
+    assert.match(html, /Selected slide overrides/);
+    assert.match(html, /Use deck default/);
     assert.match(html, /Slide footer/);
-    assert.match(html, /Enabled on this slide/);
+    assert.match(html, /Enabled in this slide override/);
   });
 
   test("renders configured global chrome as enabled", () => {

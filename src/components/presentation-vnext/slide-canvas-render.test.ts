@@ -1,11 +1,18 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createElement } from "react";
+import {
+  Children,
+  createElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   DeckCanvasVNext,
   SlideCanvasVNext,
+  type SlideCanvasVNextProps,
   type SlideCanvasNodeGestureDraft,
 } from "./slide-canvas";
 import {
@@ -14,6 +21,10 @@ import {
 } from "./slide-node-renderer";
 import { createSelectionState, setSelection } from "./selection-model";
 import { Filmstrip } from "./filmstrip/filmstrip";
+import {
+  createFocusGeometryRegistry,
+  focusGeometryTargets,
+} from "./focus-geometry-registry";
 import type {
   ResolvedDeckRenderTree,
   ResolvedNodeContent,
@@ -25,6 +36,8 @@ import type {
   FillStyle,
   StyleObject,
 } from "@/lib/presentation-vnext/style-schema";
+
+type ElementWithProps = ReactElement<Record<string, unknown>>;
 
 // e2e-governance-allow oversized-test: v7 canvas parity coverage is still centralized here; split tracked separately.
 function textNode(
@@ -123,6 +136,55 @@ function renderResolvedNodeMarkup(node: ResolvedRenderNode): string {
   );
 }
 
+function findElement(
+  root: ReactNode,
+  predicate: (element: ElementWithProps) => boolean,
+): ElementWithProps | null {
+  let found: ElementWithProps | null = null;
+  function visit(node: ReactNode): void {
+    if (found) return;
+    Children.forEach(node, (child) => {
+      if (found || !isValidElement(child)) return;
+      const element = child as ElementWithProps;
+      if (predicate(element)) {
+        found = element;
+        return;
+      }
+      visit(element.props.children as ReactNode);
+    });
+  }
+  visit(root);
+  return found;
+}
+
+function renderSlideCanvasTree(props: SlideCanvasVNextProps): ReactNode {
+  return (
+    SlideCanvasVNext as unknown as {
+      type: (props: SlideCanvasVNextProps) => ReactNode;
+    }
+  ).type(props);
+}
+
+function fakeStageElement(
+  onFocus: (options?: FocusOptions) => void,
+): HTMLDivElement {
+  return {
+    focus: onFocus,
+    getBoundingClientRect: () =>
+      ({
+        bottom: 20,
+        height: 10,
+        left: 1,
+        right: 11,
+        top: 10,
+        width: 10,
+        x: 1,
+        y: 10,
+        toJSON: () => ({}),
+      }) as DOMRectReadOnly,
+  } as HTMLDivElement;
+}
+
 describe("SlideCanvasVNext stage editing render affordances", () => {
   test("renders stage nodes as accessible roving-tabindex controls", () => {
     const selection = setSelection(createSelectionState("normal"), ["node-1"]);
@@ -186,6 +248,39 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /<div[^>]*data-node-id="node-a"[^>]*tabindex="-1"/);
     assert.match(html, /<div[^>]*data-node-id="node-b"[^>]*tabindex="0"/);
     assert.match(html, /data-node-focused="true"/);
+  });
+
+  test("registers stage node elements with the focus geometry registry", () => {
+    const registry = createFocusGeometryRegistry();
+    const focusCalls: Array<FocusOptions | undefined> = [];
+    const tree = renderSlideCanvasTree({
+      slide: slide([textNode("node-1", { x: 10, y: 10, w: 20, h: 10 })]),
+      focusedNodeId: "node-1",
+      focusGeometryRegistry: registry,
+      onNodePointerDown: () => undefined,
+    });
+    const renderer = findElement(
+      tree,
+      (candidate) =>
+        candidate.type === SlideNodeRenderer &&
+        (candidate.props.node as ResolvedRenderNode).id === "node-1",
+    );
+    assert.ok(renderer, "expected stage node renderer");
+    const nodeRef = renderer.props.nodeRef as
+      | ((element: HTMLDivElement | null) => void)
+      | undefined;
+    assert.ok(nodeRef, "expected stage node registry ref");
+
+    const element = fakeStageElement((options) => focusCalls.push(options));
+    nodeRef(element);
+
+    const key = focusGeometryTargets.stageNode("node-1");
+    assert.equal(registry.getElement(key), element);
+    assert.equal(registry.focus(key, { preventScroll: true }), true);
+    assert.deepEqual(focusCalls, [{ preventScroll: true }]);
+
+    nodeRef(null);
+    assert.equal(registry.getElement(key), null);
   });
 
   test("renders locked selected nodes with disabled state", () => {
@@ -941,6 +1036,37 @@ describe("SlideCanvasVNext stage editing render affordances", () => {
     assert.match(html, /aria-label="Table cell row 1, column 2"/);
     assert.match(html, /Beta/);
     assert.match(html, /Table node editing cells/);
+  });
+
+  test("keeps read-only table rendering free of edit metadata and stage overlays", () => {
+    const html = renderToStaticMarkup(
+      createElement(SlideCanvasVNext, {
+        slide: slide([
+          renderNode("table-readonly", {
+            type: "table",
+            content: {
+              columns: [
+                { id: "col-1", label: "A" },
+                { id: "col-2", label: "B" },
+              ],
+              rows: [
+                {
+                  id: "row-1",
+                  cells: [{ text: "Alpha" }, { text: "Beta" }],
+                },
+              ],
+            },
+          }),
+        ]),
+      }),
+    );
+
+    assert.match(html, /Alpha/);
+    assert.match(html, /Beta/);
+    assert.doesNotMatch(html, /contentEditable="true"/);
+    assert.doesNotMatch(html, /data-table-cell=/);
+    assert.doesNotMatch(html, /data-node-chrome-frame=/);
+    assert.doesNotMatch(html, /data-node-chrome-overlay=/);
   });
 
   test("renders paragraph list markers from numbered-list semantics", () => {

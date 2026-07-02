@@ -4,10 +4,9 @@
  * vNext present mode — renders a `DeckV7` through the `resolveDeckRenderTree`
  * pipeline and `SlideCanvasVNext` without any v6 materialisation.
  *
- * Navigation, HUD, fullscreen, speaker notes, slide overview, timer, and laser
- * pointer are identical to the v6 present mode. The only difference is the
- * rendering path: slides come from `ResolvedSlideRenderTree` rather than from
- * the v6 `SlideCanvas` renderer.
+ * Navigation, fit, keyboard shortcuts, HUD hiding, fullscreen, timer, and laser
+ * pointer come from the shared vNext present shell. Route-specific chrome and
+ * private presenter affordances stay in this component.
  *
  * Theme decorations are rendered behind user nodes and are excluded from
  * presenter interactions (they are aria-hidden inside `SlideCanvasVNext`).
@@ -21,13 +20,18 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 import type { DeckV7 } from "@/lib/presentation-vnext/schema";
 import type { ThemePackageV1 } from "@/lib/presentation-vnext/theme-package-schema";
 import { NEUTRAL_THEME_PACKAGE } from "@/lib/presentation-vnext/neutral-theme-package";
-import { PRESENT_MODE_SHORTCUT_IDS } from "@/components/presentation/present-mode/presenter-shortcuts";
 import {
   exitBrowserFullscreen,
   getFullscreenElement,
+  PRESENT_MODE_SHORTCUT_IDS,
   requestBrowserFullscreen,
+  useLaserPointer,
+  usePresentKeyboardNavigation,
+  usePresentNavigationShellVNext,
   usePresenterFullscreen,
-} from "@/components/presentation/present-mode/presenter-fullscreen";
+  usePresenterTimer,
+  type PresentShortcutAction,
+} from "@/components/presentation-vnext/present-shell-vnext";
 import {
   HudButton,
   KeyboardHelpOverlay,
@@ -36,18 +40,8 @@ import {
   PresenterToolIcon,
   SlideOverviewPanelVNext,
 } from "@/components/presentation-vnext/present-mode/presenter-tools-vnext";
-import { useLaserPointer } from "@/components/presentation/present-mode/use-laser-pointer";
-import { usePresenterTimer } from "@/components/presentation/present-mode/use-presenter-timer";
-import {
-  usePresentationClickZones,
-  usePresentationKeyboardNavigation,
-  useSlideBounds,
-  useSlideNavigation,
-  useSwipeNavigation,
-  type PresentationShortcutAction,
-} from "@/components/presentation/runtime/navigation";
 import { resolveDeckAssetSource } from "@/lib/presentation-vnext/deck-asset-source";
-import { fitAspectRatio } from "@/lib/presentation/stage-fit";
+import { presentCanvasAspectRatio } from "@/lib/presentation-vnext/present-shell";
 import { useDeckV7RenderTree } from "./use-deck-v7-render-tree";
 import { SlideCanvasVNext } from "./slide-canvas";
 
@@ -82,17 +76,31 @@ export function PresentModeVNext({
   const renderTree = useDeckV7RenderTree(deck, pkg);
 
   const total = renderTree?.slides.length ?? 0;
+  const canvas = renderTree?.canvas;
 
-  const { currentIndex, goToSlide, goNext, goPrev, goFirst, goLast, progress } =
-    useSlideNavigation(total);
+  const {
+    currentIndex,
+    goToSlide,
+    goNext,
+    goPrev,
+    goFirst,
+    goLast,
+    progress,
+    slideAreaRef,
+    fittedSlideSize,
+    swipeHandlers,
+    clickZones,
+    hudVisible,
+    resetHudTimer,
+  } = usePresentNavigationShellVNext<HTMLDivElement>({
+    total,
+    aspectRatio: presentCanvasAspectRatio(canvas),
+  });
   const [notesVisible, setNotesVisible] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
-  const [hudVisible, setHudVisible] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { slideAreaRef, slideAreaBounds } = useSlideBounds<HTMLDivElement>();
   const {
     isFullscreen,
     fullscreenHintVisible,
@@ -106,15 +114,9 @@ export function PresentModeVNext({
     currentIndex + 1 < total ? deck.slides[currentIndex + 1] : undefined;
   const nextSlideTree =
     currentIndex + 1 < total ? renderTree?.slides[currentIndex + 1] : undefined;
-  const canvas = renderTree?.canvas;
   function resolveDeckAsset(assetId: string): string | undefined {
     return resolveDeckAssetSource(deck, assetId);
   }
-  const aspectRatio =
-    canvas && canvas.width > 0 && canvas.height > 0
-      ? canvas.width / canvas.height
-      : 16 / 9;
-  const fittedSlideSize = fitAspectRatio(slideAreaBounds, aspectRatio);
 
   const topHudVisible =
     hudVisible ||
@@ -123,17 +125,6 @@ export function PresentModeVNext({
     showTimer ||
     fullscreenHintVisible;
   const bottomHudVisible = hudVisible || keyboardHelpOpen || overviewOpen;
-
-  const swipeHandlers = useSwipeNavigation({
-    onNext: goNext,
-    onPrevious: goPrev,
-  });
-  const clickZones = usePresentationClickZones({
-    currentIndex,
-    total,
-    onNext: goNext,
-    onPrevious: goPrev,
-  });
 
   const handleClose = useCallback(async () => {
     if (getFullscreenElement(document)) {
@@ -163,27 +154,6 @@ export function PresentModeVNext({
     };
   }, []);
 
-  const scheduleHudHide = useCallback(() => {
-    if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
-    hudTimerRef.current = setTimeout(() => setHudVisible(false), 3000);
-  }, []);
-
-  const resetHudTimer = useCallback(() => {
-    setHudVisible(true);
-    scheduleHudHide();
-  }, [scheduleHudHide]);
-
-  useEffect(() => {
-    scheduleHudHide();
-    window.addEventListener("mousemove", resetHudTimer);
-    window.addEventListener("keydown", resetHudTimer);
-    return () => {
-      window.removeEventListener("mousemove", resetHudTimer);
-      window.removeEventListener("keydown", resetHudTimer);
-      if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
-    };
-  }, [resetHudTimer, scheduleHudHide]);
-
   const closeKeyboardHelp = useCallback(() => {
     setKeyboardHelpOpen(false);
     resetHudTimer();
@@ -207,7 +177,7 @@ export function PresentModeVNext({
   });
 
   const handleShortcut = useCallback(
-    (action: PresentationShortcutAction) => {
+    (action: PresentShortcutAction) => {
       if (action === "exit") {
         if (keyboardHelpOpen) {
           closeKeyboardHelp();
@@ -282,7 +252,7 @@ export function PresentModeVNext({
     ],
   );
 
-  usePresentationKeyboardNavigation({
+  usePresentKeyboardNavigation({
     shortcuts: PRESENT_MODE_SHORTCUT_IDS,
     onShortcut: handleShortcut,
   });

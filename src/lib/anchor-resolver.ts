@@ -10,7 +10,7 @@
  * actions, tests, and the browser without any adaptation.
  */
 
-import { hashDocumentBlock } from "./presentation/document-block-hash";
+import { hashDocumentBlock } from "./presentation-shared/document-block-hash";
 import type { SourceRef } from "./presentation/deck";
 import type {
   DeckV7,

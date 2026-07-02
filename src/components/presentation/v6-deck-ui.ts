@@ -2,7 +2,7 @@ import type { Deck, Slide } from "@/lib/presentation/deck";
 import {
   resolveSlideFormat,
   type SlideFormat,
-} from "@/lib/presentation/slide-format";
+} from "@/lib/presentation-shared/slide-format";
 import {
   getThemePackage,
   resolveThemePackageId,

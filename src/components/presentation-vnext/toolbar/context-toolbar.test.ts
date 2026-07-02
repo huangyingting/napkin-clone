@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, test } from "node:test";
 
 import {
+  buildContextToolbarReorderActions,
   buildSlideToolInsertActions,
   contextToolbarTextRoleFontSizePt,
   isContextToolbarInlineTextCommandEnabled,
@@ -41,6 +42,10 @@ import {
 } from "./context-toolbar";
 import type { SlideChildNode } from "@/lib/presentation-vnext/schema";
 import type { StyleObject } from "@/lib/presentation-vnext/style-schema";
+import {
+  CURRENT_OBJECT_INSERT_NODE_COMMAND_DESCRIPTORS,
+  currentObjectReorderCommandDescriptor,
+} from "@/lib/presentation-vnext/current-object-command-descriptors";
 
 const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -72,6 +77,12 @@ describe("buildSlideToolInsertActions", () => {
         "Insert connector",
         "Insert table",
       ],
+    );
+    assert.deepEqual(
+      actions.map((action) => action.commandId),
+      CURRENT_OBJECT_INSERT_NODE_COMMAND_DESCRIPTORS.map(
+        (descriptor) => descriptor.id,
+      ),
     );
   });
 
@@ -110,6 +121,48 @@ describe("buildSlideToolInsertActions", () => {
       "connector",
       "table",
     ]);
+  });
+});
+
+describe("buildContextToolbarReorderActions", () => {
+  test("returns current-object reorder actions in toolbar order", () => {
+    const actions = buildContextToolbarReorderActions({
+      onBringForward: () => undefined,
+      onSendBackward: () => undefined,
+      onBringToFront: () => undefined,
+      onSendToBack: () => undefined,
+    });
+
+    assert.deepEqual(
+      actions.map((action) => action.key),
+      ["forward", "backward", "front", "back"],
+    );
+    assert.deepEqual(
+      actions.map((action) => action.label),
+      ["Bring forward", "Send backward", "Bring to front", "Send to back"],
+    );
+    assert.deepEqual(
+      actions.map((action) => action.commandId),
+      actions.map(
+        (action) => currentObjectReorderCommandDescriptor(action.key).id,
+      ),
+    );
+  });
+
+  test("preserves callback wiring for z-order commands", () => {
+    const calls: string[] = [];
+    const actions = buildContextToolbarReorderActions({
+      onBringForward: () => calls.push("forward"),
+      onSendBackward: () => calls.push("backward"),
+      onBringToFront: () => calls.push("front"),
+      onSendToBack: () => calls.push("back"),
+    });
+
+    for (const action of actions) {
+      action.onClick();
+    }
+
+    assert.deepEqual(calls, ["forward", "backward", "front", "back"]);
   });
 });
 

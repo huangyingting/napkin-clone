@@ -1,7 +1,7 @@
 ---
 type: "plan"
-status: "final"
-last_updated: "2026-07-01"
+status: "implemented — P2 provenance follow-up pending"
+last_updated: "2026-07-02"
 description: "P1/P2 plan to split vNext render, export, source, diagnostic, and document-plan boundaries without changing runtime behavior."
 ---
 
@@ -18,21 +18,22 @@ runtime redesign.
 
 ## Current behavior
 
-vNext has clean persisted and runtime contracts, but several modules still mix
-passes that could be tested and reused independently.
+vNext has clean persisted and runtime contracts, and the first boundary-splitting
+slices are now implemented. The remaining work is a P2 provenance-typing and
+documentation cleanup follow-up rather than a blocker for editor decomposition.
 
-| Boundary             | Current sources                                                                                                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema/types         | `src/lib/presentation-vnext/types.ts`, `src/lib/presentation-vnext/schema.ts`                                                                                                                                   |
-| Open/validation      | `src/lib/presentation-vnext/open-deck.ts`, `src/lib/presentation-vnext/validation.ts`                                                                                                                           |
-| Render tree/resolver | `src/lib/presentation-vnext/render-tree.ts`, `src/lib/presentation-vnext/render-resolver.ts`                                                                                                                    |
-| Commands             | `src/lib/presentation-vnext/editor-commands.ts`                                                                                                                                                                 |
-| Stage interactions   | `src/components/presentation-vnext/stage-hit-test.ts`, `stage-guides.ts`, `selection-geometry.ts`, `stage-pointer-interactions.ts`, `stage-targeting.ts`, `pointer-drag-lifecycle.ts`                           |
-| Inspector/filmstrip  | `src/lib/presentation-vnext/inspector-panel-ui.ts`, `src/components/presentation-vnext/inspector/inspector-shell.tsx`, `src/components/presentation-vnext/filmstrip/filmstrip.tsx`                              |
-| Export/present       | `src/lib/presentation-vnext/export-spec.ts`, `src/lib/presentation-vnext/pptx-export-adapter.ts`, `src/lib/presentation-vnext/pptx-vnext-apply.ts`, `present-mode-vnext.tsx`, `public-present-viewer-vnext.tsx` |
-| Diagnostics/recovery | `src/lib/presentation-vnext/diagnostics.ts`, `src/lib/presentation-vnext/diagnostic-repairs.ts`, `use-export-diagnostics.ts`, `deck-diagnostics-review.tsx`, `conflict-recovery-reload-v7.ts`                   |
-| Source/derivation    | `src/lib/presentation-vnext/source-links.ts`, `source-link-orchestration.ts`, `document-source-commands.ts`, `document-slide-plan.ts`, `deck-derivation.ts`                                                     |
-| Themes/styles        | `src/lib/presentation-vnext/theme-package-registry.ts`, `theme-package-schema.ts`, `style-resolver.ts`, `style-schema.ts`, `theme-packages.ts`                                                                  |
+| Boundary             | Current sources                                                                                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema/types         | `src/lib/presentation-vnext/types.ts`, `src/lib/presentation-vnext/schema.ts`                                                                                                                                                                                                                      |
+| Open/validation      | `src/lib/presentation-vnext/open-deck.ts`, `src/lib/presentation-vnext/validation.ts`                                                                                                                                                                                                              |
+| Render tree/resolver | `src/lib/presentation-vnext/render-tree.ts`, `src/lib/presentation-vnext/render-resolver.ts`, `src/lib/presentation-vnext/render-resolver/*-pass.ts`                                                                                                                                               |
+| Commands/tree ops    | `src/lib/presentation-vnext/editor-commands.ts`, `src/lib/presentation-vnext/node-tree-ops.ts`                                                                                                                                                                                                     |
+| Stage interactions   | `src/components/presentation-vnext/stage-hit-test.ts`, `stage-guides.ts`, `selection-geometry.ts`, `stage-pointer-interactions.ts`, `stage-targeting.ts`, `pointer-drag-lifecycle.ts`                                                                                                              |
+| Inspector/filmstrip  | `src/lib/presentation-vnext/inspector-panel-ui.ts`, `src/components/presentation-vnext/inspector/inspector-shell.tsx`, `src/components/presentation-vnext/filmstrip/filmstrip.tsx`                                                                                                                 |
+| Export/present       | `src/lib/presentation-vnext/export-spec.ts`, `src/lib/presentation-vnext/export-lowerers/*`, `pptx-export-adapter.ts`, `pptx-lowerers/*`, `pptx-vnext-apply.ts`, `pptx-appliers/*`, `present-shell.ts`, `present-shell-vnext.tsx`, `present-mode-vnext.tsx`, `public-present-viewer-vnext.tsx`     |
+| Diagnostics/recovery | `src/lib/presentation-vnext/diagnostics.ts`, `src/lib/presentation-vnext/diagnostic-repairs.ts`, `review-action-descriptors.ts`, `use-export-diagnostics.ts`, `deck-diagnostics-review.tsx`, `conflict-recovery-reload-v7.ts`                                                                      |
+| Source/derivation    | `src/lib/presentation-vnext/source-links.ts`, `source-link-orchestration.ts`, `document-source-commands.ts`, `document-source-plan.ts`, `document-slide-planner.ts`, `document-slide-plan-compiler.ts`, `document-slide-plan-repair.ts`, `document-slide-plan-provenance.ts`, `deck-derivation.ts` |
+| Themes/styles        | `src/lib/presentation-vnext/theme-package-registry.ts`, `theme-package-schema.ts`, `style-resolver.ts`, `style-schema.ts`, `theme-packages.ts`                                                                                                                                                     |
 
 ## Target behavior
 
@@ -146,15 +147,15 @@ change, update schema, fixtures, tests, docs, and generated artifacts together.
 
 ## Phases
 
-| Phase | Priority | Slice                                  | Exit criteria                                                                                  |
-| ----- | -------- | -------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1     | P1       | Add `node-tree-ops.ts`                 | Commands/render/targeting can share tree traversal helpers without behavior changes.           |
-| 2     | P1       | Split render resolver passes           | Existing render resolver tests and render/export parity tests pass.                            |
-| 3     | P1       | Add source/diagnostic action model     | Review panels consume descriptors; repairs still enforce safety rules.                         |
-| 4     | P1       | Share present/public shell             | Present mode and public viewer share runtime helpers while preserving route-specific behavior. |
-| 5     | P1       | Modularize export lowerers             | Export specs and PPTX output tests still pass; node-family lowerers have focused tests.        |
-| 6     | P1/P2    | Split document plan modules            | Document-derived deck pipeline keeps faithful default and existing preview/apply behavior.     |
-| 7     | P2       | Type provenance and clean docs/indexes | Provenance helpers are typed, and docs/indexes describe the current boundary names.            |
+| Phase | Priority | Slice                                  | Status    | Exit criteria                                                                                  |
+| ----- | -------- | -------------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| 1     | P1       | Add `node-tree-ops.ts`                 | Done      | Commands/render/targeting share tree traversal helpers without behavior changes.               |
+| 2     | P1       | Split render resolver passes           | Done      | Render resolver pass modules preserve existing render/export behavior.                         |
+| 3     | P1       | Add source/diagnostic action model     | Done      | Review panels consume descriptors; repairs still enforce safety rules.                         |
+| 4     | P1       | Share present/public shell             | Done      | Present mode and public viewer share runtime helpers while preserving route-specific behavior. |
+| 5     | P1       | Modularize export lowerers             | Done      | Export specs, PPTX lowerers, and PPTX appliers are split by node family.                       |
+| 6     | P1/P2    | Split document plan modules            | Done      | Document-derived deck pipeline keeps faithful default and existing preview/apply behavior.     |
+| 7     | P2       | Type provenance and clean docs/indexes | Follow-up | Provenance typing beyond current helpers remains a P2 cleanup.                                 |
 
 ## Out of scope
 

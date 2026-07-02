@@ -189,9 +189,11 @@ export const SUBSYSTEM_TEST_TARGETS = {
       "Slide editor, deck runtime, exports, assets, and present mode",
     patterns: [
       /^src\/components\/presentation\//,
+      /^src\/components\/presentation-shared\//,
       /^src\/components\/presentation-vnext\//,
       /^src\/lib\/assets\//,
       /^src\/lib\/presentation\//,
+      /^src\/lib\/presentation-shared\//,
       /^src\/lib\/presentation-vnext\//,
       /^src\/lib\/slides\//,
       /^src\/app\/api\/slide-assets\//,

@@ -7,8 +7,8 @@
  * `availablePanels` from `inspector-panel-ui.ts` and renders a tab strip
  * above the active panel content.
  *
- * When the selection changes and the current panel is no longer available,
- * the shell resets to the default panel for the new context.
+ * When the selection changes, the shell preserves compatible panels and
+ * replaces incompatible panels with the default panel for the new context.
  */
 
 import { useState, type JSX, type ReactNode } from "react";
@@ -38,8 +38,14 @@ import type { SourceLinkClassification } from "@/lib/presentation-vnext/source-l
 import {
   availablePanels,
   defaultPanelForNode,
+  resolveInspectorPanelContinuity,
   type InspectorPanelId,
 } from "@/lib/presentation-vnext/inspector-panel-ui";
+import {
+  currentObjectAlignCommandDescriptor,
+  currentObjectReorderCommandDescriptor,
+  type CurrentObjectReorderMode,
+} from "@/lib/presentation-vnext/current-object-command-descriptors";
 
 import { Tabs } from "@/components/ui/tabs";
 import { cx } from "@/components/ui/tokens";
@@ -60,6 +66,13 @@ import { NodeSourcePanel } from "./node-source-panel";
 import { SlideControlsPanel } from "./slide-controls-panel";
 import { SlideSettingsPanel } from "./slide-settings-panel";
 import { StyleBindingPanel } from "./style-binding-panel";
+
+const INSPECTOR_REORDER_MODES = [
+  "front",
+  "back",
+  "forward",
+  "backward",
+] as const satisfies readonly CurrentObjectReorderMode[];
 
 // ---------------------------------------------------------------------------
 // Sub-panel wrappers
@@ -138,7 +151,9 @@ function DecorationPanel({
           onClick={onDetach}
           className="self-start rounded-[var(--ds-radius-sm,6px)] border border-ds-border-subtle bg-ds-surface px-3 py-1 text-xs font-medium text-ds-text-primary transition-colors hover:bg-ds-surface-raised"
         >
-          Detach from theme
+          {source === "deckChrome"
+            ? "Detach from deck chrome"
+            : "Detach from theme"}
         </button>
       </div>
     </PanelSection>
@@ -181,7 +196,7 @@ function MultiArrangePanel({
   onMatchSize: (mode: SelectionMatchSizeMode) => void;
   onGroupSelection: () => void;
   onUngroupSelection: () => void;
-  onReorderSelection: (kind: "forward" | "backward" | "front" | "back") => void;
+  onReorderSelection: (kind: CurrentObjectReorderMode) => void;
 }) {
   return (
     <PanelSection>
@@ -191,22 +206,22 @@ function MultiArrangePanel({
         </h4>
         <div className="grid grid-cols-3 gap-1.5">
           <ActionButton onClick={() => onAlignSelection("left")}>
-            Left
+            {currentObjectAlignCommandDescriptor("left").shortLabel}
           </ActionButton>
           <ActionButton onClick={() => onAlignSelection("center")}>
-            Center
+            {currentObjectAlignCommandDescriptor("center").shortLabel}
           </ActionButton>
           <ActionButton onClick={() => onAlignSelection("right")}>
-            Right
+            {currentObjectAlignCommandDescriptor("right").shortLabel}
           </ActionButton>
           <ActionButton onClick={() => onAlignSelection("top")}>
-            Top
+            {currentObjectAlignCommandDescriptor("top").shortLabel}
           </ActionButton>
           <ActionButton onClick={() => onAlignSelection("middle")}>
-            Middle
+            {currentObjectAlignCommandDescriptor("middle").shortLabel}
           </ActionButton>
           <ActionButton onClick={() => onAlignSelection("bottom")}>
-            Bottom
+            {currentObjectAlignCommandDescriptor("bottom").shortLabel}
           </ActionButton>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
@@ -235,18 +250,17 @@ function MultiArrangePanel({
         <div className="grid grid-cols-2 gap-1.5">
           <ActionButton onClick={onGroupSelection}>Group</ActionButton>
           <ActionButton onClick={onUngroupSelection}>Ungroup</ActionButton>
-          <ActionButton onClick={() => onReorderSelection("front")}>
-            Front
-          </ActionButton>
-          <ActionButton onClick={() => onReorderSelection("back")}>
-            Back
-          </ActionButton>
-          <ActionButton onClick={() => onReorderSelection("forward")}>
-            Forward
-          </ActionButton>
-          <ActionButton onClick={() => onReorderSelection("backward")}>
-            Backward
-          </ActionButton>
+          {INSPECTOR_REORDER_MODES.map((mode) => {
+            const descriptor = currentObjectReorderCommandDescriptor(mode);
+            return (
+              <ActionButton
+                key={descriptor.id}
+                onClick={() => onReorderSelection(mode)}
+              >
+                {descriptor.shortLabel}
+              </ActionButton>
+            );
+          })}
         </div>
       </section>
     </PanelSection>
@@ -258,7 +272,7 @@ function SingleArrangePanel({
   onReorderSelection,
 }: {
   onAlignSelection: (mode: SelectionAlignMode) => void;
-  onReorderSelection: (kind: "forward" | "backward" | "front" | "back") => void;
+  onReorderSelection: (kind: CurrentObjectReorderMode) => void;
 }) {
   return (
     <section className="flex flex-col gap-3 px-3 py-2.5">
@@ -267,35 +281,36 @@ function SingleArrangePanel({
       </h4>
       <div className="grid grid-cols-3 gap-1.5">
         <ActionButton onClick={() => onAlignSelection("left")}>
-          Left
+          {currentObjectAlignCommandDescriptor("left").shortLabel}
         </ActionButton>
         <ActionButton onClick={() => onAlignSelection("center")}>
-          Center
+          {currentObjectAlignCommandDescriptor("center").shortLabel}
         </ActionButton>
         <ActionButton onClick={() => onAlignSelection("right")}>
-          Right
+          {currentObjectAlignCommandDescriptor("right").shortLabel}
         </ActionButton>
-        <ActionButton onClick={() => onAlignSelection("top")}>Top</ActionButton>
+        <ActionButton onClick={() => onAlignSelection("top")}>
+          {currentObjectAlignCommandDescriptor("top").shortLabel}
+        </ActionButton>
         <ActionButton onClick={() => onAlignSelection("middle")}>
-          Middle
+          {currentObjectAlignCommandDescriptor("middle").shortLabel}
         </ActionButton>
         <ActionButton onClick={() => onAlignSelection("bottom")}>
-          Bottom
+          {currentObjectAlignCommandDescriptor("bottom").shortLabel}
         </ActionButton>
       </div>
       <div className="grid grid-cols-2 gap-1.5">
-        <ActionButton onClick={() => onReorderSelection("front")}>
-          Bring front
-        </ActionButton>
-        <ActionButton onClick={() => onReorderSelection("back")}>
-          Send back
-        </ActionButton>
-        <ActionButton onClick={() => onReorderSelection("forward")}>
-          Forward
-        </ActionButton>
-        <ActionButton onClick={() => onReorderSelection("backward")}>
-          Backward
-        </ActionButton>
+        {INSPECTOR_REORDER_MODES.map((mode) => {
+          const descriptor = currentObjectReorderCommandDescriptor(mode);
+          return (
+            <ActionButton
+              key={descriptor.id}
+              onClick={() => onReorderSelection(mode)}
+            >
+              {descriptor.inspectorSingleLabel}
+            </ActionButton>
+          );
+        })}
       </div>
     </section>
   );
@@ -826,7 +841,7 @@ export interface InspectorShellProps {
   onMatchSize: (mode: SelectionMatchSizeMode) => void;
   onGroupSelection: () => void;
   onUngroupSelection: () => void;
-  onReorderSelection: (kind: "forward" | "backward" | "front" | "back") => void;
+  onReorderSelection: (kind: CurrentObjectReorderMode) => void;
 
   // Layers
   onSelectLayer: (nodeId: string) => void;
@@ -922,16 +937,19 @@ export function InspectorShell({
     isDecorationSelected,
   );
 
-  const [activePanel, setActivePanel] = useState<InspectorPanelId>(
-    initialPanel ?? defaultPanel,
+  const [activePanel, setActivePanel] = useState<InspectorPanelId>(() =>
+    resolveInspectorPanelContinuity({
+      activePanel: initialPanel,
+      panels,
+      defaultPanel,
+    }),
   );
 
-  // Derive the effective panel: fall back to the default when the current
-  // selection no longer exposes the previously-active panel.
-  const panelIds = panels.map((p) => p.id);
-  const effectivePanel: InspectorPanelId = panelIds.includes(activePanel)
-    ? activePanel
-    : defaultPanel;
+  const effectivePanel = resolveInspectorPanelContinuity({
+    activePanel,
+    panels,
+    defaultPanel,
+  });
 
   const tabOptions = panels.map((p) => ({
     value: p.id as string,
